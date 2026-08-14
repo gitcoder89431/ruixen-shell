@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.frame-widget",
+  "name": "Ruixen Frame",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "A rounded-corner colored border frame around the screen edges.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": { "overlay": "Overlay.qml" }
+}

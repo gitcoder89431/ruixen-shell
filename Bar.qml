@@ -327,13 +327,15 @@ Item {
   }
 
   readonly property bool vertical: position === "left" || position === "right"
-  // +12 over the theme default: every pill's height and every widget's
+  // +8 over the theme default: every pill's height and every widget's
   // own icon slot size (BarIconButton reads bar.barSize) derive from
-  // this. With BarPanel's top margin back on frameInset (6), the pills'
-  // own occupied span (frameInset + barSize = 6 + 38 = 44) lands exactly
-  // on notchClearance's target below, so pills and the notch share the
-  // same bottom edge and top gap instead of ending at different heights.
-  readonly property int barSize: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + 12
+  // this. BarPanel's top margin uses its own topInset (10, bigger than
+  // frameInset's 6) for extra breathing room under the frame -- the
+  // pills' occupied span (topInset + barSize = 10 + 34 = 44) still lands
+  // on notchClearance's target below, so the pills' bottom edge matches
+  // the notch's own bottom edge even though their top gap is now wider
+  // than the frame's own 6px thickness.
+  readonly property int barSize: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + 8
 
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
@@ -341,11 +343,12 @@ Item {
   // bottom edge sitting flush against tiled windows.
   //
   // ExclusionMode.Normal's exclusiveZone turned out additive to
-  // BarPanel's own top margin (frameInset, 6), not a full replacement --
-  // this value has that margin already backed out (44 - 6 = 38),
-  // targeting an actual reserved zone matching the notch's own 44px
-  // height. Keep this in sync if frameInset ever changes again.
-  readonly property int notchClearance: 38
+  // BarPanel's own top margin (topInset, 10 -- see BarPanel), not a full
+  // replacement -- this value has that margin already backed out
+  // (44 - 10 = 34), targeting an actual reserved zone matching the
+  // notch's own 44px height. Keep this in sync if topInset ever changes
+  // again -- it must always equal 44 - topInset.
+  readonly property int notchClearance: 34
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
@@ -1053,16 +1056,21 @@ Item {
 
     // Inset to match ruixen.frame-widget's thickness (6px), so the bar sits
     // inside the frame's rounded-rect hole instead of flush against the
-    // screen edge, on all four sides equally -- this keeps the pills'
-    // top gap and the notch's own top gap (flush to the frame by design)
-    // consistent, which a separate larger top-only inset (tried and
-    // reverted) broke. Only handles position === "top" — the only
-    // position in use here; left/right/bottom bar positions fall back to
-    // no inset.
+    // screen edge. Only handles position === "top" — the only position in
+    // use here; left/right/bottom bar positions fall back to no inset.
     readonly property int frameInset: 6
+    // Top-only, bigger than frameInset on purpose: more breathing room
+    // between the pills' top edge and the frame's own bottom edge than
+    // left/right get. Kept in sync with root.barSize/notchClearance --
+    // both of those are defined as 44 - topInset, so the pills' own
+    // occupied span (topInset + barSize) always lands on the same 44px
+    // bottom edge the notch itself uses, no matter what this is set to.
+    // (An earlier attempt bumped this without recomputing the other two,
+    // which broke that shared bottom edge -- see ruixen-bar's README.)
+    readonly property int topInset: 10
 
     margins {
-      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? frameInset : 0)
+      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? topInset : 0)
       bottom: root.barHidden && root.position === "bottom" ? -root.barSize : 0
       left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? frameInset : 0)
       right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? frameInset : 0)

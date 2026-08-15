@@ -66,20 +66,16 @@ as separate floating islands rather than one continuous bar:
   on the whole bar, not anchored near this pill — both stock panels
   hardcode `centerOnBar: true`, not exposed as a setting, only fixable by
   cloning. Left as-is (not worth it).
-- **mediaPill** — the true bar-center pill, `ruixen.media` (see
-  `ruixen-tray-widgets`): a clone of stock `omarchy.media` with the
-  collapsed bar icon's scrolling title/artist text swapped for a compact
-  progress bar (play/pause glyph + tiny filled track, no text), and a
-  full-size passive progress bar (elapsed/total time) added to the popup
-  — no seek/scrub, just showing position, polled every 500ms while
-  playing since MPRIS doesn't push position updates on its own. Only
-  shows itself when something's playing. A fancier version with a
-  real-time audio spectrum wave exists in a third-party suite
-  ([Shibumi-Shell](../Shibumi-Shell)'s `hancore.shibumi.media`, powered by
-  `cava`) — not pulled in since it's a whole separate `Ui.Panel`/token
-  system, but its spectrum visual (`MediaSpectrum.qml`) is a small
-  self-contained `Canvas` and stays a viable future add if wanted (cava
-  itself turned out to be a trivial dependency, ~70 KiB, not the blocker).
+There used to be a `mediaPill` here too (`ruixen.media`, a clone of stock
+`omarchy.media` with a compact progress bar swapped in for the scrolling
+title). It's gone now — media moved to
+**[`ruixen-notch`](https://github.com/gitcoder89431/ruixen-notch)**, a
+standalone hover-expanding notch overlay at the bar's *true* center
+(`ruixen.media`'s clone still exists and is still what it reads from, see
+`ruixen-tray-widgets` — just no longer rendered as a bar pill here). That
+plugin also explored Shibumi-Shell's fancier `cava`-powered audio spectrum
+wave and went a different direction (a self-contained animated sine wave
+instead) — see its own README for the reasoning.
 
 Each pill's own width is driven by its content's `width` (see
 `root.sideRightIds`/`root.togglesPillIds` and the `.filter(...)` calls

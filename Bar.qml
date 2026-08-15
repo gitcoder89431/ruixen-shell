@@ -1318,13 +1318,11 @@ Item {
           // Flat px, not Style.space() -- see clockPill's comment.
           anchors.leftMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          // No extra padding (was +8 each side) -- same double-padding
-          // stack as menuPill: omarchy.workspaces already has
-          // horizontalMargin: 6 baked into each workspace-number button
-          // (Workspaces.qml), so our own wrapper padding was stacking on
-          // top of that across all 5 numbers, compounding into a much
-          // looser/rounder-bulging pill than needed.
-          width: workspacesContent.implicitWidth
+          // Reverted a zero-padding trim here (tried matching menuPill's
+          // fix, since omarchy.workspaces also has its own
+          // horizontalMargin: 6 baked in) -- looked worse for this one,
+          // user preferred the original +8 each side.
+          width: workspacesContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }

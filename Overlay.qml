@@ -410,7 +410,10 @@ Item {
               text: root.playIcon
               color: root.hasMedia ? root.textColor : root.muted
               font.family: root.fontFamily
-              font.pixelSize: 11
+              // Matches the bar's new icon standard (18px, tuned to
+              // ambxst's own bar-icon size) -- was 11, visibly undersized
+              // next to the 20px avatar in this same row.
+              font.pixelSize: 18
 
               // Own click target, same reasoning as ruixen.media's play
               // badge: this sits inside the notch's big MouseArea
@@ -481,7 +484,7 @@ Item {
             text: "󰂛"
             color: root.dnd ? "#e05252" : root.muted
             font.family: root.fontFamily
-            font.pixelSize: 12
+            font.pixelSize: 18
 
             Behavior on color { ColorAnimation { duration: 160 } }
           }
@@ -626,7 +629,7 @@ Item {
               text: "󰒮"
               color: root.activePlayer && root.activePlayer.canGoPrevious ? root.textColor : Qt.rgba(1, 1, 1, 0.3)
               font.family: root.fontFamily
-              font.pixelSize: 13
+              font.pixelSize: 15
 
               MouseArea {
                 anchors.fill: parent
@@ -640,7 +643,7 @@ Item {
               text: root.playIcon
               color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 16
+              font.pixelSize: 18
 
               MouseArea {
                 anchors.fill: parent
@@ -654,7 +657,7 @@ Item {
               text: "󰒭"
               color: root.activePlayer && root.activePlayer.canGoNext ? root.textColor : Qt.rgba(1, 1, 1, 0.3)
               font.family: root.fontFamily
-              font.pixelSize: 13
+              font.pixelSize: 15
 
               MouseArea {
                 anchors.fill: parent

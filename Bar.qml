@@ -329,6 +329,18 @@ Item {
   readonly property bool vertical: position === "left" || position === "right"
   readonly property int barSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
 
+  // Reserved screen zone for windows -- taller than barSize so
+  // ruixen.notch (a separate overlay, reserves nothing on its own) has
+  // room for its collapsed height (44, full ambxst parity) without its
+  // bottom edge sitting flush against tiled windows.
+  //
+  // ExclusionMode.Normal's exclusiveZone turned out additive to this
+  // window's own 6px top margin (frameInset), not a full replacement --
+  // first attempt (52) landed at an actual reserved zone of 58, too
+  // much. This value already has that +6 backed out, targeting an
+  // actual reserved zone close to the notch's own 44px height.
+  readonly property int notchClearance: 38
+
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
   }
@@ -1017,7 +1029,16 @@ Item {
     // textures — which measures ~150ms against ~20ms to tear down. Parking
     // keeps the surface alive, so showing is only a margin change.
     visible: !remapGuard.remapping
-    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Auto
+    // Normal (not Auto) + an explicit exclusiveZone bigger than this
+    // window's own height -- decouples "how much space windows avoid"
+    // from "how tall the bar visually is". Needed so ruixen.notch (a
+    // separate overlay, ExclusionMode.Ignore, reserves nothing itself)
+    // can be taller than the bar without its collapsed state visually
+    // overlapping tiled windows. Auto would only reserve this window's
+    // own implicitHeight + margins (26 + 6 frameInset = 32), which is
+    // shorter than the notch's own collapsed height.
+    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
+    exclusiveZone: root.notchClearance
 
     ScreenMoveRemap {
       id: remapGuard

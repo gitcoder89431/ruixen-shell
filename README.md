@@ -90,6 +90,35 @@ instead of ambxst's.
   own `ActiveWindow` territory, unrelated to this plugin), so this
   currently falls straight to `user@host`.
 
+## Third mode: quick app launcher
+
+A third `panel` state alongside collapsed/media, triggered by
+`ruixen.applauncher`'s bar icon over Quickshell's native IPC (`qs ipc call
+ruixen.notch openLauncher/closeLauncher/toggleLauncher` — a real
+`IpcHandler`, not the `omarchy-menu` CLI route). Shows a small row of
+favorite-app icons (`launcherContent.favoriteAppIds`, a plain hardcoded
+array — edit directly to change which apps show); click one to launch and
+close. Reads `shell.appLibrary` directly for icon/name lookup and
+launching — the same service the stock `omarchy.menu`'s Apps submenu
+uses — no cloning needed, unlike the `omarchy.menu` icon itself (see the
+gotcha below).
+
+Deliberately has **no search box**: an earlier version had a `TextInput` +
+scrollable `ListView` of search results, its own size (340×260, then
+taller), and grabbed `WlrKeyboardFocus.Exclusive` while open. That larger
+size hit a real, non-deterministic bug in `notchBg`'s masking (the
+`MultiEffect`/`layer.effect` setup two sections up) — the bottom corner
+radius randomly stopped rendering (flat/square instead of rounded) on
+some opens but not others, *same height, same process, no restart in
+between*. Not a clean fixed threshold to binary-search around — a real
+timing/race issue in the mask regenerating at taller sizes. Simplified
+instead: the launcher now reuses the exact 260×44 collapsed dimensions
+and 28px corner radius, the single most-exercised, proven-stable code
+path in this whole file, rather than gamble on any new size. If a search
+box comes back later, budget time to actually root-cause the masking
+bug first (or find a non-`MultiEffect` masking approach) rather than
+re-hitting it.
+
 ## A real gotcha: `ruixen.media` got auto-disabled
 
 When `ruixen.media`'s entry was removed from `ruixen-bar`'s

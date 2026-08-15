@@ -37,6 +37,10 @@ as separate floating islands rather than one continuous bar:
 
 - **menuPill** — just the Omarchy logo/menu icon.
 - **workspacesPill** — workspace numbers.
+- **applauncherPill** — `ruixen.applauncher` on its own, right after
+  workspacesPill. Opens `ruixen.notch`'s quick-launcher mode (see
+  `ruixen-notch`'s README) — moved here from the right side's togglesPill,
+  which was getting visually heavy with 6+ icons in one pill.
 - **rightPill** — the general icon tray (agents, bluetooth, network, audio,
   monitor, power).
 - **togglesPill** — keyboard layout, system update, stay-awake,
@@ -130,17 +134,20 @@ with open(path, 'w') as f: json.dump(data, f, indent=2)
 "
 ```
 
-`ruixen.applauncher` (see `ruixen-tray-widgets`) was enabled and moved from
-its default `bar.layout.center` insertion point into `bar.layout.right`,
-alongside the rest of `togglesPillIds`:
+`ruixen.applauncher` (see `ruixen-tray-widgets`) was enabled, defaulted
+into `bar.layout.center`, briefly lived in `bar.layout.right` (alongside
+`togglesPillIds`), then moved to `bar.layout.left` — the right side was
+getting visually heavy, so it got its own pill (`applauncherPill`) right
+after the workspace numbers instead:
 
 ```bash
 python3 -c "
 import json
 path = '$HOME/.config/omarchy/shell.json'
 with open(path) as f: data = json.load(f)
-data['bar']['layout']['center'] = [w for w in data['bar']['layout']['center'] if w.get('id') != 'ruixen.applauncher']
-data['bar']['layout']['right'].append({'id': 'ruixen.applauncher'})
+for section in ('center', 'right'):
+    data['bar']['layout'][section] = [w for w in data['bar']['layout'][section] if w.get('id') != 'ruixen.applauncher']
+data['bar']['layout']['left'].append({'id': 'ruixen.applauncher'})
 with open(path, 'w') as f: json.dump(data, f, indent=2)
 "
 ```

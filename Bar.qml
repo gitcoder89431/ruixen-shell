@@ -608,7 +608,7 @@ Item {
 
   // Widgets pulled out of the main rightPill into their own small pills —
   // see horizontalBar below.
-  readonly property var togglesPillIds: ["omarchy.keyboard-layout", "omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "ruixen.quickactions", "ruixen.applauncher"]
+  readonly property var togglesPillIds: ["omarchy.keyboard-layout", "omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "ruixen.quickactions"]
   readonly property var sideRightIds: togglesPillIds.concat(["ruixen.tray"])
 
   function moduleString(entry, key, fallback) {
@@ -1335,7 +1335,31 @@ Item {
           ModuleList {
             id: workspacesContent
             anchors.centerIn: parent
-            entries: root.layoutEntries("left").filter(function(e) { return root.entryId(e) !== "omarchy.menu" })
+            entries: root.layoutEntries("left").filter(function(e) {
+              return root.entryId(e) !== "omarchy.menu" && root.entryId(e) !== "ruixen.applauncher"
+            })
+            region: "left"
+          }
+        }
+
+        // Own pill, not folded into togglesPill on the right -- moved
+        // here specifically because the right side was getting visually
+        // heavy (6+ icons in one pill). Sits right after the workspace
+        // numbers, its own small single-icon pill same as menuPill.
+        Item {
+          id: applauncherPill
+          anchors.left: workspacesPill.right
+          anchors.leftMargin: 6
+          anchors.verticalCenter: parent.verticalCenter
+          width: applauncherContent.implicitWidth + 6 * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: applauncherContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("left").filter(function(e) { return root.entryId(e) === "ruixen.applauncher" })
             region: "left"
           }
         }

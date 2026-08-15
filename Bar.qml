@@ -544,7 +544,7 @@ Item {
 
   // Widgets pulled out of the main rightPill into their own small pills —
   // see horizontalBar below.
-  readonly property var togglesPillIds: ["ruixen.stayawake", "ruixen.dnd", "ruixen.quickactions"]
+  readonly property var togglesPillIds: ["omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "ruixen.quickactions"]
   readonly property var sideRightIds: togglesPillIds.concat(["ruixen.tray"])
 
   function moduleString(entry, key, fallback) {
@@ -1211,17 +1211,23 @@ Item {
           }
         }
 
-        // Stay-awake + do-not-disturb, pulled out of rightPill into their
-        // own always-visible pill so they read as toggles rather than
-        // getting lost among 6 other icons. Anchored off rightPill's left
-        // edge (not parent.right), so this stays put regardless of what
-        // trayPill below is doing.
+        // System update, stay-awake, do-not-disturb, quick actions --
+        // pulled out of rightPill into their own always-present pill so
+        // they read as toggles rather than getting lost among 6 other
+        // icons. system-update only actually shows an icon when an update
+        // is available (same visible: ... pattern as the tray having 0
+        // apps), so the pill grows to make room for it, same as trayPill
+        // does. Anchored off rightPill's left edge (not parent.right), so
+        // this stays put regardless of what trayPill is doing.
         Item {
           id: togglesPill
           anchors.right: rightPill.left
           anchors.rightMargin: Style.space(8)
           anchors.verticalCenter: parent.verticalCenter
-          width: togglesContent.implicitWidth + Style.space(10) * 2
+          // .width, not .implicitWidth -- ModuleList (a Loader) only
+          // computes the former explicitly; see trayPill/ruixen-tray-
+          // widgets README for the bug this caused there.
+          width: togglesContent.width + Style.space(10) * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }

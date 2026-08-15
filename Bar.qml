@@ -992,7 +992,15 @@ Item {
   // continuous solid background.
   component GroupPill: Rectangle {
     radius: height / 2
-    color: Qt.rgba(root.background.r, root.background.g, root.background.b, 0.85)
+    // Solid OLED black, matching ruixen.frame-widget's hardcoded
+    // frameColor — was Color.bar.background (theme-linked) at 0.85
+    // opacity, read as too close to transparent against the frame.
+    color: "#000000"
+    // Without this, a full circle (radius === width/2 === height/2, like
+    // the solo menu pill) renders as a faceted octagon instead of a
+    // smooth curve — much more visible than on a stadium shape (most of
+    // that outline is straight, only the two end-caps curve).
+    antialiasing: true
   }
 
   component BarPanel: PanelWindow {
@@ -1132,22 +1140,20 @@ Item {
           anchors.left: parent.left
           // Extra space on top of the usual Style.space(8) so content
           // clears ruixen.frame-widget's rounded corner (cornerRadius: 24)
-          // instead of starting right at the edge.
-          anchors.leftMargin: Style.space(8) + 20
+          // instead of starting right at the edge. Smaller than the +20
+          // this started at — the pill's own background now provides
+          // visual separation from the curve on its own, bare icons
+          // needed more raw clearance than a pill shape does.
+          anchors.leftMargin: Style.space(8) + 8
           anchors.verticalCenter: parent.verticalCenter
-          // Square, not just wide — a single icon reads as a circle
-          // (GroupPill's radius: height / 2), not a stadium shape. Fixed
-          // value derived only from root.barSize (known immediately, never
-          // shifts) — matches REPOS/PLUGINS/quickshell-ambxst's own
-          // ToggleButton.qml pattern (implicitWidth/implicitHeight both a
-          // plain fixed literal, not derived from each other or from
-          // content). Two earlier attempts both depended on
-          // menuContent.implicitWidth, which can read 0 during the
-          // ModuleList Loader's async load before settling — a real
-          // transient mismatch, not just a self-reference bug.
-          readonly property real diameter: root.barSize + Style.space(14)
-          width: diameter
-          height: diameter
+          // Same sizing pattern as workspacesPill/rightPill, but tighter
+          // horizontal padding (6 vs 16) — the omarchy.menu widget itself
+          // already has horizontalMargin: 7.5 baked in as click-target
+          // padding (BarWidget.qml), so our own wrapper padding was
+          // stacking on top of that and reading as excessive around just
+          // one small icon.
+          width: menuContent.implicitWidth + Style.space(6) * 2
+          height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
 
@@ -1162,9 +1168,9 @@ Item {
         Item {
           id: workspacesPill
           anchors.left: menuPill.right
-          anchors.leftMargin: Style.space(8)
+          anchors.leftMargin: Style.space(4)
           anchors.verticalCenter: parent.verticalCenter
-          width: workspacesContent.implicitWidth + Style.space(16) * 2
+          width: workspacesContent.implicitWidth + Style.space(10) * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1180,7 +1186,10 @@ Item {
         Item {
           id: rightPill
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(8) + 20
+          // Same reasoning as menuPill's leftMargin — the pill's own
+          // background provides separation from the curve, so this
+          // needs less raw clearance than bare icons did.
+          anchors.rightMargin: Style.space(8) + 8
           anchors.verticalCenter: parent.verticalCenter
           width: rightContent.implicitWidth + Style.space(16) * 2
           height: root.barSize - Style.space(2)

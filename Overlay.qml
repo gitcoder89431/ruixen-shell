@@ -47,7 +47,14 @@ Item {
   readonly property string playIcon: isPlaying ? "󰏤" : "󰐊"
   readonly property string title: activePlayer ? (activePlayer.trackTitle || "") : ""
   readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
-  readonly property string artUrl: activePlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
+  // Gated on hasMedia, not just activePlayer -- a closed app can leave a
+  // zombie MPRIS registration behind (confirmed: chromium after quitting
+  // still owns org.mpris.MediaPlayer2.chromium.* on the session bus,
+  // PlaybackStatus "Stopped", with a stale mpris:artUrl but no title/
+  // artist). Without this gate the blurred background art below kept
+  // showing that stale art forever since it only checked "is artUrl
+  // non-empty", not whether there's actually anything playing.
+  readonly property string artUrl: hasMedia && activePlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
 
   // ambxst falls back to the focused window's title, then "user@host",
   // rather than ever showing a blank "no media" state. We don't have a

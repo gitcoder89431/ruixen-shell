@@ -39,18 +39,25 @@ as separate floating islands rather than one continuous bar:
 - **workspacesPill** — workspace numbers.
 - **rightPill** — the general icon tray (agents, bluetooth, network, audio,
   monitor, power).
-- **togglesPill** — stay-awake + do-not-disturb toggles
-  (`ruixen.stayawake`/`ruixen.dnd`, see `ruixen-tray-widgets`), always
-  visible.
+- **togglesPill** — stay-awake, quick actions, do-not-disturb, in that
+  order (`ruixen.stayawake`/`ruixen.quickactions`/`ruixen.dnd`, see
+  `ruixen-tray-widgets`), always visible.
 - **trayPill** — the system tray (`ruixen.tray`) on its own, separate from
-  togglesPill. `visible: trayContent.implicitWidth > 0`, so it fully
-  disappears when no tray apps are running — safe to let it vanish because
-  togglesPill next to it is a separate, always-present anchor pill.
+  togglesPill, faded via `opacity: trayContent.width > 0 ? 1 : 0` instead
+  of toggling `visible` when no tray apps are running — safe to let it
+  empty out because togglesPill next to it is a separate, always-present
+  anchor pill. Simpler than juggling anchors/width around a pill that
+  comes and goes, and avoids the `implicitWidth`-vs-`width` pitfall below.
 
-Each pill's own width is driven by its content's `implicitWidth` (see
+Each pill's own width is driven by its content's `width` (see
 `root.sideRightIds`/`root.togglesPillIds` and the `.filter(...)` calls
 splitting `layoutEntries("right")` in `Bar.qml`), so they grow/shrink with
-whatever's actually inside them — not pre-reserved space.
+whatever's actually inside them — not pre-reserved space. Read `.width`,
+not `.implicitWidth`, off a `ModuleList` — it's a custom `Loader` that only
+computes its own `width` property explicitly, never overrides
+`implicitWidth`, so reading the latter gets a stale/unset value (cost a
+long debugging session to track down — see `ruixen-tray-widgets`'s README
+for the other half of that bug, a stale `moduleName`).
 
 ## Widget customization needs its own top-level plugin, not a file drop here
 

@@ -242,6 +242,18 @@ volume-dial column's own `ColumnLayout`, `10` → `8`) to match, per
 direct feedback after confirming the real numbers first rather than
 guessing.
 
+**Notifications header, round 2**: still looked too small after the
+above per direct feedback ("doesn't fill in the header enough").
+Re-checked ambxst's real header proportions in
+`NotificationHistory.qml`: `Layout.maximumHeight: 32` on the row
+(we were at `26`), `Layout.preferredWidth: 32` on the bell/broom
+buttons (we were at `26`), icon `font.pixelSize: 18` (we were at
+`13`), title `font.pixelSize: Config.theme.fontSize` (their default
+`14`, we were at `13`). Bumped row height `26`→`32`, button width
+`26`→`32`, title text `13`→`14`, icon size `13`→`16` (kept a touch
+below their `18` since our row is a hair shorter and icons at 18
+started crowding the 32px circle).
+
 **A real layout bug worth knowing about**: `Layout.preferredWidth`
 alone does not hard-cap a `RowLayout` column's width if a child further
 down wants more — the calendar's own natural content width was

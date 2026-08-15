@@ -374,8 +374,11 @@ Item {
 
         RowLayout {
           Layout.fillWidth: true
-          Layout.preferredHeight: 26
-          Layout.maximumHeight: 26
+          // 32px, matching ambxst's own header RowLayout
+          // (Layout.maximumHeight: 32 in NotificationHistory.qml) --
+          // we were at 26, visibly smaller than their real proportions.
+          Layout.preferredHeight: 32
+          Layout.maximumHeight: 32
           spacing: 6
 
           // Fills the remaining width instead of hugging the text --
@@ -392,7 +395,7 @@ Item {
               text: "Notifications"
               color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 13
+              font.pixelSize: 14
               font.bold: true
             }
           }
@@ -401,7 +404,7 @@ Item {
           // notch's own bell glyph. Not wired to omarchy.notifications
           // here (ruixen.dnd already owns that toggle, see the bar).
           Rectangle {
-            Layout.preferredWidth: 26
+            Layout.preferredWidth: 32
             Layout.fillHeight: true
             radius: height / 2
             color: "#000000"
@@ -411,7 +414,7 @@ Item {
               text: "󰂛"
               color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 13
+              font.pixelSize: 16
             }
           }
 
@@ -419,7 +422,7 @@ Item {
           // header has the same bell + broom pair. Decorative, no real
           // history to clear yet.
           Rectangle {
-            Layout.preferredWidth: 26
+            Layout.preferredWidth: 32
             Layout.fillHeight: true
             radius: height / 2
             color: "#000000"
@@ -429,7 +432,7 @@ Item {
               text: "󰃢"
               color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 13
+              font.pixelSize: 16
             }
           }
         }

@@ -372,34 +372,36 @@ Item {
 
         RowLayout {
           Layout.fillWidth: true
+          Layout.preferredHeight: 26
+          Layout.maximumHeight: 26
           spacing: 6
 
+          // Fills the remaining width instead of hugging the text --
+          // matches ambxst's own titleRect (Layout.fillWidth: true
+          // inside the same header RowLayout), not a snug-fit pill.
           Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
             radius: height / 2
             color: "#000000"
-            implicitWidth: notifHeaderText.implicitWidth + 16
-            implicitHeight: notifHeaderText.implicitHeight + 8
 
             Text {
-              id: notifHeaderText
               anchors.centerIn: parent
               text: "Notifications"
               color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 11
+              font.pixelSize: 13
               font.bold: true
             }
           }
-
-          Item { Layout.fillWidth: true }
 
           // DND bell -- decorative for now, mirrors the collapsed
           // notch's own bell glyph. Not wired to omarchy.notifications
           // here (ruixen.dnd already owns that toggle, see the bar).
           Rectangle {
-            Layout.preferredWidth: 22
-            Layout.preferredHeight: 22
-            radius: 11
+            Layout.preferredWidth: 26
+            Layout.fillHeight: true
+            radius: height / 2
             color: "#000000"
 
             Text {
@@ -407,7 +409,7 @@ Item {
               text: "󰂛"
               color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 11
+              font.pixelSize: 13
             }
           }
 
@@ -415,9 +417,9 @@ Item {
           // header has the same bell + broom pair. Decorative, no real
           // history to clear yet.
           Rectangle {
-            Layout.preferredWidth: 22
-            Layout.preferredHeight: 22
-            radius: 11
+            Layout.preferredWidth: 26
+            Layout.fillHeight: true
+            radius: height / 2
             color: "#000000"
 
             Text {
@@ -425,7 +427,7 @@ Item {
               text: "󰃢"
               color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 11
+              font.pixelSize: 13
             }
           }
         }

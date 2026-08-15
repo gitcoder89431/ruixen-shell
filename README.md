@@ -203,6 +203,23 @@ rev["md-broom"]  # -> 0xf00e2, the actual correct codepoint
 Worth reaching for this instead of trial-and-error screenshot cycles
 for any future icon glyph in this project -- it's exact, not a guess.
 
+**Header row redone to match ambxst's own titleRect/dndToggle/
+clearButton layout**: the "Notifications" pill now uses
+`Layout.fillWidth: true` (fills the row instead of a snug-fit pill
+around the text, mirroring their `titleRect`), text/icon sizes bumped
+11px → 13px, and the whole row uses a fixed `26px` height per direct
+feedback ("these headers text and icon gotta be bigger"). Hit the
+**exact same `RowLayout` height bug already documented above** for
+width: `Layout.preferredHeight: 26` alone did not cap the row -- its
+`Layout.fillHeight: true` children stretched it to nearly the full
+column height (rendering as a giant stadium-shaped blob, `radius:
+height/2` following the runaway height). Fixed identically to the
+width version: pair `Layout.preferredHeight` with an explicit
+`Layout.maximumHeight: 26`. Worth internalizing as a general rule for
+this file, not just a width-specific gotcha: `Layout.preferredX` alone
+never hard-caps in either axis if a `Layout.fillX: true` child wants
+more.
+
 **A real layout bug worth knowing about**: `Layout.preferredWidth`
 alone does not hard-cap a `RowLayout` column's width if a child further
 down wants more — the calendar's own natural content width was

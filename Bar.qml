@@ -544,7 +544,7 @@ Item {
 
   // Widgets pulled out of the main rightPill into their own small pills —
   // see horizontalBar below.
-  readonly property var togglesPillIds: ["omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "omarchy.weather", "ruixen.quickactions"]
+  readonly property var togglesPillIds: ["omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "ruixen.weather", "ruixen.quickactions"]
   readonly property var sideRightIds: togglesPillIds.concat(["ruixen.tray"])
 
   function moduleString(entry, key, fallback) {

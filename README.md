@@ -41,14 +41,18 @@ as separate floating islands rather than one continuous bar:
   monitor, power).
 - **togglesPill** — system update, stay-awake, do-not-disturb, weather,
   quick actions, in that order (`omarchy.system-update`, `ruixen.stayawake`,
-  `ruixen.dnd`, `omarchy.weather`, `ruixen.quickactions` — see
-  `ruixen-tray-widgets` for the three `ruixen.*` ones), always present.
+  `ruixen.dnd`, `ruixen.weather`, `ruixen.quickactions` — see
+  `ruixen-tray-widgets` for the four `ruixen.*` ones), always present.
   `system-update` and `weather` both only actually show an icon when
   there's something to show (an update available / a weather label
-  loaded) — both moved here from the center layout, no patching needed
-  since they're already proper top-level first-party widgets, purely a
-  layout move each time — same widens-when-there's-something-to-show
-  pattern as trayPill. Click behavior on both left untouched.
+  loaded) — both moved here from the center layout. `system-update` needed
+  no patching (plain layout move, still the stock first-party widget);
+  `weather` did — stock uses a narrower `Style.bar.statusSlot` (sized for
+  the denser center cluster it came from), which looked visibly undersized
+  next to the icon-style widgets here, so it's a clone
+  (`ruixen.weather`) with `slotSize` bumped to `Style.bar.iconSlot` to
+  match. Click behavior otherwise untouched on both — same
+  widens-when-there's-something-to-show pattern as trayPill.
 - **trayPill** — the system tray (`ruixen.tray`) on its own, separate from
   togglesPill, faded via `opacity: trayContent.width > 0 ? 1 : 0` instead
   of toggling `visible` when no tray apps are running — safe to let it

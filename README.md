@@ -15,6 +15,23 @@ stripped of its notch/dock/theme-JSON machinery.
 and stays up — no `summon`/`hide` calls needed, unlike a toggleable overlay
 (emoji picker, clipboard, etc).
 
+`mask: Region {}` (empty region) on the `PanelWindow` is required, not
+optional — without it, this full-screen topmost-layer surface swallows
+scroll/click input for everything underneath (broke terminal scrollback
+system-wide once, before this was added). Same pattern the built-in bar/osd
+plugins use for their own non-interactive areas.
+
+## Color is intentionally hardcoded, not theme-linked
+
+`frameColor` is a fixed `#000000` (OLED black) — a deliberate choice, not
+an oversight. Unlike `ruixen.bar` (which uses `Color.bar.*` theme bindings
+and re-colors automatically on `omarchy theme set`), this frame stays pure
+black no matter what theme is active. That's fine on dark themes, but will
+look wrong on light ones (`catppuccin-latte`, `flexoki-light`, `white`,
+etc.) — known and accepted, not planned to change. If that tradeoff ever
+flips, the fix is reading `accent`/`background` from the active theme's
+`colors.toml` the same way the bar reads `Color.bar.*`.
+
 ## Known limitation
 
 Uses `WlrLayer.Overlay` (the topmost Wayland layer-shell layer), so it draws

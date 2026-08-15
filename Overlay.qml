@@ -494,20 +494,79 @@ Item {
           fillColor: "#ffffff"
         }
 
-        Rectangle {
+        // Canvas instead of a plain Rectangle -- MultiEffect's maskSource
+        // reads the mask texture's ALPHA channel, not RGB luminance. A
+        // black Rectangle drawn on top (the first cutout attempt) is
+        // still alpha:1, fully opaque, so it never subtracted anything
+        // no matter how it was positioned or nested -- confirmed by
+        // ruixen.frame-widget's own Overlay.qml, which already punches a
+        // real hole this exact way (fillRect + globalCompositeOperation
+        // "destination-out" + a second shape = genuine alpha:0 pixels).
+        // Same technique here: paint the notch's own rounded-bottom
+        // silhouette opaque white, then destination-out a hole for the
+        // player column while the dashboard is actually showing it.
+        Canvas {
           id: centerMask
           anchors.top: parent.top
           anchors.left: leftFlank.right
           anchors.right: rightFlank.left
           height: parent.height
-          color: "#ffffff"
-          topLeftRadius: 0
-          topRightRadius: 0
-          bottomLeftRadius: panel.expanded ? 44 : 28
-          bottomRightRadius: panel.expanded ? 44 : 28
+          antialiasing: true
+
+          property real bottomLeftRadius: panel.expanded ? 44 : 28
+          property real bottomRightRadius: panel.expanded ? 44 : 28
+          // Same geometry the reverted attempt worked out: playerCard's
+          // real x within notchOuter is cornerSize(28) + expandedContent's
+          // leftMargin(12) + the left tab bar's width(70) + the RowLayout
+          // spacing between the tab bar and dashboard content(8) = 118;
+          // centerMask itself starts at notchOuter-relative x=28
+          // (leftFlank.right), so the offset here is 118-28=90.
+          property bool cutoutActive: panel.pinnedOpen || panel.hoverOpen
+          readonly property real cutoutX: 90
+          readonly property real cutoutY: 20
+          readonly property real cutoutWidth: 210
+          readonly property real cutoutHeight: height - 20 - 12
+          readonly property real cutoutRadius: 10
 
           Behavior on bottomLeftRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
           Behavior on bottomRightRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
+
+          onWidthChanged: requestPaint()
+          onHeightChanged: requestPaint()
+          onBottomLeftRadiusChanged: requestPaint()
+          onBottomRightRadiusChanged: requestPaint()
+          onCutoutActiveChanged: requestPaint()
+
+          function roundedRect(ctx, x, y, w, h, tl, tr, br, bl) {
+            ctx.beginPath()
+            ctx.moveTo(x + tl, y)
+            ctx.lineTo(x + w - tr, y)
+            ctx.quadraticCurveTo(x + w, y, x + w, y + tr)
+            ctx.lineTo(x + w, y + h - br)
+            ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h)
+            ctx.lineTo(x + bl, y + h)
+            ctx.quadraticCurveTo(x, y + h, x, y + h - bl)
+            ctx.lineTo(x, y + tl)
+            ctx.quadraticCurveTo(x, y, x + tl, y)
+            ctx.closePath()
+          }
+
+          onPaint: {
+            var ctx = getContext("2d")
+            ctx.reset()
+            ctx.clearRect(0, 0, width, height)
+
+            ctx.fillStyle = "#ffffff"
+            roundedRect(ctx, 0, 0, width, height, 0, 0, bottomRightRadius, bottomLeftRadius)
+            ctx.fill()
+
+            if (cutoutActive) {
+              ctx.globalCompositeOperation = "destination-out"
+              roundedRect(ctx, cutoutX, cutoutY, cutoutWidth, cutoutHeight, cutoutRadius, cutoutRadius, cutoutRadius, cutoutRadius)
+              ctx.fill()
+              ctx.globalCompositeOperation = "source-over"
+            }
+          }
         }
 
         RoundCorner {

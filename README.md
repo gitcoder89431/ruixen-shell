@@ -512,6 +512,51 @@ donut-path (outer notch boundary minus an inner rect, one path, even-
 odd fill) as a fundamentally different technique that doesn't rely on
 adding a new child to existing layered content.
 
+## Actually fixed: the real bug was alpha vs. luminance, not structure
+
+A second opinion (an independent agent review) diagnosed the true
+root cause, and it's simpler and completely different from what the
+extensive isolation testing above concluded: `MultiEffect.maskSource`
+reads the mask texture's **alpha channel**, not RGB luminance. The
+reverted cutout painted `color: "#000000"` -- opaque black, `alpha:
+1.0`. Visually indistinguishable from "nothing" to a human eye, but
+to an alpha-based mask it's identical to opaque white, just a
+different RGB -- it was never going to subtract anything, regardless
+of geometry, nesting location, or any of the other variables tested.
+That single wrong assumption explains every confusing result from the
+prior debugging session:  `centerMask.visible = false` worked because
+it made that region genuinely unpainted (`alpha: 0`); the black
+Rectangle never worked because it was never actually transparent.
+
+Concrete proof this was the real bug, already sitting in this
+codebase: `ruixen.frame-widget`'s own `Overlay.qml` punches its
+border-hole using `Canvas` + `ctx.globalCompositeOperation =
+"destination-out"`, which produces genuine `alpha: 0` pixels -- and
+that one has worked reliably the whole time.
+
+**The actual fix**: `centerMask` converted from a plain `Rectangle`
+into a `Canvas`. It paints the notch's own rounded-bottom silhouette
+opaque white (a hand-rolled `roundedRect()` helper, same shape
+`Rectangle`'s `topLeftRadius`/etc. used to produce, now with
+independently-controllable per-corner radii since Canvas needs them
+explicit), then -- only while `panel.pinnedOpen || panel.hoverOpen`
+-- switches to `globalCompositeOperation = "destination-out"` and
+fills a second rounded rect over the player column's own region
+before switching back to `"source-over"`. Same geometry the reverted
+attempt already worked out (`x: 90` relative to `centerMask`'s own
+origin, `y: 20`, `210×(height-32)`, matching `playerCard`'s real
+position -- `cornerSize(28) + expandedContent.leftMargin(12) +
+tabBarWidth(70) + RowLayout.spacing(8) - centerMask's own x offset(28)
+= 90`). The animated `bottomLeftRadius`/`bottomRightRadius` (still
+via `Behavior`, same as before) and the `cutoutActive` toggle both
+call `requestPaint()` on change, same reactive-repaint pattern
+`RoundCorner`'s own `Canvas` already used elsewhere in this file.
+
+Confirmed working via screenshot -- clearly readable terminal text
+visible straight through the player column -- and stress-tested 3x
+(open/close cycles) against the known flat-bottom-corner masking bug,
+clean across all rounds.
+
 ## Agent icon added back to quick controls
 
 Per direct request -- with the column now `250px` wide and toggles at

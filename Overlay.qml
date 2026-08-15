@@ -256,8 +256,17 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
       readonly property int cornerSize: 18
-      readonly property int bodyWidth: panel.expanded ? 360 : 220
+      // Matched to ambxst's actual numbers: DefaultView.qml's collapsed
+      // row is 44px tall, ~284-290px wide (200px base + avatar/
+      // separators/bell). Their own "expanded" state is notification-
+      // driven, not hover-media like ours, but the closest comparable
+      // number is notificationMinWidth's 420px target (452 with padding).
+      readonly property int bodyWidth: panel.expanded ? 420 : 290
       width: bodyWidth + cornerSize * 2
+      // ambxst's 44px collapsed height was sized for their own bar/frame
+      // proportions -- too tall for ours (barSize is ~32px). Back down
+      // to roughly match that instead of matching ambxst's number
+      // literally.
       height: panel.expanded ? 190 : 36
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -373,6 +382,11 @@ Item {
           visible: !panel.expanded
           opacity: panel.expanded ? 0 : 1
           anchors.centerIn: parent
+          // The frame visually eats the top ~6px (it merges into the
+          // frame's own border there), so centering in the notch's full
+          // height reads as shifted too high relative to the actually
+          // visible space below that. Nudge down to compensate.
+          anchors.verticalCenterOffset: 4
           spacing: 8
           Behavior on opacity { NumberAnimation { duration: 140 } }
 
@@ -410,12 +424,15 @@ Item {
             // yet, position display only.
             Item {
               anchors.verticalCenter: parent.verticalCenter
-              width: 60
+              width: 140
               height: 12
 
               Rectangle {
+                // Unplayed remainder only -- starts right where the wave
+                // ends, instead of running the full width underneath it.
+                anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width
+                width: parent.width * (1 - root.progressRatio)
                 height: 2
                 radius: 1
                 color: Qt.rgba(1, 1, 1, 0.15)
@@ -430,8 +447,22 @@ Item {
                 lineWidth: 2
                 frequency: 6
                 amplitudeMultiplier: root.isPlaying ? 1.4 : 0.15
-                fullLength: 60
+                fullLength: 140
                 running: root.isPlaying
+              }
+
+              // Playhead -- vertical line right where the wave meets the
+              // dim (unplayed) track.
+              Rectangle {
+                width: 2
+                height: parent.height
+                radius: width / 2
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.textColor
+                x: parent.width * root.progressRatio - width / 2
+                visible: root.hasMedia
+
+                Behavior on x { NumberAnimation { duration: 450 } }
               }
             }
           }
@@ -521,10 +552,12 @@ Item {
             visible: root.trackLength > 0
 
             Rectangle {
-              anchors.left: parent.left
+              // Unplayed remainder only -- starts right where the wave
+              // ends, instead of running the full width underneath it.
               anchors.right: parent.right
               anchors.top: parent.top
               anchors.topMargin: 6
+              width: parent.width * (1 - root.progressRatio)
               height: 2
               radius: 1
               color: Qt.rgba(1, 1, 1, 0.15)
@@ -543,14 +576,14 @@ Item {
               running: root.isPlaying
             }
 
-            // Position marker -- no drag-to-seek yet, display only.
+            // Playhead -- vertical line right where the wave meets the
+            // dim (unplayed) track. No drag-to-seek yet, display only.
             Rectangle {
-              width: 6
-              height: 6
-              radius: 3
+              width: 3
+              height: 16
+              radius: width / 2
               color: root.textColor
-              anchors.verticalCenter: parent.top
-              anchors.verticalCenterOffset: 7
+              anchors.top: parent.top
               x: parent.width * root.progressRatio - width / 2
               visible: root.hasMedia
 

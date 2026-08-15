@@ -23,26 +23,61 @@ Switching Omarchy themes re-colors this bar automatically, same as stock.
 Swapping to that clone via `omarchy bar use` crashes with "Required
 property X was not initialized" — the shell injects these via a later
 assignment (`target.x = ...`), not at creation time, which QML's `required`
-keyword doesn't accept for a dynamically swapped-in bar. Two patches on top
-of the clone:
+keyword doesn't accept for a dynamically swapped-in bar. Patch on top of the
+clone: drop `required` from those 3 properties, plain defaults instead —
+the actual fix for the crash above.
 
-1. **Drop `required`** from those 3 properties, plain defaults instead —
-   the actual fix for the crash above.
-2. **Inset margins** — `frameInset = 6` (matching `ruixen.frame-widget`'s
-   `thickness`) added to the bar's top/left/right `margins`, only for
-   `position === "top"`.
-3. **Extra left/right content padding** (`Style.space(8) + 20`) on top of
-   the existing per-widget spacing, so the leftmost/rightmost bar content
-   clears the frame's rounded corner (`cornerRadius: 24`) instead of
-   starting right at it.
+## Floating pill background
 
-## Pairing with the frame
+The bar background itself is fully transparent (`BarPanel.color:
+"transparent"`) — instead of one solid bar-wide background, each widget
+cluster sits in its own small rounded "pill" (`component GroupPill`, solid
+`#000000`, matching `ruixen.frame-widget`'s hardcoded black), so groups read
+as separate floating islands rather than one continuous bar:
 
-A larger panel inset (`frameThickness + frameCornerRadius`, clearing the
-rounded-corner zone entirely) was tried first and looked like a floating
-disconnected box — too much empty gap on either side. Settled on the
-smaller thickness-only panel inset instead, plus the separate content
-padding above to keep the actual widgets clear of the corner curve.
+- **menuPill** — just the Omarchy logo/menu icon.
+- **workspacesPill** — workspace numbers.
+- **rightPill** — the general icon tray (agents, bluetooth, network, audio,
+  monitor, power).
+- **togglesPill** — stay-awake + do-not-disturb toggles
+  (`ruixen.stayawake`/`ruixen.dnd`, see `ruixen-tray-widgets`), always
+  visible.
+- **trayPill** — the system tray (`ruixen.tray`) on its own, separate from
+  togglesPill. `visible: trayContent.implicitWidth > 0`, so it fully
+  disappears when no tray apps are running — safe to let it vanish because
+  togglesPill next to it is a separate, always-present anchor pill.
+
+Each pill's own width is driven by its content's `implicitWidth` (see
+`root.sideRightIds`/`root.togglesPillIds` and the `.filter(...)` calls
+splitting `layoutEntries("right")` in `Bar.qml`), so they grow/shrink with
+whatever's actually inside them — not pre-reserved space.
+
+## Widget customization needs its own top-level plugin, not a file drop here
+
+Only `Bar.qml`/`BarModel.js` (the bar shell itself) are loaded from this
+plugin's own folder. Anything registered as its own `kind: bar-widget`
+plugin — tray, audio, network, workspaces, indicators, clock, etc. — is
+resolved globally by manifest `id` from a top-level plugin directory under
+`~/.config/omarchy/plugins/`, regardless of which bar is active. Dropping a
+patched copy of one of those widgets inside `ruixen-bar/widgets/` (as this
+repo used to, leftover from `omarchy plugin clone omarchy.bar` copying the
+stock bar's bundled widgets subfolder wholesale) silently does nothing —
+the shell keeps resolving that widget's id to the real, unmodified,
+first-party version, since a manifest nested inside another plugin's folder
+is never scanned as its own plugin. Confirmed the hard way: extensive edits
+to a dropped-in `Tray.qml` had zero visible effect for an entire session.
+
+Any bar-widget customization needs `omarchy plugin clone <id>` to get a
+real top-level plugin first. See
+[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)
+for the tray/stay-awake/do-not-disturb widgets built this way.
+
+## Drag-to-reposition disabled
+
+`startDrag()` is a no-op — the built-in "drag the bar to another screen
+edge" feature is disabled. The frame-clearance insets here only account for
+`position === "top"`; re-enable once left/right/bottom get their own
+insets.
 
 ## Bar layout used with this setup
 
@@ -69,7 +104,11 @@ layout change made here.
 
 1. **[`ruixen.frame-widget`](https://github.com/gitcoder89431/ruixen-frame-widget)**
    — this bar is designed to sit inside its hole, not stand alone.
-2. **Rounded window corners, matching `cornerRadius` (24)** — set in
+2. **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**
+   — the system tray, stay-awake, and do-not-disturb widgets referenced by
+   `sideRightIds`/`togglesPillIds` above. Without these enabled under their
+   `ruixen.*` ids, those layout entries just won't resolve to anything.
+3. **Rounded window corners, matching `cornerRadius` (24)** — set in
    Hyprland, not a plugin concern:
    ```lua
    -- ~/.config/hypr/looknfeel.lua
@@ -83,7 +122,7 @@ layout change made here.
 ## Install (local dev)
 
 ```bash
-cp -r manifest.json Bar.qml BarModel.js indicators widgets ~/.config/omarchy/plugins/ruixen.bar/
+cp manifest.json Bar.qml BarModel.js ~/.config/omarchy/plugins/ruixen.bar/
 omarchy plugin validate ~/.config/omarchy/plugins/ruixen.bar
 omarchy bar use ruixen.bar
 omarchy restart shell

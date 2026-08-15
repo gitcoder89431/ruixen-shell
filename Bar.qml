@@ -542,6 +542,11 @@ Item {
     return BarModel.entryId(entry)
   }
 
+  // Widgets pulled out of the main rightPill into their own small pills —
+  // see horizontalBar below.
+  readonly property var togglesPillIds: ["ruixen.stayawake", "ruixen.dnd"]
+  readonly property var sideRightIds: togglesPillIds.concat(["ruixen.tray"])
+
   function moduleString(entry, key, fallback) {
     return BarModel.moduleString(entry, key, fallback)
   }
@@ -1196,9 +1201,64 @@ Item {
 
           GroupPill { anchors.fill: parent }
 
-          RightModules {
+          ModuleList {
             id: rightContent
             anchors.centerIn: parent
+            entries: root.layoutEntries("right").filter(function(e) {
+              return root.sideRightIds.indexOf(root.entryId(e)) === -1
+            })
+            region: "right"
+          }
+        }
+
+        // Stay-awake + do-not-disturb, pulled out of rightPill into their
+        // own always-visible pill so they read as toggles rather than
+        // getting lost among 6 other icons. Anchored off rightPill's left
+        // edge (not parent.right), so this stays put regardless of what
+        // trayPill below is doing.
+        Item {
+          id: togglesPill
+          anchors.right: rightPill.left
+          anchors.rightMargin: Style.space(8)
+          anchors.verticalCenter: parent.verticalCenter
+          width: togglesContent.implicitWidth + Style.space(10) * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: togglesContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("right").filter(function(e) {
+              return root.togglesPillIds.indexOf(root.entryId(e)) !== -1
+            })
+            region: "right"
+          }
+        }
+
+        // System tray only, in its own pill separate from the toggles —
+        // this one only exists on screen when there's actually an app in
+        // the tray (Tray.qml sets its own visible: allItems.length > 0,
+        // which collapses ModuleSlot's implicitWidth to 0, which collapses
+        // this all the way down through trayContent.implicitWidth). Safe to
+        // let it fully disappear now that togglesPill is a separate,
+        // always-present anchor.
+        Item {
+          id: trayPill
+          visible: trayContent.implicitWidth > 0
+          anchors.right: togglesPill.left
+          anchors.rightMargin: Style.space(8)
+          anchors.verticalCenter: parent.verticalCenter
+          width: trayContent.implicitWidth + Style.space(10) * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: trayContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("right").filter(function(e) { return root.entryId(e) === "ruixen.tray" })
+            region: "right"
           }
         }
       }

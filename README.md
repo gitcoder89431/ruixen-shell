@@ -392,6 +392,30 @@ Day-grid `Rectangle` height `250px` -> `268px`, closing the last bit
 of the gap between the black grid and calendarPane's own grey card
 edge.
 
+## Agent icon added back to quick controls
+
+Per direct request -- with the column now `250px` wide and toggles at
+`size: 40`, there was enough spare width to fit a 5th icon (4 icons
+left ~30px of empty side padding, confirmed by direct measurement, not
+a guess). Re-added the same static `robot_excited` glyph
+(`U+F16A3`), row `spacing` trimmed `10` -> `8` to keep the whole row
+comfortably clear of the frame's own thicker `2.5px` border instead of
+crowding it.
+
+**A real glyph-insertion gotcha, not just a PUA-matching one**: adding
+this back via the `Edit` tool wrote the LITERAL text
+`"\U000f16a3"` (backslash and all) into the file instead of the
+actual character -- `Edit` doesn't interpret Python-style `\U` escapes,
+it just inserts the string verbatim. Every glyph inserted successfully
+elsewhere in this file was written with a Python `heredoc` script
+(`content.replace(old, new)` where `new` contains a real
+`'\U000f16a3'` Python string, which Python itself decodes into the
+literal character before writing bytes to disk) -- reusing the `Edit`
+tool directly for a **new** glyph insertion (as opposed to
+find-and-replace on a glyph that's already correctly in the file) will
+hit this every time. Caught immediately via screenshot (rendered as
+literal `U000f16a...` text), fixed with the usual Python one-liner.
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

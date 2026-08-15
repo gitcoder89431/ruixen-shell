@@ -239,12 +239,12 @@ Item {
       Layout.fillHeight: true
       spacing: 8
 
-      // Quick controls -- 4 real toggle buttons now, dropped the 5th
-      // (Omarchy's own Agents widget glyph) per direct request: it was
-      // never interactive anyway (that widget has no "service" kind to
-      // read from), and losing it let the remaining 4 grow bigger,
-      // using the extra width freed up by widening this column
-      // (220->250) and giving the calendar below more room too.
+      // Quick controls -- 5 buttons again: the Agents glyph is back per
+      // direct request, still non-interactive (that widget has no
+      // "service" kind to read from). At size 40 with the column now
+      // 250px wide, 5 icons + 4 gaps fits with room to spare -- spacing
+      // trimmed 10->8 to keep a comfortable margin from the frame's own
+      // border instead of crowding it.
       Pane {
         Layout.fillWidth: true
         Layout.preferredHeight: 60
@@ -255,7 +255,7 @@ Item {
 
         Row {
           anchors.centerIn: parent
-          spacing: 10
+          spacing: 8
 
           QuickToggle {
             size: 40
@@ -295,6 +295,11 @@ Item {
             // pattern: stayAwake and idleEnabled are semantic opposites,
             // so passing the about-to-be-old stayAwake value in flips it.
             onActivated: if (root.idleService) root.idleService.setIdleEnabled(active)
+          }
+
+          QuickToggle {
+            size: 40
+            glyph: "󱚣"
           }
         }
       }

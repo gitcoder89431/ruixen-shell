@@ -29,6 +29,21 @@ disconnected box — too much empty gap on either side. Settled on the
 smaller thickness-only inset, which spans nearly the full width and only
 slightly overlaps the very tip of the frame's rounded corners.
 
+## Companion setup (required for the full look)
+
+1. **[`ruixen.frame-widget`](https://github.com/gitcoder89431/ruixen-frame-widget)**
+   — this bar is designed to sit inside its hole, not stand alone.
+2. **Rounded window corners, matching `cornerRadius` (24)** — set in
+   Hyprland, not a plugin concern:
+   ```lua
+   -- ~/.config/hypr/looknfeel.lua
+   hl.config({
+     decoration = {
+       rounding = 24,
+     },
+   })
+   ```
+
 ## Install (local dev)
 
 ```bash

@@ -156,6 +156,13 @@ first place (see the collapsed/media/launcher sizing notes above) — a
 bigger, previously-untested size specifically to have somewhere to put
 this.
 
+Height later bumped again, `344` → `400`, per direct feedback ("a bit
+too short"). Past the previously-tested-safe value, so stress-tested
+3x (open/close cycles via toggling `pinnedOpen`, screenshotting the
+bottom corners each time) against the flat-bottom-corner masking bug
+documented above before keeping it — clean rounded corners all 3
+rounds, no recurrence.
+
 **A real layout bug worth knowing about**: `Layout.preferredWidth`
 alone does not hard-cap a `RowLayout` column's width if a child further
 down wants more — the calendar's own natural content width was

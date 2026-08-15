@@ -421,8 +421,12 @@ Item {
       // screen zone (notchClearance) was bumped to cover this plus a
       // buffer, so it no longer overlaps tiled windows the way it did
       // when this was smaller but the reserved zone was still just
-      // barSize-sized.
-      height: panel.launcherOpen ? 190 : ((panel.pinnedOpen || panel.hoverOpen) ? 344 : 44)
+      // barSize-sized. Dashboard height bumped past ambxst's own 344 to
+      // 400 per direct feedback ("a bit too short") -- past the
+      // previously-tested-safe value, so stress-tested 3x (open/close
+      // cycles, checking the bottom-corner mask each time) against the
+      // masking bug documented below before keeping it.
+      height: panel.launcherOpen ? 190 : ((panel.pinnedOpen || panel.hoverOpen) ? 400 : 44)
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }

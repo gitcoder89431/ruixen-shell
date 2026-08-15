@@ -1411,11 +1411,13 @@ Item {
     pressAndHoldInterval: 200
 
     function startDrag(x, y) {
-      if (dragging) return
-      dragging = true
-      root.beginBarMove(root.targetWindow(gestureArea))
-      var scenePoint = gestureArea.mapToItem(null, x, y)
-      root.updateBarMove(root.windowScreenPoint(scenePoint, root.barMoveWindow))
+      // Disabled: ruixen.bar's inset/padding (frameInset, the extra
+      // left/right content padding) is hardcoded for position === "top"
+      // to clear ruixen.frame-widget's rounded corners. Dragging to
+      // left/right/bottom would look wrong there — no matching insets for
+      // those edges. Re-enable once those positions get their own inset
+      // handling, if ever needed.
+      return
     }
 
     onPressed: function(mouse) {

@@ -197,8 +197,15 @@ Item {
       // Quick controls -- 5 toggle-style buttons, static/decorative for
       // now (ambxst's own versions read WiFi/Bluetooth/night-light/etc.
       // services we don't have wired here yet). Glyphs picked to at
-      // least gesture at the same 5 concepts (wifi, bluetooth, night
-      // light, caffeine/keep-awake, game mode).
+      // least gesture at the same concepts: wifi, bluetooth, night
+      // light, caffeine/keep-awake, and Omarchy's own Agents (Claude/
+      // Codex/Fireworks usage) widget in place of game mode -- same
+      // "robot_excited" glyph (U+F16A3) omarchy.agents' own bar icon
+      // uses (Panel.qml). That widget only declares kinds:
+      // ["bar-widget"] in its manifest, no "service" kind, so its
+      // `alarming` (>=90% of a rate limit) state isn't reachable via
+      // shell.firstPartyServiceFor() from here -- stays static like
+      // its 4 siblings rather than faking the red-when-close behavior.
       Pane {
         Layout.fillWidth: true
         Layout.preferredHeight: 44
@@ -208,7 +215,7 @@ Item {
           spacing: 8
 
           Repeater {
-            model: ["󰤨", "󰂯", "󰖨", "󰛊", "󰊴"]
+            model: ["󰤨", "󰂯", "󰖨", "󰛊", "󱚣"]
 
             Rectangle {
               required property string modelData

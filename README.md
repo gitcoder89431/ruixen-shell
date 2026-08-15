@@ -242,6 +242,17 @@ volume-dial column's own `ColumnLayout`, `10` → `8`) to match, per
 direct feedback after confirming the real numbers first rather than
 guessing.
 
+**Quick controls: game mode swapped for Omarchy's Agents widget**, per
+direct request -- game mode wasn't needed, and the 5th slot now shows
+the same `robot_excited` glyph (`U+F16A3`) `omarchy.agents`' own bar
+icon uses (found directly in `/usr/share/omarchy/shell/plugins/agents/
+Panel.qml`, not guessed). That widget's manifest only declares `kinds:
+["bar-widget"]`, no `"service"` kind, so its `alarming` property
+(`>=90%` of a rate limit -- the "face goes red" behavior) isn't
+reachable via `shell.firstPartyServiceFor()` the way `ruixen.media`/
+`omarchy.notifications` are. Stays static like its 4 siblings rather
+than faking the live red-alert state.
+
 **Notifications header, round 2**: still looked too small after the
 above per direct feedback ("doesn't fill in the header enough").
 Re-checked ambxst's real header proportions in

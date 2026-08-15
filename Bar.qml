@@ -1291,15 +1291,19 @@ Item {
           // from 16, same reasoning as clockPill's rightMargin.
           anchors.leftMargin: 12
           anchors.verticalCenter: parent.verticalCenter
-          // No extra padding at all now (was +6 each side) — the
-          // omarchy.menu widget itself already has horizontalMargin: 7.5
-          // baked in as click-target padding (BarWidget.qml), so our own
-          // wrapper padding was double-stacking on top of that. With it,
-          // width (~50) vs height (~31) read as a clear oval for a
-          // single icon; without it, width (~38) is much closer to
-          // height, reading as circular like ambxst's own single-icon
-          // buttons.
-          width: menuContent.implicitWidth
+          // Small +4 each side (was +6, trimmed to 0, now split the
+          // difference) — the omarchy.menu widget itself already has
+          // horizontalMargin: 7.5 baked in as click-target padding
+          // (BarWidget.qml), so full +6 was double-stacking into an
+          // oval. Zero padding fixed that but read as too tight against
+          // the glyph -- also the glyph's own ink isn't perfectly
+          // centered within its reported implicitWidth (icon-font
+          // side-bearing asymmetry, same kind of issue as the weather
+          // glyph set), which reads as a lopsided pill with zero buffer
+          // to absorb it. menuContent stays anchors.centerIn: parent --
+          // geometrically centered either way, this is purely about the
+          // glyph's own rendered ink not being symmetric within its box.
+          width: menuContent.implicitWidth + 4 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }

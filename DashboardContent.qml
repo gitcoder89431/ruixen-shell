@@ -455,8 +455,8 @@ Item {
           // block of empty grey space below a small fixed-size grid.
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 224
-            Layout.maximumHeight: 224
+            Layout.preferredHeight: 250
+            Layout.maximumHeight: 250
             Layout.alignment: Qt.AlignTop
             radius: 6
             color: "#000000"
@@ -464,7 +464,7 @@ Item {
             ColumnLayout {
               anchors.fill: parent
               anchors.margins: 6
-              spacing: 2
+              spacing: 6
 
               // Weekday labels and every week row below both use
               // RowLayout with 7 fillWidth columns now, instead of a

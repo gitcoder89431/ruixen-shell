@@ -377,6 +377,13 @@ overridden per-instance here to `2.5`, height `52px` -> `60px`, radius
 `Pane`s in this file, deliberately (only this instance is overridden,
 not the shared component).
 
+**Follow-up: weekday labels / divider / day-grid too cramped**
+vertically -- the inner `ColumnLayout` spacing was still `2`, left
+over from before the row/cell size bumps above. Bumped to `6`, and
+grew the day-grid `Rectangle`'s own height `224px` -> `250px` to fit
+the extra spacing without clipping (7 gaps at `6px` vs `2px` = `+28px`
+of new spacing needed).
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

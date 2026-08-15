@@ -384,6 +384,9 @@ grew the day-grid `Rectangle`'s own height `224px` -> `250px` to fit
 the extra spacing without clipping (7 gaps at `6px` vs `2px` = `+28px`
 of new spacing needed).
 
+**Follow-up: weekday labels (M T W T F S S) too light/small.** Bumped
+`10px` -> `13px` and added `font.bold: true`.
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

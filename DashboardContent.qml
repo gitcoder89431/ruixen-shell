@@ -486,7 +486,8 @@ Item {
                     text: modelData
                     color: root.muted
                     font.family: root.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: 13
+                    font.bold: true
                   }
                 }
               }

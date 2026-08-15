@@ -440,10 +440,18 @@ Item {
 
           // Day-grid -- one black sub-panel holding the weekday labels
           // and all 6 week rows, matching ambxst's own second
-          // "internalbg" StyledRect.
+          // "internalbg" StyledRect. Sized to its actual content
+          // (weekday row + divider + 6x 20px week rows + spacing/
+          // margins) instead of Layout.fillHeight -- fillHeight let it
+          // stretch to whatever leftover height calendarPane had, and
+          // ColumnLayout spread that leftover space out as visible gaps
+          // between every week row instead of just trailing space
+          // ("too hamburger").
           Rectangle {
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: 172
+            Layout.maximumHeight: 172
+            Layout.alignment: Qt.AlignTop
             radius: 6
             color: "#000000"
 

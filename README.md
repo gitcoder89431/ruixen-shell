@@ -337,6 +337,20 @@ freed-up space instead of leaving it empty. The quick-controls `Pane`
 itself grew `44px` -> `52px` tall to fit the bigger buttons, which
 naturally pushes the calendar down slightly, exactly as asked.
 
+**Follow-up: week rows still looked "too hamburger" (too much gap
+between rows)**, even though width was now fine. Root cause: the
+day-grid `Rectangle` used `Layout.fillHeight: true`, stretching it to
+match whatever leftover height `calendarPane` (also `fillHeight:
+true`) had -- and `ColumnLayout` spread that leftover space out as
+visible gaps between every week row instead of leaving it as one
+trailing gap. Fixed by sizing the day-grid to its actual content
+instead: `Layout.preferredHeight: 172` (paired with
+`Layout.maximumHeight: 172`, same lesson as the 3 prior instances of
+this pattern in this file) plus `Layout.alignment: Qt.AlignTop`. Any
+leftover column height now shows as plain grey space below the grid
+instead of stretching the rows apart -- confirmed via a zoomed
+screenshot crop, not just eyeballing the full dashboard.
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

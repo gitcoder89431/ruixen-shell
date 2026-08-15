@@ -1264,7 +1264,7 @@ Item {
             }
 
             Rectangle {
-              width: 2
+              width: 3
               height: Style.space(14)
               radius: width / 2
               anchors.verticalCenter: parent.verticalCenter

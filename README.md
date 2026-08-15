@@ -557,6 +557,42 @@ visible straight through the player column -- and stress-tested 3x
 (open/close cycles) against the known flat-bottom-corner masking bug,
 clean across all rounds.
 
+## Reverted again -- the cutout was never the right target at all
+
+The literal hole *worked*, but showed the raw, unblurred desktop
+straight through -- looked sharp/plain, not "frosted glass" at all
+(nothing in this pipeline was blurring what's actually behind the
+window; that would need real Hyprland compositor blur, `layer_rule`
+`blur`/`xray`, a much bigger and riskier change touching global
+`decoration.blur.enabled`, currently `false` in Omarchy's stock
+config).
+
+Before going down that road, re-checked what ambxst's `FullPlayer.qml`
+actually does for its own "glass" background -- and it doesn't show
+real desktop AT ALL. It blurs the track's own art when playing, and
+falls back to blurring their **own desktop wallpaper file**
+(`GlobalStates.wallpaperManager.currentWallpaper`) when idle -- a
+static image, not a live compositor blur-through. Confirmed directly
+in their source (`FullPlayer.qml:112-129`), not assumed.
+
+Reverted `Overlay.qml` back to the pre-cutout state a second time
+(matching `1515bb8` again -- the Canvas/`destination-out` mask code is
+gone) and updated `DashboardContent.qml`'s player background instead:
+`playerCard.wallpaperPath` now points at Omarchy's own stable current-
+wallpaper symlink (`~/.local/state/omarchy/current/background` --
+survives theme/wallpaper changes, no need to track the actual
+filename), and `playerBgSource` picks `root.artUrl` when there's media
+playing or `wallpaperPath` otherwise -- so the blur `MultiEffect`
+always has something to blur, never blank. Opacity corrected `0.35`
+-> `0.25` to match ambxst's real ratio (was a guess before, now
+confirmed from their source alongside the wallpaper fallback fix).
+
+Net result: the whole cutout/compositor-blur investigation (multiple
+sessions, a second-opinion review, real diagnostic effort) turned out
+to be solving a problem ambxst's own design doesn't actually have.
+Worth remembering for next time: check what the reference project
+*actually does* before chasing a technique it doesn't use.
+
 ## Agent icon added back to quick controls
 
 Per direct request -- with the column now `250px` wide and toggles at

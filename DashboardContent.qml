@@ -146,10 +146,21 @@ Item {
       color: "transparent"
       clip: true
 
+      // Matches ambxst's real fallback exactly (checked their source
+      // directly, not guessed): blur the track's own art when playing,
+      // otherwise blur the actual desktop wallpaper file -- there's
+      // always something to blur, never a blank/plain background. Not
+      // a live compositor blur-through to whatever's behind the notch
+      // (that was the wrong target entirely) -- ambxst's own player
+      // never shows real desktop, just blurred art OR a blurred static
+      // wallpaper image, same MultiEffect either way.
+      readonly property string wallpaperPath: "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
+      readonly property string playerBgSource: root.artUrl !== "" ? root.artUrl : wallpaperPath
+
       Image {
         id: playerBgArt
         anchors.fill: parent
-        source: root.artUrl
+        source: playerCard.playerBgSource
         sourceSize: Qt.size(64, 64)
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
@@ -159,11 +170,11 @@ Item {
       MultiEffect {
         anchors.fill: parent
         source: playerBgArt
-        blurEnabled: root.artUrl !== ""
+        blurEnabled: true
         blurMax: 32
         blur: 1.0
-        opacity: root.artUrl !== "" ? 0.35 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 200 } }
+        // 0.25, matching ambxst's own ratio exactly (was 0.35, a guess).
+        opacity: 0.25
       }
 
       ColumnLayout {

@@ -288,10 +288,15 @@ Item {
       // actual DefaultView.qml row) -- our actual content (avatar +
       // divider + play glyph/wave + divider + bell) is narrower than
       // theirs, so 290 left a big empty gap between the avatar/bell and
-      // the notch's own curved edges. 240 leaves a modest, even margin
-      // instead. Expanded width (420) is unrelated -- ambxst's
+      // the notch's own curved edges. First attempt went to 240, but
+      // collapsedContent's real parent is a clip:true Item sized to
+      // exactly bodyWidth (see below) -- content measures ~236-240px
+      // wide (avatar 20 + 2 dividers + wave-track 140 + play glyph +
+      // bell + Row spacing), landing right at that clip edge and cutting
+      // the bell off. 260 gives real margin instead of a knife's-edge
+      // fit. Expanded width (420) is unrelated -- ambxst's
       // notificationMinWidth target, still fits our own expanded content.
-      readonly property int bodyWidth: panel.expanded ? 420 : 240
+      readonly property int bodyWidth: panel.expanded ? 420 : 260
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a

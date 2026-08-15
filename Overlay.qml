@@ -32,6 +32,12 @@ Item {
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
+        // Purely decorative, zero interactive elements — without this,
+        // this full-screen topmost-layer surface swallows scroll/click
+        // input for everything underneath (e.g. terminal scrollback),
+        // even with no MouseArea in the QML. Matches the same `mask:
+        // Region {}` pattern the built-in bar/osd plugins use.
+        mask: Region {}
 
         Canvas {
             id: canvas

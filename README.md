@@ -130,10 +130,25 @@ with open(path, 'w') as f: json.dump(data, f, indent=2)
 "
 ```
 
+`ruixen.applauncher` (see `ruixen-tray-widgets`) was enabled and moved from
+its default `bar.layout.center` insertion point into `bar.layout.right`,
+alongside the rest of `togglesPillIds`:
+
+```bash
+python3 -c "
+import json
+path = '$HOME/.config/omarchy/shell.json'
+with open(path) as f: data = json.load(f)
+data['bar']['layout']['center'] = [w for w in data['bar']['layout']['center'] if w.get('id') != 'ruixen.applauncher']
+data['bar']['layout']['right'].append({'id': 'ruixen.applauncher'})
+with open(path, 'w') as f: json.dump(data, f, indent=2)
+"
+```
+
 `shell.json` itself isn't symlinked from this repo — Omarchy rewrites it
 constantly (theme changes, `omarchy bar` commands), so it's live state, not
-a static dotfile. This command is the reproducible record of the one
-layout change made here.
+a static dotfile. These commands are the reproducible record of the layout
+changes made here.
 
 ## Companion setup (required for the full look)
 

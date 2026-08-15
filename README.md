@@ -437,6 +437,41 @@ part of the notch's shared black instead of its own darker floating
 box, matching the other columns' relationship to the shared base
 without needing an actual desktop-blur-through effect at all.
 
+**Follow-up, the actual real ask**: still wasn't it -- "no its not the
+blur im talking about, its like a hole or cut out of the border of
+the music card only... does this mean the notch is transparent and
+each of our section have oled bg or something?" Correct diagnosis:
+they wanted a literal geometric hole in the notch's own rendered
+surface for that column, not alpha-blended tinting against the shared
+black. Implemented in `notchMask` (`Overlay.qml`) -- a plain black
+`Rectangle` painted on top of `centerMask`'s white fill, at the exact
+position/size `playerCard` occupies in `DashboardContent.qml`'s
+layout (`x: notchOuter.cornerSize + 12, y: 20, width: 210, height:
+parent.height - 20 - 12`, mirroring `cornerSize` + `expandedContent`'s
+margins + `playerCard`'s own width). Since the mask uses
+luminance-based thresholding (`maskThresholdMin: 0.5`), pure black
+there means `notchBg`'s `layer.effect` genuinely doesn't paint
+anything in that region -- combined with `playerCard`'s already-fully-
+transparent fill (previous fix) and `PanelWindow.color: "transparent"`,
+that area is a real gap in the rendered surface, not a color trick.
+Confirmed via screenshot: actual terminal text visible straight
+through the player column, while every other column stays solid
+black. A nice side effect: since the blurred-art `MultiEffect` still
+sits on top at `opacity: 0.35` when there IS media, playing music
+naturally blends 35% blurred album art over 65% real desktop behind
+it -- an actual tinted-glass look, not something separately built.
+
+`visible: panel.pinnedOpen || panel.hoverOpen` scopes the cutout to
+exactly when the dashboard's real player column exists (matches
+`panel.expanded` minus `launcherOpen`, since launcher/collapsed have
+no player column to align the hole to).
+
+**Stress-tested 3x** (open/close cycles, screenshot each round) given
+this touches the same `notchMask`/`notchBg` masking system that
+caused the flat-bottom-corner bug earlier in this project -- clean
+rounded corners and a consistent cutout across all 3 rounds, no
+recurrence.
+
 ## Agent icon added back to quick controls
 
 Per direct request -- with the column now `250px` wide and toggles at

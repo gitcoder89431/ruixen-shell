@@ -518,6 +518,29 @@ Item {
           corner: 0
           fillColor: "#ffffff"
         }
+
+        // Literal cutout for the player column's own background --
+        // painted black (excluded) on top of centerMask's white fill, so
+        // notchBg's masked layer.effect genuinely doesn't paint anything
+        // there. Combined with playerCard's own fully-transparent fill
+        // (DashboardContent.qml) and PanelWindow's own color:
+        // "transparent", this is a real hole through to whatever's
+        // behind the notch -- not alpha blending, an actual gap in the
+        // rendered surface. Geometry mirrors playerCard's position in
+        // DashboardContent.qml's RowLayout: cornerSize + expandedContent's
+        // leftMargin (12) horizontally, its top/bottom margins (20/12)
+        // vertically, playerCard's own 210px width. Only relevant for the
+        // dashboard (media hover/pin) -- launcher and collapsed states
+        // don't have this column at all.
+        Rectangle {
+          visible: panel.pinnedOpen || panel.hoverOpen
+          x: notchOuter.cornerSize + 12
+          y: 20
+          width: 210
+          height: parent.height - 20 - 12
+          radius: 10
+          color: "#000000"
+        }
       }
 
       // Small grace period before an exit actually collapses the notch.

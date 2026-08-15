@@ -49,10 +49,23 @@ Item {
     return minutes + ":" + String(rest).padStart(2, "0")
   }
 
-  // Shared "pane" look -- a slightly-lighter-than-notch tonal card, used
-  // for every column's own background. Mirrors ambxst's StyledRect
-  // variant:"pane" without needing their theming system.
+  // Shared "pane" look -- OLED-black fill (transparent over the notch's
+  // own black background) with a visible grey outline, instead of a
+  // filled tonal card. Reads as a thick border framing each column
+  // rather than a lighter grey block sitting on black -- per direct
+  // feedback that this looked cleaner than the earlier filled version.
   component Pane: Rectangle {
+    radius: 10
+    color: "transparent"
+    border.color: Qt.rgba(1, 1, 1, 0.14)
+    border.width: 1.5
+    clip: true
+  }
+
+  // Kept as the original filled tonal card -- notifications stays grey
+  // per direct feedback, the one column that didn't switch to Pane's
+  // black+border look above.
+  component PaneFilled: Rectangle {
     radius: 10
     color: Qt.rgba(1, 1, 1, 0.05)
     clip: true
@@ -348,7 +361,7 @@ Item {
     }
 
     // ---- Column 3: notification history (static placeholder) --------
-    Pane {
+    PaneFilled {
       Layout.fillWidth: true
       Layout.fillHeight: true
 

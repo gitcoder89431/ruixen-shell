@@ -163,6 +163,20 @@ bottom corners each time) against the flat-bottom-corner masking bug
 documented above before keeping it — clean rounded corners all 3
 rounds, no recurrence.
 
+**Pane styling**: originally every column used one filled tonal card
+look (`Pane`: `Qt.rgba(1,1,1,0.05)` fill, no border) — a flat grey
+block sitting on the notch's own black background. Per direct
+feedback this read as "backwards" next to ambxst's own OLED-mode
+look: the player/quick-controls/calendar/volume-dial columns switched
+to `Pane` v2 -- `color: "transparent"` (falls through to the notch's
+real black) with a `Qt.rgba(1,1,1,0.14)` / `1.5px` border, so each
+column reads as a black card *framed* by a visible grey outline
+instead of a grey block. **Notifications is the one deliberate
+exception** -- kept on the original filled look, now split out as its
+own `PaneFilled` component, per direct "yea i want the notification
+grey" feedback after the black+border pass. Two components now,
+picked per-column, not a single shared one.
+
 **A real layout bug worth knowing about**: `Layout.preferredWidth`
 alone does not hard-cap a `RowLayout` column's width if a child further
 down wants more — the calendar's own natural content width was

@@ -9,7 +9,7 @@ import "TrayModel.js" as TrayModel
 
 BarWidget {
   id: root
-  moduleName: "omarchy.tray"
+  moduleName: "ruixen.tray"
 
   property bool trayMenuOpen: false
   property var activeTrayItem: null

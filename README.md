@@ -177,6 +177,22 @@ gear pinned at the bottom via a `Layout.fillHeight` spacer above it.
 Column width and button size (48×48, up from an initial 30×30) match
 the volume/brightness/mic dial column on the right per direct
 feedback — the first pass was too thin and clipped the settings glyph.
+
+**Clicking a tab near the box's own edge could collapse the notch
+before the click landed.** Staying expanded here relied entirely on
+unbroken hover (`panel.hoverOpen`) -- a tab click doesn't bubble up to
+the notch's own click-to-pin `MouseArea` (its own `MouseArea` consumes
+the click first), so nothing set `pinnedOpen`. If the cursor's approach
+toward the tab bar (which sits close to the expanded box's own left
+edge) so much as grazed outside `notchOuter`'s hit rect -- e.g. while
+the 230ms grow animation was still catching up -- `onExited` fired
+immediately and the whole thing shrank back down, "chasing" the mouse
+away from the target it was reaching for. Fixed two ways: (1)
+`hoverExitTimer`, a 220ms debounce between `onExited` and actually
+setting `hoverOpen = false`, giving brief boundary hiccups room to
+self-correct; (2) every tab button's `onActivated` also sets
+`panel.pinnedOpen = true`, so once a tab's actually been clicked the
+notch no longer depends on hover at all.
 State lives on `panel.dashboardTab` (`0`/`1`/`2`), one `Item` per tab
 toggling `visible` — same "one window, swap content" mechanism ambxst
 uses (no `StackView`, no second window/animation to coordinate).

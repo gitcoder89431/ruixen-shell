@@ -505,11 +505,25 @@ Item {
         }
       }
 
+      // Small grace period before an exit actually collapses the notch.
+      // Without this, reaching for content near the expanded box's own
+      // edges (the dashboard's left tab bar in particular -- see
+      // DashboardContent/the tab bar above) could catch the cursor
+      // mid-grow-animation or briefly outside the hit rect and collapse
+      // the whole thing before a click could land, "chasing" the target
+      // as it shrank back out from under the mouse.
+      Timer {
+        id: hoverExitTimer
+        interval: 220
+        repeat: false
+        onTriggered: panel.hoverOpen = false
+      }
+
       MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        onEntered: panel.hoverOpen = true
-        onExited: panel.hoverOpen = false
+        onEntered: { hoverExitTimer.stop(); panel.hoverOpen = true }
+        onExited: hoverExitTimer.restart()
         onClicked: panel.pinnedOpen = !panel.pinnedOpen
       }
 
@@ -664,20 +678,25 @@ Item {
               Layout.fillHeight: true
               spacing: 8
 
+              // Clicking a tab also pins the notch open (same flag the
+              // notch's own click-to-pin uses) -- without this, staying
+              // open here depended entirely on unbroken hover, and a tab
+              // click near the box's own edge could lose that hover
+              // (see hoverExitTimer above) right as the click landed.
               TabButton {
                 glyph: "󰕰"
                 active: panel.dashboardTab === 0
-                onActivated: panel.dashboardTab = 0
+                onActivated: { panel.dashboardTab = 0; panel.pinnedOpen = true }
               }
               TabButton {
                 glyph: ""
                 active: panel.dashboardTab === 1
-                onActivated: panel.dashboardTab = 1
+                onActivated: { panel.dashboardTab = 1; panel.pinnedOpen = true }
               }
               TabButton {
                 glyph: ""
                 active: panel.dashboardTab === 2
-                onActivated: panel.dashboardTab = 2
+                onActivated: { panel.dashboardTab = 2; panel.pinnedOpen = true }
               }
 
               Item { Layout.fillHeight: true }

@@ -467,6 +467,14 @@ Item {
                 }
               }
 
+              // Divider between the weekday labels and the day grid --
+              // ambxst has the same Separator in this exact spot.
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: Qt.rgba(1, 1, 1, 0.14)
+              }
+
               Repeater {
                 model: calendarPane.weeks
 

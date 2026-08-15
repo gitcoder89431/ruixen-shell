@@ -25,6 +25,31 @@ two surfaces on the same layer have no defined stacking order) and
 neither panned out, so this is parked at `Overlay` for now since it's the
 one confirmed to actually render.
 
+## Companion setup (required for the full look)
+
+This plugin only draws the border — for the intended cohesive look you also
+need:
+
+1. **[`ruixen.bar`](https://github.com/gitcoder89431/ruixen-bar)** — a bar
+   that sits inset inside this frame's hole instead of flush against the
+   screen edge. The stock built-in Omarchy bar doesn't support this (no
+   margin/inset config), so this frame alone will visually clip across
+   whatever bar you're using unless it's `ruixen.bar` or something insetting
+   the same way.
+2. **Rounded window corners matching this plugin's `cornerRadius` (24)** —
+   set in Hyprland, not here (a Quickshell plugin can't reach into the
+   compositor's own settings):
+   ```lua
+   -- ~/.config/hypr/looknfeel.lua
+   hl.config({
+     decoration = {
+       rounding = 24,
+     },
+   })
+   ```
+   Without this, windows keep sharp 90° corners while the frame and bar are
+   rounded — inconsistent, not broken, but not the intended look.
+
 ## Install (local dev)
 
 ```bash

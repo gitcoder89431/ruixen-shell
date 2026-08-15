@@ -22,10 +22,9 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    // Grid glyph, not a magnifying glass -- the launcher itself dropped
-    // search entirely (a few favorite-app icons now, see ruixen-notch),
-    // so a grid reads truer to what actually opens.
-    text: "󰕰"
+    // Home outline -- the 2x2 grid glyph read too much like the Windows
+    // Start icon.
+    text: "󰚡"
     tooltipText: "App Launcher"
     onPressed: function() { root.toggleLauncher() }
   }

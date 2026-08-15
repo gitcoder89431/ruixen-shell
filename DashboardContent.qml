@@ -455,8 +455,8 @@ Item {
           // block of empty grey space below a small fixed-size grid.
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 250
-            Layout.maximumHeight: 250
+            Layout.preferredHeight: 268
+            Layout.maximumHeight: 268
             Layout.alignment: Qt.AlignTop
             radius: 6
             color: "#000000"

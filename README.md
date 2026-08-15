@@ -387,6 +387,11 @@ of new spacing needed).
 **Follow-up: weekday labels (M T W T F S S) too light/small.** Bumped
 `10px` -> `13px` and added `font.bold: true`.
 
+**Follow-up: still a sliver of unfilled grey below the day-grid.**
+Day-grid `Rectangle` height `250px` -> `268px`, closing the last bit
+of the gap between the black grid and calendarPane's own grey card
+edge.
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

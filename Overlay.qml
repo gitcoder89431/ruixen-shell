@@ -255,7 +255,13 @@ Item {
       id: notchOuter
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
-      readonly property int cornerSize: 18
+      // Ambxst derives its own notch corner geometry from its window
+      // rounding config (roundness=16 default): cornerSize=roundness+4,
+      // collapsed radius=roundness+4, expanded radius=roundness+20. Our
+      // frame/Hyprland rounding is 24, not 16 -- same formula, our own
+      // rounding: cornerSize=28, collapsed radius=28 (see centerMask
+      // below), expanded radius=44.
+      readonly property int cornerSize: 28
       // Matched to ambxst's actual numbers: DefaultView.qml's collapsed
       // row is 44px tall, ~284-290px wide (200px base + avatar/
       // separators/bell). Their own "expanded" state is notification-
@@ -345,8 +351,8 @@ Item {
           color: "#ffffff"
           topLeftRadius: 0
           topRightRadius: 0
-          bottomLeftRadius: panel.expanded ? 26 : 16
-          bottomRightRadius: panel.expanded ? 26 : 16
+          bottomLeftRadius: panel.expanded ? 44 : 28
+          bottomRightRadius: panel.expanded ? 44 : 28
 
           Behavior on bottomLeftRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
           Behavior on bottomRightRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }

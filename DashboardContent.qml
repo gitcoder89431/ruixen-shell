@@ -333,13 +333,24 @@ Item {
           var month = first.getMonth()
           var firstWeekday = (first.getDay() + 6) % 7 // 0=Mon
           var daysInMonth = new Date(year, month + 1, 0).getDate()
+          var prevMonthDays = new Date(year, month, 0).getDate()
           var cells = []
-          for (var i = 0; i < firstWeekday; i++) cells.push({ day: "", inMonth: false, isToday: false })
+          // Leading days -- the tail end of the previous month, shown
+          // muted (inMonth: false) instead of left blank.
+          for (var i = 0; i < firstWeekday; i++) {
+            cells.push({ day: String(prevMonthDays - firstWeekday + 1 + i), inMonth: false, isToday: false })
+          }
           for (var d = 1; d <= daysInMonth; d++) {
             var isToday = monthShift === 0 && d === today.getDate()
             cells.push({ day: String(d), inMonth: true, isToday: isToday })
           }
-          while (cells.length % 7 !== 0) cells.push({ day: "", inMonth: false, isToday: false })
+          // Trailing days -- the start of next month, same muted
+          // treatment.
+          var nextDay = 1
+          while (cells.length % 7 !== 0) {
+            cells.push({ day: String(nextDay), inMonth: false, isToday: false })
+            nextDay++
+          }
           var rows = []
           var currentWeekRow = -1
           for (var r = 0; r < cells.length; r += 7) {

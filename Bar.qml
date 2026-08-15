@@ -1264,8 +1264,9 @@ Item {
             }
 
             Rectangle {
-              width: 1
+              width: 2
               height: Style.space(14)
+              radius: width / 2
               anchors.verticalCenter: parent.verticalCenter
               color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, 0.3)
             }

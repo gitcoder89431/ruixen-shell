@@ -35,12 +35,18 @@ cluster sits in its own small rounded "pill" (`component GroupPill`, solid
 `#000000`, matching `ruixen.frame-widget`'s hardcoded black), so groups read
 as separate floating islands rather than one continuous bar:
 
-- **menuPill** — just the Omarchy logo/menu icon.
+- **menuPill** — leftmost pill, but no longer the Omarchy logo. Removed
+  `omarchy.menu` from the bar layout entirely per direct request and put
+  `ruixen.applauncher` (home icon) in the same slot instead. `Super+Space`
+  still opens the stock menu regardless — that's `omarchy.menu`'s own
+  "menu" kind via the `omarchy-menu` CLI, unrelated to whether it has a
+  bar button (the shell's own `PluginRegistry.qml` has a comment
+  confirming this exact case is handled: a plugin that's both a menu and
+  a bar-widget can't be locked out of the shell by removing its button).
+  `ruixen.applauncher` opens `ruixen.notch`'s quick-launcher mode instead
+  (see `ruixen-notch`'s README) — previously had its own separate pill
+  after workspacesPill, moved here since the leftmost slot freed up.
 - **workspacesPill** — workspace numbers.
-- **applauncherPill** — `ruixen.applauncher` on its own, right after
-  workspacesPill. Opens `ruixen.notch`'s quick-launcher mode (see
-  `ruixen-notch`'s README) — moved here from the right side's togglesPill,
-  which was getting visually heavy with 6+ icons in one pill.
 - **rightPill** — the general icon tray (agents, bluetooth, network, audio,
   monitor, power).
 - **togglesPill** — keyboard layout, system update, stay-awake,
@@ -120,34 +126,30 @@ insets.
 
 ## Bar layout used with this setup
 
-`omarchy.menu` (the leftmost distro-logo icon) was removed and re-added via
-`~/.config/omarchy/shell.json`'s `bar.layout.left` — no dedicated `omarchy
-bar remove` command exists, so it's a direct JSON edit:
+`omarchy.menu` (the leftmost distro-logo icon) went through a few rounds:
+removed and re-added early on (no dedicated `omarchy bar remove` command
+exists, so it's a direct JSON edit), then removed for good and replaced
+with `ruixen.applauncher` in that same leftmost slot. `Super+Space` still
+opens the stock menu regardless of whether it has a bar button — see
+menuPill's own comment above for why that's safe.
+
+`ruixen.applauncher` (see `ruixen-tray-widgets`) took a similarly winding
+path: enabled and defaulted into `bar.layout.center`, moved to
+`bar.layout.right` (alongside `togglesPillIds`) when the right side got
+crowded, moved again to its own pill in `bar.layout.left` after
+workspaces, and finally into `omarchy.menu`'s old leftmost slot once that
+was removed entirely. Current end state:
 
 ```bash
 python3 -c "
 import json
 path = '$HOME/.config/omarchy/shell.json'
 with open(path) as f: data = json.load(f)
-data['bar']['layout']['left'] = [w for w in data['bar']['layout']['left'] if w.get('id') != 'omarchy.menu']
-with open(path, 'w') as f: json.dump(data, f, indent=2)
-"
-```
-
-`ruixen.applauncher` (see `ruixen-tray-widgets`) was enabled, defaulted
-into `bar.layout.center`, briefly lived in `bar.layout.right` (alongside
-`togglesPillIds`), then moved to `bar.layout.left` — the right side was
-getting visually heavy, so it got its own pill (`applauncherPill`) right
-after the workspace numbers instead:
-
-```bash
-python3 -c "
-import json
-path = '$HOME/.config/omarchy/shell.json'
-with open(path) as f: data = json.load(f)
+left = [w for w in data['bar']['layout']['left'] if w.get('id') not in ('omarchy.menu', 'ruixen.applauncher')]
+left.insert(0, {'id': 'ruixen.applauncher'})
+data['bar']['layout']['left'] = left
 for section in ('center', 'right'):
     data['bar']['layout'][section] = [w for w in data['bar']['layout'][section] if w.get('id') != 'ruixen.applauncher']
-data['bar']['layout']['left'].append({'id': 'ruixen.applauncher'})
 with open(path, 'w') as f: json.dump(data, f, indent=2)
 "
 ```

@@ -1283,6 +1283,15 @@ Item {
           }
         }
 
+        // Was omarchy.menu (the Omarchy logo) -- removed from the bar
+        // layout entirely per direct request, replaced with
+        // ruixen.applauncher in the same leftmost slot. Super+Space
+        // keeps working regardless -- that goes through omarchy.menu's
+        // own "menu" kind via the stock omarchy-menu CLI, unrelated to
+        // whether it has a bar button (the shell's own inBar() comment
+        // confirms this exact case: a plugin that's both a menu and a
+        // bar-widget can't be locked out of the shell by taking its
+        // button off the bar).
         Item {
           id: menuPill
           anchors.left: parent.left
@@ -1296,19 +1305,7 @@ Item {
           // from 16, same reasoning as clockPill's rightMargin.
           anchors.leftMargin: 12
           anchors.verticalCenter: parent.verticalCenter
-          // Small +4 each side (was +6, trimmed to 0, now split the
-          // difference) — the omarchy.menu widget itself already has
-          // horizontalMargin: 7.5 baked in as click-target padding
-          // (BarWidget.qml), so full +6 was double-stacking into an
-          // oval. Zero padding fixed that but read as too tight against
-          // the glyph -- also the glyph's own ink isn't perfectly
-          // centered within its reported implicitWidth (icon-font
-          // side-bearing asymmetry, same kind of issue as the weather
-          // glyph set), which reads as a lopsided pill with zero buffer
-          // to absorb it. menuContent stays anchors.centerIn: parent --
-          // geometrically centered either way, this is purely about the
-          // glyph's own rendered ink not being symmetric within its box.
-          width: menuContent.implicitWidth + 4 * 2
+          width: menuContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1316,7 +1313,7 @@ Item {
           ModuleList {
             id: menuContent
             anchors.centerIn: parent
-            entries: root.layoutEntries("left").filter(function(e) { return root.entryId(e) === "omarchy.menu" })
+            entries: root.layoutEntries("left").filter(function(e) { return root.entryId(e) === "ruixen.applauncher" })
             region: "left"
           }
         }
@@ -1340,30 +1337,8 @@ Item {
             id: workspacesContent
             anchors.centerIn: parent
             entries: root.layoutEntries("left").filter(function(e) {
-              return root.entryId(e) !== "omarchy.menu" && root.entryId(e) !== "ruixen.applauncher"
+              return root.entryId(e) !== "ruixen.applauncher"
             })
-            region: "left"
-          }
-        }
-
-        // Own pill, not folded into togglesPill on the right -- moved
-        // here specifically because the right side was getting visually
-        // heavy (6+ icons in one pill). Sits right after the workspace
-        // numbers, its own small single-icon pill same as menuPill.
-        Item {
-          id: applauncherPill
-          anchors.left: workspacesPill.right
-          anchors.leftMargin: 6
-          anchors.verticalCenter: parent.verticalCenter
-          width: applauncherContent.implicitWidth + 6 * 2
-          height: root.barSize - Style.space(2)
-
-          GroupPill { anchors.fill: parent }
-
-          ModuleList {
-            id: applauncherContent
-            anchors.centerIn: parent
-            entries: root.layoutEntries("left").filter(function(e) { return root.entryId(e) === "ruixen.applauncher" })
             region: "left"
           }
         }

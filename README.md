@@ -40,27 +40,35 @@ as separate floating islands rather than one continuous bar:
 - **rightPill** — the general icon tray (agents, bluetooth, network, audio,
   monitor, power).
 - **togglesPill** — keyboard layout, system update, stay-awake,
-  do-not-disturb, weather, quick actions, in that order
-  (`omarchy.keyboard-layout`, `omarchy.system-update`, `ruixen.stayawake`,
-  `ruixen.dnd`, `ruixen.weather`, `ruixen.quickactions` — see
-  `ruixen-tray-widgets` for the four `ruixen.*` ones), always present.
-  `keyboard-layout`, `system-update`, and `weather` all only actually show
-  an icon when there's something to show (a second layout configured / an
-  update available / a weather label loaded) — all three moved here from
-  the center layout. `keyboard-layout` and `system-update` needed no
-  patching (plain layout move, still the stock first-party widget);
-  `weather` did — stock uses a narrower `Style.bar.statusSlot` (sized for
-  the denser center cluster it came from), which looked visibly undersized
-  next to the icon-style widgets here, so it's a clone
-  (`ruixen.weather`) with `slotSize` bumped to `Style.bar.iconSlot` to
-  match. Click behavior otherwise untouched on all three — same
-  widens-when-there's-something-to-show pattern as trayPill.
+  do-not-disturb, quick actions, in that order (`omarchy.keyboard-layout`,
+  `omarchy.system-update`, `ruixen.stayawake`, `ruixen.dnd`,
+  `ruixen.quickactions` — see `ruixen-tray-widgets` for the three
+  `ruixen.*` ones), always present. `keyboard-layout` and `system-update`
+  only actually show an icon when there's something to show (a second
+  layout configured / an update available) — both moved here from the
+  center layout, no patching needed (plain layout move, still the stock
+  first-party widget) — same widens-when-there's-something-to-show
+  pattern as trayPill.
 - **trayPill** — the system tray (`ruixen.tray`) on its own, separate from
   togglesPill, faded via `opacity: trayContent.width > 0 ? 1 : 0` instead
   of toggling `visible` when no tray apps are running — safe to let it
   empty out because togglesPill next to it is a separate, always-present
   anchor pill. Simpler than juggling anchors/width around a pill that
   comes and goes, and avoids the `implicitWidth`-vs-`width` pitfall below.
+- **clockPill** — weather icon, a thin divider `Rectangle`, then the clock
+  — rightmost pill on the bar (took over rightPill's old
+  `anchors.right: parent.right` spot; rightPill now anchors off
+  `clockPill.left` instead). Direct `ModuleSlot`s in a `Row`, not a
+  `ModuleList`, since `ModuleList` has no separator support. Uses
+  `ruixen.weather` (see `ruixen-tray-widgets`) for the icon-size match;
+  clock is still the stock `omarchy.clock`, untouched. Center region is
+  empty now — left open for a possible future center widget (media
+  controls were mentioned).
+  **Known limitation**: clicking weather or clock opens its popup centered
+  on the whole bar, not anchored near this pill — both stock panels
+  hardcode `centerOnBar: true`, not exposed as a setting, only fixable by
+  cloning. Left as-is (not worth it, especially since center may get
+  repopulated later anyway).
 
 Each pill's own width is driven by its content's `width` (see
 `root.sideRightIds`/`root.togglesPillIds` and the `.filter(...)` calls

@@ -255,7 +255,7 @@ Item {
           spacing: 8
 
           QuickToggle {
-            glyph: "󰤨"
+            glyph: "󰖩"
             active: Networking.wifiEnabled
             onActivated: Networking.wifiEnabled = !Networking.wifiEnabled
           }

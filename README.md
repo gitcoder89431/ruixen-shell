@@ -370,6 +370,13 @@ to the now-bigger day-grid. Bumped to match: row height `22px` ->
 `28px`, chevron pill width `22px` -> `28px`, title text `11px` ->
 `13px`, chevron glyph `11px` -> `14px`, pill radius `6` -> `8`.
 
+**Follow-up: quick-controls frame/border too thin** next to the now
+bigger toggles. `Pane`'s shared default (`border.width: 1.5`) is
+overridden per-instance here to `2.5`, height `52px` -> `60px`, radius
+`10` -> `14` -- a visibly thicker, chunkier card than the other 3
+`Pane`s in this file, deliberately (only this instance is overridden,
+not the shared component).
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

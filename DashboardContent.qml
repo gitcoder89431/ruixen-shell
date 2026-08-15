@@ -247,7 +247,11 @@ Item {
       // (220->250) and giving the calendar below more room too.
       Pane {
         Layout.fillWidth: true
-        Layout.preferredHeight: 52
+        Layout.preferredHeight: 60
+        // Thicker/more visible frame than the other Panes, per direct
+        // request -- overrides the shared component's default 1.5px.
+        border.width: 2.5
+        radius: 14
 
         Row {
           anchors.centerIn: parent

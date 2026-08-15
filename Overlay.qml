@@ -313,27 +313,28 @@ Item {
       // the bell off. 260 gives real margin instead of a knife's-edge
       // fit. Expanded width (420) is unrelated -- ambxst's
       // notificationMinWidth target, still fits our own expanded content.
-      // Launcher reuses the exact collapsed dimensions (260x44), not a
-      // new size -- an earlier version gave it its own size (340x260,
-      // then taller attempts up to 360) for a scrollable search-results
-      // list, and taller heights turned out to hit a real, non-
-      // deterministic bug in the notchBg masking below (flat un-rounded
-      // bottom corner on SOME opens but not others, same height, same
-      // process, no restart in between -- not a clean fixed threshold).
-      // Simplified to a few favorite-app icons per direct feedback, no
-      // search/scrolling needed at all -- so it just reuses 260x44, the
-      // most-exercised, proven-stable code path in this whole file,
-      // rather than gamble on any new size.
-      readonly property int bodyWidth: (panel.pinnedOpen || panel.hoverOpen) ? 420 : 260
+      // Launcher reuses the exact same expanded dimensions (420x190) as
+      // the media view, not its own size -- an earlier version tried a
+      // new, taller size (340x260, then up to 360) for a scrollable
+      // search-results list, which hit a real, non-deterministic bug in
+      // the notchBg masking below (flat un-rounded bottom corner on SOME
+      // opens but not others, same height, same process, no restart in
+      // between -- not a clean fixed threshold). A second attempt went
+      // too far the other way, reusing the tiny 44px *collapsed* height
+      // instead -- too cramped, and inconsistent with every other
+      // "expanded" state always actually expanding. 420x190 is the
+      // proven-safe expanded size already exercised all session by the
+      // media view -- launcher reuses it exactly, no new height at all,
+      // and the favorite icons lay out in a grid to use the space (see
+      // launcherContent below).
+      readonly property int bodyWidth: panel.expanded ? 420 : 260
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a
       // buffer, so it no longer overlaps tiled windows the way it did
       // when this was smaller but the reserved zone was still just
-      // barSize-sized. launcherOpen folds into panel.expanded, but its
-      // own height stays 44 (see bodyWidth comment above) -- only the
-      // media view actually uses 190.
-      height: (panel.pinnedOpen || panel.hoverOpen) ? 190 : 44
+      // barSize-sized.
+      height: panel.expanded ? 190 : 44
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -410,13 +411,8 @@ Item {
           color: "#ffffff"
           topLeftRadius: 0
           topRightRadius: 0
-          // Keyed on pinnedOpen/hoverOpen specifically, not the generic
-          // panel.expanded -- launcherOpen reuses the 44px collapsed
-          // height (see notchOuter.height above), so it should use the
-          // matching 28 collapsed radius too, not the 44 "expanded"
-          // radius meant for the taller 190px media view.
-          bottomLeftRadius: (panel.pinnedOpen || panel.hoverOpen) ? 44 : 28
-          bottomRightRadius: (panel.pinnedOpen || panel.hoverOpen) ? 44 : 28
+          bottomLeftRadius: panel.expanded ? 44 : 28
+          bottomRightRadius: panel.expanded ? 44 : 28
 
           Behavior on bottomLeftRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
           Behavior on bottomRightRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -747,18 +743,23 @@ Item {
         // most-exercised, proven-stable code path in this whole file.
         //
         // Favorites are a plain hardcoded list of desktop-entry ids --
-        // edit favoriteAppIds below to change which 4 apps show. Reads
+        // edit favoriteAppIds below to change which apps show. Reads
         // shell.appLibrary the same way the search version did, just
         // looks entries up by id instead of running a search query.
-        Row {
+        // Laid out as a grid (3 columns) since the notch expands to the
+        // full 420x190 media size now -- plenty of room for icons at
+        // full size across two rows instead of squeezing everything
+        // into one cramped line.
+        Grid {
           id: launcherContent
           visible: panel.launcherOpen
           opacity: panel.launcherOpen ? 1 : 0
           anchors.centerIn: parent
-          spacing: 18
+          columns: 3
+          spacing: 28
           Behavior on opacity { NumberAnimation { duration: 160 } }
 
-          readonly property var favoriteAppIds: ["kitty", "org.gnome.Nautilus", "chromium", "code"]
+          readonly property var favoriteAppIds: ["kitty", "org.gnome.Nautilus", "chromium", "code", "spotify", "Discord"]
           readonly property var favoriteEntries: {
             if (!panel.launcherOpen || !root.shell || !root.shell.appLibrary) return []
             var all = root.shell.appLibrary.sortedEntries("")
@@ -777,12 +778,12 @@ Item {
             Item {
               id: favIcon
               required property var modelData
-              width: 32
-              height: 32
+              width: 56
+              height: 56
 
               Image {
                 anchors.fill: parent
-                sourceSize: Qt.size(32, 32)
+                sourceSize: Qt.size(56, 56)
                 asynchronous: true
                 source: root.shell.appLibrary.iconSource(favIcon.modelData.icon)
               }

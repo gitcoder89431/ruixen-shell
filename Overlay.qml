@@ -755,11 +755,11 @@ Item {
           visible: panel.launcherOpen
           opacity: panel.launcherOpen ? 1 : 0
           anchors.centerIn: parent
-          columns: 3
+          columns: 4
           spacing: 20
           Behavior on opacity { NumberAnimation { duration: 160 } }
 
-          readonly property var favoriteAppIds: ["kitty", "org.gnome.Nautilus", "chromium", "code", "spotify", "Discord"]
+          readonly property var favoriteAppIds: ["kitty", "org.gnome.Nautilus", "chromium", "code", "spotify", "Discord", "obsidian", "1password"]
           readonly property var favoriteEntries: {
             if (!panel.launcherOpen || !root.shell || !root.shell.appLibrary) return []
             var all = root.shell.appLibrary.sortedEntries("")

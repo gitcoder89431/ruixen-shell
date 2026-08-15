@@ -327,15 +327,19 @@ Item {
   }
 
   readonly property bool vertical: position === "left" || position === "right"
-  // +8 over the theme default: every pill's height and every widget's
-  // own icon slot size (BarIconButton reads bar.barSize) derive from
-  // this. BarPanel's top margin uses its own topInset (10, bigger than
-  // frameInset's 6) for extra breathing room under the frame -- the
-  // pills' occupied span (topInset + barSize = 10 + 34 = 44) still lands
-  // on notchClearance's target below, so the pills' bottom edge matches
-  // the notch's own bottom edge even though their top gap is now wider
-  // than the frame's own 6px thickness.
-  readonly property int barSize: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + 8
+  // A flat absolute now, NOT theme-relative -- used to derive from
+  // Style.bar.sizeHorizontal/sizeVertical + a flat offset, but bumping
+  // [font] base-size (done to get 18px icons, matching ambxst) scales
+  // those theme tokens by the same fontScale, which would balloon this
+  // past the 44 target below every time the font scale changes.
+  // BarIconButton only fixes *width* to Style.bar.iconSlot on a
+  // horizontal bar (see qs.Ui BarIconButton.qml's fixedWidth/
+  // fixedHeight split) -- height just fills whatever this pill provides,
+  // so growing iconSlot/iconFont doesn't force a taller pill; 34 has
+  // plenty of headroom for an 18px glyph. Paired with topInset (10, see
+  // BarPanel): topInset + barSize = 10 + 34 = 44, matching the notch's
+  // own bottom edge, same pairing notchClearance below uses.
+  readonly property int barSize: 34
 
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
@@ -1192,9 +1196,19 @@ Item {
         Item {
           id: clockPill
           anchors.right: parent.right
-          anchors.rightMargin: Style.space(8) + 8
+          // Flat px, not Style.space() -- that scales with [font]
+          // base-size (bumped for bigger bar icons), which was inflating
+          // every pill's padding/gaps right along with it and made pills
+          // read as oversized. Pinned back to the pre-bump numbers here;
+          // ambxst's own SysTray pill uses a flat 8px inner margin too
+          // (modules/bar/systray/SysTray.qml), same ballpark. Trimmed
+          // from 16 -- ambxst's own edge-to-icon distance tops out around
+          // 18px (frame+outerMargin) and they don't stack a curve-
+          // clearance margin on top of that the way we do for the
+          // frame's 24px corner.
+          anchors.rightMargin: 12
           anchors.verticalCenter: parent.verticalCenter
-          width: clockRow.implicitWidth + Style.space(10) * 2
+          width: clockRow.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1228,21 +1242,23 @@ Item {
         Item {
           id: menuPill
           anchors.left: parent.left
-          // Extra space on top of the usual Style.space(8) so content
-          // clears ruixen.frame-widget's rounded corner (cornerRadius: 24)
+          // Extra space on top of the usual 8px so content clears
+          // ruixen.frame-widget's rounded corner (cornerRadius: 24)
           // instead of starting right at the edge. Smaller than the +20
           // this started at — the pill's own background now provides
           // visual separation from the curve on its own, bare icons
-          // needed more raw clearance than a pill shape does.
-          anchors.leftMargin: Style.space(8) + 8
+          // needed more raw clearance than a pill shape does. Flat px,
+          // not Style.space() -- see clockPill's comment on why. Trimmed
+          // from 16, same reasoning as clockPill's rightMargin.
+          anchors.leftMargin: 12
           anchors.verticalCenter: parent.verticalCenter
           // Same sizing pattern as workspacesPill/rightPill, but tighter
-          // horizontal padding (6 vs 16) — the omarchy.menu widget itself
+          // horizontal padding (6 vs 8) — the omarchy.menu widget itself
           // already has horizontalMargin: 7.5 baked in as click-target
           // padding (BarWidget.qml), so our own wrapper padding was
           // stacking on top of that and reading as excessive around just
           // one small icon.
-          width: menuContent.implicitWidth + Style.space(6) * 2
+          width: menuContent.implicitWidth + 6 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1258,9 +1274,10 @@ Item {
         Item {
           id: workspacesPill
           anchors.left: menuPill.right
-          anchors.leftMargin: Style.space(4)
+          // Flat px, not Style.space() -- see clockPill's comment.
+          anchors.leftMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          width: workspacesContent.implicitWidth + Style.space(10) * 2
+          width: workspacesContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1279,9 +1296,13 @@ Item {
           // parent.right/curve-clearance anchor spot as the new
           // rightmost pill.
           anchors.right: clockPill.left
-          anchors.rightMargin: Style.space(8)
+          // Flat px, not Style.space() -- see clockPill's comment. Was
+          // Style.space(16), an intentional outlier for holding 6 icons;
+          // standardized down to the same 8px every other pill uses now
+          // that the icons themselves already read bigger/bolder (18px).
+          anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          width: rightContent.implicitWidth + Style.space(16) * 2
+          width: rightContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1307,12 +1328,13 @@ Item {
         Item {
           id: togglesPill
           anchors.right: rightPill.left
-          anchors.rightMargin: Style.space(8)
+          // Flat px, not Style.space() -- see clockPill's comment.
+          anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter
           // .width, not .implicitWidth -- ModuleList (a Loader) only
           // computes the former explicitly; see trayPill/ruixen-tray-
           // widgets README for the bug this caused there.
-          width: togglesContent.width + Style.space(10) * 2
+          width: togglesContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1337,9 +1359,10 @@ Item {
           id: trayPill
           opacity: trayContent.width > 0 ? 1 : 0
           anchors.right: togglesPill.left
-          anchors.rightMargin: Style.space(8)
+          // Flat px, not Style.space() -- see clockPill's comment.
+          anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          width: trayContent.width + Style.space(10) * 2
+          width: trayContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }

@@ -472,6 +472,46 @@ caused the flat-bottom-corner bug earlier in this project -- clean
 rounded corners and a consistent cutout across all 3 rounds, no
 recurrence.
 
+## Reverted: the cutout above never actually worked
+
+Follow-up debugging (prompted by direct feedback: "im not seeing a
+hole cut at all") found the geometry WAS wrong -- the original
+formula forgot the 70px left tab bar + 8px `RowLayout` spacing between
+it and the dashboard content, off by exactly 78px, confirmed by
+sampling actual rendered pixel color at a temporary red debug border
+around `playerCard` vs where the cutout rectangle assumed it started.
+
+Fixing the geometry did NOT fix the actual problem. Extensive
+isolation testing (temporarily setting `notchMask.visible: true` to
+preview the raw mask texture directly, toggling `layer.enabled`,
+testing a deliberately huge/impossible-to-miss cutout, nesting the
+Rectangle as a child of `centerMask` instead of a new sibling of
+`notchMask`, hardcoding `visible: true` with no bindings, forcing a
+genuinely cold process restart) found a real, reproducible
+technical wall: **a newly-added child Rectangle simply never appears
+in the texture `notchBg`'s masked `layer.effect` actually samples**,
+even though the exact same Rectangle renders correctly when previewed
+directly (`layer.enabled: false`). Property CHANGES on already-
+existing elements (e.g. `centerMask.visible = false`, which DID
+correctly reveal real desktop everywhere centerMask used to cover --
+proving the general masking-produces-transparency mechanism is sound)
+get picked up reliably every time; brand-new child elements added to
+an already-`layer.enabled` item's subtree do not, at least not in this
+Quickshell/Qt environment, across a dozen+ full process restarts
+(confirmed via changing PIDs each time, ruling out stale hot-reload).
+Root cause not conclusively identified -- suspect a scenegraph/layer-
+texture recapture bug specific to structural additions vs property
+mutations, not a QML authoring mistake.
+
+Reverted to the pre-cutout state (matching commit `1515bb8`) rather
+than ship broken/misleading code. If this comes back: don't retry the
+"add a new Rectangle to the mask tree" approach without first testing
+whether it renders in a `layer.enabled: false` preview (cheap,
+conclusive) -- and consider a single self-contained `QtQuick.Shapes`
+donut-path (outer notch boundary minus an inner rect, one path, even-
+odd fill) as a fundamentally different technique that doesn't rely on
+adding a new child to existing layered content.
+
 ## Agent icon added back to quick controls
 
 Per direct request -- with the column now `250px` wide and toggles at

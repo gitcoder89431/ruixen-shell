@@ -1138,6 +1138,28 @@ Item {
       Item {
         anchors.fill: parent
 
+        // True bar-center pill, separate from clockPill (which sits at
+        // the far right and only ever looks for weather/clock
+        // specifically). Media only shows itself when something's
+        // actually playing (omarchy.media's own visible: hasMedia), same
+        // widens-when-there's-something-to-show pattern as the others.
+        Item {
+          id: mediaPill
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          width: mediaContent.width + Style.space(10) * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: mediaContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("center").filter(function(e) { return root.entryId(e) === "omarchy.media" })
+            region: "center"
+          }
+        }
+
         // Solo pill, not CenterModules -- that component's hover-reveal/
         // drag-anchor machinery was built for the old indicators cluster
         // sharing this region (removed). Weather + a divider + clock,

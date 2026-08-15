@@ -176,13 +176,19 @@ BarWidget {
             anchors.margins: Style.space(2)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            source: root.activePlayer && root.activePlayer.trackArtUrl ? root.activePlayer.trackArtUrl : ""
+            // Gated on hasMedia, not just activePlayer -- see
+            // ruixen.notch's Overlay.qml for the zombie-MPRIS-
+            // registration case this guards against (harmless here in
+            // practice since the whole widget's visible: hasMedia
+            // already hides this popup, but kept consistent in case that
+            // ever changes).
+            source: root.hasMedia && root.activePlayer && root.activePlayer.trackArtUrl ? root.activePlayer.trackArtUrl : ""
             visible: source !== ""
           }
 
           Text {
             anchors.centerIn: parent
-            visible: !root.activePlayer || !root.activePlayer.trackArtUrl
+            visible: !root.hasMedia || !root.activePlayer || !root.activePlayer.trackArtUrl
             text: "󰝚"
             color: root.bar.foreground
             font.family: root.bar.fontFamily

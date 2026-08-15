@@ -30,8 +30,14 @@ Item {
   readonly property bool hasMedia: activePlayer !== null && (activePlayer.trackTitle || activePlayer.trackArtist)
   readonly property string title: activePlayer ? (activePlayer.trackTitle || "") : ""
   readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
-  readonly property string album: activePlayer && activePlayer.trackAlbum ? activePlayer.trackAlbum : ""
-  readonly property string artUrl: activePlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
+  // Both gated on hasMedia, not just activePlayer -- a closed app can
+  // leave a zombie MPRIS registration behind (e.g. chromium after
+  // quitting still owns org.mpris.MediaPlayer2.chromium.* on the session
+  // bus, PlaybackStatus "Stopped", with stale metadata but no title/
+  // artist). Ungated, consumers reading these directly would show stale
+  // art/album for a player that isn't actually playing anything.
+  readonly property string album: hasMedia && activePlayer && activePlayer.trackAlbum ? activePlayer.trackAlbum : ""
+  readonly property string artUrl: hasMedia && activePlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
   readonly property string identity: activePlayer ? (activePlayer.identity || activePlayer.desktopEntry || "") : ""
 
   function isProxyPlayer(player) {

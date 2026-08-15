@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -250,6 +251,41 @@ Item {
     opacity: 0.1
   }
 
+  // Left-side vertical tab-bar button, matching ambxst's Dashboard.qml
+  // tabsContainer icon buttons (Widgets/Wallpapers/Metrics stacked, plus
+  // a settings gear pinned at the bottom). Just a plain icon + tonal
+  // hover/active background, no ambxst StyledRect dependency, same
+  // approach as every other component ported into this file.
+  component TabButton: Rectangle {
+    id: tabBtn
+    property string glyph: ""
+    property bool active: false
+    signal activated()
+
+    Layout.preferredWidth: 30
+    Layout.preferredHeight: 30
+    Layout.alignment: Qt.AlignHCenter
+    radius: 8
+    color: active ? Qt.rgba(1, 1, 1, 0.14) : (tabMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.07) : "transparent")
+    Behavior on color { ColorAnimation { duration: 120 } }
+
+    Text {
+      anchors.centerIn: parent
+      text: tabBtn.glyph
+      color: tabBtn.active ? root.accent : root.textColor
+      font.family: root.fontFamily
+      font.pixelSize: 14
+    }
+
+    MouseArea {
+      id: tabMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: tabBtn.activated()
+    }
+  }
+
   PanelWindow {
     id: panel
     visible: true
@@ -295,11 +331,29 @@ Item {
     property bool launcherOpen: false
     readonly property bool expanded: pinnedOpen || hoverOpen || launcherOpen
 
+    // Which dashboard tab is showing (media/media hover/pin state only --
+    // launcher mode is unrelated). 0 Widgets (DashboardContent, the real
+    // port), 1 Wallpapers, 2 Metrics -- the latter two are stub panes for
+    // now, shell only, per direct request to build the tab switcher
+    // before the actual pages.
+    property int dashboardTab: 0
+
     IpcHandler {
       target: "ruixen.notch"
       function openLauncher(): void { panel.launcherOpen = true }
       function closeLauncher(): void { panel.launcherOpen = false }
       function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }
+    }
+
+    // Fire-once, not auto-running -- triggered by the tab bar's settings
+    // button (see expandedContent below). Opens Omarchy's own real
+    // settings menu rather than reimplementing a settings page here:
+    // "setup" is the root omarchy-menu.jsonc entry, aliased "settings",
+    // confirmed working via `omarchy-menu summon settings`.
+    Process {
+      id: settingsProc
+      command: ["omarchy-menu", "summon", "settings"]
+      running: false
     }
 
     // Click-away-to-dismiss -- covers the whole (now-widened) mask
@@ -593,26 +647,99 @@ Item {
           anchors.rightMargin: 12
           Behavior on opacity { NumberAnimation { duration: 160 } }
 
-          DashboardContent {
+          RowLayout {
             anchors.fill: parent
-            shell: root.shell
-            textColor: root.textColor
-            muted: root.muted
-            accent: root.accent
-            fontFamily: root.fontFamily
-            mediaService: root.mediaService
-            activePlayer: root.activePlayer
-            hasMedia: root.hasMedia
-            isPlaying: root.isPlaying
-            playIcon: root.playIcon
-            title: root.title
-            artist: root.artist
-            artUrl: root.artUrl
-            progressRatio: root.progressRatio
-            trackPosition: root.trackPosition
-            trackLength: root.trackLength
-            userHost: root.userHost
-            displayedTitle: root.displayedTitle
+            spacing: 10
+
+            // Left vertical tab bar -- ambxst's Dashboard.qml
+            // tabsContainer: Widgets/Wallpapers/Metrics stacked icon
+            // buttons, settings gear pinned at the bottom via a
+            // fillHeight spacer above it. Shell only for now: Wallpapers
+            // and Metrics are non-functional stub panes (see the content
+            // area below) -- only the tab switching itself and the real
+            // settings action are wired up.
+            ColumnLayout {
+              Layout.preferredWidth: 30
+              Layout.maximumWidth: 30
+              Layout.fillHeight: true
+              spacing: 6
+
+              TabButton {
+                glyph: "󰕰"
+                active: panel.dashboardTab === 0
+                onActivated: panel.dashboardTab = 0
+              }
+              TabButton {
+                glyph: ""
+                active: panel.dashboardTab === 1
+                onActivated: panel.dashboardTab = 1
+              }
+              TabButton {
+                glyph: ""
+                active: panel.dashboardTab === 2
+                onActivated: panel.dashboardTab = 2
+              }
+
+              Item { Layout.fillHeight: true }
+
+              // The one real action in this tab bar -- opens Omarchy's
+              // actual settings menu (see settingsProc above), not a
+              // notch-local settings page.
+              TabButton {
+                glyph: ""
+                onActivated: settingsProc.running = true
+              }
+            }
+
+            // Right: active tab's content.
+            Item {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+
+              DashboardContent {
+                anchors.fill: parent
+                visible: panel.dashboardTab === 0
+                shell: root.shell
+                textColor: root.textColor
+                muted: root.muted
+                accent: root.accent
+                fontFamily: root.fontFamily
+                mediaService: root.mediaService
+                activePlayer: root.activePlayer
+                hasMedia: root.hasMedia
+                isPlaying: root.isPlaying
+                playIcon: root.playIcon
+                title: root.title
+                artist: root.artist
+                artUrl: root.artUrl
+                progressRatio: root.progressRatio
+                trackPosition: root.trackPosition
+                trackLength: root.trackLength
+                userHost: root.userHost
+                displayedTitle: root.displayedTitle
+              }
+
+              // Stub panes -- tab switching works, real content doesn't
+              // exist yet. Per direct request: build the tab bar first,
+              // not the actual wallpaper/metrics pages.
+              Text {
+                anchors.centerIn: parent
+                visible: panel.dashboardTab === 1
+                text: "Wallpapers -- coming soon"
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 12
+              }
+
+              Text {
+                anchors.centerIn: parent
+                visible: panel.dashboardTab === 2
+                text: "Metrics -- coming soon"
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 12
+              }
+            }
           }
         }
 

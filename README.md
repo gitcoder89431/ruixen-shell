@@ -167,6 +167,35 @@ fixed-width column with an explicit `Layout.maximumWidth` matching its
 component as a backstop. Worth remembering for any future `RowLayout`/
 `ColumnLayout` work in this file.
 
+## Left-side tab bar (shell only)
+
+`Overlay.qml`'s `expandedContent` (media hover/pin state) now wraps
+`DashboardContent` in a `RowLayout` alongside a 30px-wide vertical tab
+bar on the left, matching ambxst's own `Dashboard.qml` `tabsContainer`:
+three stacked icon buttons (Widgets/Wallpapers/Metrics) with a settings
+gear pinned at the bottom via a `Layout.fillHeight` spacer above it.
+State lives on `panel.dashboardTab` (`0`/`1`/`2`), one `Item` per tab
+toggling `visible` — same "one window, swap content" mechanism ambxst
+uses (no `StackView`, no second window/animation to coordinate).
+
+Scoped to just the switcher, per direct request: **Widgets** (tab 0) is
+the real `DashboardContent` port; **Wallpapers** and **Metrics** (tabs
+1/2) are static "coming soon" stub panes, no actual page behind them
+yet. The **settings** gear is the one fully real action in this bar —
+it runs `omarchy-menu summon settings` via a fire-once `Process`
+(`settingsProc`, `running: false` until clicked), opening Omarchy's own
+real settings menu instead of reimplementing one here. `"setup"` is the
+actual root `omarchy-menu.jsonc` entry (aliased `"settings"`) —
+confirmed working directly (`omarchy-menu summon settings` opens the
+`omarchy-menu` layer) before wiring it up.
+
+Icon glyphs (Nerd Font Material Design Icons / Font Awesome codepoints,
+verified by screenshot, not guessed): Widgets reuses the grid glyph
+(`U+F0570`) from an earlier `ruixen.applauncher` icon iteration;
+Wallpapers is FA `image` (`U+F03E`); Metrics is FA `heartbeat`
+(`U+F21E`); Settings is FA `gear` (`U+F013`, the same glyph
+`ruixen.quickactions` used before its own swap to sliders-vertical).
+
 ## A real gotcha: `ruixen.media` got auto-disabled
 
 When `ruixen.media`'s entry was removed from `ruixen-bar`'s

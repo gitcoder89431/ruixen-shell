@@ -1291,13 +1291,15 @@ Item {
           // from 16, same reasoning as clockPill's rightMargin.
           anchors.leftMargin: 12
           anchors.verticalCenter: parent.verticalCenter
-          // Same sizing pattern as workspacesPill/rightPill, but tighter
-          // horizontal padding (6 vs 8) — the omarchy.menu widget itself
-          // already has horizontalMargin: 7.5 baked in as click-target
-          // padding (BarWidget.qml), so our own wrapper padding was
-          // stacking on top of that and reading as excessive around just
-          // one small icon.
-          width: menuContent.implicitWidth + 6 * 2
+          // No extra padding at all now (was +6 each side) — the
+          // omarchy.menu widget itself already has horizontalMargin: 7.5
+          // baked in as click-target padding (BarWidget.qml), so our own
+          // wrapper padding was double-stacking on top of that. With it,
+          // width (~50) vs height (~31) read as a clear oval for a
+          // single icon; without it, width (~38) is much closer to
+          // height, reading as circular like ambxst's own single-icon
+          // buttons.
+          width: menuContent.implicitWidth
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }

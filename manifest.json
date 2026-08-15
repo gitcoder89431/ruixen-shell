@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.bar",
+  "name": "Ruixen Bar",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Minimal custom bar — workspaces + clock.",
+  "kinds": ["bar"],
+  "entryPoints": { "bar": "Bar.qml" }
+}

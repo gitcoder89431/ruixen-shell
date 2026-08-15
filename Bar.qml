@@ -65,8 +65,32 @@ Item {
   property color themeForeground: Color.bar.text
   property color themeContrastForeground: Color.background
   property color transparentForeground: Color.bar.text
-  property color foreground: themeForeground
-  property color barForeground: useTransparentForeground ? transparentForeground : themeForeground
+  // Fixed, not theme-following, on purpose: every pill (component
+  // GroupPill below) is hardcoded OLED black regardless of theme. On a
+  // light theme (e.g. "White"), Color.bar.text follows the theme and
+  // turns near-black too -- black icons on black pills, invisible.
+  // themeForeground itself is left theme-following since it also feeds
+  // the legacy transparent-bar wallpaper-contrast script below
+  // (omarchy-bar-text-color). Most stock widgets (network, audio,
+  // bluetooth, etc.) read bar.foreground directly for their icon/text
+  // color, not bar.barForeground (that one only feeds WidgetButton's own
+  // default + a few of our pill decorations) -- both need to be pinned,
+  // not just one, or half the icons stay theme-black.
+  //
+  // barForeground is unconditionally pillForeground, NOT gated on
+  // useTransparentForeground -- that whole subsystem (requestedTransparent
+  // / omarchy-bar-text-color) exists for the *stock* bar's fully
+  // see-through mode, picking a contrasting text color against whatever
+  // wallpaper shows through. Our GroupPills are always opaque OLED black
+  // regardless of shell.json's bar.transparent setting, so that script's
+  // answer (frequently black, e.g. against a light wallpaper) has nothing
+  // to do with what's actually readable against our pills, and was
+  // silently winning over this fix whenever bar.transparent was on.
+  readonly property color pillForeground: "#e8e8e8"
+  property color foreground: pillForeground
+  // Not readonly -- Behavior on barForeground below needs write access to
+  // intercept it, even though nothing assigns it imperatively anymore.
+  property color barForeground: pillForeground
   property bool foregroundAnimationEnabled: true
   property color background: Color.bar.background
   property color urgent: Color.bar.active

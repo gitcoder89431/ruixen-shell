@@ -220,6 +220,28 @@ this file, not just a width-specific gotcha: `Layout.preferredX` alone
 never hard-caps in either axis if a `Layout.fillX: true` child wants
 more.
 
+## Are we actually the right size vs. ambxst?
+
+Checked directly against `Dashboard.qml`'s own real computed size, not
+just `DashboardView.qml`'s declared `900×344` (that value turns out to
+be dead/overridden -- `Dashboard.qml` sets its own explicit `width:
+animatedWidth` / `height: animatedHeight`, driven by `implicitWidth:
+nonAnimWidth = (currentTab===0 ? 600 : 400) + tabWidth(48) + 16` and a
+flat `implicitHeight: 430`, which wins over the parent's `anchors.fill`
+sizing). Their REAL on-screen Widgets-tab content area is `viewWrapper`
+-- `parent.width - tabWidth(48) - 2 - 16`, i.e. **~598×430** for tab 0,
+not 900×344.
+
+So: we're not undersized -- our own `DashboardContent` area (900 total
+minus tab bar/margins) comes out to **~830px wide**, meaningfully
+*wider* than their real 598px, though a bit shorter (368px inner height
+vs their 430px). What actually didn't match was rhythm, not size:
+their `mainLayout` `Row` and `WidgetsTab`'s own `RowLayout` both use
+`spacing: 8`; we were at `10`/`12`. Tightened both to `8` (plus the
+volume-dial column's own `ColumnLayout`, `10` → `8`) to match, per
+direct feedback after confirming the real numbers first rather than
+guessing.
+
 **A real layout bug worth knowing about**: `Layout.preferredWidth`
 alone does not hard-cap a `RowLayout` column's width if a child further
 down wants more — the calendar's own natural content width was

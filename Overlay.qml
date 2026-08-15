@@ -678,7 +678,9 @@ Item {
 
           RowLayout {
             anchors.fill: parent
-            spacing: 10
+            // 8px, matching ambxst's own mainLayout Row spacing (Dashboard.qml)
+            // -- we were at 10, a bit looser than their real rhythm.
+            spacing: 8
 
             // Left vertical tab bar -- ambxst's Dashboard.qml
             // tabsContainer: Widgets/Wallpapers/Metrics stacked icon

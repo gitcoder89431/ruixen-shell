@@ -73,7 +73,9 @@ Item {
 
   RowLayout {
     anchors.fill: parent
-    spacing: 12
+    // 8px, matching ambxst's own WidgetsTab.qml RowLayout spacing --
+    // we were at 12, looser than their real column rhythm.
+    spacing: 8
 
     // ---- Column 1: player -------------------------------------------
     Pane {
@@ -455,7 +457,8 @@ Item {
       Layout.preferredWidth: 70
       Layout.maximumWidth: 70
       Layout.fillHeight: true
-      spacing: 10
+      // 8px, matching ambxst's own circular-controls column spacing.
+      spacing: 8
 
       component Dial: Item {
         property string glyph: ""

@@ -85,7 +85,8 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: ""
+    // Sliders-vertical (Font Awesome sliders, U+F1DE) -- swapped from a gear icon.
+    text: ""
     tooltipText: "More actions"
     onPressed: function() { root.popupOpen = !root.popupOpen }
   }

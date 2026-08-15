@@ -322,22 +322,34 @@ widget use, not from an end-to-end click test.
 the button itself -- accent/grey fill + `signal activated()`, same
 shape as `TabButton` in `Overlay.qml`.
 
-## Calendar: grey header bar on the black card
+## Calendar: ported literally from ambxst's real Calendar.qml
 
-Checked ambxst's real `Calendar.qml` for reference and found their
-actual split is the opposite of what was asked for here -- their outer
-frame is `variant: "pane"` (grey/surface) with BOTH the title/chevron
-row and the day-grid nested inside as `variant: "internalbg"` (black)
-sub-panels, the grey only showing as a ~4px gutter around them (plus
-the current-week row getting a `"pane"` highlight). Implemented the
-literal request instead, using ambxst's "header gets its own
-sub-panel" structure as the inspiration, not its inverted colors: the
-"August 2026" + chevron row is now its own `Qt.rgba(1,1,1,0.08)` grey
-`Rectangle` (`radius: 8`, `24px` tall) sitting inside the calendar's
-existing black+border `Pane`, mirroring how the notifications column
-already splits a grey card from a black header pill -- just inverted
-here (grey header, black body) since that's what was explicitly
-asked for.
+First pass (grey header bar, black body) was a misread -- the actual
+ask, confirmed by rereading ambxst's real `Calendar.qml` directly, was
+their literal structure, colors included: the outer frame is grey
+(`Qt.rgba(1,1,1,0.08)`, mirroring their `variant: "pane"`), and BOTH
+the title text AND each chevron get their OWN separate black pill
+(mirroring `titleRect`/`leftButton`/`rightButton`, all `variant:
+"internalbg"`) -- the grey never fills behind text itself, it only
+ever shows as the gutter *around* those black pills. The day-grid
+(weekday labels + all 6 week rows) is a second black sub-panel, with
+the row containing today (`currentWeekRow`, ported as a new
+`calendarPane.calendarData.currentWeekRow` computed alongside `weeks`)
+getting a grey highlight strip -- exactly ambxst's own
+`(rowIndex === root.currentWeekRow) ? "pane" : "transparent"`.
+Individual day cells keep their existing accent-circle "today"
+treatment unchanged, that part was never in question.
+
+Hit the exact same `RowLayout`-doesn't-cap-on-`Layout.preferredHeight`
+bug a third time, in the new header `RowLayout` (its black title/
+chevron pill children have `Layout.fillHeight: true`, and without a
+matching `Layout.maximumHeight` they stretched to swallow nearly the
+whole card again). Fixed identically to the previous two times: paired
+`Layout.preferredHeight: 22` with `Layout.maximumHeight: 22`. Three
+occurrences of this same bug in one file now -- worth treating as a
+reflex any time a `RowLayout`/`ColumnLayout` gets a `Layout.preferredX`
+in this codebase: always pair it with `Layout.maximumX` up front,
+don't wait to hit the bug again.
 
 ## Left-side tab bar (shell only)
 

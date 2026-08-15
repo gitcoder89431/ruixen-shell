@@ -299,10 +299,22 @@ Item {
       // Calendar -- genuinely functional (plain Date math, no backend
       // needed), unlike everything else in this file. Prev/next month
       // arrows work; today's cell is highlighted.
-      Pane {
+      //
+      // Structure ported literally from ambxst's own Calendar.qml this
+      // time (checked directly, not guessed): outer frame is grey
+      // ("pane"), with the title text, each chevron, and the whole
+      // day-grid as their own separate BLACK ("internalbg") sub-panels
+      // nested inside it -- the grey only ever shows as the gutter
+      // around/between those black panels, never as a fill behind text
+      // itself. The current week row gets a grey ("pane") highlight
+      // inside the black day-grid, same as ambxst's currentWeekRow.
+      Rectangle {
         id: calendarPane
         Layout.fillWidth: true
         Layout.fillHeight: true
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.08)
+        clip: true
 
         property int monthShift: 0
         readonly property date viewingDate: {
@@ -312,8 +324,10 @@ Item {
         readonly property date today: new Date()
 
         // Monday-first 6x7 grid, padded with leading/trailing days from
-        // the adjacent months so every week row stays full.
-        readonly property var weeks: {
+        // the adjacent months so every week row stays full. currentWeekRow
+        // mirrors ambxst's own field of the same name -- which row (if
+        // any) contains today, -1 when viewing a different month.
+        readonly property var calendarData: {
           var first = viewingDate
           var year = first.getFullYear()
           var month = first.getMonth()
@@ -327,111 +341,160 @@ Item {
           }
           while (cells.length % 7 !== 0) cells.push({ day: "", inMonth: false, isToday: false })
           var rows = []
-          for (var r = 0; r < cells.length; r += 7) rows.push(cells.slice(r, r + 7))
-          return rows
+          var currentWeekRow = -1
+          for (var r = 0; r < cells.length; r += 7) {
+            var row = cells.slice(r, r + 7)
+            if (row.some(function(c) { return c.isToday })) currentWeekRow = rows.length
+            rows.push(row)
+          }
+          return { weeks: rows, currentWeekRow: currentWeekRow }
         }
+        readonly property var weeks: calendarData.weeks
+        readonly property int currentWeekRow: calendarData.currentWeekRow
 
         ColumnLayout {
           id: calendarColumn
           anchors.fill: parent
-          anchors.margins: 8
-          spacing: 6
+          anchors.margins: 4
+          spacing: 4
 
-          // Header bar -- grey, distinct from the black calendar body
-          // below (same "grey header on a black card" split the
-          // notifications column already uses).
-          Rectangle {
+          // Header row -- title pill fills the remaining width, each
+          // chevron is its own fixed-width pill, all black, all the
+          // same height. Matches ambxst's titleRect/leftButton/
+          // rightButton trio exactly (just without their hover/press
+          // accent-color swap).
+          RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 24
-            radius: 8
-            color: Qt.rgba(1, 1, 1, 0.08)
+            Layout.preferredHeight: 22
+            Layout.maximumHeight: 22
+            spacing: 4
 
-            RowLayout {
-              anchors.fill: parent
-              anchors.leftMargin: 8
-              anchors.rightMargin: 4
-              spacing: 4
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              radius: 6
+              color: "#000000"
 
               Text {
-                Layout.fillWidth: true
+                anchors.centerIn: parent
                 text: calendarPane.viewingDate.toLocaleDateString(Qt.locale(), "MMMM yyyy")
                 color: root.textColor
                 font.family: root.fontFamily
                 font.pixelSize: 11
                 font.bold: true
               }
+            }
+
+            Rectangle {
+              Layout.preferredWidth: 22
+              Layout.fillHeight: true
+              radius: 6
+              color: "#000000"
 
               Text {
+                anchors.centerIn: parent
                 text: "󰅁"
                 color: root.textColor
                 font.family: root.fontFamily
                 font.pixelSize: 11
-                MouseArea {
-                  anchors.fill: parent
-                  anchors.margins: -4
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: calendarPane.monthShift -= 1
-                }
               }
 
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: calendarPane.monthShift -= 1
+              }
+            }
+
+            Rectangle {
+              Layout.preferredWidth: 22
+              Layout.fillHeight: true
+              radius: 6
+              color: "#000000"
+
               Text {
+                anchors.centerIn: parent
                 text: "󰅂"
                 color: root.textColor
                 font.family: root.fontFamily
                 font.pixelSize: 11
-                MouseArea {
-                  anchors.fill: parent
-                  anchors.margins: -4
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: calendarPane.monthShift += 1
-                }
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: calendarPane.monthShift += 1
               }
             }
           }
 
-          Row {
+          // Day-grid -- one black sub-panel holding the weekday labels
+          // and all 6 week rows, matching ambxst's own second
+          // "internalbg" StyledRect.
+          Rectangle {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 2
+            Layout.fillHeight: true
+            radius: 6
+            color: "#000000"
 
-            Repeater {
-              model: ["M", "T", "W", "T", "F", "S", "S"]
-              Text {
-                required property string modelData
-                width: 20
-                horizontalAlignment: Text.AlignHCenter
-                text: modelData
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: 9
-              }
-            }
-          }
-
-          Repeater {
-            model: calendarPane.weeks
-
-            Row {
-              required property var modelData
-              Layout.alignment: Qt.AlignHCenter
+            ColumnLayout {
+              anchors.fill: parent
+              anchors.margins: 6
               spacing: 2
 
+              Row {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 2
+
+                Repeater {
+                  model: ["M", "T", "W", "T", "F", "S", "S"]
+                  Text {
+                    required property string modelData
+                    width: 20
+                    horizontalAlignment: Text.AlignHCenter
+                    text: modelData
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: 9
+                  }
+                }
+              }
+
               Repeater {
-                model: parent.modelData
+                model: calendarPane.weeks
 
                 Rectangle {
                   required property var modelData
-                  width: 20
-                  height: 20
-                  radius: 10
-                  color: modelData.isToday ? root.accent : "transparent"
+                  required property int index
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 20
+                  radius: 8
+                  color: index === calendarPane.currentWeekRow ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
-                  Text {
+                  Row {
                     anchors.centerIn: parent
-                    text: modelData.day
-                    color: modelData.isToday ? "#000000" : (modelData.inMonth ? root.textColor : root.muted)
-                    font.family: root.fontFamily
-                    font.pixelSize: 9
+                    spacing: 2
+
+                    Repeater {
+                      model: parent.parent.modelData
+
+                      Rectangle {
+                        required property var modelData
+                        width: 20
+                        height: 20
+                        radius: 10
+                        color: modelData.isToday ? root.accent : "transparent"
+
+                        Text {
+                          anchors.centerIn: parent
+                          text: modelData.day
+                          color: modelData.isToday ? "#000000" : (modelData.inMonth ? root.textColor : root.muted)
+                          font.family: root.fontFamily
+                          font.pixelSize: 9
+                        }
+                      }
+                    }
                   }
                 }
               }

@@ -1236,20 +1236,19 @@ Item {
           }
         }
 
-        // System tray only, in its own pill separate from the toggles —
-        // this one only exists on screen when there's actually an app in
-        // the tray (Tray.qml sets its own visible: allItems.length > 0,
+        // System tray only, in its own pill separate from the toggles.
+        // Fades out instead of toggling visible/width when there's no app
+        // in the tray (Tray.qml sets its own visible: allItems.length > 0,
         // which collapses ModuleSlot's implicitWidth to 0, which collapses
-        // this all the way down through trayContent.implicitWidth). Safe to
-        // let it fully disappear now that togglesPill is a separate,
-        // always-present anchor.
+        // this down through trayContent.width) -- simpler than juggling
+        // anchors around a pill that comes and goes.
         Item {
           id: trayPill
-          visible: trayContent.implicitWidth > 0
+          opacity: trayContent.width > 0 ? 1 : 0
           anchors.right: togglesPill.left
           anchors.rightMargin: Style.space(8)
           anchors.verticalCenter: parent.verticalCenter
-          width: trayContent.implicitWidth + Style.space(10) * 2
+          width: trayContent.width + Style.space(10) * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
@@ -1259,6 +1258,13 @@ Item {
             anchors.centerIn: parent
             entries: root.layoutEntries("right").filter(function(e) { return root.entryId(e) === "ruixen.tray" })
             region: "right"
+            // ModuleList's own visible/active binding (entries.length > 0)
+            // never fired for this specific late-filled entries value --
+            // stayed permanently inactive even once entries had 1 item.
+            // Sidestep it: this region always has exactly this one layout
+            // slot structurally, so there's nothing to gate on -- always
+            // active, unconditionally.
+            active: true
           }
         }
       }

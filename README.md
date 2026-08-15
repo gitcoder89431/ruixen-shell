@@ -365,6 +365,11 @@ space still remains below (deliberately not maxed out to fill 100% --
 would have made the calendar cells look oversized next to the
 narrower dial column) but it's much less noticeable now.
 
+**Follow-up: header row (title + chevrons) still looked small** next
+to the now-bigger day-grid. Bumped to match: row height `22px` ->
+`28px`, chevron pill width `22px` -> `28px`, title text `11px` ->
+`13px`, chevron glyph `11px` -> `14px`, pill radius `6` -> `8`.
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

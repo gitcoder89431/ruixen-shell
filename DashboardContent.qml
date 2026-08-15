@@ -375,14 +375,14 @@ Item {
           // accent-color swap).
           RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 22
-            Layout.maximumHeight: 22
+            Layout.preferredHeight: 28
+            Layout.maximumHeight: 28
             spacing: 4
 
             Rectangle {
               Layout.fillWidth: true
               Layout.fillHeight: true
-              radius: 6
+              radius: 8
               color: "#000000"
 
               Text {
@@ -390,15 +390,15 @@ Item {
                 text: calendarPane.viewingDate.toLocaleDateString(Qt.locale(), "MMMM yyyy")
                 color: root.textColor
                 font.family: root.fontFamily
-                font.pixelSize: 11
+                font.pixelSize: 13
                 font.bold: true
               }
             }
 
             Rectangle {
-              Layout.preferredWidth: 22
+              Layout.preferredWidth: 28
               Layout.fillHeight: true
-              radius: 6
+              radius: 8
               color: "#000000"
 
               Text {
@@ -406,7 +406,7 @@ Item {
                 text: "󰅁"
                 color: root.textColor
                 font.family: root.fontFamily
-                font.pixelSize: 11
+                font.pixelSize: 14
               }
 
               MouseArea {
@@ -417,9 +417,9 @@ Item {
             }
 
             Rectangle {
-              Layout.preferredWidth: 22
+              Layout.preferredWidth: 28
               Layout.fillHeight: true
-              radius: 6
+              radius: 8
               color: "#000000"
 
               Text {
@@ -427,7 +427,7 @@ Item {
                 text: "󰅂"
                 color: root.textColor
                 font.family: root.fontFamily
-                font.pixelSize: 11
+                font.pixelSize: 14
               }
 
               MouseArea {

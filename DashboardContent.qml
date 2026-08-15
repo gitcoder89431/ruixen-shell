@@ -370,12 +370,22 @@ Item {
         anchors.margins: 10
         spacing: 8
 
-        Text {
-          text: "Notifications"
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          font.bold: true
+        Rectangle {
+          Layout.alignment: Qt.AlignLeft
+          radius: height / 2
+          color: "#000000"
+          implicitWidth: notifHeaderText.implicitWidth + 16
+          implicitHeight: notifHeaderText.implicitHeight + 8
+
+          Text {
+            id: notifHeaderText
+            anchors.centerIn: parent
+            text: "Notifications"
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            font.bold: true
+          }
         }
 
         // No real history service wired here yet -- this is the "does

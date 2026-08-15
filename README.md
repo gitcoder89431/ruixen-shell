@@ -61,14 +61,21 @@ as separate floating islands rather than one continuous bar:
   `clockPill.left` instead). Direct `ModuleSlot`s in a `Row`, not a
   `ModuleList`, since `ModuleList` has no separator support. Uses
   `ruixen.weather` (see `ruixen-tray-widgets`) for the icon-size match;
-  clock is still the stock `omarchy.clock`, untouched. Center region is
-  empty now — left open for a possible future center widget (media
-  controls were mentioned).
+  clock is still the stock `omarchy.clock`, untouched.
   **Known limitation**: clicking weather or clock opens its popup centered
   on the whole bar, not anchored near this pill — both stock panels
   hardcode `centerOnBar: true`, not exposed as a setting, only fixable by
-  cloning. Left as-is (not worth it, especially since center may get
-  repopulated later anyway).
+  cloning. Left as-is (not worth it).
+- **mediaPill** — the true bar-center pill, plain stock `omarchy.media`
+  (play/pause, track title, popup with transport controls and source
+  list — no seek/scrub, the stock widget just doesn't have one). Only
+  shows itself when something's playing. A fancier version with a
+  real-time audio spectrum wave exists in a third-party suite
+  ([Shibumi-Shell](../Shibumi-Shell)'s `hancore.shibumi.media`, powered by
+  `cava`) — not pulled in since it's a whole separate `Ui.Panel`/token
+  system and `cava` isn't installed, but its spectrum visual
+  (`MediaSpectrum.qml`) is a small self-contained `Canvas` and stays a
+  viable future add if wanted.
 
 Each pill's own width is driven by its content's `width` (see
 `root.sideRightIds`/`root.togglesPillIds` and the `.filter(...)` calls

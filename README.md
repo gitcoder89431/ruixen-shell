@@ -322,6 +322,23 @@ widget use, not from an end-to-end click test.
 the button itself -- accent/grey fill + `signal activated()`, same
 shape as `TabButton` in `Overlay.qml`.
 
+## Calendar: grey header bar on the black card
+
+Checked ambxst's real `Calendar.qml` for reference and found their
+actual split is the opposite of what was asked for here -- their outer
+frame is `variant: "pane"` (grey/surface) with BOTH the title/chevron
+row and the day-grid nested inside as `variant: "internalbg"` (black)
+sub-panels, the grey only showing as a ~4px gutter around them (plus
+the current-week row getting a `"pane"` highlight). Implemented the
+literal request instead, using ambxst's "header gets its own
+sub-panel" structure as the inspiration, not its inverted colors: the
+"August 2026" + chevron row is now its own `Qt.rgba(1,1,1,0.08)` grey
+`Rectangle` (`radius: 8`, `24px` tall) sitting inside the calendar's
+existing black+border `Pane`, mirroring how the notifications column
+already splits a grey card from a black header pill -- just inverted
+here (grey header, black body) since that's what was explicitly
+asked for.
+
 ## Left-side tab bar (shell only)
 
 `Overlay.qml`'s `expandedContent` (media hover/pin state) now wraps

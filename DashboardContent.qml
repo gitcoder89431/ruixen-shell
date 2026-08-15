@@ -337,42 +337,54 @@ Item {
           anchors.margins: 8
           spacing: 6
 
-          RowLayout {
+          // Header bar -- grey, distinct from the black calendar body
+          // below (same "grey header on a black card" split the
+          // notifications column already uses).
+          Rectangle {
             Layout.fillWidth: true
-            spacing: 4
+            Layout.preferredHeight: 24
+            radius: 8
+            color: Qt.rgba(1, 1, 1, 0.08)
 
-            Text {
-              Layout.fillWidth: true
-              text: calendarPane.viewingDate.toLocaleDateString(Qt.locale(), "MMMM yyyy")
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              font.bold: true
-            }
+            RowLayout {
+              anchors.fill: parent
+              anchors.leftMargin: 8
+              anchors.rightMargin: 4
+              spacing: 4
 
-            Text {
-              text: "󰅁"
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -4
-                cursorShape: Qt.PointingHandCursor
-                onClicked: calendarPane.monthShift -= 1
+              Text {
+                Layout.fillWidth: true
+                text: calendarPane.viewingDate.toLocaleDateString(Qt.locale(), "MMMM yyyy")
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                font.bold: true
               }
-            }
 
-            Text {
-              text: "󰅂"
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -4
-                cursorShape: Qt.PointingHandCursor
-                onClicked: calendarPane.monthShift += 1
+              Text {
+                text: "󰅁"
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: calendarPane.monthShift -= 1
+                }
+              }
+
+              Text {
+                text: "󰅂"
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: calendarPane.monthShift += 1
+                }
               }
             }
           }

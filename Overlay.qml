@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
+import qs.Commons
 
 // Shape ported pixel-for-pixel from
 // ~/REPOS/PLUGINS/quickshell-ambxst/modules/notch/Notch.qml +
@@ -30,8 +31,21 @@ Item {
   property var manifest: null
 
   readonly property color notchColor: "#000000"
-  readonly property color textColor: "#ffffff"
-  readonly property color muted: Qt.rgba(1, 1, 1, 0.5)
+  // Same theme-aware-with-safety-net treatment as ruixen.bar's
+  // pillForeground (see Bar.qml for the full reasoning): this notch is
+  // always OLED black too, so use the theme's own foreground when it's
+  // light enough to read against that, else fall back to a fixed light
+  // color. Keeps each theme's actual look (off-white on nearly every
+  // dark theme) instead of a single hardcoded white, while still
+  // catching the real exceptions (light themes, Rose Pine's dark
+  // purple foreground).
+  readonly property color themeForeground: Color.bar.text
+  readonly property real themeForegroundLuminance: 0.299 * themeForeground.r + 0.587 * themeForeground.g + 0.114 * themeForeground.b
+  readonly property color safeForeground: "#e8e8e8"
+  readonly property color textColor: themeForegroundLuminance > 0.45 ? themeForeground : safeForeground
+  readonly property color muted: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.5)
+  // Deliberately not theme-linked -- a fixed "media is active" semantic
+  // color, same pattern as ruixen.media's green/yellow play-pause badge.
   readonly property color accent: "#3ecf5b"
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
 
@@ -230,7 +244,7 @@ Item {
   component NotchSeparator: Rectangle {
     implicitWidth: 1
     implicitHeight: 16
-    color: "#ffffff"
+    color: root.textColor
     opacity: 0.1
   }
 

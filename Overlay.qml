@@ -284,12 +284,14 @@ Item {
       // rounding: cornerSize=28, collapsed radius=28 (see centerMask
       // below), expanded radius=44.
       readonly property int cornerSize: 28
-      // Matched to ambxst's actual numbers: DefaultView.qml's collapsed
-      // row is 44px tall, ~284-290px wide (200px base + avatar/
-      // separators/bell). Their own "expanded" state is notification-
-      // driven, not hover-media like ours, but the closest comparable
-      // number is notificationMinWidth's 420px target (452 with padding).
-      readonly property int bodyWidth: panel.expanded ? 420 : 290
+      // Collapsed width trimmed from ambxst's own 290 (matched to their
+      // actual DefaultView.qml row) -- our actual content (avatar +
+      // divider + play glyph/wave + divider + bell) is narrower than
+      // theirs, so 290 left a big empty gap between the avatar/bell and
+      // the notch's own curved edges. 240 leaves a modest, even margin
+      // instead. Expanded width (420) is unrelated -- ambxst's
+      // notificationMinWidth target, still fits our own expanded content.
+      readonly property int bodyWidth: panel.expanded ? 420 : 240
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a

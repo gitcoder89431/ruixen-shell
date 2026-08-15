@@ -170,10 +170,13 @@ component as a backstop. Worth remembering for any future `RowLayout`/
 ## Left-side tab bar (shell only)
 
 `Overlay.qml`'s `expandedContent` (media hover/pin state) now wraps
-`DashboardContent` in a `RowLayout` alongside a 30px-wide vertical tab
+`DashboardContent` in a `RowLayout` alongside a 70px-wide vertical tab
 bar on the left, matching ambxst's own `Dashboard.qml` `tabsContainer`:
 three stacked icon buttons (Widgets/Wallpapers/Metrics) with a settings
 gear pinned at the bottom via a `Layout.fillHeight` spacer above it.
+Column width and button size (48×48, up from an initial 30×30) match
+the volume/brightness/mic dial column on the right per direct
+feedback — the first pass was too thin and clipped the settings glyph.
 State lives on `panel.dashboardTab` (`0`/`1`/`2`), one `Item` per tab
 toggling `visible` — same "one window, swap content" mechanism ambxst
 uses (no `StackView`, no second window/animation to coordinate).

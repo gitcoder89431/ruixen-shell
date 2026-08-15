@@ -262,10 +262,10 @@ Item {
     property bool active: false
     signal activated()
 
-    Layout.preferredWidth: 30
-    Layout.preferredHeight: 30
+    Layout.preferredWidth: 48
+    Layout.preferredHeight: 48
     Layout.alignment: Qt.AlignHCenter
-    radius: 8
+    radius: 12
     color: active ? Qt.rgba(1, 1, 1, 0.14) : (tabMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.07) : "transparent")
     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -274,7 +274,7 @@ Item {
       text: tabBtn.glyph
       color: tabBtn.active ? root.accent : root.textColor
       font.family: root.fontFamily
-      font.pixelSize: 14
+      font.pixelSize: 18
     }
 
     MouseArea {
@@ -659,10 +659,10 @@ Item {
             // area below) -- only the tab switching itself and the real
             // settings action are wired up.
             ColumnLayout {
-              Layout.preferredWidth: 30
-              Layout.maximumWidth: 30
+              Layout.preferredWidth: 70
+              Layout.maximumWidth: 70
               Layout.fillHeight: true
-              spacing: 6
+              spacing: 8
 
               TabButton {
                 glyph: "󰕰"

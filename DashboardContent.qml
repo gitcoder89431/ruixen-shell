@@ -468,9 +468,13 @@ Item {
               }
 
               // Divider between the weekday labels and the day grid --
-              // ambxst has the same Separator in this exact spot.
+              // ambxst has the same Separator in this exact spot
+              // (their own version also insets it, leftMargin/
+              // rightMargin: 8, instead of running edge-to-edge).
               Rectangle {
                 Layout.fillWidth: true
+                Layout.leftMargin: 8
+                Layout.rightMargin: 8
                 Layout.preferredHeight: 1
                 color: Qt.rgba(1, 1, 1, 0.14)
               }

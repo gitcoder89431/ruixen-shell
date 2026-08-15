@@ -262,11 +262,10 @@ Item {
     WlrLayershell.namespace: "ruixen-notch"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
-    // Only grabs keyboard while the launcher's search box is open --
-    // otherwise this stays WlrKeyboardFocus.None like every other passive
-    // hover surface in this file, so it never steals input from whatever
-    // the user's actually doing.
-    WlrLayershell.keyboardFocus: launcherOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // Stays None always -- the launcher is click-only (a few favorite
+    // app icons, no search box), so this surface never needs keyboard
+    // input, same as every other passive hover state in this file.
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     mask: Region {
       x: notchOuter.x
@@ -277,12 +276,11 @@ Item {
 
     property bool pinnedOpen: false
     property bool hoverOpen: false
-    // Third mode, alongside collapsed/media -- app launcher, triggered by
-    // ruixen.applauncher's own bar icon over IPC (see IpcHandler below),
-    // not by hover/click on the notch itself like pinnedOpen/hoverOpen.
+    // Third mode, alongside collapsed/media -- quick app launcher (a
+    // few favorite icons), triggered by ruixen.applauncher's own bar
+    // icon over IPC (see IpcHandler below), not by hover/click on the
+    // notch itself like pinnedOpen/hoverOpen.
     property bool launcherOpen: false
-    property string launcherQuery: ""
-    onLauncherOpenChanged: if (launcherOpen) launcherQuery = ""
     readonly property bool expanded: pinnedOpen || hoverOpen || launcherOpen
 
     IpcHandler {
@@ -315,29 +313,27 @@ Item {
       // the bell off. 260 gives real margin instead of a knife's-edge
       // fit. Expanded width (420) is unrelated -- ambxst's
       // notificationMinWidth target, still fits our own expanded content.
-      // Launcher gets its own size (narrower, taller -- a scrollable list
-      // reads better than the wide-and-short media card) instead of
-      // reusing the 420x190 media dimensions, matching the "different
-      // modes size themselves independently" behavior ambxst's own
-      // StackView-driven notch has.
-      readonly property int bodyWidth: panel.launcherOpen ? 340 : (panel.expanded ? 420 : 260)
+      // Launcher reuses the exact collapsed dimensions (260x44), not a
+      // new size -- an earlier version gave it its own size (340x260,
+      // then taller attempts up to 360) for a scrollable search-results
+      // list, and taller heights turned out to hit a real, non-
+      // deterministic bug in the notchBg masking below (flat un-rounded
+      // bottom corner on SOME opens but not others, same height, same
+      // process, no restart in between -- not a clean fixed threshold).
+      // Simplified to a few favorite-app icons per direct feedback, no
+      // search/scrolling needed at all -- so it just reuses 260x44, the
+      // most-exercised, proven-stable code path in this whole file,
+      // rather than gamble on any new size.
+      readonly property int bodyWidth: (panel.pinnedOpen || panel.hoverOpen) ? 420 : 260
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a
       // buffer, so it no longer overlaps tiled windows the way it did
       // when this was smaller but the reserved zone was still just
-      // barSize-sized.
-      // Capped at 260, not the taller size originally tried (360) --
-      // empirically confirmed the notchBg masking (MultiEffect layer
-      // effect below) stops rendering the bottom corner radius correctly
-      // somewhere between 260 (fine) and 280 (flat/square bottom, no
-      // rounding at all) -- a real limitation of that masking approach
-      // at larger sizes, not a coordinate/logic bug. Binary-searched the
-      // threshold (200 fine, 360 broken, 300 broken, 260 fine, 280
-      // broken) rather than guess -- 260 is as tall as this can safely
-      // go. ListView's own scrolling handles showing more than the ~4
-      // apps that fit without it.
-      height: panel.launcherOpen ? 260 : (panel.expanded ? 190 : 44)
+      // barSize-sized. launcherOpen folds into panel.expanded, but its
+      // own height stays 44 (see bodyWidth comment above) -- only the
+      // media view actually uses 190.
+      height: (panel.pinnedOpen || panel.hoverOpen) ? 190 : 44
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -414,8 +410,13 @@ Item {
           color: "#ffffff"
           topLeftRadius: 0
           topRightRadius: 0
-          bottomLeftRadius: panel.expanded ? 44 : 28
-          bottomRightRadius: panel.expanded ? 44 : 28
+          // Keyed on pinnedOpen/hoverOpen specifically, not the generic
+          // panel.expanded -- launcherOpen reuses the 44px collapsed
+          // height (see notchOuter.height above), so it should use the
+          // matching 28 collapsed radius too, not the 44 "expanded"
+          // radius meant for the taller 190px media view.
+          bottomLeftRadius: (panel.pinnedOpen || panel.hoverOpen) ? 44 : 28
+          bottomRightRadius: (panel.pinnedOpen || panel.hoverOpen) ? 44 : 28
 
           Behavior on bottomLeftRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
           Behavior on bottomRightRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -734,147 +735,66 @@ Item {
           }
         }
 
-        // App launcher -- reads Quickshell's shared app library directly
-        // (shell.appLibrary, the same service the stock omarchy.menu's
-        // Apps submenu uses), no cloning needed. Click-to-launch only for
-        // v1 -- no arrow-key result navigation, just type to filter and
-        // click a row.
-        Item {
+        // Quick app launcher -- a handful of pinned favorites, click to
+        // launch. No search box, no keyboard focus, no scrolling -- v1's
+        // search-box version needed WlrKeyboardFocus.Exclusive and a new
+        // notch size (340x260/etc) to fit a scrollable list, and that new
+        // size turned out to hit a real, non-deterministic bug in the
+        // notchBg masking (MultiEffect layer effect below) at taller
+        // heights. Simplified per direct feedback: a few favorite apps
+        // don't need any of that -- this reuses the exact same 260x44
+        // collapsed-state dimensions (see bodyWidth/height above), the
+        // most-exercised, proven-stable code path in this whole file.
+        //
+        // Favorites are a plain hardcoded list of desktop-entry ids --
+        // edit favoriteAppIds below to change which 4 apps show. Reads
+        // shell.appLibrary the same way the search version did, just
+        // looks entries up by id instead of running a search query.
+        Row {
           id: launcherContent
           visible: panel.launcherOpen
           opacity: panel.launcherOpen ? 1 : 0
-          anchors.fill: parent
-          anchors.topMargin: 16
-          anchors.bottomMargin: 12
+          anchors.centerIn: parent
+          spacing: 18
           Behavior on opacity { NumberAnimation { duration: 160 } }
 
-          readonly property var results: {
+          readonly property var favoriteAppIds: ["kitty", "org.gnome.Nautilus", "chromium", "code"]
+          readonly property var favoriteEntries: {
             if (!panel.launcherOpen || !root.shell || !root.shell.appLibrary) return []
-            return root.shell.appLibrary.sortedEntries(panel.launcherQuery)
+            var all = root.shell.appLibrary.sortedEntries("")
+            var byId = {}
+            for (var i = 0; i < all.length; i++) byId[all[i].entry.id] = all[i].entry
+            var picked = []
+            for (var j = 0; j < favoriteAppIds.length; j++) {
+              if (byId[favoriteAppIds[j]]) picked.push(byId[favoriteAppIds[j]])
+            }
+            return picked
           }
 
-          Column {
-            anchors.fill: parent
-            spacing: 8
+          Repeater {
+            model: launcherContent.favoriteEntries
 
-            Rectangle {
-              width: parent.width
+            Item {
+              id: favIcon
+              required property var modelData
+              width: 32
               height: 32
-              radius: 8
-              color: Qt.rgba(1, 1, 1, 0.08)
 
-              Row {
+              Image {
                 anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 10
-                spacing: 8
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "󰍉"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: 14
-                }
-
-                Item {
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: parent.width - 30
-                  height: searchInput.height
-
-                  TextInput {
-                    id: searchInput
-                    width: parent.width
-                    color: root.textColor
-                    font.family: root.fontFamily
-                    font.pixelSize: 13
-                    focus: panel.launcherOpen
-                    text: panel.launcherQuery
-                    clip: true
-                    onTextChanged: panel.launcherQuery = text
-                    Keys.onEscapePressed: panel.launcherOpen = false
-                  }
-
-                  Text {
-                    text: "Search apps..."
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: 13
-                    visible: searchInput.text.length === 0
-                  }
-                }
+                sourceSize: Qt.size(32, 32)
+                asynchronous: true
+                source: root.shell.appLibrary.iconSource(favIcon.modelData.icon)
               }
-            }
 
-            ListView {
-              width: parent.width
-              height: parent.height - 40
-              clip: true
-              spacing: 2
-              model: launcherContent.results
-
-              delegate: Item {
-                id: appRow
-                required property var modelData
-                readonly property var entry: modelData.entry
-                width: ListView.view.width
-                height: 40
-
-                Rectangle {
-                  anchors.fill: parent
-                  radius: 8
-                  color: rowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-                }
-
-                Row {
-                  anchors.fill: parent
-                  anchors.leftMargin: 8
-                  anchors.rightMargin: 8
-                  spacing: 10
-
-                  Image {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 24
-                    height: 24
-                    sourceSize: Qt.size(24, 24)
-                    asynchronous: true
-                    source: root.shell.appLibrary.iconSource(appRow.entry.icon)
-                  }
-
-                  Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 34
-
-                    Text {
-                      width: parent.width
-                      text: root.shell.appLibrary.entryName(appRow.entry)
-                      color: root.textColor
-                      font.family: root.fontFamily
-                      font.pixelSize: 12
-                      elide: Text.ElideRight
-                    }
-
-                    Text {
-                      width: parent.width
-                      text: root.shell.appLibrary.entrySubtext(appRow.entry)
-                      color: root.muted
-                      font.family: root.fontFamily
-                      font.pixelSize: 9
-                      elide: Text.ElideRight
-                      visible: text !== ""
-                    }
-                  }
-                }
-
-                MouseArea {
-                  id: rowMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: {
-                    root.shell.appLibrary.launch(appRow.entry.id, root.shell.appLibrary.entryName(appRow.entry))
-                    panel.launcherOpen = false
-                  }
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -6
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.shell.appLibrary.launch(favIcon.modelData.id, root.shell.appLibrary.entryName(favIcon.modelData))
+                  panel.launcherOpen = false
                 }
               }
             }

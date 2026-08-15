@@ -370,21 +370,63 @@ Item {
         anchors.margins: 10
         spacing: 8
 
-        Rectangle {
-          Layout.alignment: Qt.AlignLeft
-          radius: height / 2
-          color: "#000000"
-          implicitWidth: notifHeaderText.implicitWidth + 16
-          implicitHeight: notifHeaderText.implicitHeight + 8
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
 
-          Text {
-            id: notifHeaderText
-            anchors.centerIn: parent
-            text: "Notifications"
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            font.bold: true
+          Rectangle {
+            radius: height / 2
+            color: "#000000"
+            implicitWidth: notifHeaderText.implicitWidth + 16
+            implicitHeight: notifHeaderText.implicitHeight + 8
+
+            Text {
+              id: notifHeaderText
+              anchors.centerIn: parent
+              text: "Notifications"
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              font.bold: true
+            }
+          }
+
+          Item { Layout.fillWidth: true }
+
+          // DND bell -- decorative for now, mirrors the collapsed
+          // notch's own bell glyph. Not wired to omarchy.notifications
+          // here (ruixen.dnd already owns that toggle, see the bar).
+          Rectangle {
+            Layout.preferredWidth: 22
+            Layout.preferredHeight: 22
+            radius: 11
+            color: "#000000"
+
+            Text {
+              anchors.centerIn: parent
+              text: "󰂛"
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+
+          // Clear-all "broom" -- ambxst's own NotificationHistory.qml
+          // header has the same bell + broom pair. Decorative, no real
+          // history to clear yet.
+          Rectangle {
+            Layout.preferredWidth: 22
+            Layout.preferredHeight: 22
+            radius: 11
+            color: "#000000"
+
+            Text {
+              anchors.centerIn: parent
+              text: "󰃢"
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
           }
         }
 

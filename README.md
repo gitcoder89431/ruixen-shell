@@ -177,6 +177,32 @@ own `PaneFilled` component, per direct "yea i want the notification
 grey" feedback after the black+border pass. Two components now,
 picked per-column, not a single shared one.
 
+**Notifications header row**: the "Notifications" label is now its own
+small black pill (matching the tab bar/settings glyph treatment
+elsewhere), and the row also carries two small circular black-pill
+buttons on the right -- a DND bell and a "clear all" broom, mirroring
+ambxst's own `NotificationHistory.qml` header (`dndHover`/`broomHover`
+`StyledRect`s). Both are decorative for now, same as the rest of this
+column -- no real notification service wired here.
+
+**A real glyph-guessing miss worth remembering**: first attempt at the
+broom glyph used `U+F0389`, guessed by pattern-matching other Nerd
+Font MDI codepoints already working in this file -- rendered as a
+music-note glyph instead (`md-music_note_half`, confirmed via
+screenshot). Installed `python-fonttools` (`pkexec pacman -S
+python-fonttools` -- `sudo` needed a TTY this session didn't have) and
+read `JetBrainsMonoNerdFont-Regular.ttf`'s actual cmap/glyph names
+instead of guessing further:
+```python
+from fontTools.ttLib import TTFont
+f = TTFont("/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf")
+cmap = f.getBestCmap()
+rev = {v: k for k, v in cmap.items()}
+rev["md-broom"]  # -> 0xf00e2, the actual correct codepoint
+```
+Worth reaching for this instead of trial-and-error screenshot cycles
+for any future icon glyph in this project -- it's exact, not a guess.
+
 **A real layout bug worth knowing about**: `Layout.preferredWidth`
 alone does not hard-cap a `RowLayout` column's width if a child further
 down wants more — the calendar's own natural content width was

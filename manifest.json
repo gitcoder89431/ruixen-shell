@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.quickactions",
+  "name": "Ruixen Quick Actions",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Popup menu for dictation, screen recording, night light, and reminders.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "QuickActions.qml"
+  },
+  "barWidget": {
+    "displayName": "Ruixen Quick Actions",
+    "description": "Popup for less-frequently-used toggles.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

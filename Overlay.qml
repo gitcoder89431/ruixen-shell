@@ -577,180 +577,42 @@ Item {
 
         // Expanded: blurred-art thumbnail, title/artist, big wave
         // progress, transport controls.
-        Column {
+        // Expanded: dashboard content (player + quick controls/calendar +
+        // notifications + volume dials), ported from ambxst's
+        // WidgetsTab.qml -- see DashboardContent.qml for the full
+        // breakdown. Media data/colors passed through from the same
+        // root-level properties the collapsed view already reads.
+        Item {
           id: expandedContent
           visible: panel.expanded && !panel.launcherOpen
           opacity: panel.expanded && !panel.launcherOpen ? 1 : 0
           anchors.fill: parent
           anchors.topMargin: 20
           anchors.bottomMargin: 12
-          spacing: 10
+          anchors.leftMargin: 12
+          anchors.rightMargin: 12
           Behavior on opacity { NumberAnimation { duration: 160 } }
 
-          Row {
-            width: parent.width
-            spacing: 10
-
-            Item {
-              width: 36
-              height: 36
-              anchors.verticalCenter: parent.verticalCenter
-              visible: root.artUrl !== ""
-
-              Rectangle {
-                anchors.fill: parent
-                radius: 8
-                color: "transparent"
-                clip: true
-
-                Image {
-                  anchors.fill: parent
-                  source: root.artUrl
-                  sourceSize: Qt.size(72, 72)
-                  fillMode: Image.PreserveAspectCrop
-                  asynchronous: true
-                }
-              }
-            }
-
-            Column {
-              anchors.verticalCenter: parent.verticalCenter
-              width: parent.width - (root.artUrl !== "" ? 46 : 0)
-              spacing: 2
-
-              Text {
-                text: root.title || root.userHost
-                color: root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: 13
-                font.weight: Font.Bold
-                elide: Text.ElideRight
-                width: parent.width
-              }
-
-              Text {
-                text: root.artist
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: 10
-                elide: Text.ElideRight
-                width: parent.width
-                visible: text !== ""
-              }
-            }
-          }
-
-          Item {
-            id: expandedProgress
-            width: parent.width
-            height: 22
-            visible: root.trackLength > 0
-
-            Rectangle {
-              // Unplayed remainder only -- starts right where the wave
-              // ends, instead of running the full width underneath it.
-              anchors.right: parent.right
-              anchors.top: parent.top
-              anchors.topMargin: 6
-              width: parent.width * (1 - root.progressRatio)
-              height: 2
-              radius: 1
-              color: Qt.rgba(1, 1, 1, 0.15)
-            }
-
-            WavyLine {
-              anchors.left: parent.left
-              anchors.top: parent.top
-              width: parent.width * root.progressRatio
-              height: 14
-              lineColor: root.accent
-              lineWidth: 2
-              frequency: 10
-              amplitudeMultiplier: root.isPlaying ? 1.2 : 0.1
-              fullLength: parent.width
-              running: root.isPlaying
-            }
-
-            // Playhead -- vertical line right where the wave meets the
-            // dim (unplayed) track. No drag-to-seek yet, display only.
-            Rectangle {
-              width: 3
-              height: 16
-              radius: width / 2
-              color: root.textColor
-              anchors.top: parent.top
-              x: parent.width * root.progressRatio - width / 2
-              visible: root.hasMedia
-
-              Behavior on x { NumberAnimation { duration: 450 } }
-            }
-
-            Text {
-              anchors.left: parent.left
-              anchors.top: parent.top
-              anchors.topMargin: 16
-              text: root.formatTime(root.trackPosition)
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: 9
-            }
-
-            Text {
-              anchors.right: parent.right
-              anchors.top: parent.top
-              anchors.topMargin: 16
-              text: root.formatTime(root.trackLength)
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: 9
-            }
-          }
-
-          Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 18
-
-            Text {
-              text: "󰒮"
-              color: root.activePlayer && root.activePlayer.canGoPrevious ? root.textColor : Qt.rgba(1, 1, 1, 0.3)
-              font.family: root.fontFamily
-              font.pixelSize: 15
-
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -6
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (root.mediaService) root.mediaService.runAction("previous", false)
-              }
-            }
-
-            Text {
-              text: root.playIcon
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 18
-
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -6
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
-              }
-            }
-
-            Text {
-              text: "󰒭"
-              color: root.activePlayer && root.activePlayer.canGoNext ? root.textColor : Qt.rgba(1, 1, 1, 0.3)
-              font.family: root.fontFamily
-              font.pixelSize: 15
-
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -6
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (root.mediaService) root.mediaService.runAction("next", false)
-              }
-            }
+          DashboardContent {
+            anchors.fill: parent
+            shell: root.shell
+            textColor: root.textColor
+            muted: root.muted
+            accent: root.accent
+            fontFamily: root.fontFamily
+            mediaService: root.mediaService
+            activePlayer: root.activePlayer
+            hasMedia: root.hasMedia
+            isPlaying: root.isPlaying
+            playIcon: root.playIcon
+            title: root.title
+            artist: root.artist
+            artUrl: root.artUrl
+            progressRatio: root.progressRatio
+            trackPosition: root.trackPosition
+            trackLength: root.trackLength
+            userHost: root.userHost
+            displayedTitle: root.displayedTitle
           }
         }
 

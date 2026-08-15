@@ -986,6 +986,15 @@ Item {
     }
   }
 
+  // Tonal floating-pill background shared by each module group — same hue
+  // as the theme's bar background (Color.bar.background), just opaque, so
+  // each group reads as a "raised" island instead of the bar having one
+  // continuous solid background.
+  component GroupPill: Rectangle {
+    radius: height / 2
+    color: Qt.rgba(root.background.r, root.background.g, root.background.b, 0.85)
+  }
+
   component BarPanel: PanelWindow {
     id: barWindow
 
@@ -1024,7 +1033,10 @@ Item {
 
     implicitWidth: root.vertical ? root.barSize : 0
     implicitHeight: root.vertical ? 0 : root.barSize
-    color: root.transparent ? "transparent" : root.background
+    // Always transparent, not root.transparent-gated — the bar-wide solid
+    // background is gone entirely now that each module group draws its own
+    // floating pill background (see horizontalBar below).
+    color: "transparent"
     surfaceFormat.opaque: false
     WlrLayershell.namespace: "omarchy-bar"
     WlrLayershell.layer: WlrLayer.Top
@@ -1115,19 +1127,70 @@ Item {
 
         CenterModules { anchors.fill: parent }
 
-        LeftModules {
+        Item {
+          id: menuPill
           anchors.left: parent.left
           // Extra space on top of the usual Style.space(8) so content
           // clears ruixen.frame-widget's rounded corner (cornerRadius: 24)
           // instead of starting right at the edge.
           anchors.leftMargin: Style.space(8) + 20
           anchors.verticalCenter: parent.verticalCenter
+          // Square, not just wide — a single icon reads as a circle
+          // (GroupPill's radius: height / 2), not a stadium shape. Fixed
+          // value derived only from root.barSize (known immediately, never
+          // shifts) — matches REPOS/PLUGINS/quickshell-ambxst's own
+          // ToggleButton.qml pattern (implicitWidth/implicitHeight both a
+          // plain fixed literal, not derived from each other or from
+          // content). Two earlier attempts both depended on
+          // menuContent.implicitWidth, which can read 0 during the
+          // ModuleList Loader's async load before settling — a real
+          // transient mismatch, not just a self-reference bug.
+          readonly property real diameter: root.barSize + Style.space(14)
+          width: diameter
+          height: diameter
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: menuContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("left").filter(function(e) { return root.entryId(e) === "omarchy.menu" })
+            region: "left"
+          }
         }
 
-        RightModules {
+        Item {
+          id: workspacesPill
+          anchors.left: menuPill.right
+          anchors.leftMargin: Style.space(8)
+          anchors.verticalCenter: parent.verticalCenter
+          width: workspacesContent.implicitWidth + Style.space(16) * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: workspacesContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("left").filter(function(e) { return root.entryId(e) !== "omarchy.menu" })
+            region: "left"
+          }
+        }
+
+        Item {
+          id: rightPill
           anchors.right: parent.right
           anchors.rightMargin: Style.space(8) + 20
           anchors.verticalCenter: parent.verticalCenter
+          width: rightContent.implicitWidth + Style.space(16) * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          RightModules {
+            id: rightContent
+            anchors.centerIn: parent
+          }
         }
       }
     }

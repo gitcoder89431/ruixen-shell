@@ -65,10 +65,25 @@ Item {
   property color themeForeground: Color.bar.text
   property color themeContrastForeground: Color.background
   property color transparentForeground: Color.bar.text
-  // Fixed, not theme-following, on purpose: every pill (component
-  // GroupPill below) is hardcoded OLED black regardless of theme. On a
-  // light theme (e.g. "White"), Color.bar.text follows the theme and
-  // turns near-black too -- black icons on black pills, invisible.
+  // Every pill (component GroupPill below) is hardcoded OLED black
+  // regardless of theme. Color.bar.text (the theme's body-text color) is
+  // fine against that on almost every theme -- checked across Aura Soft,
+  // Everforest, Gruvbox, Nord, Catppuccin, Tokyo Night: foreground is
+  // already light/off-white on all of them, since that's what "readable
+  // body text" means on a dark theme. Two real exceptions: light themes
+  // (e.g. "White"), where foreground flips near-black for readability on
+  // THAT theme's own light background, and Rose Pine specifically, a
+  // dark theme whose foreground (#575279, a muted dark purple) is still
+  // too dark against black despite the theme itself being dark-mode.
+  // Neither is a light/dark toggle -- it's actual luminance -- so measure
+  // it directly and only fall back to a fixed light color when the
+  // theme's own foreground genuinely wouldn't read, instead of
+  // overriding every theme's icon color wholesale (an earlier pass tried
+  // Color.accent for this and lost each theme's actual look for no
+  // reason, since accent is a single "pop" hue, not the resting
+  // icon/text color stock Omarchy uses).
+  readonly property real themeForegroundLuminance: 0.299 * themeForeground.r + 0.587 * themeForeground.g + 0.114 * themeForeground.b
+  readonly property color safeForeground: "#e8e8e8"
   // themeForeground itself is left theme-following since it also feeds
   // the legacy transparent-bar wallpaper-contrast script below
   // (omarchy-bar-text-color). Most stock widgets (network, audio,
@@ -86,7 +101,7 @@ Item {
   // answer (frequently black, e.g. against a light wallpaper) has nothing
   // to do with what's actually readable against our pills, and was
   // silently winning over this fix whenever bar.transparent was on.
-  readonly property color pillForeground: "#e8e8e8"
+  readonly property color pillForeground: themeForegroundLuminance > 0.45 ? themeForeground : safeForeground
   property color foreground: pillForeground
   // Not readonly -- Behavior on barForeground below needs write access to
   // intercept it, even though nothing assigns it imperatively anymore.

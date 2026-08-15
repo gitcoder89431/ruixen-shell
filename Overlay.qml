@@ -242,8 +242,9 @@ Item {
 
   // Thin vertical divider, ported from Separator.qml.
   component NotchSeparator: Rectangle {
-    implicitWidth: 1
+    implicitWidth: 3
     implicitHeight: 16
+    radius: width / 2
     color: root.textColor
     opacity: 0.1
   }

@@ -82,11 +82,12 @@ Item {
     id: qt
     property string glyph: ""
     property bool active: false
+    property int size: 32
     signal activated()
 
-    width: 32
-    height: 32
-    radius: 8
+    width: size
+    height: size
+    radius: size / 4
     color: active ? root.accent : Qt.rgba(1, 1, 1, 0.06)
     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -95,7 +96,7 @@ Item {
       text: qt.glyph
       color: qt.active ? "#000000" : root.textColor
       font.family: root.fontFamily
-      font.pixelSize: 13
+      font.pixelSize: qt.size * 0.4
     }
 
     MouseArea {
@@ -233,34 +234,34 @@ Item {
 
     // ---- Column 2: quick controls + calendar -------------------------
     ColumnLayout {
-      Layout.preferredWidth: 220
-      Layout.maximumWidth: 220
+      Layout.preferredWidth: 250
+      Layout.maximumWidth: 250
       Layout.fillHeight: true
       spacing: 8
 
-      // Quick controls -- 5 toggle buttons. 4 are real: wifi/bluetooth
-      // are global Quickshell singletons, nightlight/stayawake are
-      // Omarchy first-party services (same shell.firstPartyServiceFor
-      // pattern mediaService uses). The 5th (Omarchy's own Agents
-      // widget glyph, U+F16A3) stays non-interactive -- that widget
-      // only declares kinds: ["bar-widget"] in its manifest, no
-      // "service" kind, so its `alarming` (>=90% of a rate limit)
-      // state isn't reachable via shell.firstPartyServiceFor() here.
+      // Quick controls -- 4 real toggle buttons now, dropped the 5th
+      // (Omarchy's own Agents widget glyph) per direct request: it was
+      // never interactive anyway (that widget has no "service" kind to
+      // read from), and losing it let the remaining 4 grow bigger,
+      // using the extra width freed up by widening this column
+      // (220->250) and giving the calendar below more room too.
       Pane {
         Layout.fillWidth: true
-        Layout.preferredHeight: 44
+        Layout.preferredHeight: 52
 
         Row {
           anchors.centerIn: parent
-          spacing: 8
+          spacing: 10
 
           QuickToggle {
+            size: 40
             glyph: "󰖩"
             active: Networking.wifiEnabled
             onActivated: Networking.wifiEnabled = !Networking.wifiEnabled
           }
 
           QuickToggle {
+            size: 40
             glyph: "󰂯"
             active: root.bluetoothAdapter ? root.bluetoothAdapter.enabled : false
             // Not adapter.enabled = !adapter.enabled: that writes BlueZ's
@@ -275,12 +276,14 @@ Item {
           }
 
           QuickToggle {
+            size: 40
             glyph: "󰖨"
             active: root.nightlightService ? root.nightlightService.enabled : false
             onActivated: if (root.nightlightService) root.nightlightService.toggle()
           }
 
           QuickToggle {
+            size: 40
             glyph: "󰛊"
             active: root.idleService ? root.idleService.stayAwake : false
             // setIdleEnabled(current stayAwake value) IS the toggle --
@@ -288,10 +291,6 @@ Item {
             // pattern: stayAwake and idleEnabled are semantic opposites,
             // so passing the about-to-be-old stayAwake value in flips it.
             onActivated: if (root.idleService) root.idleService.setIdleEnabled(active)
-          }
-
-          QuickToggle {
-            glyph: "󱚣"
           }
         }
       }

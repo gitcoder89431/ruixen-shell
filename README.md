@@ -320,7 +320,22 @@ widget use, not from an end-to-end click test.
 
 `QuickToggle` (new shared component, next to `Pane`/`PaneFilled`) is
 the button itself -- accent/grey fill + `signal activated()`, same
-shape as `TabButton` in `Overlay.qml`.
+shape as `TabButton` in `Overlay.qml`. Its size is now a property
+(`size: 32` default, `radius`/`font.pixelSize` derived from it) rather
+than hardcoded, so instances can override -- see the width/icon-count
+change below.
+
+## Column 2 widened, agent icon dropped, remaining 4 toggles grown
+
+Per direct feedback ("calendar too narrow... make icon row bigger,
+push it down a bit... if we need to get rid of the AI button we
+can"): the quick-controls+calendar column widened `220px` -> `250px`,
+the (never-interactive) Agents glyph was dropped from the quick
+controls row entirely, and the remaining 4 real toggles grew
+`32px` -> `40px` (via `QuickToggle`'s new `size` property) to use the
+freed-up space instead of leaving it empty. The quick-controls `Pane`
+itself grew `44px` -> `52px` tall to fit the bigger buttons, which
+naturally pushes the calendar down slightly, exactly as asked.
 
 ## Calendar: ported literally from ambxst's real Calendar.qml
 

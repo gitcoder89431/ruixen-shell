@@ -327,24 +327,24 @@ Item {
   }
 
   readonly property bool vertical: position === "left" || position === "right"
-  // +6 over the theme default -- every pill's height and every widget's
+  // +12 over the theme default: every pill's height and every widget's
   // own icon slot size (BarIconButton reads bar.barSize) derive from
-  // this, so bumping it grows both at once. Also gives the pills more
-  // vertical padding/fill within the now-taller reserved zone
-  // (notchClearance) instead of looking small and high-up with empty
-  // space below them.
-  readonly property int barSize: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + 6
+  // this. With BarPanel's top margin back on frameInset (6), the pills'
+  // own occupied span (frameInset + barSize = 6 + 38 = 44) lands exactly
+  // on notchClearance's target below, so pills and the notch share the
+  // same bottom edge and top gap instead of ending at different heights.
+  readonly property int barSize: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + 12
 
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
   // room for its collapsed height (44, full ambxst parity) without its
   // bottom edge sitting flush against tiled windows.
   //
-  // ExclusionMode.Normal's exclusiveZone turned out additive to this
-  // window's own 6px top margin (frameInset), not a full replacement --
-  // first attempt (52) landed at an actual reserved zone of 58, too
-  // much. This value already has that +6 backed out, targeting an
-  // actual reserved zone close to the notch's own 44px height.
+  // ExclusionMode.Normal's exclusiveZone turned out additive to
+  // BarPanel's own top margin (frameInset, 6), not a full replacement --
+  // this value has that margin already backed out (44 - 6 = 38),
+  // targeting an actual reserved zone matching the notch's own 44px
+  // height. Keep this in sync if frameInset ever changes again.
   readonly property int notchClearance: 38
 
   function normalizePosition(value) {
@@ -1053,8 +1053,12 @@ Item {
 
     // Inset to match ruixen.frame-widget's thickness (6px), so the bar sits
     // inside the frame's rounded-rect hole instead of flush against the
-    // screen edge. Only handles position === "top" — the only position in
-    // use here; left/right/bottom bar positions fall back to no inset.
+    // screen edge, on all four sides equally -- this keeps the pills'
+    // top gap and the notch's own top gap (flush to the frame by design)
+    // consistent, which a separate larger top-only inset (tried and
+    // reverted) broke. Only handles position === "top" — the only
+    // position in use here; left/right/bottom bar positions fall back to
+    // no inset.
     readonly property int frameInset: 6
 
     margins {

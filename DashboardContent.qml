@@ -370,6 +370,9 @@ Item {
       ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
+        // Trimmed independently of the other 3 sides -- the header row
+        // (title/bell/broom) sat too far from the card's own top edge.
+        anchors.topMargin: 6
         spacing: 8
 
         RowLayout {

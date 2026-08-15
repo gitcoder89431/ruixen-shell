@@ -422,6 +422,21 @@ to a real local wallpaper file
 and confirmed via screenshot -- soft blurred mountain tones visible
 behind the sharp thumbnail, exactly the frosted-glass look asked for.
 
+**Follow-up, real misread worth recording**: first pass still gave
+`playerCard` its own `color: Qt.rgba(0,0,0,0.35)` fallback fill --
+read as "the border isn't see-through, there's a black layer under
+it," and initially misread as a request for real compositor-level
+desktop blur-through (Hyprland `layer_rule` `blur`/`xray`). It wasn't
+-- the actual ask was simpler: ambxst's real player has **no fill at
+all** (`variant: "transparent"` forces `opacity: 0` AND `border`
+width `0`, confirmed back in `Styling.qml`), so there's no separate
+card layer competing with the blur; the notch's own shared black base
+shows straight through when idle. Removed the `0.35` fallback tint
+entirely (`color: "transparent"`) -- the player column now reads as
+part of the notch's shared black instead of its own darker floating
+box, matching the other columns' relationship to the shared base
+without needing an actual desktop-blur-through effect at all.
+
 ## Agent icon added back to quick controls
 
 Per direct request -- with the column now `250px` wide and toggles at

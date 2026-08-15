@@ -136,7 +136,14 @@ Item {
       Layout.maximumWidth: 210
       Layout.fillHeight: true
       radius: 10
-      color: Qt.rgba(0, 0, 0, 0.35)
+      // Genuinely transparent -- no fill at all, matching ambxst's real
+      // StyledRect variant:"transparent" (opacity forced to 0, border
+      // forced to 0 -- see Styling.qml's "transparent" case). No
+      // separate card layer here means this area shows straight through
+      // to the notch's own shared black base (notchBg, one file over in
+      // Overlay.qml) when there's no art, and the blurred art itself is
+      // the only "fill" once there is.
+      color: "transparent"
       clip: true
 
       Image {

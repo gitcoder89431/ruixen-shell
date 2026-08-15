@@ -1155,7 +1155,7 @@ Item {
           ModuleList {
             id: mediaContent
             anchors.centerIn: parent
-            entries: root.layoutEntries("center").filter(function(e) { return root.entryId(e) === "omarchy.media" })
+            entries: root.layoutEntries("center").filter(function(e) { return root.entryId(e) === "ruixen.media" })
             region: "center"
           }
         }

@@ -327,7 +327,15 @@ Item {
       // buffer, so it no longer overlaps tiled windows the way it did
       // when this was smaller but the reserved zone was still just
       // barSize-sized.
-      height: panel.launcherOpen ? 360 : (panel.expanded ? 190 : 44)
+      // Capped at 230, not the taller size originally tried (360) --
+      // empirically confirmed the notchBg masking (MultiEffect layer
+      // effect below) stops rendering the bottom corner radius correctly
+      // somewhere between 200 (fine) and 360 (flat/square bottom, no
+      // rounding at all) -- a real limitation of that masking approach
+      // at larger sizes, not a coordinate/logic bug. Rather than chase
+      // the exact breaking point, stay safely under it and let ListView's
+      // own scrolling handle showing more than ~4 apps at once.
+      height: panel.launcherOpen ? 230 : (panel.expanded ? 190 : 44)
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }

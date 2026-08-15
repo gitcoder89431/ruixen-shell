@@ -756,7 +756,7 @@ Item {
           opacity: panel.launcherOpen ? 1 : 0
           anchors.centerIn: parent
           columns: 3
-          spacing: 28
+          spacing: 20
           Behavior on opacity { NumberAnimation { duration: 160 } }
 
           readonly property var favoriteAppIds: ["kitty", "org.gnome.Nautilus", "chromium", "code", "spotify", "Discord"]
@@ -778,19 +778,32 @@ Item {
             Item {
               id: favIcon
               required property var modelData
-              width: 56
-              height: 56
+              width: 64
+              height: 64
+
+              // Tonal card behind the icon -- lets the icon itself stay
+              // modest (32px) while the tile as a whole still fills a
+              // comfortable amount of space, instead of just blowing the
+              // icon up to fill the grid cell.
+              Rectangle {
+                anchors.fill: parent
+                radius: 14
+                color: cardMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                Behavior on color { ColorAnimation { duration: 120 } }
+              }
 
               Image {
-                anchors.fill: parent
-                sourceSize: Qt.size(56, 56)
+                anchors.centerIn: parent
+                width: 32
+                height: 32
+                sourceSize: Qt.size(32, 32)
                 asynchronous: true
                 source: root.shell.appLibrary.iconSource(favIcon.modelData.icon)
               }
 
               MouseArea {
+                id: cardMouse
                 anchors.fill: parent
-                anchors.margins: -6
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {

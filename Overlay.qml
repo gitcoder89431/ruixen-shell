@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 
@@ -261,7 +262,11 @@ Item {
     WlrLayershell.namespace: "ruixen-notch"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // Only grabs keyboard while the launcher's search box is open --
+    // otherwise this stays WlrKeyboardFocus.None like every other passive
+    // hover surface in this file, so it never steals input from whatever
+    // the user's actually doing.
+    WlrLayershell.keyboardFocus: launcherOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     mask: Region {
       x: notchOuter.x
@@ -272,7 +277,20 @@ Item {
 
     property bool pinnedOpen: false
     property bool hoverOpen: false
-    readonly property bool expanded: pinnedOpen || hoverOpen
+    // Third mode, alongside collapsed/media -- app launcher, triggered by
+    // ruixen.applauncher's own bar icon over IPC (see IpcHandler below),
+    // not by hover/click on the notch itself like pinnedOpen/hoverOpen.
+    property bool launcherOpen: false
+    property string launcherQuery: ""
+    onLauncherOpenChanged: if (launcherOpen) launcherQuery = ""
+    readonly property bool expanded: pinnedOpen || hoverOpen || launcherOpen
+
+    IpcHandler {
+      target: "ruixen.notch"
+      function openLauncher(): void { panel.launcherOpen = true }
+      function closeLauncher(): void { panel.launcherOpen = false }
+      function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }
+    }
 
     Item {
       id: notchOuter
@@ -297,14 +315,19 @@ Item {
       // the bell off. 260 gives real margin instead of a knife's-edge
       // fit. Expanded width (420) is unrelated -- ambxst's
       // notificationMinWidth target, still fits our own expanded content.
-      readonly property int bodyWidth: panel.expanded ? 420 : 260
+      // Launcher gets its own size (narrower, taller -- a scrollable list
+      // reads better than the wide-and-short media card) instead of
+      // reusing the 420x190 media dimensions, matching the "different
+      // modes size themselves independently" behavior ambxst's own
+      // StackView-driven notch has.
+      readonly property int bodyWidth: panel.launcherOpen ? 340 : (panel.expanded ? 420 : 260)
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a
       // buffer, so it no longer overlaps tiled windows the way it did
       // when this was smaller but the reserved zone was still just
       // barSize-sized.
-      height: panel.expanded ? 190 : 44
+      height: panel.launcherOpen ? 360 : (panel.expanded ? 190 : 44)
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -416,6 +439,8 @@ Item {
         // Matches DefaultView.qml's mainRow layout.
         Row {
           id: collapsedContent
+          // expanded already folds in launcherOpen (see panel.expanded),
+          // so !expanded alone correctly excludes launcher mode too.
           visible: !panel.expanded
           opacity: panel.expanded ? 0 : 1
           anchors.centerIn: parent
@@ -524,8 +549,8 @@ Item {
         // progress, transport controls.
         Column {
           id: expandedContent
-          visible: panel.expanded
-          opacity: panel.expanded ? 1 : 0
+          visible: panel.expanded && !panel.launcherOpen
+          opacity: panel.expanded && !panel.launcherOpen ? 1 : 0
           anchors.fill: parent
           anchors.topMargin: 20
           anchors.bottomMargin: 12
@@ -694,6 +719,153 @@ Item {
                 anchors.margins: -6
                 cursorShape: Qt.PointingHandCursor
                 onClicked: if (root.mediaService) root.mediaService.runAction("next", false)
+              }
+            }
+          }
+        }
+
+        // App launcher -- reads Quickshell's shared app library directly
+        // (shell.appLibrary, the same service the stock omarchy.menu's
+        // Apps submenu uses), no cloning needed. Click-to-launch only for
+        // v1 -- no arrow-key result navigation, just type to filter and
+        // click a row.
+        Item {
+          id: launcherContent
+          visible: panel.launcherOpen
+          opacity: panel.launcherOpen ? 1 : 0
+          anchors.fill: parent
+          anchors.topMargin: 16
+          anchors.bottomMargin: 12
+          Behavior on opacity { NumberAnimation { duration: 160 } }
+
+          readonly property var results: {
+            if (!panel.launcherOpen || !root.shell || !root.shell.appLibrary) return []
+            return root.shell.appLibrary.sortedEntries(panel.launcherQuery)
+          }
+
+          Column {
+            anchors.fill: parent
+            spacing: 8
+
+            Rectangle {
+              width: parent.width
+              height: 32
+              radius: 8
+              color: Qt.rgba(1, 1, 1, 0.08)
+
+              Row {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 8
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "󰍉"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: 14
+                }
+
+                Item {
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: parent.width - 30
+                  height: searchInput.height
+
+                  TextInput {
+                    id: searchInput
+                    width: parent.width
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 13
+                    focus: panel.launcherOpen
+                    text: panel.launcherQuery
+                    clip: true
+                    onTextChanged: panel.launcherQuery = text
+                    Keys.onEscapePressed: panel.launcherOpen = false
+                  }
+
+                  Text {
+                    text: "Search apps..."
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: 13
+                    visible: searchInput.text.length === 0
+                  }
+                }
+              }
+            }
+
+            ListView {
+              width: parent.width
+              height: parent.height - 40
+              clip: true
+              spacing: 2
+              model: launcherContent.results
+
+              delegate: Item {
+                id: appRow
+                required property var modelData
+                readonly property var entry: modelData.entry
+                width: ListView.view.width
+                height: 40
+
+                Rectangle {
+                  anchors.fill: parent
+                  radius: 8
+                  color: rowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                }
+
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: 8
+                  anchors.rightMargin: 8
+                  spacing: 10
+
+                  Image {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 24
+                    height: 24
+                    sourceSize: Qt.size(24, 24)
+                    asynchronous: true
+                    source: root.shell.appLibrary.iconSource(appRow.entry.icon)
+                  }
+
+                  Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 34
+
+                    Text {
+                      width: parent.width
+                      text: root.shell.appLibrary.entryName(appRow.entry)
+                      color: root.textColor
+                      font.family: root.fontFamily
+                      font.pixelSize: 12
+                      elide: Text.ElideRight
+                    }
+
+                    Text {
+                      width: parent.width
+                      text: root.shell.appLibrary.entrySubtext(appRow.entry)
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 9
+                      elide: Text.ElideRight
+                      visible: text !== ""
+                    }
+                  }
+                }
+
+                MouseArea {
+                  id: rowMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    root.shell.appLibrary.launch(appRow.entry.id, root.shell.appLibrary.entryName(appRow.entry))
+                    panel.launcherOpen = false
+                  }
+                }
               }
             }
           }

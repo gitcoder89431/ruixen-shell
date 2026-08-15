@@ -544,7 +544,7 @@ Item {
 
   // Widgets pulled out of the main rightPill into their own small pills —
   // see horizontalBar below.
-  readonly property var togglesPillIds: ["omarchy.keyboard-layout", "omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "ruixen.weather", "ruixen.quickactions"]
+  readonly property var togglesPillIds: ["omarchy.keyboard-layout", "omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "ruixen.quickactions"]
   readonly property var sideRightIds: togglesPillIds.concat(["ruixen.tray"])
 
   function moduleString(entry, key, fallback) {
@@ -1140,22 +1140,43 @@ Item {
 
         // Solo pill, not CenterModules -- that component's hover-reveal/
         // drag-anchor machinery was built for the old indicators cluster
-        // sharing this region (removed), and center only ever holds the
-        // clock now. Same GroupPill pattern as every other pill here.
+        // sharing this region (removed). Weather + a divider + clock,
+        // instead of a plain ModuleList Row, so there's a visible split
+        // between the two instead of just spacing -- direct ModuleSlots,
+        // not ModuleList, since ModuleList has no separator support.
         Item {
           id: clockPill
-          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.right: parent.right
+          anchors.rightMargin: Style.space(8) + 8
           anchors.verticalCenter: parent.verticalCenter
-          width: clockContent.width + Style.space(10) * 2
+          width: clockRow.implicitWidth + Style.space(10) * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent }
 
-          ModuleList {
-            id: clockContent
+          Row {
+            id: clockRow
             anchors.centerIn: parent
-            entries: root.layoutEntries("center")
-            region: "center"
+            spacing: Style.space(8)
+
+            ModuleSlot {
+              anchors.verticalCenter: parent.verticalCenter
+              entry: root.layoutEntries("center").filter(function(e) { return root.entryId(e) === "ruixen.weather" })[0] || null
+              region: "center"
+            }
+
+            Rectangle {
+              width: 1
+              height: Style.space(14)
+              anchors.verticalCenter: parent.verticalCenter
+              color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, 0.3)
+            }
+
+            ModuleSlot {
+              anchors.verticalCenter: parent.verticalCenter
+              entry: root.layoutEntries("center").filter(function(e) { return root.entryId(e) === "omarchy.clock" })[0] || null
+              region: "center"
+            }
           }
         }
 
@@ -1209,11 +1230,11 @@ Item {
 
         Item {
           id: rightPill
-          anchors.right: parent.right
-          // Same reasoning as menuPill's leftMargin — the pill's own
-          // background provides separation from the curve, so this
-          // needs less raw clearance than bare icons did.
-          anchors.rightMargin: Style.space(8) + 8
+          // Anchored off clockPill now that clockPill took over the
+          // parent.right/curve-clearance anchor spot as the new
+          // rightmost pill.
+          anchors.right: clockPill.left
+          anchors.rightMargin: Style.space(8)
           anchors.verticalCenter: parent.verticalCenter
           width: rightContent.implicitWidth + Style.space(16) * 2
           height: root.barSize - Style.space(2)

@@ -276,6 +276,52 @@ fixed-width column with an explicit `Layout.maximumWidth` matching its
 component as a backstop. Worth remembering for any future `RowLayout`/
 `ColumnLayout` work in this file.
 
+## Quick controls: 4 of 5 are real toggles now
+
+Wired per direct request -- click-to-toggle with live on/off coloring
+(`root.accent` fill + black glyph when on, the original grey tonal
+when off, matching how the calendar's today-cell and the active tab
+already use accent for "on" state):
+
+- **WiFi** -- `Quickshell.Networking`'s `Networking.wifiEnabled`. A
+  real global Quickshell singleton, not gated behind Omarchy's plugin
+  registry at all -- readable/writable directly, same as
+  `omarchy.network`'s own `toggleNetwork()`.
+- **Bluetooth** -- `Quickshell.Bluetooth`'s `Bluetooth.defaultAdapter
+  .enabled` for reading state. Toggling does NOT write `adapter.enabled`
+  directly (that hits BlueZ's `Powered`, which nothing persists, so it
+  comes back on at next boot) -- calls `Quickshell.execDetached([
+  "omarchy-bluetooth-power", ...])` instead, the exact same helper
+  `omarchy.bluetooth`'s own panel uses, which moves the rfkill soft
+  block (survives reboots via systemd-rfkill).
+- **Night light** -- `shell.firstPartyServiceFor("omarchy.nightlight")`,
+  a real `kind: "service"` plugin (confirmed via its manifest) with a
+  directly-callable `.toggle()` method on the service object itself --
+  no IPC needed, same pattern `mediaService` already used here.
+- **Caffeine/stay-awake** -- `shell.firstPartyServiceFor("omarchy.idle")`
+  `.stayAwake` / `.setIdleEnabled(...)`. Ported the exact toggle
+  expression `ruixen.stayawake`'s own `StayAwake.qml` uses --
+  `setIdleEnabled(currentStayAwakeValue)` looks backwards at a glance
+  but is correct: `stayAwake` and `idleEnabled` are semantic opposites,
+  so passing the about-to-be-old `stayAwake` value in as the new
+  `idleEnabled` value IS the toggle.
+- **Agent glyph** -- deliberately left non-interactive, per direct
+  instruction ("dont worry about the agent one"). See the note above
+  on why (`omarchy.agents` has no `service` kind to read from).
+
+All 4 read-sides verified against real system state before committing
+(`nmcli radio wifi`, `rfkill list bluetooth`, `qs ipc call nightlight
+status` all matched what rendered) -- couldn't script a real mouse
+click in this environment (a standing limitation all session, see the
+launcher-testing notes elsewhere in this repo's history), so the
+write-side confidence comes from reusing the *exact* commands/methods
+the already-shipped, real Omarchy panels and our own `ruixen.stayawake`
+widget use, not from an end-to-end click test.
+
+`QuickToggle` (new shared component, next to `Pane`/`PaneFilled`) is
+the button itself -- accent/grey fill + `signal activated()`, same
+shape as `TabButton` in `Overlay.qml`.
+
 ## Left-side tab bar (shell only)
 
 `Overlay.qml`'s `expandedContent` (media hover/pin state) now wraps

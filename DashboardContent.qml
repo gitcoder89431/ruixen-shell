@@ -1,5 +1,8 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Networking
+import Quickshell.Bluetooth
 
 // Pure-frontend port of ambxst's WidgetsTab.qml (the actual content of
 // their dashboard's default tab -- what most people mean by "the
@@ -42,6 +45,14 @@ Item {
   property string userHost: ""
   property string displayedTitle: ""
 
+  // Quick-controls backends -- wifi/bluetooth are real global Quickshell
+  // singletons (not gated behind Omarchy's plugin registry at all);
+  // nightlight/idle are Omarchy first-party "service" kind plugins, same
+  // shell.firstPartyServiceFor() pattern mediaService above already uses.
+  readonly property var bluetoothAdapter: Bluetooth.defaultAdapter
+  readonly property var nightlightService: root.shell ? root.shell.firstPartyServiceFor("omarchy.nightlight") : null
+  readonly property var idleService: root.shell ? root.shell.firstPartyServiceFor("omarchy.idle") : null
+
   function formatTime(seconds) {
     var value = Math.max(0, Math.floor(Number(seconds) || 0))
     var minutes = Math.floor(value / 60)
@@ -60,6 +71,39 @@ Item {
     border.color: Qt.rgba(1, 1, 1, 0.14)
     border.width: 1.5
     clip: true
+  }
+
+  // Quick-control toggle button -- accent-filled with black text/glyph
+  // when on (same "primary" treatment the calendar's today-cell and the
+  // active tab already use), grey tonal when off. The agent glyph is the
+  // one exception left non-interactive (see below) -- active always
+  // false, no onActivated wired.
+  component QuickToggle: Rectangle {
+    id: qt
+    property string glyph: ""
+    property bool active: false
+    signal activated()
+
+    width: 32
+    height: 32
+    radius: 8
+    color: active ? root.accent : Qt.rgba(1, 1, 1, 0.06)
+    Behavior on color { ColorAnimation { duration: 120 } }
+
+    Text {
+      anchors.centerIn: parent
+      text: qt.glyph
+      color: qt.active ? "#000000" : root.textColor
+      font.family: root.fontFamily
+      font.pixelSize: 13
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: qt.activated()
+    }
   }
 
   // Kept as the original filled tonal card -- notifications stays grey
@@ -194,18 +238,14 @@ Item {
       Layout.fillHeight: true
       spacing: 8
 
-      // Quick controls -- 5 toggle-style buttons, static/decorative for
-      // now (ambxst's own versions read WiFi/Bluetooth/night-light/etc.
-      // services we don't have wired here yet). Glyphs picked to at
-      // least gesture at the same concepts: wifi, bluetooth, night
-      // light, caffeine/keep-awake, and Omarchy's own Agents (Claude/
-      // Codex/Fireworks usage) widget in place of game mode -- same
-      // "robot_excited" glyph (U+F16A3) omarchy.agents' own bar icon
-      // uses (Panel.qml). That widget only declares kinds:
-      // ["bar-widget"] in its manifest, no "service" kind, so its
-      // `alarming` (>=90% of a rate limit) state isn't reachable via
-      // shell.firstPartyServiceFor() from here -- stays static like
-      // its 4 siblings rather than faking the red-when-close behavior.
+      // Quick controls -- 5 toggle buttons. 4 are real: wifi/bluetooth
+      // are global Quickshell singletons, nightlight/stayawake are
+      // Omarchy first-party services (same shell.firstPartyServiceFor
+      // pattern mediaService uses). The 5th (Omarchy's own Agents
+      // widget glyph, U+F16A3) stays non-interactive -- that widget
+      // only declares kinds: ["bar-widget"] in its manifest, no
+      // "service" kind, so its `alarming` (>=90% of a rate limit)
+      // state isn't reachable via shell.firstPartyServiceFor() here.
       Pane {
         Layout.fillWidth: true
         Layout.preferredHeight: 44
@@ -214,24 +254,44 @@ Item {
           anchors.centerIn: parent
           spacing: 8
 
-          Repeater {
-            model: ["󰤨", "󰂯", "󰖨", "󰛊", "󱚣"]
+          QuickToggle {
+            glyph: "󰤨"
+            active: Networking.wifiEnabled
+            onActivated: Networking.wifiEnabled = !Networking.wifiEnabled
+          }
 
-            Rectangle {
-              required property string modelData
-              width: 32
-              height: 32
-              radius: 8
-              color: Qt.rgba(1, 1, 1, 0.06)
-
-              Text {
-                anchors.centerIn: parent
-                text: parent.modelData
-                color: root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: 13
-              }
+          QuickToggle {
+            glyph: "󰂯"
+            active: root.bluetoothAdapter ? root.bluetoothAdapter.enabled : false
+            // Not adapter.enabled = !adapter.enabled: that writes BlueZ's
+            // Powered directly, which nothing persists, so it comes back
+            // on at next boot. omarchy-bluetooth-power moves the rfkill
+            // soft block instead (same helper omarchy.bluetooth's own
+            // panel uses) -- systemd-rfkill restores that across reboots.
+            onActivated: {
+              if (!root.bluetoothAdapter) return
+              Quickshell.execDetached(["omarchy-bluetooth-power", root.bluetoothAdapter.enabled ? "off" : "on"])
             }
+          }
+
+          QuickToggle {
+            glyph: "󰖨"
+            active: root.nightlightService ? root.nightlightService.enabled : false
+            onActivated: if (root.nightlightService) root.nightlightService.toggle()
+          }
+
+          QuickToggle {
+            glyph: "󰛊"
+            active: root.idleService ? root.idleService.stayAwake : false
+            // setIdleEnabled(current stayAwake value) IS the toggle --
+            // see ruixen.stayawake's own StayAwake.qml for the same
+            // pattern: stayAwake and idleEnabled are semantic opposites,
+            // so passing the about-to-be-old stayAwake value in flips it.
+            onActivated: if (root.idleService) root.idleService.setIdleEnabled(active)
+          }
+
+          QuickToggle {
+            glyph: "󱚣"
           }
         }
       }

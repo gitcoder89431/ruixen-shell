@@ -253,6 +253,7 @@ Item {
     id: panel
     visible: true
     anchors { top: true; left: true; right: true }
+    margins.top: 4
     implicitHeight: 220
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"

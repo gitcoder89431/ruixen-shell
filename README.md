@@ -351,6 +351,21 @@ reflex any time a `RowLayout`/`ColumnLayout` gets a `Layout.preferredX`
 in this codebase: always pair it with `Layout.maximumX` up front,
 don't wait to hit the bug again.
 
+**Follow-up: the day-grid itself looked "skinny"** inside its own
+black panel -- the weekday-label row and each week row were a plain
+`Row` of fixed-`20px` cells, centered (`Layout.alignment:
+Qt.AlignHCenter`) rather than stretched, so once the day-grid panel
+was as wide as the rest of the card, the actual 7-day grid sat as a
+narrow ~152px block with big empty gutters on both sides. Switched
+both to `RowLayout` with `Layout.fillWidth: true` on all 7 columns, so
+they spread edge-to-edge like the header row already did. The "today"
+highlight needed an extra wrapper to survive this: a bare `Rectangle`
+with `Layout.fillWidth: true` would have stretched the accent circle
+into an ellipse, so each day is now an `Item { Layout.fillWidth:
+Layout.fillHeight: true }` column holding a fixed `20x20` circle
+`anchors.centerIn` inside it -- the column shares width evenly, the
+circle itself stays round.
+
 ## Left-side tab bar (shell only)
 
 `Overlay.qml`'s `expandedContent` (media hover/pin state) now wraps

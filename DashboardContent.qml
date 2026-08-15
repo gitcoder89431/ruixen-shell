@@ -442,16 +442,22 @@ Item {
               anchors.margins: 6
               spacing: 2
 
-              Row {
+              // Weekday labels and every week row below both use
+              // RowLayout with 7 fillWidth columns now, instead of a
+              // plain Row of fixed-20px cells centered in the panel --
+              // the fixed-width version left big empty gutters on both
+              // sides once the day-grid panel became as wide as the
+              // rest of this card (looked like the calendar itself was
+              // "skinny" inside a wider black panel).
+              RowLayout {
                 Layout.fillWidth: true
-                Layout.alignment: Qt.AlignHCenter
                 spacing: 2
 
                 Repeater {
                   model: ["M", "T", "W", "T", "F", "S", "S"]
                   Text {
                     required property string modelData
-                    width: 20
+                    Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData
                     color: root.muted
@@ -472,26 +478,37 @@ Item {
                   radius: 8
                   color: index === calendarPane.currentWeekRow ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
-                  Row {
-                    anchors.centerIn: parent
+                  RowLayout {
+                    anchors.fill: parent
                     spacing: 2
 
                     Repeater {
                       model: parent.parent.modelData
 
-                      Rectangle {
+                      // fillWidth on the column keeps all 7 days evenly
+                      // spread across the full row width; the "today"
+                      // highlight stays a fixed 20x20 circle centered
+                      // inside its (now wider) column instead of
+                      // stretching into an ellipse.
+                      Item {
                         required property var modelData
-                        width: 20
-                        height: 20
-                        radius: 10
-                        color: modelData.isToday ? root.accent : "transparent"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
 
-                        Text {
+                        Rectangle {
                           anchors.centerIn: parent
-                          text: modelData.day
-                          color: modelData.isToday ? "#000000" : (modelData.inMonth ? root.textColor : root.muted)
-                          font.family: root.fontFamily
-                          font.pixelSize: 9
+                          width: 20
+                          height: 20
+                          radius: 10
+                          color: parent.modelData.isToday ? root.accent : "transparent"
+
+                          Text {
+                            anchors.centerIn: parent
+                            text: parent.parent.modelData.day
+                            color: parent.parent.modelData.isToday ? "#000000" : (parent.parent.modelData.inMonth ? root.textColor : root.muted)
+                            font.family: root.fontFamily
+                            font.pixelSize: 9
+                          }
                         }
                       }
                     }

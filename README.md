@@ -122,6 +122,51 @@ proved safe, rather than gamble on any new size. If a search box comes
 back later, budget time to actually root-cause the masking bug first (or
 find a non-`MultiEffect` masking approach) rather than re-hitting it.
 
+## Dashboard: media hover/pin now ports ambxst's actual WidgetsTab.qml
+
+`DashboardContent.qml` (new file, not folded into `Overlay.qml` — that
+file was already large) is a pure-frontend port of ambxst's
+`modules/widgets/dashboard/widgets/WidgetsTab.qml` — the real content of
+their dashboard's default tab, not a from-scratch design. Four columns:
+player | quick controls + calendar | notification history |
+volume/brightness/mic dials. `expandedContent` (hover/pin) instantiates
+it directly now, replacing the old simple album-art/progress/transport
+layout it used to have.
+
+Deliberately scoped to just those 5 pieces, not ambxst's *entire*
+dashboard tree — that's ~32k lines total (notes app, clipboard manager,
+tmux integration, a full keybinds editor, theme editor, wallpaper
+picker with its own color-scheme system, system/compositor panels, a
+metrics tab, weather widget, emoji picker). Only the calendar is
+genuinely functional (plain `Date` math, no backend needed) — prev/next
+month navigation works, today's cell highlights correctly. Everything
+else (quick-control toggles, notification list, volume/mic/brightness
+dials) is static/decorative, a visual reference for deciding what's
+worth actually wiring up later, not a promise that it works yet.
+
+Built with plain QML primitives (`Rectangle`/`Text`/`Canvas`/
+`RowLayout`/`ColumnLayout`) throughout, not ambxst's own `StyledRect`/
+`Styling`/`Colors` design-token system, which doesn't exist in this
+project — same "port the shape, not their whole framework" approach as
+the notch's own concave-corner masking.
+
+This is what made trying the `900×344` dashboard size worthwhile in the
+first place (see the collapsed/media/launcher sizing notes above) — a
+`420×190` box has no room for 4 real columns, so hover/pin needed the
+bigger, previously-untested size specifically to have somewhere to put
+this.
+
+**A real layout bug worth knowing about**: `Layout.preferredWidth`
+alone does not hard-cap a `RowLayout` column's width if a child further
+down wants more — the calendar's own natural content width was
+overriding the `220` I set on its column and starving the notifications
+column down to near-zero width, which looked like a completely
+different, invisible-panel bug at first. Fixed by pairing every
+fixed-width column with an explicit `Layout.maximumWidth` matching its
+`Layout.preferredWidth`, plus `clip: true` on the shared `Pane`
+component as a backstop. Worth remembering for any future `RowLayout`/
+`ColumnLayout` work in this file.
+
 ## A real gotcha: `ruixen.media` got auto-disabled
 
 When `ruixen.media`'s entry was removed from `ruixen-bar`'s

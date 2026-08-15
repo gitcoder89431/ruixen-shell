@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.stayawake",
+  "name": "Ruixen Stay Awake",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Always-visible idle lock/screensaver toggle, for the tray pill instead of the hover-reveal indicator cluster.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "StayAwake.qml"
+  },
+  "barWidget": {
+    "displayName": "Ruixen Stay Awake",
+    "description": "Toggle idle lock/screensaver on or off.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

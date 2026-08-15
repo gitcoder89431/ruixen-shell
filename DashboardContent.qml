@@ -177,6 +177,50 @@ Item {
         opacity: 0.25
       }
 
+      // Sharp-edge accent ring -- ambxst's own FullPlayer.qml layers a
+      // SECOND, full-resolution (unblurred) copy of the same art/
+      // wallpaper on top, masked with maskInverted: true against an
+      // inset white rectangle (4px in on every side). Inverted means
+      // the mask hides the interior and only lets the sharp image show
+      // in the thin ring OUTSIDE that inset -- a crisp border around
+      // the edge, blurred everywhere inside it. Ported directly from
+      // their real innerAreaMask + fullArtEffect, not invented.
+      Image {
+        id: playerBgArtFull
+        anchors.fill: parent
+        source: playerCard.playerBgSource
+        sourceSize: Qt.size(256, 256)
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        visible: false
+      }
+
+      Item {
+        id: innerAreaMask
+        anchors.fill: parent
+        visible: false
+        layer.enabled: true
+
+        Rectangle {
+          x: 4
+          y: 4
+          width: parent.width - 8
+          height: parent.height - 8
+          radius: playerCard.radius - 4
+          color: "#ffffff"
+        }
+      }
+
+      MultiEffect {
+        anchors.fill: parent
+        source: playerBgArtFull
+        maskEnabled: true
+        maskSource: innerAreaMask
+        maskInverted: true
+        maskThresholdMin: 0.5
+        maskSpreadAtMin: 1.0
+      }
+
       ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10

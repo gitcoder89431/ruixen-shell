@@ -593,6 +593,33 @@ to be solving a problem ambxst's own design doesn't actually have.
 Worth remembering for next time: check what the reference project
 *actually does* before chasing a technique it doesn't use.
 
+## Sharp-edge accent ring added
+
+The "border" the user kept describing across this whole saga turned
+out to be a real detail in ambxst's own `FullPlayer.qml` -- noted on
+the very first read of that file, early in this session, but never
+actually ported until now. Their player layers a SECOND, full-
+resolution (unblurred) copy of the same art/wallpaper on top of the
+blurred backdrop, masked with `maskInverted: true` against a
+`Rectangle` inset 4px on every side. Inverted means the mask hides the
+interior and only lets the sharp image through in the thin ring
+OUTSIDE that inset -- a crisp, detailed edge framing a soft blurred
+interior, not a flat color border at all.
+
+Ported directly: `playerBgArtFull` (a second `Image`, full `256x256`
+`sourceSize` instead of the blurred layer's cheap `64x64`), an
+`innerAreaMask` `Item` (`layer.enabled: true`, `visible: false`, same
+hidden-mask-source pattern `notchMask` itself already uses) holding
+the 4px-inset white `Rectangle`, and a `MultiEffect` with
+`maskInverted: true` sourcing the sharp image through that mask.
+Rendered correctly on the very first try -- worth noting given the
+earlier (now-understood-to-be-misdiagnosed) "new child in a
+`layer.enabled` item doesn't render" scare from the cutout saga above;
+this is the same shape of code (`layer.enabled` item with a freshly-
+added child) and it worked immediately, further confirming that
+earlier theory was likely a red herring from comparing the wrong test
+states, not a real structural bug.
+
 ## Agent icon added back to quick controls
 
 Per direct request -- with the column now `250px` wide and toggles at

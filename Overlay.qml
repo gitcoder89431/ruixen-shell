@@ -263,11 +263,12 @@ Item {
       // number is notificationMinWidth's 420px target (452 with padding).
       readonly property int bodyWidth: panel.expanded ? 420 : 290
       width: bodyWidth + cornerSize * 2
-      // ambxst's 44px collapsed height was sized for their own bar/frame
-      // proportions -- too tall for ours (barSize is ~32px). Back down
-      // to roughly match that instead of matching ambxst's number
-      // literally.
-      height: panel.expanded ? 190 : 36
+      // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
+      // screen zone (notchClearance) was bumped to cover this plus a
+      // buffer, so it no longer overlaps tiled windows the way it did
+      // when this was smaller but the reserved zone was still just
+      // barSize-sized.
+      height: panel.expanded ? 190 : 44
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -386,7 +387,7 @@ Item {
           // frame's own border there), so centering in the notch's full
           // height reads as shifted too high relative to the actually
           // visible space below that. Nudge down to compensate.
-          anchors.verticalCenterOffset: 4
+          anchors.verticalCenterOffset: 2
           spacing: 8
           Behavior on opacity { NumberAnimation { duration: 140 } }
 

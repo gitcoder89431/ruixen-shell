@@ -351,6 +351,20 @@ leftover column height now shows as plain grey space below the grid
 instead of stretching the rows apart -- confirmed via a zoomed
 screenshot crop, not just eyeballing the full dashboard.
 
+**Follow-up: that trailing grey space was too big** ("a ton of space
+below the calendar... i guess our notch was too tall?"). Not a notch
+height problem -- `calendarPane` (the grey outer card) still had
+`Layout.fillHeight: true` to stay aligned with its sibling columns,
+while the day-grid inside was capped to a small fixed content size, so
+the difference showed up as empty grey padding. Grew the actual rows/
+cells to use more of that space instead of shrinking the notch: week
+row height `20px` -> `30px`, "today" circle `20px` -> `26px`, weekday
+label font `9px` -> `10px`, day-number font `9px` -> `11px`, day-grid
+`Layout.preferredHeight`/`maximumHeight` `172` -> `224`. Some grey
+space still remains below (deliberately not maxed out to fill 100% --
+would have made the calendar cells look oversized next to the
+narrower dial column) but it's much less noticeable now.
+
 ## Calendar: ported literally from ambxst's real Calendar.qml
 
 First pass (grey header bar, black body) was a misread -- the actual

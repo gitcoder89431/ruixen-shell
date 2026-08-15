@@ -441,16 +441,18 @@ Item {
           // Day-grid -- one black sub-panel holding the weekday labels
           // and all 6 week rows, matching ambxst's own second
           // "internalbg" StyledRect. Sized to its actual content
-          // (weekday row + divider + 6x 20px week rows + spacing/
-          // margins) instead of Layout.fillHeight -- fillHeight let it
-          // stretch to whatever leftover height calendarPane had, and
+          // instead of Layout.fillHeight -- fillHeight let it stretch
+          // to whatever leftover height calendarPane had, and
           // ColumnLayout spread that leftover space out as visible gaps
           // between every week row instead of just trailing space
-          // ("too hamburger").
+          // ("too hamburger"). Row/cell size bumped (20px -> 30px rows,
+          // 20px -> 26px "today" circle) to actually use most of
+          // calendarPane's available height instead of leaving a big
+          // block of empty grey space below a small fixed-size grid.
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 172
-            Layout.maximumHeight: 172
+            Layout.preferredHeight: 224
+            Layout.maximumHeight: 224
             Layout.alignment: Qt.AlignTop
             radius: 6
             color: "#000000"
@@ -480,7 +482,7 @@ Item {
                     text: modelData
                     color: root.muted
                     font.family: root.fontFamily
-                    font.pixelSize: 9
+                    font.pixelSize: 10
                   }
                 }
               }
@@ -504,8 +506,8 @@ Item {
                   required property var modelData
                   required property int index
                   Layout.fillWidth: true
-                  Layout.preferredHeight: 20
-                  radius: 8
+                  Layout.preferredHeight: 30
+                  radius: 10
                   color: index === calendarPane.currentWeekRow ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
                   RowLayout {
@@ -527,9 +529,9 @@ Item {
 
                         Rectangle {
                           anchors.centerIn: parent
-                          width: 20
-                          height: 20
-                          radius: 10
+                          width: 26
+                          height: 26
+                          radius: 13
                           color: parent.modelData.isToday ? root.accent : "transparent"
 
                           Text {
@@ -537,7 +539,7 @@ Item {
                             text: parent.parent.modelData.day
                             color: parent.parent.modelData.isToday ? "#000000" : (parent.parent.modelData.inMonth ? root.textColor : root.muted)
                             font.family: root.fontFamily
-                            font.pixelSize: 9
+                            font.pixelSize: 11
                           }
                         }
                       }

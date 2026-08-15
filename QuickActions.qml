@@ -85,7 +85,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "⋮"
+    text: ""
     tooltipText: "More actions"
     onPressed: function() { root.popupOpen = !root.popupOpen }
   }

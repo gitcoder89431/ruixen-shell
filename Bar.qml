@@ -327,7 +327,13 @@ Item {
   }
 
   readonly property bool vertical: position === "left" || position === "right"
-  readonly property int barSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
+  // +6 over the theme default -- every pill's height and every widget's
+  // own icon slot size (BarIconButton reads bar.barSize) derive from
+  // this, so bumping it grows both at once. Also gives the pills more
+  // vertical padding/fill within the now-taller reserved zone
+  // (notchClearance) instead of looking small and high-up with empty
+  // space below them.
+  readonly property int barSize: (vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal) + 6
 
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has

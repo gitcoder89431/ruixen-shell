@@ -163,11 +163,18 @@ Item {
     return list
   }
 
-  function oldestPlayingPlayer(requirePlaybackStream) {
-    var oldest = null
-    var oldestOrder = 0
+  // Picks whichever currently-playing source started most recently
+  // instead of longest ago. playerStartedAt assigns an increasing serial
+  // the first time a player is seen playing, so a higher order means it
+  // started more recently. Stock always preferred the oldest, which meant
+  // a tab still technically "playing" (autoplay/looping in the
+  // background, MPRIS not always prompt about isPlaying going false)
+  // kept winning over whatever was actually just started.
+  function newestPlayingPlayer(requirePlaybackStream) {
+    var newest = null
+    var newestOrder = -1
     var playingProxy = null
-    var proxyOrder = 0
+    var proxyOrder = -1
 
     for (var i = 0; i < players.length; i++) {
       var p = players[i]
@@ -178,17 +185,17 @@ Item {
         if (requirePlaybackStream && !playerHasPlaybackStream(p)) continue
 
         var order = playerOrder(p, i + 1000)
-        if (!proxyPlayer && (!oldest || order < oldestOrder)) {
-          oldest = p
-          oldestOrder = order
-        } else if (proxyPlayer && (!playingProxy || order < proxyOrder)) {
+        if (!proxyPlayer && (!newest || order > newestOrder)) {
+          newest = p
+          newestOrder = order
+        } else if (proxyPlayer && (!playingProxy || order > proxyOrder)) {
           playingProxy = p
           proxyOrder = order
         }
       }
     }
 
-    return oldest || playingProxy || null
+    return newest || playingProxy || null
   }
 
   function selectActivePlayer() {
@@ -228,7 +235,7 @@ Item {
     if (preferred && preferred.isPlaying) return preferred
     var streamCandidate = streamPlayer || streamProxy
     var streamPreferred = preferred && playerHasPlaybackStream(preferred) ? preferred : null
-    return oldestPlayingPlayer(true) || oldestPlayingPlayer(false) || streamPreferred || streamCandidate || preferred || trackPlayer || trackProxy || controllablePlayer || controllableProxy || identityPlayer || identityProxy || null
+    return newestPlayingPlayer(true) || newestPlayingPlayer(false) || streamPreferred || streamCandidate || preferred || trackPlayer || trackProxy || controllablePlayer || controllableProxy || identityPlayer || identityProxy || null
   }
 
   function labelFor(player) {
@@ -353,8 +360,8 @@ Item {
     if (targeted) return targeted
 
     if (action === "pause" || action === "playPause") {
-      var oldest = oldestPlayingPlayer(true) || oldestPlayingPlayer(false)
-      if (oldest) return oldest
+      var newest = newestPlayingPlayer(true) || newestPlayingPlayer(false)
+      if (newest) return newest
     }
 
     if (canHandleAction(activePlayer, action)) return activePlayer

@@ -55,21 +55,75 @@ BarWidget {
   implicitWidth: hasMedia ? row.implicitWidth + Style.space(14) : 0
   implicitHeight: barSize
 
+  // Declared before the Row on purpose: QML stacks later siblings on top
+  // for both paint AND hit-testing, so this being first means the glyph's
+  // own MouseArea below (nested inside the Row, declared after this) sits
+  // in front and actually receives its clicks instead of this catching
+  // everything first.
+  MouseArea {
+    anchors.fill: parent
+    hoverEnabled: true
+    cursorShape: root.activePlayer ? Qt.PointingHandCursor : Qt.ArrowCursor
+    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+
+    onClicked: function(mouse) {
+      if (!root.activePlayer) return
+      // Left-clicks on the glyph badge are caught by its own MouseArea
+      // (play/pause) before reaching here -- anything that does land here
+      // (left elsewhere in the pill, or right-click anywhere) opens the
+      // popup instead.
+      if (mouse.button === Qt.MiddleButton) {
+        if (root.mediaService) root.mediaService.runAction("next", false)
+      } else {
+        root.popupOpen = !root.popupOpen
+      }
+    }
+    onWheel: function(wheel) {
+      if (!root.activePlayer) return
+      if (wheel.angleDelta.y > 0 && root.mediaService) root.mediaService.runAction("previous", false)
+      else if (wheel.angleDelta.y < 0 && root.mediaService) root.mediaService.runAction("next", false)
+    }
+    onEntered: if (root.bar) root.bar.showTooltip(root, root.hasMedia ? (root.title + (root.artist ? " — " + root.artist : "")) : "")
+    onExited: if (root.bar) root.bar.hideTooltip(root)
+  }
+
   Row {
     id: row
     anchors.centerIn: parent
     spacing: Style.space(6)
 
-    Text {
-      id: glyph
+    // Round color badge instead of a plain glyph -- green (go/play) when
+    // paused, yellow (caution/pause) when playing, black icon on both for
+    // contrast. Also doubles as the play/pause click target.
+    Rectangle {
+      id: playBadge
       anchors.verticalCenter: parent.verticalCenter
-      text: root.playIcon
-      color: activePlayer && activePlayer.isPlaying ? root.bar.barForeground : Qt.darker(root.bar.barForeground, 1.5)
-      font.family: root.bar.fontFamily
-      font.pixelSize: Style.font.body
+      width: Style.space(20)
+      height: Style.space(20)
+      radius: width / 2
+      color: activePlayer && activePlayer.isPlaying ? "#f5c518" : "#3ecf5b"
       Behavior on color {
         enabled: !root.bar || root.bar.foregroundAnimationEnabled
         ColorAnimation { duration: 160 }
+      }
+
+      Text {
+        anchors.centerIn: parent
+        text: root.playIcon
+        color: "#000000"
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+
+      // Its own click target so play/pause and "open the popup" don't
+      // fight over the same click -- was undiscoverable before this,
+      // since the whole pill toggled play/pause and only right-click (not
+      // obvious) opened the popup with the title in it.
+      MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
       }
     }
 
@@ -90,31 +144,6 @@ BarWidget {
         Behavior on width { NumberAnimation { duration: 450 } }
       }
     }
-  }
-
-  MouseArea {
-    anchors.fill: parent
-    hoverEnabled: true
-    cursorShape: root.activePlayer ? Qt.PointingHandCursor : Qt.ArrowCursor
-    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-
-    onClicked: function(mouse) {
-      if (!root.activePlayer) return
-      if (mouse.button === Qt.MiddleButton) {
-        if (root.mediaService) root.mediaService.runAction("next", false)
-      } else if (mouse.button === Qt.RightButton) {
-        root.popupOpen = !root.popupOpen
-      } else {
-        if (root.mediaService) root.mediaService.runAction("playPause", false)
-      }
-    }
-    onWheel: function(wheel) {
-      if (!root.activePlayer) return
-      if (wheel.angleDelta.y > 0 && root.mediaService) root.mediaService.runAction("previous", false)
-      else if (wheel.angleDelta.y < 0 && root.mediaService) root.mediaService.runAction("next", false)
-    }
-    onEntered: if (root.bar) root.bar.showTooltip(root, root.hasMedia ? (root.title + (root.artist ? " — " + root.artist : "")) : "")
-    onExited: if (root.bar) root.bar.hideTooltip(root)
   }
 
   PopupCard {
@@ -274,92 +303,6 @@ BarWidget {
           enabled: root.activePlayer && root.activePlayer.canGoNext
           opacity: enabled ? 1.0 : 0.4
           onClicked: if (root.mediaService) root.mediaService.runAction("next", false, root.mediaService.playerKey(root.activePlayer))
-        }
-      }
-
-      PanelSeparator {
-        visible: root.sourcePlayers.length > 1
-        foreground: root.bar.foreground
-      }
-
-      Column {
-        id: sourceList
-        visible: root.sourcePlayers.length > 1
-        width: parent.width
-        spacing: Style.space(4)
-
-        Repeater {
-          model: root.sourcePlayers
-
-          BorderSurface {
-            id: sourceRow
-            required property var modelData
-
-            readonly property var player: modelData
-            readonly property bool selected: root.activePlayer && player
-              && root.mediaService.playerKey(root.activePlayer) === root.mediaService.playerKey(player)
-            readonly property string sourceTitle: player ? (player.trackTitle || player.identity || player.desktopEntry || "Media source") : "Media source"
-            readonly property string sourceDetail: player && player.trackArtist ? player.trackArtist : (player && player.identity ? player.identity : "")
-
-            width: sourceList.width
-            height: sourceInner.implicitHeight + Style.space(10)
-            radius: Style.spacing.labelGap
-            color: selected ? Style.selectedFillFor(root.bar.foreground, Color.accent) : "transparent"
-            borderSpec: selected ? Border.controlSpec("normal", root.bar.foreground, Color.accent) : Border.none()
-
-            Row {
-              id: sourceInner
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.leftMargin: sourceRow.borderLeft + Style.space(8)
-              anchors.rightMargin: sourceRow.borderRight + Style.space(8)
-              spacing: Style.space(8)
-
-              Text {
-                text: sourceRow.player && sourceRow.player.isPlaying ? "󰏤" : "󰐊"
-                color: root.bar.foreground
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.body
-                width: Style.space(18)
-                horizontalAlignment: Text.AlignHCenter
-                anchors.verticalCenter: parent.verticalCenter
-              }
-
-              Column {
-                width: parent.width - Style.space(26)
-                spacing: Style.space(1)
-                anchors.verticalCenter: parent.verticalCenter
-
-                Text {
-                  text: sourceRow.sourceTitle
-                  color: root.bar.foreground
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                  font.bold: sourceRow.selected
-                  elide: Text.ElideRight
-                  width: parent.width
-                }
-
-                Text {
-                  text: sourceRow.sourceDetail
-                  color: Qt.darker(root.bar.foreground, 1.5)
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.caption
-                  elide: Text.ElideRight
-                  width: parent.width
-                  visible: text !== ""
-                }
-              }
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.mediaService) root.mediaService.selectPlayer(root.mediaService.playerKey(sourceRow.player))
-            }
-          }
         }
       }
     }

@@ -392,6 +392,36 @@ Day-grid `Rectangle` height `250px` -> `268px`, closing the last bit
 of the gap between the black grid and calendarPane's own grey card
 edge.
 
+## Player column: frosted-glass background, no border
+
+Per direct request, checked ambxst's real `FullPlayer.qml` for the
+actual technique instead of guessing: their player uses `variant:
+"transparent"` (their `StyledRect` variant that forces border AND fill
+opacity to 0 -- genuinely no visible border, confirmed in `Styling.qml`
+earlier) plus a blurred-album-art backdrop
+(`backgroundArtBlurred` + `MultiEffect { blurEnabled: true; blurMax:
+32; blur: 1.0; opacity: 0.25 }`).
+
+Ported the same idea with our own tools rather than their `StyledRect`
+system: swapped the player column from the shared `Pane` (black+border)
+to a bespoke `Rectangle` (`playerCard`) with no border at all, `color:
+Qt.rgba(0,0,0,0.35)` as a flat fallback tint for when there's no art,
+and a blurred `root.artUrl` backdrop underneath the existing content --
+literally the same `Image` (small `sourceSize: 64x64` for a cheap
+blur) + `MultiEffect` pattern the collapsed notch view's own `bgArt`
+already uses one file over in `Overlay.qml`, just at `opacity: 0.35`
+matching ambxst's ratio more closely than a copy-paste of our own
+`0.35` used elsewhere. New `import QtQuick.Effects` needed for
+`MultiEffect` (wasn't previously imported in this file).
+
+**Verified the blur actually renders**, not just that it doesn't
+error: no MPRIS player was active to test with for real, so
+temporarily hardcoded `root.artUrl` (in `Overlay.qml`, reverted after)
+to a real local wallpaper file
+(`~/.local/state/omarchy/current/theme/backgrounds/1-tree-tops.jpg`)
+and confirmed via screenshot -- soft blurred mountain tones visible
+behind the sharp thumbnail, exactly the frosted-glass look asked for.
+
 ## Agent icon added back to quick controls
 
 Per direct request -- with the column now `250px` wide and toggles at

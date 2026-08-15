@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Networking
 import Quickshell.Bluetooth
@@ -123,10 +124,40 @@ Item {
     spacing: 8
 
     // ---- Column 1: player -------------------------------------------
-    Pane {
+    // Own bespoke background instead of the shared Pane -- ambxst's real
+    // FullPlayer.qml uses variant: "transparent" (their StyledRect variant
+    // that forces border/radius-fill to 0, i.e. no visible border at all)
+    // plus a blurred-album-art backdrop, not a flat black+border card like
+    // the other 3 columns. Ported the blur technique from the same
+    // backgroundArt trick the collapsed notch view already uses.
+    Rectangle {
+      id: playerCard
       Layout.preferredWidth: 210
       Layout.maximumWidth: 210
       Layout.fillHeight: true
+      radius: 10
+      color: Qt.rgba(0, 0, 0, 0.35)
+      clip: true
+
+      Image {
+        id: playerBgArt
+        anchors.fill: parent
+        source: root.artUrl
+        sourceSize: Qt.size(64, 64)
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        visible: false
+      }
+
+      MultiEffect {
+        anchors.fill: parent
+        source: playerBgArt
+        blurEnabled: root.artUrl !== ""
+        blurMax: 32
+        blur: 1.0
+        opacity: root.artUrl !== "" ? 0.35 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+      }
 
       ColumnLayout {
         anchors.fill: parent

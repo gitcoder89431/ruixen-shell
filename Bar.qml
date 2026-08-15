@@ -1255,7 +1255,11 @@ Item {
           Row {
             id: clockRow
             anchors.centerIn: parent
-            spacing: Style.space(8)
+            // Flat px, not Style.space() -- see clockPill's own margin
+            // comment for why. Trimmed from Style.space(8) (~11px at
+            // current font scale) to tighten the weather<->divider and
+            // divider<->clock gaps as the bar got busier.
+            spacing: 6
 
             ModuleSlot {
               anchors.verticalCenter: parent.verticalCenter

@@ -84,21 +84,21 @@ Item {
                 Repeater {
                     model: workspaces.ids()
 
-                    Rectangle {
+                    Item {
                         required property int modelData
                         readonly property bool focused: Hyprland.focusedWorkspace !== null
                             && Hyprland.focusedWorkspace.id === modelData
 
-                        width: 20
+                        width: label.implicitWidth + 8
                         height: 20
-                        radius: 4
-                        color: focused ? "#8464c6" : "#2e2d33"
 
                         Text {
+                            id: label
                             anchors.centerIn: parent
                             text: parent.modelData
-                            color: parent.focused ? "#15141b" : "#bdbdbd"
-                            font.pixelSize: 11
+                            color: parent.focused ? "#8464c6" : "#bdbdbd"
+                            font.pixelSize: 12
+                            font.bold: parent.focused
                         }
 
                         MouseArea {

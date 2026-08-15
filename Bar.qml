@@ -1138,7 +1138,26 @@ Item {
       Item {
         anchors.fill: parent
 
-        CenterModules { anchors.fill: parent }
+        // Solo pill, not CenterModules -- that component's hover-reveal/
+        // drag-anchor machinery was built for the old indicators cluster
+        // sharing this region (removed), and center only ever holds the
+        // clock now. Same GroupPill pattern as every other pill here.
+        Item {
+          id: clockPill
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          width: clockContent.width + Style.space(10) * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: clockContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("center")
+            region: "center"
+          }
+        }
 
         Item {
           id: menuPill

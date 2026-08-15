@@ -193,6 +193,21 @@ setting `hoverOpen = false`, giving brief boundary hiccups room to
 self-correct; (2) every tab button's `onActivated` also sets
 `panel.pinnedOpen = true`, so once a tab's actually been clicked the
 notch no longer depends on hover at all.
+
+**That second fix immediately exposed a new one: pinning via a tab
+click had no way to un-pin.** The click-away-to-dismiss mask/MouseArea
+(see "Third mode: quick app launcher" above) only ever widened for
+`launcherOpen` -- clicking `pinnedOpen` open (now reachable via a tab,
+not just the notch's own click-to-pin) left the mask tight to
+`notchOuter`, so a click anywhere outside the notch shape just passed
+straight through to the window behind instead of reaching this
+surface at all. Generalized: `panel.clickedOpen` (`pinnedOpen ||
+launcherOpen`) now drives both the mask widening and the click-away
+`MouseArea`'s `enabled`, and the click-away handler clears both flags.
+Deliberately excludes plain `hoverOpen` -- that already self-dismisses
+on mouse-exit (via `hoverExitTimer` above), and widening the mask for
+a passing hover would swallow clicks meant for other windows, not just
+this notch.
 State lives on `panel.dashboardTab` (`0`/`1`/`2`), one `Item` per tab
 toggling `visible` — same "one window, swap content" mechanism ambxst
 uses (no `StackView`, no second window/animation to coordinate).

@@ -310,16 +310,17 @@ Item {
     // input, same as every other passive hover state in this file.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-    // Widens to the full panel only while the launcher is open, so a
-    // click anywhere outside the notch itself actually reaches this
-    // surface (see dismissArea below) instead of passing straight
-    // through to whatever's behind, like every other collapsed/media
-    // state does via the tight notchOuter-sized mask.
+    // Widens to the full panel only while deliberately clicked open
+    // (pinned or launcher -- see clickedOpen above), so a click anywhere
+    // outside the notch itself actually reaches this surface (see the
+    // click-away MouseArea below) instead of passing straight through to
+    // whatever's behind, like every other collapsed/hover-only state
+    // does via the tight notchOuter-sized mask.
     mask: Region {
-      x: panel.launcherOpen ? 0 : notchOuter.x
-      y: panel.launcherOpen ? 0 : notchOuter.y
-      width: panel.launcherOpen ? panel.width : notchOuter.width
-      height: panel.launcherOpen ? panel.height : notchOuter.height
+      x: panel.clickedOpen ? 0 : notchOuter.x
+      y: panel.clickedOpen ? 0 : notchOuter.y
+      width: panel.clickedOpen ? panel.width : notchOuter.width
+      height: panel.clickedOpen ? panel.height : notchOuter.height
     }
 
     property bool pinnedOpen: false
@@ -330,6 +331,13 @@ Item {
     // notch itself like pinnedOpen/hoverOpen.
     property bool launcherOpen: false
     readonly property bool expanded: pinnedOpen || hoverOpen || launcherOpen
+    // Deliberately-opened states (a real click, not just a passing
+    // hover) -- these are the ones that need the widened click-away
+    // mask below. Plain hoverOpen is excluded on purpose: it already
+    // self-dismisses on mouse-exit (see hoverExitTimer), and widening
+    // the mask for it would swallow clicks meant for other windows
+    // during a simple hover-preview, not just this notch.
+    readonly property bool clickedOpen: pinnedOpen || launcherOpen
 
     // Which dashboard tab is showing (media/media hover/pin state only --
     // launcher mode is unrelated). 0 Widgets (DashboardContent, the real
@@ -357,15 +365,18 @@ Item {
     }
 
     // Click-away-to-dismiss -- covers the whole (now-widened) mask
-    // while the launcher's open. Declared before notchOuter on purpose:
-    // later siblings win hit-testing in QML, so notchOuter's own content
-    // (icon cards, the hover/pin MouseArea) still gets first crack at
-    // any click within its own bounds; this only ever catches clicks
-    // that land outside the notch shape entirely.
+    // while deliberately clicked open (pinned dashboard or launcher).
+    // Declared before notchOuter on purpose: later siblings win
+    // hit-testing in QML, so notchOuter's own content (tab buttons,
+    // icon cards, the hover/pin MouseArea) still gets first crack at any
+    // click within its own bounds; this only ever catches clicks that
+    // land outside the notch shape entirely. Resets both flags rather
+    // than picking one -- only one is ever true at a time in practice,
+    // but clearing both is simpler than tracking which.
     MouseArea {
       anchors.fill: parent
-      enabled: panel.launcherOpen
-      onClicked: panel.launcherOpen = false
+      enabled: panel.clickedOpen
+      onClicked: { panel.pinnedOpen = false; panel.launcherOpen = false }
     }
 
     Item {

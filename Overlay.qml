@@ -253,7 +253,14 @@ Item {
   PanelWindow {
     id: panel
     visible: true
-    anchors { top: true; left: true; right: true }
+    // bottom:true too, not just top/left/right -- the click-away-to-
+    // dismiss MouseArea (see below) needs the panel's own surface to
+    // actually reach the full screen height for its widened mask to
+    // cover anywhere outside the notch. Anchoring both top and bottom
+    // makes the surface fill the full height regardless of
+    // implicitHeight; exclusionMode stays Ignore so this never reserves
+    // screen space the way ruixen.bar's own window does.
+    anchors { top: true; left: true; right: true; bottom: true }
     margins.top: 4
     implicitHeight: 220
     exclusionMode: ExclusionMode.Ignore
@@ -267,11 +274,16 @@ Item {
     // input, same as every other passive hover state in this file.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
+    // Widens to the full panel only while the launcher is open, so a
+    // click anywhere outside the notch itself actually reaches this
+    // surface (see dismissArea below) instead of passing straight
+    // through to whatever's behind, like every other collapsed/media
+    // state does via the tight notchOuter-sized mask.
     mask: Region {
-      x: notchOuter.x
-      y: notchOuter.y
-      width: notchOuter.width
-      height: notchOuter.height
+      x: panel.launcherOpen ? 0 : notchOuter.x
+      y: panel.launcherOpen ? 0 : notchOuter.y
+      width: panel.launcherOpen ? panel.width : notchOuter.width
+      height: panel.launcherOpen ? panel.height : notchOuter.height
     }
 
     property bool pinnedOpen: false
@@ -288,6 +300,18 @@ Item {
       function openLauncher(): void { panel.launcherOpen = true }
       function closeLauncher(): void { panel.launcherOpen = false }
       function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }
+    }
+
+    // Click-away-to-dismiss -- covers the whole (now-widened) mask
+    // while the launcher's open. Declared before notchOuter on purpose:
+    // later siblings win hit-testing in QML, so notchOuter's own content
+    // (icon cards, the hover/pin MouseArea) still gets first crack at
+    // any click within its own bounds; this only ever catches clicks
+    // that land outside the notch shape entirely.
+    MouseArea {
+      anchors.fill: parent
+      enabled: panel.launcherOpen
+      onClicked: panel.launcherOpen = false
     }
 
     Item {

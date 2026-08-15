@@ -337,28 +337,27 @@ Item {
       // the bell off. 260 gives real margin instead of a knife's-edge
       // fit. Expanded width (420) is unrelated -- ambxst's
       // notificationMinWidth target, still fits our own expanded content.
-      // Launcher reuses the exact same expanded dimensions (420x190) as
-      // the media view, not its own size -- an earlier version tried a
-      // new, taller size (340x260, then up to 360) for a scrollable
-      // search-results list, which hit a real, non-deterministic bug in
-      // the notchBg masking below (flat un-rounded bottom corner on SOME
-      // opens but not others, same height, same process, no restart in
-      // between -- not a clean fixed threshold). A second attempt went
-      // too far the other way, reusing the tiny 44px *collapsed* height
-      // instead -- too cramped, and inconsistent with every other
-      // "expanded" state always actually expanding. 420x190 is the
-      // proven-safe expanded size already exercised all session by the
-      // media view -- launcher reuses it exactly, no new height at all,
-      // and the favorite icons lay out in a grid to use the space (see
-      // launcherContent below).
-      readonly property int bodyWidth: panel.expanded ? 420 : 260
+      // Media hover/pin now tries ambxst's own real dashboard size
+      // (DashboardView.qml: implicitWidth 900, implicitHeight 56+48*6 =
+      // 344) instead of reusing the smaller 420x190 -- untested territory
+      // for this notch (only 44 and 190 are proven safe against the
+      // masking bug below), so watch for the same flat-bottom-corner
+      // symptom if this doesn't pan out.
+      //
+      // launcherOpen deliberately does NOT follow this -- it keeps its
+      // own separate 420x190 branch, proven safe, since an earlier
+      // attempt at a new size for launcher specifically (340x260, then
+      // up to 360) hit that exact masking bug. Decoupled from
+      // pinnedOpen/hoverOpen here so a size change on one never risks
+      // the other.
+      readonly property int bodyWidth: panel.launcherOpen ? 420 : ((panel.pinnedOpen || panel.hoverOpen) ? 900 : 260)
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a
       // buffer, so it no longer overlaps tiled windows the way it did
       // when this was smaller but the reserved zone was still just
       // barSize-sized.
-      height: panel.expanded ? 190 : 44
+      height: panel.launcherOpen ? 190 : ((panel.pinnedOpen || panel.hoverOpen) ? 344 : 44)
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }

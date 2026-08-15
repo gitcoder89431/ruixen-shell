@@ -39,9 +39,14 @@ as separate floating islands rather than one continuous bar:
 - **workspacesPill** — workspace numbers.
 - **rightPill** — the general icon tray (agents, bluetooth, network, audio,
   monitor, power).
-- **togglesPill** — stay-awake, quick actions, do-not-disturb, in that
-  order (`ruixen.stayawake`/`ruixen.quickactions`/`ruixen.dnd`, see
-  `ruixen-tray-widgets`), always visible.
+- **togglesPill** — system update, stay-awake, do-not-disturb, quick
+  actions, in that order (`omarchy.system-update`, then
+  `ruixen.stayawake`/`ruixen.dnd`/`ruixen.quickactions`, see
+  `ruixen-tray-widgets` for the three `ruixen.*` ones), always present.
+  `omarchy.system-update` only actually shows an icon when an update's
+  available — moved here from the center layout, no patching needed since
+  it's already a proper top-level first-party widget, purely a layout
+  move — same widens-when-there's-something-to-show pattern as trayPill.
 - **trayPill** — the system tray (`ruixen.tray`) on its own, separate from
   togglesPill, faded via `opacity: trayContent.width > 0 ? 1 : 0` instead
   of toggling `visible` when no tray apps are running — safe to let it

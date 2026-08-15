@@ -39,19 +39,21 @@ as separate floating islands rather than one continuous bar:
 - **workspacesPill** — workspace numbers.
 - **rightPill** — the general icon tray (agents, bluetooth, network, audio,
   monitor, power).
-- **togglesPill** — system update, stay-awake, do-not-disturb, weather,
-  quick actions, in that order (`omarchy.system-update`, `ruixen.stayawake`,
+- **togglesPill** — keyboard layout, system update, stay-awake,
+  do-not-disturb, weather, quick actions, in that order
+  (`omarchy.keyboard-layout`, `omarchy.system-update`, `ruixen.stayawake`,
   `ruixen.dnd`, `ruixen.weather`, `ruixen.quickactions` — see
   `ruixen-tray-widgets` for the four `ruixen.*` ones), always present.
-  `system-update` and `weather` both only actually show an icon when
-  there's something to show (an update available / a weather label
-  loaded) — both moved here from the center layout. `system-update` needed
-  no patching (plain layout move, still the stock first-party widget);
+  `keyboard-layout`, `system-update`, and `weather` all only actually show
+  an icon when there's something to show (a second layout configured / an
+  update available / a weather label loaded) — all three moved here from
+  the center layout. `keyboard-layout` and `system-update` needed no
+  patching (plain layout move, still the stock first-party widget);
   `weather` did — stock uses a narrower `Style.bar.statusSlot` (sized for
   the denser center cluster it came from), which looked visibly undersized
   next to the icon-style widgets here, so it's a clone
   (`ruixen.weather`) with `slotSize` bumped to `Style.bar.iconSlot` to
-  match. Click behavior otherwise untouched on both — same
+  match. Click behavior otherwise untouched on all three — same
   widens-when-there's-something-to-show pattern as trayPill.
 - **trayPill** — the system tray (`ruixen.tray`) on its own, separate from
   togglesPill, faded via `opacity: trayContent.width > 0 ? 1 : 0` instead

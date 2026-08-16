@@ -3004,6 +3004,19 @@ screenshotted the live tab -- confirmed both tiles render noticeably
 shorter with the dial beside `"Usage 9%"`/`"Usage 62%"` and the real
 CPU/GPU name on the line below it, matching the requested shape.
 
+## "CPU"/"GPU" label folded back into the Usage line
+
+Per direct follow-up: "we need to know its the CPU too maybe CPU Usage
+and GPU usage then." Removing the title row entirely (previous change)
+lost the one thing distinguishing the two tiles as text -- the icon
+alone wasn't enough. Re-added `DialTile.title`, but folded onto the
+SAME line as the percentage this time (`"CPU Usage 11%"`) instead of
+its own row, so the identifying label is back with zero extra height.
+
+**Verified**: screenshotted the live tab -- confirmed `"CPU Usage
+11%"` and `"GPU Usage 71%"`, both tiles still the same shorter height
+from the previous change.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

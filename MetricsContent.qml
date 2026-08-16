@@ -787,6 +787,12 @@ Item {
       component DialTile: Rectangle {
         id: tile
         property string glyph: ""
+        // Re-added per direct follow-up ("we need to know its the
+        // CPU too maybe CPU Usage and GPU usage") -- folded into the
+        // same "Usage" line instead of its own row this time, so the
+        // identifying label is back without the extra height a
+        // separate title row cost before.
+        property string title: ""
         property real value: 0
         property string subText: ""
 
@@ -867,7 +873,7 @@ Item {
             spacing: 2
 
             Text {
-              text: "Usage " + Math.round(tile.value * 100) + "%"
+              text: (tile.title ? tile.title + " " : "") + "Usage " + Math.round(tile.value * 100) + "%"
               font.family: root.fontFamily
               font.pixelSize: 13
               font.weight: Font.DemiBold
@@ -898,6 +904,7 @@ Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
           glyph: ""
+          title: "CPU"
           value: root.cpuUsage
           subText: root.cpuModel || ""
         }
@@ -906,6 +913,7 @@ Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
           glyph: "󰢮"
+          title: "GPU"
           value: root.gpuUsage
           subText: root.gpuName || ""
         }

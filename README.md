@@ -1355,6 +1355,22 @@ bigger to compensate") -- the day-grid was now ending early within
 calendarPane's available height. `10px -> 12px` on just the weekday
 label row (row height/today-circle/day-number left alone).
 
+**Follow-up: font nudge wasn't nearly enough, gap still very visible.**
+A 2px font bump on one row can't close a real ~30px layout gap -- traced
+it properly this time by sampling actual rendered pixel colors down the
+column (`magick ... txt:`) instead of guessing another font size. Found
+the real cause: the day-grid shrink (`268px -> 230px`, a `-38px` change)
+didn't account for the header growing `+8px` (`28px -> 36px`) in the
+same pass -- together that's a `-30px` net loss in `calendarColumn`'s
+total content height, which shows up as exactly that much extra grey
+gutter below the day-grid. Fixed by solving for the height that restores
+the ORIGINAL total: `margins(8) + header(36) + spacing(4) + daygrid(X) =
+308` (the original working total, `8+28+4+268`) gives `X = 260`. Set
+`230px -> 260px`. Verified the same way -- resampled pixel colors down
+the column, black day-grid panel now runs most of the way down
+`calendarPane` with just a small, consistent margin left, not a visibly
+separate grey band.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

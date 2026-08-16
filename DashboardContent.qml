@@ -848,11 +848,22 @@ Item {
           // weekday labels, row height, today-circle, and day-number
           // size all pulled back a notch so this panel reads calmer
           // next to the now-bigger header, per direct feedback ("M T W
-          // T F takes too much of the attention").
+          // T F takes too much of the attention"). That overshot: the
+          // header grew +8px (28->36) but this only shrank by the OLD
+          // pre-header-growth amount, opening a real ~30px grey gap
+          // below the day-grid within calendarPane -- confirmed by
+          // sampling actual rendered pixel colors down the column
+          // (grey #2E363C starting well past where the black panel
+          // should have ended). 230 -> 260 restores calendarColumn's
+          // total content height back to what it was before any of
+          // this pass (margins 8 + header 36 + spacing 4 + 260 = 308,
+          // matching the original 8 + 28 + 4 + 268 = 308 exactly) --
+          // the header's own growth is now actually compensated for
+          // instead of guessed at via font-size nudges.
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 230
-            Layout.maximumHeight: 230
+            Layout.preferredHeight: 260
+            Layout.maximumHeight: 260
             Layout.alignment: Qt.AlignTop
             radius: 6
             color: "#000000"

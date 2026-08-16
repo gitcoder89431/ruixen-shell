@@ -1028,6 +1028,34 @@ around `CircularSeek` needs to be checked at multiple forced
 the tip's extent depends on the progress angle, so "looks fine" at one
 value doesn't mean it's fine at all of them.
 
+## QA pass: title/transport spacing fixed, transport icons scaled up to the disc
+
+Per direct feedback ("weird spacing... player icons can be bigger too...
+match it based on the album art circle size"):
+
+**The spacing bug**: the outer `ColumnLayout` already has `spacing: 8`
+applied between every child automatically. A separate `Item {
+Layout.preferredHeight: 4 }` spacer sat between the title/album/artist
+group and the transport row as its OWN child -- meaning the real gap
+there was `8 (before spacer) + 4 (spacer) + 8 (after spacer) = 20px`,
+double the `8px` gap used everywhere else in this column (disc-to-title
+is a plain `8px`, no extra spacer). That mismatch is what read as
+"weird" -- not that any one gap was wrong in isolation, but that this
+one gap didn't match its neighbors. Deleted the spacer entirely; the
+title-to-transport gap is now the same `8px` the rest of the column
+already uses.
+
+**Icons scaled to the disc**: the disc grew `80px -> 130px` across
+several earlier passes but the transport row was never revisited, so it
+stayed sized for the original small card. Play/pause grown `34x34 ->
+44x44` (`radius: 8 -> 11`, keeping the same `size/4` proportion) --
+`44x44` isn't arbitrary, it's ambxst's own real `playPauseBtn` dimension,
+noted early in this project's history but never actually matched since
+our version stayed smaller. Prev/next glyphs and row spacing scaled by
+the same ~1.3x factor the play/pause button grew by: `14px -> 18px`
+glyphs, `18px -> 22px` row spacing (a bit more breathing room needed
+between the now-physically-bigger elements).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

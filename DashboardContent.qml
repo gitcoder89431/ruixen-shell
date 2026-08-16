@@ -439,28 +439,27 @@ Item {
           }
         }
 
-        // Fixed gap, not a fillHeight spacer -- the whole block is
-        // already centered by the outer Item's anchors.centerIn now.
-        // Trimmed from 12 -- too much air between the artist line and
-        // the transport controls.
-        Item { Layout.preferredHeight: 4 }
-
         // No Layout.fillWidth here -- a plain Row doesn't center its
         // own children, it just left-packs them from x=0. fillWidth
         // stretched the Row to the card's full width while the icons
         // stayed left-anchored inside it; Layout.alignment only
         // centers the Row ITSELF within the parent, which only works
         // if the Row is sized to its own content instead of stretched.
+        // Icon sizes scaled up to match the album art disc's own
+        // growth (80 -> 130 across earlier passes) -- play/pause
+        // grown to ambxst's real 44x44 playPauseBtn dimension
+        // (previously 34, undersized for how big the disc got since),
+        // prev/next and spacing scaled by the same ~1.3x factor.
         Row {
           Layout.alignment: Qt.AlignHCenter
-          spacing: 18
+          spacing: 22
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "󰒮"
             color: root.textColor
             font.family: root.fontFamily
-            font.pixelSize: 14
+            font.pixelSize: 18
             MouseArea {
               anchors.fill: parent
               anchors.margins: -6
@@ -477,9 +476,9 @@ Item {
           // glyphs with no background.
           Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            width: 34
-            height: 34
-            radius: 8
+            width: 44
+            height: 44
+            radius: 11
             color: root.accent
 
             Text {
@@ -487,7 +486,7 @@ Item {
               text: root.playIcon
               color: "#000000"
               font.family: root.fontFamily
-              font.pixelSize: 16
+              font.pixelSize: 20
             }
 
             MouseArea {
@@ -502,7 +501,7 @@ Item {
             text: "󰒭"
             color: root.textColor
             font.family: root.fontFamily
-            font.pixelSize: 14
+            font.pixelSize: 18
             MouseArea {
               anchors.fill: parent
               anchors.margins: -6

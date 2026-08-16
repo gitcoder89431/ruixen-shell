@@ -1,10 +1,12 @@
 # ruixen.notch
 
-A hover-expanding "dynamic island" notch at the bar's true center — a
+A click-to-expand "dynamic island" notch at the bar's true center — a
 standalone `kind: overlay` plugin, not part of `ruixen-bar`'s own window.
-Shows an avatar / media status / notification indicator collapsed; on
-hover or click (pins it open) it expands into a bigger card with track
-info, an animated progress wave, and transport controls.
+Shows an avatar / media status / notification indicator collapsed;
+clicking the avatar (dismissing by clicking away) expands it into a
+bigger card with track info, an animated progress wave, and transport
+controls. (Was hover-to-expand originally -- replaced per direct
+request, see the interaction-model rewrite entry further down.)
 
 ## Why a separate overlay plugin, not another `ruixen-bar` pill
 
@@ -2090,6 +2092,37 @@ tip earlier for the idle/no-media case, same reasoning here. Verified
 live via `wpctl set-mute` without restarting the shell -- white tip now
 sits at the 0% position while muted instead of vanishing, restored
 after.
+
+## Real bug: accent color went stale on a live theme switch
+
+Per direct report ("the dials for mic and audio seems to be hardcoded
+to purple or not updating") -- not hardcoded, but effectively frozen:
+both `Dial` and `CircularSeek` (the player ring) bind their progress
+arc's color to `root.accent` (theme-linked), but `Canvas.onPaint` is
+plain JS, not a reactive binding -- changing the THEME alone (no
+value/size change) never re-triggered a repaint, so the ring just kept
+whatever color it was last actually painted with. `CircularSeek` only
+looked fine because `wavePhase` forces a repaint every frame while
+playing, incidentally masking the same bug -- `Dial` has no such
+constant animation, so it showed the staleness plainly, which is what
+actually surfaced this.
+
+Fixed both: `CircularSeek` gained `onProgressColorChanged:
+requestPaint()` directly (it already has a real `progressColor`
+property with its own change signal). `Dial` needed an extra step
+since it read `root.accent` bare, not through its own property -- added
+`property color ringAccent: root.accent` (a local mirror whose own
+`onRingAccentChanged` gives Canvas something to hook) and switched
+`onPaint`'s `ctx.strokeStyle` to reference it.
+
+**Verified the actual failure mode, not just the fix**: pinned the
+dashboard open, confirmed the dial matched the real active theme
+(`ristretto`, accent `#f38d70`, orange) after a restart, then ran
+`omarchy-theme-set catppuccin` directly in the terminal -- *without
+restarting the shell* -- and screenshotted again: the ring visibly
+updated to catppuccin's blue (`#89b4fa`) on its own. That's the exact
+scenario (`omarchy-theme-set` while already running) that was silently
+broken before. Restored the original theme after.
 
 ## Companion setup
 

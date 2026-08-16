@@ -210,6 +210,17 @@ Item {
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     onWavePhaseChanged: requestPaint()
+    // Real bug, per direct report ("seems to be hardcoded to purple or
+    // not updating") -- progressColor is bound to root.accent (theme-
+    // linked), but Canvas.onPaint is a plain JS function, not a
+    // reactive binding: changing the THEME alone (accent color, no
+    // value/size change) never re-ran onPaint, so the ring kept
+    // whatever color it was last actually painted with. Only looked
+    // "fine" here because wavePhase changes constantly while playing,
+    // masking it with a repaint every frame anyway -- the Dial
+    // component (speaker/mic, no such constant animation) showed the
+    // same bug much more plainly, which is what actually surfaced it.
+    onProgressColorChanged: requestPaint()
 
     FrameAnimation {
       running: seek.wavy && seek.visible
@@ -1200,6 +1211,22 @@ Item {
         // use the keyboard to adjust it"). Triggers off effectiveValue
         // now, not value directly, so toggling muted repaints too.
         onEffectiveValueChanged: dialCanvas.requestPaint()
+
+        // Same class of bug, found later via direct report ("seems to
+        // be hardcoded to purple or not updating") after a theme
+        // switch: the progress arc's color reads root.accent directly
+        // inside onPaint, but nothing triggered a repaint when accent
+        // itself changed (only value changes did). Unlike the player
+        // ring (which gets constant repaints from its own wavePhase
+        // animation while playing, masking the same bug there), this
+        // dial has no such incidental trigger, so it visibly got stuck
+        // on whatever accent was active at its last real paint --
+        // looked hardcoded, wasn't. Mirrored into a local property
+        // specifically so its own onChanged signal gives Canvas a
+        // trigger to hook -- root.accent itself has no such hook from
+        // inside a Canvas.onPaint, which is plain JS, not a binding.
+        property color ringAccent: root.accent
+        onRingAccentChanged: dialCanvas.requestPaint()
         // 48 -> 56, matching the left-rail tab bar's own bump -- also
         // grows the ring radius (width/2-8) and makes the tip's gap
         // relatively easier to see, both per direct request.
@@ -1247,7 +1274,7 @@ Item {
             ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
             ctx.stroke()
 
-            ctx.strokeStyle = root.accent
+            ctx.strokeStyle = dialRoot.ringAccent
             ctx.beginPath()
             var dialProgressEnd = Math.max(startAngle, endAngle - gapRad)
             ctx.arc(cx, cy, r, startAngle, dialProgressEnd)

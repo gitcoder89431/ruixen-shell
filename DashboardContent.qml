@@ -1133,7 +1133,9 @@ Item {
           text: parent.glyph
           color: root.textColor
           font.family: root.fontFamily
-          font.pixelSize: 14
+          // Matches the left-rail tab bar's own glyph size (18px) --
+          // was 14, reading small next to it, per direct feedback.
+          font.pixelSize: 18
         }
       }
 
@@ -1143,33 +1145,47 @@ Item {
       // (WidgetsTab.qml's brightnessContainer): icon on top, a
       // vertical bar below it, NOT a circular dial like speaker/mic
       // get. Ported the shape (icon + linear fill bar), not their
-      // full sync-animation/multi-monitor machinery.
-      ColumnLayout {
+      // full sync-animation/multi-monitor machinery. Wrapped in a
+      // tonal frame (same rgba(1,1,1,0.06) fill TabButton/QuickToggle
+      // already use for their own "off" tonal state) per direct
+      // feedback ("the brightness needs like a tonal button bg to
+      // frame it") -- speaker/mic don't need one, their own Canvas
+      // ring already reads as a self-contained control.
+      Rectangle {
         Layout.alignment: Qt.AlignHCenter
-        spacing: 6
+        Layout.preferredWidth: 56
+        Layout.preferredHeight: brightnessColumn.implicitHeight + 16
+        radius: 14
+        color: Qt.rgba(1, 1, 1, 0.06)
 
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "󰃟"
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 14
-        }
+        ColumnLayout {
+          id: brightnessColumn
+          anchors.centerIn: parent
+          spacing: 6
 
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 6
-          Layout.preferredHeight: 48
-          radius: 3
-          color: Qt.rgba(1, 1, 1, 0.15)
+          Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: "󰃟"
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 18
+          }
 
           Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: parent.height * 0.8
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 6
+            Layout.preferredHeight: 48
             radius: 3
-            color: root.accent
+            color: Qt.rgba(1, 1, 1, 0.15)
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              height: parent.height * 0.8
+              radius: 3
+              color: root.accent
+            }
           }
         }
       }

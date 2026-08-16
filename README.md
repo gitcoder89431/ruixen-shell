@@ -1462,6 +1462,16 @@ actual visual structure now instead of an invented one.
 
 Verified via screenshot.
 
+**Follow-up: tonal frame + bigger icons.** Per direct feedback ("kinda
+all compact... brightness needs a tonal button bg to frame it... match
+[icon size] with the left rails"): wrapped the brightness icon+bar in a
+`56px`-wide `Rectangle` (`rgba(1,1,1,0.06)` fill, same tonal shade
+`TabButton`/`QuickToggle` already use for their own "off" state,
+`radius: 14`) -- speaker/mic didn't get one, their own Canvas ring
+already reads as a self-contained control on its own. All three glyphs
+(brightness sun, `Dial`'s speaker/mic) bumped `14px -> 18px`, matching
+the left-rail tab bar's own glyph size exactly. Verified via screenshot.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

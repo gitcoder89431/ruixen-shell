@@ -1181,6 +1181,12 @@ height, and `12px` was already too short even before accounting for
 that. Grew the container `12px -> 20px`. Verified via screenshot -- full
 crests and troughs render now, nothing cut off top or bottom.
 
+**Follow-up: the track was fine, wave/playhead read a bit too thick.**
+Per direct feedback, toned `WavyLine.lineWidth` and the playhead
+`Rectangle`'s `width` back down `4 -> 3`, left the track `Rectangle` at
+`4`. The `20px` container has plenty of headroom for the smaller wave
+extent now (`+-(amp+lineWidth/2)` drops to `+-5.7px`), no clipping risk.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -622,6 +622,29 @@ remembering for any future rounded-image-thumbnail work in this
 project -- reach for `ClippingRectangle` first, don't assume plain
 `clip: true` respects `radius`.
 
+## Album line restored + transport row actually centered
+
+Two real bugs, per direct feedback. First: the transport controls
+row had BOTH `Layout.fillWidth: true` and `Layout.alignment:
+Qt.AlignHCenter` -- a plain `Row` doesn't center its own children, it
+left-packs them from its own x=0, so `fillWidth` stretched the row to
+the card's full width while the icons stayed pinned to the left edge
+inside it. `Layout.alignment` only centers the Row ITSELF within
+leftover space, which only does anything when the Row isn't already
+stretched to fill everything. Removed `fillWidth`, kept `alignment`.
+
+Second: ambxst's real metadata block is three lines (title bold,
+album, artist -- both secondary dimmer), confirmed directly in
+`FullPlayer.qml`. We had two (title, artist) -- album was missing
+entirely, not just out of order. `activePlayer.trackAlbum` was
+already exposed as a real MPRIS property elsewhere in this project
+(`ruixen-tray-widgets`' own `media/Service.qml` already computes an
+`album` property from it) -- just never threaded through this notch.
+Added `root.album` in `Overlay.qml` (same pattern as `title`/
+`artist`), passed through to `DashboardContent`, added a third `Text`
+line matching the same visibility-gated-on-non-empty pattern the
+other two already use.
+
 ## Half-circle progress ring arcing over the album art disc
 
 Per direct request ("the wave from the compact notch... just the same

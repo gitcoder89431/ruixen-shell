@@ -63,6 +63,7 @@ Item {
   readonly property string playIcon: isPlaying ? "󰏤" : "󰐊"
   readonly property string title: activePlayer ? (activePlayer.trackTitle || "") : ""
   readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
+  readonly property string album: activePlayer ? (activePlayer.trackAlbum || "") : ""
   // Gated on hasMedia, not just activePlayer -- a closed app can leave a
   // zombie MPRIS registration behind (confirmed: chromium after quitting
   // still owns org.mpris.MediaPlayer2.chromium.* on the session bus,
@@ -747,6 +748,7 @@ Item {
                 playIcon: root.playIcon
                 title: root.title
                 artist: root.artist
+                album: root.album
                 artUrl: root.artUrl
                 progressRatio: root.progressRatio
                 trackPosition: root.trackPosition

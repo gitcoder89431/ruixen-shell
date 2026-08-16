@@ -40,6 +40,7 @@ Item {
   property string playIcon: ""
   property string title: ""
   property string artist: ""
+  property string album: ""
   property string artUrl: ""
   property real progressRatio: 0
   property real trackPosition: 0
@@ -349,9 +350,10 @@ Item {
           }
         }
 
-        // Title + artist as two centered lines, matching ambxst's own
-        // metadata ColumnLayout (title bold, secondary lines dimmer) --
-        // was one combined "artist - title" string before.
+        // Title + album + artist as three centered lines, matching
+        // ambxst's own metadata ColumnLayout exactly (title bold, TWO
+        // secondary lines dimmer -- album was missing entirely before,
+        // not just the ordering being off).
         ColumnLayout {
           Layout.fillWidth: true
           Layout.alignment: Qt.AlignHCenter
@@ -364,6 +366,17 @@ Item {
             font.family: root.fontFamily
             font.pixelSize: 12
             font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: root.hasMedia && root.album !== ""
+            text: root.album
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
           }
@@ -384,8 +397,13 @@ Item {
         // already centered by the outer Item's anchors.centerIn now.
         Item { Layout.preferredHeight: 12 }
 
+        // No Layout.fillWidth here -- a plain Row doesn't center its
+        // own children, it just left-packs them from x=0. fillWidth
+        // stretched the Row to the card's full width while the icons
+        // stayed left-anchored inside it; Layout.alignment only
+        // centers the Row ITSELF within the parent, which only works
+        // if the Row is sized to its own content instead of stretched.
         Row {
-          Layout.fillWidth: true
           Layout.alignment: Qt.AlignHCenter
           spacing: 22
 

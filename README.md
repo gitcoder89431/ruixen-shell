@@ -2603,6 +2603,89 @@ and fixed unrelated test drift while verifying this: an earlier
 real background on `1-ruixen.jpg` instead of being restored -- reset
 back to `0-ruixen.jpg`.)
 
+## Metrics tab: left panel is real now, right side still a stub
+
+Per direct request: "next is performance, well ambxst has like a
+chart, i dont think we need that but the left side is good... the top
+part is some space for the user avatar and name and os i guess we can
+get this from fastfetch. to pick three we would show the Username top
+row like ambxst then the @ would be the Hardware PC name then third
+row the arch would be omarchy os version... under this instead of
+system, i feel like im gonna do just CPUs here... maybe focus on the
+left panel first then the stats widgets."
+
+New file, `MetricsContent.qml`, wired in as the dashboard's tab 2
+(was the "Metrics -- coming soon" stub). Read ambxst's real
+`MetricsTab.qml`/`ResourceItem.qml` directly for the actual left-panel
+structure (avatar + 3 identity `RowLayout`s + a section-separator +
+a scrollable resource list) rather than guessing, then repurposed the
+data per the request:
+
+- Row 1 (user icon): `Quickshell.env("USER")`, same source ambxst's
+  own username row reads -- no process needed at all.
+- Row 2 (`@`, ambxst's own literal prefix kept as-is): hardware/PC
+  name instead of hostname -- `fastfetch --format json -s Host`,
+  `.result.name` (confirmed on this machine: `"NucBoxG5"`). "We can
+  get this from fastfetch" was correct -- fastfetch has this
+  structured and ready, no `/sys/class/dmi` parsing needed.
+- Row 3 (Linux/tux icon): the real Omarchy version instead of the
+  Linux distro name -- `omarchy version` directly (`"4.0.0-1"`), more
+  direct than reassembling it from fastfetch's `OS` module (which only
+  has the bare `buildID`, `"4.0.0"`, missing the pacman release suffix
+  the user specifically wanted shown).
+- Section separator relabeled `"System"` -> `"CPUs"`, and the list
+  below it is a **live per-core CPU usage list** (was ambxst's mixed
+  CPU/RAM/GPU/Disk list) -- one row per logical core (`Core 0`..`Core
+  3` on this 4-core N97), each with its own animated usage bar.
+  Computed via the same delta-of-two-`/proc/stat`-samples method
+  top/htop use (a single read can't produce a percentage on its own --
+  idle/total jiffy deltas between two samples over a 2s `Timer` can),
+  not a shell one-liner wrapping `mpstat`/`top`.
+- Icons: checked ambxst's own `Icons.qml` codepoints first, then
+  confirmed each one actually exists in this project's own
+  `JetBrainsMono Nerd Font` (not ambxst's broader `Symbols Nerd Font
+  Mono`) via the established `fontTools` `getBestCmap()` method before
+  using any of them -- several of ambxst's choices (`ram`, `ssd`,
+  `temperature`, `at`, `user`) turned out missing from `JetBrainsMono
+  Nerd Font`'s actual coverage. Substituted from the same font's own
+  Font Awesome block instead: `fa-user` (`U+F007`) for the username
+  row, `fa-linux` (`U+F17C`) for the OS row, `fa-microchip` (`U+F2DB`)
+  for the CPU section/per-core rows. Row 2's `@` just uses the literal
+  `"@"` character rather than hunting for a working glyph -- simpler,
+  and guaranteed to render identically everywhere.
+- Avatar: same gradient-placeholder + `~/.face.icon` + circular-mask
+  pattern as the collapsed notch's own `UserAvatar` (`Overlay.qml`),
+  duplicated here at a bigger size (64px vs 20px) without that one's
+  click-to-open-dashboard `MouseArea` (irrelevant inside an already-
+  open dashboard).
+
+**Real bug found and fixed while verifying**: the left panel initially
+rendered with the right panel's placeholder text ("Stat tiles -- coming
+soon") visually overlapping the CPU list, instead of sitting in its own
+space on the right. Root cause: `ColumnLayout`/`RowLayout` items
+default `Layout.fillWidth` to `true` even when never explicitly set
+(unlike plain `Item`/`Rectangle`, which default it `false`) -- the left
+panel's `ColumnLayout` only had `Layout.preferredWidth: 240` set, so it
+was implicitly *also* `fillWidth: true` and competed with the right
+panel's own `fillWidth: true` for space instead of staying fixed,
+leaving the right panel (and its placeholder text) squeezed into a
+sliver at the very edge. Confirmed by temporarily giving the right
+panel a red debug border (`border.color: "#ff0000"`) and screenshotting
+-- the border rendered far past where the CPU list visually ended,
+proving the width split was wrong, not just a text-positioning issue.
+Fixed with one line: `Layout.fillWidth: false` on the left panel.
+
+**Verified**: screenshotted before and after the fix -- confirmed the
+left panel now stays fixed at 240px (CPUs separator only spans that
+width, not the whole dashboard), the right panel's placeholder text is
+correctly centered in its own space with zero overlap, and all three
+identity rows plus all four per-core bars show real, live, correctly-
+sourced data (not fixtures) -- `Dev` / `NucBoxG5` / `Omarchy 4.0.0-1`,
+and per-core percentages that visibly differed between the two capture
+passes (a live `/proc/stat` read, not a static value). Right-side stat
+tiles (GPU etc.) explicitly deferred to a follow-up, per the request's
+own "focus on the left panel first then the stats widgets."
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

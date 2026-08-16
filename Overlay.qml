@@ -389,7 +389,16 @@ Item {
     color: "transparent"
 
     WlrLayershell.namespace: "ruixen-notch"
-    WlrLayershell.layer: WlrLayer.Overlay
+    // Overlay -> Top, per direct request ("autohide it on full
+    // screen"). Hyprland's layer-shell z-order is fixed at background
+    // < bottom < normal windows < top < overlay, and its fullscreen
+    // handling specifically raises a fullscreen client above `top`
+    // (but still below `overlay`) -- so `top` surfaces get covered
+    // automatically the instant a window goes fullscreen, with no
+    // IPC/fullscreen-state-watching code needed, while still staying
+    // above every normal (non-fullscreen) window exactly like Overlay
+    // did.
+    WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
     // Stays None always -- the launcher is click-only (a few favorite
     // app icons, no search box), so this surface never needs keyboard

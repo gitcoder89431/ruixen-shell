@@ -3660,6 +3660,41 @@ portal-registration warning), screenshotted the live panel -- temp bar
 now has visible side padding matching the centered dial+usage group
 above it.
 
+## Auto-hides over fullscreen windows
+
+Direct request, after asking whether the notch was "supposed to work
+over full screen applications" and observing it stayed visible over
+one: "ok so autohide it on full screen please." The notch was declared
+`WlrLayershell.layer: WlrLayer.Overlay` -- wlr-layer-shell's highest
+layer, rendered above literally everything including fullscreen
+clients, by design (the layer reserved for things like screen lockers
+and OSDs that must never be covered).
+
+Considered a real fullscreen-state watcher (via Hyprland's IPC) before
+landing on something simpler: Hyprland's own layer-shell z-order is
+fixed at `background < bottom < normal windows < top < overlay`, and
+its fullscreen handling specifically raises a fullscreen client above
+`top` but still below `overlay`. So just moving the notch down one
+layer, `WlrLayershell.layer: WlrLayer.Overlay -> WlrLayer.Top`, makes
+Hyprland itself cover the notch the instant a window goes fullscreen
+-- no IPC watching, no fullscreen-state tracking, no re-show-on-exit
+logic needed -- while it still renders above every normal
+(non-fullscreen) window exactly like `Overlay` did, since `top` sits
+above ordinary app windows in that same fixed ordering.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-restarted the shell, confirmed via `hyprctl layers` that
+`ruixen-notch` moved from "Layer level 3 (overlay)" to "Layer level 2
+(top)" (alongside `omarchy-bar`, which was already on that layer),
+screenshotted the live panel to confirm normal (non-fullscreen)
+rendering is unaffected -- notch still renders correctly at the top of
+the screen. Actual fullscreen-hide behavior wasn't directly screenshot-
+verified in this session (`hyprctl dispatch` was broken system-wide at
+the time, unrelated to this plugin -- every dispatch call errored with
+a Lua `hl.dispatch(...)` syntax error, even plain workspace switches),
+but the layer-ordering mechanism itself is standard, well-documented
+wlroots/Hyprland behavior, not a guess.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

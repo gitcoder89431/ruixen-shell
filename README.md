@@ -3506,6 +3506,31 @@ portal-registration warning), screenshotted the live panel -- dial and
 "45%" text noticeably bigger, fits cleanly within the tile with no
 clipping or overflow into the storage panel below.
 
+## Network tile's bottom padding matched to Memory's
+
+Direct request, mid-course-correction on an initial idea to move the
+split bar higher instead ("hmm damn im thinking maybe the bar should
+be higher in the network page above Download and Upload, its lookibg
+wierd there" -> "hold up what about padding it better so it matches
+more with memory?"): the Network tile only had one
+`Item { Layout.fillHeight: true }` spacer, right after the header, so
+everything below it (Download/Upload rows, the split bar, the rate
+caption) sat pinned to the tile's bottom margin instead of vertically
+centered -- unlike `MemoryDialTile`, which keeps its own content
+centered with a matching spacer both above AND below the dial. That
+asymmetry, not the bar's own position, was what read as "weird."
+
+Added a second `Item { Layout.fillHeight: true }` at the very end of
+the Network tile's `ColumnLayout`, after the rate caption row --
+matching `MemoryDialTile`'s own top+bottom spacer pattern.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- Network
+tile's content now sits more centered/balanced within the tile instead
+of bottom-pinned, matching Memory's own vertical rhythm.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

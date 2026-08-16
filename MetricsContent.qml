@@ -1266,6 +1266,15 @@ Item {
                 color: "#e05252"
               }
             }
+
+            // Matching trailing spacer -- per direct follow-up ("what
+            // about padding it better so it matches more with
+            // memory?"). Only the header had a spacer after it before
+            // this, so everything below (Download/Upload, the bar,
+            // the caption) sat pinned to the tile's bottom margin
+            // instead of vertically centered the way MemoryDialTile's
+            // own matching top+bottom spacers keep its content.
+            Item { Layout.fillHeight: true }
           }
         }
 

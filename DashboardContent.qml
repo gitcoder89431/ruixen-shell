@@ -239,6 +239,20 @@ Item {
       ctx.beginPath()
       ctx.arc(cx, cy, r, Math.min(seek.startAngle + seek.spanAngle, endAngle + gapRad), seek.startAngle + seek.spanAngle)
       ctx.stroke()
+      // Fake round cap at the track's own natural end (the ring's true
+      // terminus, unrelated to the tip/gap) -- "butt" above keeps the
+      // gap-side end flat on purpose, but that flattened BOTH ends of
+      // the arc since lineCap applies uniformly to a whole stroke. A
+      // small filled circle here restores the soft rounded look at
+      // just this one end, matching what "round" used to give it
+      // before the gap fix needed "butt" globally.
+      {
+        var trackEndAngle = seek.startAngle + seek.spanAngle
+        ctx.fillStyle = seek.trackColor
+        ctx.beginPath()
+        ctx.arc(cx + r * Math.cos(trackEndAngle), cy + r * Math.sin(trackEndAngle), seek.ringWidth / 2, 0, Math.PI * 2)
+        ctx.fill()
+      }
 
       // Progress -- up to value, accent, wavy (a sine ripple on the
       // radius) only while actually playing. Trimmed short of the
@@ -248,6 +262,7 @@ Item {
       ctx.strokeStyle = seek.progressColor
       ctx.beginPath()
       var steps = 48
+      var startX, startY
       for (var i = 0; i <= steps; i++) {
         var t = i / steps
         var angle = seek.startAngle + (progressEndAngle - seek.startAngle) * t
@@ -255,10 +270,20 @@ Item {
         if (seek.wavy) rr += Math.sin(angle * 16 + seek.wavePhase) * 2.5
         var x = cx + rr * Math.cos(angle)
         var y = cy + rr * Math.sin(angle)
-        if (i === 0) ctx.moveTo(x, y)
+        if (i === 0) { ctx.moveTo(x, y); startX = x; startY = y }
         else ctx.lineTo(x, y)
       }
       ctx.stroke()
+      // Same fake round cap, at the progress stroke's own natural
+      // start (seek.startAngle, unrelated to the tip) -- uses the
+      // polyline's own actual first point so it matches exactly even
+      // with the wave's sine perturbation applied.
+      if (progressEndAngle > seek.startAngle) {
+        ctx.fillStyle = seek.progressColor
+        ctx.beginPath()
+        ctx.arc(startX, startY, seek.ringWidth / 2, 0, Math.PI * 2)
+        ctx.fill()
+      }
 
       // Tip -- a thick radial tick at the current progress position,
       // ported from ambxst's own CircularSeekBar handle (a fat line
@@ -1183,10 +1208,28 @@ Item {
             ctx.beginPath()
             ctx.arc(cx, cy, r, Math.min(startAngle + totalSweep, endAngle + gapRad), startAngle + totalSweep)
             ctx.stroke()
+            // Fake round cap at the track's own natural end (the
+            // ring's true ~4:30 terminus, unrelated to the tip) --
+            // "butt" above flattened both ends of the arc, same fix
+            // as the player ring's CircularSeek.
+            ctx.fillStyle = Qt.rgba(1, 1, 1, 0.15)
+            ctx.beginPath()
+            ctx.arc(cx + r * Math.cos(startAngle + totalSweep), cy + r * Math.sin(startAngle + totalSweep), 1.5, 0, Math.PI * 2)
+            ctx.fill()
+
             ctx.strokeStyle = root.accent
             ctx.beginPath()
-            ctx.arc(cx, cy, r, startAngle, Math.max(startAngle, endAngle - gapRad))
+            var dialProgressEnd = Math.max(startAngle, endAngle - gapRad)
+            ctx.arc(cx, cy, r, startAngle, dialProgressEnd)
             ctx.stroke()
+            // Same fake round cap, at the progress arc's own natural
+            // start (~7:30, unrelated to the tip).
+            if (dialProgressEnd > startAngle) {
+              ctx.fillStyle = root.accent
+              ctx.beginPath()
+              ctx.arc(cx + r * Math.cos(startAngle), cy + r * Math.sin(startAngle), 1.5, 0, Math.PI * 2)
+              ctx.fill()
+            }
 
             // Thick tip at the current value, same treatment as the
             // player card's own CircularSeek tip -- a fat radial tick,

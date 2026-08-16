@@ -1687,6 +1687,37 @@ history of edge-case bugs (canvas clipping, top-crop) -- clean gap
 visible at all three, no clipping, no regression at the idle/full-value
 extremes.
 
+## Restored round caps at the rings' own natural ends
+
+Per direct feedback ("it kinda messed up the wave caps, cause its like a
+hard cap, is there a way to still have the cap roundy on the wave and
+bar?") -- real tradeoff from the `lineCap = "butt"` fix, not a new bug.
+Canvas 2D's `lineCap` applies uniformly to BOTH ends of a single stroke,
+so switching to `"butt"` to stop the gap-side bleed also flattened each
+arc's OTHER end -- the ring's own true natural terminus, unrelated to
+the tip/gap at all (e.g. the wave's own starting point, the track's own
+far end). That end used to look nicely rounded before the gap fix
+needed `"butt"` globally.
+
+Fixed with the standard Canvas workaround for "round one end, flat the
+other" on a single path: keep `"butt"` for the actual stroke (so the
+gap stays clean), then draw a small filled circle (`radius: ringWidth/2`
+for `CircularSeek`, `1.5` for `Dial` -- matching each ring's own stroke
+width) at exactly the natural end's coordinates, faking a round cap
+there without needing two separate stroke calls. For the progress arcs
+specifically, used the polyline/arc's own actual computed start point
+(not a re-derived one) so it lines up exactly, including through the
+wave's sine perturbation on `CircularSeek`.
+
+Applied to both `CircularSeek` (the "wave") and `Dial` (the small
+speaker/mic rings) -- both hit the identical `lineCap` issue since both
+switched to `"butt"` for the same gap fix. The brightness bar wasn't
+touched -- it's built from plain `Rectangle`s with their own `radius`
+property, no Canvas/`lineCap` involved at all, so it was never affected
+by this in the first place. Verified via zoomed screenshot crops on both
+the player ring and the speaker dial -- natural ends read rounded again,
+gap near the tip stays clean on both.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

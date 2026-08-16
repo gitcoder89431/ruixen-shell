@@ -28,6 +28,13 @@ BarWidget {
   readonly property var nightlightService: bar ? bar.shell.firstPartyServiceFor("omarchy.nightlight") : null
   readonly property bool nightlightOn: nightlightService ? nightlightService.enabled : false
 
+  // Same real service/toggle ruixen.dnd's own standalone bar pill used --
+  // that pill was removed from the bar layout (DND toggle already lives
+  // in ruixen.notch's own bell now, made the standalone pill redundant),
+  // folded in here instead so the action itself isn't lost.
+  readonly property var notificationService: bar ? bar.shell.firstPartyServiceFor("omarchy.notifications") : null
+  readonly property bool dnd: notificationService ? notificationService.doNotDisturb : false
+
   property int reminderCount: 0
 
   function refreshRecording() {
@@ -197,6 +204,18 @@ BarWidget {
         onTriggered: {
           root.popupOpen = false
           if (root.nightlightService) root.nightlightService.setNightlight(!root.nightlightOn)
+        }
+      }
+
+      ActionRow {
+        width: column.width
+        glyph: "󰂛"
+        label: "Do Not Disturb"
+        active: root.dnd
+        statusText: root.dnd ? "On" : ""
+        onTriggered: {
+          root.popupOpen = false
+          if (root.notificationService) root.notificationService.setDoNotDisturb(!root.dnd)
         }
       }
 

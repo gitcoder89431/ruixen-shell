@@ -108,8 +108,8 @@ Item {
     // on plain QML primitives throughout, see DashboardContent.qml).
     Rectangle {
       Layout.fillWidth: true
-      Layout.preferredHeight: 32
-      radius: 10
+      Layout.preferredHeight: 40
+      radius: 12
       color: Qt.rgba(1, 1, 1, 0.06)
 
       TextInput {

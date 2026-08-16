@@ -3695,6 +3695,32 @@ a Lua `hl.dispatch(...)` syntax error, even plain workspace switches),
 but the layer-ordering mechanism itself is standard, well-documented
 wlroots/Hyprland behavior, not a guess.
 
+**This turned out to be wrong -- reverted.** Direct report right after:
+"oh i think something broke, clicking the notch is unresponsive now, it
+doesnt expand anymore." Root cause: this namespace's own layer surface
+spans nearly the full screen (`xywh: 0 4 1920 1076` in `hyprctl
+layers`, confirmed directly), which overlaps `omarchy-bar`'s own
+surface geometry -- and `omarchy-bar` is *also* on `top`. Two same-
+layer surfaces with overlapping geometry have compositor-decided (not
+predictable from the QML side) stacking order for pointer hit-testing;
+`omarchy-bar` was apparently winning that contest in the overlap
+region, eating clicks meant for the collapsed notch pill before they
+ever reached this surface. `Overlay` sits strictly above every other
+layer including `top`, so there was never any same-layer contention
+there -- that's why it worked before.
+
+Reverted `WlrLayershell.layer` back to `WlrLayer.Overlay`. Fullscreen-
+hide, if still wanted, needs a different mechanism -- real fullscreen-
+state watching (via Hyprland's IPC/event stream) rather than reusing a
+layer another always-on surface already occupies.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-restarted the shell, confirmed via `hyprctl layers` that
+`ruixen-notch` moved back to "Layer level 3 (overlay)" alone (bar
+back on `top` by itself, no more overlap contention), and got direct
+user confirmation click-to-expand works again ("yup its working again
+now").
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

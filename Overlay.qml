@@ -389,16 +389,21 @@ Item {
     color: "transparent"
 
     WlrLayershell.namespace: "ruixen-notch"
-    // Overlay -> Top, per direct request ("autohide it on full
-    // screen"). Hyprland's layer-shell z-order is fixed at background
-    // < bottom < normal windows < top < overlay, and its fullscreen
-    // handling specifically raises a fullscreen client above `top`
-    // (but still below `overlay`) -- so `top` surfaces get covered
-    // automatically the instant a window goes fullscreen, with no
-    // IPC/fullscreen-state-watching code needed, while still staying
-    // above every normal (non-fullscreen) window exactly like Overlay
-    // did.
-    WlrLayershell.layer: WlrLayer.Top
+    // REVERTED back to Overlay -- the Overlay -> Top change (made to
+    // auto-hide over fullscreen windows) broke click-to-expand: this
+    // namespace's own layer surface geometry spans nearly the full
+    // screen (see `hyprctl layers`), overlapping omarchy-bar's own
+    // surface, which is ALSO on `top`. Two same-layer surfaces with
+    // overlapping geometry have compositor-decided (not
+    // deterministic-to-us) stacking order for pointer hit-testing --
+    // omarchy-bar apparently won that contest, eating clicks meant for
+    // the notch pill before they ever reached this surface. Overlay is
+    // strictly above every other layer including top, so there's no
+    // same-layer contention -- confirmed working again after this
+    // revert. Fullscreen-hide needs a different mechanism (real
+    // fullscreen-state watching) that doesn't reuse a layer another
+    // always-on surface already occupies.
+    WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
     // Stays None always -- the launcher is click-only (a few favorite
     // app icons, no search box), so this surface never needs keyboard

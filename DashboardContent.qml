@@ -1097,8 +1097,10 @@ Item {
 
     // ---- Column 4: volume / brightness / mic dials (static) ---------
     ColumnLayout {
-      Layout.preferredWidth: 70
-      Layout.maximumWidth: 70
+      // 70 -> 78, matching the left-rail tab bar's own width bump --
+      // per direct request to grow both rails together.
+      Layout.preferredWidth: 78
+      Layout.maximumWidth: 78
       Layout.fillHeight: true
       // 8px, matching ambxst's own circular-controls column spacing.
       spacing: 8
@@ -1117,8 +1119,11 @@ Item {
       component Dial: Rectangle {
         property string glyph: ""
         property real value: 0.7
-        Layout.preferredWidth: 48
-        Layout.preferredHeight: 48
+        // 48 -> 56, matching the left-rail tab bar's own bump -- also
+        // grows the ring radius (width/2-8) and makes the tip's gap
+        // relatively easier to see, both per direct request.
+        Layout.preferredWidth: 56
+        Layout.preferredHeight: 56
         Layout.alignment: Qt.AlignHCenter
         radius: width / 2
         color: Qt.rgba(1, 1, 1, 0.06)
@@ -1199,9 +1204,10 @@ Item {
           text: parent.glyph
           color: root.textColor
           font.family: root.fontFamily
-          // Matches the left-rail tab bar's own glyph size (18px) --
-          // was 14, reading small next to it, per direct feedback.
-          font.pixelSize: 18
+          // Matches the left-rail tab bar's own glyph size (20px,
+          // bumped alongside it from 18) -- was 14 originally, read
+          // small next to it, per direct feedback.
+          font.pixelSize: 20
         }
       }
 
@@ -1227,11 +1233,13 @@ Item {
         Layout.alignment: Qt.AlignHCenter
         spacing: 6
 
+        // Frame 32->38, glyph 18->20, bar 6x48->7x56 -- same rail-wide
+        // size bump as the tab bar and Dial above.
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 32
-          Layout.preferredHeight: 32
-          radius: 10
+          Layout.preferredWidth: 38
+          Layout.preferredHeight: 38
+          radius: 12
           color: Qt.rgba(1, 1, 1, 0.06)
 
           Text {
@@ -1239,14 +1247,14 @@ Item {
             text: "󰃟"
             color: root.textColor
             font.family: root.fontFamily
-            font.pixelSize: 18
+            font.pixelSize: 20
           }
         }
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 6
-          Layout.preferredHeight: 48
+          Layout.preferredWidth: 7
+          Layout.preferredHeight: 56
           radius: 3
           color: Qt.rgba(1, 1, 1, 0.15)
 

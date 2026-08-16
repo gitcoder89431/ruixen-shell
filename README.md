@@ -1566,6 +1566,21 @@ right before the tip's own stroke (still wanted a rounded tip). Verified
 via zoomed screenshot -- a real, crisp dark gap now visible on both
 sides of the tip.
 
+**Follow-up: still not visible enough, pivoted to growing both rails.**
+Per direct feedback ("i dont really see it... what about increasing the
+size of the icons and stuff inside the left and right rails?") -- rather
+than keep chasing a detail that's genuinely sub-pixel at this size,
+grew both rail columns together: left tab bar column `70px -> 78px`,
+`TabButton` `48x48 -> 56x56` (`radius: 12 -> 14`, glyph `18px -> 20px`);
+right dial column `70px -> 78px`, `Dial` `48x48 -> 56x56` (glyph
+`18px -> 20px`, ring radius auto-grows via the existing `width/2 - 8`
+formula), brightness icon frame `32x32 -> 38x38` (`radius: 10 -> 12`,
+glyph `18px -> 20px`), brightness bar `6x48 -> 7x56`. Growing the dial
+also grows the tip's gap relatively (still a fixed ~3px arc-length gap,
+but now against a visibly bigger ring). Verified via a zoomed crop on
+the bigger speaker dial -- the gap on both sides of the tip reads
+clearly now.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

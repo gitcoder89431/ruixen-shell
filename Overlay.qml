@@ -270,10 +270,13 @@ Item {
     property bool active: false
     signal activated()
 
-    Layout.preferredWidth: 48
-    Layout.preferredHeight: 48
+    // 48 -> 56, glyph 18 -> 20 -- per direct request to grow the
+    // left/right rail icons together rather than keep chasing a
+    // sub-pixel detail on the dial tip.
+    Layout.preferredWidth: 56
+    Layout.preferredHeight: 56
     Layout.alignment: Qt.AlignHCenter
-    radius: 12
+    radius: 14
     color: active ? Qt.rgba(1, 1, 1, 0.14) : (tabMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.07) : "transparent")
     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -282,7 +285,7 @@ Item {
       text: tabBtn.glyph
       color: tabBtn.active ? root.accent : root.textColor
       font.family: root.fontFamily
-      font.pixelSize: 18
+      font.pixelSize: 20
     }
 
     MouseArea {
@@ -711,8 +714,8 @@ Item {
             // area below) -- only the tab switching itself and the real
             // settings action are wired up.
             ColumnLayout {
-              Layout.preferredWidth: 70
-              Layout.maximumWidth: 70
+              Layout.preferredWidth: 78
+              Layout.maximumWidth: 78
               Layout.fillHeight: true
               spacing: 8
 

@@ -772,28 +772,146 @@ Item {
         }
       }
 
+      // Dial variant -- CPU/GPU per direct request ("can you core icon
+      // and then a full dial around it that shows the percentage usage
+      // aggregate in it... gonna do the same for GPU"). Ported the
+      // exact ring/tip math from DashboardContent.qml's own Dial
+      // component (the speaker/mic volume dials) rather than inventing
+      // a new circular gauge -- same 270deg sweep with a 45deg gap at
+      // the bottom (ambxst's own CircularControl.qml proportions),
+      // same handleSpacing-based gap-before-the-tip math, same thick
+      // white tip. Read-only here (no click/mute signal, nothing to
+      // toggle for a CPU/GPU usage reading), and adds the actual
+      // percentage as text since a stats tile needs the exact number,
+      // not just the ring's fill level the way a volume control does.
+      component DialTile: Rectangle {
+        id: tile
+        property string glyph: ""
+        property string title: ""
+        property real value: 0
+        property string subText: ""
+
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.05)
+
+        property color ringAccent: root.accent
+        onRingAccentChanged: dialCanvas.requestPaint()
+        onValueChanged: dialCanvas.requestPaint()
+
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: 10
+          spacing: 2
+
+          Text {
+            text: tile.title
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            color: root.muted
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+          }
+
+          Item { Layout.fillHeight: true }
+
+          Item {
+            id: dialItem
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 46
+            Layout.preferredHeight: 46
+
+            Canvas {
+              id: dialCanvas
+              anchors.fill: parent
+              onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                var cx = width / 2, cy = height / 2, r = width / 2 - 6
+                var startAngle = Math.PI / 2 + Math.PI / 4
+                var totalSweep = Math.PI * 2 - Math.PI / 2
+                var endAngle = startAngle + Math.max(0, Math.min(1, tile.value)) * totalSweep
+                var handleSpacing = 5
+                var gapRad = handleSpacing / r
+                ctx.lineWidth = 3
+                ctx.lineCap = "round"
+                ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+                ctx.beginPath()
+                ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
+                ctx.stroke()
+
+                ctx.strokeStyle = tile.ringAccent
+                ctx.beginPath()
+                var progressEnd = Math.max(startAngle, endAngle - gapRad)
+                ctx.arc(cx, cy, r, startAngle, progressEnd)
+                ctx.stroke()
+
+                var tipR1 = r - 2
+                var tipR2 = r + 3
+                var tx1 = cx + tipR1 * Math.cos(endAngle)
+                var ty1 = cy + tipR1 * Math.sin(endAngle)
+                var tx2 = cx + tipR2 * Math.cos(endAngle)
+                var ty2 = cy + tipR2 * Math.sin(endAngle)
+                ctx.lineWidth = 4
+                ctx.lineCap = "round"
+                ctx.strokeStyle = "#ffffff"
+                ctx.beginPath()
+                ctx.moveTo(tx1, ty1)
+                ctx.lineTo(tx2, ty2)
+                ctx.stroke()
+              }
+            }
+
+            Text {
+              anchors.centerIn: parent
+              text: tile.glyph
+              font.family: root.fontFamily
+              font.pixelSize: 14
+              color: root.textColor
+            }
+          }
+
+          Text {
+            text: Math.round(tile.value * 100) + "%"
+            font.family: root.fontFamily
+            font.pixelSize: 13
+            font.weight: Font.DemiBold
+            color: root.textColor
+            Layout.alignment: Qt.AlignHCenter
+          }
+
+          Item { Layout.fillHeight: true }
+
+          Text {
+            text: tile.subText
+            font.family: root.fontFamily
+            font.pixelSize: 9
+            color: root.muted
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignHCenter
+            Layout.fillWidth: true
+          }
+        }
+      }
       RowLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: 92
         spacing: 8
 
-        StatTile {
+        DialTile {
           Layout.fillWidth: true
           Layout.fillHeight: true
-          glyph: ""
+          glyph: ""
           title: "CPU"
-          valueText: Math.round(root.cpuUsage * 100) + "%"
-          barValue: root.cpuUsage
+          value: root.cpuUsage
           subText: root.cpuModel || ""
         }
 
-        StatTile {
+        DialTile {
           Layout.fillWidth: true
           Layout.fillHeight: true
           glyph: "󰢮"
           title: "GPU"
-          valueText: Math.round(root.gpuUsage * 100) + "%"
-          barValue: root.gpuUsage
+          value: root.gpuUsage
           subText: root.gpuName || ""
         }
       }

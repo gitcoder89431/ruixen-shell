@@ -2930,6 +2930,56 @@ spanning the full row width holding both real disks (`/` at `45 / 117
 GB`, `39%`; `/boot` at `0 / 2 GB`, `8%`), percentages aligned in a
 column on the right edge.
 
+## CPU/GPU tiles switched to dials
+
+Per direct request: "im thinking about using the dials. can you core
+icon and then a full dial around it that shows the percentage usage
+aggregate in it. gonna do the same for GPU." New `DialTile` component,
+used for just the CPU and GPU tiles (Network/Memory/Disk stay
+`StatTile`s -- a dial reads naturally for a 0-100% gauge, less so for a
+throughput rate or a used/total pair).
+
+Ported the exact ring/tip math from `DashboardContent.qml`'s own
+`Dial` component (the speaker/mic volume dials) rather than inventing
+a new circular gauge -- same 270° sweep with a 45° gap at the bottom
+(ambxst's real `CircularControl.qml` proportions), same `handleSpacing`
+-based gap-before-the-tip calculation, same thick white tip. Simplified
+for read-only use (no `muted`/`activated()` signal -- nothing to click
+or mute on a CPU/GPU usage reading) and added the actual percentage as
+text below the ring, since a stats tile needs the exact number legible
+at a glance, not just the ring's fill level the way a volume control's
+own dial gets away with showing nothing but position.
+
+**Real bug hit and fixed while building this**: `component DialTile`
+first landed nested INSIDE `StatTile`'s own definition (a Python-script
+string-splice bug -- the insertion-point search matched the first
+`"      }\n\n"` after `StatTile`'s start, which was actually the
+closing brace of an inner `Text`, not `StatTile`'s own true end).
+Quickshell's log was unambiguous: `Nested inline components are not
+supported`, and the notch panel didn't render AT ALL as a result (not
+a visual glitch -- the whole `MetricsContent` type failed to load,
+confirmed via `Type MetricsContent unavailable` in the same log).
+Fixed by restoring the last committed-clean file via `git show
+HEAD:MetricsContent.qml` and redoing the insertion with exact,
+verified line-index splicing (asserted the exact text at each boundary
+line before writing, not just trusting a substring search) instead of
+the fragile first-match approach.
+
+Also caught and fixed a second real bug from the same broken pass: the
+CPU `DialTile` instance's own `glyph` property was accidentally typed
+as a literal empty string in the Python heredoc (typing PUA glyphs
+blind doesn't work -- confirmed via a direct codepoint search that the
+character was never actually written), leaving the CPU tile's icon
+blank. Fixed by locating the same `U+F2DB` microchip glyph already
+used correctly elsewhere in this file and reusing that exact character
+instead of retyping it.
+
+**Verified**: `omarchy plugin validate` clean, live log free of both
+the nesting error and any new warnings, screenshotted the live tab --
+confirmed both CPU and GPU tiles show a centered icon, a ring with a
+visible gap and tip reflecting the real live percentage, the number
+itself below the ring, and the model/GPU name below that.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

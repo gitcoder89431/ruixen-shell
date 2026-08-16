@@ -1133,6 +1133,32 @@ value, which would've widened every gap in the column equally.
 **Follow-up: still wanted more.** Bumped `Layout.topMargin` `4` -> `10`
 (`18px` total gap now) per a second round of the same feedback.
 
+## Grey track no longer bleeds through the wavy progress arc
+
+Per direct feedback ("like the compact notch, the grey bar line after
+the waves goes over it needs to like hide itself, no tail"): `CircularSeek`
+was drawing the grey track for the FULL span first, then the wavy green
+progress stroke on top. Since the wave's radius wobbles around the
+track's own radius `r` (the sine perturbation), the green stroke doesn't
+sit exactly on top of the grey arc at every angle -- wherever the wave's
+radius differs from `r`, a sliver of the grey track underneath was still
+visible, reading as a "tail" trailing the wave.
+
+The compact notch's own linear `WavyLine` (in `Overlay.qml`) never has
+this problem because it's structural, not a draw-order trick: its
+`Canvas` width IS `parent.width * progressRatio`, so the dim track
+`Rectangle` drawn alongside it only ever covers what's actually
+unplayed -- there's no full-length grey layer for the wave to imperfectly
+cover in the first place. Matched the same idea in `CircularSeek`:
+the grey track now draws from `endAngle` (the progress boundary) to the
+sweep's end, not from `startAngle`, so it never occupies the played
+region where the wave lives.
+
+Verified at a forced `progressRatio: 0.55` (deliberately mid-sweep,
+where the wave's wobble is most visible) via a zoomed screenshot crop --
+clean boundary right at the tip, no grey visible along the wave's
+length.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

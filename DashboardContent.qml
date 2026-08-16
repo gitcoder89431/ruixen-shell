@@ -171,16 +171,25 @@ Item {
       ctx.lineWidth = seek.ringWidth
       ctx.lineCap = "round"
 
-      // Track -- full span, dim.
+      // Track -- ONLY the unplayed remainder, not the full span. The
+      // wavy progress stroke's radius wobbles around r (the sine
+      // perturbation), so a full-span grey arc drawn underneath it
+      // peeked through in slivers wherever the wave's radius differed
+      // from the plain track's -- a "tail" of grey bleeding around the
+      // wave. Same fix the linear compact-notch WavyLine already uses:
+      // its Canvas width IS parent.width * progressRatio, so the dim
+      // track only ever covers what's actually unplayed. Matched here
+      // by drawing the grey arc from endAngle onward instead of the
+      // full sweep.
+      var clamped = Math.max(0, Math.min(1, seek.value))
+      var endAngle = seek.startAngle + seek.spanAngle * clamped
       ctx.strokeStyle = seek.trackColor
       ctx.beginPath()
-      ctx.arc(cx, cy, r, seek.startAngle, seek.startAngle + seek.spanAngle)
+      ctx.arc(cx, cy, r, endAngle, seek.startAngle + seek.spanAngle)
       ctx.stroke()
 
       // Progress -- up to value, accent, wavy (a sine ripple on the
       // radius) only while actually playing.
-      var clamped = Math.max(0, Math.min(1, seek.value))
-      var endAngle = seek.startAngle + seek.spanAngle * clamped
       ctx.strokeStyle = seek.progressColor
       ctx.beginPath()
       var steps = 48

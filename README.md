@@ -622,6 +622,21 @@ remembering for any future rounded-image-thumbnail work in this
 project -- reach for `ClippingRectangle` first, don't assume plain
 `clip: true` respects `radius`.
 
+## Play/pause: bigger, tonal accent chip
+
+Per direct feedback, matching ambxst's real `playPauseBtn` (a
+`StyledRect variant: "primary"` 44x44 tile, distinct from the plain
+glyph-only `MediaIconButton` prev/next use): play/pause is now its
+own `34x34` accent-filled circle (`root.accent` bg, black glyph,
+`16px`), while prev/next stay plain `14px` glyphs with no background.
+Also added `anchors.verticalCenter: parent.verticalCenter` to all
+three row children -- the differently-sized elements weren't aligned
+to a common baseline before. Confirmed the click handlers are wired
+to a real, correct API before touching styling: `runAction("previous"
+/"playPause"/"next", ...)` is the exact same function
+`ruixen-tray-widgets`' own `media/Service.qml` IPC handler already
+calls successfully elsewhere in this project.
+
 ## Album line restored + transport row actually centered
 
 Two real bugs, per direct feedback. First: the transport controls

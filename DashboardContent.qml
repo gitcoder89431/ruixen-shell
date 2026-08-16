@@ -405,9 +405,10 @@ Item {
         // if the Row is sized to its own content instead of stretched.
         Row {
           Layout.alignment: Qt.AlignHCenter
-          spacing: 22
+          spacing: 18
 
           Text {
+            anchors.verticalCenter: parent.verticalCenter
             text: "󰒮"
             color: root.textColor
             font.family: root.fontFamily
@@ -420,20 +421,35 @@ Item {
             }
           }
 
-          Text {
-            text: root.playIcon
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 18
+          // Play/pause -- bigger, tonal accent-filled chip, matching
+          // ambxst's own playPauseBtn (StyledRect variant: "primary",
+          // 44x44). Prev/next stay plain glyphs with no background,
+          // same as their MediaIconButton -- only play/pause gets the
+          // filled treatment.
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            width: 34
+            height: 34
+            radius: 17
+            color: root.accent
+
+            Text {
+              anchors.centerIn: parent
+              text: root.playIcon
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 16
+            }
+
             MouseArea {
               anchors.fill: parent
-              anchors.margins: -6
               cursorShape: Qt.PointingHandCursor
               onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
             }
           }
 
           Text {
+            anchors.verticalCenter: parent.verticalCenter
             text: "󰒭"
             color: root.textColor
             font.family: root.fontFamily

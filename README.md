@@ -1504,6 +1504,24 @@ ambxst's own `CircularControl` being reused for both `volumeControl` and
 Verified via a zoomed screenshot crop -- ring sits comfortably inset
 inside the round badge, icon centered clearly.
 
+## Dial ring: not a full circle, matching ambxst's real gap
+
+Per direct observation ("ambxst doesnt have like a full circle... goes
+from i guess 4 o'clock to 7 o'clock") -- confirmed directly against
+`CircularControl.qml`'s own angle math: `gapAngle: 45`,
+`baseStartAngle = 90deg + gapAngle`, total sweep `= 360deg - 2*gapAngle`.
+That places their start at ~7:30 on a clock face, sweeping 270deg
+clockwise back around to ~4:30 -- a 90deg gap sitting at the bottom of
+the badge, not a full 360deg ring.
+
+`Dial`'s `Canvas` was drawing a complete circle (`0` to `2*PI`).
+Replicated the exact same angle math in this Canvas's own radian terms:
+`startAngle = PI/2 + PI/4`, `totalSweep = 2*PI - PI/2`, both the dim
+track and the accent progress arc now sweep across that same 270deg
+range instead of the full circle. Verified via zoomed screenshot crops
+on both dials -- visible gap at the bottom of each badge, matching the
+description.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

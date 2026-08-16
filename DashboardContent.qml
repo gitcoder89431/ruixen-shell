@@ -1123,20 +1123,31 @@ Item {
         radius: width / 2
         color: Qt.rgba(1, 1, 1, 0.06)
 
+        // Not a full circle -- ambxst's own ring has a 45deg gap on
+        // each side (their gapAngle: 45), starting at ~7:30 on a clock
+        // face and sweeping 270deg clockwise back around to ~4:30,
+        // leaving the gap sitting at the bottom of the badge. Matched
+        // their exact angle math (baseStartAngle = 90deg + gapAngle,
+        // totalAngle = 360deg - 2*gapAngle) in this Canvas's own radian
+        // terms, per direct request ("doesnt have like a full
+        // circle... goes from i guess 4 o'clock to 7 o'clock").
         Canvas {
           anchors.fill: parent
           onPaint: {
             var ctx = getContext("2d")
             ctx.reset()
             var cx = width / 2, cy = height / 2, r = width / 2 - 8
+            var startAngle = Math.PI / 2 + Math.PI / 4
+            var totalSweep = Math.PI * 2 - Math.PI / 2
             ctx.lineWidth = 3
+            ctx.lineCap = "round"
             ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()
-            ctx.arc(cx, cy, r, 0, Math.PI * 2)
+            ctx.arc(cx, cy, r, startAngle, startAngle + totalSweep)
             ctx.stroke()
             ctx.strokeStyle = root.accent
             ctx.beginPath()
-            ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + value * Math.PI * 2)
+            ctx.arc(cx, cy, r, startAngle, startAngle + value * totalSweep)
             ctx.stroke()
           }
         }

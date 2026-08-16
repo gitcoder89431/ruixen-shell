@@ -395,7 +395,9 @@ Item {
 
         // Fixed gap, not a fillHeight spacer -- the whole block is
         // already centered by the outer Item's anchors.centerIn now.
-        Item { Layout.preferredHeight: 12 }
+        // Trimmed from 12 -- too much air between the artist line and
+        // the transport controls.
+        Item { Layout.preferredHeight: 4 }
 
         // No Layout.fillWidth here -- a plain Row doesn't center its
         // own children, it just left-packs them from x=0. fillWidth
@@ -421,16 +423,17 @@ Item {
             }
           }
 
-          // Play/pause -- bigger, tonal accent-filled chip, matching
-          // ambxst's own playPauseBtn (StyledRect variant: "primary",
-          // 44x44). Prev/next stay plain glyphs with no background,
-          // same as their MediaIconButton -- only play/pause gets the
-          // filled treatment.
+          // Play/pause -- bigger, tonal accent-filled chip. Rounded
+          // SQUARE, not a circle -- same radius:size/4 proportion
+          // QuickToggle uses for the wifi/bluetooth quick-controls
+          // buttons, per direct request to match that shape instead of
+          // ambxst's own fully-round playPauseBtn. Prev/next stay plain
+          // glyphs with no background.
           Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: 34
             height: 34
-            radius: 17
+            radius: 8
             color: root.accent
 
             Text {

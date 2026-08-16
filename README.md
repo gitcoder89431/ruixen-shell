@@ -622,6 +622,16 @@ remembering for any future rounded-image-thumbnail work in this
 project -- reach for `ClippingRectangle` first, don't assume plain
 `clip: true` respects `radius`.
 
+## Play/pause: square, not round + tighter gap above it
+
+Two follow-ups per direct feedback: the gap between the artist line
+and transport controls (`12px` fixed spacer) was trimmed to `4px` --
+too much air. And play/pause's shape changed from a full circle
+(`radius: 17`, ambxst's own look) to a rounded square (`radius: 8`,
+roughly the same `size/4` proportion `QuickToggle` already uses for
+the wifi/bluetooth quick-controls buttons) -- explicitly requested to
+match that shape instead.
+
 ## Play/pause: bigger, tonal accent chip
 
 Per direct feedback, matching ambxst's real `playPauseBtn` (a

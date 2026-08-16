@@ -3118,6 +3118,23 @@ screenshotted the live tab -- confirmed the Memory tile shows a
 centered ring with `"45%"` inside it (no icon), `"5.1 / 11.4 GiB"`
 prominently centered below, and no leftover bar.
 
+## Memory icon added, title made bigger
+
+Per direct follow-up: "can you add the memory icon in front of text
+memory make this bigger too please." The `"Memory"` title was a plain
+`10px` muted `Text`, the one thing left unstyled after the icon moved
+into the ring's center. Swapped it for a `RowLayout`: the same
+`fa-memory` glyph (`U+EFC5`) the old `StatTile` version used, at
+`15px`, followed by `"Memory"` itself bumped `10px -> 13px` and
+`DemiBold`/`root.textColor` (was `root.muted`) -- matching the weight/
+color CPU and GPU's own `"CPU Usage"`/`"GPU Usage"` labels already use,
+so Memory's identification reads at the same visual weight as theirs
+again now that it lost its bar-tile-era icon.
+
+**Verified**: screenshotted the live tab -- confirmed the memory-chip
+icon sits directly in front of a larger, brighter `"Memory"` label
+above the ring.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

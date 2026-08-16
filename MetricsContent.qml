@@ -973,12 +973,25 @@ Item {
           anchors.margins: 10
           spacing: 4
 
-          Text {
-            text: "Memory"
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            color: root.muted
+          RowLayout {
             Layout.fillWidth: true
+            spacing: 6
+
+            Text {
+              text: ""
+              font.family: root.fontFamily
+              font.pixelSize: 15
+              color: root.muted
+            }
+
+            Text {
+              text: "Memory"
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              font.weight: Font.DemiBold
+              color: root.textColor
+              Layout.fillWidth: true
+            }
           }
 
           Item { Layout.fillHeight: true }

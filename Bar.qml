@@ -375,9 +375,14 @@ Item {
   // horizontal bar (see qs.Ui BarIconButton.qml's fixedWidth/
   // fixedHeight split) -- height just fills whatever this pill provides,
   // so growing iconSlot/iconFont doesn't force a taller pill; 34 has
-  // plenty of headroom for an 18px glyph. Paired with topInset (10, see
-  // BarPanel): topInset + barSize = 10 + 34 = 44, matching the notch's
-  // own bottom edge, same pairing notchClearance below uses.
+  // plenty of headroom for an 18px glyph.
+  //
+  // NOT paired 1:1 with topInset anymore (was topInset(10) + barSize(34)
+  // = 44 == notchClearance's own target, a coincidence of both being 34,
+  // not a real requirement). The actual invariant that matters is
+  // topInset + notchClearance = 44 (see notchClearance below) -- barSize
+  // itself is just this pill's own visual height, unrelated to where
+  // Hyprland's reservation ends.
   readonly property int barSize: 34
 
   // Reserved screen zone for windows -- taller than barSize so
@@ -386,12 +391,24 @@ Item {
   // bottom edge sitting flush against tiled windows.
   //
   // ExclusionMode.Normal's exclusiveZone turned out additive to
-  // BarPanel's own top margin (topInset, 10 -- see BarPanel), not a full
-  // replacement -- this value has that margin already backed out
-  // (44 - 10 = 34), targeting an actual reserved zone matching the
-  // notch's own 44px height. Keep this in sync if topInset ever changes
-  // again -- it must always equal 44 - topInset.
-  readonly property int notchClearance: 34
+  // BarPanel's own top margin (topInset -- see BarPanel), not a full
+  // replacement -- this value has that margin already backed out,
+  // targeting an actual reserved zone matching the notch's own 44px
+  // height. Keep this in sync if topInset ever changes again -- it must
+  // always equal 44 - topInset.
+  //
+  // 34 -> 31 alongside topInset 10 -> 13 (see BarPanel) -- per direct
+  // report of unequal top/bottom spacing around the pills (measured:
+  // ~5.5px above vs ~11.5px below, a real 6px imbalance, not a
+  // perception issue -- confirmed against this machine's actual live
+  // config: frame border thickness 6, Style.space(2) == 3 at this
+  // machine's [font] base-size 17, Hyprland gaps_out 10). Moving
+  // topInset down 3px and notchClearance down 3px in lockstep keeps
+  // topInset + notchClearance = 44 (the reservation itself, and
+  // therefore the tiled-window gap, is unchanged) while shifting the
+  // pills themselves down 3px, splitting the old 6px imbalance evenly:
+  // new spacing is ~8.5px on both sides instead of 5.5/11.5.
+  readonly property int notchClearance: 31
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
@@ -1104,13 +1121,22 @@ Item {
     readonly property int frameInset: 6
     // Top-only, bigger than frameInset on purpose: more breathing room
     // between the pills' top edge and the frame's own bottom edge than
-    // left/right get. Kept in sync with root.barSize/notchClearance --
-    // both of those are defined as 44 - topInset, so the pills' own
-    // occupied span (topInset + barSize) always lands on the same 44px
-    // bottom edge the notch itself uses, no matter what this is set to.
-    // (An earlier attempt bumped this without recomputing the other two,
+    // left/right get. Kept in sync with root.notchClearance -- that one
+    // is defined as 44 - topInset, so the actual Hyprland reservation
+    // (topInset + notchClearance) always lands on the same 44px bottom
+    // edge the notch itself uses, no matter what this is set to. (An
+    // earlier attempt bumped this without recomputing notchClearance,
     // which broke that shared bottom edge -- see ruixen-bar's README.)
-    readonly property int topInset: 10
+    //
+    // 10 -> 13, per direct report of unequal top/bottom pill spacing
+    // (measured against this machine's real config: frame border 6px,
+    // Style.space(2) == 3px at base-size 17, Hyprland gaps_out 10px --
+    // worked out to a genuine 6px imbalance, ~5.5px above the pills vs
+    // ~11.5px below). Shifts the pills down 3px without moving the
+    // Hyprland reservation itself (notchClearance dropped 34 -> 31 in
+    // lockstep, keeping the sum at 44) -- splits the old imbalance
+    // evenly to ~8.5px on both sides.
+    readonly property int topInset: 13
 
     margins {
       top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? topInset : 0)

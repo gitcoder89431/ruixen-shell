@@ -159,6 +159,50 @@ constantly (theme changes, `omarchy bar` commands), so it's live state, not
 a static dotfile. These commands are the reproducible record of the layout
 changes made here.
 
+## Vertical pill spacing rebalanced (topInset 10 -> 13, notchClearance 34 -> 31)
+
+Per direct report of unequal spacing above/below the pills relative to
+the frame's own bottom edge and the tiled-window boundary below --
+confirmed via a second-opinion review, then independently re-verified
+against this machine's actual live config before touching anything
+(the standing lesson from this project's whole history: check real
+values, don't trust an analysis blindly):
+
+- Frame border thickness: `6px` (`ruixen.frame-widget`'s own
+  `thickness` property)
+- `barSize`: `34`
+- `topInset`: `10` (before)
+- `notchClearance`: `34` (before)
+- `Style.space(2)`: `3` on this machine specifically -- `[font]
+  base-size` is set to `17` here (not the default `12`), so
+  `fontScale ≈ 1.417` and `Style.space(2) = round(2 * 1.417) = 3`
+- Hyprland `gaps_out`: `10` (confirmed via `hyprctl getoption
+  general:gaps_out`)
+
+Working through the real numbers: pill height is `barSize -
+Style.space(2) = 31`, centered in the `34px` band `topInset` positions,
+so the pill itself sits `1.5px` inset on each side. Pill top = `topInset
++ 1.5 = 11.5`; frame's own inner edge is `6` -- `5.5px` above. Pill
+bottom = `topInset + barSize - 1.5 = 42.5`; the Hyprland reservation
+ends at `topInset + notchClearance = 44`, plus `gaps_out(10)` before a
+tiled window's own border -- `54`, so `11.5px` below. A genuine `6px`
+imbalance, not a perception issue.
+
+**The fix**: `topInset` and `notchClearance` moved in lockstep (`+3` /
+`-3`) so their sum stays `44` -- the actual Hyprland reservation (and
+therefore the gap to tiled windows) is completely unchanged, only the
+pills' own position shifts down `3px` within it. New pill bounds:
+`14.5` to `45.5` -- `8.5px` above (`14.5 - 6`), `8.5px` below
+(`54 - 45.5`). Balanced.
+
+`barSize` itself was deliberately left at `34`, NOT recomputed as
+`44 - topInset` the way the old comments implied it should be -- that
+was describing a coincidence (both `barSize` and `notchClearance`
+happened to equal `34` before this change), not a real requirement.
+The only real invariant is `topInset + notchClearance = 44`; `barSize`
+is just the pill's own visual height and is unrelated to where the
+Hyprland reservation ends.
+
 ## Companion setup (required for the full look)
 
 1. **[`ruixen.frame-widget`](https://github.com/gitcoder89431/ruixen-frame-widget)**

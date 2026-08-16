@@ -47,6 +47,10 @@ Item {
   property real trackLength: 0
   property string userHost: ""
   property string displayedTitle: ""
+  // Real DND state passthrough, same first-party service the collapsed
+  // notch's own bell already reads -- was undefined here, the
+  // notification header's bell was purely decorative.
+  property bool dnd: false
 
   // Idle-state artist placeholder -- a small ROW of braille cells with
   // one lit dot scanning back and forth (Cylon/KITT-scanner style),
@@ -1026,9 +1030,16 @@ Item {
             }
           }
 
-          // DND bell -- decorative for now, mirrors the collapsed
-          // notch's own bell glyph. Not wired to omarchy.notifications
-          // here (ruixen.dnd already owns that toggle, see the bar).
+          // DND bell -- mirrors the collapsed notch's own bell glyph,
+          // now reading the same real dnd state (was undefined/
+          // decorative here before). Still not clickable -- the actual
+          // toggle stays owned by ruixen.dnd, this just reflects state.
+          // Accent (theme token) when notifications are live, the same
+          // fixed red the collapsed notch's own bell uses when silenced
+          // -- kept as a fixed semantic color rather than theme-linked,
+          // same reasoning as accent itself before it got theme-linked:
+          // "DND active" needs to read as alarm/urgent regardless of
+          // theme, not blend into it.
           Rectangle {
             Layout.preferredWidth: 32
             Layout.fillHeight: true
@@ -1038,7 +1049,7 @@ Item {
             Text {
               anchors.centerIn: parent
               text: "󰂛"
-              color: root.textColor
+              color: root.dnd ? "#e05252" : root.accent
               font.family: root.fontFamily
               font.pixelSize: 16
             }
@@ -1046,7 +1057,10 @@ Item {
 
           // Clear-all "broom" -- ambxst's own NotificationHistory.qml
           // header has the same bell + broom pair. Decorative, no real
-          // history to clear yet.
+          // history to clear yet. Fixed orange (not theme-linked, same
+          // "state semantic" reasoning as the bell's red above) --
+          // deliberately different from the bell's red so "DND active"
+          // and "clear/destructive action" don't share one color.
           Rectangle {
             Layout.preferredWidth: 32
             Layout.fillHeight: true
@@ -1056,7 +1070,7 @@ Item {
             Text {
               anchors.centerIn: parent
               text: "󰃢"
-              color: root.textColor
+              color: "#e0a050"
               font.family: root.fontFamily
               font.pixelSize: 16
             }

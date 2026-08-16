@@ -775,6 +775,7 @@ Item {
                 trackLength: root.trackLength
                 userHost: root.userHost
                 displayedTitle: root.displayedTitle
+                dnd: root.dnd
               }
 
               // Stub panes -- tab switching works, real content doesn't

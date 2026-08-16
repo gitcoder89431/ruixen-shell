@@ -1411,6 +1411,34 @@ looks weird with the circle, just use the square icon") -- swapped
 hollow square, no circle wrapper). Same PUA-glyph insertion method as
 above.
 
+## Notification header: bell wired to real DND state, broom gets its own color
+
+Per direct request: the header's DND bell was purely decorative --
+`dnd` had never been threaded from `Overlay.qml` (which already computes
+it from `omarchy.notifications`, same service the collapsed notch's own
+bell reads) down to `DashboardContent`. Added `property bool dnd: false`
+to `DashboardContent`'s passthrough properties and `dnd: root.dnd` to its
+instantiation in `Overlay.qml` -- one missing wire, not new state.
+
+Bell color: `root.accent` (the now-theme-linked token) when
+notifications are live, the same fixed `#e05252` red the collapsed
+notch's own bell already uses when `root.dnd` is true. Kept red as a
+fixed semantic color rather than theme-linked -- same reasoning `accent`
+itself had before this session's theme-linking pass: "DND active" needs
+to read as alarm regardless of theme, not blend into whatever the
+theme's accent happens to be.
+
+Broom color: asked for a recommendation between orange/yellow/red for
+"clear all" -- picked a fixed orange (`#e0a050`), deliberately different
+from the bell's red so "DND active" and "clear/destructive action" don't
+share one color and get confused for each other at a glance. Still not
+clickable -- no real notification history service wired here yet, same
+as before.
+
+Verified both bell states via the established hardcode method (forced
+`root.dnd: true` in `Overlay.qml`, screenshot, reverted) -- teal/accent
+normally, red under DND, orange broom in both.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

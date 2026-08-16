@@ -825,8 +825,11 @@ Item {
 
             Item {
               id: dialItem
-              Layout.preferredWidth: 46
-              Layout.preferredHeight: 46
+              // 46 -> 60, per direct request to make the dial/icon
+              // bigger. Ring radius (width/2-6) and the tip/arc math
+              // below both scale off this automatically.
+              Layout.preferredWidth: 60
+              Layout.preferredHeight: 60
               Layout.alignment: Qt.AlignVCenter
 
               Canvas {
@@ -841,7 +844,7 @@ Item {
                   var endAngle = startAngle + Math.max(0, Math.min(1, tile.value)) * totalSweep
                   var handleSpacing = 5
                   var gapRad = handleSpacing / r
-                  ctx.lineWidth = 3
+                  ctx.lineWidth = 4
                   ctx.lineCap = "round"
                   ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
                   ctx.beginPath()
@@ -860,7 +863,7 @@ Item {
                   var ty1 = cy + tipR1 * Math.sin(endAngle)
                   var tx2 = cx + tipR2 * Math.cos(endAngle)
                   var ty2 = cy + tipR2 * Math.sin(endAngle)
-                  ctx.lineWidth = 4
+                  ctx.lineWidth = 5
                   ctx.lineCap = "round"
                   ctx.strokeStyle = "#ffffff"
                   ctx.beginPath()
@@ -874,7 +877,7 @@ Item {
                 anchors.centerIn: parent
                 text: tile.glyph
                 font.family: root.fontFamily
-                font.pixelSize: 14
+                font.pixelSize: 18
                 color: root.textColor
               }
             }
@@ -945,9 +948,9 @@ Item {
       }
       RowLayout {
         Layout.fillWidth: true
-        // 66 -> 92 -- back up to fit the new temperature bar row
-        // added below the dial+usage row.
-        Layout.preferredHeight: 92
+        // 66 -> 92 (temperature bar row) -> 106 (bigger dial, 46 -> 60,
+        // per direct request).
+        Layout.preferredHeight: 106
         spacing: 8
 
         DialTile {

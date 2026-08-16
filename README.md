@@ -3061,6 +3061,32 @@ full-width bar plus real `"73°C"` text, matching each other exactly
 (same real sensor) and matching the per-core list's own `"73°C"`
 readings in the same capture.
 
+## CPU/GPU dial + icon made bigger
+
+Per direct request: "make the cpu and gpu icon bigger and the dial
+around it too increase the size of these group." `dialItem` `46px ->
+60px` (ring radius scales off it automatically, `width/2-6`), icon
+`font.pixelSize` `14 -> 18`, ring stroke widths bumped to match the
+bigger radius (`3 -> 4` for the track/progress arc, `4 -> 5` for the
+tip) so the ring doesn't read as proportionally thinner at the new
+size. Row height `92px -> 106px` to fit the taller dial without
+clipping.
+
+**Real hiccup while verifying, not a code bug**: the first restart
+after this change kept showing the Wallpapers tab instead of Metrics
+despite `dashboardTab: 2` being correctly on disk and a genuinely fresh
+`quickshell` process (confirmed via `ps` -- new PID, matching restart
+timestamp) -- a transient issue with that specific restart, not a
+real/reproducible bug (a second `omarchy restart shell` immediately
+after came up correctly and stayed correct through the rest of
+verification). Noted here in case it recurs and turns out to be a real
+pattern worth investigating later.
+
+**Verified**: screenshotted the live tab (after the clean restart) --
+confirmed both dials render noticeably larger with the icon, ring, and
+tip all scaling together proportionally, current real CPU/GPU
+percentages and temperatures still correct.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

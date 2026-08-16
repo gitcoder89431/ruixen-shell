@@ -606,14 +606,17 @@ Item {
               width: 140
               height: 12
 
+              // Thickened track/wave/playhead 2px -> 4px across the
+              // board, per direct feedback ("isnt really thick
+              // enough... make it more comfy").
               Rectangle {
                 // Unplayed remainder only -- starts right where the wave
                 // ends, instead of running the full width underneath it.
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width * (1 - root.progressRatio)
-                height: 2
-                radius: 1
+                height: 4
+                radius: 2
                 color: Qt.rgba(1, 1, 1, 0.15)
               }
 
@@ -623,7 +626,7 @@ Item {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 lineColor: root.hasMedia ? root.accent : root.muted
-                lineWidth: 2
+                lineWidth: 4
                 frequency: 6
                 amplitudeMultiplier: root.isPlaying ? 1.4 : 0.15
                 fullLength: 140
@@ -633,7 +636,7 @@ Item {
               // Playhead -- vertical line right where the wave meets the
               // dim (unplayed) track.
               Rectangle {
-                width: 2
+                width: 4
                 height: parent.height
                 radius: width / 2
                 anchors.verticalCenter: parent.verticalCenter

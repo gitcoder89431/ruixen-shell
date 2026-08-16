@@ -1159,6 +1159,17 @@ where the wave's wobble is most visible) via a zoomed screenshot crop --
 clean boundary right at the tip, no grey visible along the wave's
 length.
 
+## Compact notch progress line thickened
+
+Per direct feedback ("isnt really thick enough... more comfy"): the
+collapsed notch's mini progress indicator (`collapsedContent` in
+`Overlay.qml`) had the dim track, `WavyLine`, and playhead all at a thin
+`2px`. Bumped all three to `4px` together (track `height: 2 -> 4`,
+`radius: 1 -> 2`; `WavyLine.lineWidth: 2 -> 4`; playhead `width: 2 -> 4`)
+so they stay visually consistent with each other rather than drifting
+out of proportion. Confirmed via screenshot on the live collapsed notch
+(no pin/hover toggle needed, this is the default at-rest state).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -3017,6 +3017,50 @@ its own row, so the identifying label is back with zero extra height.
 11%"` and `"GPU Usage 71%"`, both tiles still the same shorter height
 from the previous change.
 
+## Temperature bar added to the CPU/GPU dial tiles
+
+Per direct request: "for the tempture for CPU and GPU we can put this
+in the card below the section we just made but full width bar inside
+its cpu or gpu card." A new `RowLayout` (full-width bar + `"NN°C"`
+text) added below the existing dial+usage `RowLayout`, both now
+wrapped in a `ColumnLayout` inside `DialTile` (was a single `RowLayout`
+filling the whole tile before -- needed a second layer of layout to
+stack the two rows). Row height bumped back `66px -> 92px` to fit it.
+Bar styling matches the per-core CPU list's own bars (thin rounded
+track + accent fill) rather than inventing a new bar look.
+
+New `DialTile` properties: `tempC` (`-1` hides the row entirely --
+keeps the component honest about "no reading available" instead of
+silently drawing an empty bar) and `tempMaxC` (defaults `105`, this
+CPU's own real throttle point -- confirmed via `sensors`' `temp1_max`/
+`temp1_crit` on `coretemp-isa-0000`, not guessed), used as the bar's
+"full" reference.
+
+**Real finding while sourcing the GPU's own temperature**: this
+integrated GPU has no separate thermal sensor at all -- confirmed by
+directly walking `/sys/class/drm/card1`'s hwmon-related symlinks (with
+real values inspected, not guessed) and finding every path resolve
+back to the same `coretemp.0` device the CPU package temp already
+comes from. Both tiles' `tempC` bind to the exact same
+`root.packageTemp` as a result -- not a fallback or an approximation,
+the CPU and this particular iGPU are genuinely reading the same
+physical silicon/thermal zone, since it's on-die with the CPU.
+
+**Also**: hit a sysfs symlink trap while investigating that (`find -L`
+recursing through `/sys/class/drm/card1`'s `firmware_node`/`subsystem`/
+`physical_node` links, which loop back on themselves indefinitely) --
+two `bfs` processes ended up consuming real CPU/memory before being
+caught and killed. Avoided that same trap in the actual `tempC` sourcing
+code entirely: no recursive filesystem search anywhere in
+`MetricsContent.qml`, only the exact known sysfs file paths already
+used elsewhere in this file.
+
+**Verified**: `omarchy plugin validate` clean, live log clean,
+screenshotted the live tab -- confirmed both CPU and GPU tiles show a
+full-width bar plus real `"73°C"` text, matching each other exactly
+(same real sensor) and matching the per-core list's own `"73°C"`
+readings in the same capture.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

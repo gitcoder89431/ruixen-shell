@@ -795,6 +795,17 @@ Item {
         property string title: ""
         property real value: 0
         property string subText: ""
+        // Temperature -- per direct request ("for the tempture for
+        // CPU and GPU we can put this in the card below the section
+        // we just made but full width bar inside its cpu or gpu
+        // card"). -1 hides the row entirely (used nowhere currently,
+        // but keeps this component honest about "no reading" instead
+        // of silently drawing a 0% bar).
+        property real tempC: -1
+        // 105 -- this CPU's own real throttle point (`sensors`'
+        // temp1_max/temp1_crit on coretemp-isa-0000, confirmed
+        // directly, not guessed), used as the bar's "full" reference.
+        property real tempMaxC: 105
 
         radius: 10
         color: Qt.rgba(1, 1, 1, 0.05)
@@ -803,101 +814,140 @@ Item {
         onRingAccentChanged: dialCanvas.requestPaint()
         onValueChanged: dialCanvas.requestPaint()
 
-        RowLayout {
+        ColumnLayout {
           anchors.fill: parent
           anchors.margins: 10
-          spacing: 10
+          spacing: 6
 
-          Item {
-            id: dialItem
-            Layout.preferredWidth: 46
-            Layout.preferredHeight: 46
-            Layout.alignment: Qt.AlignVCenter
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
 
-            Canvas {
-              id: dialCanvas
-              anchors.fill: parent
-              onPaint: {
-                var ctx = getContext("2d")
-                ctx.reset()
-                var cx = width / 2, cy = height / 2, r = width / 2 - 6
-                var startAngle = Math.PI / 2 + Math.PI / 4
-                var totalSweep = Math.PI * 2 - Math.PI / 2
-                var endAngle = startAngle + Math.max(0, Math.min(1, tile.value)) * totalSweep
-                var handleSpacing = 5
-                var gapRad = handleSpacing / r
-                ctx.lineWidth = 3
-                ctx.lineCap = "round"
-                ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
-                ctx.beginPath()
-                ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
-                ctx.stroke()
+            Item {
+              id: dialItem
+              Layout.preferredWidth: 46
+              Layout.preferredHeight: 46
+              Layout.alignment: Qt.AlignVCenter
 
-                ctx.strokeStyle = tile.ringAccent
-                ctx.beginPath()
-                var progressEnd = Math.max(startAngle, endAngle - gapRad)
-                ctx.arc(cx, cy, r, startAngle, progressEnd)
-                ctx.stroke()
+              Canvas {
+                id: dialCanvas
+                anchors.fill: parent
+                onPaint: {
+                  var ctx = getContext("2d")
+                  ctx.reset()
+                  var cx = width / 2, cy = height / 2, r = width / 2 - 6
+                  var startAngle = Math.PI / 2 + Math.PI / 4
+                  var totalSweep = Math.PI * 2 - Math.PI / 2
+                  var endAngle = startAngle + Math.max(0, Math.min(1, tile.value)) * totalSweep
+                  var handleSpacing = 5
+                  var gapRad = handleSpacing / r
+                  ctx.lineWidth = 3
+                  ctx.lineCap = "round"
+                  ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+                  ctx.beginPath()
+                  ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
+                  ctx.stroke()
 
-                var tipR1 = r - 2
-                var tipR2 = r + 3
-                var tx1 = cx + tipR1 * Math.cos(endAngle)
-                var ty1 = cy + tipR1 * Math.sin(endAngle)
-                var tx2 = cx + tipR2 * Math.cos(endAngle)
-                var ty2 = cy + tipR2 * Math.sin(endAngle)
-                ctx.lineWidth = 4
-                ctx.lineCap = "round"
-                ctx.strokeStyle = "#ffffff"
-                ctx.beginPath()
-                ctx.moveTo(tx1, ty1)
-                ctx.lineTo(tx2, ty2)
-                ctx.stroke()
+                  ctx.strokeStyle = tile.ringAccent
+                  ctx.beginPath()
+                  var progressEnd = Math.max(startAngle, endAngle - gapRad)
+                  ctx.arc(cx, cy, r, startAngle, progressEnd)
+                  ctx.stroke()
+
+                  var tipR1 = r - 2
+                  var tipR2 = r + 3
+                  var tx1 = cx + tipR1 * Math.cos(endAngle)
+                  var ty1 = cy + tipR1 * Math.sin(endAngle)
+                  var tx2 = cx + tipR2 * Math.cos(endAngle)
+                  var ty2 = cy + tipR2 * Math.sin(endAngle)
+                  ctx.lineWidth = 4
+                  ctx.lineCap = "round"
+                  ctx.strokeStyle = "#ffffff"
+                  ctx.beginPath()
+                  ctx.moveTo(tx1, ty1)
+                  ctx.lineTo(tx2, ty2)
+                  ctx.stroke()
+                }
+              }
+
+              Text {
+                anchors.centerIn: parent
+                text: tile.glyph
+                font.family: root.fontFamily
+                font.pixelSize: 14
+                color: root.textColor
+              }
+            }
+
+            // Beside the dial, not stacked under it -- per direct
+            // feedback the all-vertical layout made the whole tile too
+            // tall. "Usage 10%" then the CPU/GPU name below it.
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.alignment: Qt.AlignVCenter
+              spacing: 2
+
+              Text {
+                text: (tile.title ? tile.title + " " : "") + "Usage " + Math.round(tile.value * 100) + "%"
+                font.family: root.fontFamily
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                color: root.textColor
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+              }
+
+              Text {
+                text: tile.subText
+                font.family: root.fontFamily
+                font.pixelSize: 10
+                color: root.muted
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+              }
+            }
+          }
+
+          // Full-width temperature bar, below the dial+usage row, per
+          // direct request -- same visual language as the per-core CPU
+          // list's own bars (thin rounded track + accent fill), just
+          // full-width instead of sharing a row with an icon/label.
+          RowLayout {
+            Layout.fillWidth: true
+            visible: tile.tempC >= 0
+            spacing: 6
+
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 6
+              radius: 3
+              color: Qt.rgba(1, 1, 1, 0.08)
+
+              Rectangle {
+                width: parent.width * Math.max(0, Math.min(1, tile.tempC / tile.tempMaxC))
+                height: parent.height
+                radius: 3
+                color: root.accent
+                Behavior on width { NumberAnimation { duration: 200 } }
               }
             }
 
             Text {
-              anchors.centerIn: parent
-              text: tile.glyph
-              font.family: root.fontFamily
-              font.pixelSize: 14
-              color: root.textColor
-            }
-          }
-
-          // Beside the dial, not stacked under it -- per direct
-          // feedback the all-vertical layout made the whole tile too
-          // tall. "Usage 10%" then the CPU/GPU name below it.
-          ColumnLayout {
-            Layout.fillWidth: true
-            Layout.alignment: Qt.AlignVCenter
-            spacing: 2
-
-            Text {
-              text: (tile.title ? tile.title + " " : "") + "Usage " + Math.round(tile.value * 100) + "%"
-              font.family: root.fontFamily
-              font.pixelSize: 13
-              font.weight: Font.DemiBold
-              color: root.textColor
-              elide: Text.ElideRight
-              Layout.fillWidth: true
-            }
-
-            Text {
-              text: tile.subText
+              text: Math.round(tile.tempC) + "\u00b0C"
               font.family: root.fontFamily
               font.pixelSize: 10
               color: root.muted
-              elide: Text.ElideRight
-              Layout.fillWidth: true
+              Layout.preferredWidth: 32
+              horizontalAlignment: Text.AlignRight
             }
           }
         }
       }
       RowLayout {
         Layout.fillWidth: true
-        // 92 -> 66 -- the dial-beside-text layout needs much less
-        // vertical room than the old all-stacked-vertically one did.
-        Layout.preferredHeight: 66
+        // 66 -> 92 -- back up to fit the new temperature bar row
+        // added below the dial+usage row.
+        Layout.preferredHeight: 92
         spacing: 8
 
         DialTile {
@@ -907,6 +957,7 @@ Item {
           title: "CPU"
           value: root.cpuUsage
           subText: root.cpuModel || ""
+          tempC: root.packageTemp
         }
 
         DialTile {
@@ -916,6 +967,12 @@ Item {
           title: "GPU"
           value: root.gpuUsage
           subText: root.gpuName || ""
+          // Same real sensor as the CPU tile -- this iGPU shares
+          // the CPU package's die/thermal zone, confirmed directly (no
+          // separate hwmon/thermal-zone entry exists for it anywhere
+          // under /sys/class/drm/card1 on this machine), not a
+          // fallback/guess.
+          tempC: root.packageTemp
         }
       }
 

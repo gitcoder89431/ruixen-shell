@@ -193,11 +193,12 @@ Item {
                 sourceSize: Qt.size(160, 100)
               }
 
-              // Bottom inner-shadow + filename label, matching ambxst's
-              // real wallpaper tile treatment (WallpapersTab.qml's
-              // shared `highlight` item), ported as a visual result
-              // rather than their literal negative-margin-border trick
-              // -- see the README for the full mechanism writeup.
+              // Bottom filename label on a solid dark band -- matches
+              // ambxst's actual look (their real WallpapersTab.qml
+              // trick draws a SOLID Colors.background-color inset band,
+              // not a soft gradient fade -- corrected after first pass
+              // used a gradient here, which read as a shadow rather
+              // than the flatter "inner border" ambxst actually has).
               //
               // Hover-only, not hover-or-active -- per direct feedback,
               // the active tile doesn't need the label too, its border
@@ -207,18 +208,13 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                height: parent.height * 0.55
+                height: 26
+                color: Qt.rgba(0, 0, 0, 0.82)
                 opacity: tileMouse.containsMouse ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 120 } }
-                gradient: Gradient {
-                  GradientStop { position: 0.0; color: "transparent" }
-                  GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.85) }
-                }
 
                 Text {
-                  anchors.bottom: parent.bottom
-                  anchors.bottomMargin: 6
-                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.centerIn: parent
                   width: parent.width - 12
                   horizontalAlignment: Text.AlignHCenter
                   elide: Text.ElideRight

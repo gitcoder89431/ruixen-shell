@@ -2355,6 +2355,33 @@ label, and the hovered tile (`1-ruixen.jpg`) with its ring, gradient,
 and real filename all showing, now sitting directly adjacent with a
 clean 10px gap instead of the old sprawl.
 
+## Follow-up 2: solid inset band instead of a gradient
+
+Per direct question/correction: "wait why is there a gradient label
+fade, the inner shadow, oh nah i meant like in ambxst its like a black
+inner border more than a shadow." Re-checked ambxst's real mechanism
+again -- their oversized bordered `Rectangle` uses a flat,
+un-gradiented `Colors.background` border color throughout. The
+gradient in this plugin's first pass (`transparent` → `Qt.rgba(0,0,0,
+0.85)` over 55% of the tile height) was a misread of that -- it
+produced a soft fade, not the flatter, crisper "inner border" look
+ambxst actually has.
+
+Fixed: swapped the gradient `Rectangle` for a plain solid-color one
+(`Qt.rgba(0, 0, 0, 0.82)`), shrunk from 55% of the tile height down to
+a fixed `26px` band (closer to ambxst's own `28px` label-bar height),
+label `Text` re-centered within that tighter band instead of anchored
+near the bottom of a taller gradient area. Still hover-only, still
+fades in/out via `opacity` + `Behavior` -- only the band's own fill
+changed from a gradient to flat, not the show/hide mechanism.
+
+**Verified via the same live-hardcode method**: temporarily forced the
+band's `opacity` to a flat `1` (bypassing `tileMouse.containsMouse`,
+same reasoning as every other hover-only check in this file -- hover
+itself can't be simulated), screenshotted, and confirmed a crisp solid
+black band with sharp edges instead of the old soft fade, then
+reverted.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

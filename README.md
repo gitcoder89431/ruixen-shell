@@ -154,6 +154,26 @@ with open(path, 'w') as f: json.dump(data, f, indent=2)
 "
 ```
 
+`omarchy.workspaces` (right after `ruixen.applauncher` in that same left
+pill) was swapped for `ruixen.workspaces` — see that plugin's own repo
+— per direct request for a GNOME/Ubuntu-style dots+pill look instead of
+numbered digits:
+
+```bash
+python3 -c "
+import json
+path = '$HOME/.config/omarchy/shell.json'
+with open(path) as f: data = json.load(f)
+left = data['bar']['layout']['left']
+for entry in left:
+    if entry.get('id') == 'omarchy.workspaces': entry['id'] = 'ruixen.workspaces'
+data['bar']['layout']['left'] = left
+with open(path, 'w') as f: json.dump(data, f, indent=2)
+"
+omarchy plugin enable ruixen.workspaces
+omarchy restart shell
+```
+
 `shell.json` itself isn't symlinked from this repo — Omarchy rewrites it
 constantly (theme changes, `omarchy bar` commands), so it's live state, not
 a static dotfile. These commands are the reproducible record of the layout

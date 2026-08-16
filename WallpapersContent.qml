@@ -31,6 +31,20 @@ Item {
 
   property var wallpaperPaths: []
   property string currentBackground: ""
+  property string searchText: ""
+
+  // Filename substring match, same logic as ambxst's own WallpapersTab
+  // filteredWallpapers (ported the rule, not the file -- their version
+  // is bound up with per-screen/OLED/tint/scheme state this notch
+  // doesn't have).
+  readonly property var filteredPaths: {
+    if (searchText.length === 0) return wallpaperPaths
+    var needle = searchText.toLowerCase()
+    return wallpaperPaths.filter(function(path) {
+      var fileName = path.substring(path.lastIndexOf("/") + 1).toLowerCase()
+      return fileName.indexOf(needle) !== -1
+    })
+  }
 
   function refresh() {
     if (!listProc.running) listProc.running = true
@@ -83,72 +97,117 @@ Item {
     setProc.running = true
   }
 
-  Text {
-    visible: root.wallpaperPaths.length === 0
-    anchors.centerIn: parent
-    text: "No wallpapers found for this theme"
-    color: root.muted
-    font.family: root.fontFamily
-    font.pixelSize: 12
-  }
-
-  Flickable {
+  ColumnLayout {
     anchors.fill: parent
-    contentWidth: width
-    contentHeight: grid.implicitHeight
-    clip: true
-    boundsBehavior: Flickable.StopAtBounds
+    spacing: 10
 
-    GridLayout {
-      id: grid
-      width: parent.width
-      columns: Math.max(1, Math.floor(width / 172))
-      columnSpacing: 12
-      rowSpacing: 12
+    // Search row -- plain TextInput + placeholder overlay, matching
+    // this plugin's existing self-contained style (no qs.Ui.TextField
+    // pulled in here, unlike ruixen.weather's location search -- that
+    // one already has qs.Ui available; this plugin deliberately stays
+    // on plain QML primitives throughout, see DashboardContent.qml).
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 32
+      radius: 10
+      color: Qt.rgba(1, 1, 1, 0.06)
 
-      Repeater {
-        model: root.wallpaperPaths
+      TextInput {
+        id: searchInput
+        anchors.fill: parent
+        anchors.leftMargin: 12
+        anchors.rightMargin: 12
+        verticalAlignment: TextInput.AlignVCenter
+        color: root.textColor
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        clip: true
 
-        Item {
-          id: tile
-          required property string modelData
-          readonly property bool active: tile.modelData === root.currentBackground
+        onTextChanged: root.searchText = text
 
-          Layout.preferredWidth: 160
-          Layout.preferredHeight: 100
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Search wallpapers..."
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          visible: searchInput.text.length === 0
+        }
+      }
+    }
 
-          ClippingRectangle {
-            anchors.fill: parent
-            radius: 10
-            color: Qt.rgba(1, 1, 1, 0.05)
-            border.width: tile.active ? 2 : 0
-            border.color: root.accent
+    Text {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      visible: root.filteredPaths.length === 0
+      horizontalAlignment: Text.AlignHCenter
+      verticalAlignment: Text.AlignVCenter
+      text: root.wallpaperPaths.length === 0 ? "No wallpapers found for this theme" : "No wallpapers match “" + root.searchText + "”"
+      color: root.muted
+      font.family: root.fontFamily
+      font.pixelSize: 12
+    }
 
-            Image {
+    Flickable {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      visible: root.filteredPaths.length > 0
+      contentWidth: width
+      contentHeight: grid.implicitHeight
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+
+      GridLayout {
+        id: grid
+        width: parent.width
+        columns: Math.max(1, Math.floor(width / 172))
+        columnSpacing: 12
+        rowSpacing: 12
+
+        Repeater {
+          model: root.filteredPaths
+
+          Item {
+            id: tile
+            required property string modelData
+            readonly property bool active: tile.modelData === root.currentBackground
+
+            Layout.preferredWidth: 160
+            Layout.preferredHeight: 100
+
+            ClippingRectangle {
               anchors.fill: parent
-              source: "file://" + tile.modelData
-              fillMode: Image.PreserveAspectCrop
-              asynchronous: true
-              sourceSize: Qt.size(160, 100)
+              radius: 10
+              color: Qt.rgba(1, 1, 1, 0.05)
+              border.width: tile.active ? 2 : 0
+              border.color: root.accent
+
+              Image {
+                anchors.fill: parent
+                source: "file://" + tile.modelData
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                sourceSize: Qt.size(160, 100)
+              }
+
+              // Hover/press feedback -- a flat scrim is enough, matches
+              // this plugin's other hover treatments (TabButton, dial
+              // MouseAreas) rather than inventing a new interaction style.
+              Rectangle {
+                anchors.fill: parent
+                color: "black"
+                opacity: tileMouse.containsMouse ? 0.12 : 0
+                Behavior on opacity { NumberAnimation { duration: 120 } }
+              }
             }
 
-            // Hover/press feedback -- a flat scrim is enough, matches
-            // this plugin's other hover treatments (TabButton, dial
-            // MouseAreas) rather than inventing a new interaction style.
-            Rectangle {
+            MouseArea {
+              id: tileMouse
               anchors.fill: parent
-              color: "black"
-              opacity: tileMouse.containsMouse ? 0.12 : 0
-              Behavior on opacity { NumberAnimation { duration: 120 } }
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.select(tile.modelData)
             }
-          }
-
-          MouseArea {
-            id: tileMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.select(tile.modelData)
           }
         }
       }

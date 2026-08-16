@@ -2231,6 +2231,46 @@ environment -- same standing limitation noted throughout this file --
 so the click path itself is verified by code review plus this
 external-state-round-trip test, not an actual click.)
 
+## Search filter added to the wallpaper picker
+
+Per direct request: "on ambxst we are able to search filter, is this
+something we can do here too if we add a search row on top before the
+wallpaper table?" Read ambxst's real `WallpapersTab.qml` directly for
+the actual filter rule rather than inventing one -- their
+`filteredWallpapers` does a plain case-insensitive filename substring
+match:
+
+```js
+wallpapers = wallpapers.filter(function (path) {
+  const fileName = path.split('/').pop().toLowerCase();
+  return fileName.includes(searchText.toLowerCase());
+});
+```
+
+Ported that exact rule (`filteredPaths` in `WallpapersContent.qml`),
+not the surrounding file -- ambxst's version is entangled with per-
+screen/OLED/tint/scheme-selector state this notch has no equivalent
+for, and their search box is `qs.modules.components.SearchInput`
+(their own design-system component). This plugin stays on plain QML
+primitives throughout (matches `DashboardContent.qml`'s own convention
+-- no `qs.Ui`/`qs.Commons` pulled in here, unlike e.g.
+`ruixen.weather`'s location search, which already has `qs.Ui`
+available), so the search row is just a `Rectangle` + `TextInput` +
+placeholder `Text`, no new dependency.
+
+Grid now binds to `filteredPaths` instead of the raw listing, and the
+empty-state message distinguishes "no wallpapers for this theme at
+all" from "no wallpapers match the current search" so a search with
+zero hits doesn't read as a broken picker.
+
+**Verified via the same live-hardcode method used throughout this
+file** (`root.searchText`'s default value edited directly, restarted,
+screenshotted, reverted -- typing itself can't be simulated any more
+than clicking can in this environment): set to `"0-ruixen"` and
+confirmed the grid narrowed from both theme wallpapers down to just the
+matching one; set to `"zzz-nomatch"` and confirmed the "No wallpapers
+match ‘zzz-nomatch’" empty state rendered instead of an empty grid.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

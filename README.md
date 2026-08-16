@@ -3205,6 +3205,32 @@ multi-GiB range the user's own btop reading (`2.47 GiB`/`16.2 GiB`)
 reported moments earlier -- same real counter, same machine, same
 session.
 
+## Green/red split bar added for download vs. upload share
+
+Per direct request: "this progress bar where its split between green
+and red, red is like upload and green is download... seeing it that
+way was a progress bar." Added a `ClippingRectangle` bar between the
+header and the rate/total rows: green segment (download) + red segment
+(upload), widths driven by a new `root.netDownloadShare`.
+
+Deliberately a SHARE of current total throughput, not an absolute
+0-100% scale -- network speed has no natural ceiling the way CPU/RAM
+usage does, so `netDownloadShare = netRxRate / (netRxRate +
+netTxRate)`, clamped to `0.5` (an even, neutral split) when both are
+`0` so a fully idle connection doesn't render as all-one-color. Reads
+as "which direction currently dominates," not "how full is the pipe" --
+the exact rate/total numbers already sit in the rows below it for the
+actual magnitudes. `ClippingRectangle` (new `Quickshell.Widgets`
+import) for the rounded-track clip, containing a plain `Row` of two
+`Rectangle`s -- same "bounding-box vs. real rounded clip" gotcha
+documented elsewhere in this project applies here too, a plain
+`Rectangle.clip` wouldn't follow the track's own radius.
+
+**Verified**: screenshotted the live tab -- confirmed a green segment
+(~65-70%) and red segment (~30-35%) whose visual ratio matched the
+real `1.5 KB/s` down vs. `728 B/s` up numbers shown in the rows right
+below it (roughly 2:1, matching the bar).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

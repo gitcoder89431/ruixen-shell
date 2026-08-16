@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
+import Quickshell.Widgets
 
 // Real "Metrics" dashboard tab, replacing the "coming soon" stub.
 // Left panel only for this pass -- per direct request, focus there
@@ -102,6 +103,17 @@ Item {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KiB"
     if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + " MiB"
     return (bytes / 1024 / 1024 / 1024).toFixed(2) + " GiB"
+  }
+
+  // Download's share of current total throughput -- per direct
+  // request for a split progress bar (green = download, red = upload)
+  // showing which direction dominates RIGHT NOW, not an absolute
+  // 0-100% scale (network speed has no fixed ceiling the way CPU/RAM
+  // do). 0.5 (even split) when both are 0 -- an idle connection
+  // shouldn't render as all-one-color.
+  readonly property real netDownloadShare: {
+    var total = netRxRate + netTxRate
+    return total > 0 ? netRxRate / total : 0.5
   }
 
   // One entry per real, distinct block device (deduped -- btrfs
@@ -1181,6 +1193,39 @@ Item {
                 font.weight: Font.DemiBold
                 color: root.textColor
                 Layout.fillWidth: true
+              }
+            }
+
+            // Split bar -- green (download) / red (upload), per direct
+            // request ("this progress bar where its split between
+            // green and red, red is like upload and green is
+            // download"). Widths are each direction's SHARE of current
+            // total throughput, not an absolute percentage -- network
+            // speed has no natural 0-100% ceiling the way CPU/RAM do,
+            // so this reads as "which direction dominates right now"
+            // rather than "how full is the pipe".
+            ClippingRectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 6
+              radius: 3
+              color: Qt.rgba(1, 1, 1, 0.08)
+
+              Row {
+                anchors.fill: parent
+
+                Rectangle {
+                  width: parent.width * root.netDownloadShare
+                  height: parent.height
+                  color: "#3ecf5b"
+                  Behavior on width { NumberAnimation { duration: 200 } }
+                }
+
+                Rectangle {
+                  width: parent.width * (1 - root.netDownloadShare)
+                  height: parent.height
+                  color: "#e05252"
+                  Behavior on width { NumberAnimation { duration: 200 } }
+                }
               }
             }
 

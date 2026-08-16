@@ -1260,11 +1260,11 @@ ping-pongs `0..5..0` (`brailleStep % braillePeriod`, reflected back
 instead of wrapping) so the lit dot visibly scans back and forth. `Timer`
 interval bumped `90ms -> 110ms` to match the calmer sweep.
 
-**Follow-up: slowed further, twice more.** Per direct feedback,
+**Follow-up: slowed further, three times more.** Per direct feedback,
 `110ms -> 220ms`, then `220ms -> 450ms` (still too fast), then
-`450ms -> 1200ms` ("much slower, more like ambient") -- a full
-back-and-forth sweep across all 6 cells now takes ~12 seconds, a quiet
-background drift rather than an active-looking animation.
+`450ms -> 1200ms` ("much slower, more like ambient"), then landed on
+`1200ms -> 1000ms` ("like a second each movement") -- an exact, literal
+number this time rather than another "slower" guess.
 
 Verified twice: first that the ROW actually renders as 6 small dots at
 the right size (zoomed crop), then that it's genuinely animating -- two

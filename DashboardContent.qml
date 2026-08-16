@@ -1103,19 +1103,32 @@ Item {
       // 8px, matching ambxst's own circular-controls column spacing.
       spacing: 8
 
-      component Dial: Item {
+      // Round tonal badge wrapping icon + ring together, matching
+      // ambxst's real CircularControl.qml directly (checked the actual
+      // component, not just its usage in WidgetsTab.qml) -- it's a
+      // StyledRect (tonal panel) containing both the Canvas ring AND
+      // the icon Text as children, not a bare ring floating on the
+      // card background like this was before. Per direct request
+      // ("wrap/frame the tonal badge so the mic icon and the progress
+      // bar is together like ambxst... inside a round tonal badge").
+      // Ring inset bumped 3px -> 8px to match their own ratio (their
+      // ring radius is a fixed 16 inside a 48px box, i.e. width/2 - 8)
+      // -- 3px sat the ring almost flush against the badge's own edge.
+      component Dial: Rectangle {
         property string glyph: ""
         property real value: 0.7
         Layout.preferredWidth: 48
         Layout.preferredHeight: 48
         Layout.alignment: Qt.AlignHCenter
+        radius: width / 2
+        color: Qt.rgba(1, 1, 1, 0.06)
 
         Canvas {
           anchors.fill: parent
           onPaint: {
             var ctx = getContext("2d")
             ctx.reset()
-            var cx = width / 2, cy = height / 2, r = width / 2 - 3
+            var cx = width / 2, cy = height / 2, r = width / 2 - 8
             ctx.lineWidth = 3
             ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()

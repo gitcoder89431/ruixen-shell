@@ -1479,6 +1479,31 @@ frame around icon+bar was wrong; restructured to a small `32x32` tonal
 square behind ONLY the icon, with the vertical bar sitting plain below
 it, unwrapped. Verified via screenshot.
 
+## Speaker/mic dials get their own round tonal badge, matching ambxst's real component
+
+Per direct request ("wrap/frame the tonal badge so the mic icon and the
+progress bar is together like ambxst... inside a round tonal badge"):
+checked ambxst's actual `CircularControl.qml` directly (only its USAGE
+in `WidgetsTab.qml` had been read before, not the component itself) --
+it's a `StyledRect` (`variant: "pane"`, a tonal panel) containing both
+the `Canvas` progress ring AND the icon `Text` as children. `Dial` here
+was a bare `Item` with no background at all, floating the ring straight
+on the card's own black.
+
+Converted `Dial` from `Item` to `Rectangle` (`radius: width/2` -- fully
+round per the direct "round tonal badge" wording, ambxst's own corner
+radius is smaller/squarer but the request was specific), same
+`rgba(1,1,1,0.06)` tonal fill used elsewhere in this file. Ring inset
+bumped `3px -> 8px` to stop it sitting almost flush against the badge's
+own edge -- matches ambxst's real ratio (`radius: 16` fixed inside a
+`48px` box, i.e. `width/2 - 8`, not `width/2 - 3`). Applies to both
+speaker and mic since they share the one `Dial` component, same as
+ambxst's own `CircularControl` being reused for both `volumeControl` and
+`micControl`.
+
+Verified via a zoomed screenshot crop -- ring sits comfortably inset
+inside the round badge, icon centered clearly.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

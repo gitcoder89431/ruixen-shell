@@ -393,7 +393,6 @@ Item {
                   font.family: root.fontFamily
                   font.pixelSize: 11
                   color: root.textColor
-                  Layout.leftMargin: 26
                   Layout.fillWidth: true
                 }
 

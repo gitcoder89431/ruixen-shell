@@ -2721,6 +2721,18 @@ near-uniform package-wide temperature across cores, confirmed by
 comparing directly against the `sensors` command's own plain-text
 output run moments earlier in the same terminal).
 
+## Core name aligned under the icon, not the bar
+
+Per direct follow-up: "align core 0 name etc so its under the cpu icon
+logo not progress bar align start." Row 2's `"Core N"` `Text` had a
+`Layout.leftMargin: 26` meant to line it up under the bar (which starts
+after the icon's own 18px + 8px spacing); removed it so the name starts
+flush left instead, landing directly under the icon on row 1 the same
+way row 1's own icon does.
+
+**Verified**: screenshotted, confirmed `"Core N"` now sits directly
+below the microchip icon on each row instead of below the bar.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

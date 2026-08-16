@@ -2419,6 +2419,40 @@ the image edge and a clean label band, with the image itself in the
 exact same position/crop as the non-hovered screenshots taken earlier
 in this file's history. Reverted after.
 
+## Inner black border was there but too subtle against the accent ring
+
+Per direct follow-up, after confirming the zoom bug fix: "omg are you
+sure its not the purple on hover border thats so thick its going over
+the inner border. make the inner border more." The border ring itself
+was rendering and being detected fine (real hover was working the
+whole time) -- the actual issue was that the previous fix
+(`contentInsideBorder: false`) made the `Image` fill the tile's full
+bounds edge-to-edge with zero gap, so there was no room left for any
+inner border to show through at all. Confirmed by a real-scale
+screenshot crop (not artificially zoomed in) -- the label band read
+fine, but there was nothing forming a visible inner frame around the
+rest of the tile.
+
+Fixed by giving the `Image` (and the label `Rectangle`) a small, fixed,
+**non-animated** `anchors.margins` (`3` first, bumped to `5` after
+still reading too thin at real scale) instead of a bare `anchors.fill:
+parent`. Static and unconditional -- this inset never changes with
+`showFrame`/hover/active, so it can't reintroduce the earlier
+animated-border zoom bug (that one came specifically from the inset
+*changing* over time, not from having an inset at all). The
+`ClippingRectangle`'s own `color` behind that gap now does the actual
+work: `Qt.rgba(1, 1, 1, 0.05)` (the original barely-there idle tint) at
+rest, animated to real OLED black (`"#0a0a0a"`) via `Behavior on color`
+whenever `showFrame` is true -- so the inner border only becomes
+prominent during hover/active, matching the original request's scope,
+while idle tiles keep their original resting look.
+
+**Verified**: same live-hardcode method (forced `showFrame`/label
+`opacity` true), screenshotted at real (non-zoomed) crop scale both
+before and after the `3px` → `5px` bump -- confirmed a genuinely
+distinct dark inner frame separate from the accent ring, not just a
+thin line lost next to it. Reverted after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

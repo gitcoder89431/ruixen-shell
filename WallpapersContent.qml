@@ -180,14 +180,22 @@ Item {
             ClippingRectangle {
               anchors.fill: parent
               radius: 10
-              color: Qt.rgba(1, 1, 1, 0.05)
+              // Idle: barely-there tint (original resting look). Hover/
+              // active: real OLED black -- per direct feedback the thin
+              // accent ring alone was overpowering the inner border,
+              // hard to tell apart as its own layer. This color shows
+              // through the Image's own static 3px inset below as a
+              // genuine inner border/mat, distinct from the ring.
+              color: tile.showFrame ? "#0a0a0a" : Qt.rgba(1, 1, 1, 0.05)
+              Behavior on color { ColorAnimation { duration: 120 } }
               // false, not the default true -- ClippingRectangle insets
-              // its CONTENT (the Image below) by exactly border.width
-              // when contentInsideBorder is true, so animating
-              // border.width 0 -> 2 was smoothly shrinking/repositioning
-              // the image underneath it every time -- the exact "image
-              // is zooming on hover" effect reported, not intentional,
-              // nothing here was ever meant to scale the image itself.
+              // its CONTENT by border.width when contentInsideBorder is
+              // true, so animating border.width 0 -> 2 was smoothly
+              // shrinking/repositioning the image underneath it every
+              // time -- the "image is zooming on hover" bug reported
+              // earlier. The Image's own inset below is a separate,
+              // fixed 3px margin that never changes, so it can't
+              // reintroduce that same bug.
               border.width: tile.showFrame ? 2 : 0
               border.color: root.accent
               contentInsideBorder: false
@@ -195,27 +203,24 @@ Item {
 
               Image {
                 anchors.fill: parent
+                anchors.margins: 5
                 source: "file://" + tile.modelData
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 sourceSize: Qt.size(160, 100)
               }
 
-              // Bottom filename label on a solid dark band -- matches
-              // ambxst's actual look (their real WallpapersTab.qml
-              // trick draws a SOLID Colors.background-color inset band,
-              // not a soft gradient fade -- corrected after first pass
-              // used a gradient here, which read as a shadow rather
-              // than the flatter "inner border" ambxst actually has).
-              //
+              // Bottom filename label, sitting flush with the image's
+              // own (now inset) edges rather than the outer ring.
               // Hover-only, not hover-or-active -- per direct feedback,
               // the active tile doesn't need the label too, its border
-              // ring (still keyed off showFrame, so it stays lit at
-              // rest) already carries that weight on its own.
+              // ring + the mat color above already carry that weight
+              // on their own.
               Rectangle {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
+                anchors.margins: 5
                 height: 26
                 color: Qt.rgba(0, 0, 0, 0.82)
                 opacity: tileMouse.containsMouse ? 1 : 0

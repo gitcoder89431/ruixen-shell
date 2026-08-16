@@ -41,8 +41,12 @@ Item {
 
   property string hardwareName: ""
   property string omarchyVersion: ""
+  property string cpuModel: ""
+  property real cpuUsage: 0
+  property var prevCpuTotal: null
   property var coreUsages: []
   property var prevCpuTimes: null
+  property real packageTemp: -1
 
   function refreshIdentity() {
     if (!identityProc.running) identityProc.running = true
@@ -51,12 +55,13 @@ Item {
 
   onActiveChanged: if (active) refreshIdentity()
 
-  // Hardware/PC name -- fastfetch's real Host module (dmi product
-  // name), confirmed by running `fastfetch --format json -s Host` on
-  // this machine directly ("NucBoxG5"), not guessed.
+  // Hardware/PC name + CPU model -- fastfetch's real Host and CPU
+  // modules, confirmed by running `fastfetch --format json -s Host:CPU`
+  // on this machine directly ("NucBoxG5" / "Intel(R) N97"), not
+  // guessed.
   Process {
     id: identityProc
-    command: ["fastfetch", "--format", "json", "-s", "Host"]
+    command: ["fastfetch", "--format", "json", "-s", "Host:CPU"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -64,6 +69,7 @@ Item {
           var data = JSON.parse(text)
           for (var i = 0; i < data.length; i++) {
             if (data[i].type === "Host") root.hardwareName = data[i].result.name || ""
+            if (data[i].type === "CPU") root.cpuModel = data[i].result.cpu || ""
           }
         } catch (e) {}
       }
@@ -83,10 +89,15 @@ Item {
     }
   }
 
-  // Per-core CPU usage -- same delta-of-two-/proc/stat-samples method
-  // top/htop use: each line's idle/total jiffy counts, compared against
-  // the previous sample, gives that core's real usage% since the last
-  // poll. No single read can produce a percentage on its own.
+  // Aggregate + per-core CPU usage -- same delta-of-two-/proc/stat-
+  // samples method top/htop use: each line's idle/total jiffy counts,
+  // compared against the previous sample, gives that core's (or the
+  // overall system's) real usage% since the last poll. No single read
+  // can produce a percentage on its own. The bare "cpu " line (no
+  // trailing digit) is the kernel's own pre-summed aggregate across all
+  // cores -- used directly for the overall row instead of averaging
+  // the per-core values ourselves, same source top/htop's own overall
+  // gauge reads.
   Process {
     id: statProc
     command: ["cat", "/proc/stat"]
@@ -95,7 +106,14 @@ Item {
       onStreamFinished: {
         var lines = String(text || "").split("\n")
         var samples = []
+        var total_ = null
         for (var i = 0; i < lines.length; i++) {
+          var agg = lines[i].match(/^cpu\s+(.*)$/)
+          if (agg) {
+            var aggParts = agg[1].trim().split(/\s+/).map(Number)
+            total_ = { idle: aggParts[3] + (aggParts[4] || 0), total: aggParts.reduce(function(a, b) { return a + b }, 0) }
+            continue
+          }
           var m = lines[i].match(/^cpu(\d+)\s+(.*)$/)
           if (!m) continue
           var idx = parseInt(m[1], 10)
@@ -117,16 +135,24 @@ Item {
           root.coreUsages = usages
         }
         root.prevCpuTimes = samples
+
+        if (root.prevCpuTotal && total_) {
+          var tDelta = total_.total - root.prevCpuTotal.total
+          var iDelta = total_.idle - root.prevCpuTotal.idle
+          root.cpuUsage = tDelta > 0 ? Math.max(0, Math.min(1, 1 - iDelta / tDelta)) : 0
+        }
+        root.prevCpuTotal = total_
       }
     }
   }
 
-  // Real per-core temperature -- lm_sensors' own coretemp driver
-  // ("Core 0".."Core N" keys under coretemp-isa-0000), confirmed by
-  // running `sensors -j` on this machine directly, not guessed.
-  // fastfetch's own CPU.temperature field is null on this machine
-  // (aggregate-only, and not populated here anyway), so this is a
-  // separate real source, not something fastfetch already provided.
+  // Real per-core AND package (overall) temperature -- lm_sensors' own
+  // coretemp driver ("Core 0".."Core N" plus a "Package id 0" key
+  // under coretemp-isa-0000), confirmed by running `sensors -j` on
+  // this machine directly, not guessed. fastfetch's own CPU.
+  // temperature field is null on this machine (aggregate-only, and not
+  // populated here anyway), so this is a separate real source, not
+  // something fastfetch already provided.
   property var coreTemps: []
 
   Process {
@@ -138,22 +164,26 @@ Item {
         try {
           var data = JSON.parse(text)
           var temps = []
+          var pkgTemp = -1
           for (var chip in data) {
             var fields = data[chip]
             for (var key in fields) {
-              var m = key.match(/^Core (\d+)$/)
-              if (!m) continue
-              var idx = parseInt(m[1], 10)
               var reading = fields[key]
+              if (typeof reading !== "object") continue
+              var coreMatch = key.match(/^Core (\d+)$/)
+              var isPackage = /^Package id \d+$/.test(key)
+              if (!coreMatch && !isPackage) continue
               for (var field in reading) {
                 if (field.endsWith("_input")) {
-                  temps[idx] = reading[field]
+                  if (coreMatch) temps[parseInt(coreMatch[1], 10)] = reading[field]
+                  else pkgTemp = reading[field]
                   break
                 }
               }
             }
           }
           root.coreTemps = temps
+          root.packageTemp = pkgTemp
         } catch (e) {}
       }
     }
@@ -329,6 +359,80 @@ Item {
           id: coreColumn
           width: parent.width
           spacing: 8
+
+          // Aggregate CPU row -- goes first, above the per-core list,
+          // per direct request ("is there a separate thing for the CPU
+          // itself that goes first in the order before the cores?").
+          // Same two-row shape as each core below it: row 1 icon + the
+          // kernel's own pre-summed overall usage (the bare "cpu " line
+          // in /proc/stat, not an average of the per-core values) +
+          // percentage; row 2 the real CPU model name (fastfetch) +
+          // the real package temperature (sensors' "Package id 0"),
+          // right-aligned.
+          Column {
+            id: cpuAggregate
+            width: coreColumn.width
+            spacing: 2
+
+            RowLayout {
+              width: cpuAggregate.width
+              spacing: 8
+
+              Text {
+                text: ""
+                font.family: root.fontFamily
+                font.pixelSize: 13
+                color: root.textColor
+                Layout.preferredWidth: 18
+              }
+
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 14
+                radius: 4
+                color: Qt.rgba(1, 1, 1, 0.08)
+
+                Rectangle {
+                  width: parent.width * Math.max(0, Math.min(1, root.cpuUsage))
+                  height: parent.height
+                  radius: 4
+                  color: root.accent
+                  Behavior on width { NumberAnimation { duration: 200 } }
+                }
+              }
+
+              Text {
+                text: Math.round(root.cpuUsage * 100) + "%"
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                Layout.preferredWidth: 32
+                horizontalAlignment: Text.AlignRight
+              }
+            }
+
+            RowLayout {
+              width: cpuAggregate.width
+              spacing: 8
+
+              Text {
+                text: root.cpuModel || "CPU"
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.textColor
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+              }
+
+              Text {
+                text: root.packageTemp >= 0 ? Math.round(root.packageTemp) + "\u00b0C" : ""
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                horizontalAlignment: Text.AlignRight
+              }
+            }
+          }
 
           Repeater {
             model: root.coreUsages

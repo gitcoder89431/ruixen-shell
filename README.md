@@ -2733,6 +2733,44 @@ way row 1's own icon does.
 **Verified**: screenshotted, confirmed `"Core N"` now sits directly
 below the microchip icon on each row instead of below the bar.
 
+## Aggregate CPU row added above the per-core list
+
+Per direct question: "so these are cores is there a separate thing for
+the CPU itself that goes first in the order before the cores?" --
+confirmed yes, matching ambxst's own real CPU section (theirs has
+exactly this: one overall `ResourceItem` row with model name/usage/
+temp, ambxst just never breaks it down per-core the way this section
+now does). Added as the first `Column` inside `coreColumn`, same
+two-row shape as each core row below it:
+
+- Row 1: icon + overall usage bar + percentage.
+- Row 2: real CPU model name (`Intel(R) N97`, fastfetch's `CPU.cpu`
+  field -- `identityProc`'s command expanded from `-s Host` to `-s
+  Host:CPU` to fetch it in the same call, no second process) + real
+  package temperature, right-aligned.
+
+Two new real data sources, not reused/averaged from what already
+existed:
+- **Overall usage**: `/proc/stat`'s bare `"cpu "` line (no trailing
+  digit) -- the kernel's own pre-summed aggregate across all cores,
+  parsed in the same `statProc` read that already produces
+  `coreUsages` (one line each), same delta-of-two-samples method.
+  Deliberately not an average of the per-core array -- that's not what
+  top/htop's own overall gauge reads, and averaging equal-weighted
+  per-core percentages isn't actually equivalent to the kernel's real
+  jiffy-weighted aggregate.
+- **Package temperature**: `sensors -j`'s own `"Package id N"` key
+  (same `coretemp-isa-0000` chip the per-core `"Core N"` readings
+  already come from) -- extended `sensorsProc`'s existing parse loop to
+  also match `/^Package id \d+$/` alongside the per-core regex, instead
+  of adding a second `sensors` call.
+
+**Verified**: screenshotted the live tab -- confirmed the aggregate row
+(`Intel(R) N97`, `13%`, `78°C`) sits first, above `Core 0`-`Core 3`,
+with its own independently real usage/temp values (not copied from any
+single core, and visibly different from the per-core numbers in the
+same capture).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

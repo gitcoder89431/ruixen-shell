@@ -3395,6 +3395,31 @@ screenshotted the live panel -- visible gap now on both sides of the
 stat-tiles grid, no tile clipped or pushed off past the notch's own
 edge.
 
+## Aggregate CPU row removed from the left panel's core list
+
+Direct request: "cool ok remove the Intel R the aggegrate one from the
+CPU cause we have the stat tile for this already" -- the left panel's
+CPU section had its own aggregate row (icon + overall usage bar +
+percentage, then the real CPU model name -- "Intel(R) N97" -- and
+package temp below it) sitting above the per-core list. Now redundant:
+the new CPU `DialTile` in the right panel's stat-tile grid already
+shows the exact same aggregate usage%, model name, and temperature in
+one place.
+
+Removed the whole `cpuAggregate` `Column` (icon+bar+% row, then
+model+temp row) from `coreColumn` in the left panel's `Flickable` --
+the "CPUs" section now goes directly from the header separator into
+the per-core `Repeater` (`Core 0`, `Core 1`, ...). `root.cpuUsage`,
+`root.cpuModel`, and `root.packageTemp` are all still read elsewhere
+(the CPU stat tile), so nothing else needed to change.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- "CPUs"
+section now goes straight into Core 0-3 with no aggregate row above
+them, CPU stat tile in the right panel unaffected.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -2172,6 +2172,65 @@ as before, with visible plain black *between* the pill and each of
 them. Confirms both halves of the request: notch stays OLED black
 overall, art is now contained to just the intended pill.
 
+## Wallpapers tab is a real picker now, not a stub
+
+Per direct request: "i kinda wanna work with the wallpaper picker notch
+page... i want to make the notch stub for wallpapers an actual
+wallpaper picker. it will show whats available and user can click to
+switch between them."
+
+New file, `WallpapersContent.qml`, wired in as the dashboard's tab 1
+(was a plain `Text { "Wallpapers -- coming soon" }`). Deliberately reads
+from the exact same two directories Omarchy's own stock Super+Ctrl+
+Space picker does -- confirmed by reading
+`/usr/share/omarchy/bin/omarchy-theme-bg-switcher` directly, not
+guessed:
+
+- `~/.local/state/omarchy/current/theme/backgrounds` -- the active
+  theme's own shipped wallpapers.
+- `~/.config/omarchy/backgrounds/<theme-name>/` -- Omarchy's existing
+  per-theme user-additions folder. Already a first-class extension
+  point (`omarchy-theme-set`'s own `choose_theme_background()` reads
+  the same path when cycling backgrounds on theme switch) -- adding
+  more images there is how you get more tiles here, no plugin change
+  needed.
+
+Listing is a plain `find -L <dirs> -maxdepth 1 -type f` for the same
+image extensions the stock picker's own `list.sh` uses, skipping that
+script's thumbnail-cache indirection -- a handful of wallpaper-sized
+images downscaled via `Image.sourceSize` is the same cost class as the
+blurred-art backgrounds this plugin already loads elsewhere, not worth
+a second caching layer.
+
+Clicking a tile calls the exact same `omarchy-theme-bg-set <path>` the
+stock picker's own selection handler runs -- confirmed by reading that
+script too: it just symlinks `current/background` and pings the live
+shell, never touches theme colors. So this is a second front door onto
+the same real state, not a parallel background-selection system --
+selecting here or via Super+Ctrl+Space stay in sync automatically.
+
+The active wallpaper gets an accent-colored ring (`ClippingRectangle`
+`border`), matching this plugin's existing minimal active-state
+language (`TabButton`'s tint, the workspace pill) rather than inventing
+a checkmark badge. List + current-background both refresh on tab
+activation (`onActiveChanged`), not on a poll timer -- same "refresh
+when relevant, not continuously" pattern already used by
+`ruixen.quickactions`' popup.
+
+**Verified the full cycle, not just static rendering**: screenshotted
+the tab with the theme's 2 real wallpapers, confirming the accent ring
+sat on the actually-active one. Then changed the background via the
+real `omarchy-theme-bg-set` command directly in the terminal (the exact
+call a real tile click makes) -- *without* clicking anything in the UI
+-- toggled the tab away and back to trigger `refresh()`, and
+screenshotted again: the ring moved to the newly-active tile on its
+own. Confirms both the listing and the live current-background
+detection are reading real state, not fixtures. Restored the original
+background after. (Real mouse clicks still can't be simulated in this
+environment -- same standing limitation noted throughout this file --
+so the click path itself is verified by code review plus this
+external-state-round-trip test, not an actual click.)
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

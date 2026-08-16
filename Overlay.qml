@@ -860,10 +860,10 @@ Item {
             // Left vertical tab bar -- ambxst's Dashboard.qml
             // tabsContainer: Widgets/Wallpapers/Metrics stacked icon
             // buttons, settings gear pinned at the bottom via a
-            // fillHeight spacer above it. Shell only for now: Wallpapers
-            // and Metrics are non-functional stub panes (see the content
-            // area below) -- only the tab switching itself and the real
-            // settings action are wired up.
+            // fillHeight spacer above it. Widgets and Wallpapers are
+            // both real now (see WallpapersContent.qml); Metrics is
+            // still a non-functional stub pane (see the content area
+            // below).
             ColumnLayout {
               Layout.preferredWidth: 78
               Layout.maximumWidth: 78
@@ -935,17 +935,19 @@ Item {
                 setBrightness: root.setBrightness
               }
 
-              // Stub panes -- tab switching works, real content doesn't
+              WallpapersContent {
+                anchors.fill: parent
+                visible: panel.dashboardTab === 1
+                active: panel.dashboardTab === 1 && panel.expanded
+                textColor: root.textColor
+                muted: root.muted
+                accent: root.accent
+                fontFamily: root.fontFamily
+              }
+
+              // Stub pane -- tab switching works, real content doesn't
               // exist yet. Per direct request: build the tab bar first,
               // not the actual wallpaper/metrics pages.
-              Text {
-                anchors.centerIn: parent
-                visible: panel.dashboardTab === 1
-                text: "Wallpapers -- coming soon"
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: 12
-              }
 
               Text {
                 anchors.centerIn: parent

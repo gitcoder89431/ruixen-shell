@@ -818,7 +818,16 @@ Item {
           Item { Layout.fillHeight: true }
 
           RowLayout {
-            Layout.fillWidth: true
+            // Centered as a compact unit instead of stretched full
+            // width -- per direct follow-up ("center the usage and
+            // dial stuff for cpu and gpu though right now its leaning
+            // left"). The old fillWidth:true here (combined with the
+            // text column's own fillWidth:true below) stretched the
+            // usage/subtext column all the way to the tile's right
+            // edge, which visually clustered the dial+text together
+            // at the left instead of centering the group.
+            Layout.fillWidth: false
+            Layout.alignment: Qt.AlignHCenter
             spacing: 10
 
             Item {
@@ -885,9 +894,13 @@ Item {
 
             // Beside the dial, not stacked under it -- per direct
             // feedback the all-vertical layout made the whole tile too
-            // tall. "Usage 10%" then the CPU/GPU name below it.
+            // tall. "Usage 10%" then the CPU/GPU name below it. No
+            // longer Layout.fillWidth:true -- sized to its own natural
+            // content width instead (with a maximumWidth safety cap
+            // for real GPU names longer than this machine's own), so
+            // the RowLayout above it centers as a compact unit instead
+            // of stretching this column all the way to the tile edge.
             ColumnLayout {
-              Layout.fillWidth: true
               Layout.alignment: Qt.AlignVCenter
               spacing: 2
 
@@ -901,7 +914,7 @@ Item {
                 font.weight: Font.DemiBold
                 color: root.textColor
                 elide: Text.ElideRight
-                Layout.fillWidth: true
+                Layout.maximumWidth: 140
               }
 
               Text {
@@ -910,7 +923,7 @@ Item {
                 font.pixelSize: 10
                 color: root.muted
                 elide: Text.ElideRight
-                Layout.fillWidth: true
+                Layout.maximumWidth: 140
               }
             }
           }

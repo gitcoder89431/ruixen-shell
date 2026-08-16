@@ -3615,6 +3615,35 @@ GPU tiles now show a "CPU"/"GPU" header matching Network/Memory's
 style, with the dial+usage+temp-bar block centered as a group beneath
 it instead of sitting flush against the top margin.
 
+## Dial+usage row centered horizontally, not stretched left
+
+Direct follow-up: "yea and center the usage and dial stuff for cpu
+and gpu though right now its leaning left" -- the previous pass
+centered the block vertically as a group, but the dial+usage
+`RowLayout` itself still had `Layout.fillWidth: true`, and the
+usage/subtext `ColumnLayout` beside the dial had its own `Layout.
+fillWidth: true` too. Together those stretched the text column all
+the way to the tile's right edge, which visually clustered the round
+dial and the start of the text together at the left rather than
+centering the group -- vertical centering alone couldn't fix a
+horizontal stretch.
+
+`RowLayout`: `Layout.fillWidth: false`, `Layout.alignment: Qt.
+AlignHCenter` -- sizes to its own natural (dial + spacing + text)
+width and centers that as a compact unit instead of stretching.
+Usage/subtext `ColumnLayout` and its two `Text` children: dropped
+`Layout.fillWidth: true`, replaced with `Layout.maximumWidth: 140` on
+each `Text` (kept `elide: Text.ElideRight` as a safety net for a
+longer real GPU name than this machine's own, but they now size to
+their actual content instead of stretching to fill available width).
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- dial and
+usage text now sit centered as a compact group within each tile
+instead of stretched toward the left edge.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

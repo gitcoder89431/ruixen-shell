@@ -999,6 +999,35 @@ Verified via the established art-hardcode test method + a zoomed crop
 specifically on the arc's start/end points — clean rounded ends, no
 clipping, visible-but-modest gap to the now-bigger disc.
 
+## Reverted the top-padding crop -- it clipped the ring itself
+
+Per direct follow-up ("the top part has like a mask thats clipping over
+the top of the progress bar"): the crop wrapper added in the previous
+pass was wrong. It assumed the topmost pixel ever drawn was the plain
+arc's own top point (~14px below the square's top edge, "just empty
+space"), and cropped an 18px strip off on that assumption. Actually
+wrong -- the thick TIP (the playhead marker) swings further out than
+the plain track at progress values near the top of the sweep, reaching
+within ~4px of the square's own top edge around 50% progress. An 18px
+crop sliced the tip clean off exactly at the progress values where it
+swings up that far -- confirmed by forcing `progressRatio: 0.5` (the
+worst case) via the same hardcode-and-screenshot method used elsewhere,
+which is what should have been tested before the previous commit rather
+than only the ~53% case that happened to be showing at the time (close,
+but the crop math itself was still wrong for the true worst case).
+
+Reverted to a plain, uncropped `190x190` square -- no `clip`, no `y`
+offset, no split wrapper. Re-verified at `progressRatio: 0.5` specifically
+(zoomed crop on the tip) -- fully visible, no clipping, this time actually
+tested at the worst-case angle instead of whatever the live player
+happened to be at.
+
+Lesson for this component specifically: any future padding/crop change
+around `CircularSeek` needs to be checked at multiple forced
+`progressRatio` values (0, ~0.5, ~1), not just whatever's playing live --
+the tip's extent depends on the progress angle, so "looks fine" at one
+value doesn't mean it's fine at all of them.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

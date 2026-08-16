@@ -346,52 +346,52 @@ Item {
         // ring container barely changed, per "progress bar is almost
         // fine, just make the album art circle bigger to get closer").
         //
-        // Outer wrapper is shorter than the inner square (190x160,
-        // clip: true) with the actual ring/disc Item shifted up
-        // (y: -18) inside it -- crops off the ring's own blank top
-        // strip (the semicircle's topmost point sits ~14px below the
-        // square's own top edge, empty space above it otherwise) per
-        // "remove the top padding a bit". Ring math is untouched since
-        // the inner Item is still a full 190x190 square.
+        // A shorter clipped wrapper (190x160, shifted up 18px) was
+        // tried here to crop the ring's own blank top strip, on the
+        // assumption the topmost drawn pixel was always the plain
+        // arc's own top point (~14px down). Wrong -- the THICK TIP
+        // can swing further up than the plain arc at any progress
+        // near the top of the sweep (its outer edge reaches within
+        // ~4px of the square's top edge at ~50% progress), so an
+        // 18px crop sliced the tip itself off at exactly the
+        // progress values where it'd swing up that far. Reverted to
+        // a plain, uncropped 190x190 square -- the ring must stay
+        // fully unclipped at every progress value, not just the ones
+        // tested. If the top padding needs trimming again, do it
+        // above this Item (layout spacing), not by cropping the
+        // canvas itself.
         Item {
           Layout.preferredWidth: 190
-          Layout.preferredHeight: 160
+          Layout.preferredHeight: 190
           Layout.alignment: Qt.AlignHCenter
           visible: root.artUrl !== ""
-          clip: true
 
-          Item {
-            width: 190
-            height: 190
-            y: -18
+          CircularSeek {
+            anchors.fill: parent
+            value: root.progressRatio
+            wavy: root.isPlaying
+            ringWidth: 5
+          }
 
-            CircularSeek {
+          // ClippingRectangle, not a plain Rectangle -- confirmed the
+          // hard way: plain QtQuick Rectangle.clip only clips children
+          // to the bounding BOX, it does not follow radius, regardless
+          // of how high radius is set. Quickshell's own ClippingRectangle
+          // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
+          // for exactly this reason.
+          ClippingRectangle {
+            width: 130
+            height: 130
+            anchors.centerIn: parent
+            radius: width / 2
+            color: "transparent"
+
+            Image {
               anchors.fill: parent
-              value: root.progressRatio
-              wavy: root.isPlaying
-              ringWidth: 5
-            }
-
-            // ClippingRectangle, not a plain Rectangle -- confirmed the
-            // hard way: plain QtQuick Rectangle.clip only clips children
-            // to the bounding BOX, it does not follow radius, regardless
-            // of how high radius is set. Quickshell's own ClippingRectangle
-            // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
-            // for exactly this reason.
-            ClippingRectangle {
-              width: 130
-              height: 130
-              anchors.centerIn: parent
-              radius: width / 2
-              color: "transparent"
-
-              Image {
-                anchors.fill: parent
-                source: root.artUrl
-                sourceSize: Qt.size(260, 260)
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-              }
+              source: root.artUrl
+              sourceSize: Qt.size(260, 260)
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
             }
           }
         }

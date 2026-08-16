@@ -74,6 +74,14 @@ Item {
   property real netRxRate: 0
   property real netTxRate: 0
   property var prevNetSample: null
+  // Cumulative lifetime bytes -- the raw /proc/net/dev counter itself,
+  // not a delta. Same "Total" btop's own network widget shows
+  // (confirmed by reading it directly on this machine: "Total: 2.47
+  // GiB" under download, "Total: 16.2 GiB" under upload) -- per direct
+  // request to match that exact three-field shape (rate + lifetime
+  // total, for each direction).
+  property real netRxTotalBytes: 0
+  property real netTxTotalBytes: 0
 
   // Auto-scaling B/s -> KB/s -> MB/s, per direct request ("download
   // speed the MB/s thats there or in B/s") -- picks whichever unit
@@ -84,6 +92,16 @@ Item {
     if (bytesPerSec < 1024) return Math.round(bytesPerSec) + " B/s"
     if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + " KB/s"
     return (bytesPerSec / 1024 / 1024).toFixed(1) + " MB/s"
+  }
+
+  // Same auto-scaling idea, no "/s" -- for the cumulative totals.
+  // "GiB" naming (binary/1024-based) to match btop's own labeling
+  // exactly, not guessed.
+  function formatBytes(bytes) {
+    if (bytes < 1024) return Math.round(bytes) + " B"
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KiB"
+    if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + " MiB"
+    return (bytes / 1024 / 1024 / 1024).toFixed(2) + " GiB"
   }
 
   // One entry per real, distinct block device (deduped -- btrfs
@@ -311,6 +329,11 @@ Item {
         var fields = lineMatch[1].trim().split(/\s+/).map(Number)
         var rxBytes = fields[0]
         var txBytes = fields[8]
+        // Raw counters, not a delta -- this IS the lifetime total
+        // already (since the interface came up), no separate tracking
+        // needed.
+        root.netRxTotalBytes = rxBytes
+        root.netTxTotalBytes = txBytes
         var nowMs = Date.now()
         if (root.prevNetSample) {
           var wallDeltaS = (nowMs - root.prevNetSample.wallMs) / 1000
@@ -1121,19 +1144,103 @@ Item {
         Layout.preferredHeight: 106
         spacing: 8
 
-        StatTile {
+        // Custom layout instead of StatTile -- per direct request to
+        // match btop's own three-field shape ("download total 2.47
+        // GiB and around 307 Byte/s and then upload is 500 Byte/s and
+        // Total 16.2 GiB"), a rate + a lifetime total for EACH
+        // direction (4 numbers), more than StatTile's single value+
+        // subtext slot could hold. Same row shape as the storage
+        // panel below (label left, stat right-aligned) for both
+        // Download and Upload.
+        Rectangle {
           Layout.fillWidth: true
           Layout.fillHeight: true
-          glyph: ""
-          title: "Network"
-          // Download as the featured value, upload as its own row
-          // below -- per direct request ("there should be upload and
-          // download speed... download speed the mb/s thats there...
-          // row below it is the upload"), was a single combined rx+tx
-          // total with both split into a tiny subtext line.
-          valueText: root.netInterface ? ("↓ " + root.formatRate(root.netRxRate)) : "No connection"
-          barValue: 0
-          subText: root.netInterface ? ("↑ " + root.formatRate(root.netTxRate)) : ""
+          radius: 10
+          color: Qt.rgba(1, 1, 1, 0.05)
+
+          ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 6
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 6
+
+              Text {
+                text: ""
+                font.family: root.fontFamily
+                font.pixelSize: 15
+                color: root.muted
+              }
+
+              Text {
+                text: "Network"
+                font.family: root.fontFamily
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                color: root.textColor
+                Layout.fillWidth: true
+              }
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 6
+              visible: root.netInterface !== ""
+
+              Text {
+                text: "↓ " + (root.netInterface ? root.formatRate(root.netRxRate) : "")
+                font.family: root.fontFamily
+                font.pixelSize: 12
+                color: root.textColor
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+              }
+
+              Text {
+                text: root.formatBytes(root.netRxTotalBytes)
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                horizontalAlignment: Text.AlignRight
+              }
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 6
+              visible: root.netInterface !== ""
+
+              Text {
+                text: "↑ " + (root.netInterface ? root.formatRate(root.netTxRate) : "")
+                font.family: root.fontFamily
+                font.pixelSize: 12
+                color: root.textColor
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+              }
+
+              Text {
+                text: root.formatBytes(root.netTxTotalBytes)
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                horizontalAlignment: Text.AlignRight
+              }
+            }
+
+            Text {
+              visible: root.netInterface === ""
+              text: "No connection"
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              color: root.muted
+              Layout.fillWidth: true
+            }
+          }
         }
 
         MemoryDialTile {

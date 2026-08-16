@@ -3174,6 +3174,37 @@ both independently reading real, currently-different rates (this
 machine was actively uploading at the time, a good real-world case for
 why combining rx+tx into one number was actually losing information).
 
+## Network expanded to match btop's own rate+total shape
+
+Follow-up question, then a direct spec: "im seeing on another design
+three field Download Upload and Total... on btop its showing download
+total 2.47 GiB and around 307 Byte/s and then upload is 500 Byte/s and
+Total 16.2 GiB these are what i wanna show." Confirmed by reading
+btop's own network panel directly on this machine -- its "Total" per
+direction is a lifetime cumulative byte count, not a combined rx+tx
+rate. Four numbers now, two per direction (rate + lifetime total),
+more than `StatTile`'s single value+subtext slot could hold, so this
+tile is a custom `Rectangle`/`ColumnLayout` now instead of a
+`StatTile` instance -- same row shape as the storage panel below it
+(label left, stat right-aligned) for both Download and Upload rows.
+
+Two new real properties, `netRxTotalBytes`/`netTxTotalBytes` -- not a
+separately-tracked running sum, just the RAW `/proc/net/dev` byte
+counter itself. That counter already IS the lifetime total since the
+interface came up (same value `netProc`'s rate calculation already
+reads to compute a delta from); no new process or extra polling
+needed, just also storing the raw number instead of only using it for
+subtraction. New `root.formatBytes()` helper (binary units --
+`B/KiB/MiB/GiB`, "GiB" naming to match btop's own labeling exactly) for
+displaying it, distinct from `formatRate()` (which appends `/s`).
+
+**Verified**: screenshotted the live tab -- confirmed `"↓ 3.2 KB/s"` /
+`"2.48 GiB"` and `"↑ 632 B/s"` / `"16.37 GiB"`, matching the exact
+rate+lifetime-total shape requested, both totals in the same
+multi-GiB range the user's own btop reading (`2.47 GiB`/`16.2 GiB`)
+reported moments earlier -- same real counter, same machine, same
+session.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

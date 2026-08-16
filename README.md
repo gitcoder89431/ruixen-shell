@@ -1847,6 +1847,43 @@ close to the width-aware formula's own answer for those proportions
 (`~5.75px` computed vs `6px` in place), consistent with it visually
 already working correctly per direct confirmation before this fix.
 
+## Compact notch progress bar gets the same gap+tip design
+
+Per direct request ("bring the design there too. hopefully we get right
+first try"): ported the gap-around-the-tip design (already on the
+player ring, speaker/mic dials, brightness bar) to the collapsed
+notch's own mini progress indicator (track `Rectangle` / `WavyLine` /
+playhead `Rectangle`, all in `Overlay.qml`).
+
+Linear bar, not circular, so the mechanics differ slightly but the
+underlying idea is identical: a `gapPx` computed from the ACTUAL
+rendered widths involved (same lesson as the player ring's real bug --
+don't copy a constant sized for different proportions), applied as a
+full trim on each side of the true split point (`splitX = width *
+progressRatio`), with the playhead staying exactly centered at the
+unmodified split point:
+
+- `gapPx = wave.lineWidth/2 (1.5) + playhead.width/2 (1.5) + desiredGap
+  (2) = 5px`
+- Track: `width: Math.max(0, parent.width - splitX - gapPx)` (was the
+  full remainder starting right at `splitX`)
+- `WavyLine`: `width: Math.max(0, splitX - gapPx)` (was the full played
+  portion up to `splitX`) -- no separate line-cap handling needed here,
+  unlike the circular ring's `Canvas` arc: `WavyLine`'s own bounding
+  width directly controls where its rightmost point sits, so shrinking
+  it is the whole fix.
+- Playhead: unchanged, `x: splitX - width/2`.
+
+Verified thoroughly given the explicit "get it right first try" ask --
+zoomed in tight (not just a wide crop) at three progress values
+(`0.02`, `0.5`, `0.98`) before calling it done: real gap visible on both
+sides of the playhead at `0.5`; at `0.02` the wave correctly stays fully
+hidden (`Math.max(0, ...)` clamps it to zero width, no negative-width
+glitch) while the track still shows a clean gap; at `0.98` the wave
+extends nearly the full length with the playhead and its gap sitting
+near the right edge, track correctly near-invisible. All three clean on
+the first implementation.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

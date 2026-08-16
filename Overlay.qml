@@ -625,23 +625,48 @@ Item {
               // bottom of the wave's crests and troughs.
               height: 20
 
+              // Split point -- where the wave's played portion meets
+              // the dim unplayed track, before any gap trim.
+              readonly property real splitX: width * root.progressRatio
+              // Same gap-around-the-tip design as the player ring/
+              // dials/brightness bar, ported here too now that it's
+              // right on the other components -- per direct request
+              // ("bring the design there too"). Computed the same
+              // width-aware way that fixed the player ring's real bug
+              // (a flat copied constant doesn't clear a custom-sized
+              // tip): half the wave's own line width + half the
+              // playhead's own width + the desired real clearance.
+              // wave lineWidth 3 (half 1.5) + playhead width 3 (half
+              // 1.5) + 2px desired = 5px, applied as the FULL trim on
+              // EACH side independently (not split further) -- matches
+              // how the ring's own gapPx already works, not a fresh
+              // guess.
+              readonly property real gapPx: 5
+
               // Track/wave/playhead thickened 2px -> 4px together, per
               // direct feedback. Follow-up: the track was fine at 4
               // but the wave/playhead read as a bit too thick next to
               // it -- toned those two back down to 3, track left at 4.
               Rectangle {
-                // Unplayed remainder only -- starts right where the wave
-                // ends, instead of running the full width underneath it.
+                // Unplayed remainder, trimmed short of the playhead by
+                // gapPx on this side -- starts past the split point,
+                // not right at it.
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width * (1 - root.progressRatio)
+                width: Math.max(0, parent.width - parent.splitX - parent.gapPx)
                 height: 4
                 radius: 2
                 color: Qt.rgba(1, 1, 1, 0.15)
               }
 
               WavyLine {
-                width: parent.width * root.progressRatio
+                // Trimmed short of the playhead by gapPx on this side
+                // too -- the wave's own Canvas bounding width directly
+                // controls where its rightmost point sits, so shrinking
+                // it here is enough on its own, no separate lineCap
+                // handling needed (unlike the circular ring's Canvas
+                // arc, this is just a smaller bounding box).
+                width: Math.max(0, parent.splitX - parent.gapPx)
                 height: parent.height
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
@@ -653,15 +678,16 @@ Item {
                 running: root.isPlaying
               }
 
-              // Playhead -- vertical line right where the wave meets the
-              // dim (unplayed) track.
+              // Playhead -- stays centered exactly at the true split
+              // point, unchanged -- only the wave/track on either side
+              // of it pull back now.
               Rectangle {
                 width: 3
                 height: parent.height
                 radius: width / 2
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.textColor
-                x: parent.width * root.progressRatio - width / 2
+                x: parent.splitX - width / 2
                 visible: root.hasMedia
 
                 Behavior on x { NumberAnimation { duration: 450 } }

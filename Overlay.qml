@@ -604,7 +604,16 @@ Item {
             Item {
               anchors.verticalCenter: parent.verticalCenter
               width: 140
-              height: 12
+              // Grown 12 -> 20 alongside the thickness bump below --
+              // WavyLine is a Canvas, and Canvas content outside its
+              // own item bounds is simply never drawn (an implicit
+              // clip, not a real mask, but reads the same). At
+              // lineWidth 4 / amplitudeMultiplier 1.4 the wave's peak
+              // extent is +-(amp + lineWidth/2) = +-7.6px from center,
+              // needing >=15.2px of height -- the old 12px container
+              // was already too short for that, clipping the top/
+              // bottom of the wave's crests and troughs.
+              height: 20
 
               // Thickened track/wave/playhead 2px -> 4px across the
               // board, per direct feedback ("isnt really thick

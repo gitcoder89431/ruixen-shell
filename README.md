@@ -1170,6 +1170,17 @@ so they stay visually consistent with each other rather than drifting
 out of proportion. Confirmed via screenshot on the live collapsed notch
 (no pin/hover toggle needed, this is the default at-rest state).
 
+**Follow-up: top/bottom of the wave were getting clipped.** Real bug,
+not cosmetic -- `WavyLine` is a `Canvas`, and content drawn outside its
+own item bounds is simply never rendered (an implicit clip, reads the
+same as a mask even though it isn't literally one). The wrapping `Item`
+was still `height: 12` from before the thickness bump. At the new
+`lineWidth: 4` / `amplitudeMultiplier: 1.4`, the wave's peak extent is
+`+-(amp + lineWidth/2) = +-7.6px` from center -- needs `>=15.2px` of
+height, and `12px` was already too short even before accounting for
+that. Grew the container `12px -> 20px`. Verified via screenshot -- full
+crests and troughs render now, nothing cut off top or bottom.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -535,9 +535,13 @@ Item {
 
         // Duration -- ambxst's own "Duration Area" text, same
         // position/opacity (formatTime(position) + " / " +
-        // formatTime(length), muted).
+        // formatTime(length), muted). topMargin on top of the
+        // ColumnLayout's own 8px spacing, per direct feedback --
+        // wanted a bit more separation here specifically, not a
+        // blanket increase to every gap in the column.
         Text {
           Layout.alignment: Qt.AlignHCenter
+          Layout.topMargin: 4
           text: root.hasMedia
             ? (root.formatTime(root.trackPosition) + " / " + root.formatTime(root.trackLength))
             : "--:-- / --:--"

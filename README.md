@@ -1123,6 +1123,13 @@ Verified with a deliberately long fake title (temporarily hardcoded
 ellipsis now sits with real breathing room from the rounded corner
 instead of crowding it.
 
+## A bit more gap between transport row and duration text
+
+Per direct feedback: added `Layout.topMargin: 4` to the duration `Text`,
+on top of the `ColumnLayout`'s own `8px` spacing (`12px` total) --
+targeted at just this one gap rather than bumping the shared `spacing`
+value, which would've widened every gap in the column equally.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

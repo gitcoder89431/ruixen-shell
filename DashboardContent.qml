@@ -1269,7 +1269,11 @@ Item {
         // fill stops short of it by gapPx, the tip sits centered
         // right on it, straddling into both sides.
         readonly property real valueY: height * (1 - value)
-        readonly property real gapPx: 4
+        // Bumped 4 -> 8 alongside the tip's own growth (5px -> 7px
+        // tall) -- the fill trim needs to clear the tip's now-bigger
+        // half-height (3.5px) with real margin, or the "gap" ends up
+        // a sub-pixel sliver again, same lesson as the dial's tip.
+        readonly property real gapPx: 8
 
         Rectangle {
           anchors.left: parent.left

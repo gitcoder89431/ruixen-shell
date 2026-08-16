@@ -1633,6 +1633,17 @@ spans the full length between header and footer.
 more") -- widened `+4px -> +12px` past the bar's own edges, height
 `5px -> 7px`, `radius: 2.5 -> 3.5`. Verified via zoomed screenshot.
 
+**Follow-up: gap needed retuning after the tip grew.** Per direct
+feedback ("gotta tune the caps for the head and tail more now cause the
+tip is thicker") -- `gapPx` (`4px`) trims the fill short of the value
+line, but the tip's own half-height grew to `3.5px` (from `7px` tall),
+leaving only `~0.5px` of real separation between the tip's bottom edge
+and the fill -- practically invisible again, same shape of issue as the
+dial tip earlier just via plain geometry overlap this time, not a
+Canvas line-cap. Bumped `gapPx: 4 -> 8` so the trim clears the bigger
+tip with real margin. Verified via zoomed screenshot -- clear dark gap
+visible between the tip and the fill.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

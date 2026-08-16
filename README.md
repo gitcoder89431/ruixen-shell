@@ -3531,6 +3531,24 @@ portal-registration warning), screenshotted the live panel -- Network
 tile's content now sits more centered/balanced within the tile instead
 of bottom-pinned, matching Memory's own vertical rhythm.
 
+## A touch more gap above the split bar
+
+Direct follow-up: "hmm pad it a bit between Upload row and the
+progress bar just a bit like 1 px" -- the bar sat right up against the
+Upload row with only the `ColumnLayout`'s own uniform 6px spacing
+separating them.
+
+Added `Layout.topMargin: 3` to the split-bar `ClippingRectangle`, on
+top of the existing 6px spacing -- a small, deliberately subtle bump
+rather than widening the spacing uniformly across every row in the
+tile.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- subtle
+extra gap now visible between the Upload row and the bar.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

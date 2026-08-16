@@ -1215,6 +1215,11 @@ Item {
             ClippingRectangle {
               Layout.fillWidth: true
               Layout.preferredHeight: 6
+              // A touch of extra breathing room above the bar, on top
+              // of the ColumnLayout's own 6px spacing, per direct
+              // follow-up ("pad it a bit between Upload row and the
+              // progress bar just a bit like 1 px").
+              Layout.topMargin: 3
               radius: 3
               color: Qt.rgba(1, 1, 1, 0.08)
               visible: root.netInterface !== ""

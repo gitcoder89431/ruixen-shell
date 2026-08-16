@@ -2847,6 +2847,64 @@ are back under the aggregate `Intel(R) N97` row, matching the earlier
 per-core screenshot's exact layout/shape (icon+bar+percent, name+temp
 below), with real live numbers in both rows again.
 
+## Right-panel stat tiles built: CPU/GPU, Network/Memory, Disk
+
+Per direct spec: "for this part the stats tile, CPU and GPU are the
+two tiles on the top row and then second row will be network and
+memory and then the third row will be the storage tiles." Replaces the
+"Stat tiles -- coming soon" placeholder.
+
+Shared `StatTile` component (declared inline in the right panel's
+`ColumnLayout`, same nested-`component` pattern `Overlay.qml` already
+uses for `TabButton`/`UserAvatar`/`NotchSeparator`, just one level
+deeper): icon + title, a big value, a thin usage bar, and a subtext
+line -- plain `Rectangle`/`ColumnLayout`/`Text`, no `qs.Ui` pulled in,
+consistent with this whole plugin's established self-contained style.
+
+Six real data sources, four of them genuinely new (CPU already
+existed; GPU is the same method built and then removed two commits
+ago, brought back scoped to just this tile):
+
+- **CPU**: reuses `root.cpuUsage`/`cpuModel`, already tracked for the
+  left panel's own aggregate row -- no new process.
+- **GPU**: same RC6-residency-delta method as before (`i915` exposes
+  no plain busy% without root) -- `gpuProc` reads `power/
+  rc6_residency_ms`, `busy% = 1 - (Δrc6 / Δwall)`. Name via
+  `identityProc`'s fastfetch call, expanded `-s Host:CPU` -> `-s
+  Host:CPU:GPU`. Only the first detected GPU gets a tile -- "people
+  have more than 1 GPU?" is a real gap on multi-GPU machines, not
+  silently solved here, just scoped out for now.
+- **Network**: real default-route interface via `ip route show
+  default` (confirmed `wlp1s0` on this machine, never hardcoded) +
+  `/proc/net/dev`'s cumulative RX/TX byte counters, compared between
+  two samples against real wall-clock `Date.now()` deltas for a genuine
+  throughput rate -- same delta-over-time shape as the CPU/GPU calcs,
+  different counters. Both reads combined into one `sh -c` process
+  (`ip route show default; echo ---; cat /proc/net/dev`) instead of
+  two separate `Process` spawns per tick.
+- **Memory**: `/proc/meminfo`'s `MemAvailable` (not `MemFree`) --
+  confirmed this is the same "how much could a new process actually
+  get" figure `free`/`top`/`htop` themselves use for their own "used"
+  calculation (`used = total - available`, accounts for reclaimable
+  cache/buffers that `MemFree` alone ignores).
+- **Disk**: `df -B1 --output=source,target,size,used`, deduped by
+  SOURCE device rather than mount point -- confirmed directly via `df`
+  that this machine's btrfs root is bind-mounted at `/`, `/home`,
+  `/var/log`, and `/var/cache/pacman/pkg` simultaneously, all sharing
+  one real device; without deduping that's the same disk shown 4
+  times. Keeps whichever mount point string is shortest for each
+  unique device (typically the real mount root, e.g. `/` over
+  `/home`). `-B1` for exact byte counts rather than parsing human-
+  suffixed strings (`"117G"` etc.).
+
+**Verified**: screenshotted the live tab -- confirmed all six tiles in
+the requested row order (CPU/GPU, Network/Memory, then storage tiles --
+`/` and `/boot` on this machine, its two real distinct devices) with
+independently real, differing values (`8%` CPU vs `66%` GPU vs `45%`
+Memory vs `39%`/`8%` disk usage in the same capture, not copies of each
+other), and the left panel's per-core CPU list still intact and
+scrolling independently alongside it.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

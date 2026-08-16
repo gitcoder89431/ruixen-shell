@@ -57,6 +57,30 @@ Item {
   property var prevCpuTimes: null
   property real packageTemp: -1
 
+  // Right-panel stat tiles -- GPU, memory, network, disk. Only the
+  // FIRST detected GPU gets a tile even on multi-GPU machines ("people
+  // have more than 1 GPU?" -- yes, a real gap, but one tile is enough
+  // for now; a proper multi-GPU layout is follow-up work, not silently
+  // guessed at here).
+  property string gpuName: ""
+  property real gpuUsage: 0
+  property var prevGpuSample: null
+
+  property real memUsedPercent: 0
+  property real memUsedGB: 0
+  property real memTotalGB: 0
+
+  property string netInterface: ""
+  property real netRxRate: 0
+  property real netTxRate: 0
+  property var prevNetSample: null
+
+  // One entry per real, distinct block device (deduped -- btrfs
+  // subvolumes like /, /home, /var/log on this machine all share the
+  // same underlying /dev/mapper/root, confirmed via `df` directly, not
+  // guessed): { name, percent, usedGB, totalGB }.
+  property var disks: []
+
   function refreshIdentity() {
     if (!identityProc.running) identityProc.running = true
     if (!versionProc.running) versionProc.running = true
@@ -64,13 +88,14 @@ Item {
 
   onActiveChanged: if (active) refreshIdentity()
 
-  // Hardware/PC name + CPU model -- fastfetch's real Host and CPU
-  // modules, confirmed by running `fastfetch --format json -s Host:CPU`
-  // on this machine directly ("NucBoxG5" / "Intel(R) N97"), not
+  // Hardware/PC name + CPU model + GPU name -- fastfetch's real Host,
+  // CPU, and GPU modules, confirmed by running `fastfetch --format
+  // json -s Host:CPU:GPU` on this machine directly ("NucBoxG5" /
+  // "Intel(R) N97" / vendor "Intel" + name "UHD Graphics"), not
   // guessed.
   Process {
     id: identityProc
-    command: ["fastfetch", "--format", "json", "-s", "Host:CPU"]
+    command: ["fastfetch", "--format", "json", "-s", "Host:CPU:GPU"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -79,6 +104,10 @@ Item {
           for (var i = 0; i < data.length; i++) {
             if (data[i].type === "Host") root.hardwareName = data[i].result.name || ""
             if (data[i].type === "CPU") root.cpuModel = data[i].result.cpu || ""
+            if (data[i].type === "GPU" && data[i].result.length > 0) {
+              var gpu = data[i].result[0]
+              root.gpuName = ((gpu.vendor || "") + " " + (gpu.name || "")).trim()
+            }
           }
         } catch (e) {}
       }
@@ -198,6 +227,137 @@ Item {
     }
   }
 
+  // GPU usage -- same standard non-privileged Intel iGPU method used
+  // (and later removed, then needed again for this tile) earlier in
+  // this file's history: i915 exposes no plain "busy %" file without
+  // root, but RC6 idle-residency compared between two samples against
+  // real wall-clock time gives busy% = 1 - (Δrc6 / Δwall). Confirmed
+  // directly on this machine, not guessed.
+  Process {
+    id: gpuProc
+    command: ["cat", "/sys/class/drm/card1/power/rc6_residency_ms"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var rc6Ms = Number(String(text || "").trim())
+        var nowMs = Date.now()
+        if (root.prevGpuSample) {
+          var wallDelta = nowMs - root.prevGpuSample.wallMs
+          var rc6Delta = rc6Ms - root.prevGpuSample.rc6Ms
+          root.gpuUsage = wallDelta > 0 ? Math.max(0, Math.min(1, 1 - rc6Delta / wallDelta)) : 0
+        }
+        root.prevGpuSample = { rc6Ms: rc6Ms, wallMs: nowMs }
+      }
+    }
+  }
+
+  // Memory -- /proc/meminfo's MemAvailable (not MemFree) is the real
+  // "how much could a new process actually get" figure the kernel
+  // itself computes (accounts for reclaimable cache/buffers), same
+  // value top/htop/free use for their own "used" calculation -- used =
+  // total - available, not total - free.
+  Process {
+    id: memProc
+    command: ["cat", "/proc/meminfo"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var t = String(text || "")
+        var totalM = t.match(/^MemTotal:\s+(\d+)/m)
+        var availM = t.match(/^MemAvailable:\s+(\d+)/m)
+        if (!totalM || !availM) return
+        var totalKb = Number(totalM[1])
+        var availKb = Number(availM[1])
+        var usedKb = Math.max(0, totalKb - availKb)
+        root.memTotalGB = totalKb / 1024 / 1024
+        root.memUsedGB = usedKb / 1024 / 1024
+        root.memUsedPercent = totalKb > 0 ? usedKb / totalKb : 0
+      }
+    }
+  }
+
+  // Network -- real default-route interface (`ip route show default`,
+  // confirmed "wlp1s0" on this machine, not hardcoded) plus
+  // /proc/net/dev's own cumulative RX/TX byte counters, compared
+  // between two samples against real wall-clock time for a genuine
+  // throughput rate -- same delta-over-time shape as the CPU/GPU calcs
+  // above, different counters.
+  Process {
+    id: netProc
+    command: ["sh", "-c", "ip route show default; echo ---; cat /proc/net/dev"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var parts = String(text || "").split("---\n")
+        var routeLine = parts[0] || ""
+        var devText = parts[1] || ""
+        var ifaceMatch = routeLine.match(/\bdev\s+(\S+)/)
+        var iface = ifaceMatch ? ifaceMatch[1] : ""
+        root.netInterface = iface
+        if (!iface) return
+        var lineMatch = devText.match(new RegExp("^\\s*" + iface + ":\\s*(.*)$", "m"))
+        if (!lineMatch) return
+        var fields = lineMatch[1].trim().split(/\s+/).map(Number)
+        var rxBytes = fields[0]
+        var txBytes = fields[8]
+        var nowMs = Date.now()
+        if (root.prevNetSample) {
+          var wallDeltaS = (nowMs - root.prevNetSample.wallMs) / 1000
+          if (wallDeltaS > 0) {
+            root.netRxRate = Math.max(0, (rxBytes - root.prevNetSample.rxBytes) / wallDeltaS)
+            root.netTxRate = Math.max(0, (txBytes - root.prevNetSample.txBytes) / wallDeltaS)
+          }
+        }
+        root.prevNetSample = { rxBytes: rxBytes, txBytes: txBytes, wallMs: nowMs }
+      }
+    }
+  }
+
+  // Disk -- real per-device usage via `df`, deduped by SOURCE device
+  // (not mount point): this machine's btrfs root is bind-mounted at
+  // /, /home, /var/log, /var/cache/pacman/pkg all at once, confirmed
+  // directly via `df` -- without deduping, that's the same disk shown
+  // 4 times. Keeps whichever mount point is shortest for each unique
+  // device (typically the real mount root, e.g. "/" over "/home").
+  // -B1 for exact byte counts, not human-suffixed strings to parse.
+  Process {
+    id: diskProc
+    command: ["df", "-B1", "--output=source,target,size,used"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").split("\n").slice(1)
+        var bySource = {}
+        for (var i = 0; i < lines.length; i++) {
+          var fields = lines[i].trim().split(/\s+/)
+          if (fields.length < 4) continue
+          var source = fields[0]
+          if (source.indexOf("/dev/") !== 0) continue
+          var target = fields[1]
+          var size = Number(fields[2])
+          var used = Number(fields[3])
+          if (!size) continue
+          var existing = bySource[source]
+          if (!existing || target.length < existing.target.length) {
+            bySource[source] = { target: target, size: size, used: used }
+          }
+        }
+        var result = []
+        for (var src in bySource) {
+          var entry = bySource[src]
+          result.push({
+            name: entry.target,
+            percent: entry.used / entry.size,
+            usedGB: entry.used / 1024 / 1024 / 1024,
+            totalGB: entry.size / 1024 / 1024 / 1024
+          })
+        }
+        result.sort(function(a, b) { return a.name < b.name ? -1 : 1 })
+        root.disks = result
+      }
+    }
+  }
+
   Timer {
     interval: 2000
     running: root.active
@@ -206,6 +366,10 @@ Item {
     onTriggered: {
       if (!statProc.running) statProc.running = true
       if (!sensorsProc.running) sensorsProc.running = true
+      if (!gpuProc.running) gpuProc.running = true
+      if (!memProc.running) memProc.running = true
+      if (!netProc.running) netProc.running = true
+      if (!diskProc.running) diskProc.running = true
     }
   }
 
@@ -523,19 +687,172 @@ Item {
       }
     }
 
-    // Right panel -- stat tiles (GPU etc.), next up. Placeholder for
-    // now, matching this dashboard's existing stub-pane convention.
-    Item {
+    // Right panel -- stat tiles. Per direct spec: row 1 CPU + GPU, row
+    // 2 Network + Memory, row 3 storage tiles (one per real disk).
+    ColumnLayout {
       Layout.fillWidth: true
       Layout.fillHeight: true
+      spacing: 8
 
-      Text {
-        anchors.centerIn: parent
-        text: "Stat tiles -- coming soon"
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 12
+      // Shared tile shape -- icon + title top, big value, thin usage
+      // bar + subtext at the bottom. Plain QML primitives, matching
+      // this whole plugin's own established style (no qs.Ui pulled in
+      // here either, same as DashboardContent.qml/WallpapersContent.qml).
+      component StatTile: Rectangle {
+        id: tile
+        property string glyph: ""
+        property string title: ""
+        property string valueText: ""
+        property string subText: ""
+        property real barValue: 0
+
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.05)
+
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: 10
+          spacing: 4
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            Text {
+              text: tile.glyph
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              color: root.muted
+            }
+
+            Text {
+              text: tile.title
+              font.family: root.fontFamily
+              font.pixelSize: 10
+              color: root.muted
+              elide: Text.ElideRight
+              Layout.fillWidth: true
+            }
+          }
+
+          Text {
+            text: tile.valueText
+            font.family: root.fontFamily
+            font.pixelSize: 20
+            font.weight: Font.DemiBold
+            color: root.textColor
+            Layout.fillWidth: true
+          }
+
+          Item { Layout.fillHeight: true }
+
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 6
+            radius: 3
+            color: Qt.rgba(1, 1, 1, 0.08)
+
+            Rectangle {
+              width: parent.width * Math.max(0, Math.min(1, tile.barValue))
+              height: parent.height
+              radius: 3
+              color: root.accent
+              Behavior on width { NumberAnimation { duration: 200 } }
+            }
+          }
+
+          Text {
+            text: tile.subText
+            font.family: root.fontFamily
+            font.pixelSize: 9
+            color: root.muted
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+          }
+        }
       }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 92
+        spacing: 8
+
+        StatTile {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          glyph: ""
+          title: "CPU"
+          valueText: Math.round(root.cpuUsage * 100) + "%"
+          barValue: root.cpuUsage
+          subText: root.cpuModel || ""
+        }
+
+        StatTile {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          glyph: "󰢮"
+          title: "GPU"
+          valueText: Math.round(root.gpuUsage * 100) + "%"
+          barValue: root.gpuUsage
+          subText: root.gpuName || ""
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 92
+        spacing: 8
+
+        StatTile {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          glyph: ""
+          title: "Network"
+          valueText: {
+            var total = root.netRxRate + root.netTxRate
+            return (total / 1024 / 1024).toFixed(1) + " MB/s"
+          }
+          barValue: 0
+          subText: root.netInterface ? ("↓ " + (root.netRxRate / 1024).toFixed(0) + " KB/s  ↑ " + (root.netTxRate / 1024).toFixed(0) + " KB/s") : "No connection"
+        }
+
+        StatTile {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          glyph: ""
+          title: "Memory"
+          valueText: Math.round(root.memUsedPercent * 100) + "%"
+          barValue: root.memUsedPercent
+          subText: root.memUsedGB.toFixed(1) + " / " + root.memTotalGB.toFixed(1) + " GB"
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 92
+        spacing: 8
+
+        Repeater {
+          model: root.disks
+
+          StatTile {
+            required property var modelData
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            glyph: "󰋊"
+            title: modelData.name
+            valueText: Math.round(modelData.percent * 100) + "%"
+            barValue: modelData.percent
+            subText: modelData.usedGB.toFixed(0) + " / " + modelData.totalGB.toFixed(0) + " GB"
+          }
+        }
+
+        // Padding filler so a single disk doesn't stretch to fill the
+        // whole row width like the 2-tile rows above it.
+        Item { Layout.fillWidth: root.disks.length < 2; visible: root.disks.length < 2 }
+      }
+
+      Item { Layout.fillHeight: true }
     }
   }
 }

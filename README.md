@@ -2686,6 +2686,41 @@ passes (a live `/proc/stat` read, not a static value). Right-side stat
 tiles (GPU etc.) explicitly deferred to a follow-up, per the request's
 own "focus on the left panel first then the stats widgets."
 
+## Per-core CPU rows split into two, temperature added
+
+Per direct follow-up: "for the CPU we gotta do 2 rows for each core,
+first row is core icon and progress bar then percentage the row below
+is the name then on the right aligned of this temperature." Matches
+ambxst's own real CPU section shape more closely too (their
+`ResourceItem` row, then a details row below it) -- just with percent
+moved up onto the bar's own row instead of down with the name.
+
+Each core's delegate is now a `Column` of two `RowLayout`s:
+- Row 1: microchip icon + usage bar (`Layout.fillWidth`) + percentage.
+- Row 2: `"Core N"` (left, `Layout.leftMargin: 26` to align under the
+  bar rather than the icon) + real temperature, right-aligned.
+
+Real per-core temperature is a genuinely new data source, not
+something already sitting in `coreUsages`: `sensors -j` (lm_sensors'
+own `coretemp` driver), confirmed by running it directly on this
+machine first -- `coretemp-isa-0000` reports `"Core 0"`.`"Core 3"` keys
+each with a `tempN_input` field (the numeric index in `tempN` varies
+per key, so the parser takes whichever field on that object ends in
+`_input` rather than assuming a fixed name). fastfetch's own `CPU.
+temperature` field is `null` on this machine (aggregate-only, and
+unpopulated here regardless), so this genuinely couldn't have come from
+the same fastfetch call the identity rows already use. Polled on the
+same 2s `Timer` as the CPU-usage `/proc/stat` read, into a new
+`coreTemps` array index-aligned with `coreUsages`.
+
+**Verified**: screenshotted the live tab -- confirmed two visually
+distinct rows per core (bar+percent on top, name+temp below, temp
+right-aligned), with real, currently-accurate readings (`70°C` across
+all four cores, matching this specific CPU's behavior of reporting a
+near-uniform package-wide temperature across cores, confirmed by
+comparing directly against the `sensors` command's own plain-text
+output run moments earlier in the same terminal).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

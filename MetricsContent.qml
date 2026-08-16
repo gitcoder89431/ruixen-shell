@@ -1196,39 +1196,6 @@ Item {
               }
             }
 
-            // Split bar -- green (download) / red (upload), per direct
-            // request ("this progress bar where its split between
-            // green and red, red is like upload and green is
-            // download"). Widths are each direction's SHARE of current
-            // total throughput, not an absolute percentage -- network
-            // speed has no natural 0-100% ceiling the way CPU/RAM do,
-            // so this reads as "which direction dominates right now"
-            // rather than "how full is the pipe".
-            ClippingRectangle {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 6
-              radius: 3
-              color: Qt.rgba(1, 1, 1, 0.08)
-
-              Row {
-                anchors.fill: parent
-
-                Rectangle {
-                  width: parent.width * root.netDownloadShare
-                  height: parent.height
-                  color: "#3ecf5b"
-                  Behavior on width { NumberAnimation { duration: 200 } }
-                }
-
-                Rectangle {
-                  width: parent.width * (1 - root.netDownloadShare)
-                  height: parent.height
-                  color: "#e05252"
-                  Behavior on width { NumberAnimation { duration: 200 } }
-                }
-              }
-            }
-
             Item { Layout.fillHeight: true }
 
             RowLayout {
@@ -1284,6 +1251,43 @@ Item {
               font.pixelSize: 12
               color: root.muted
               Layout.fillWidth: true
+            }
+
+            // Split bar -- moved to the card's own footer, below the
+            // rate/total rows, per direct follow-up ("put the progress
+            // bar on the footer of the card the upload and download
+            // above it"). Green (download) / red (upload), widths are
+            // each direction's SHARE of current total throughput, not
+            // an absolute percentage -- network speed has no natural
+            // 0-100% ceiling the way CPU/RAM do, so this reads as
+            // "which direction dominates right now" rather than "how
+            // full is the pipe". Hidden alongside the rows when
+            // there's no connection -- a meaningless 50/50 split isn't
+            // worth showing next to "No connection".
+            ClippingRectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 6
+              radius: 3
+              color: Qt.rgba(1, 1, 1, 0.08)
+              visible: root.netInterface !== ""
+
+              Row {
+                anchors.fill: parent
+
+                Rectangle {
+                  width: parent.width * root.netDownloadShare
+                  height: parent.height
+                  color: "#3ecf5b"
+                  Behavior on width { NumberAnimation { duration: 200 } }
+                }
+
+                Rectangle {
+                  width: parent.width * (1 - root.netDownloadShare)
+                  height: parent.height
+                  color: "#e05252"
+                  Behavior on width { NumberAnimation { duration: 200 } }
+                }
+              }
             }
           }
         }

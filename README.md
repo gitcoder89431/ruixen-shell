@@ -3231,6 +3231,23 @@ documented elsewhere in this project applies here too, a plain
 real `1.5 KB/s` down vs. `728 B/s` up numbers shown in the rows right
 below it (roughly 2:1, matching the bar).
 
+## Split bar moved to the card's footer
+
+Per direct follow-up: "put the progress bar on the footer of the card
+the upload and download above it." Reordered the tile's `ColumnLayout`
+children -- header, spacer, Download row, Upload row, `"No
+connection"` fallback, THEN the split bar last, instead of the bar
+sitting between the header and the rows. Also added `visible:
+root.netInterface !== ""` to the bar itself, matching the rows' own
+guard -- a meaningless 50/50 split next to a `"No connection"` message
+wasn't worth showing.
+
+**Verified**: screenshotted the live tab -- confirmed Download/Upload
+rows now sit above the bar, which sits flush at the card's bottom edge
+as its footer; visual ratio (mostly green, download at `95.1 KB/s`
+heavily outweighing upload's `3.3 KB/s` at capture time) still tracked
+the real numbers correctly after the reorder.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -3644,6 +3644,22 @@ portal-registration warning), screenshotted the live panel -- dial and
 usage text now sit centered as a compact group within each tile
 instead of stretched toward the left edge.
 
+## Side padding added to the CPU/GPU temperature bar
+
+Direct follow-up: "hmm maybe center the progress bar too, so like
+that means some side padding to it?" -- the temp bar's own `RowLayout`
+ran full-width edge to edge, while the dial+usage row above it (after
+the previous pass) now reads as centered/inset. Added `Layout.
+leftMargin: 8` / `Layout.rightMargin: 8` to the temp bar's `RowLayout`
+so it's inset to match, instead of spanning the tile's full raw width.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- temp bar
+now has visible side padding matching the centered dial+usage group
+above it.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

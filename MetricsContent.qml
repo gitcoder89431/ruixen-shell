@@ -928,12 +928,18 @@ Item {
             }
           }
 
-          // Full-width temperature bar, below the dial+usage row, per
-          // direct request -- same visual language as the per-core CPU
-          // list's own bars (thin rounded track + accent fill), just
-          // full-width instead of sharing a row with an icon/label.
+          // Temperature bar, below the dial+usage row, per direct
+          // request -- same visual language as the per-core CPU list's
+          // own bars (thin rounded track + accent fill), just sharing
+          // a row with a temperature label instead of an icon/name.
+          // Side margins added per direct follow-up ("maybe center the
+          // progress bar too, so like that means some side padding to
+          // it?") -- matches the dial+usage row above it, which reads
+          // as centered/inset now rather than running edge-to-edge.
           RowLayout {
             Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
             visible: tile.tempC >= 0
             spacing: 6
 

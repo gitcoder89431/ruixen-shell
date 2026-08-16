@@ -2540,6 +2540,30 @@ screenshotted, and confirmed the black line now reads as a distinct,
 substantial inner frame instead of a thin trace easily lost next to the
 accent ring. Reverted after.
 
+## Fixed the gap between the ring and the inner black band
+
+Per direct correction: "the ring is floating now... theres like a empty
+space... BORDER BLACK IMAGE... thats the layer." The thickening above
+bumped the black band's `anchors.margins` to `5` without also updating
+it to account for the outer ring's own `border.width` (`2`) -- leaving
+a `3px` transparent gap between where the accent ring's stroke ended
+and where the black band's stroke began, with the raw image showing
+through that gap. Looked like two disconnected floating rings instead
+of one continuous frame.
+
+The rule that actually matters here: the inner band's `anchors.margins`
+must equal the outer ring's `border.width`, exactly, not some
+independently-chosen "how thick do I want the gap" number -- anything
+else leaves see-through space between the two strokes. Fixed:
+`anchors.margins: 5 -> 2` (matching the ring's `border.width: 2`
+precisely), `border.width` on the black band left at `5`. Now the
+layering is genuinely `border (accent) -> black -> image`, edge to
+edge, no gap.
+
+**Verified**: same live-hardcode method, screenshotted, confirmed the
+accent ring and black band now sit directly flush against each other
+with zero visible image between them.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

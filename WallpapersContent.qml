@@ -210,8 +210,13 @@ Item {
             // Hover decoration only -- a separate overlay sibling, not
             // a property on the image's own container, so it can never
             // affect the image's geometry or force a clip rebuild.
-            // Accent ring + a nested inset black line, both plain
-            // borders on transparent-filled Rectangles.
+            // Two directly-adjacent bands stacked outside-in: accent
+            // ring at the very edge, then the black band starting
+            // exactly where the ring ends (anchors.margins here MUST
+            // equal the ring's own border.width, 2 -- anything bigger
+            // leaves a transparent gap between them that the raw image
+            // shows through, reading as a separate floating ring
+            // instead of one continuous frame).
             Rectangle {
               anchors.fill: parent
               radius: 10
@@ -221,12 +226,9 @@ Item {
               visible: tile.hovered
               z: 2
 
-              // Thicker + further inset than a hairline, closer to
-              // ambxst's own real proportions (their inset border is a
-              // substantial ~28px band, not a thin 1-2px trace).
               Rectangle {
                 anchors.fill: parent
-                anchors.margins: 5
+                anchors.margins: 2
                 radius: 8
                 color: "transparent"
                 border.width: 5

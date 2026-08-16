@@ -1895,6 +1895,58 @@ plain muted grey instead of the theme accent otherwise. Swapped to
 (forced `root.dnd: true` for the red case) -- teal accent normally, red
 under DND, consistent with the dashboard's header bell now.
 
+## Interaction model rewrite: click-to-open, click-away-to-close
+
+Per direct request/discussion ("this notch behavior... hover expand is
+kinda... maybe people dont like that... would [click the avatar to
+open, click away to dismiss] be better?"): hover-to-expand removed
+entirely. The tradeoff discussed first -- hover risks accidental
+triggers (dragging a window near the top edge, reaching for something
+else there), click is unambiguous; the cost is losing the "quick glance
+without committing" convenience, judged acceptable.
+
+**Removed**: the big background `MouseArea` that covered the whole
+collapsed notch (`hoverEnabled: true`, `onEntered`/`onExited` toggling
+`hoverOpen`, `onClicked` toggling `pinnedOpen`), the `hoverExitTimer`
+220ms debounce it needed (hover has an inherent "did I actually mean to
+leave" ambiguity a real click doesn't), and the `hoverOpen` property
+itself. `expanded` simplified to `pinnedOpen || launcherOpen` (was
+`pinnedOpen || hoverOpen || launcherOpen`); `clickedOpen` -- previously
+a separate property specifically excluding the hover-only case from the
+widened click-away mask -- removed entirely and its 3 call sites
+switched to `expanded` directly, since the two properties became
+identical once `hoverOpen` was gone.
+
+**Added**: each interactive element in the collapsed row now owns its
+own exact click target instead of relying on the removed catch-all:
+
+- **Avatar** -- new `MouseArea` (`-6` margin, matching the small-icon
+  hit-target pattern already used elsewhere in this file),
+  `onClicked: panel.pinnedOpen = true`. The one and only way to open
+  the dashboard now.
+- **Play/pause** -- already had its own `MouseArea` (needed even
+  before, to stop the old big background area from stealing the click
+  and toggling pin instead of playback) -- comment updated to reflect
+  why it's still needed (now peer to the avatar/bell, not "escaping" a
+  catch-all).
+- **Bell** -- per direct request ("the notification toggle right"),
+  gained a real `MouseArea` calling
+  `notificationService.setDoNotDisturb(!root.dnd)` -- the same real API
+  `ruixen.dnd`'s own bar pill already uses, not a new reimplementation.
+  Was purely decorative before (state readout only, no click handler at
+  all).
+
+**Testing note**: this environment has no working mouse-click
+simulation (documented extensively elsewhere in this project's history)
+-- verified the STRUCTURAL side (expand/collapse still renders
+correctly with `hoverOpen` fully removed, both collapsed and pinned-
+open states screenshotted cleanly, no QML runtime errors in
+`log.qslog`) via the established `pinnedOpen` file-hardcode method, but
+the actual click GESTURES on the avatar/play-pause/bell (as opposed to
+the code paths they call, each already proven correct/matching working
+patterns elsewhere) couldn't be end-to-end tested by an actual click in
+this session.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -248,6 +248,20 @@ Item {
       maskThresholdMin: 0.5
       maskThresholdMax: 1.0
     }
+
+    // The click target for opening the dashboard now that hover-to-
+    // expand is gone -- per direct request. Only ever visible/hit-
+    // testable in the collapsed row (its parent Row's own visible:
+    // false while expanded already makes this inert then, no extra
+    // guard needed). Margins widen the actual hit target past the
+    // small 20px visual circle, same -6 pattern used elsewhere in this
+    // file for small icons.
+    MouseArea {
+      anchors.fill: parent
+      anchors.margins: -6
+      cursorShape: Qt.PointingHandCursor
+      onClicked: panel.pinnedOpen = true
+    }
   }
 
   // Thin vertical divider, ported from Separator.qml.
@@ -321,34 +335,42 @@ Item {
     // input, same as every other passive hover state in this file.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-    // Widens to the full panel only while deliberately clicked open
-    // (pinned or launcher -- see clickedOpen above), so a click anywhere
-    // outside the notch itself actually reaches this surface (see the
-    // click-away MouseArea below) instead of passing straight through to
-    // whatever's behind, like every other collapsed/hover-only state
-    // does via the tight notchOuter-sized mask.
+    // Widens to the full panel only while open (pinned or launcher --
+    // see expanded below), so a click anywhere outside the notch itself
+    // actually reaches this surface (see the click-away MouseArea
+    // below) instead of passing straight through to whatever's behind.
+    // Collapsed is the only other state now -- hover-to-expand was
+    // removed (see expanded below), so there's no longer a third
+    // "briefly widened but shouldn't swallow other clicks" case to
+    // exclude here.
     mask: Region {
-      x: panel.clickedOpen ? 0 : notchOuter.x
-      y: panel.clickedOpen ? 0 : notchOuter.y
-      width: panel.clickedOpen ? panel.width : notchOuter.width
-      height: panel.clickedOpen ? panel.height : notchOuter.height
+      x: panel.expanded ? 0 : notchOuter.x
+      y: panel.expanded ? 0 : notchOuter.y
+      width: panel.expanded ? panel.width : notchOuter.width
+      height: panel.expanded ? panel.height : notchOuter.height
     }
 
+    // Hover-to-expand removed entirely, per direct request -- clicking
+    // the avatar (see UserAvatar's own MouseArea) is now the only way
+    // to open the dashboard, dismissing by clicking away (below).
+    // Deliberate over accidental: hovering near the top of the screen
+    // for an unrelated reason (dragging a window, reaching for
+    // something else at the top edge) no longer pops the notch open.
+    // This also removes the hoverExitTimer debounce hack that hover
+    // needed (see the old git history if that's ever wanted back) --
+    // a real click has no equivalent "did I actually mean to leave"
+    // ambiguity a hover does.
     property bool pinnedOpen: false
-    property bool hoverOpen: false
     // Third mode, alongside collapsed/media -- quick app launcher (a
     // few favorite icons), triggered by ruixen.applauncher's own bar
-    // icon over IPC (see IpcHandler below), not by hover/click on the
-    // notch itself like pinnedOpen/hoverOpen.
+    // icon over IPC (see IpcHandler below), not by clicking the avatar
+    // like pinnedOpen.
     property bool launcherOpen: false
-    readonly property bool expanded: pinnedOpen || hoverOpen || launcherOpen
-    // Deliberately-opened states (a real click, not just a passing
-    // hover) -- these are the ones that need the widened click-away
-    // mask below. Plain hoverOpen is excluded on purpose: it already
-    // self-dismisses on mouse-exit (see hoverExitTimer), and widening
-    // the mask for it would swallow clicks meant for other windows
-    // during a simple hover-preview, not just this notch.
-    readonly property bool clickedOpen: pinnedOpen || launcherOpen
+    // Only two ways to be open now (pinned or launcher), both from a
+    // real click -- used directly for the widened click-away mask too
+    // (see above), no separate "clickedOpen" needed anymore now that
+    // there's no passing-hover state to exclude from it.
+    readonly property bool expanded: pinnedOpen || launcherOpen
 
     // Which dashboard tab is showing (media/media hover/pin state only --
     // launcher mode is unrelated). 0 Widgets (DashboardContent, the real
@@ -424,9 +446,8 @@ Item {
       // own separate 420x190 branch, proven safe, since an earlier
       // attempt at a new size for launcher specifically (340x260, then
       // up to 360) hit that exact masking bug. Decoupled from
-      // pinnedOpen/hoverOpen here so a size change on one never risks
-      // the other.
-      readonly property int bodyWidth: panel.launcherOpen ? 420 : ((panel.pinnedOpen || panel.hoverOpen) ? 900 : 260)
+      // pinnedOpen here so a size change on one never risks the other.
+      readonly property int bodyWidth: panel.launcherOpen ? 420 : (panel.pinnedOpen ? 900 : 260)
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a
@@ -437,7 +458,7 @@ Item {
       // previously-tested-safe value, so stress-tested 3x (open/close
       // cycles, checking the bottom-corner mask each time) against the
       // masking bug documented below before keeping it.
-      height: panel.launcherOpen ? 190 : ((panel.pinnedOpen || panel.hoverOpen) ? 400 : 44)
+      height: panel.launcherOpen ? 190 : (panel.pinnedOpen ? 400 : 44)
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
@@ -531,27 +552,12 @@ Item {
         }
       }
 
-      // Small grace period before an exit actually collapses the notch.
-      // Without this, reaching for content near the expanded box's own
-      // edges (the dashboard's left tab bar in particular -- see
-      // DashboardContent/the tab bar above) could catch the cursor
-      // mid-grow-animation or briefly outside the hit rect and collapse
-      // the whole thing before a click could land, "chasing" the target
-      // as it shrank back out from under the mouse.
-      Timer {
-        id: hoverExitTimer
-        interval: 220
-        repeat: false
-        onTriggered: panel.hoverOpen = false
-      }
-
-      MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        onEntered: { hoverExitTimer.stop(); panel.hoverOpen = true }
-        onExited: hoverExitTimer.restart()
-        onClicked: panel.pinnedOpen = !panel.pinnedOpen
-      }
+      // No general-purpose background MouseArea here anymore -- opening
+      // is now only via clicking the avatar (see UserAvatar's own
+      // MouseArea below), closing only via clicking away (the mask
+      // MouseArea above). Individual interactive elements in the
+      // collapsed row (avatar, play/pause, bell) each own their exact
+      // click target instead of one catch-all area behind everything.
 
       Item {
         anchors.fill: parent
@@ -594,10 +600,10 @@ Item {
               // next to the 20px avatar in this same row.
               font.pixelSize: 18
 
-              // Own click target, same reasoning as ruixen.media's play
-              // badge: this sits inside the notch's big MouseArea
-              // (hover=expand, click=pin), so without its own handler a
-              // click here would just toggle the pin instead of playback.
+              // Own click target, same pattern as the avatar/bell now
+              // that there's no big background MouseArea to compete
+              // with -- each interactive element in this row owns its
+              // exact hit area independently.
               MouseArea {
                 anchors.fill: parent
                 anchors.margins: -6
@@ -710,6 +716,18 @@ Item {
             font.pixelSize: 18
 
             Behavior on color { ColorAnimation { duration: 160 } }
+
+            // Real toggle now, not just a state readout -- per direct
+            // request ("the notification toggle right"). Same real API
+            // ruixen.dnd's own bar pill calls
+            // (notificationService.setDoNotDisturb), not a separate
+            // reimplementation.
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -6
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.notificationService) root.notificationService.setDoNotDisturb(!root.dnd)
+            }
           }
         }
 
@@ -750,11 +768,11 @@ Item {
               Layout.fillHeight: true
               spacing: 8
 
-              // Clicking a tab also pins the notch open (same flag the
-              // notch's own click-to-pin uses) -- without this, staying
-              // open here depended entirely on unbroken hover, and a tab
-              // click near the box's own edge could lose that hover
-              // (see hoverExitTimer above) right as the click landed.
+              // Explicitly sets pinnedOpen: true too, even though it's
+              // already true by the time a tab is clickable at all
+              // (this whole bar only exists inside the pinned-open
+              // dashboard now that hover-to-expand is gone) -- cheap
+              // safety net, not load-bearing anymore.
               TabButton {
                 glyph: "󰕰"
                 active: panel.dashboardTab === 0

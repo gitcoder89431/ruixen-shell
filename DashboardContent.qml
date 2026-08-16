@@ -1139,15 +1139,25 @@ Item {
             var cx = width / 2, cy = height / 2, r = width / 2 - 8
             var startAngle = Math.PI / 2 + Math.PI / 4
             var totalSweep = Math.PI * 2 - Math.PI / 2
+            var endAngle = startAngle + value * totalSweep
+            // Small angular gap on both sides of the tip (~3px of arc
+            // length, converted to radians via arc-length/radius) so
+            // neither arc actually touches it -- ambxst's own handle
+            // has this exact detail (their handleGapRad), trimming
+            // both the progress arc's end and the remaining track's
+            // start short of the handle position. Subtle on purpose,
+            // per direct request ("slight gap... subtle, small
+            // detail").
+            var gapRad = 3 / r
             ctx.lineWidth = 3
             ctx.lineCap = "round"
             ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()
-            ctx.arc(cx, cy, r, startAngle, startAngle + totalSweep)
+            ctx.arc(cx, cy, r, Math.min(startAngle + totalSweep, endAngle + gapRad), startAngle + totalSweep)
             ctx.stroke()
             ctx.strokeStyle = root.accent
             ctx.beginPath()
-            ctx.arc(cx, cy, r, startAngle, startAngle + value * totalSweep)
+            ctx.arc(cx, cy, r, startAngle, Math.max(startAngle, endAngle - gapRad))
             ctx.stroke()
 
             // Thick tip at the current value, same treatment as the
@@ -1159,7 +1169,6 @@ Item {
             // thick"), matching how the bigger player ring's tip
             // already reads chunkier than its own track.
             if (value > 0) {
-              var endAngle = startAngle + value * totalSweep
               // Shortened -- r-3/r+5 (an 8px span) stuck out too far
               // past the ring, per direct feedback.
               var tipR1 = r - 2

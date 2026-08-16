@@ -1540,6 +1540,19 @@ player ring. Verified via zoomed screenshot crops on both dials.
 sticking out too much") -- offset span `r-3`/`r+5` (8px) tightened to
 `r-2`/`r+3` (5px).
 
+**Follow-up: small gap on both sides of the tip.** Per direct request
+("slight gap between the front and back of the tip... subtle, small
+detail") -- ambxst's real handle already has this exact detail
+(`handleGapRad` in `CircularControl.qml`, trimming both the progress
+arc's end and the remaining track's start short of the handle). Added
+the same: `gapRad = 3 / r` (a ~3px arc-length gap, converted to radians
+via arc-length/radius), progress arc now ends at `endAngle - gapRad`
+instead of `endAngle`, track arc now starts at `endAngle + gapRad`
+instead of `startAngle` -- both clamped (`Math.max`/`Math.min`) so
+values near 0 or the full sweep don't produce a negative-length arc.
+Verified via zoomed screenshot -- a subtle dark sliver now separates
+the tip from both arcs on either side.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

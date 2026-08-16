@@ -295,10 +295,20 @@ Item {
         maskSpreadAtMin: 1.0
       }
 
-      ColumnLayout {
+      // Plain Item + a centered inner ColumnLayout, not two fillHeight
+      // spacers -- those didn't split evenly (ColumnLayout's flex-space
+      // distribution isn't a clean 50/50 with this many mixed fixed/
+      // flexible children), leaving the disc pinned near the top and
+      // the transport row glued to the bottom edge. anchors.centerIn
+      // is simple and predictable: centers the whole content block as
+      // one group, no fighting flex-space math.
+      Item {
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 8
+
+        ColumnLayout {
+          anchors.centerIn: parent
+          width: parent.width - 20
+          spacing: 8
 
         // Disc + progress ring share one square container, both
         // centered -- the ring's radius is bigger than the disc's, so
@@ -370,7 +380,9 @@ Item {
           }
         }
 
-        Item { Layout.fillHeight: true }
+        // Fixed gap, not a fillHeight spacer -- the whole block is
+        // already centered by the outer Item's anchors.centerIn now.
+        Item { Layout.preferredHeight: 12 }
 
         Row {
           Layout.fillWidth: true
@@ -415,6 +427,7 @@ Item {
               onClicked: if (root.mediaService) root.mediaService.runAction("next", false)
             }
           }
+        }
         }
       }
     }

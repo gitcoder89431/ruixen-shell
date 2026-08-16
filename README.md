@@ -645,6 +645,22 @@ the disc's own top edge instead of sitting as a separate element. The
 old flat linear progress `Rectangle` row is gone, replaced entirely by
 this ring.
 
+## Player content block: actually centered vertically
+
+Per direct feedback: the disc/title block sat pinned to the very top
+(no top padding) while the transport controls landed right at the
+card's bottom edge. First attempt paired the existing bottom
+`Layout.fillHeight` spacer with a matching one above the disc,
+assuming `ColumnLayout` would split leftover space evenly between
+them -- it didn't (still visibly bottom-heavy after), and a follow-up
+`anchors.bottomMargin` bump barely moved anything against a ~250px
+gap. Replaced both fillHeight spacers entirely: the whole content
+block (disc, title/artist, a small fixed `12px` gap, transport row)
+now lives in one inner `ColumnLayout` with `anchors.centerIn: parent`
+on an outer plain `Item`, instead of fighting `ColumnLayout`'s own
+flex-space distribution. Centers the whole group as one unit,
+predictably, real padding on both sides.
+
 ## Sharp-edge accent ring added
 
 The "border" the user kept describing across this whole saga turned

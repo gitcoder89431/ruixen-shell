@@ -784,6 +784,39 @@ Item {
           anchors.margins: 8
           spacing: 4
 
+          // Header row -- matching Network/Memory's own icon+title
+          // shape, per direct request ("make the header like network
+          // and memory for CPU and GPU too"). CPU/GPU never had a
+          // distinct header row before; the icon lived inside the
+          // dial and the title was folded into the "Usage X%" line
+          // instead.
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            Text {
+              text: tile.glyph
+              font.family: root.fontFamily
+              font.pixelSize: 15
+              color: root.muted
+            }
+
+            Text {
+              text: tile.title
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              font.weight: Font.DemiBold
+              color: root.textColor
+              Layout.fillWidth: true
+            }
+          }
+
+          // Centers the dial+usage row and the temperature bar below
+          // as one block, same top+bottom Item { Layout.fillHeight:
+          // true } pattern Network/Memory already use -- per direct
+          // follow-up ("kinda center the current middle section").
+          Item { Layout.fillHeight: true }
+
           RowLayout {
             Layout.fillWidth: true
             spacing: 10
@@ -859,7 +892,10 @@ Item {
               spacing: 2
 
               Text {
-                text: (tile.title ? tile.title + " " : "") + "Usage " + Math.round(tile.value * 100) + "%"
+                // Title prefix dropped -- the new header row above
+                // already says "CPU"/"GPU", so repeating it here read
+                // as "CPU CPU Usage 5%".
+                text: "Usage " + Math.round(tile.value * 100) + "%"
                 font.family: root.fontFamily
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
@@ -912,6 +948,8 @@ Item {
               horizontalAlignment: Text.AlignRight
             }
           }
+
+          Item { Layout.fillHeight: true }
         }
       }
 

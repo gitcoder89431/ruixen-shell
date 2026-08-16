@@ -3583,6 +3583,38 @@ screenshots (not just eyeballed) -- Network and Memory tiles' content
 now ends at the identical row, gaps between Download/Upload/bar/
 caption all uniform.
 
+## CPU/GPU tiles gained a header row, centered like Network/Memory
+
+Direct request: "hmm looking at the the CPU and GPU looks abit off
+centered lol. maybe make the header like network and memory for CPU
+and GPU too and then kinda center the current middle section?" --
+`DialTile` (CPU/GPU) never had a distinct header row the way Network
+and Memory do; the icon lived inside the dial itself and the title
+("CPU"/"GPU") was folded into the "Usage X%" line beside it, so the
+whole dial+usage+temp block just sat flush against the tile's top
+margin instead of centered as a group.
+
+Added a header `RowLayout` (icon at `root.muted`, title text
+DemiBold at `root.textColor`, `Layout.fillWidth: true` on the title)
+matching Network's and Memory's own header shape exactly. Wrapped the
+existing dial+usage row and temperature bar row in the same
+top+bottom `Item { Layout.fillHeight: true }` spacer pattern those two
+tiles already use, centering that whole block as a unit under the new
+header. Dropped the title prefix from the "Usage X%" text (was `tile.
+title + " Usage " + ...`, e.g. "CPU Usage 5%") since the header now
+says "CPU"/"GPU" on its own -- keeping it would have read as "CPU CPU
+Usage 5%". The dial's own icon (inside the ring) was left as-is,
+matching the literal request to center the EXISTING middle section
+rather than redesign it.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- CPU and
+GPU tiles now show a "CPU"/"GPU" header matching Network/Memory's
+style, with the dial+usage+temp-bar block centered as a group beneath
+it instead of sitting flush against the top margin.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

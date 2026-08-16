@@ -2271,6 +2271,55 @@ confirmed the grid narrowed from both theme wallpapers down to just the
 matching one; set to `"zzz-nomatch"` and confirmed the "No wallpapers
 match ‘zzz-nomatch’" empty state rendered instead of an empty grid.
 
+## Wallpaper tiles get ambxst's hover/active frame treatment
+
+Per direct request: "can we add that frame on the wallpaper selection
+hover and active that ambxst have, its has like a black inner shadow
+and then the name is on the buttom on hover over."
+
+Read ambxst's real tile treatment directly
+(`WallpapersTab.qml`'s shared `highlight` component) rather than
+guessing at the look. Their actual mechanism: one floating highlight
+`Item` tracks whichever tile is hovered OR the truly-selected one
+(`selectedIndex` gets set on both `MouseArea.onEntered` and the real
+selection), containing an accent-bordered `ClippingRectangle` plus a
+second, deliberately oversized `Rectangle` -- inset -20px on top/left/
+right but flush (0) on bottom, with a 28px-thick `Colors.background`
+border -- whose only visible remainder, once clipped by the
+`ClippingRectangle` around it, is a solid band across the tile's
+bottom edge. That band holds the label: the literal filename, or
+"CURRENT" for the actually-active wallpaper.
+
+Ported the visual RESULT, not that mechanism -- this plugin's tiles
+already each own their own `ClippingRectangle`/`MouseArea` (no shared
+floating overlay to hijack), so the identical look comes from something
+much simpler: a plain gradient `Rectangle` (`transparent` to
+`Qt.rgba(0,0,0,0.85)`, bottom 55% of the tile height) with a centered
+label `Text`, both faded in via `opacity` (`Behavior`, 120ms) whenever
+`tile.showFrame` is true. `showFrame` = `tileMouse.containsMouse ||
+tile.active`, matching ambxst's own "hover tracks the same highlight as
+the real selection" behavior -- so the currently-active wallpaper's
+frame+label sit there permanently (`"Current"`, accent-colored text),
+while hovering any *other* tile shows its own frame+filename without
+touching the active one's own state. The existing accent border ring
+now also keys off `showFrame` instead of just `active`, so hovering any
+tile gets the same ring the active one already had, not just the
+gradient/label.
+
+**Verified the always-on half live** (the active tile's frame doesn't
+need mouse simulation to prove -- it's driven by real
+`currentBackground` state, same as the existing ring): screenshotted
+the dashboard's Wallpapers tab and confirmed the current wallpaper's
+tile shows the accent ring, the gradient dark toward the bottom, and a
+centered "Current" label, matching the requested look. Hover-only
+behavior (any *non*-active tile getting the same treatment while moused
+over) is verified by code review -- `showFrame`'s `tileMouse.
+containsMouse` half uses the exact same `MouseArea.hoverEnabled`+
+`containsMouse` pattern already proven working elsewhere in this file
+(the pill-scrim hover treatment this replaced) -- real mouse hover
+still can't be simulated in this environment, the standing limitation
+noted throughout this README.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

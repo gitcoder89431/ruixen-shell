@@ -171,6 +171,10 @@ Item {
             id: tile
             required property string modelData
             readonly property bool active: tile.modelData === root.currentBackground
+            // Ring + label track hover OR active, matching ambxst's own
+            // behavior (their shared highlight item follows whichever
+            // tile is hovered, not just the truly-selected one).
+            readonly property bool showFrame: tileMouse.containsMouse || tile.active
 
             Layout.preferredWidth: 160
             Layout.preferredHeight: 100
@@ -179,8 +183,9 @@ Item {
               anchors.fill: parent
               radius: 10
               color: Qt.rgba(1, 1, 1, 0.05)
-              border.width: tile.active ? 2 : 0
+              border.width: tile.showFrame ? 2 : 0
               border.color: root.accent
+              Behavior on border.width { NumberAnimation { duration: 120 } }
 
               Image {
                 anchors.fill: parent
@@ -190,14 +195,41 @@ Item {
                 sourceSize: Qt.size(160, 100)
               }
 
-              // Hover/press feedback -- a flat scrim is enough, matches
-              // this plugin's other hover treatments (TabButton, dial
-              // MouseAreas) rather than inventing a new interaction style.
+              // Bottom inner-shadow + filename label, matching ambxst's
+              // real wallpaper tile treatment (WallpapersTab.qml's
+              // shared `highlight` item -- an oversized negative-margin
+              // bordered Rectangle clipped by a separate floating
+              // overlay, labeled "CURRENT" for the actual active
+              // wallpaper or the filename otherwise). Ported the visual
+              // RESULT here, not that mechanism -- these tiles already
+              // own their own ClippingRectangle/MouseArea each, so a
+              // plain per-tile gradient + centered label reads
+              // identically without needing a shared floating overlay
+              // or the border-clipping trick.
               Rectangle {
-                anchors.fill: parent
-                color: "black"
-                opacity: tileMouse.containsMouse ? 0.12 : 0
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: parent.height * 0.55
+                opacity: tile.showFrame ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 120 } }
+                gradient: Gradient {
+                  GradientStop { position: 0.0; color: "transparent" }
+                  GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.85) }
+                }
+
+                Text {
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: 6
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: parent.width - 12
+                  horizontalAlignment: Text.AlignHCenter
+                  elide: Text.ElideRight
+                  text: tile.active ? "Current" : tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
+                  color: tile.active ? root.accent : root.textColor
+                  font.family: root.fontFamily
+                  font.pixelSize: 10
+                }
               }
             }
 

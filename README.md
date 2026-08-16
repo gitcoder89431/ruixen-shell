@@ -1439,6 +1439,29 @@ Verified both bell states via the established hardcode method (forced
 `root.dnd: true` in `Overlay.qml`, screenshot, reverted) -- teal/accent
 normally, red under DND, orange broom in both.
 
+## Column 4 reordered/reshaped to match ambxst's actual real layout
+
+Per direct request ("the light thing up top, then a progress bar, then
+the speaker then the mic in that order"): checked ambxst's real
+`WidgetsTab.qml` directly rather than guessing. Their "circular controls
+column" is NOT three identical circular dials -- it's
+`brightnessContainer` (an icon + a vertical `StyledSlider`, genuinely a
+different SHAPE, not a dial) first, then `CircularControl` for volume
+(speaker), then `CircularControl` for mic, in exactly that order.
+
+Was previously speaker-dial / mic-dial / brightness-dial, all three the
+same circular shape, wrong order. Fixed to match: brightness is now a
+small `ColumnLayout` (sun glyph on top, a `6x48` vertical bar below it,
+dim track + accent fill at a fixed `0.8` value) instead of a `Dial`,
+followed by the existing `Dial` component reused unchanged for speaker
+(`0.65`) then mic (`0.4`). Ported the SHAPE (icon-over-bar vs. dial) and
+ORDER from their real source, not their sync-animation/multi-monitor
+brightness machinery or real Pipewire volume backend -- still static/
+decorative like the rest of this column, matching WidgetsTab.qml's
+actual visual structure now instead of an invented one.
+
+Verified via screenshot.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

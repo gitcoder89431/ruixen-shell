@@ -1138,9 +1138,44 @@ Item {
       }
 
       Item { Layout.fillHeight: true }
+
+      // Brightness -- checked ambxst's real source directly
+      // (WidgetsTab.qml's brightnessContainer): icon on top, a
+      // vertical bar below it, NOT a circular dial like speaker/mic
+      // get. Ported the shape (icon + linear fill bar), not their
+      // full sync-animation/multi-monitor machinery.
+      ColumnLayout {
+        Layout.alignment: Qt.AlignHCenter
+        spacing: 6
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: "󰃟"
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 14
+        }
+
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 6
+          Layout.preferredHeight: 48
+          radius: 3
+          color: Qt.rgba(1, 1, 1, 0.15)
+
+          Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height * 0.8
+            radius: 3
+            color: root.accent
+          }
+        }
+      }
+
       Dial { glyph: "󰕾"; value: 0.65 }
       Dial { glyph: "󰍬"; value: 0.4 }
-      Dial { glyph: "󰃟"; value: 0.8 }
       Item { Layout.fillHeight: true }
     }
   }

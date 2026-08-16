@@ -1255,11 +1255,17 @@ Item {
       // vertical bar below it, NOT a circular dial like speaker/mic
       // get) -- this reorder doesn't change that shape, just where
       // the pieces sit in the column.
+      // 38 -> 56, matching the left-rail TabButton and the Dial badges
+      // below exactly (both 56x56, radius 14) -- per direct request to
+      // match the tonal badge sizing across the whole rail. Glyph left
+      // at 20px unchanged: it was already sized for a 56px badge's own
+      // proportion (20/56, the same ratio TabButton/Dial use), just
+      // oversized relative to the old smaller 38px frame.
       Rectangle {
         Layout.alignment: Qt.AlignHCenter
-        Layout.preferredWidth: 38
-        Layout.preferredHeight: 38
-        radius: 12
+        Layout.preferredWidth: 56
+        Layout.preferredHeight: 56
+        radius: 14
         color: Qt.rgba(1, 1, 1, 0.06)
 
         Text {

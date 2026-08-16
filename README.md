@@ -1947,6 +1947,19 @@ the code paths they call, each already proven correct/matching working
 patterns elsewhere) couldn't be end-to-end tested by an actual click in
 this session.
 
+## Brightness badge matched to the left rail's own tonal badge size
+
+Per direct request ("match the tonal badge size of the brightness icon
+to like the left rail stuff, fill in the right panel nicely too"):
+brightness's tonal frame was `38x38` (`radius: 12`), noticeably smaller
+than both the left-rail `TabButton` and the `Dial` badges just below it
+(`56x56`, `radius: 14`). Grown to match exactly -- glyph left at `20px`
+unchanged, since that was already sized for a `56px` badge's own
+proportion (`20/56`, the same ratio `TabButton`/`Dial` use), just
+oversized relative to the old smaller frame. Verified via screenshot --
+the whole right rail now reads consistently sized top to bottom instead
+of the brightness badge looking undersized next to the dials.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

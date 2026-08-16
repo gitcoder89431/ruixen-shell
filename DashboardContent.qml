@@ -377,11 +377,17 @@ Item {
         // center + 65 radius) inside the 190-tall square, so a 165px
         // wrapper trims the genuinely-always-empty 25px below it
         // without risking clipping the disc itself under any state.
+        // Always visible now, even with nothing playing -- per direct
+        // feedback ("keep all the stuff shown so it doesnt get
+        // jumpy"), the whole card used to disappear down to just a
+        // title line when there was no active player, then pop back
+        // to full size the moment something started playing. Falls
+        // back to the desktop wallpaper (playerCard.playerBgSource
+        // already resolves that) instead of the track art when idle.
         Item {
           Layout.preferredWidth: 190
           Layout.preferredHeight: 165
           Layout.alignment: Qt.AlignHCenter
-          visible: root.artUrl !== ""
           clip: true
 
           Item {
@@ -410,7 +416,7 @@ Item {
 
               Image {
                 anchors.fill: parent
-                source: root.artUrl
+                source: playerCard.playerBgSource
                 sourceSize: Qt.size(260, 260)
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
@@ -436,9 +442,15 @@ Item {
           Layout.alignment: Qt.AlignHCenter
           spacing: 2
 
+          // Placeholder title/album/artist below (not root.displayedTitle,
+          // which is "user@host" -- meant for the collapsed notch's own
+          // fallback, not this dashboard) -- fixed, made-up text so the
+          // whole 3-line block stays visible and sized identically
+          // whether or not anything's actually playing, matching the
+          // "no jumpiness" goal above.
           Text {
             Layout.fillWidth: true
-            text: root.hasMedia ? root.title : root.displayedTitle
+            text: root.hasMedia ? root.title : "Nothing Playing"
             color: root.textColor
             font.family: root.fontFamily
             font.pixelSize: 12
@@ -449,8 +461,8 @@ Item {
 
           Text {
             Layout.fillWidth: true
-            visible: root.hasMedia && root.album !== ""
-            text: root.album
+            visible: root.hasMedia ? root.album !== "" : true
+            text: root.hasMedia ? root.album : "Enjoy the Silence"
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 10
@@ -460,8 +472,8 @@ Item {
 
           Text {
             Layout.fillWidth: true
-            visible: root.hasMedia && root.artist !== ""
-            text: root.artist
+            visible: root.hasMedia ? root.artist !== "" : true
+            text: root.hasMedia ? root.artist : "White Noise"
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 10

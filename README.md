@@ -1187,6 +1187,43 @@ Per direct feedback, toned `WavyLine.lineWidth` and the playhead
 `4`. The `20px` container has plenty of headroom for the smaller wave
 extent now (`+-(amp+lineWidth/2)` drops to `+-5.7px`), no clipping risk.
 
+## Empty-state (no media) no longer collapses the whole card
+
+Per direct feedback ("keep all the stuff shown so it doesnt get jumpy"):
+the disc/ring `Item` had `visible: root.artUrl !== ""`, and the album/
+artist `Text` lines had `visible: root.hasMedia && ...` -- with nothing
+playing, the whole card shrank down to just a title line, then popped
+back to full size the instant something started playing. Made every
+piece of the card always-visible and always-sized the same regardless
+of `hasMedia`:
+
+- **Disc art**: now sources `playerCard.playerBgSource` instead of
+  `root.artUrl` directly -- that property already resolves to the
+  desktop wallpaper when there's no track art (added earlier for the
+  blurred backdrop), so the disc just shows a crop of the wallpaper when
+  idle instead of being hidden.
+- **Title**: `"Nothing Playing"` instead of `root.displayedTitle`
+  (`user@host` -- that fallback exists for the COLLAPSED notch's own
+  title, not this dashboard, and reads wrong here).
+- **Album / artist**: made-up placeholder text per direct request --
+  `"Enjoy the Silence"` / `"White Noise"` -- shown unconditionally when
+  idle instead of being hidden.
+- **Duration**: already handled correctly (`"--:-- / --:--"` when
+  `!hasMedia`), no change needed there.
+- **Ring/transport/play-icon**: no changes needed -- `progressRatio`
+  naturally computes to `0` and `isPlaying` to `false` when there's
+  really no active player, which already renders as an empty grey ring
+  and a plain play glyph with no extra logic required.
+
+Verified two ways: first with only `hasMedia` hardcoded to `false` (a
+real player was still active in the background, so `progressRatio`/
+`isPlaying` leaked through from it -- a testing artifact, not a bug,
+caught immediately from the ring showing a stale full progress arc);
+then with `isPlaying`/`progressRatio` also forced to `false`/`0` to
+simulate a genuinely idle state -- empty ring, play (not pause) icon,
+wallpaper crop in the disc, all three placeholder lines, `--:-- / --:--`.
+Matches the actual "nothing playing at all" case correctly.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

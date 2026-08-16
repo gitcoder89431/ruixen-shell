@@ -565,7 +565,13 @@ Item {
 
             Text {
               anchors.centerIn: parent
-              text: root.playIcon
+              // Stop-circle-outline (md-stop_circle_outline, U+F0667)
+              // in the genuinely idle state instead of the play
+              // triangle -- per direct request ("instead of the play
+              // icon... a stop like ghost unfilled stop icon"), a
+              // hollow outline glyph reads as "stopped", not "ready to
+              // play something that isn't there".
+              text: root.hasMedia ? root.playIcon : "󰙧"
               color: "#000000"
               font.family: root.fontFamily
               font.pixelSize: 20

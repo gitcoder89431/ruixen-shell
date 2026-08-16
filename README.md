@@ -1383,6 +1383,28 @@ everything else stays dim. Verified via screenshot -- today is Saturday
 in the current test, and the "S" label reads bright while the rest stay
 muted, lining up with the accent-highlighted day cell below it.
 
+## Idle play/pause chip shows a stop icon instead of play
+
+Per direct request ("instead of the play icon... a stop like ghost
+unfilled stop icon"): the big transport chip showed the play triangle
+even with nothing playing, which read like it was offering to play
+something that doesn't exist. Swapped in `md-stop_circle_outline`
+(`U+F0667`, a hollow outline circle-with-stop-square) for exactly the
+`!root.hasMedia` case -- looked up via the established `fontTools`
+cmap-search method (same as the earlier broom-glyph fix) rather than
+guessing a codepoint.
+
+**PUA glyph, so the `Edit` tool couldn't be used directly** -- same
+documented gotcha as every other new glyph insertion in this file:
+`Edit` writes the literal escape text instead of the actual character.
+Inserted via the usual Python heredoc (`'\U000f0667'`, a real Python
+string literal Python itself decodes to the character before writing
+bytes to disk).
+
+Only the glyph changed, not the chip's fill/color -- still the same
+accent-filled square, just showing the outline-stop icon instead of
+play when idle. Verified via screenshot with `hasMedia` forced `false`.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

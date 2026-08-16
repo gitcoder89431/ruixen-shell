@@ -946,6 +946,112 @@ Item {
           }
         }
       }
+
+      // Memory's own dial variant -- per direct request ("it should be
+      // a dial too 45% Used in it instead of the logo... the bar seems
+      // redundant though... feature the amount 5.1 / 11 GiB"). No icon
+      // (memory has no identifying logo/name the way CPU/GPU do) --
+      // the percentage itself sits centered inside the ring instead,
+      // and the used/total amount is the featured, centered text below
+      // it rather than a small subtext line. The old StatTile's linear
+      // bar is dropped entirely for this one -- the ring already is
+      // the usage indicator, a second one was redundant.
+      component MemoryDialTile: Rectangle {
+        id: tile
+        property real value: 0
+        property string amountText: ""
+
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.05)
+
+        property color ringAccent: root.accent
+        onRingAccentChanged: dialCanvas.requestPaint()
+        onValueChanged: dialCanvas.requestPaint()
+
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: 10
+          spacing: 4
+
+          Text {
+            text: "Memory"
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            color: root.muted
+            Layout.fillWidth: true
+          }
+
+          Item { Layout.fillHeight: true }
+
+          Item {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 60
+            Layout.preferredHeight: 60
+
+            Canvas {
+              id: dialCanvas
+              anchors.fill: parent
+              onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                var cx = width / 2, cy = height / 2, r = width / 2 - 6
+                var startAngle = Math.PI / 2 + Math.PI / 4
+                var totalSweep = Math.PI * 2 - Math.PI / 2
+                var endAngle = startAngle + Math.max(0, Math.min(1, tile.value)) * totalSweep
+                var handleSpacing = 5
+                var gapRad = handleSpacing / r
+                ctx.lineWidth = 4
+                ctx.lineCap = "round"
+                ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+                ctx.beginPath()
+                ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
+                ctx.stroke()
+
+                ctx.strokeStyle = tile.ringAccent
+                ctx.beginPath()
+                var progressEnd = Math.max(startAngle, endAngle - gapRad)
+                ctx.arc(cx, cy, r, startAngle, progressEnd)
+                ctx.stroke()
+
+                var tipR1 = r - 2
+                var tipR2 = r + 3
+                var tx1 = cx + tipR1 * Math.cos(endAngle)
+                var ty1 = cy + tipR1 * Math.sin(endAngle)
+                var tx2 = cx + tipR2 * Math.cos(endAngle)
+                var ty2 = cy + tipR2 * Math.sin(endAngle)
+                ctx.lineWidth = 5
+                ctx.lineCap = "round"
+                ctx.strokeStyle = "#ffffff"
+                ctx.beginPath()
+                ctx.moveTo(tx1, ty1)
+                ctx.lineTo(tx2, ty2)
+                ctx.stroke()
+              }
+            }
+
+            Text {
+              anchors.centerIn: parent
+              text: Math.round(tile.value * 100) + "%"
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              font.weight: Font.DemiBold
+              color: root.textColor
+            }
+          }
+
+          Text {
+            text: tile.amountText
+            font.family: root.fontFamily
+            font.pixelSize: 12
+            font.weight: Font.DemiBold
+            color: root.textColor
+            horizontalAlignment: Text.AlignHCenter
+            Layout.alignment: Qt.AlignHCenter
+          }
+
+          Item { Layout.fillHeight: true }
+        }
+      }
       RowLayout {
         Layout.fillWidth: true
         // 66 -> 92 (temperature bar row) -> 106 (bigger dial, 46 -> 60,
@@ -981,7 +1087,9 @@ Item {
 
       RowLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: 92
+        // 92 -> 106, matching the CPU/GPU row -- Memory's own dial
+        // needs the same extra room theirs did.
+        Layout.preferredHeight: 106
         spacing: 8
 
         StatTile {
@@ -997,14 +1105,11 @@ Item {
           subText: root.netInterface ? ("↓ " + (root.netRxRate / 1024).toFixed(0) + " KB/s  ↑ " + (root.netTxRate / 1024).toFixed(0) + " KB/s") : "No connection"
         }
 
-        StatTile {
+        MemoryDialTile {
           Layout.fillWidth: true
           Layout.fillHeight: true
-          glyph: ""
-          title: "Memory"
-          valueText: Math.round(root.memUsedPercent * 100) + "%"
-          barValue: root.memUsedPercent
-          subText: root.memUsedGB.toFixed(1) + " / " + root.memTotalGB.toFixed(1) + " GB"
+          value: root.memUsedPercent
+          amountText: root.memUsedGB.toFixed(1) + " / " + root.memTotalGB.toFixed(1) + " GiB"
         }
       }
 

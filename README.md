@@ -3087,6 +3087,37 @@ confirmed both dials render noticeably larger with the icon, ring, and
 tip all scaling together proportionally, current real CPU/GPU
 percentages and temperatures still correct.
 
+## Memory tile becomes a dial too, percentage centered inside the ring
+
+Per direct request: "for memory im thinking it should be a dial too
+45% Used in it instead of the logo. the bar seems redundant though.
+could be center like feature the amount 5.1 / 11 GiB."
+
+New `MemoryDialTile` component, distinct from the CPU/GPU `DialTile`
+rather than a variant of it -- the layout genuinely differs, not just
+the content: Memory has no identifying icon/model-name the way CPU/GPU
+do (there's nothing to put in the ring's center except the number
+itself), and the amount needed to be the tile's own featured, centered
+text rather than a small subtext line beside the dial. So: a small
+muted `"Memory"` title top-left (the one piece of identification this
+tile still needs, now that there's no icon), the ring centered with
+`Math.round(value*100) + "%"` sitting where CPU/GPU put their glyph,
+then `"5.1 / 11.4 GiB"` centered below it in the same DemiBold weight
+the percentage text uses elsewhere in this file -- genuinely featured,
+not a muted subtext afterthought. `StatTile`'s own linear bar dropped
+entirely for this tile, per direct confirmation it read as redundant
+next to a ring that's already the usage indicator.
+
+Row height `92px -> 106px` (same bump the CPU/GPU row got for its own
+dial) so the ring fits without clipping; Network's tile in the same row
+already had `Item { Layout.fillHeight: true }` spacers built in, so it
+absorbs the extra height cleanly without needing its own changes.
+
+**Verified**: `omarchy plugin validate` clean, live log clean,
+screenshotted the live tab -- confirmed the Memory tile shows a
+centered ring with `"45%"` inside it (no icon), `"5.1 / 11.4 GiB"`
+prominently centered below, and no leftover bar.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

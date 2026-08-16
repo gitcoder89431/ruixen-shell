@@ -77,7 +77,7 @@ Item {
   }
 
   Timer {
-    interval: 450
+    interval: 1200
     repeat: true
     running: !root.hasMedia
     onTriggered: root.brailleStep++

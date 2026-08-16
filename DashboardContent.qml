@@ -1242,16 +1242,25 @@ Item {
         }
       }
 
-      Item { Layout.fillHeight: true }
-
       // Same gap+tip language as the Dial's own ring -- a white tip
       // straddling a small gap at the current value, much clearer on
       // a straight bar than the small circular dial.
+      //
+      // Layout.fillHeight, not a fixed preferredHeight sandwiched
+      // between two spacers -- per direct follow-up ("isnt filling in
+      // between header and footer... just like a small bar in the
+      // middle"), the bar itself is now the flexible element that
+      // consumes the actual leftover space between the icon above and
+      // the dials below, instead of floating at a fixed 56px with
+      // empty spacer gaps on both sides. valueY/gapPx below already
+      // reference `height` reactively, so this needs no other changes
+      // -- they recompute correctly at whatever height fillHeight
+      // resolves to.
       Rectangle {
         id: brightnessBar
         Layout.alignment: Qt.AlignHCenter
         Layout.preferredWidth: 7
-        Layout.preferredHeight: 56
+        Layout.fillHeight: true
         radius: 3
         color: Qt.rgba(1, 1, 1, 0.15)
 
@@ -1280,8 +1289,6 @@ Item {
           color: "#ffffff"
         }
       }
-
-      Item { Layout.fillHeight: true }
 
       Dial { glyph: "󰕾"; value: 0.65 }
       Dial { glyph: "󰍬"; value: 0.4 }

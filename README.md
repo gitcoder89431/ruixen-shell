@@ -1616,6 +1616,19 @@ them (pinned to the rail's actual bottom). Icon+bar SHAPE unchanged
 (still ambxst's real icon-over-bar structure, not a dial) -- only the
 column ordering/spacing changed. Verified via screenshot.
 
+**Follow-up: the bar itself was still a small fixed 56px, just floating
+between two spacers.** Per direct feedback ("isnt filling in between
+header and footer rail, its just like a small bar in the middle") --
+that's a different problem than the reorder above fixed. Removed both
+`fillHeight` spacer `Item`s around the bar and gave the bar itself
+`Layout.fillHeight: true` instead, so IT is now the flexible element
+consuming the actual leftover vertical space between the icon and the
+dials, rather than a fixed-size element sitting in empty space. The
+gap+tip math (`valueY`/`gapPx`) already referenced `height` reactively,
+so it needed no changes -- it just recomputes correctly at whatever
+height `fillHeight` resolves to. Verified via screenshot -- bar now
+spans the full length between header and footer.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -622,6 +622,13 @@ remembering for any future rounded-image-thumbnail work in this
 project -- reach for `ClippingRectangle` first, don't assume plain
 `clip: true` respects `radius`.
 
+## Duration text added below transport controls
+
+Matches ambxst's own "Duration Area" text exactly -- `formatTime
+(position) + " / " + formatTime(length)`, muted, centered. Uses
+`root.trackPosition`/`root.trackLength`/`root.formatTime` -- all
+already threaded through from `Overlay.qml`, no new wiring needed.
+
 ## Play/pause: square, not round + tighter gap above it
 
 Two follow-ups per direct feedback: the gap between the artist line

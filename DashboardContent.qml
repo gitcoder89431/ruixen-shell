@@ -465,6 +465,19 @@ Item {
             }
           }
         }
+
+        // Duration -- ambxst's own "Duration Area" text, same
+        // position/opacity (formatTime(position) + " / " +
+        // formatTime(length), muted).
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: root.hasMedia
+            ? (root.formatTime(root.trackPosition) + " / " + root.formatTime(root.trackLength))
+            : "--:-- / --:--"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 9
+        }
         }
       }
     }

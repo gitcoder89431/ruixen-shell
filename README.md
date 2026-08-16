@@ -2124,6 +2124,54 @@ updated to catppuccin's blue (`#89b4fa`) on its own. That's the exact
 scenario (`omarchy-theme-set` while already running) that was silently
 broken before. Restored the original theme after.
 
+## Blurred art scoped down to a pill, not the whole compact notch
+
+Per direct feedback: "right now its full album art right, this doesnt
+look too nice on some theme, im thinking the notch can stay oled black
+but we put a pill around the play pause button and the wave progress
+bar." Confirmed scope, verbatim: "leave the bell and avatar and
+seperator bar outside the pill as is."
+
+Previously `notchBg` (the shared background `Rectangle` behind the
+*entire* collapsed row -- avatar, dividers, play/pause, wave, bell, all
+of it) carried a full-bleed blurred `Image` of the current track's art
+underneath everything, ported from ambxst's `CompactPlayer.qml`
+`backgroundArt` treatment. On themes where that art skewed bright or a
+clashing hue, the whole notch read as busy/off-brand instead of the
+usual clean black pill.
+
+Fix: removed the `Image`+`MultiEffect` blur from `notchBg` entirely --
+it's now permanently flat `root.notchColor`, nothing else, matching the
+"stay OLED black" half of the request. In its place, a new
+`ClippingRectangle` (`playerPill`) wraps *only* `collapsedPlayGlyph`
+(the play/pause glyph) and the track/wave/playhead `Item`, as a single
+new sibling of `UserAvatar`/`NotchSeparator` inside `collapsedContent`'s
+`Row` -- same nesting depth, so `UserAvatar`, both `NotchSeparator`
+dividers, and the bell `Text` are completely untouched and still sit
+directly on the plain black `notchBg`, exactly as scoped.
+
+`ClippingRectangle`, not a plain `Rectangle` -- same documented gotcha
+as `playerCard`/the art disc in `DashboardContent.qml`: plain
+`Rectangle.clip` only clips children to the bounding box, ignoring
+`radius`, which would leave square corners poking out from a
+supposedly-pill-shaped clip. Internals mirror `playerCard`'s own proven
+pattern exactly (blurred low-`sourceSize` `Image` + `MultiEffect`,
+`blurMax: 32`, `blur: 1.0`), with the same real fallback: track art when
+present, else the desktop wallpaper symlink
+(`~/.local/state/omarchy/current/background`) -- never a blank pill.
+Added one thing `playerCard` didn't need: a flat `Qt.rgba(0,0,0,0.35)`
+scrim `Rectangle` on top of the blur, since this pill is much smaller
+and the play glyph/wave/playhead need to stay legible against
+whatever art landed underneath, at any brightness.
+
+**Verified**: screenshotted the live notch with real media playing
+(real `root.artUrl` in place, no forced/hardcoded test values needed) --
+the play/pause + wave sit inside a small rounded pill with a subtle
+blurred-art tint, while the avatar and bell sit on the same flat black
+as before, with visible plain black *between* the pill and each of
+them. Confirms both halves of the request: notch stays OLED black
+overall, art is now contained to just the intended pill.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

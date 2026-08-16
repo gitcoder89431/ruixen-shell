@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Widgets
 import qs.Commons
 
 // Shape ported pixel-for-pixel from
@@ -539,31 +540,14 @@ Item {
           maskSpreadAtMin: 1.0
         }
 
-        // Blurred album-art background, matching CompactPlayer.qml's
-        // backgroundArt treatment. Only visible when there is art and
-        // the notch is collapsed to a plain single-row pill -- once
-        // expanded the art moves into its own small thumbnail instead
-        // (see below), same as ambxst fading the full-bleed art out on
-        // hover.
-        Image {
-          id: bgArt
-          anchors.fill: parent
-          source: root.artUrl
-          sourceSize: Qt.size(64, 64)
-          fillMode: Image.PreserveAspectCrop
-          asynchronous: true
-          visible: false
-        }
-
-        MultiEffect {
-          anchors.fill: bgArt
-          source: bgArt
-          blurEnabled: root.artUrl !== ""
-          blurMax: 32
-          blur: 0.75
-          opacity: (root.artUrl !== "" && !panel.expanded) ? 0.35 : 0.0
-          Behavior on opacity { NumberAnimation { duration: 200 } }
-        }
+        // No blurred album-art here anymore -- was previously applied
+        // across the WHOLE collapsed notch (matching CompactPlayer.qml's
+        // backgroundArt treatment), but per direct feedback that "doesn't
+        // look too nice on some theme[s]", the notch itself now stays
+        // plain OLED black at all times. The art moved into its own
+        // small pill instead, scoped to just the play/pause + wave
+        // progress area below (see playerPill) -- avatar, dividers, and
+        // bell all still sit directly on this same flat black.
       }
 
       // Mask silhouette: left flank (concave toward center) + center
@@ -645,41 +629,89 @@ Item {
           UserAvatar { anchors.verticalCenter: parent.verticalCenter }
           NotchSeparator { anchors.verticalCenter: parent.verticalCenter }
 
-          Row {
+          // Art pill -- the ONLY place blurred album art shows in the
+          // collapsed notch now (see notchBg above for why). Wraps just
+          // the play/pause glyph + wave progress, per direct scoping
+          // request ("leave the bell and avatar and separator bar
+          // outside the pill as is"). ClippingRectangle, not a plain
+          // Rectangle -- same documented gotcha as playerCard/the art
+          // disc in DashboardContent.qml: plain Rectangle.clip only
+          // clips to the bounding BOX, ignores radius.
+          ClippingRectangle {
+            id: playerPill
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
+            width: pillRow.implicitWidth + pillPadding * 2
+            height: 28
+            radius: height / 2
+            color: Color.background
 
-            Text {
-              id: collapsedPlayGlyph
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.playIcon
-              color: root.hasMedia ? root.textColor : root.muted
-              font.family: root.fontFamily
-              // Matches the bar's new icon standard (18px, tuned to
-              // ambxst's own bar-icon size) -- was 11, visibly undersized
-              // next to the 20px avatar in this same row.
-              font.pixelSize: 18
+            readonly property int pillPadding: 10
+            readonly property string wallpaperPath: "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
+            readonly property string pillBgSource: root.artUrl !== "" ? root.artUrl : wallpaperPath
 
-              // Own click target, same pattern as the avatar/bell now
-              // that there's no big background MouseArea to compete
-              // with -- each interactive element in this row owns its
-              // exact hit area independently.
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -6
-                enabled: root.hasMedia
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
-              }
+            Image {
+              id: pillBgArt
+              anchors.fill: parent
+              source: playerPill.pillBgSource
+              sourceSize: Qt.size(64, 64)
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              visible: false
             }
 
-            // Track (full length, dim) + wave (played portion only, up
-            // to progressRatio) -- actually reflects position now,
-            // instead of a decorative full-width wave. No drag-to-seek
-            // yet, position display only.
-            Item {
-              anchors.verticalCenter: parent.verticalCenter
-              width: 140
+            MultiEffect {
+              anchors.fill: parent
+              source: pillBgArt
+              blurEnabled: true
+              blurMax: 32
+              blur: 1.0
+              opacity: 0.28
+            }
+
+            // Dark scrim on top of the blur so the glyph/wave/playhead
+            // stay readable regardless of how bright the underlying art
+            // is -- same reasoning as notchBg's own flat base color.
+            Rectangle {
+              anchors.fill: parent
+              color: Qt.rgba(0, 0, 0, 0.35)
+            }
+
+            Row {
+              id: pillRow
+              anchors.centerIn: parent
+              spacing: 6
+
+              Text {
+                id: collapsedPlayGlyph
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.playIcon
+                color: root.hasMedia ? root.textColor : root.muted
+                font.family: root.fontFamily
+                // Matches the bar's new icon standard (18px, tuned to
+                // ambxst's own bar-icon size) -- was 11, visibly undersized
+                // next to the 20px avatar in this same row.
+                font.pixelSize: 18
+
+                // Own click target, same pattern as the avatar/bell now
+                // that there's no big background MouseArea to compete
+                // with -- each interactive element in this row owns its
+                // exact hit area independently.
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -6
+                  enabled: root.hasMedia
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
+                }
+              }
+
+              // Track (full length, dim) + wave (played portion only, up
+              // to progressRatio) -- actually reflects position now,
+              // instead of a decorative full-width wave. No drag-to-seek
+              // yet, position display only.
+              Item {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 140
               // Grown 12 -> 20 alongside the thickness bump below --
               // WavyLine is a Canvas, and Canvas content outside its
               // own item bounds is simply never drawn (an implicit
@@ -757,6 +789,7 @@ Item {
                 visible: root.hasMedia
 
                 Behavior on x { NumberAnimation { duration: 450 } }
+              }
               }
             }
           }

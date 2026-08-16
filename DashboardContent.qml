@@ -1211,89 +1211,80 @@ Item {
         }
       }
 
-      Item { Layout.fillHeight: true }
-
-      // Brightness -- checked ambxst's real source directly
-      // (WidgetsTab.qml's brightnessContainer): icon on top, a
-      // vertical bar below it, NOT a circular dial like speaker/mic
-      // get. Ported the shape (icon + linear fill bar), not their
-      // full sync-animation/multi-monitor machinery. Wrapped in a
-      // tonal frame (same rgba(1,1,1,0.06) fill TabButton/QuickToggle
-      // already use for their own "off" tonal state) per direct
-      // feedback ("the brightness needs like a tonal button bg to
-      // frame it") -- speaker/mic don't need one, their own Canvas
-      // ring already reads as a self-contained control.
+      // Rail restructured to mirror the left tab bar's own header/
+      // footer pattern, per direct request: brightness icon pinned as
+      // the rail's HEADER (top, no spacer above it), speaker+mic
+      // dials pinned as the FOOTER (bottom, no spacer below them),
+      // and the brightness bar sits in the middle, centered in
+      // whatever space is left by a fillHeight spacer on each side --
+      // same "header content, spacer, footer content" shape the tab
+      // bar already uses for its settings gear, just with a middle
+      // element added here.
       //
-      // Follow-up: the frame originally wrapped the icon AND the bar
-      // together -- per direct correction ("just the tonal on the
-      // light icon"), it's now its own small square sitting behind
-      // ONLY the icon; the bar below is plain, matching how the icon
-      // is the "button" and the bar is a separate slider-like element.
-      ColumnLayout {
+      // Checked ambxst's real source directly for the icon+bar SHAPE
+      // itself (WidgetsTab.qml's brightnessContainer: icon on top, a
+      // vertical bar below it, NOT a circular dial like speaker/mic
+      // get) -- this reorder doesn't change that shape, just where
+      // the pieces sit in the column.
+      Rectangle {
         Layout.alignment: Qt.AlignHCenter
-        spacing: 6
+        Layout.preferredWidth: 38
+        Layout.preferredHeight: 38
+        radius: 12
+        color: Qt.rgba(1, 1, 1, 0.06)
 
-        // Frame 32->38, glyph 18->20, bar 6x48->7x56 -- same rail-wide
-        // size bump as the tab bar and Dial above.
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 38
-          Layout.preferredHeight: 38
-          radius: 12
-          color: Qt.rgba(1, 1, 1, 0.06)
-
-          Text {
-            anchors.centerIn: parent
-            text: "󰃟"
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 20
-          }
-        }
-
-        // Same gap+tip language as the Dial's own ring, per direct
-        // request ("apply it to the brightness slider above it, we
-        // should be able to see it better there") -- a straight
-        // vertical bar reads the gap/tip much more clearly than the
-        // small circular dial did.
-        Rectangle {
-          id: brightnessBar
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 7
-          Layout.preferredHeight: 56
-          radius: 3
-          color: Qt.rgba(1, 1, 1, 0.15)
-
-          property real value: 0.8
-          // Distance from the bar's own top edge to the value line --
-          // fill stops short of it by gapPx, the tip sits centered
-          // right on it, straddling into both sides.
-          readonly property real valueY: height * (1 - value)
-          readonly property real gapPx: 4
-
-          Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: Math.max(0, parent.height - parent.valueY - parent.gapPx)
-            radius: 3
-            color: root.accent
-          }
-
-          Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: parent.valueY - height / 2
-            width: parent.width + 4
-            height: 5
-            radius: 2.5
-            color: "#ffffff"
-          }
+        Text {
+          anchors.centerIn: parent
+          text: "󰃟"
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 20
         }
       }
 
+      Item { Layout.fillHeight: true }
+
+      // Same gap+tip language as the Dial's own ring -- a white tip
+      // straddling a small gap at the current value, much clearer on
+      // a straight bar than the small circular dial.
+      Rectangle {
+        id: brightnessBar
+        Layout.alignment: Qt.AlignHCenter
+        Layout.preferredWidth: 7
+        Layout.preferredHeight: 56
+        radius: 3
+        color: Qt.rgba(1, 1, 1, 0.15)
+
+        property real value: 0.8
+        // Distance from the bar's own top edge to the value line --
+        // fill stops short of it by gapPx, the tip sits centered
+        // right on it, straddling into both sides.
+        readonly property real valueY: height * (1 - value)
+        readonly property real gapPx: 4
+
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          height: Math.max(0, parent.height - parent.valueY - parent.gapPx)
+          radius: 3
+          color: root.accent
+        }
+
+        Rectangle {
+          anchors.horizontalCenter: parent.horizontalCenter
+          y: parent.valueY - height / 2
+          width: parent.width + 4
+          height: 5
+          radius: 2.5
+          color: "#ffffff"
+        }
+      }
+
+      Item { Layout.fillHeight: true }
+
       Dial { glyph: "󰕾"; value: 0.65 }
       Dial { glyph: "󰍬"; value: 0.4 }
-      Item { Layout.fillHeight: true }
     }
   }
 }

@@ -1597,6 +1597,25 @@ Confirmed via zoomed screenshot -- much clearer here than on the small
 circular dial, exactly as expected from a straight vertical line at this
 size.
 
+## Rail restructured: brightness as header, speaker/mic as footer
+
+Per direct request ("move these around so the brightness icon should be
+at the top, like the rail header, and then... rail footer is where the
+volume and mic is, and inbetween the header and footer is the brightness
+slider"): mirrors the left tab bar's own existing header/spacer/footer
+shape (stacked tab buttons at top, one `fillHeight` spacer, settings
+gear pinned at the bottom) instead of inventing a new layout pattern.
+
+Removed the wrapping `ColumnLayout` that held the brightness icon+bar
+together as one clump sandwiched between two spacers. Now: brightness
+icon sits first with no spacer above it (pinned to the rail's actual
+top), a `fillHeight` spacer, the brightness bar (floats centered in
+whatever space that spacer and the next one leave), another
+`fillHeight` spacer, then the speaker/mic `Dial`s with no spacer after
+them (pinned to the rail's actual bottom). Icon+bar SHAPE unchanged
+(still ambxst's real icon-over-bar structure, not a dial) -- only the
+column ordering/spacing changed. Verified via screenshot.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

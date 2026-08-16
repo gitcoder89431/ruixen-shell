@@ -3420,6 +3420,33 @@ portal-registration warning), screenshotted the live panel -- "CPUs"
 section now goes straight into Core 0-3 with no aggregate row above
 them, CPU stat tile in the right panel unaffected.
 
+## Per-core rows collapsed to one line, numbered instead of named
+
+Direct request: "cool ok so hmm it seems like people dont really need
+individual cores, it all gets hot at similar rate, lets remove that row
+under the bar and then instead of Core 0 ore Core 1 we do CPU icon 1
+for Core 1 for example where the CPU icon is" -- the per-core details
+row (name + that core's own temperature) is gone; every core is close
+enough in temperature that a separate reading per core wasn't earning
+its space. The icon column that used to hold just the CPU glyph now
+shows the glyph plus the core's own 1-indexed number instead -- "CPU
+icon 1" for what used to say "Core 0" on the row below.
+
+Collapsed each `Repeater` delegate from a two-row `Column` (icon+bar+%,
+then name+temp) down to a single `RowLayout` (icon+number, bar, %).
+`root.coreTemps` was reading per-core `sensors -j` output into an array
+nothing displayed anymore, so it -- and the per-core branch of
+`sensorsProc`'s own parsing loop -- were removed too rather than left
+as dead state; `sensorsProc` now only extracts the package/aggregate
+temperature (`root.packageTemp`, still read by the CPU stat tile).
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- each core
+row now reads icon+number ("1", "2", "3", "4") beside its own bar and
+percentage, one row per core instead of two.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

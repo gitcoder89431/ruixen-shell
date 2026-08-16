@@ -225,15 +225,15 @@ Item {
     }
   }
 
-  // Real per-core AND package (overall) temperature -- lm_sensors' own
-  // coretemp driver ("Core 0".."Core N" plus a "Package id 0" key
-  // under coretemp-isa-0000), confirmed by running `sensors -j` on
-  // this machine directly, not guessed. fastfetch's own CPU.
-  // temperature field is null on this machine (aggregate-only, and not
-  // populated here anyway), so this is a separate real source, not
-  // something fastfetch already provided.
-  property var coreTemps: []
-
+  // Real package (overall) temperature -- lm_sensors' own coretemp
+  // driver's "Package id 0" key under coretemp-isa-0000, confirmed by
+  // running `sensors -j` on this machine directly, not guessed.
+  // fastfetch's own CPU.temperature field is null on this machine
+  // (aggregate-only, and not populated here anyway), so this is a
+  // separate real source, not something fastfetch already provided.
+  // Per-core temps were dropped along with the per-core details row
+  // below -- per direct feedback ("it all gets hot at similar rate")
+  // nothing reads a per-core reading anymore.
   Process {
     id: sensorsProc
     command: ["sensors", "-j"]
@@ -242,26 +242,21 @@ Item {
       onStreamFinished: {
         try {
           var data = JSON.parse(text)
-          var temps = []
           var pkgTemp = -1
           for (var chip in data) {
             var fields = data[chip]
             for (var key in fields) {
               var reading = fields[key]
               if (typeof reading !== "object") continue
-              var coreMatch = key.match(/^Core (\d+)$/)
-              var isPackage = /^Package id \d+$/.test(key)
-              if (!coreMatch && !isPackage) continue
+              if (!/^Package id \d+$/.test(key)) continue
               for (var field in reading) {
                 if (field.endsWith("_input")) {
-                  if (coreMatch) temps[parseInt(coreMatch[1], 10)] = reading[field]
-                  else pkgTemp = reading[field]
+                  pkgTemp = reading[field]
                   break
                 }
               }
             }
           }
-          root.coreTemps = temps
           root.packageTemp = pkgTemp
         } catch (e) {}
       }
@@ -584,76 +579,50 @@ Item {
           Repeater {
             model: root.coreUsages
 
-            // Two rows per core, matching ambxst's own CPU section
-            // shape (a ResourceItem row, then a details row below it)
-            // -- per direct request: row 1 is icon + bar + percentage,
-            // row 2 is the core's name on the left and its real
-            // temperature (from sensorsProc above) right-aligned.
-            Column {
+            // One row per core now, not two -- per direct feedback
+            // ("people dont really need individual cores, it all gets
+            // hot at similar rate") the details row (name + per-core
+            // temp) was dropped entirely. The icon column that used to
+            // hold just the CPU glyph now shows the glyph plus the
+            // core's own 1-indexed number ("CPU icon 1 for Core 1")
+            // instead of a separate "Core 0" text label.
+            RowLayout {
               id: coreItem
               required property int index
               required property real modelData
               width: coreColumn.width
-              spacing: 2
+              spacing: 8
 
-              readonly property var temp: root.coreTemps[coreItem.index]
+              Text {
+                text: " " + (coreItem.index + 1)
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.textColor
+                Layout.preferredWidth: 26
+              }
 
-              RowLayout {
-                width: coreItem.width
-                spacing: 8
-
-                Text {
-                  text: ""
-                  font.family: root.fontFamily
-                  font.pixelSize: 13
-                  color: root.textColor
-                  Layout.preferredWidth: 18
-                }
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 14
+                radius: 4
+                color: Qt.rgba(1, 1, 1, 0.08)
 
                 Rectangle {
-                  Layout.fillWidth: true
-                  Layout.preferredHeight: 14
+                  width: parent.width * Math.max(0, Math.min(1, coreItem.modelData))
+                  height: parent.height
                   radius: 4
-                  color: Qt.rgba(1, 1, 1, 0.08)
-
-                  Rectangle {
-                    width: parent.width * Math.max(0, Math.min(1, coreItem.modelData))
-                    height: parent.height
-                    radius: 4
-                    color: root.accent
-                    Behavior on width { NumberAnimation { duration: 200 } }
-                  }
-                }
-
-                Text {
-                  text: Math.round(coreItem.modelData * 100) + "%"
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  color: root.muted
-                  Layout.preferredWidth: 32
-                  horizontalAlignment: Text.AlignRight
+                  color: root.accent
+                  Behavior on width { NumberAnimation { duration: 200 } }
                 }
               }
 
-              RowLayout {
-                width: coreItem.width
-                spacing: 8
-
-                Text {
-                  text: "Core " + coreItem.index
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  color: root.textColor
-                  Layout.fillWidth: true
-                }
-
-                Text {
-                  text: coreItem.temp !== undefined ? Math.round(coreItem.temp) + "°C" : ""
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  color: root.muted
-                  horizontalAlignment: Text.AlignRight
-                }
+              Text {
+                text: Math.round(coreItem.modelData * 100) + "%"
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                Layout.preferredWidth: 32
+                horizontalAlignment: Text.AlignRight
               }
             }
           }

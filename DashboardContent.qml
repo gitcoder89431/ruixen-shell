@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Widgets
 import Quickshell.Networking
 import Quickshell.Bluetooth
+import Quickshell.Services.Pipewire
 
 // Pure-frontend port of ambxst's WidgetsTab.qml (the actual content of
 // their dashboard's default tab -- what most people mean by "the
@@ -103,6 +104,20 @@ Item {
   readonly property var bluetoothAdapter: Bluetooth.defaultAdapter
   readonly property var nightlightService: root.shell ? root.shell.firstPartyServiceFor("omarchy.nightlight") : null
   readonly property var idleService: root.shell ? root.shell.firstPartyServiceFor("omarchy.idle") : null
+
+  // Real speaker/mic levels for the two Dial widgets below -- same
+  // Pipewire singleton the real Display/audio panel reads
+  // (Quickshell.Services.Pipewire, confirmed by reading their own
+  // Panel.qml directly). Read-only per direct request ("dial looks
+  // complicated so maybe we dont need to adjust it but it does need to
+  // show actual dial live as i use the keyboard to adjust it") -- these
+  // are live QML property bindings, not a polled snapshot, so they
+  // update on their own the instant a hardware volume key (or anything
+  // else) changes the real value, no Timer/Process needed at all.
+  readonly property var audioSink: Pipewire.defaultAudioSink
+  readonly property var audioSource: Pipewire.defaultAudioSource
+  readonly property real speakerVolume: audioSink && audioSink.audio ? Math.min(1, audioSink.audio.volume) : 0
+  readonly property real micVolume: audioSource && audioSource.audio ? Math.min(1, audioSource.audio.volume) : 0
 
   function formatTime(seconds) {
     var value = Math.max(0, Math.floor(Number(seconds) || 0))
@@ -1155,8 +1170,20 @@ Item {
       // ring radius is a fixed 16 inside a 48px box, i.e. width/2 - 8)
       // -- 3px sat the ring almost flush against the badge's own edge.
       component Dial: Rectangle {
+        id: dialRoot
         property string glyph: ""
         property real value: 0.7
+        // Canvas onPaint is a plain JS function, not a reactive
+        // binding -- it never re-runs on its own just because a
+        // property it happens to read (value) changes elsewhere. Was
+        // fine when value was a static hardcoded number that never
+        // changed after startup; now that it's bound to a live
+        // Pipewire volume (see root.speakerVolume/micVolume), this
+        // explicit repaint is required or the ring only ever reflects
+        // whatever the volume happened to be at first paint, per
+        // direct request ("it does need to show actual dial live as i
+        // use the keyboard to adjust it").
+        onValueChanged: dialCanvas.requestPaint()
         // 48 -> 56, matching the left-rail tab bar's own bump -- also
         // grows the ring radius (width/2-8) and makes the tip's gap
         // relatively easier to see, both per direct request.
@@ -1175,6 +1202,7 @@ Item {
         // terms, per direct request ("doesnt have like a full
         // circle... goes from i guess 4 o'clock to 7 o'clock").
         Canvas {
+          id: dialCanvas
           anchors.fill: parent
           onPaint: {
             var ctx = getContext("2d")
@@ -1388,8 +1416,8 @@ Item {
         }
       }
 
-      Dial { glyph: "󰕾"; value: 0.65 }
-      Dial { glyph: "󰍬"; value: 0.4 }
+      Dial { glyph: "󰕾"; value: root.speakerVolume }
+      Dial { glyph: "󰍬"; value: root.micVolume }
     }
   }
 }

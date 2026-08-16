@@ -2010,6 +2010,44 @@ click simulation, documented elsewhere in this project's history), but
 both halves of the mechanism it would trigger are independently
 confirmed working.
 
+## Speaker/mic dials now show real, live volume
+
+Per direct request ("dial looks complicated so maybe we dont need to
+adjust it but it does need to show actual dial live as i use the
+keyboard to adjust it") -- read-only, not interactive, matching what
+was actually asked for (unlike the brightness bar, which got real
+click/drag).
+
+`Quickshell.Services.Pipewire` is a real Quickshell built-in module,
+not gated behind Omarchy's plugin registry -- confirmed by reading the
+real audio panel's own `Panel.qml` directly, same category as the
+`Networking`/`Bluetooth` singletons already used elsewhere in this
+file. `Pipewire.defaultAudioSink`/`defaultAudioSource`, each `.audio
+.volume` -- genuinely live property bindings (not a polled snapshot),
+so they update the instant the real value changes from anywhere
+(hardware keys, `wpctl`, another app), no `Timer`/`Process` needed at
+all for the read side. Clamped to `[0,1]` for display since Pipewire
+volume can technically go up to `1.5` (150%) but the ring only visually
+represents up to a full circle.
+
+**A real second bug found in the process**: wiring `Dial.value` to a
+live-changing value alone wasn't enough -- `Canvas.onPaint` is a plain
+JS function, not a reactive binding, so it never re-runs on its own
+just because some property it happens to read changes elsewhere. Fine
+when `value` was a static hardcoded number that never changed after
+first paint; silently broken once it started tracking something live.
+Added an explicit `onValueChanged: dialCanvas.requestPaint()` on the
+`Dial` component itself (new `id`s on both the outer `Rectangle` and
+its `Canvas` child to wire the two together) -- without this the ring
+would have looked correct at startup and then just frozen forever.
+
+**Verified genuinely live, not just "looks right at startup"**: pinned
+the dashboard open, screenshotted the speaker dial at its real starting
+volume (`27%`, matched what the ring showed), then ran `wpctl
+set-volume @DEFAULT_AUDIO_SINK@ 0.85` directly in the terminal --
+*without restarting the shell* -- and screenshotted again: the ring
+visibly jumped to `~85%` on its own. Restored the original volume after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

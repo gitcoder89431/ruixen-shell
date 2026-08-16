@@ -926,6 +926,25 @@ Fits fine inside `playerCard`'s `210px` width (centered content area is
 screenshot, no other layout changes needed — the surrounding `ColumnLayout`
 already centers the whole content block as one unit.
 
+## Progress ring: thick tip added at the playhead
+
+Per direct request ("add a thick player tip to the progress bar"): checked
+ambxst's real `CircularSeekBar.qml` handle first rather than guessing a
+shape. Theirs is a fat radial line straddling the track radius at the
+current angle (`ShapePath` from `radius - offset` to `radius + offset`,
+`Colors.overBackground`, round cap) — not a dot sitting on top of the
+ring. Ported the same idea into `CircularSeek`'s existing `Canvas`
+`onPaint` instead of a new `Shapes` element: after the progress arc, if
+`value > 0`, strokes one line segment from `r - 6` to `r + 6` at
+`endAngle`, `lineWidth: ringWidth * 1.5` (thicker than the ring itself,
+matching "thick"), round cap, new `tipColor` property (`#ffffff`, for
+contrast against the accent-green progress arc).
+
+Verified with the established art-hardcode test method (no MPRIS art
+available at test time) — temporarily pointed `Overlay.qml`'s `artUrl` at
+a real local wallpaper file, confirmed via screenshot the tip renders as a
+short thick white tick at the true playhead angle, reverted after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

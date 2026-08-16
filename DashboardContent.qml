@@ -137,6 +137,7 @@ Item {
     property color trackColor: Qt.rgba(1, 1, 1, 0.15)
     property color progressColor: root.accent
     property real ringWidth: 4
+    property color tipColor: "#ffffff"
     property bool wavy: false
     readonly property real startAngle: Math.PI
     readonly property real spanAngle: Math.PI
@@ -189,6 +190,25 @@ Item {
         else ctx.lineTo(x, y)
       }
       ctx.stroke()
+
+      // Tip -- a thick radial tick at the current progress position,
+      // ported from ambxst's own CircularSeekBar handle (a fat line
+      // straddling the track radius, not a dot on top of it).
+      if (clamped > 0) {
+        var tipOffset = 6
+        var tipR1 = r - tipOffset
+        var tipR2 = r + tipOffset
+        var tx1 = cx + tipR1 * Math.cos(endAngle)
+        var ty1 = cy + tipR1 * Math.sin(endAngle)
+        var tx2 = cx + tipR2 * Math.cos(endAngle)
+        var ty2 = cy + tipR2 * Math.sin(endAngle)
+        ctx.lineWidth = seek.ringWidth * 1.5
+        ctx.strokeStyle = seek.tipColor
+        ctx.beginPath()
+        ctx.moveTo(tx1, ty1)
+        ctx.lineTo(tx2, ty2)
+        ctx.stroke()
+      }
     }
   }
 

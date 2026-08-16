@@ -1266,6 +1266,34 @@ interval bumped `90ms -> 110ms` to match the calmer sweep.
 `1200ms -> 1000ms` ("like a second each movement") -- an exact, literal
 number this time rather than another "slower" guess.
 
+**A real process gap, caught mid-investigation**: the next "still too
+fast" report turned out to be partly caused by me forgetting to actually
+run `omarchy restart shell` after two of the interval edits above -- the
+plugin was re-validated and synced but the LIVE shell process kept
+running the old QML, so the user was legitimately seeing a stale, faster
+interval than what was actually committed. Investigated properly this
+time: set `interval: 3000` (a deliberately distinguishable value) plus a
+timestamped `console.log` in `onTriggered`, restarted, and let it run --
+screenshot sampling at 1s cadence was too noisy to fully confirm exact
+timing (`grim` + shell overhead adds real jitter to sub-second
+measurements), but confirmed the Timer does hold each position for
+multiple consecutive seconds rather than advancing every tick, i.e. no
+double-speed/duplicate-Timer bug. Reverted the diagnostic `3000ms` +
+`console.log` back to the last real value (`1000ms`) once satisfied
+there wasn't a structural bug -- likely just discrete single-cell jumps
+reading as "fast" regardless of the literal interval, a perception
+issue rather than a timing one.
+
+**Resting-dot glyph fixed for symmetry**: per direct feedback ("the
+middle line instead of just 1 dot is there 2 middle dot we can use, it
+looks lopsided cause the scanner has 4 dots") -- resting cells used
+`"⠂"` (a single dot sitting in just the left half of the cell), which
+read as lopsided next to the active cell's full `"⣿"` block. Swapped to
+`"⠒"` (dots 2+5, a horizontally-centered pair spanning the full cell
+width, the same glyph the "flatline" reference pattern discussed earlier
+in this session uses) -- resting cells now read as an even dotted line
+instead of an off-center smear.
+
 Verified twice: first that the ROW actually renders as 6 small dots at
 the right size (zoomed crop), then that it's genuinely animating -- two
 screenshots ~400ms apart show the lit cell at different positions in the

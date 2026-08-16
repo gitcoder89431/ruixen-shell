@@ -72,7 +72,7 @@ Item {
   readonly property string brailleSpinner: {
     var s = ""
     for (var i = 0; i < brailleCells; i++)
-      s += (i === brailleActiveIndex ? "⣿" : "⠂")
+      s += (i === brailleActiveIndex ? "⣿" : "⠒")
     return s
   }
 

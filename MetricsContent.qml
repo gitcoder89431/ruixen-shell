@@ -1100,7 +1100,21 @@ Item {
           ColumnLayout {
             anchors.fill: parent
             anchors.margins: 10
-            spacing: 6
+            // 6 -> 8 -- per direct follow-up to space Download/Upload/
+            // the bar/the rate caption out evenly ("measure it so...
+            // download upload and bar and speed is spaced out so it
+            // matches with the progress bar and its buttom row"). The
+            // one-off Layout.topMargin: 3 added to just the bar in the
+            // previous pass is gone too -- every gap between these
+            // rows is this same uniform value now, not a mix of base
+            // spacing plus an extra one-off bump on a single gap. 10,
+            // not 8 -- measured against MemoryDialTile's own content
+            // bottom (both tiles center their content the same way,
+            // via matching top+bottom fillHeight spacers) and nudged
+            // up so this tile's own content block ends closer to the
+            // same height, per direct request ("kinda end it at the
+            // same height if possible").
+            spacing: 10
 
             RowLayout {
               Layout.fillWidth: true
@@ -1215,11 +1229,6 @@ Item {
             ClippingRectangle {
               Layout.fillWidth: true
               Layout.preferredHeight: 6
-              // A touch of extra breathing room above the bar, on top
-              // of the ColumnLayout's own 6px spacing, per direct
-              // follow-up ("pad it a bit between Upload row and the
-              // progress bar just a bit like 1 px").
-              Layout.topMargin: 3
               radius: 3
               color: Qt.rgba(1, 1, 1, 0.08)
               visible: root.netInterface !== ""

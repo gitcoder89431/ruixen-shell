@@ -3549,6 +3549,40 @@ Metrics tab, Quickshell log clean (only the known-harmless
 portal-registration warning), screenshotted the live panel -- subtle
 extra gap now visible between the Upload row and the bar.
 
+## Network rows evenly spaced, bottom measured against Memory
+
+Direct request: "can you measure it so like download upload and bar
+and speed is spaced out so it matches with the progress bar and its
+buttom row? kinda end it at the same height if possible." The previous
+pass's one-off `Layout.topMargin: 3` on just the bar (see above) had
+made the Upload-to-bar gap bigger than the Download-to-Upload and
+bar-to-caption gaps -- not actually "matching" anything, just a single
+bump on one gap. Pulled that back out and set the whole
+`ColumnLayout`'s own `spacing: 6 -> 10` instead, so every gap between
+Download, Upload, the bar, and the rate caption is now the same
+uniform value.
+
+For the "end it at the same height" half of the ask: actually measured
+it, not eyeballed. Took a `grim` screenshot, cropped Network and
+Memory's tiles side by side, converted to grayscale with `magick`, and
+scanned each column range for the first/last pixel row above a
+brightness threshold (60) to find each tile's real rendered content
+top/bottom in absolute pixels -- rather than reasoning about it purely
+from the QML source. First pass (`spacing: 8`) put Network's content
+bottom 6px above Memory's own (both tiles center their content via
+matching top+bottom `Item { Layout.fillHeight: true }` spacers around
+the same vertical middle, so a shorter content block's bottom sits
+higher by half the height difference). Bumped to `spacing: 10` and
+re-measured -- both tiles now bottom out at the exact same pixel row.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), pixel-measured via cropped/grayscaled
+screenshots (not just eyeballed) -- Network and Memory tiles' content
+now ends at the identical row, gaps between Download/Upload/bar/
+caption all uniform.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

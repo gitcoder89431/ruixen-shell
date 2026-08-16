@@ -1106,6 +1106,23 @@ content -- is genuinely clipped to the rounded shape instead of just the
 bounding box. Verified via a zoomed crop on the card's own top-right
 corner -- visibly rounded now, matching `radius: 10`.
 
+## Horizontal padding for long title/album/artist text
+
+Per direct feedback ("text looks ugly when it gets so close to the
+edge... even truncated"): the metadata `ColumnLayout` (title/album/
+artist) was `Layout.fillWidth: true` with no margin, so its `Text`
+children's `elide: Text.ElideRight` ellipsis could land with only
+`~4px` of natural clearance from `playerCard`'s own edge (`210px` card,
+`202px` inner column). Added `Layout.leftMargin: 10` /
+`Layout.rightMargin: 10` to the metadata `ColumnLayout` itself -- one
+change insets all three lines at once, rather than repeating margins on
+each `Text`.
+
+Verified with a deliberately long fake title (temporarily hardcoded
+`Overlay.qml`'s `title` property via the usual test method) -- the
+ellipsis now sits with real breathing room from the rounded corner
+instead of crowding it.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

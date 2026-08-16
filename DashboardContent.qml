@@ -414,8 +414,16 @@ Item {
         // ambxst's own metadata ColumnLayout exactly (title bold, TWO
         // secondary lines dimmer -- album was missing entirely before,
         // not just the ordering being off).
+        // leftMargin/rightMargin -- long titles/artists were eliding
+        // (or just wrapping) right up against playerCard's own edge,
+        // only ~4px of natural clearance from the card's rounded
+        // corner. 10px each side gives real breathing room before the
+        // ellipsis, per direct feedback ("text looks ugly when it
+        // gets so close to the edge").
         ColumnLayout {
           Layout.fillWidth: true
+          Layout.leftMargin: 10
+          Layout.rightMargin: 10
           Layout.alignment: Qt.AlignHCenter
           spacing: 2
 

@@ -17,11 +17,15 @@ import Quickshell.Io
 // row 2 keeps ambxst's own "@" prefix but swaps hostname for the
 // machine's real hardware/PC name, row 3 swaps the Linux distro name
 // for the actual Omarchy version string ("Omarchy 4.0.0-1"). The
-// section header itself becomes "CPUs" (was "System"), and holds a
-// live per-core usage list instead of ambxst's mixed CPU/RAM/GPU/Disk
-// list -- "we can get this from fastfetch" for the identity fields,
-// confirmed fastfetch (`--format json -s Host:CPU`) gives exactly the
-// hardware name and CPU model needed, not guessed.
+// section header itself becomes "CPUs" (was "System"), and holds
+// aggregate CPU then GPU rows instead of ambxst's mixed CPU/RAM/GPU/
+// Disk list -- "we can get this from fastfetch" for the identity
+// fields, confirmed fastfetch (`--format json -s Host:CPU:GPU`) gives
+// exactly the hardware name, CPU model, and GPU name needed, not
+// guessed. (Per-core CPU rows were tried and then dropped -- once the
+// aggregate CPU row existed they were redundant and added real per-
+// tick cost, see this file's own git history/README for that
+// round-trip.)
 Item {
   id: root
 
@@ -44,9 +48,17 @@ Item {
   property string cpuModel: ""
   property real cpuUsage: 0
   property var prevCpuTotal: null
-  property var coreUsages: []
-  property var prevCpuTimes: null
   property real packageTemp: -1
+
+  // GPU -- per direct follow-up: per-core CPU rows were "kinda in the
+  // way" once the aggregate CPU row already covered the overview, and
+  // were "taking some time to load" too (a Repeater + two extra
+  // per-core parse loops on every 2s tick), so dropped entirely in
+  // favor of showing the GPU next, right after the aggregate CPU row.
+  property string gpuName: ""
+  property real gpuUsage: 0
+  property real gpuFreqMhz: 0
+  property var prevGpuSample: null
 
   function refreshIdentity() {
     if (!identityProc.running) identityProc.running = true
@@ -55,13 +67,14 @@ Item {
 
   onActiveChanged: if (active) refreshIdentity()
 
-  // Hardware/PC name + CPU model -- fastfetch's real Host and CPU
-  // modules, confirmed by running `fastfetch --format json -s Host:CPU`
-  // on this machine directly ("NucBoxG5" / "Intel(R) N97"), not
+  // Hardware/PC name + CPU model + GPU name -- fastfetch's real Host,
+  // CPU, and GPU modules, confirmed by running `fastfetch --format
+  // json -s Host:CPU:GPU` on this machine directly ("NucBoxG5" /
+  // "Intel(R) N97" / vendor "Intel" + name "UHD Graphics"), not
   // guessed.
   Process {
     id: identityProc
-    command: ["fastfetch", "--format", "json", "-s", "Host:CPU"]
+    command: ["fastfetch", "--format", "json", "-s", "Host:CPU:GPU"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -70,6 +83,10 @@ Item {
           for (var i = 0; i < data.length; i++) {
             if (data[i].type === "Host") root.hardwareName = data[i].result.name || ""
             if (data[i].type === "CPU") root.cpuModel = data[i].result.cpu || ""
+            if (data[i].type === "GPU" && data[i].result.length > 0) {
+              var gpu = data[i].result[0]
+              root.gpuName = ((gpu.vendor || "") + " " + (gpu.name || "")).trim()
+            }
           }
         } catch (e) {}
       }
@@ -89,72 +106,40 @@ Item {
     }
   }
 
-  // Aggregate + per-core CPU usage -- same delta-of-two-/proc/stat-
-  // samples method top/htop use: each line's idle/total jiffy counts,
-  // compared against the previous sample, gives that core's (or the
-  // overall system's) real usage% since the last poll. No single read
-  // can produce a percentage on its own. The bare "cpu " line (no
-  // trailing digit) is the kernel's own pre-summed aggregate across all
-  // cores -- used directly for the overall row instead of averaging
-  // the per-core values ourselves, same source top/htop's own overall
-  // gauge reads.
+  // Aggregate CPU usage -- same delta-of-two-/proc/stat-samples method
+  // top/htop use: the bare "cpu " line's idle/total jiffy counts (no
+  // trailing digit -- the kernel's own pre-summed aggregate across all
+  // cores), compared against the previous sample, gives the real
+  // overall usage% since the last poll. No single read can produce a
+  // percentage on its own. Per-core parsing dropped per direct
+  // follow-up (the per-core rows themselves were removed as redundant
+  // once this aggregate existed, and were adding real per-tick cost).
   Process {
     id: statProc
     command: ["cat", "/proc/stat"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var lines = String(text || "").split("\n")
-        var samples = []
-        var total_ = null
-        for (var i = 0; i < lines.length; i++) {
-          var agg = lines[i].match(/^cpu\s+(.*)$/)
-          if (agg) {
-            var aggParts = agg[1].trim().split(/\s+/).map(Number)
-            total_ = { idle: aggParts[3] + (aggParts[4] || 0), total: aggParts.reduce(function(a, b) { return a + b }, 0) }
-            continue
-          }
-          var m = lines[i].match(/^cpu(\d+)\s+(.*)$/)
-          if (!m) continue
-          var idx = parseInt(m[1], 10)
-          var parts = m[2].trim().split(/\s+/).map(Number)
-          var idle = parts[3] + (parts[4] || 0)
-          var total = parts.reduce(function(a, b) { return a + b }, 0)
-          samples[idx] = { idle: idle, total: total }
-        }
-        if (root.prevCpuTimes) {
-          var usages = []
-          for (var j = 0; j < samples.length; j++) {
-            var prev = root.prevCpuTimes[j]
-            var cur = samples[j]
-            if (!prev || !cur) { usages.push(0); continue }
-            var totalDelta = cur.total - prev.total
-            var idleDelta = cur.idle - prev.idle
-            usages.push(totalDelta > 0 ? Math.max(0, Math.min(1, 1 - idleDelta / totalDelta)) : 0)
-          }
-          root.coreUsages = usages
-        }
-        root.prevCpuTimes = samples
-
-        if (root.prevCpuTotal && total_) {
-          var tDelta = total_.total - root.prevCpuTotal.total
-          var iDelta = total_.idle - root.prevCpuTotal.idle
+        var m = String(text || "").match(/^cpu\s+(.*)$/m)
+        if (!m) return
+        var parts = m[1].trim().split(/\s+/).map(Number)
+        var cur = { idle: parts[3] + (parts[4] || 0), total: parts.reduce(function(a, b) { return a + b }, 0) }
+        if (root.prevCpuTotal) {
+          var tDelta = cur.total - root.prevCpuTotal.total
+          var iDelta = cur.idle - root.prevCpuTotal.idle
           root.cpuUsage = tDelta > 0 ? Math.max(0, Math.min(1, 1 - iDelta / tDelta)) : 0
         }
-        root.prevCpuTotal = total_
+        root.prevCpuTotal = cur
       }
     }
   }
 
-  // Real per-core AND package (overall) temperature -- lm_sensors' own
-  // coretemp driver ("Core 0".."Core N" plus a "Package id 0" key
-  // under coretemp-isa-0000), confirmed by running `sensors -j` on
-  // this machine directly, not guessed. fastfetch's own CPU.
-  // temperature field is null on this machine (aggregate-only, and not
-  // populated here anyway), so this is a separate real source, not
-  // something fastfetch already provided.
-  property var coreTemps: []
-
+  // Real package (overall CPU) temperature -- lm_sensors' own coretemp
+  // driver's "Package id 0" key under coretemp-isa-0000, confirmed by
+  // running `sensors -j` on this machine directly, not guessed.
+  // fastfetch's own CPU.temperature field is null on this machine, so
+  // this is a separate real source. Per-core temps dropped along with
+  // the per-core rows themselves.
   Process {
     id: sensorsProc
     command: ["sensors", "-j"]
@@ -163,28 +148,49 @@ Item {
       onStreamFinished: {
         try {
           var data = JSON.parse(text)
-          var temps = []
           var pkgTemp = -1
           for (var chip in data) {
             var fields = data[chip]
             for (var key in fields) {
+              if (!/^Package id \d+$/.test(key)) continue
               var reading = fields[key]
-              if (typeof reading !== "object") continue
-              var coreMatch = key.match(/^Core (\d+)$/)
-              var isPackage = /^Package id \d+$/.test(key)
-              if (!coreMatch && !isPackage) continue
               for (var field in reading) {
-                if (field.endsWith("_input")) {
-                  if (coreMatch) temps[parseInt(coreMatch[1], 10)] = reading[field]
-                  else pkgTemp = reading[field]
-                  break
-                }
+                if (field.endsWith("_input")) { pkgTemp = reading[field]; break }
               }
             }
           }
-          root.coreTemps = temps
           root.packageTemp = pkgTemp
         } catch (e) {}
+      }
+    }
+  }
+
+  // Real GPU usage -- i915 exposes no plain "busy %" file without root
+  // (intel_gpu_top needs elevated perf access, not installed here
+  // anyway), but its RC6 idle-residency counter is plain-readable and
+  // is the standard non-privileged way lightweight monitors derive
+  // Intel iGPU usage: busy% = 1 - (Δ time spent idle in RC6 / Δ real
+  // wall-clock time) between two samples. Confirmed both sysfs paths
+  // are readable directly on this machine, not guessed. gt_act_freq_mhz
+  // (current GPU clock) read alongside it for the row's own right-
+  // aligned stat, since this iGPU has no distinct thermal zone from
+  // the CPU package (fastfetch's GPU.temperature is null here too).
+  Process {
+    id: gpuProc
+    command: ["cat", "/sys/class/drm/card1/power/rc6_residency_ms", "/sys/class/drm/card1/gt_act_freq_mhz"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").trim().split("\n")
+        var rc6Ms = Number(lines[0])
+        var nowMs = Date.now()
+        root.gpuFreqMhz = Number(lines[1]) || 0
+        if (root.prevGpuSample) {
+          var wallDelta = nowMs - root.prevGpuSample.wallMs
+          var rc6Delta = rc6Ms - root.prevGpuSample.rc6Ms
+          root.gpuUsage = wallDelta > 0 ? Math.max(0, Math.min(1, 1 - rc6Delta / wallDelta)) : 0
+        }
+        root.prevGpuSample = { rc6Ms: rc6Ms, wallMs: nowMs }
       }
     }
   }
@@ -197,6 +203,7 @@ Item {
     onTriggered: {
       if (!statProc.running) statProc.running = true
       if (!sensorsProc.running) sensorsProc.running = true
+      if (!gpuProc.running) gpuProc.running = true
     }
   }
 
@@ -434,79 +441,76 @@ Item {
             }
           }
 
-          Repeater {
-            model: root.coreUsages
+          // GPU row -- goes right after the aggregate CPU row, per
+          // direct follow-up ("the cores are taking some time to load
+          // too... i think we can just show the GPU next after the
+          // aggregate CPU"). Same two-row shape as the CPU row above:
+          // row 1 icon + real usage bar + percentage, row 2 GPU name +
+          // current clock speed (right-aligned) -- this iGPU has no
+          // separate thermal zone from the CPU package, so a real
+          // frequency reading stands in for temperature here rather
+          // than duplicating the CPU package temp on an unrelated row.
+          Column {
+            id: gpuAggregate
+            width: coreColumn.width
+            spacing: 2
 
-            // Two rows per core, matching ambxst's own CPU section
-            // shape (a ResourceItem row, then a details row below it)
-            // -- per direct request: row 1 is icon + bar + percentage,
-            // row 2 is the core's name on the left and its real
-            // temperature (from sensorsProc above) right-aligned.
-            Column {
-              id: coreItem
-              required property int index
-              required property real modelData
-              width: coreColumn.width
-              spacing: 2
+            RowLayout {
+              width: gpuAggregate.width
+              spacing: 8
 
-              readonly property var temp: root.coreTemps[coreItem.index]
+              Text {
+                text: "󰢮"
+                font.family: root.fontFamily
+                font.pixelSize: 13
+                color: root.textColor
+                Layout.preferredWidth: 18
+              }
 
-              RowLayout {
-                width: coreItem.width
-                spacing: 8
-
-                Text {
-                  text: ""
-                  font.family: root.fontFamily
-                  font.pixelSize: 13
-                  color: root.textColor
-                  Layout.preferredWidth: 18
-                }
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 14
+                radius: 4
+                color: Qt.rgba(1, 1, 1, 0.08)
 
                 Rectangle {
-                  Layout.fillWidth: true
-                  Layout.preferredHeight: 14
+                  width: parent.width * Math.max(0, Math.min(1, root.gpuUsage))
+                  height: parent.height
                   radius: 4
-                  color: Qt.rgba(1, 1, 1, 0.08)
-
-                  Rectangle {
-                    width: parent.width * Math.max(0, Math.min(1, coreItem.modelData))
-                    height: parent.height
-                    radius: 4
-                    color: root.accent
-                    Behavior on width { NumberAnimation { duration: 200 } }
-                  }
-                }
-
-                Text {
-                  text: Math.round(coreItem.modelData * 100) + "%"
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  color: root.muted
-                  Layout.preferredWidth: 32
-                  horizontalAlignment: Text.AlignRight
+                  color: root.accent
+                  Behavior on width { NumberAnimation { duration: 200 } }
                 }
               }
 
-              RowLayout {
-                width: coreItem.width
-                spacing: 8
+              Text {
+                text: Math.round(root.gpuUsage * 100) + "%"
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                Layout.preferredWidth: 32
+                horizontalAlignment: Text.AlignRight
+              }
+            }
 
-                Text {
-                  text: "Core " + coreItem.index
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  color: root.textColor
-                  Layout.fillWidth: true
-                }
+            RowLayout {
+              width: gpuAggregate.width
+              spacing: 8
 
-                Text {
-                  text: coreItem.temp !== undefined ? Math.round(coreItem.temp) + "°C" : ""
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  color: root.muted
-                  horizontalAlignment: Text.AlignRight
-                }
+              Text {
+                text: root.gpuName || "GPU"
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.textColor
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+              }
+
+              Text {
+                text: root.gpuFreqMhz > 0 ? Math.round(root.gpuFreqMhz) + " MHz" : ""
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                horizontalAlignment: Text.AlignRight
               }
             }
           }

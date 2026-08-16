@@ -2771,6 +2771,53 @@ with its own independently real usage/temp values (not copied from any
 single core, and visibly different from the per-core numbers in the
 same capture).
 
+## Per-core rows removed, GPU row added instead
+
+Per direct follow-up, right after the aggregate CPU row landed: "oh
+shit if thats the aggregate then showing each core is kinda in the way
+i think we can just show the GPU next after the aggregate CPU then,
+the cores are taking some time to load too." Two real, related
+problems in one message -- the per-core breakdown was redundant now
+that the aggregate row existed, and it had a genuine perf cost (a
+`Repeater`, a second parse loop inside `statProc`, and a second parse
+loop inside `sensorsProc`, all re-run every 2s tick).
+
+Removed entirely: the per-core `Repeater`, `coreUsages`/
+`prevCpuTimes`/`coreTemps` properties, and both processes' per-core
+parsing loops -- `statProc` now only regexes the single bare `"cpu "`
+line instead of scanning every line for `cpu\d+`, `sensorsProc` only
+looks for the `"Package id N"` key instead of also matching `"Core
+N"`.
+
+Added in its place, real GPU usage right after the CPU row (same two-
+row shape): row 1 icon + usage bar + percentage, row 2 GPU name +
+current clock speed (right-aligned, not temperature -- this iGPU has
+no thermal zone separate from the CPU package, so reusing the package
+temp on an unrelated row would have been misleading; a real live clock
+reading is more honest here). Two real sources, neither guessed:
+- **GPU name**: fastfetch, same call as the identity rows --
+  `identityProc`'s command expanded from `-s Host:CPU` to `-s
+  Host:CPU:GPU`, `GPU.result[0]` gives `vendor: "Intel"` + `name: "UHD
+  Graphics"`.
+- **GPU usage**: this iGPU (and Intel iGPUs generally) expose no plain
+  "busy %" file without root (`intel_gpu_top` needs elevated perf
+  access, isn't installed here anyway) -- confirmed directly by
+  checking `/sys/class/drm/card1/` for anything simpler first. Used the
+  standard non-privileged workaround instead: `power/rc6_residency_ms`
+  (cumulative time spent idle in the RC6 power state) compared between
+  two samples against real wall-clock time (`Date.now()`, not an
+  assumed exact 2000ms), `busy% = 1 - (Δrc6 / Δwall)`. Same shape as
+  the CPU's own idle/total jiffy-delta calc, different counter.
+  `gt_act_freq_mhz` (current GPU clock) read in the same `cat` call for
+  the row's own right-aligned stat.
+
+**Verified**: screenshotted the live tab -- confirmed `Core 0`-`Core 3`
+are gone, the CPU row still sits first with its own real numbers, and
+the new GPU row (`Intel UHD Graphics`, live usage%, `800 MHz`) sits
+directly below it. Cross-checked the RC6-residency math by sampling
+`rc6_residency_ms` directly in the terminal a second time before
+implementing, not just trusting the formula on paper.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

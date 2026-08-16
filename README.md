@@ -2079,6 +2079,18 @@ fix: pinned the dashboard open, ran `wpctl set-mute @DEFAULT_AUDIO_SINK@
 restarting the shell*, screenshotted each -- red icon, empty ring, both
 correct. Restored both to unmuted after.
 
+## Dial tip stays visible at 0% instead of vanishing when muted
+
+Per direct follow-up ("when they are on silience or mute, keep the tip
+head at the 0% position"): the tip was guarded on
+`dialRoot.effectiveValue > 0`, so muting (or genuinely 0% real volume)
+made it disappear entirely instead of sitting at the ring's start.
+Removed the guard -- same fix already applied to `CircularSeek`'s own
+tip earlier for the idle/no-media case, same reasoning here. Verified
+live via `wpctl set-mute` without restarting the shell -- white tip now
+sits at the 0% position while muted instead of vanishing, restored
+after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -1261,7 +1261,15 @@ Item {
             // noticeably thicker instead per direct request ("pretty
             // thick"), matching how the bigger player ring's tip
             // already reads chunkier than its own track.
-            if (dialRoot.effectiveValue > 0) {
+            //
+            // Always drawn now, even at effectiveValue: 0 -- per direct
+            // request ("when they are on silence or mute, keep the tip
+            // head at the 0% position") -- was guarded on `> 0` before,
+            // so muting/zero volume made it vanish entirely instead of
+            // sitting at the start. Same fix already applied to
+            // CircularSeek's own tip earlier for the idle/no-media
+            // case, same reasoning here.
+            {
               // Shortened -- r-3/r+5 (an 8px span) stuck out too far
               // past the ring, per direct feedback.
               var tipR1 = r - 2

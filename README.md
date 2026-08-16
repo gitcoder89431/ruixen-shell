@@ -248,6 +248,28 @@ The only real invariant is `topInset + notchClearance = 44`; `barSize`
 is just the pill's own visual height and is unrelated to where the
 Hyprland reservation ends.
 
+## Dedicated pill for ruixen.settingsbutton
+
+Direct report right after adding `ruixen.settingsbutton` to `shell.json`'s
+`bar.layout.left`: "that broke the windows pill, it shifted up the window
+icons and no i dont mean have it in the same pill, just make a pill for
+setting right after the window group." Root cause: `workspacesPill`'s own
+`ModuleList` filter used to be "everything in the left region that isn't
+`ruixen.applauncher`" -- adding a new left-region id landed it in that
+same pill by default, resizing it and shifting the workspace dots.
+
+Two changes: `workspacesPill`'s filter now also excludes
+`ruixen.settingsbutton` explicitly, and a new `settingsPill` (anchored
+`anchors.left: workspacesPill.right`, same `GroupPill` shape as every
+other pill here) holds just that one entry. Same pattern `menuPill`/
+`workspacesPill`/`rightPill` already use -- an explicit per-id filter, not
+implicit "whatever's left over."
+
+**Verified**: brace-balance check clean, `omarchy plugin validate` clean,
+live-restarted the shell, screenshotted the bar's left side -- workspace
+dots back to their normal size/position, gear icon now in its own
+separate pill right after the window group.
+
 ## Companion setup (required for the full look)
 
 1. **[`ruixen.frame-widget`](https://github.com/gitcoder89431/ruixen-frame-widget)**

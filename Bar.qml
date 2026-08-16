@@ -1364,8 +1364,35 @@ Item {
           ModuleList {
             id: workspacesContent
             anchors.centerIn: parent
+            // Excludes ruixen.settingsbutton too now -- adding that id to
+            // shell.json's left array landed it in here by default (this
+            // filter used to just be "not applauncher"), squeezing into
+            // the same pill and shifting the workspace icons. Per direct
+            // correction ("that broke the windows pill... just make a
+            // pill for setting right after the window group"), it gets
+            // its own dedicated pill below instead.
             entries: root.layoutEntries("left").filter(function(e) {
-              return root.entryId(e) !== "ruixen.applauncher"
+              return root.entryId(e) !== "ruixen.applauncher" && root.entryId(e) !== "ruixen.settingsbutton"
+            })
+            region: "left"
+          }
+        }
+
+        Item {
+          id: settingsPill
+          anchors.left: workspacesPill.right
+          anchors.leftMargin: 6
+          anchors.verticalCenter: parent.verticalCenter
+          width: settingsContent.implicitWidth + 8 * 2
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent }
+
+          ModuleList {
+            id: settingsContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("left").filter(function(e) {
+              return root.entryId(e) === "ruixen.settingsbutton"
             })
             region: "left"
           }

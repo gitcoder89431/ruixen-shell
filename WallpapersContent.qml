@@ -165,78 +165,93 @@ Item {
         Repeater {
           model: root.filteredPaths
 
+          // Structural rewrite per direct correction: the previous pass
+          // copied ambxst's frame APPEARANCE without their actual
+          // rendering structure. Ambxst never animates a border on the
+          // image container itself -- the wallpaper image stays
+          // geometrically static, and a separate highlight overlay
+          // draws above it. Copying the frame onto the SAME
+          // ClippingRectangle that holds the image (animated
+          // border.width, a permanent Image margin, an idle
+          // Behavior-driven fill color) is what caused the reported
+          // zoom/flash/lingering-fade symptoms -- each one traced back
+          // to the image container's own geometry or render layer
+          // changing. Fixed by fully separating them: the image sits in
+          // its own static, never-animated container; the ring, inner
+          // line, and label are separate sibling overlays with fixed
+          // geometry, toggled by plain `visible: tile.hovered` and
+          // nothing else -- no Behaviors anywhere in this delegate, so
+          // there's no lingering fade after the pointer leaves either.
           Item {
             id: tile
             required property string modelData
-            // Hover-only now, not hover-or-active -- per direct
-            // feedback, the ring/inner border/label should only show
-            // on hover, full stop, not sit lit permanently on the
-            // active wallpaper too. (currentBackground is still real,
-            // live state -- root.select() still writes it and the real
-            // omarchy-theme-bg-set call still fires -- there's just no
-            // longer a dedicated "this one's active" visual at rest.)
-            readonly property bool showFrame: tileMouse.containsMouse
+            readonly property bool hovered: tileMouse.containsMouse
 
             width: 160
             height: 100
 
+            // Image container -- always exactly `width`x`height`, no
+            // margins, no border, no animated properties at all. This
+            // is the ONLY thing visible at rest.
             ClippingRectangle {
               anchors.fill: parent
               radius: 10
-              // Idle: barely-there tint (original resting look). Hover:
-              // real OLED black -- per direct feedback the thin accent
-              // ring alone was overpowering the inner border, hard to
-              // tell apart as its own layer. This color shows through
-              // the Image's own static inset below as a genuine inner
-              // border/mat, distinct from the ring -- hover-only, same
-              // as the ring itself now (see showFrame above).
-              color: tile.showFrame ? "#0a0a0a" : Qt.rgba(1, 1, 1, 0.05)
-              Behavior on color { ColorAnimation { duration: 120 } }
-              // false, not the default true -- ClippingRectangle insets
-              // its CONTENT by border.width when contentInsideBorder is
-              // true, so animating border.width 0 -> 2 was smoothly
-              // shrinking/repositioning the image underneath it every
-              // time -- the "image is zooming on hover" bug reported
-              // earlier. The Image's own inset below is a separate,
-              // fixed 3px margin that never changes, so it can't
-              // reintroduce that same bug.
-              border.width: tile.showFrame ? 2 : 0
-              border.color: root.accent
-              contentInsideBorder: false
-              Behavior on border.width { NumberAnimation { duration: 120 } }
+              color: "transparent"
 
               Image {
                 anchors.fill: parent
-                anchors.margins: 5
                 source: "file://" + tile.modelData
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 sourceSize: Qt.size(160, 100)
               }
+            }
 
-              // Bottom filename label, sitting flush with the image's
-              // own (now inset) edges rather than the outer ring.
-              // Hover-only, same as the ring/mat above.
+            // Hover decoration only -- a separate overlay sibling, not
+            // a property on the image's own container, so it can never
+            // affect the image's geometry or force a clip rebuild.
+            // Accent ring + a nested inset black line, both plain
+            // borders on transparent-filled Rectangles.
+            Rectangle {
+              anchors.fill: parent
+              radius: 10
+              color: "transparent"
+              border.width: 2
+              border.color: root.accent
+              visible: tile.hovered
+              z: 2
+
               Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.margins: 5
-                height: 26
-                color: Qt.rgba(0, 0, 0, 0.82)
-                opacity: tileMouse.containsMouse ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
+                anchors.fill: parent
+                anchors.margins: 3
+                radius: 7
+                color: "transparent"
+                border.width: 2
+                border.color: "#000000"
+              }
+            }
 
-                Text {
-                  anchors.centerIn: parent
-                  width: parent.width - 12
-                  horizontalAlignment: Text.AlignHCenter
-                  elide: Text.ElideRight
-                  text: tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
-                  color: root.textColor
-                  font.family: root.fontFamily
-                  font.pixelSize: 10
-                }
+            // Filename label -- also a separate overlay sibling, fixed
+            // geometry, plain visible toggle.
+            Rectangle {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              anchors.margins: 5
+              height: 26
+              color: Qt.rgba(0, 0, 0, 0.82)
+              visible: tile.hovered
+              z: 3
+
+              Text {
+                anchors.centerIn: parent
+                width: parent.width - 12
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+                text: tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 10
               }
             }
 
@@ -246,6 +261,7 @@ Item {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: root.select(tile.modelData)
+              z: 4
             }
           }
         }

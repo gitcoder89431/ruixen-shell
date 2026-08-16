@@ -2473,6 +2473,57 @@ confirmed neither tile -- including the actually-active
 frame still renders correctly on both tiles when it IS supposed to
 show, before reverting.
 
+## Structural rewrite: separate the image from the hover decoration
+
+Every prior fix in this section (zoom on hover, invisible inner border,
+frame lingering after hover) treated symptoms one at a time on the same
+underlying structure. Direct correction identified the actual root
+cause: the whole approach copied ambxst's frame *appearance* without
+copying their *rendering structure*. Ambxst never animates a border on
+the image's own container -- the wallpaper image stays geometrically
+static, full stop, and a completely separate highlight overlay draws
+above it (their real `GridView.highlight` component). Every symptom
+here traced back to putting the frame on the SAME `ClippingRectangle`
+that holds the image:
+
+- Animated `border.width` (0 → 2) on that rectangle risked rebuilding
+  its clip render layer on every hover -- the flash.
+- A permanent `Image` `anchors.margins` meant the idle state was never
+  "just the image" -- the parent's own fill color always showed through
+  as a resting frame.
+- `Behavior on opacity`/`Behavior on color` on the frame elements meant
+  they stayed visibly fading out for ~120ms after the pointer actually
+  left the tile.
+
+Rewrote the whole tile delegate to match ambxst's real separation:
+
+- **Image container**: `ClippingRectangle` + `Image`, both
+  `anchors.fill: parent`, zero margins, zero border, zero animated
+  properties of any kind. This is the only thing ever visible at rest,
+  and it never changes shape regardless of hover state.
+- **Ring + inner line**: a separate sibling `Rectangle`
+  (`anchors.fill: parent`, transparent fill, `border.width: 2`,
+  `border.color: root.accent`, plain `visible: tile.hovered`, `z: 2`),
+  with a second nested `Rectangle` inset `3px` for the black inner line
+  (`border.width: 2`, `border.color: "#000000"`). Both are pure
+  overlays drawn on top of the already-static image -- they can't
+  affect its geometry because they're not inside its container at all.
+- **Label**: same pattern, separate sibling `Rectangle` + `Text`,
+  `visible: tile.hovered`, `z: 3`.
+- **No `Behavior` anywhere in this delegate** -- `visible` is a hard
+  boolean toggle, not an animated property, so the frame disappears the
+  instant the pointer leaves instead of fading out over it.
+
+`tile.hovered` replaces the old `showFrame`, same
+`tileMouse.containsMouse` source.
+
+**Verified**: screenshotted the resting grid (no hardcoding) --
+confirmed a clean plain-image grid with zero frame artifacts. Then
+force-hardcoded `hovered` to `true` (same live-hardcode method used
+throughout this file) and screenshotted again -- ring, inner line, and
+label all render correctly as overlays with the image itself completely
+unaffected. Reverted after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

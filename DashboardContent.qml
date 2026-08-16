@@ -1256,24 +1256,43 @@ Item {
       // reference `height` reactively, so this needs no other changes
       // -- they recompute correctly at whatever height fillHeight
       // resolves to.
+      // No longer draws the dim track itself directly (color:
+      // transparent) -- per direct feedback ("the tail has it but the
+      // head doesnt have the cap"), the track was still spanning the
+      // bar's FULL height uncut, so it ran right up against the tip's
+      // own top edge with zero separation while the fill (already
+      // explicitly trimmed short below the tip) had a real gap. Track
+      // is now its own explicitly-trimmed Rectangle too, stopping
+      // short ABOVE the tip by the same gapPx the fill already stops
+      // short below it -- a real, symmetric gap on both sides now,
+      // not just one.
       Rectangle {
         id: brightnessBar
         Layout.alignment: Qt.AlignHCenter
         Layout.preferredWidth: 7
         Layout.fillHeight: true
         radius: 3
-        color: Qt.rgba(1, 1, 1, 0.15)
+        color: "transparent"
 
         property real value: 0.8
         // Distance from the bar's own top edge to the value line --
-        // fill stops short of it by gapPx, the tip sits centered
-        // right on it, straddling into both sides.
+        // both track and fill stop short of it by gapPx, the tip sits
+        // centered right on it, straddling into both gaps.
         readonly property real valueY: height * (1 - value)
         // Bumped 4 -> 8 alongside the tip's own growth (5px -> 7px
-        // tall) -- the fill trim needs to clear the tip's now-bigger
+        // tall) -- the trim needs to clear the tip's now-bigger
         // half-height (3.5px) with real margin, or the "gap" ends up
         // a sub-pixel sliver again, same lesson as the dial's tip.
         readonly property real gapPx: 8
+
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: Math.max(0, parent.valueY - parent.gapPx)
+          radius: 3
+          color: Qt.rgba(1, 1, 1, 0.15)
+        }
 
         Rectangle {
           anchors.left: parent.left

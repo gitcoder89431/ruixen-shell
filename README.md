@@ -1644,6 +1644,18 @@ Canvas line-cap. Bumped `gapPx: 4 -> 8` so the trim clears the bigger
 tip with real margin. Verified via zoomed screenshot -- clear dark gap
 visible between the tip and the fill.
 
+**Follow-up: only the "tail" (fill side) had a gap, the "head" (track
+side) didn't.** Real structural gap, not a tuning issue -- the outer
+bar `Rectangle` was still drawing the dim track color for its FULL
+height, uncut, so it ran right up against the tip's own top edge with
+zero separation, while the fill (already an explicit, separately-sized
+child `Rectangle`) had a real trim below the tip. Fixed by giving the
+track the same treatment: outer bar `color` set to `"transparent"`
+(stops drawing track itself), and a new explicit track `Rectangle`
+added that stops short ABOVE the tip by `gapPx`, mirroring the fill's
+own trim below it exactly. Both sides now get a real, symmetric gap
+around the tip instead of just one. Verified via zoomed screenshot.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

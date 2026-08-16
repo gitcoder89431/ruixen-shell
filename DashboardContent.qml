@@ -1151,41 +1151,46 @@ Item {
       // feedback ("the brightness needs like a tonal button bg to
       // frame it") -- speaker/mic don't need one, their own Canvas
       // ring already reads as a self-contained control.
-      Rectangle {
+      //
+      // Follow-up: the frame originally wrapped the icon AND the bar
+      // together -- per direct correction ("just the tonal on the
+      // light icon"), it's now its own small square sitting behind
+      // ONLY the icon; the bar below is plain, matching how the icon
+      // is the "button" and the bar is a separate slider-like element.
+      ColumnLayout {
         Layout.alignment: Qt.AlignHCenter
-        Layout.preferredWidth: 56
-        Layout.preferredHeight: brightnessColumn.implicitHeight + 16
-        radius: 14
-        color: Qt.rgba(1, 1, 1, 0.06)
+        spacing: 6
 
-        ColumnLayout {
-          id: brightnessColumn
-          anchors.centerIn: parent
-          spacing: 6
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 32
+          Layout.preferredHeight: 32
+          radius: 10
+          color: Qt.rgba(1, 1, 1, 0.06)
 
           Text {
-            Layout.alignment: Qt.AlignHCenter
+            anchors.centerIn: parent
             text: "󰃟"
             color: root.textColor
             font.family: root.fontFamily
             font.pixelSize: 18
           }
+        }
+
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 6
+          Layout.preferredHeight: 48
+          radius: 3
+          color: Qt.rgba(1, 1, 1, 0.15)
 
           Rectangle {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 6
-            Layout.preferredHeight: 48
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: parent.height * 0.8
             radius: 3
-            color: Qt.rgba(1, 1, 1, 0.15)
-
-            Rectangle {
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.bottom: parent.bottom
-              height: parent.height * 0.8
-              radius: 3
-              color: root.accent
-            }
+            color: root.accent
           }
         }
       }

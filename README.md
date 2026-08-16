@@ -1472,6 +1472,13 @@ already reads as a self-contained control on its own. All three glyphs
 (brightness sun, `Dial`'s speaker/mic) bumped `14px -> 18px`, matching
 the left-rail tab bar's own glyph size exactly. Verified via screenshot.
 
+**Follow-up: frame was wrapping the bar too.** Per direct correction
+("you extended the light tonal bg onto the sliders for it, it doesnt
+need to go on it, just the tonal on the light icon") -- the single big
+frame around icon+bar was wrong; restructured to a small `32x32` tonal
+square behind ONLY the icon, with the vertical bar sitting plain below
+it, unwrapped. Verified via screenshot.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

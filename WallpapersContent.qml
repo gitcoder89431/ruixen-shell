@@ -221,12 +221,15 @@ Item {
               visible: tile.hovered
               z: 2
 
+              // Thicker + further inset than a hairline, closer to
+              // ambxst's own real proportions (their inset border is a
+              // substantial ~28px band, not a thin 1-2px trace).
               Rectangle {
                 anchors.fill: parent
-                anchors.margins: 3
-                radius: 7
+                anchors.margins: 5
+                radius: 8
                 color: "transparent"
-                border.width: 2
+                border.width: 5
                 border.color: "#000000"
               }
             }

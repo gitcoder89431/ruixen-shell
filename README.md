@@ -2524,6 +2524,22 @@ throughout this file) and screenshotted again -- ring, inner line, and
 label all render correctly as overlays with the image itself completely
 unaffected. Reverted after.
 
+## Inner black line thickened to match ambxst's real proportions
+
+Per direct follow-up: "for the inner ring how do increase the size so
+theres more like ambxst." The inner black `Rectangle` (nested inside
+the accent ring overlay) was a thin `2px` border inset just `3px` from
+the ring -- ambxst's own real inset border is a substantial ~28px band,
+not a hairline. Bumped both: inset margin `3 -> 5`, `border.width: 2 ->
+5`, `radius: 7 -> 8` to match the deeper inset. Purely a size tweak on
+the same overlay-`Rectangle` structure from the rewrite above -- no
+change to the separation itself.
+
+**Verified**: same live-hardcode method (forced `hovered` true),
+screenshotted, and confirmed the black line now reads as a distinct,
+substantial inner frame instead of a thin trace easily lost next to the
+accent ring. Reverted after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

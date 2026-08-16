@@ -3150,6 +3150,30 @@ exactly.
 `"Memory"` headers now render at matching size/weight/color side by
 side.
 
+## Network split into download (featured) + upload (row below)
+
+Per direct request: "there should be upload and download speed... we
+can make download speed the MB/s thats there or in B/s and then the
+row below it is the upload." Was a single combined rx+tx total as the
+big value, with both directions squeezed into one small subtext line
+(`"↓ X KB/s  ↑ Y KB/s"`).
+
+New `root.formatRate(bytesPerSec)` helper -- auto-scales `B/s -> KB/s
+-> MB/s` picking whichever unit keeps the number readable, addressing
+"the MB/s thats there or in B/s" directly (was a fixed `/1024/1024`
+divide that read as `"0.0 MB/s"` for anything under ~100KB/s, which is
+most of the time on an idle connection). `valueText` (the tile's big
+featured number) is now `"↓ " + formatRate(netRxRate)` alone; `subText`
+(the row below it) is `"↑ " + formatRate(netTxRate)` alone -- genuinely
+two separate readings now, not one combined number with a small
+recap underneath.
+
+**Verified**: screenshotted the live tab -- confirmed `"↓ 10.8 KB/s"`
+as the tile's main value and `"↑ 337.0 KB/s"` as its own row below,
+both independently reading real, currently-different rates (this
+machine was actively uploading at the time, a good real-world case for
+why combining rx+tx into one number was actually losing information).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

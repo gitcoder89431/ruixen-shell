@@ -75,6 +75,17 @@ Item {
   property real netTxRate: 0
   property var prevNetSample: null
 
+  // Auto-scaling B/s -> KB/s -> MB/s, per direct request ("download
+  // speed the MB/s thats there or in B/s") -- picks whichever unit
+  // keeps the number readable instead of a fixed one that reads as
+  // "0.0 MB/s" for anything under ~100KB/s (most of the time on an
+  // idle connection).
+  function formatRate(bytesPerSec) {
+    if (bytesPerSec < 1024) return Math.round(bytesPerSec) + " B/s"
+    if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + " KB/s"
+    return (bytesPerSec / 1024 / 1024).toFixed(1) + " MB/s"
+  }
+
   // One entry per real, distinct block device (deduped -- btrfs
   // subvolumes like /, /home, /var/log on this machine all share the
   // same underlying /dev/mapper/root, confirmed via `df` directly, not
@@ -1115,12 +1126,14 @@ Item {
           Layout.fillHeight: true
           glyph: ""
           title: "Network"
-          valueText: {
-            var total = root.netRxRate + root.netTxRate
-            return (total / 1024 / 1024).toFixed(1) + " MB/s"
-          }
+          // Download as the featured value, upload as its own row
+          // below -- per direct request ("there should be upload and
+          // download speed... download speed the mb/s thats there...
+          // row below it is the upload"), was a single combined rx+tx
+          // total with both split into a tiny subtext line.
+          valueText: root.netInterface ? ("↓ " + root.formatRate(root.netRxRate)) : "No connection"
           barValue: 0
-          subText: root.netInterface ? ("↓ " + (root.netRxRate / 1024).toFixed(0) + " KB/s  ↑ " + (root.netTxRate / 1024).toFixed(0) + " KB/s") : "No connection"
+          subText: root.netInterface ? ("↑ " + root.formatRate(root.netTxRate)) : ""
         }
 
         MemoryDialTile {

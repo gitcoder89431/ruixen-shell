@@ -2320,6 +2320,41 @@ containsMouse` half uses the exact same `MouseArea.hoverEnabled`+
 still can't be simulated in this environment, the standing limitation
 noted throughout this README.
 
+## Follow-up: drop the active label, fix tile spacing
+
+Two direct pieces of feedback on the frame treatment above: "the
+current one we dont need a text then the border hilight carries enough
+weight" and "these wallpaper are kinda too far apart, just make them
+line up side by side with some padding."
+
+**Label now hover-only, not hover-or-active.** The gradient scrim +
+filename `Text` opacity switched from `tile.showFrame` (hover OR
+active) to plain `tileMouse.containsMouse`. The border ring keeps
+`showFrame` unchanged, so the active wallpaper's ring still sits lit at
+rest with no label competing for attention, exactly as asked. Also
+dropped the `"Current"` special-case text entirely -- with the label
+now hover-only, showing a hovered *active* tile's real filename is more
+useful than a generic word, and it's one less branch.
+
+**Tile spacing was a real layout bug, not a spacing value.** The grid
+was `GridLayout` with `columns: Math.max(1, Math.floor(width / 172))`
+-- with only 2 wallpapers on this theme, that produced a huge gap
+between them instead of the intended tight adjacency (GridLayout's
+column-width computation doesn't pack sparse rows the way `Flow` does).
+Replaced `GridLayout` + `Layout.preferredWidth/Height` with a plain
+`Flow { spacing: 10 }` + fixed `width`/`height` on each tile -- `Flow`
+lays out children left-to-right at a fixed spacing and wraps
+automatically, which is the actual "line up side by side with some
+padding" behavior, with no column-count math to get wrong.
+
+**Verified genuinely live, not staged**: the screenshot taken to check
+this actually caught the real system cursor resting over the second
+tile from earlier interaction -- showing, in one frame and with zero
+hardcoding: the active tile (`0-ruixen.jpg`) with its ring lit and no
+label, and the hovered tile (`1-ruixen.jpg`) with its ring, gradient,
+and real filename all showing, now sitting directly adjacent with a
+clean 10px gap instead of the old sprawl.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

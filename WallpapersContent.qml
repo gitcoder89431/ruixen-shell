@@ -157,12 +157,10 @@ Item {
       clip: true
       boundsBehavior: Flickable.StopAtBounds
 
-      GridLayout {
+      Flow {
         id: grid
         width: parent.width
-        columns: Math.max(1, Math.floor(width / 172))
-        columnSpacing: 12
-        rowSpacing: 12
+        spacing: 10
 
         Repeater {
           model: root.filteredPaths
@@ -171,13 +169,13 @@ Item {
             id: tile
             required property string modelData
             readonly property bool active: tile.modelData === root.currentBackground
-            // Ring + label track hover OR active, matching ambxst's own
-            // behavior (their shared highlight item follows whichever
-            // tile is hovered, not just the truly-selected one).
+            // Border ring tracks hover OR active -- the active wallpaper
+            // keeps its ring at rest, matching ambxst's own "hover shows
+            // the same highlight as the real selection" behavior.
             readonly property bool showFrame: tileMouse.containsMouse || tile.active
 
-            Layout.preferredWidth: 160
-            Layout.preferredHeight: 100
+            width: 160
+            height: 100
 
             ClippingRectangle {
               anchors.fill: parent
@@ -197,21 +195,20 @@ Item {
 
               // Bottom inner-shadow + filename label, matching ambxst's
               // real wallpaper tile treatment (WallpapersTab.qml's
-              // shared `highlight` item -- an oversized negative-margin
-              // bordered Rectangle clipped by a separate floating
-              // overlay, labeled "CURRENT" for the actual active
-              // wallpaper or the filename otherwise). Ported the visual
-              // RESULT here, not that mechanism -- these tiles already
-              // own their own ClippingRectangle/MouseArea each, so a
-              // plain per-tile gradient + centered label reads
-              // identically without needing a shared floating overlay
-              // or the border-clipping trick.
+              // shared `highlight` item), ported as a visual result
+              // rather than their literal negative-margin-border trick
+              // -- see the README for the full mechanism writeup.
+              //
+              // Hover-only, not hover-or-active -- per direct feedback,
+              // the active tile doesn't need the label too, its border
+              // ring (still keyed off showFrame, so it stays lit at
+              // rest) already carries that weight on its own.
               Rectangle {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 height: parent.height * 0.55
-                opacity: tile.showFrame ? 1 : 0
+                opacity: tileMouse.containsMouse ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 120 } }
                 gradient: Gradient {
                   GradientStop { position: 0.0; color: "transparent" }
@@ -225,8 +222,8 @@ Item {
                   width: parent.width - 12
                   horizontalAlignment: Text.AlignHCenter
                   elide: Text.ElideRight
-                  text: tile.active ? "Current" : tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
-                  color: tile.active ? root.accent : root.textColor
+                  text: tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
+                  color: root.textColor
                   font.family: root.fontFamily
                   font.pixelSize: 10
                 }

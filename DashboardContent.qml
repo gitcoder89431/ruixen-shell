@@ -51,6 +51,15 @@ Item {
   // notch's own bell already reads -- was undefined here, the
   // notification header's bell was purely decorative.
   property bool dnd: false
+  // Real brightness passthrough -- Overlay.qml owns the actual
+  // omarchy-monitor-state/omarchy-brightness-display CLI calls (no
+  // "service" kind on omarchy.monitor to read directly), this just
+  // gets the current value and a setter function handed down. Was a
+  // hardcoded property real value: 0.8 on the bar itself before, purely
+  // decorative.
+  property real brightnessPercent: 50
+  property bool brightnessAvailable: false
+  property var setBrightness: null
 
   // Idle-state artist placeholder -- a small ROW of braille cells with
   // one lit dot scanning back and forth (Cylon/KITT-scanner style),
@@ -1309,7 +1318,13 @@ Item {
         radius: 3
         color: "transparent"
 
-        property real value: 0.8
+        // Real value now, per direct request ("can this actually
+        // control the brightness?") -- was a hardcoded 0.8. root.setBrightness
+        // is Overlay.qml's own function (ultimately shells out to
+        // omarchy-brightness-display), handed down as a plain function-
+        // typed property since omarchy.monitor has no service kind to
+        // call a real method on directly.
+        property real value: root.brightnessPercent / 100
         // Distance from the bar's own top edge to the value line --
         // both track and fill stop short of it by gapPx, the tip sits
         // centered right on it, straddling into both gaps.
@@ -1348,6 +1363,28 @@ Item {
           height: 7
           radius: 3.5
           color: "#ffffff"
+        }
+
+        // Click/drag to actually set brightness -- the bar was purely
+        // a static readout until now. Width 24 (wider than the 7px bar
+        // itself, a comfortable grab target) but height matches the
+        // bar's own exactly (no vertical margin), so mouse.y maps
+        // directly to a 0..1 ratio with no extra offset math needed.
+        MouseArea {
+          width: 24
+          height: parent.height
+          anchors.centerIn: parent
+          enabled: root.brightnessAvailable
+          cursorShape: Qt.PointingHandCursor
+          preventStealing: true
+
+          function updateFromY(y) {
+            var ratio = 1 - Math.max(0, Math.min(1, y / height))
+            if (root.setBrightness) root.setBrightness(Math.round(ratio * 100))
+          }
+
+          onPressed: mouse => updateFromY(mouse.y)
+          onPositionChanged: mouse => { if (pressed) updateFromY(mouse.y) }
         }
       }
 

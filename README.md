@@ -1960,6 +1960,56 @@ oversized relative to the old smaller frame. Verified via screenshot --
 the whole right rail now reads consistently sized top to bottom instead
 of the brightness badge looking undersized next to the dials.
 
+## Brightness bar now controls real brightness
+
+Per direct request ("can this actually control the brightness?") --
+was a hardcoded `property real value: 0.8`, purely decorative like the
+speaker/mic dials still are.
+
+`omarchy.monitor` (the real Display settings panel this bar visually
+mirrors) only declares `"bar-widget"` in its manifest, no `"service"`
+kind -- so there's no `shell.firstPartyServiceFor()` to read/write
+through directly (same limitation already documented for
+`omarchy.agents` elsewhere in this file). Read their own `Panel.qml`
+directly instead of guessing an API, and reused the exact same CLI
+calls it makes:
+
+- **Read**: `omarchy-monitor-state` -- line 1 is the brightness percent
+  (or the literal string `"unavailable"`), line 6 is the focused
+  monitor's name. Confirmed both by running it directly (`50` /
+  `HDMI-A-1` on this machine), not guessed from the source alone.
+- **Write**: `omarchy-brightness-display --no-osd --monitor <name>
+  <percent>%`.
+- Polls every `5s` while the dashboard is actually open (`panel.expanded`),
+  matching the real panel's own `running: root.opened` reasoning --
+  picks up external changes (keyboard backlight keys) while visible, no
+  reason to poll while collapsed.
+- Deliberately does NOT re-read immediately after a write -- same
+  comment as the real panel's own code: re-reading right after a write
+  races the hardware/driver and can return an empty string, bouncing
+  the bar to 0. The locally-set value stays authoritative until the
+  next periodic poll.
+
+**Also added real click/drag interaction** -- the bar had never been
+interactive at all before this (not even visually wired to a real
+value). A `24px`-wide `MouseArea` (wider than the `7px` bar itself, a
+comfortable grab target) with height matching the bar's own exactly (no
+vertical margin, so `mouse.y` maps directly to a `0..1` ratio with no
+offset math) handles both press and drag, calling the new
+`root.setBrightness(percent)` function passed down from `Overlay.qml`.
+
+**Verified two ways**: the READ side via screenshot with the dashboard
+pinned open -- the tip sits at the visual midpoint, matching the real
+`50%` this machine was actually at. The WRITE side by running the exact
+same CLI command the QML would invoke directly in the terminal
+(`omarchy-brightness-display --no-osd --monitor HDMI-A-1 30%`) and
+confirming via `omarchy-monitor-state` that real system brightness
+actually changed (`50 -> 30`), then restored to `50`. Real mouse-drag
+gesture testing itself isn't possible in this environment (no working
+click simulation, documented elsewhere in this project's history), but
+both halves of the mechanism it would trigger are independently
+confirmed working.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

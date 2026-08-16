@@ -64,6 +64,66 @@ Item {
   // reflects the real state, doesn't own it.
   readonly property var notificationService: shell ? shell.firstPartyServiceFor("omarchy.notifications") : null
   readonly property bool dnd: notificationService ? notificationService.doNotDisturb : false
+
+  // Real brightness control, per direct request ("can this actually
+  // control the brightness?") -- omarchy.monitor (the real Display
+  // settings panel this mirrors visually) only declares kind
+  // "bar-widget" in its manifest, no "service" kind, so there's no
+  // shell.firstPartyServiceFor() to read here (same limitation already
+  // documented for omarchy.agents elsewhere in this file). Reused the
+  // exact same CLI tools their own Panel.qml calls directly instead:
+  // omarchy-monitor-state to read (line 1 = brightness percent or
+  // "unavailable", line 6 = the focused monitor's name -- confirmed by
+  // running it directly, not guessed), omarchy-brightness-display
+  // --no-osd --monitor <name> <percent>% to write.
+  property real brightnessPercent: 50
+  property string focusedMonitor: ""
+  property bool brightnessAvailable: false
+
+  Process {
+    id: brightnessStateProc
+    command: ["omarchy-monitor-state"]
+    running: true
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").split("\n")
+        var b = String(lines[0] || "").trim()
+        root.brightnessAvailable = b !== "unavailable" && b !== ""
+        if (root.brightnessAvailable) root.brightnessPercent = Math.max(0, Math.min(100, parseInt(b, 10)))
+        root.focusedMonitor = String(lines[5] || "").trim()
+      }
+    }
+  }
+
+  // Only polls while the dashboard's actually open -- matches the real
+  // Display panel's own "running: root.opened" reasoning (picks up
+  // brightness changes made elsewhere, e.g. keyboard backlight keys,
+  // while this is visible; no reason to poll while collapsed).
+  Timer {
+    interval: 5000
+    running: panel.expanded
+    repeat: true
+    onTriggered: if (!brightnessStateProc.running) brightnessStateProc.running = true
+  }
+
+  Process {
+    id: setBrightnessProc
+    stdout: StdioCollector { waitForEnd: true }
+    // Deliberately does NOT trigger a re-read on completion -- same
+    // reasoning as the real Display panel's own comment: re-reading via
+    // omarchy-monitor-state right after a write races the hardware/
+    // driver and can return an empty string, briefly bouncing the
+    // slider back to 0. The locally-set value (below) is authoritative
+    // until the next periodic poll.
+  }
+
+  function setBrightness(percent) {
+    var p = Math.max(0, Math.min(100, Math.round(percent)))
+    root.brightnessPercent = p
+    setBrightnessProc.command = ["omarchy-brightness-display", "--no-osd", "--monitor", root.focusedMonitor, p + "%"]
+    setBrightnessProc.running = true
+  }
   readonly property var activePlayer: mediaService ? mediaService.activePlayer : null
   readonly property bool hasMedia: activePlayer !== null && (activePlayer.trackTitle || activePlayer.trackArtist)
   readonly property bool isPlaying: activePlayer ? activePlayer.isPlaying === true : false
@@ -828,6 +888,9 @@ Item {
                 userHost: root.userHost
                 displayedTitle: root.displayedTitle
                 dnd: root.dnd
+                brightnessPercent: root.brightnessPercent
+                brightnessAvailable: root.brightnessAvailable
+                setBrightness: root.setBrightness
               }
 
               // Stub panes -- tab switching works, real content doesn't

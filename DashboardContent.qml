@@ -118,6 +118,79 @@ Item {
     clip: true
   }
 
+  // Half-circle progress ring, arcing over the top of the album art
+  // disc -- ambxst's own CircularSeekBar (modules/components/
+  // CircularSeekBar.qml) does this with QtQuick.Shapes (PathAngleArc/
+  // PathPolyline), draggable, dashed, with a handle indicator. That's a
+  // lot more machinery than this notch needs -- ported just the visual
+  // result with a Canvas instead, same technique WavyLine already uses
+  // elsewhere in this file (a sine perturbation redrawn every frame),
+  // just applied to an arc's radius instead of a straight line's y.
+  // startAngle/spanAngle match their own values (180deg -> +180deg
+  // sweep = the top half of the circle, left-to-right through 12
+  // o'clock) -- not arbitrary, that's what "arcs over the top" means
+  // geometrically in canvas angle convention (0 = 3 o'clock, clockwise).
+  component CircularSeek: Canvas {
+    id: seek
+    property real value: 0
+    property color trackColor: Qt.rgba(1, 1, 1, 0.15)
+    property color progressColor: root.accent
+    property real ringWidth: 4
+    property bool wavy: false
+    readonly property real startAngle: Math.PI
+    readonly property real spanAngle: Math.PI
+    property real wavePhase: 0
+
+    onValueChanged: requestPaint()
+    onWidthChanged: requestPaint()
+    onHeightChanged: requestPaint()
+    onWavePhaseChanged: requestPaint()
+
+    FrameAnimation {
+      running: seek.wavy && seek.visible
+      onTriggered: seek.wavePhase = (Date.now() / 300.0) % (Math.PI * 2)
+    }
+
+    onPaint: {
+      var ctx = getContext("2d")
+      ctx.reset()
+      ctx.clearRect(0, 0, width, height)
+      if (width <= 0 || height <= 0) return
+
+      var cx = width / 2
+      var cy = height / 2
+      var r = Math.min(width, height) / 2 - seek.ringWidth
+
+      ctx.lineWidth = seek.ringWidth
+      ctx.lineCap = "round"
+
+      // Track -- full span, dim.
+      ctx.strokeStyle = seek.trackColor
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, seek.startAngle, seek.startAngle + seek.spanAngle)
+      ctx.stroke()
+
+      // Progress -- up to value, accent, wavy (a sine ripple on the
+      // radius) only while actually playing.
+      var clamped = Math.max(0, Math.min(1, seek.value))
+      var endAngle = seek.startAngle + seek.spanAngle * clamped
+      ctx.strokeStyle = seek.progressColor
+      ctx.beginPath()
+      var steps = 48
+      for (var i = 0; i <= steps; i++) {
+        var t = i / steps
+        var angle = seek.startAngle + (endAngle - seek.startAngle) * t
+        var rr = r
+        if (seek.wavy) rr += Math.sin(angle * 16 + seek.wavePhase) * 2.5
+        var x = cx + rr * Math.cos(angle)
+        var y = cy + rr * Math.sin(angle)
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
+  }
+
   RowLayout {
     anchors.fill: parent
     // 8px, matching ambxst's own WidgetsTab.qml RowLayout spacing --
@@ -227,13 +300,21 @@ Item {
         anchors.margins: 10
         spacing: 8
 
-        // Circular disc, not a rounded square -- matches ambxst's own
-        // clippedDisc (ClippingRectangle, radius: width / 2).
+        // Disc + progress ring share one square container, both
+        // centered -- the ring's radius is bigger than the disc's, so
+        // it arcs over the disc's own top edge like a halo instead of
+        // sitting as a separate row underneath.
         Item {
-          Layout.preferredWidth: 80
-          Layout.preferredHeight: 80
+          Layout.preferredWidth: 100
+          Layout.preferredHeight: 100
           Layout.alignment: Qt.AlignHCenter
           visible: root.artUrl !== ""
+
+          CircularSeek {
+            anchors.fill: parent
+            value: root.progressRatio
+            wavy: root.isPlaying
+          }
 
           // ClippingRectangle, not a plain Rectangle -- confirmed the
           // hard way: plain QtQuick Rectangle.clip only clips children
@@ -242,7 +323,9 @@ Item {
           // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
           // for exactly this reason.
           ClippingRectangle {
-            anchors.fill: parent
+            width: 80
+            height: 80
+            anchors.centerIn: parent
             radius: width / 2
             color: "transparent"
 
@@ -288,23 +371,6 @@ Item {
         }
 
         Item { Layout.fillHeight: true }
-
-        // Progress track -- reuses the same dim/accent split as the
-        // collapsed and expanded media views, just no wave animation
-        // here (static bar, keeps this column simple).
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 3
-          radius: 1.5
-          color: Qt.rgba(1, 1, 1, 0.15)
-
-          Rectangle {
-            width: parent.width * root.progressRatio
-            height: parent.height
-            radius: height / 2
-            color: root.hasMedia ? root.accent : root.muted
-          }
-        }
 
         Row {
           Layout.fillWidth: true

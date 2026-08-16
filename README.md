@@ -622,6 +622,29 @@ remembering for any future rounded-image-thumbnail work in this
 project -- reach for `ClippingRectangle` first, don't assume plain
 `clip: true` respects `radius`.
 
+## Half-circle progress ring arcing over the album art disc
+
+Per direct request ("the wave from the compact notch... just the same
+thing but on bended half-ish circle"): checked ambxst's real
+`CircularSeekBar.qml` first. Their version is genuinely heavy --
+`QtQuick.Shapes` (`PathAngleArc`/`PathPolyline`), draggable seeking, a
+dashed/marquee mode, a handle indicator. Ported just the visual result
+with a `Canvas` instead (`CircularSeek`, new shared component next to
+`QuickToggle`) -- same sine-perturbation-redrawn-every-frame technique
+`WavyLine` already uses in `Overlay.qml`, just applied to an arc's
+radius instead of a straight line's y-offset, only animating
+(`FrameAnimation`) while `root.isPlaying`.
+
+`startAngle: Math.PI, spanAngle: Math.PI` isn't arbitrary -- in Canvas
+angle convention (0 = 3 o'clock, clockwise), that sweeps left ->
+top -> right, i.e. literally the top half of a circle, matching
+ambxst's own values and "arcs over the top" geometrically. The disc +
+ring now share one `100x100` container, both centered -- the ring's
+radius is bigger than the disc's `80x80`, so it physically arcs over
+the disc's own top edge instead of sitting as a separate element. The
+old flat linear progress `Rectangle` row is gone, replaced entirely by
+this ring.
+
 ## Sharp-edge accent ring added
 
 The "border" the user kept describing across this whole saga turned

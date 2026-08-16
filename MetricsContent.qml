@@ -867,8 +867,8 @@ Item {
 
         ColumnLayout {
           anchors.fill: parent
-          anchors.margins: 10
-          spacing: 6
+          anchors.margins: 8
+          spacing: 4
 
           RowLayout {
             Layout.fillWidth: true
@@ -877,15 +877,13 @@ Item {
             Item {
               id: dialItem
               // 46 -> 60 (bigger dial, per direct request), then
-              // trimmed to 52 -- per direct follow-up to reduce CPU/
-              // GPU's own tallness so the storage panel below has more
-              // room before it starts clipping (this whole right
-              // column isn't scrollable, see the row-height comment
-              // below for the full reasoning). Ring radius (width/2-6)
-              // and the tip/arc math below both scale off this
-              // automatically.
-              Layout.preferredWidth: 52
-              Layout.preferredHeight: 52
+              // trimmed to 52 (storage headroom), then 46 -- per direct
+              // follow-up asking specifically to shave more off just
+              // the CPU/GPU row (Network/Memory's own row height is
+              // untouched this time). Ring radius (width/2-6) and the
+              // tip/arc math below both scale off this automatically.
+              Layout.preferredWidth: 46
+              Layout.preferredHeight: 46
               Layout.alignment: Qt.AlignVCenter
 
               Canvas {
@@ -933,7 +931,7 @@ Item {
                 anchors.centerIn: parent
                 text: tile.glyph
                 font.family: root.fontFamily
-                font.pixelSize: 16
+                font.pixelSize: 15
                 color: root.textColor
               }
             }
@@ -1127,16 +1125,14 @@ Item {
       RowLayout {
         Layout.fillWidth: true
         // 66 -> 92 (temperature bar row) -> 106 (bigger dial, 46 -> 60)
-        // -> 94 (dial trimmed 60 -> 52) -- per direct follow-up: this
-        // whole right-hand ColumnLayout isn't wrapped in a Flickable,
-        // so a storage panel that outgrows the tile's fixed ~368px
-        // total height just clips instead of scrolling. Shrinking
-        // CPU/GPU/Memory's own rows buys real headroom for more disk
-        // rows before that happens, though it's a mitigation for the
-        // common case (a handful of disks), not a true fix for
-        // unbounded disk counts -- that would need the whole column
-        // wrapped in its own Flickable.
-        Layout.preferredHeight: 94
+        // -> 94 (dial trimmed 60 -> 52) -> 84 (dial trimmed further,
+        // 52 -> 46, margins 10 -> 8, spacing 6 -> 4) -- per direct
+        // follow-up specifically asking to shave more off just this
+        // row (storage now has its own scoped Flickable, see the
+        // "Storage section scoped into its own internal scroll"
+        // section below, so this is no longer about clip-avoidance --
+        // just a tighter, more compact CPU/GPU row on its own merits).
+        Layout.preferredHeight: 84
         spacing: 8
 
         DialTile {

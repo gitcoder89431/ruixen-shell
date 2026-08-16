@@ -3352,6 +3352,26 @@ other hover/scroll-dependent verification in this project), but the
 capped height + `Flickable` wiring is the same proven mechanism already
 running for the CPU core list above it.
 
+## CPU/GPU row shaved further
+
+Direct follow-up: "nice so can we still shave off a bit from cpu and
+gpu tallness?" -- with storage now handling its own overflow via the
+scoped `Flickable` above, this is no longer about clip-avoidance, just
+a more compact CPU/GPU row on its own merits. Network/Memory's row was
+left untouched -- the request named CPU/GPU specifically.
+
+`DialTile`'s own dial `52px -> 46px` (icon font `16 -> 15` to match,
+ring radius math scales off the dial's own width automatically),
+`ColumnLayout` margins `10 -> 8`, inter-row spacing `6 -> 4`. Row
+`Layout.preferredHeight: 94 -> 84`.
+
+**Verified**: `omarchy plugin validate` clean, live-tested with
+`pinnedOpen`/`dashboardTab` hardcoded onto the Metrics tab, Quickshell
+log clean (only the known-harmless portal-registration warning),
+screenshotted the live panel -- both CPU and GPU tiles render visibly
+shorter with icon, dial, usage%, model name, and temperature bar all
+still legible at the smaller size.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

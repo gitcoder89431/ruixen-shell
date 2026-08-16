@@ -1299,6 +1299,31 @@ the right size (zoomed crop), then that it's genuinely animating -- two
 screenshots ~400ms apart show the lit cell at different positions in the
 row, confirming the scan is actually moving rather than static.
 
+## Accent color switched to follow the active theme
+
+Per direct question-then-request: `textColor`/`muted` were already
+theme-linked (`Color.bar.text`, itself sourced from `theme/colors.toml`
++ `theme/shell.toml`), but `accent` -- the green driving the wave,
+playhead, play/pause chip, quick-control toggle "on" state, and the
+calendar's today-highlight -- was a fixed `#3ecf5b`, deliberately kept
+separate from theming as a semantic "media active" color matching
+`ruixen.media`'s own badge.
+
+Per direct follow-up ("can we try the accent color to follow the
+themes... so they match too"), switched to `Color.accent` -- confirmed
+in Omarchy's own `Commons/Color.qml` (`loadColors()`) that this is real
+theme data, not a static default: it's read directly from
+`theme/colors.toml`'s own `accent` key, falling back to `color4` if a
+theme doesn't define one. One property change cascades everywhere
+already, since every consumer already reads through the existing
+`accent: root.accent` passthrough to `DashboardContent` -- no other
+files needed touching.
+
+Verified against the live active theme (Everforest-ish, real
+`colors.toml` accent `#7fbbb3`, a teal -- visibly different from the old
+hardcoded green) via screenshot: play/pause chip, quick-control toggles,
+and the calendar's today-circle all picked up the new color consistently.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

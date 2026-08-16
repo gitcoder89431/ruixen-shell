@@ -46,9 +46,16 @@ Item {
   readonly property color safeForeground: "#e8e8e8"
   readonly property color textColor: themeForegroundLuminance > 0.45 ? themeForeground : safeForeground
   readonly property color muted: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.5)
-  // Deliberately not theme-linked -- a fixed "media is active" semantic
-  // color, same pattern as ruixen.media's green/yellow play-pause badge.
-  readonly property color accent: "#3ecf5b"
+  // Theme-linked, per direct request ("try the accent color to follow
+  // the themes... so they match too") -- was a fixed "media is active"
+  // semantic green, same pattern as ruixen.media's own badge. Color.accent
+  // is real theme data (theme/colors.toml's own accent key, or color4 as
+  // a fallback when a theme doesn't define one -- confirmed in Commons/
+  // Color.qml's loadColors()), so this now follows theme switches instead
+  // of staying fixed. Single property, cascades everywhere via the
+  // existing accent: root.accent passthrough below -- wave, playhead,
+  // quick-control toggles, calendar's today-highlight, active tab state.
+  readonly property color accent: Color.accent
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
 
   readonly property var mediaService: shell ? shell.firstPartyServiceFor("ruixen.media") : null

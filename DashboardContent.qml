@@ -541,7 +541,7 @@ Item {
         // blanket increase to every gap in the column.
         Text {
           Layout.alignment: Qt.AlignHCenter
-          Layout.topMargin: 4
+          Layout.topMargin: 10
           text: root.hasMedia
             ? (root.formatTime(root.trackPosition) + " / " + root.formatTime(root.trackLength))
             : "--:-- / --:--"

@@ -1130,6 +1130,9 @@ on top of the `ColumnLayout`'s own `8px` spacing (`12px` total) --
 targeted at just this one gap rather than bumping the shared `spacing`
 value, which would've widened every gap in the column equally.
 
+**Follow-up: still wanted more.** Bumped `Layout.topMargin` `4` -> `10`
+(`18px` total gap now) per a second round of the same feedback.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

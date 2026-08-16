@@ -966,11 +966,13 @@ Item {
 
           Item {
             Layout.alignment: Qt.AlignHCenter
-            // 60 -> 52, matching CPU/GPU's own trim (see DialTile) --
-            // per direct follow-up to free up room for the storage
-            // panel below.
-            Layout.preferredWidth: 52
-            Layout.preferredHeight: 52
+            // 60 -> 52 (matching CPU/GPU's own trim, see DialTile) ->
+            // 68 -- per direct follow-up ("too much room in memory"),
+            // this tile's own row height was never trimmed the way
+            // CPU/GPU's was, so the smaller dial just left visible
+            // empty space above/below it instead of buying anything.
+            Layout.preferredWidth: 68
+            Layout.preferredHeight: 68
 
             Canvas {
               id: dialCanvas
@@ -1017,7 +1019,7 @@ Item {
               anchors.centerIn: parent
               text: Math.round(tile.value * 100) + "%"
               font.family: root.fontFamily
-              font.pixelSize: 13
+              font.pixelSize: 16
               font.weight: Font.DemiBold
               color: root.textColor
             }

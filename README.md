@@ -3484,6 +3484,28 @@ portal-registration warning), screenshotted the live panel -- clearly
 more open now, avatar/identity block no longer reads as cramped
 against the panel edge or the CPU list below it.
 
+## Memory dial enlarged to fill its own tile
+
+Direct request: "make the memori dial and pecetage thing inside it,
+theres too much room in memory" -- `MemoryDialTile`'s own dial had been
+trimmed `60 -> 52` alongside CPU/GPU's dial in an earlier pass, but
+unlike the CPU/GPU row (whose own row height got trimmed `94 -> 84` in
+the same pass), the Network/Memory row's height was deliberately left
+at `94` per that same follow-up's explicit scope. The smaller dial just
+left visible empty space above/below it inside the tile's two
+`Item { Layout.fillHeight: true }` spacers instead of buying anything.
+
+`Layout.preferredWidth`/`Layout.preferredHeight`: `52 -> 68`. Percentage
+text inside the ring: `13px -> 16px`, to match the bigger ring
+proportionally.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- dial and
+"45%" text noticeably bigger, fits cleanly within the tile with no
+clipping or overflow into the storage panel below.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Widgets
 import Quickshell.Networking
 import Quickshell.Bluetooth
 
@@ -226,37 +227,64 @@ Item {
         anchors.margins: 10
         spacing: 8
 
+        // Circular disc, not a rounded square -- matches ambxst's own
+        // clippedDisc (ClippingRectangle, radius: width / 2).
         Item {
-          Layout.preferredWidth: 64
-          Layout.preferredHeight: 64
+          Layout.preferredWidth: 80
+          Layout.preferredHeight: 80
           Layout.alignment: Qt.AlignHCenter
           visible: root.artUrl !== ""
 
-          Rectangle {
+          // ClippingRectangle, not a plain Rectangle -- confirmed the
+          // hard way: plain QtQuick Rectangle.clip only clips children
+          // to the bounding BOX, it does not follow radius, regardless
+          // of how high radius is set. Quickshell's own ClippingRectangle
+          // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
+          // for exactly this reason.
+          ClippingRectangle {
             anchors.fill: parent
-            radius: 10
+            radius: width / 2
             color: "transparent"
-            clip: true
 
             Image {
               anchors.fill: parent
               source: root.artUrl
-              sourceSize: Qt.size(128, 128)
+              sourceSize: Qt.size(160, 160)
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
             }
           }
         }
 
-        Text {
+        // Title + artist as two centered lines, matching ambxst's own
+        // metadata ColumnLayout (title bold, secondary lines dimmer) --
+        // was one combined "artist - title" string before.
+        ColumnLayout {
           Layout.fillWidth: true
-          text: root.displayedTitle
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          font.bold: true
-          horizontalAlignment: Text.AlignHCenter
-          elide: Text.ElideRight
+          Layout.alignment: Qt.AlignHCenter
+          spacing: 2
+
+          Text {
+            Layout.fillWidth: true
+            text: root.hasMedia ? root.title : root.displayedTitle
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 12
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: root.hasMedia && root.artist !== ""
+            text: root.artist
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+          }
         }
 
         Item { Layout.fillHeight: true }

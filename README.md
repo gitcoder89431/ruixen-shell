@@ -593,6 +593,35 @@ to be solving a problem ambxst's own design doesn't actually have.
 Worth remembering for next time: check what the reference project
 *actually does* before chasing a technique it doesn't use.
 
+## Player: circular disc art + separate title/artist lines
+
+Per direct request, matching ambxst's own `discArea`: the album-art
+thumbnail is now a real circle, and title/artist are two separate
+centered lines instead of one combined "artist - title" string.
+
+**A real gotcha, not obvious from anywhere else in this project**:
+plain `Rectangle { radius: width/2; clip: true }` does NOT clip child
+content to the rounded shape in QtQuick -- `clip: true` on an ordinary
+`Item`/`Rectangle` only clips to the bounding BOX, completely ignoring
+`radius`, regardless of how high it's set. Confirmed the hard way:
+went from `radius: 10` (looked like a plain square, barely-rounded
+corners not actually working either, just too subtle to notice at
+that size) all the way up to a hardcoded `radius: 40` on an 80x80 box
+-- still a flat square, no visible change at all, even with `color`
+swapped to solid `"red"`/`"magenta"` to rule out an image-loading
+issue. A bare debug `Rectangle` (no child `Image`) at the same radius
+rendered as a correct circle immediately, isolating the bug
+specifically to clipping a CHILD item, not the rectangle's own fill.
+
+The fix: `Quickshell.Widgets.ClippingRectangle`, not a plain
+`Rectangle` -- confirmed via ambxst's own source, which uses exactly
+this component for the exact same purpose (`clippedDisc`, `radius:
+width / 2`). It's a real Quickshell-provided component specifically
+for rounded-clip content, not equivalent to `Rectangle.clip`. Worth
+remembering for any future rounded-image-thumbnail work in this
+project -- reach for `ClippingRectangle` first, don't assume plain
+`clip: true` respects `radius`.
+
 ## Sharp-edge accent ring added
 
 The "border" the user kept describing across this whole saga turned

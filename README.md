@@ -961,6 +961,44 @@ from it. Verified via the established art-hardcode test method, real
 visible gap between disc edge and the ring's inner edge now, no more
 clipping at the canvas's own top edge either.
 
+## Disc bigger, ring untouched, top padding trimmed, real clipping bug found
+
+Per direct follow-up ("you pushed it out too far... gap too far now...
+side mask thats clipping over the player headtip and the start and end
+of the curve... make the album art circle bigger to get closer to the
+current progress bar and remove the top padding"):
+
+**The clipping was real, not a misread.** The previous `-6` inset in
+`CircularSeek`'s radius formula left only `~1.25px` between the tip's
+sideways extent (its widest point, at the arc's own 9/3 o'clock start/
+end) and the canvas edge — visibly close enough to get antialiased away.
+Bumped the inset `-6` -> `-9`, giving a real `~4px` margin.
+
+**Fixed the gap by growing the disc, not the ring** — "the progress bar
+is almost fine" meant leave `CircularSeek` alone. Container `180` -> `190`
+(barely changed, just enough for the bigger inset above), disc `110` ->
+`130` (`sourceSize` `220` -> `260`, kept at 2x). Closes the radial gap
+from the inner side instead of pushing the ring further out again.
+
+**Top padding**: the semicircle's own topmost point naturally sits
+`~14px` below the square container's own top edge (empty space above the
+arc that was never anything). Rather than touch the ring's geometry to
+remove it, wrapped it in a shorter outer `Item` (`190x160`, `clip: true`)
+with the actual `190x190` ring/disc `Item` shifted up inside it
+(`y: -18`) — crops the blank strip off while the ring math underneath
+stays completely untouched.
+
+**A second real bug found in the process**: the inner `ColumnLayout`'s
+own `width: parent.width - 20` (`190px`, playerCard is `210px`) left the
+container comfortably inside on paper, but combined with the tight
+canvas-edge margin above, was close enough to be part of what read as
+"clipping." Widened to `parent.width - 8` (`202px`) as a second layer of
+margin, on top of the canvas-level fix.
+
+Verified via the established art-hardcode test method + a zoomed crop
+specifically on the arc's start/end points — clean rounded ends, no
+clipping, visible-but-modest gap to the now-bigger disc.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

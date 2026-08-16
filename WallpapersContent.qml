@@ -168,11 +168,14 @@ Item {
           Item {
             id: tile
             required property string modelData
-            readonly property bool active: tile.modelData === root.currentBackground
-            // Border ring tracks hover OR active -- the active wallpaper
-            // keeps its ring at rest, matching ambxst's own "hover shows
-            // the same highlight as the real selection" behavior.
-            readonly property bool showFrame: tileMouse.containsMouse || tile.active
+            // Hover-only now, not hover-or-active -- per direct
+            // feedback, the ring/inner border/label should only show
+            // on hover, full stop, not sit lit permanently on the
+            // active wallpaper too. (currentBackground is still real,
+            // live state -- root.select() still writes it and the real
+            // omarchy-theme-bg-set call still fires -- there's just no
+            // longer a dedicated "this one's active" visual at rest.)
+            readonly property bool showFrame: tileMouse.containsMouse
 
             width: 160
             height: 100
@@ -180,12 +183,13 @@ Item {
             ClippingRectangle {
               anchors.fill: parent
               radius: 10
-              // Idle: barely-there tint (original resting look). Hover/
-              // active: real OLED black -- per direct feedback the thin
-              // accent ring alone was overpowering the inner border,
-              // hard to tell apart as its own layer. This color shows
-              // through the Image's own static 3px inset below as a
-              // genuine inner border/mat, distinct from the ring.
+              // Idle: barely-there tint (original resting look). Hover:
+              // real OLED black -- per direct feedback the thin accent
+              // ring alone was overpowering the inner border, hard to
+              // tell apart as its own layer. This color shows through
+              // the Image's own static inset below as a genuine inner
+              // border/mat, distinct from the ring -- hover-only, same
+              // as the ring itself now (see showFrame above).
               color: tile.showFrame ? "#0a0a0a" : Qt.rgba(1, 1, 1, 0.05)
               Behavior on color { ColorAnimation { duration: 120 } }
               // false, not the default true -- ClippingRectangle insets
@@ -212,10 +216,7 @@ Item {
 
               // Bottom filename label, sitting flush with the image's
               // own (now inset) edges rather than the outer ring.
-              // Hover-only, not hover-or-active -- per direct feedback,
-              // the active tile doesn't need the label too, its border
-              // ring + the mat color above already carry that weight
-              // on their own.
+              // Hover-only, same as the ring/mat above.
               Rectangle {
                 anchors.left: parent.left
                 anchors.right: parent.right

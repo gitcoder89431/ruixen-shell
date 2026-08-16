@@ -2453,6 +2453,26 @@ before and after the `3px` → `5px` bump -- confirmed a genuinely
 distinct dark inner frame separate from the accent ring, not just a
 thin line lost next to it. Reverted after.
 
+## Frame is hover-only now, not hover-or-active
+
+Per direct follow-up, once the inner border was finally visible: "dont
+show the inner rings until the on hover only, only show the ring and
+file name on hover." The ring/inner-border-mat/label had all been keyed
+off `showFrame = tileMouse.containsMouse || tile.active`, so the
+actually-active wallpaper's tile sat permanently lit even at rest.
+Simplified `showFrame` to just `tileMouse.containsMouse` -- the
+now-unused `tile.active` property was removed outright rather than
+left dead. `currentBackground`/`root.select()` are untouched and still
+real -- clicking still calls the same `omarchy-theme-bg-set`, there's
+just no more dedicated "this one's active" visual left over at rest.
+
+**Verified**: screenshotted the resting grid (no hardcoding) and
+confirmed neither tile -- including the actually-active
+`0-ruixen.jpg` -- shows any ring/border/label anymore. Then re-forced
+`showFrame` true via the same live-hardcode method to confirm the
+frame still renders correctly on both tiles when it IS supposed to
+show, before reverting.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

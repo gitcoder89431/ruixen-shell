@@ -1371,59 +1371,79 @@ Item {
       // percentage"): one row per real disk, name+used/total on the
       // left, percentage right-aligned in its own fixed-width column
       // so multiple disks' percentages line up vertically.
+      //
+      // Capped height + its own internal Flickable, per direct
+      // follow-up ("is scroll within that section an option we can
+      // do?") -- rather than making the WHOLE right column scroll (or
+      // just letting it grow unbounded and clip against the notch's
+      // own fixed height, the previous mitigation), this section alone
+      // gets a bounded height and scrolls internally once disk count
+      // exceeds it. CPU/GPU/Network/Memory above stay fully visible
+      // and pinned regardless of how many disks this machine has --
+      // same scoped-Flickable pattern the left panel's own per-core
+      // CPU list already uses, just applied to this one section
+      // instead of the whole column.
       Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.max(40, disksColumn.implicitHeight + 20)
+        Layout.preferredHeight: Math.min(Math.max(40, disksColumn.implicitHeight + 20), 100)
         radius: 10
         color: Qt.rgba(1, 1, 1, 0.05)
 
-        ColumnLayout {
-          id: disksColumn
+        Flickable {
           anchors.fill: parent
           anchors.margins: 10
-          spacing: 6
+          contentWidth: width
+          contentHeight: disksColumn.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
 
-          Repeater {
-            model: root.disks
+          ColumnLayout {
+            id: disksColumn
+            width: parent.width
+            spacing: 6
 
-            RowLayout {
-              id: diskRow
-              required property var modelData
-              Layout.fillWidth: true
-              spacing: 8
+            Repeater {
+              model: root.disks
 
-              Text {
-                text: "󰋊"
-                font.family: root.fontFamily
-                font.pixelSize: 13
-                color: root.muted
-              }
-
-              Text {
-                text: diskRow.modelData.name
-                font.family: root.fontFamily
-                font.pixelSize: 11
-                color: root.textColor
-                elide: Text.ElideRight
-              }
-
-              Text {
-                text: diskRow.modelData.usedGB.toFixed(0) + " / " + diskRow.modelData.totalGB.toFixed(0) + " GB"
-                font.family: root.fontFamily
-                font.pixelSize: 11
-                color: root.muted
+              RowLayout {
+                id: diskRow
+                required property var modelData
                 Layout.fillWidth: true
-                horizontalAlignment: Text.AlignRight
-              }
+                spacing: 8
 
-              Text {
-                text: Math.round(diskRow.modelData.percent * 100) + "%"
-                font.family: root.fontFamily
-                font.pixelSize: 11
-                font.weight: Font.DemiBold
-                color: root.textColor
-                Layout.preferredWidth: 32
-                horizontalAlignment: Text.AlignRight
+                Text {
+                  text: "󰋊"
+                  font.family: root.fontFamily
+                  font.pixelSize: 13
+                  color: root.muted
+                }
+
+                Text {
+                  text: diskRow.modelData.name
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  color: root.textColor
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  text: diskRow.modelData.usedGB.toFixed(0) + " / " + diskRow.modelData.totalGB.toFixed(0) + " GB"
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  color: root.muted
+                  Layout.fillWidth: true
+                  horizontalAlignment: Text.AlignRight
+                }
+
+                Text {
+                  text: Math.round(diskRow.modelData.percent * 100) + "%"
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                  color: root.textColor
+                  Layout.preferredWidth: 32
+                  horizontalAlignment: Text.AlignRight
+                }
               }
             }
           }

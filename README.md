@@ -3314,6 +3314,44 @@ still render cleanly at the smaller size (real data still legible:
 rows), with visibly more empty space below the storage panel than
 before the trim.
 
+## Storage section scoped into its own internal scroll
+
+Direct follow-up right after the dial-trim mitigation above: "ok trim it
+is in scroll within that section an option we can do ?" -- the trim
+alone only bought headroom for the *common* case; it never actually
+solved unbounded disk counts, and was flagged as such at the time. This
+is the real fix for that: a `Flickable` scoped to just the storage
+panel, not the whole right column.
+
+The storage `Rectangle`'s `Layout.preferredHeight` changed from
+`Math.max(40, disksColumn.implicitHeight + 20)` (grows forever) to
+`Math.min(Math.max(40, disksColumn.implicitHeight + 20), 100)` -- capped
+at 100px. A `Flickable` (`anchors.fill: parent; anchors.margins: 10;
+contentWidth: width; contentHeight: disksColumn.implicitHeight; clip:
+true; boundsBehavior: Flickable.StopAtBounds`) now sits between that
+`Rectangle` and `disksColumn`, the same scoped-scroll pattern the left
+panel's own per-core CPU list already uses (`Flickable` wrapping just
+that one `Column`, not the whole left panel). `disksColumn` itself moved
+from `anchors.fill: parent; anchors.margins: 10` to `width: parent.width`,
+since its parent is the `Flickable` now and the margins are handled
+there instead.
+
+Net effect: CPU, GPU, Network, and Memory stay fully visible and pinned
+no matter how many disks a machine has -- only the storage panel itself
+scrolls internally once its content exceeds the 100px cap, via mouse
+wheel or trackpad over that section specifically.
+
+**Verified**: `omarchy plugin validate` clean, live-tested with
+`pinnedOpen`/`dashboardTab` hardcoded onto the Metrics tab, Quickshell
+log clean (only the known-harmless portal-registration warning),
+screenshotted the live panel -- both real disks (`/`, `/boot`) still
+render correctly at their natural sub-100px height with no visual
+regression. This machine only has 2 disks so the internal scroll itself
+can't be demonstrated visually here (same standing limitation as any
+other hover/scroll-dependent verification in this project), but the
+capped height + `Flickable` wiring is the same proven mechanism already
+running for the CPU core list above it.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

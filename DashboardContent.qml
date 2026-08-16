@@ -230,7 +230,16 @@ Item {
     // plus a blurred-album-art backdrop, not a flat black+border card like
     // the other 3 columns. Ported the blur technique from the same
     // backgroundArt trick the collapsed notch view already uses.
-    Rectangle {
+    // ClippingRectangle, not a plain Rectangle -- the same gotcha
+    // documented below for the album art disc applies here too: plain
+    // Rectangle.clip only clips children to the bounding BOX, it does
+    // not follow radius. That left the sharp-edge accent ring's outer
+    // boundary as a literal square (playerCard's full rectangular
+    // bounds) while its inner boundary (from innerAreaMask) was
+    // correctly rounded -- the mismatch read as "straight corners" on
+    // the border specifically, even though playerCard's own radius:10
+    // was set correctly the whole time.
+    ClippingRectangle {
       id: playerCard
       Layout.preferredWidth: 210
       Layout.maximumWidth: 210
@@ -244,7 +253,6 @@ Item {
       // Overlay.qml) when there's no art, and the blurred art itself is
       // the only "fill" once there is.
       color: "transparent"
-      clip: true
 
       // Matches ambxst's real fallback exactly (checked their source
       // directly, not guessed): blur the track's own art when playing,

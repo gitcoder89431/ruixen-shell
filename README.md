@@ -1085,6 +1085,27 @@ one that broke the top-crop) via the same hardcode-and-screenshot method
 -- tip fully intact, real visible reduction in the gap to the title
 group.
 
+## Sharp-edge accent ring: corners weren't actually rounded
+
+Per direct feedback ("the inner border... missing the rounded corner...
+looks like a straight corner card"): `playerCard` was a plain `Rectangle`
+with `clip: true`, `radius: 10` -- the exact same gotcha already
+documented in this file for the album art disc (`Rectangle.clip` only
+clips children to the bounding BOX, ignoring `radius`, no matter how
+it's set). The accent ring's inner edge (from `innerAreaMask`'s inset
+rectangle) WAS correctly rounded, but its outer edge was whatever
+`playerCard`'s own unclipped rectangular bounds happened to be --
+literally square, since nothing was actually enforcing the rounded
+shape on the layered `MultiEffect` output. Two different roundnesses on
+the same ring is exactly what reads as "straight corners."
+
+Fixed the same way as the disc: swapped `playerCard` from `Rectangle` to
+`Quickshell.Widgets.ClippingRectangle` (dropping the now-redundant
+`clip: true`), so every child layer -- blur backdrop, sharp accent ring,
+content -- is genuinely clipped to the rounded shape instead of just the
+bounding box. Verified via a zoomed crop on the card's own top-right
+corner -- visibly rounded now, matching `radius: 10`.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

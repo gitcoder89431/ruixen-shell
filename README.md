@@ -2575,6 +2575,34 @@ no-gap fix from above stays intact).
 noticeably thicker black band while the ring and band still sit flush
 against each other with no gap reopening.
 
+## "CURRENT" label for the actually-active wallpaper
+
+Per direct request: "the name, if its the current one, on hover when
+it comes up instead of the file name just do the theme token and
+CURRENT." Reintroduced a lightweight `tile.active` (`tile.modelData ===
+root.currentBackground`) -- removed a few rounds back when the ring/
+band frame itself went hover-only, but that removal was specifically
+about the FRAME not staying lit at rest; the label's own text/color
+still needed a way to know which tile is real. Label `Text` now: text
+`"CURRENT"` (was the plain filename) and `color: root.accent` (the
+theme's own accent token, was `root.textColor`) when `tile.active`,
+plain filename/`textColor` otherwise -- mirrors ambxst's own real
+`isCurrentWallpaper` treatment (their label swaps to
+`Styling.srItem("overprimary")` the same way). The frame (ring + black
+band) itself is untouched -- still pure `visible: tile.hovered`, no
+`tile.active` involved there at all.
+
+**Verified**: same live-hardcode method, screenshotted with the real
+active wallpaper (`0-ruixen.jpg`) forced-hovered alongside the other
+tile (`1-ruixen.jpg`) -- confirmed `0-ruixen.jpg`'s label showed its
+plain filename (not active) while `1-ruixen.jpg`'s showed "CURRENT" in
+accent purple, correctly matching which one `readlink`-verified as the
+real `current/background` symlink target at that moment. (Also noticed
+and fixed unrelated test drift while verifying this: an earlier
+`omarchy-theme-bg-set` round-trip test in this section had left the
+real background on `1-ruixen.jpg` instead of being restored -- reset
+back to `0-ruixen.jpg`.)
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

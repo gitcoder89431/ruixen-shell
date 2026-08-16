@@ -186,6 +186,11 @@ Item {
             id: tile
             required property string modelData
             readonly property bool hovered: tileMouse.containsMouse
+            // Only read for the label's own text/color below -- the
+            // frame itself (ring/band) stays hover-only regardless,
+            // per direct request that active alone shouldn't keep it
+            // lit at rest.
+            readonly property bool active: tile.modelData === root.currentBackground
 
             width: 160
             height: 100
@@ -253,8 +258,13 @@ Item {
                 width: parent.width - 12
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
-                text: tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
-                color: root.textColor
+                // "CURRENT" in the theme's own accent color for the
+                // actually-active wallpaper, matching ambxst's real
+                // treatment (their isCurrentWallpaper label swaps to
+                // Styling.srItem("overprimary") the same way) -- plain
+                // filename otherwise.
+                text: tile.active ? "CURRENT" : tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
+                color: tile.active ? root.accent : root.textColor
                 font.family: root.fontFamily
                 font.pixelSize: 10
               }

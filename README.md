@@ -2564,6 +2564,17 @@ edge, no gap.
 accent ring and black band now sit directly flush against each other
 with zero visible image between them.
 
+## Black band made bigger again
+
+Per direct follow-up: "make the black band bigger." `border.width` on
+the inner black `Rectangle` bumped `5 -> 9` (margins left at `2`,
+still matching the outer ring's own `border.width` exactly, so the
+no-gap fix from above stays intact).
+
+**Verified**: same live-hardcode method, screenshotted, confirmed a
+noticeably thicker black band while the ring and band still sit flush
+against each other with no gap reopening.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

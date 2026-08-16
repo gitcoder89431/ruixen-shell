@@ -231,7 +231,7 @@ Item {
                 anchors.margins: 2
                 radius: 8
                 color: "transparent"
-                border.width: 5
+                border.width: 9
                 border.color: "#000000"
               }
             }

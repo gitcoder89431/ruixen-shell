@@ -787,7 +787,6 @@ Item {
       component DialTile: Rectangle {
         id: tile
         property string glyph: ""
-        property string title: ""
         property real value: 0
         property string subText: ""
 
@@ -798,27 +797,16 @@ Item {
         onRingAccentChanged: dialCanvas.requestPaint()
         onValueChanged: dialCanvas.requestPaint()
 
-        ColumnLayout {
+        RowLayout {
           anchors.fill: parent
           anchors.margins: 10
-          spacing: 2
-
-          Text {
-            text: tile.title
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            color: root.muted
-            elide: Text.ElideRight
-            Layout.fillWidth: true
-          }
-
-          Item { Layout.fillHeight: true }
+          spacing: 10
 
           Item {
             id: dialItem
-            Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 46
             Layout.preferredHeight: 46
+            Layout.alignment: Qt.AlignVCenter
 
             Canvas {
               id: dialCanvas
@@ -870,38 +858,46 @@ Item {
             }
           }
 
-          Text {
-            text: Math.round(tile.value * 100) + "%"
-            font.family: root.fontFamily
-            font.pixelSize: 13
-            font.weight: Font.DemiBold
-            color: root.textColor
-            Layout.alignment: Qt.AlignHCenter
-          }
-
-          Item { Layout.fillHeight: true }
-
-          Text {
-            text: tile.subText
-            font.family: root.fontFamily
-            font.pixelSize: 9
-            color: root.muted
-            elide: Text.ElideRight
-            horizontalAlignment: Text.AlignHCenter
+          // Beside the dial, not stacked under it -- per direct
+          // feedback the all-vertical layout made the whole tile too
+          // tall. "Usage 10%" then the CPU/GPU name below it.
+          ColumnLayout {
             Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 2
+
+            Text {
+              text: "Usage " + Math.round(tile.value * 100) + "%"
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              font.weight: Font.DemiBold
+              color: root.textColor
+              elide: Text.ElideRight
+              Layout.fillWidth: true
+            }
+
+            Text {
+              text: tile.subText
+              font.family: root.fontFamily
+              font.pixelSize: 10
+              color: root.muted
+              elide: Text.ElideRight
+              Layout.fillWidth: true
+            }
           }
         }
       }
       RowLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: 92
+        // 92 -> 66 -- the dial-beside-text layout needs much less
+        // vertical room than the old all-stacked-vertically one did.
+        Layout.preferredHeight: 66
         spacing: 8
 
         DialTile {
           Layout.fillWidth: true
           Layout.fillHeight: true
           glyph: ""
-          title: "CPU"
           value: root.cpuUsage
           subText: root.cpuModel || ""
         }
@@ -910,7 +906,6 @@ Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
           glyph: "󰢮"
-          title: "GPU"
           value: root.gpuUsage
           subText: root.gpuName || ""
         }

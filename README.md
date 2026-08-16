@@ -2980,6 +2980,30 @@ confirmed both CPU and GPU tiles show a centered icon, a ring with a
 visible gap and tip reflecting the real live percentage, the number
 itself below the ring, and the model/GPU name below that.
 
+## Dial tiles: dial beside the text, not stacked above it
+
+Per direct follow-up: "its too tall the section, so the dial thing we
+have then beside it put the Usage 10% and then the name of the cpu
+name below it." The all-vertical layout (title, dial, percent, subtext
+each on their own row) was the actual cause of the excess height, not
+the dial's own size.
+
+Swapped `DialTile`'s inner `ColumnLayout` for a `RowLayout`: dial on
+the left (unchanged ring/tip Canvas, just re-parented), a `ColumnLayout`
+beside it on the right holding `"Usage " + percent` on top and the CPU
+model/GPU name below. Dropped the separate `"CPU"`/`"GPU"` title label
+entirely (own row's `Layout.preferredHeight` shrunk `92px -> 66px` to
+match the new, much shorter natural content height) -- the icon inside
+each dial (microchip vs. expansion-card) already distinguishes the two
+tiles, a redundant text label wasn't worth the vertical space anymore.
+Also removed the now-fully-unused `title` property from `DialTile` and
+its two instances rather than leaving it dead.
+
+**Verified**: `omarchy plugin validate` clean, live log clean,
+screenshotted the live tab -- confirmed both tiles render noticeably
+shorter with the dial beside `"Usage 9%"`/`"Usage 62%"` and the real
+CPU/GPU name on the line below it, matching the requested shape.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

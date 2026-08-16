@@ -1581,6 +1581,22 @@ but now against a visibly bigger ring). Verified via a zoomed crop on
 the bigger speaker dial -- the gap on both sides of the tip reads
 clearly now.
 
+## Gap+tip applied to the brightness bar too
+
+Per direct request ("apply it to the brightness slider above it, we
+should be able to see it better there") -- same visual language as the
+`Dial`'s ring: a white tip sitting at the current value's position, with
+a small gap separating it from both the filled (accent) portion below
+and the dim track above. Added `value`/`valueY`/`gapPx` properties to
+the brightness bar `Rectangle`, trimmed the accent fill short by
+`gapPx` (`4px`) from the value line, and added a small white capsule
+(`width+4` wide, `5px` tall, `radius: 2.5`) centered right on that line
+so it straddles into both sides.
+
+Confirmed via zoomed screenshot -- much clearer here than on the small
+circular dial, exactly as expected from a straight vertical line at this
+size.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

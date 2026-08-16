@@ -1251,20 +1251,42 @@ Item {
           }
         }
 
+        // Same gap+tip language as the Dial's own ring, per direct
+        // request ("apply it to the brightness slider above it, we
+        // should be able to see it better there") -- a straight
+        // vertical bar reads the gap/tip much more clearly than the
+        // small circular dial did.
         Rectangle {
+          id: brightnessBar
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 7
           Layout.preferredHeight: 56
           radius: 3
           color: Qt.rgba(1, 1, 1, 0.15)
 
+          property real value: 0.8
+          // Distance from the bar's own top edge to the value line --
+          // fill stops short of it by gapPx, the tip sits centered
+          // right on it, straddling into both sides.
+          readonly property real valueY: height * (1 - value)
+          readonly property real gapPx: 4
+
           Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            height: parent.height * 0.8
+            height: Math.max(0, parent.height - parent.valueY - parent.gapPx)
             radius: 3
             color: root.accent
+          }
+
+          Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: parent.valueY - height / 2
+            width: parent.width + 4
+            height: 5
+            radius: 2.5
+            color: "#ffffff"
           }
         }
       }

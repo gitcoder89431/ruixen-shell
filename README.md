@@ -29,13 +29,22 @@ plugin reads the exact same data through the exact same real API:
 Each workspace renders as a round dot; the currently focused one
 animates into a wider horizontal capsule instead (`Behavior on width`,
 `180ms` `OutCubic`) -- the actual GNOME Shell tell, not just a color
-swap. Fill color: `Color.accent` (the real theme token, follows theme
-switches) for the focused pill, `Color.foreground` for the rest, at
-`60%` opacity if that workspace has real windows in it or `30%` if it's
-genuinely empty (same occupied/empty distinction the stock widget's own
-`opacity: occupied || focused ? 1 : 0.5` already draws, just translated
-to this shape). Both color and opacity animate too
+swap. Both color and opacity animate too
 (`ColorAnimation`/`NumberAnimation`, `180ms`).
+
+**Colors, real token fix**: first pass used `Color.foreground` (the
+theme's PRIMARY text token) dimmed via opacity (`60%`/`30%`) for BOTH
+occupied and empty dots. Per direct question ("the grey and muted grey
+dots... is it a color token issue or how do gnome original do it") --
+yes, a real token issue: double-dimming an already-whatever-hue-that-
+theme-uses foreground color, instead of using `Color.muted`, the design
+system's own dedicated token specifically for "present but de-
+emphasized" content that every theme already tunes for readable-but-
+calm contrast against its own background. Now: `Color.accent` (focused),
+`Color.foreground` at `85%` (occupied -- real content, should read
+clearly), `Color.muted` at `70%` (genuinely empty). Verified via
+screenshot -- occupied and empty dots now read as two clearly distinct
+shades instead of both looking like the same washed-out grey.
 
 Sizing (`dotSize`/`pillWidth`/`itemSpacing`/`sidePadding`): started at
 `8`/`20`/`6`/none, grown to `11`/`30`/`9`/`8` per direct follow-up ("a

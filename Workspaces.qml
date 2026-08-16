@@ -88,8 +88,21 @@ BarWidget {
         Rectangle {
           anchors.fill: parent
           radius: height / 2
-          color: indicator.focused ? Color.accent : Color.foreground
-          opacity: indicator.focused ? 1 : (indicator.occupied ? 0.6 : 0.3)
+          // Real token issue, not just "needs more opacity" -- was
+          // Color.foreground (the theme's PRIMARY text token) dimmed
+          // via opacity for BOTH occupied and empty dots, double-
+          // dimming an already low-contrast base on some themes
+          // instead of using Color.muted, the design system's own
+          // dedicated token for exactly this "present but de-
+          // emphasized" purpose (every theme tunes it for readable-
+          // but-calm contrast against its own background, unlike an
+          // arbitrary opacity cut on foreground which varies wildly
+          // with that theme's actual foreground hue/lightness).
+          // Occupied dots now use foreground near-full-strength (they
+          // represent real content, should read clearly); only
+          // genuinely empty ones use muted.
+          color: indicator.focused ? Color.accent : (indicator.occupied ? Color.foreground : Color.muted)
+          opacity: indicator.focused ? 1 : (indicator.occupied ? 0.85 : 0.7)
           Behavior on color { ColorAnimation { duration: 180 } }
           Behavior on opacity { NumberAnimation { duration: 180 } }
         }

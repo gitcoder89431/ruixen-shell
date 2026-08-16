@@ -794,7 +794,7 @@ Item {
               Text {
                 anchors.centerIn: parent
                 text: "󰅁"
-                color: root.textColor
+                color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: 14
               }
@@ -815,7 +815,7 @@ Item {
               Text {
                 anchors.centerIn: parent
                 text: "󰅂"
-                color: root.textColor
+                color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: 14
               }

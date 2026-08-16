@@ -1324,6 +1324,14 @@ Verified against the live active theme (Everforest-ish, real
 hardcoded green) via screenshot: play/pause chip, quick-control toggles,
 and the calendar's today-circle all picked up the new color consistently.
 
+## Calendar chevrons switched to the accent token too
+
+Per direct follow-up: the `<`/`>` month-navigation chevrons were
+`color: root.textColor` (plain theme foreground, same as the title
+text next to them). Switched both to `root.accent`, matching the
+now-theme-linked accent used everywhere else on the dashboard.
+Verified via screenshot -- both chevrons render in the theme's teal.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

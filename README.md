@@ -1349,6 +1349,12 @@ Net effect: the title/navigation row now reads as the visually dominant
 piece, with the grid below sized more like supporting detail instead of
 competing for the same attention. Verified via screenshot.
 
+**Follow-up: weekday labels bumped back up a touch.** Per direct
+feedback ("the calender ends abit too early, make the M T W T a bit
+bigger to compensate") -- the day-grid was now ending early within
+calendarPane's available height. `10px -> 12px` on just the weekday
+label row (row height/today-circle/day-number left alone).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

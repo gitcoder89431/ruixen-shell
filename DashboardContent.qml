@@ -882,7 +882,10 @@ Item {
                     text: modelData
                     color: root.muted
                     font.family: root.fontFamily
-                    font.pixelSize: 10
+                    // Bumped back up a touch (10px -> 12px) -- the
+                    // 230px day-grid shrink left it ending a bit early
+                    // within calendarPane, per direct feedback.
+                    font.pixelSize: 12
                     font.bold: true
                   }
                 }

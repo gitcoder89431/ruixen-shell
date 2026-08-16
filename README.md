@@ -2382,6 +2382,43 @@ itself can't be simulated), screenshotted, and confirmed a crisp solid
 black band with sharp edges instead of the old soft fade, then
 reverted.
 
+## Real bug: image was "zooming" on hover, ClippingRectangle content inset
+
+Per direct report: "are you sure it looks like on hover its still
+zooming in the image... i also dont see the inner black border." Both
+symptoms traced to one real bug, not two separate ones and not a
+misperception.
+
+`ClippingRectangle`'s own `contentInsideBorder` property defaults to
+`true` -- when set, its content area (everything declared as a plain
+child, which includes the `Image` and the label `Rectangle` here) gets
+`anchors.margins: border.width` applied automatically. This plugin
+already animates `border.width` 0 → 2 on hover
+(`Behavior on border.width`, added for the ring itself), which meant
+the `Image` underneath -- `anchors.fill: parent` inside that same
+content area -- was smoothly shrinking and repositioning by those same
+2px on every hover, since its fill target's effective bounds were
+changing too. That reads exactly like a subtle zoom/pan, because it
+functionally was one, just never an intentional feature -- nothing in
+this file ever set an explicit `scale` anywhere (checked directly, only
+match in the whole file is the word "downscaled" in a comment).
+
+Root cause confirmed by reading `ClippingRectangle`'s own source
+(`/usr/lib/qt6/qml/Quickshell/Widgets/ClippingRectangle.qml`) directly,
+not guessed: `contentItem { anchors.margins:
+root.contentInsideBorder ? root.border.width : 0 }`. Fixed with one
+property: `contentInsideBorder: false` on the tile's
+`ClippingRectangle` -- the border now draws without touching the
+content area's own bounds at all, so the border ring and the image
+underneath are fully decoupled again.
+
+**Verified**: forced `showFrame`/the label `opacity` both to `true`/`1`
+(same live-hardcode method as every other hover check here) and
+screenshotted -- both tiles now show a crisp accent ring flush against
+the image edge and a clean label band, with the image itself in the
+exact same position/crop as the non-hovered screenshots taken earlier
+in this file's history. Reverted after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

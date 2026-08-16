@@ -181,8 +181,16 @@ Item {
               anchors.fill: parent
               radius: 10
               color: Qt.rgba(1, 1, 1, 0.05)
+              // false, not the default true -- ClippingRectangle insets
+              // its CONTENT (the Image below) by exactly border.width
+              // when contentInsideBorder is true, so animating
+              // border.width 0 -> 2 was smoothly shrinking/repositioning
+              // the image underneath it every time -- the exact "image
+              // is zooming on hover" effect reported, not intentional,
+              // nothing here was ever meant to scale the image itself.
               border.width: tile.showFrame ? 2 : 0
               border.color: root.accent
+              contentInsideBorder: false
               Behavior on border.width { NumberAnimation { duration: 120 } }
 
               Image {

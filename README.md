@@ -3372,6 +3372,29 @@ screenshotted the live panel -- both CPU and GPU tiles render visibly
 shorter with icon, dial, usage%, model name, and temperature bar all
 still legible at the smaller size.
 
+## Padding added around the stat-tiles section
+
+Direct follow-up: "umm cool ok so to the right and left of this section
+we need some padding the tile stats section is so close to the notch
+edge and cpus" -- the stat tiles sat right up against the per-core CPU
+list on their left and the notch's own right edge on their right.
+
+Two separate gaps, two separate fixes: the outer `RowLayout` (the one
+splitting the whole tab into the left CPU-list `ColumnLayout` and the
+right stat-tiles `ColumnLayout`) had its `spacing: 8 -> 16`, widening
+the gap between the CPU list and the tiles. The stat-tiles
+`ColumnLayout` itself gained `Layout.rightMargin: 10` -- the expanded
+panel's own outer `anchors.rightMargin` (12px, set in Overlay.qml's
+`expandedContent`) wasn't enough breathing room on its own once the
+tile grid got this dense.
+
+**Verified**: `omarchy plugin validate` clean, live-tested with
+`pinnedOpen`/`dashboardTab` hardcoded onto the Metrics tab, Quickshell
+log clean (only the known-harmless portal-registration warning),
+screenshotted the live panel -- visible gap now on both sides of the
+stat-tiles grid, no tile clipped or pushed off past the notch's own
+edge.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

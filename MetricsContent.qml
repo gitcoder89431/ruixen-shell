@@ -421,7 +421,9 @@ Item {
 
   RowLayout {
     anchors.fill: parent
-    spacing: 8
+    // 8 -> 16 -- per direct feedback the stat-tiles section sat too
+    // close to the CPU list beside it.
+    spacing: 16
 
     // Left panel -- identity block + per-core CPU list.
     // Layout.fillWidth explicitly false -- ColumnLayout/RowLayout
@@ -738,6 +740,11 @@ Item {
     ColumnLayout {
       Layout.fillWidth: true
       Layout.fillHeight: true
+      // Per direct feedback the stat tiles sat too close to the
+      // notch's own right edge -- the expanded panel's outer
+      // anchors.rightMargin (12, see Overlay.qml's expandedContent)
+      // wasn't enough breathing room on its own for this dense a grid.
+      Layout.rightMargin: 10
       spacing: 8
 
       // Shared tile shape -- icon + title top, big value, thin usage

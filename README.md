@@ -1748,6 +1748,78 @@ matter most -- no progress dot should render, track's own near-tip cap
 still should) in addition to `0.5` -- both clean, no stray marks, real
 gap still visible on both rings.
 
+## Real fix: port ambxst's exact gap formula instead of approximating it
+
+The whole gap/cap saga above (multiple rounds: gap too small, gap
+invisible due to lineCap bleed, tip too small, gap needed retuning,
+missing gap on one side, tip-facing caps not round, gap way too big)
+turned out to share one root cause, caught by a second-opinion review:
+every pass modified an invented approximation instead of checking what
+ambxst's own reference component actually does.
+
+**`CircularSeekBar.qml`** (the player ring's real reference, confirmed
+by reading it directly): `handleSpacing: 10` (their own literal
+constant), `gapAngleRad = (handleSpacing / 2) / radius` -- a flat 5px
+trim on EACH side, applied via `capStyle: ShapePath.RoundCap` natively
+on both the progress and track `ShapePath`s. No fake endpoint circles,
+no extra compensation for the cap's own bleed -- their round caps DO
+bleed into the 5px trim the same way Canvas's `lineCap: "round"` does,
+they just accept that as part of the number rather than solving for a
+gap that stays fully clear underneath the cap.
+
+**`CircularControl.qml`** (the dial's own separate reference, also
+confirmed directly): `handleSpacing: 6`, `handleGapRad = handleSpacing *
+(360/(2*PI*radius)) * (PI/180)` -- algebraically simplifies to exactly
+`handleSpacing / radius`, the FULL 6px applied on each side (not halved
+like the player ring's different convention -- these are two separate
+ambxst files with independently-tuned constants).
+
+Rewrote both `CircularSeek` and `Dial` to match their real formulas
+exactly: `ctx.lineCap = "round"` (native, restored), `gapRad =
+(handleSpacing/2)/r` for the ring (`handleSpacing = 10`) and `gapRad =
+handleSpacing/r` for the dial (`handleSpacing = 6`), progress ends at
+`endAngle - gapRad`, track starts at `endAngle + gapRad`, tip/handle
+stays at the unmodified `endAngle`. Deleted every fake endpoint circle
+and the escalating `gapPx` compensation values (`8 -> 18` on the ring,
+`3 -> 6` on the dial) entirely -- the real numbers are much smaller
+(`5px`/`6px` per side) and the code is dramatically simpler with no
+manual cap-faking at all.
+
+Verified via zoomed screenshots at `progressRatio: 0` and `0.5` -- both
+rings render with genuinely rounded ends on both sides and a real,
+correctly-sized gap near the tip, using ambxst's own actual numbers
+instead of six rounds of guessing at an approximation of them.
+
+**Follow-up, a real remaining bug on the wavy state specifically**: per
+direct report ("working fine on the mic and audio dial and the
+brightness progress bar but the wave music player and stop state
+doesnt have it") -- forced `isPlaying: true` (making `wavy: true`) and
+zoomed in at 3x instead of the usual crop, and the tip-facing end of
+`CircularSeek`'s progress polyline really was sharp/pointy, not rounded,
+even with the exact same `gapRad`/native-`lineCap` math that already
+worked cleanly on the plain (non-wavy) arcs and both dials.
+
+Root cause: the sine perturbation (`Math.sin(angle * 16 + wavePhase) *
+2.5`) gets sliced off wherever `progressEndAngle` happens to land in the
+wave's cycle, which depends on `wavePhase` (constantly animating) and
+the current progress value -- there's no guarantee the cutoff lands on
+a smooth zero-crossing. When it doesn't, the polyline's final segment
+approaches the endpoint at a steep, nearly-radial angle instead of
+tangentially, and a round cap drawn against a steep/radial approach
+reads as a sharp point rather than a soft curve -- a genuinely different
+failure mode from the gap/lineCap issues above, not another instance of
+the same bug.
+
+Fixed by tapering the wave amplitude to `0` within the first/last 15%
+of the polyline (`edgeTaper`, a linear ramp based on `t`) instead of
+holding it constant all the way to both endpoints -- guarantees a
+smooth tangential approach at both ends regardless of where `wavePhase`
+happens to be on any given frame, rather than getting lucky/unlucky
+based on animation timing. Verified by explicitly forcing `isPlaying:
+true` and re-zooming at 3x (the level that actually revealed the sharp
+point in the first place, not the previous zoom level that missed it)
+-- both ends read as genuinely rounded now.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

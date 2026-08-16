@@ -208,13 +208,11 @@ Item {
       var r = Math.min(width, height) / 2 - seek.ringWidth - 9
 
       ctx.lineWidth = seek.ringWidth
-      // "butt", not "round" -- same lesson learned from the small
-      // dial's ring: a round cap on a TRIMMED arc/polyline endpoint
-      // visually extends the stroke past its own geometric point by
-      // roughly half the line width, which would bleed straight back
-      // into the gap below and erase it. Tip gets its own round cap,
-      // set right before it's drawn.
-      ctx.lineCap = "butt"
+      // Native round cap, matching ambxst's own CircularSeekBar.qml
+      // exactly (capStyle: ShapePath.RoundCap on both the progress and
+      // track ShapePaths) -- see the gap math below for why this no
+      // longer needs "butt" + hand-drawn fake circles.
+      ctx.lineCap = "round"
 
       // Track -- ONLY the unplayed remainder, not the full span. The
       // wavy progress stroke's radius wobbles around r (the sine
@@ -228,49 +226,27 @@ Item {
       // full sweep.
       var clamped = Math.max(0, Math.min(1, seek.value))
       var endAngle = seek.startAngle + seek.spanAngle * clamped
-      // Small gap on both sides of the tip, same design now used for
-      // the dials/brightness bar elsewhere in this file -- per direct
-      // request to bring this ring in line with that. gapPx as an arc
-      // length (not a fixed radian value) so it stays visually
-      // consistent regardless of this ring's own radius.
-      //
-      // 8 -> 18: bumped again to make room for round caps on the
-      // TIP-FACING ends too (see below) -- a fake round cap is a
-      // filled circle centered exactly at the trimmed endpoint, which
-      // bleeds forward by its own radius (ringWidth/2 = 2.5) in every
-      // direction, same as a real lineCap would. Round-capping both
-      // tip-facing ends eats 2.5px of gap from each side, so the trim
-      // itself needs to grow by that much on top of the ~8px that
-      // already read as a clean visible gap, or the caps just eat the
-      // whole thing again.
-      var gapPx = 18
-      var gapRad = gapPx / r
-      var trackStartAngle = Math.min(seek.startAngle + seek.spanAngle, endAngle + gapRad)
+
+      // Gap around the tip -- ported directly from ambxst's real
+      // CircularSeekBar.qml this time, not approximated. Their actual
+      // model: handleSpacing: 10 (a literal pixel value, their own
+      // constant), gapAngleRad = (handleSpacing / 2) / radius --
+      // i.e. a flat 5px trim on EACH side, native RoundCap, no fake
+      // endpoint circles, no extra "compensation" for the cap's own
+      // bleed. Previous passes here kept inventing a second
+      // compensation system on top of the gap (bumping gapPx to 8,
+      // then 18, then adding manual circles) instead of just using
+      // their one real number -- their own round caps DO bleed into
+      // the trim exactly the same way Canvas's do, they just accept
+      // that as part of the 5px, rather than solving for a gap that
+      // stays fully clear underneath the cap. Match their real
+      // invariant, not a from-scratch approximation of it.
+      var handleSpacing = 10
+      var gapRad = (handleSpacing / 2) / r
       ctx.strokeStyle = seek.trackColor
       ctx.beginPath()
-      ctx.arc(cx, cy, r, trackStartAngle, seek.startAngle + seek.spanAngle)
+      ctx.arc(cx, cy, r, endAngle + gapRad, seek.startAngle + seek.spanAngle)
       ctx.stroke()
-      // Fake round caps at BOTH of the track arc's ends -- its own
-      // natural terminus (unrelated to the tip) AND, per direct
-      // follow-up, the tip-facing end too ("the wave head facing the
-      // tip is still like not round"). "butt" above keeps the stroke
-      // itself flat on purpose (a real round lineCap bleeds into the
-      // gap from BOTH ends of the path, not just the far one), these
-      // two filled circles add the rounded look back at each specific
-      // point without extending the actual stroke.
-      if (trackStartAngle < seek.startAngle + seek.spanAngle) {
-        ctx.fillStyle = seek.trackColor
-        ctx.beginPath()
-        ctx.arc(cx + r * Math.cos(trackStartAngle), cy + r * Math.sin(trackStartAngle), seek.ringWidth / 2, 0, Math.PI * 2)
-        ctx.fill()
-      }
-      {
-        var trackEndAngle = seek.startAngle + seek.spanAngle
-        ctx.fillStyle = seek.trackColor
-        ctx.beginPath()
-        ctx.arc(cx + r * Math.cos(trackEndAngle), cy + r * Math.sin(trackEndAngle), seek.ringWidth / 2, 0, Math.PI * 2)
-        ctx.fill()
-      }
 
       // Progress -- up to value, accent, wavy (a sine ripple on the
       // radius) only while actually playing. Trimmed short of the
@@ -280,33 +256,32 @@ Item {
       ctx.strokeStyle = seek.progressColor
       ctx.beginPath()
       var steps = 48
-      var startX, startY, endX, endY
+      // Wave amplitude tapers to 0 within the first/last 15% of the
+      // polyline instead of staying constant all the way to both
+      // endpoints. Without this, native round caps looked fine on the
+      // plain arcs/dials but stayed visibly SHARP/pointy on this wavy
+      // one specifically -- the sine perturbation slices off mid-
+      // oscillation wherever wavePhase happens to land, so the final
+      // segment's own direction can end up nearly radial instead of
+      // tangential, defeating the round cap's roundness regardless of
+      // the gap math being otherwise identical to the working dials.
+      // Fading the amplitude out near both ends guarantees a smooth
+      // tangential approach every time, independent of wavePhase.
+      var taperFrac = 0.15
       for (var i = 0; i <= steps; i++) {
         var t = i / steps
         var angle = seek.startAngle + (progressEndAngle - seek.startAngle) * t
+        var edgeTaper = 1
+        if (t < taperFrac) edgeTaper = t / taperFrac
+        else if (t > 1 - taperFrac) edgeTaper = (1 - t) / taperFrac
         var rr = r
-        if (seek.wavy) rr += Math.sin(angle * 16 + seek.wavePhase) * 2.5
+        if (seek.wavy) rr += Math.sin(angle * 16 + seek.wavePhase) * 2.5 * edgeTaper
         var x = cx + rr * Math.cos(angle)
         var y = cy + rr * Math.sin(angle)
-        if (i === 0) { ctx.moveTo(x, y); startX = x; startY = y }
+        if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
-        if (i === steps) { endX = x; endY = y }
       }
       ctx.stroke()
-      // Same fake round caps, at BOTH the progress stroke's own
-      // natural start (seek.startAngle) AND its tip-facing end
-      // (progressEndAngle) -- uses the polyline's own actual computed
-      // points so both line up exactly, including through the wave's
-      // sine perturbation.
-      if (progressEndAngle > seek.startAngle) {
-        ctx.fillStyle = seek.progressColor
-        ctx.beginPath()
-        ctx.arc(startX, startY, seek.ringWidth / 2, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(endX, endY, seek.ringWidth / 2, 0, Math.PI * 2)
-        ctx.fill()
-      }
 
       // Tip -- a thick radial tick at the current progress position,
       // ported from ambxst's own CircularSeekBar handle (a fat line
@@ -1210,64 +1185,31 @@ Item {
             var startAngle = Math.PI / 2 + Math.PI / 4
             var totalSweep = Math.PI * 2 - Math.PI / 2
             var endAngle = startAngle + value * totalSweep
-            // Small angular gap on both sides of the tip (~3px of arc
-            // length, converted to radians via arc-length/radius) so
-            // neither arc actually touches it -- ambxst's own handle
-            // has this exact detail (their handleGapRad), trimming
-            // both the progress arc's end and the remaining track's
-            // start short of the handle position. Subtle on purpose,
-            // per direct request ("slight gap... subtle, small
-            // detail").
-            // 3 -> 6: bumped to make room for round caps on the
-            // TIP-FACING ends too, same reasoning as the player ring
-            // -- a fake round cap bleeds forward by its own radius
-            // (1.5), so round-capping both tip-facing ends eats 1.5px
-            // of gap from each side.
-            var gapRad = 6 / r
+            // Gap around the tip -- ported directly from ambxst's real
+            // CircularControl.qml this time (their handleSpacing: 6,
+            // handleGapRad = handleSpacing * (360/(2*PI*radius)) *
+            // (PI/180), which simplifies exactly to handleSpacing/r --
+            // a plain arc-length-to-radians conversion, the FULL 6px
+            // applied on each side, not halved like the player ring's
+            // different CircularSeekBar.qml reference uses). Native
+            // RoundCap, no fake endpoint circles, no compensation for
+            // the cap's own bleed -- previous passes here kept
+            // inventing a bigger and bigger "gapPx" plus manually-drawn
+            // circles instead of just using their one real number.
+            var handleSpacing = 6
+            var gapRad = handleSpacing / r
             ctx.lineWidth = 3
-            // "butt", not "round", for these two -- a round cap on the
-            // TRIMMED end of an arc visually extends the stroke past
-            // its own geometric endpoint by ~half the lineWidth, which
-            // was bleeding straight back into the gap above and
-            // erasing it. The tip below still gets its own round cap,
-            // set right before it's drawn.
-            ctx.lineCap = "butt"
-            var trackStartAngle = Math.min(startAngle + totalSweep, endAngle + gapRad)
+            ctx.lineCap = "round"
             ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()
-            ctx.arc(cx, cy, r, trackStartAngle, startAngle + totalSweep)
+            ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
             ctx.stroke()
-            // Fake round caps at BOTH the track arc's ends -- its own
-            // natural ~4:30 terminus (unrelated to the tip) AND, per
-            // direct follow-up, the tip-facing end too. "butt" above
-            // keeps the actual stroke flat on purpose.
-            if (trackStartAngle < startAngle + totalSweep) {
-              ctx.fillStyle = Qt.rgba(1, 1, 1, 0.15)
-              ctx.beginPath()
-              ctx.arc(cx + r * Math.cos(trackStartAngle), cy + r * Math.sin(trackStartAngle), 1.5, 0, Math.PI * 2)
-              ctx.fill()
-            }
-            ctx.fillStyle = Qt.rgba(1, 1, 1, 0.15)
-            ctx.beginPath()
-            ctx.arc(cx + r * Math.cos(startAngle + totalSweep), cy + r * Math.sin(startAngle + totalSweep), 1.5, 0, Math.PI * 2)
-            ctx.fill()
 
             ctx.strokeStyle = root.accent
             ctx.beginPath()
             var dialProgressEnd = Math.max(startAngle, endAngle - gapRad)
             ctx.arc(cx, cy, r, startAngle, dialProgressEnd)
             ctx.stroke()
-            // Same fake round caps, at BOTH the progress arc's own
-            // natural start (~7:30) AND its tip-facing end.
-            if (dialProgressEnd > startAngle) {
-              ctx.fillStyle = root.accent
-              ctx.beginPath()
-              ctx.arc(cx + r * Math.cos(startAngle), cy + r * Math.sin(startAngle), 1.5, 0, Math.PI * 2)
-              ctx.fill()
-              ctx.beginPath()
-              ctx.arc(cx + r * Math.cos(dialProgressEnd), cy + r * Math.sin(dialProgressEnd), 1.5, 0, Math.PI * 2)
-              ctx.fill()
-            }
 
             // Thick tip at the current value, same treatment as the
             // player card's own CircularSeek tip -- a fat radial tick,

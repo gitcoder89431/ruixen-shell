@@ -763,10 +763,15 @@ Item {
           // same height. Matches ambxst's titleRect/leftButton/
           // rightButton trio exactly (just without their hover/press
           // accent-color swap).
+          // Header grown 28px -> 36px (title 13px -> 16px, chevron
+          // pills 28px -> 36px, glyphs 14px -> 16px) and the day-grid
+          // below shrunk to compensate -- per direct feedback, the
+          // weekday label row was drawing too much attention next to
+          // this comparatively small header.
           RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 28
-            Layout.maximumHeight: 28
+            Layout.preferredHeight: 36
+            Layout.maximumHeight: 36
             spacing: 4
 
             Rectangle {
@@ -780,13 +785,13 @@ Item {
                 text: calendarPane.viewingDate.toLocaleDateString(Qt.locale(), "MMMM yyyy")
                 color: root.textColor
                 font.family: root.fontFamily
-                font.pixelSize: 13
+                font.pixelSize: 16
                 font.bold: true
               }
             }
 
             Rectangle {
-              Layout.preferredWidth: 28
+              Layout.preferredWidth: 36
               Layout.fillHeight: true
               radius: 8
               color: "#000000"
@@ -796,7 +801,7 @@ Item {
                 text: "󰅁"
                 color: root.accent
                 font.family: root.fontFamily
-                font.pixelSize: 14
+                font.pixelSize: 16
               }
 
               MouseArea {
@@ -807,7 +812,7 @@ Item {
             }
 
             Rectangle {
-              Layout.preferredWidth: 28
+              Layout.preferredWidth: 36
               Layout.fillHeight: true
               radius: 8
               color: "#000000"
@@ -817,7 +822,7 @@ Item {
                 text: "󰅂"
                 color: root.accent
                 font.family: root.fontFamily
-                font.pixelSize: 14
+                font.pixelSize: 16
               }
 
               MouseArea {
@@ -839,10 +844,15 @@ Item {
           // 20px -> 26px "today" circle) to actually use most of
           // calendarPane's available height instead of leaving a big
           // block of empty grey space below a small fixed-size grid.
+          // Shrunk 268px -> 230px alongside the header growing above --
+          // weekday labels, row height, today-circle, and day-number
+          // size all pulled back a notch so this panel reads calmer
+          // next to the now-bigger header, per direct feedback ("M T W
+          // T F takes too much of the attention").
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 268
-            Layout.maximumHeight: 268
+            Layout.preferredHeight: 230
+            Layout.maximumHeight: 230
             Layout.alignment: Qt.AlignTop
             radius: 6
             color: "#000000"
@@ -872,7 +882,7 @@ Item {
                     text: modelData
                     color: root.muted
                     font.family: root.fontFamily
-                    font.pixelSize: 13
+                    font.pixelSize: 10
                     font.bold: true
                   }
                 }
@@ -897,7 +907,7 @@ Item {
                   required property var modelData
                   required property int index
                   Layout.fillWidth: true
-                  Layout.preferredHeight: 30
+                  Layout.preferredHeight: 26
                   radius: 10
                   color: index === calendarPane.currentWeekRow ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
@@ -920,9 +930,9 @@ Item {
 
                         Rectangle {
                           anchors.centerIn: parent
-                          width: 26
-                          height: 26
-                          radius: 13
+                          width: 22
+                          height: 22
+                          radius: 11
                           color: parent.modelData.isToday ? root.accent : "transparent"
 
                           Text {
@@ -930,7 +940,7 @@ Item {
                             text: parent.parent.modelData.day
                             color: parent.parent.modelData.isToday ? "#000000" : (parent.parent.modelData.inMonth ? root.textColor : root.muted)
                             font.family: root.fontFamily
-                            font.pixelSize: 11
+                            font.pixelSize: 10
                           }
                         }
                       }

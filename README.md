@@ -1332,6 +1332,23 @@ text next to them). Switched both to `root.accent`, matching the
 now-theme-linked accent used everywhere else on the dashboard.
 Verified via screenshot -- both chevrons render in the theme's teal.
 
+## Calendar header grown, day-grid shrunk to rebalance emphasis
+
+Per direct feedback ("the calender month year and chevlon [row], can we
+increase the size... make the calender like below abit smaller, right
+now the M T W T F takes too much of the attention"):
+
+- **Header row**: `28px -> 36px` height, title text `13px -> 16px`,
+  chevron pills `28px -> 36px` wide, chevron glyphs `14px -> 16px`.
+- **Day-grid panel**: `268px -> 230px` overall height, weekday labels
+  (`M T W T F S S`) `13px -> 10px` (this was the specific thing reading
+  as too loud), week-row height `30px -> 26px`, today-circle
+  `26px -> 22px`, day-number text `11px -> 10px`.
+
+Net effect: the title/navigation row now reads as the visually dominant
+piece, with the grid below sized more like supporting detail instead of
+competing for the same attention. Verified via screenshot.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

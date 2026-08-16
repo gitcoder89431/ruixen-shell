@@ -208,7 +208,13 @@ Item {
       var r = Math.min(width, height) / 2 - seek.ringWidth - 9
 
       ctx.lineWidth = seek.ringWidth
-      ctx.lineCap = "round"
+      // "butt", not "round" -- same lesson learned from the small
+      // dial's ring: a round cap on a TRIMMED arc/polyline endpoint
+      // visually extends the stroke past its own geometric point by
+      // roughly half the line width, which would bleed straight back
+      // into the gap below and erase it. Tip gets its own round cap,
+      // set right before it's drawn.
+      ctx.lineCap = "butt"
 
       // Track -- ONLY the unplayed remainder, not the full span. The
       // wavy progress stroke's radius wobbles around r (the sine
@@ -222,19 +228,29 @@ Item {
       // full sweep.
       var clamped = Math.max(0, Math.min(1, seek.value))
       var endAngle = seek.startAngle + seek.spanAngle * clamped
+      // Small gap on both sides of the tip, same design now used for
+      // the dials/brightness bar elsewhere in this file -- per direct
+      // request to bring this ring in line with that. gapPx as an arc
+      // length (not a fixed radian value) so it stays visually
+      // consistent regardless of this ring's own radius.
+      var gapPx = 8
+      var gapRad = gapPx / r
       ctx.strokeStyle = seek.trackColor
       ctx.beginPath()
-      ctx.arc(cx, cy, r, endAngle, seek.startAngle + seek.spanAngle)
+      ctx.arc(cx, cy, r, Math.min(seek.startAngle + seek.spanAngle, endAngle + gapRad), seek.startAngle + seek.spanAngle)
       ctx.stroke()
 
       // Progress -- up to value, accent, wavy (a sine ripple on the
-      // radius) only while actually playing.
+      // radius) only while actually playing. Trimmed short of the
+      // tip's true position (endAngle) by gapRad, same as the track
+      // above.
+      var progressEndAngle = Math.max(seek.startAngle, endAngle - gapRad)
       ctx.strokeStyle = seek.progressColor
       ctx.beginPath()
       var steps = 48
       for (var i = 0; i <= steps; i++) {
         var t = i / steps
-        var angle = seek.startAngle + (endAngle - seek.startAngle) * t
+        var angle = seek.startAngle + (progressEndAngle - seek.startAngle) * t
         var rr = r
         if (seek.wavy) rr += Math.sin(angle * 16 + seek.wavePhase) * 2.5
         var x = cx + rr * Math.cos(angle)
@@ -260,6 +276,7 @@ Item {
         var tx2 = cx + tipR2 * Math.cos(endAngle)
         var ty2 = cy + tipR2 * Math.sin(endAngle)
         ctx.lineWidth = seek.ringWidth * 1.5
+        ctx.lineCap = "round"
         ctx.strokeStyle = seek.tipColor
         ctx.beginPath()
         ctx.moveTo(tx1, ty1)

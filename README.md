@@ -1656,6 +1656,37 @@ added that stops short ABOVE the tip by `gapPx`, mirroring the fill's
 own trim below it exactly. Both sides now get a real, symmetric gap
 around the tip instead of just one. Verified via zoomed screenshot.
 
+## Player ring gets the same gap+tip design as the dials/brightness bar
+
+Per direct request ("apply the same to our music player that we had for
+the stop and play thing around the circle album art"): brought
+`CircularSeek` (the player card's own progress ring) in line with the
+gap-around-the-tip design already established for `Dial` and the
+brightness bar.
+
+Two changes, both learned from the exact bugs already hit on the
+smaller controls:
+
+- **The gap itself**: `gapPx = 8` (arc length, `gapRad = gapPx / r`),
+  the wavy progress polyline now stops at `endAngle - gapRad` instead of
+  the tip's true `endAngle`, and the track's existing `endAngle`-based
+  start (already trimmed once, for the earlier "grey bleeding through
+  the wave" fix) got the same `+ gapRad` added on top. Tip's own
+  position is unchanged -- it still marks the real value, only the two
+  arcs around it pull back.
+- **`lineCap` bleed, fixed proactively this time**: `ctx.lineCap =
+  "round"` was set once near the top and persisted across every
+  `stroke()` call including the trimmed track/progress ends -- the exact
+  bug already root-caused and fixed on the small dial. Set to `"butt"`
+  before the track/progress draws, `"round"` again immediately before
+  the tip's own stroke.
+
+Verified at three forced `progressRatio` values (`0`, `0.5`, `0.99`) via
+the established hardcode-and-screenshot method, given this ring's own
+history of edge-case bugs (canvas clipping, top-crop) -- clean gap
+visible at all three, no clipping, no regression at the idle/full-value
+extremes.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

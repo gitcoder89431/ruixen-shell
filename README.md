@@ -3135,6 +3135,21 @@ again now that it lost its bar-tile-era icon.
 icon sits directly in front of a larger, brighter `"Memory"` label
 above the ring.
 
+## Network's header matched to Memory's new size
+
+Per direct follow-up: "we can do the network next, match the header
+size so its like Memories." `StatTile`'s own title row (icon + label)
+had only one instance left using it at this point -- Network, since
+CPU/GPU/Memory all moved to dial variants -- so it was safe to bump the
+shared component's styling directly instead of overriding per-
+instance: icon `13px -> 15px`, label `10px -> 13px` + `DemiBold` +
+`root.textColor` (was `root.muted`), matching `MemoryDialTile`'s header
+exactly.
+
+**Verified**: screenshotted the live tab -- confirmed `"Network"` and
+`"Memory"` headers now render at matching size/weight/color side by
+side.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

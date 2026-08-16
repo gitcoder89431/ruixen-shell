@@ -721,15 +721,20 @@ Item {
             Text {
               text: tile.glyph
               font.family: root.fontFamily
-              font.pixelSize: 13
+              // Matches MemoryDialTile's own header size now, per
+              // direct request ("match the header size so its like
+              // Memories") -- this StatTile only has one instance left
+              // (Network), so bumping it here directly is safe.
+              font.pixelSize: 15
               color: root.muted
             }
 
             Text {
               text: tile.title
               font.family: root.fontFamily
-              font.pixelSize: 10
-              color: root.muted
+              font.pixelSize: 13
+              font.weight: Font.DemiBold
+              color: root.textColor
               elide: Text.ElideRight
               Layout.fillWidth: true
             }

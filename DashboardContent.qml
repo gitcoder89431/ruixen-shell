@@ -751,6 +751,11 @@ Item {
         }
         readonly property var weeks: calendarData.weeks
         readonly property int currentWeekRow: calendarData.currentWeekRow
+        // Monday-first index (0=Mon..6=Sun) matching the M T W T F S S
+        // label order -- JS getDay() is Sunday-first (0=Sun), so +6 %7
+        // shifts it. -1 (never matches) when viewing a different month,
+        // same guard isToday already uses for the day cells.
+        readonly property int currentDayOfWeek: monthShift === 0 ? (today.getDay() + 6) % 7 : -1
 
         ColumnLayout {
           id: calendarColumn
@@ -888,10 +893,14 @@ Item {
                   model: ["M", "T", "W", "T", "F", "S", "S"]
                   Text {
                     required property string modelData
+                    required property int index
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData
-                    color: root.muted
+                    // Today's own weekday letter reads brighter (full
+                    // textColor) than the rest (muted/dim), per direct
+                    // request.
+                    color: index === calendarPane.currentDayOfWeek ? root.textColor : root.muted
                     font.family: root.fontFamily
                     // Bumped back up a touch (10px -> 12px) -- the
                     // 230px day-grid shrink left it ending a bit early

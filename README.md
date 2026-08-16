@@ -1371,6 +1371,18 @@ the column, black day-grid panel now runs most of the way down
 `calendarPane` with just a small, consistent margin left, not a visibly
 separate grey band.
 
+## Today's weekday letter reads brighter
+
+Per direct request: added `calendarPane.currentDayOfWeek` (Monday-first
+index, `0..6`, matching the `M T W T F S S` label order -- JS `getDay()`
+is Sunday-first so `(today.getDay() + 6) % 7` shifts it; `-1` when
+viewing a different month, same guard the day-cell `isToday` check
+already uses). The matching weekday `Text` now uses `root.textColor`
+(full brightness) instead of `root.muted` when its `index` matches,
+everything else stays dim. Verified via screenshot -- today is Saturday
+in the current test, and the "S" label reads bright while the rest stay
+muted, lining up with the accent-highlighted day cell below it.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

@@ -437,6 +437,13 @@ Item {
 
       RowLayout {
         Layout.fillWidth: true
+        // Extra top padding above the avatar/identity block, per
+        // direct feedback ("the User Profile stuff, the card doesnt
+        // have enough top and bottom padding") -- on top of the
+        // panel's own 20px outer topMargin (Overlay.qml's
+        // expandedContent), which felt too tight for this block
+        // specifically.
+        Layout.topMargin: 8
         spacing: 14
 
         // Avatar -- same gradient-placeholder + ~/.face.icon +
@@ -551,6 +558,11 @@ Item {
 
       RowLayout {
         Layout.fillWidth: true
+        // Extra bottom padding under the avatar/identity block, same
+        // follow-up as the topMargin above -- widens the gap before
+        // the "CPUs" separator instead of just the base ColumnLayout
+        // spacing (10).
+        Layout.topMargin: 8
         spacing: 8
 
         Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; color: root.muted }

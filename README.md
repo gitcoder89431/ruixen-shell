@@ -3447,6 +3447,29 @@ portal-registration warning), screenshotted the live panel -- each core
 row now reads icon+number ("1", "2", "3", "4") beside its own bar and
 percentage, one row per core instead of two.
 
+## More padding around the avatar/identity block
+
+Direct request: "nice ok give more top and buttom padding for the
+stuff above it the User Profile stuff, the card doesnt have enough top
+and buttom padding" -- the avatar + username/hostname/Omarchy-version
+block sat right against the panel's own 20px outer topMargin (set in
+Overlay.qml's `expandedContent`) with only the left `ColumnLayout`'s
+base 10px spacing separating it from the "CPUs" separator below --
+too tight for a block this visually prominent.
+
+Added `Layout.topMargin: 8` to the avatar `RowLayout` (extra space
+above it, on top of the panel's own outer margin) and the same
+`Layout.topMargin: 8` to the "CPUs" separator `RowLayout` right after
+it (extra space below the identity block, on top of the base 10px
+`ColumnLayout` spacing).
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- visibly
+more breathing room above the avatar and below the identity rows
+before the "CPUs" separator.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

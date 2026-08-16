@@ -3281,6 +3281,39 @@ icon + `"Download"` + `"2.50 GiB"`, and an upload-tray icon +
 `"Upload"` + `"17.44 GiB"`, with the color-matched rate caption still
 correctly showing underneath the bar below them.
 
+## CPU/GPU/Memory dials trimmed to make room for storage
+
+Direct question, then a proposed fix: "what happens to the storage
+stuff below if people have more than two [disks]? just scroll down?
+maybe we can reduce the size for CPU and GPU tallness so the Storage
+have some available rows to show?"
+
+Honest answer to the question first: no, it doesn't scroll -- the
+right-hand `ColumnLayout` (CPU/GPU row, Network/Memory row, storage
+panel) isn't wrapped in a `Flickable` the way the LEFT panel's per-core
+CPU list is. It just clips against the notch dashboard's fixed ~368px
+total height once content exceeds that. With this theme's own 2 real
+disks it fits with room to spare (confirmed by screenshot both before
+and after this change), but a machine with several more physical
+disks would eventually hit that ceiling.
+
+Implemented the proposed mitigation: `DialTile`/`MemoryDialTile`'s own
+dial `60px -> 52px` (icon font `18 -> 16` to match), CPU/GPU and
+Network/Memory row heights `106px -> 94px` each -- ~24px of real extra
+headroom for the storage panel below before it starts clipping. Framed
+honestly in the code comments as a mitigation for the common case (a
+handful of disks), not a true fix for unbounded disk counts -- that
+would need the whole right column wrapped in its own `Flickable`,
+which wasn't asked for here and is more invasive (would also need to
+decide whether CPU/GPU/Memory scroll away too, or stay pinned while
+only storage scrolls).
+
+**Verified**: screenshotted the live tab -- confirmed all four tiles
+still render cleanly at the smaller size (real data still legible:
+`"CPU Usage 5%"`, `"GPU Usage 52%"`, `"45%"` memory ring, real disk
+rows), with visibly more empty space below the storage panel than
+before the trim.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

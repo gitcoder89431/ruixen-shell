@@ -876,11 +876,16 @@ Item {
 
             Item {
               id: dialItem
-              // 46 -> 60, per direct request to make the dial/icon
-              // bigger. Ring radius (width/2-6) and the tip/arc math
-              // below both scale off this automatically.
-              Layout.preferredWidth: 60
-              Layout.preferredHeight: 60
+              // 46 -> 60 (bigger dial, per direct request), then
+              // trimmed to 52 -- per direct follow-up to reduce CPU/
+              // GPU's own tallness so the storage panel below has more
+              // room before it starts clipping (this whole right
+              // column isn't scrollable, see the row-height comment
+              // below for the full reasoning). Ring radius (width/2-6)
+              // and the tip/arc math below both scale off this
+              // automatically.
+              Layout.preferredWidth: 52
+              Layout.preferredHeight: 52
               Layout.alignment: Qt.AlignVCenter
 
               Canvas {
@@ -928,7 +933,7 @@ Item {
                 anchors.centerIn: parent
                 text: tile.glyph
                 font.family: root.fontFamily
-                font.pixelSize: 18
+                font.pixelSize: 16
                 color: root.textColor
               }
             }
@@ -1049,8 +1054,11 @@ Item {
 
           Item {
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 60
-            Layout.preferredHeight: 60
+            // 60 -> 52, matching CPU/GPU's own trim (see DialTile) --
+            // per direct follow-up to free up room for the storage
+            // panel below.
+            Layout.preferredWidth: 52
+            Layout.preferredHeight: 52
 
             Canvas {
               id: dialCanvas
@@ -1118,9 +1126,17 @@ Item {
       }
       RowLayout {
         Layout.fillWidth: true
-        // 66 -> 92 (temperature bar row) -> 106 (bigger dial, 46 -> 60,
-        // per direct request).
-        Layout.preferredHeight: 106
+        // 66 -> 92 (temperature bar row) -> 106 (bigger dial, 46 -> 60)
+        // -> 94 (dial trimmed 60 -> 52) -- per direct follow-up: this
+        // whole right-hand ColumnLayout isn't wrapped in a Flickable,
+        // so a storage panel that outgrows the tile's fixed ~368px
+        // total height just clips instead of scrolling. Shrinking
+        // CPU/GPU/Memory's own rows buys real headroom for more disk
+        // rows before that happens, though it's a mitigation for the
+        // common case (a handful of disks), not a true fix for
+        // unbounded disk counts -- that would need the whole column
+        // wrapped in its own Flickable.
+        Layout.preferredHeight: 94
         spacing: 8
 
         DialTile {
@@ -1151,9 +1167,8 @@ Item {
 
       RowLayout {
         Layout.fillWidth: true
-        // 92 -> 106, matching the CPU/GPU row -- Memory's own dial
-        // needs the same extra room theirs did.
-        Layout.preferredHeight: 106
+        // 92 -> 106 -> 94, matching the CPU/GPU row's own trim.
+        Layout.preferredHeight: 94
         spacing: 8
 
         // Custom layout instead of StatTile -- per direct request to

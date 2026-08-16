@@ -1260,7 +1260,8 @@ ping-pongs `0..5..0` (`brailleStep % braillePeriod`, reflected back
 instead of wrapping) so the lit dot visibly scans back and forth. `Timer`
 interval bumped `90ms -> 110ms` to match the calmer sweep.
 
-**Follow-up: slowed further.** Per direct feedback, `110ms -> 220ms`.
+**Follow-up: slowed further.** Per direct feedback, `110ms -> 220ms`,
+then `220ms -> 450ms` (still too fast at `220ms`).
 
 Verified twice: first that the ROW actually renders as 6 small dots at
 the right size (zoomed crop), then that it's genuinely animating -- two

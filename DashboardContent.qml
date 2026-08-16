@@ -1150,7 +1150,13 @@ Item {
             // detail").
             var gapRad = 3 / r
             ctx.lineWidth = 3
-            ctx.lineCap = "round"
+            // "butt", not "round", for these two -- a round cap on the
+            // TRIMMED end of an arc visually extends the stroke past
+            // its own geometric endpoint by ~half the lineWidth, which
+            // was bleeding straight back into the gap above and
+            // erasing it. The tip below still gets its own round cap,
+            // set right before it's drawn.
+            ctx.lineCap = "butt"
             ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()
             ctx.arc(cx, cy, r, Math.min(startAngle + totalSweep, endAngle + gapRad), startAngle + totalSweep)
@@ -1178,6 +1184,7 @@ Item {
               var tx2 = cx + tipR2 * Math.cos(endAngle)
               var ty2 = cy + tipR2 * Math.sin(endAngle)
               ctx.lineWidth = 5
+              ctx.lineCap = "round"
               ctx.strokeStyle = "#ffffff"
               ctx.beginPath()
               ctx.moveTo(tx1, ty1)

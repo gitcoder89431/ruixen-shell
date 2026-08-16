@@ -1553,6 +1553,19 @@ values near 0 or the full sweep don't produce a negative-length arc.
 Verified via zoomed screenshot -- a subtle dark sliver now separates
 the tip from both arcs on either side.
 
+**Follow-up: gap wasn't actually visible.** Real bug, not a perception
+issue -- `ctx.lineCap = "round"` was set once and Canvas 2D state
+persists across `stroke()` calls, so it applied to the TRIMMED arc ends
+too. A round cap on a trimmed arc endpoint visually extends the stroke
+past its own geometric angle by roughly half the line width, which bled
+straight back into the ~3px gap and erased it completely -- explains
+why it read as invisible even though the math was correct. Fixed by
+setting `lineCap = "butt"` before drawing the track/progress arcs (flat,
+no extension past the trimmed endpoint) and `lineCap = "round"` again
+right before the tip's own stroke (still wanted a rounded tip). Verified
+via zoomed screenshot -- a real, crisp dark gap now visible on both
+sides of the tip.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

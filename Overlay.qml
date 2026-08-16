@@ -508,7 +508,16 @@ Item {
       // attempt at a new size for launcher specifically (340x260, then
       // up to 360) hit that exact masking bug. Decoupled from
       // pinnedOpen here so a size change on one never risks the other.
-      readonly property int bodyWidth: panel.launcherOpen ? 420 : (panel.pinnedOpen ? 900 : 260)
+      //
+      // Collapsed 260 -> 284: the playerPill (see collapsedContent
+      // below) added its own ~20px of internal padding around the play
+      // glyph/wave that the old bare Row didn't have, pushing content
+      // back out to ~260px total -- the exact knife's-edge fit 260 was
+      // originally chosen to avoid. Per direct report ("avatar circle
+      // and bell icon is too close to the notch edge now"), bumped by
+      // roughly that same ~20-24px to restore real margin on both
+      // sides again.
+      readonly property int bodyWidth: panel.launcherOpen ? 420 : (panel.pinnedOpen ? 900 : 284)
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
       // screen zone (notchClearance) was bumped to cover this plus a

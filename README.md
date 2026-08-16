@@ -3470,6 +3470,20 @@ portal-registration warning), screenshotted the live panel -- visibly
 more breathing room above the avatar and below the identity rows
 before the "CPUs" separator.
 
+## Identity block padding doubled -- still felt cramped
+
+Immediate direct follow-up: "ahh maybe a bit more padding it looks
+cramped" -- the previous pass's `Layout.topMargin: 8` on both the
+avatar row and the "CPUs" separator row wasn't enough. Doubled both to
+`16`.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate`
+clean, live-tested with `pinnedOpen`/`dashboardTab` hardcoded onto the
+Metrics tab, Quickshell log clean (only the known-harmless
+portal-registration warning), screenshotted the live panel -- clearly
+more open now, avatar/identity block no longer reads as cramped
+against the panel edge or the CPU list below it.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

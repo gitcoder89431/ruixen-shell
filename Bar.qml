@@ -624,8 +624,10 @@ Item {
   }
 
   // Widgets pulled out of the main rightPill into their own small pills —
-  // see horizontalBar below.
-  readonly property var togglesPillIds: ["omarchy.keyboard-layout", "omarchy.system-update", "ruixen.stayawake", "ruixen.dnd", "ruixen.quickactions"]
+  // see horizontalBar below. ruixen.dnd removed -- no longer in the bar
+  // layout (its toggle now lives in ruixen.notch's own bell + as a row in
+  // ruixen.quickactions' popup instead of a standalone pill).
+  readonly property var togglesPillIds: ["omarchy.keyboard-layout", "omarchy.system-update", "ruixen.stayawake", "ruixen.quickactions"]
   readonly property var sideRightIds: togglesPillIds.concat(["ruixen.tray"])
 
   function moduleString(entry, key, fallback) {

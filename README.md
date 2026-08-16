@@ -174,6 +174,31 @@ omarchy plugin enable ruixen.workspaces
 omarchy restart shell
 ```
 
+`ruixen.dnd` (the standalone DND bell pill, between `ruixen.stayawake` and
+`ruixen.quickactions` in `togglesPillIds`) was removed from
+`bar.layout.right` entirely, per direct request ("we dont need this
+anymore as its in the notch already... hide the toggle from this group")
+— `ruixen.notch`'s own collapsed-view bell already toggles the exact same
+`omarchy.notifications` DND state, and the same toggle was folded into
+`ruixen.quickactions`'s popup (see `ruixen-tray-widgets`'s own README) so
+the action stays reachable without its own dedicated pill:
+
+```bash
+python3 -c "
+import json
+path = '$HOME/.config/omarchy/shell.json'
+with open(path) as f: data = json.load(f)
+data['bar']['layout']['right'] = [w for w in data['bar']['layout']['right'] if w.get('id') != 'ruixen.dnd']
+with open(path, 'w') as f: json.dump(data, f, indent=2)
+"
+omarchy restart shell
+```
+
+Also removed `"ruixen.dnd"` from `Bar.qml`'s own `togglesPillIds` list
+(`Bar.qml` around line 628) -- leaving it there would have been harmless
+(it just wouldn't match anything once the layout entry was gone), but
+there's no reason to keep a dead id in the pill-membership list.
+
 `shell.json` itself isn't symlinked from this repo — Omarchy rewrites it
 constantly (theme changes, `omarchy bar` commands), so it's live state, not
 a static dotfile. These commands are the reproducible record of the layout

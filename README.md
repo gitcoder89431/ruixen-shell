@@ -3264,6 +3264,23 @@ KB/s"` on the left and red `"↑ 1.1 KB/s"` on the right, directly under
 the matching bar segments, everything still fitting within the tile's
 existing height with no clipping.
 
+## Rate rows swapped for icon + "Download"/"Upload" labels
+
+Per direct follow-up: "the previous spot where the same speed was put
+text and icon for Download and Upload." Now that the rate itself lives
+in the color-matched caption under the bar (previous change), repeating
+it in the upper rows too was redundant -- swapped for `fa-download`
+(`U+F019`) / `fa-upload` (`U+F093`) icons + the literal words
+`"Download"`/`"Upload"`, keeping the lifetime total right-aligned on
+each row same as before. These rows' job is now purely "which
+direction does this total on the right belong to," the rate itself
+reads from the caption below the bar instead.
+
+**Verified**: screenshotted the live tab -- confirmed a download-tray
+icon + `"Download"` + `"2.50 GiB"`, and an upload-tray icon +
+`"Upload"` + `"17.44 GiB"`, with the color-matched rate caption still
+correctly showing underneath the bar below them.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

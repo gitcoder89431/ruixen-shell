@@ -1198,13 +1198,27 @@ Item {
 
             Item { Layout.fillHeight: true }
 
+            // Icon + "Download"/"Upload" label instead of the rate
+            // number here, per direct follow-up ("the previous spot
+            // where the same speed was put text and icon for Download
+            // and Upload") -- the rate itself moved to the color-
+            // matched caption under the bar below, so repeating it
+            // here was redundant; this row's job is now identifying
+            // WHICH direction the total on the right belongs to.
             RowLayout {
               Layout.fillWidth: true
               spacing: 6
               visible: root.netInterface !== ""
 
               Text {
-                text: "↓ " + (root.netInterface ? root.formatRate(root.netRxRate) : "")
+                text: ""
+                font.family: root.fontFamily
+                font.pixelSize: 12
+                color: root.muted
+              }
+
+              Text {
+                text: "Download"
                 font.family: root.fontFamily
                 font.pixelSize: 12
                 color: root.textColor
@@ -1227,7 +1241,14 @@ Item {
               visible: root.netInterface !== ""
 
               Text {
-                text: "↑ " + (root.netInterface ? root.formatRate(root.netTxRate) : "")
+                text: ""
+                font.family: root.fontFamily
+                font.pixelSize: 12
+                color: root.muted
+              }
+
+              Text {
+                text: "Upload"
                 font.family: root.fontFamily
                 font.pixelSize: 12
                 color: root.textColor

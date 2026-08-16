@@ -1718,6 +1718,36 @@ by this in the first place. Verified via zoomed screenshot crops on both
 the player ring and the speaker dial -- natural ends read rounded again,
 gap near the tip stays clean on both.
 
+## Round caps on the tip-facing ends too
+
+Per direct follow-up ("the cap facin the tip isnt [round]... the wave
+head facing the tip is still like not round"): the fake round caps
+added above only covered each arc's NATURAL end (the ring's own true
+terminus, unrelated to the tip) -- the tip-facing end was still flat on
+purpose, since that's what actually created the gap.
+
+Adding a round cap there too is trickier than it sounds: a fake round
+cap is a filled circle centered exactly at the trimmed endpoint, and
+that circle bleeds forward by its own radius in every direction --
+same as a real `lineCap: round` would. Round-capping BOTH tip-facing
+ends (track's near side and progress's near side) eats `ringWidth/2`
+of the gap from each side, so the trim itself had to grow to compensate
+or the caps just eat the gap right back, same failure mode as the very
+first "gap isn't visible" bug.
+
+`CircularSeek`: `gapPx` `8 -> 18` (`+ringWidth/2` per new cap = `+5`
+total, plus kept the same ~8px that already read clean). `Dial`:
+`gapPx` `3 -> 6` (`+1.5` per cap, its own smaller `ringWidth`). Both
+tip-facing ends now get the same filled-circle treatment as the natural
+ends already had, using the polyline/arc's own actual computed
+endpoint coordinates (not re-derived ones) so they land exactly right,
+including through `CircularSeek`'s wave perturbation.
+
+Re-verified at `progressRatio: 0` (the edge case where the guards
+matter most -- no progress dot should render, track's own near-tip cap
+still should) in addition to `0.5` -- both clean, no stray marks, real
+gap still visible on both rings.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

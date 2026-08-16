@@ -233,19 +233,37 @@ Item {
       // request to bring this ring in line with that. gapPx as an arc
       // length (not a fixed radian value) so it stays visually
       // consistent regardless of this ring's own radius.
-      var gapPx = 8
+      //
+      // 8 -> 18: bumped again to make room for round caps on the
+      // TIP-FACING ends too (see below) -- a fake round cap is a
+      // filled circle centered exactly at the trimmed endpoint, which
+      // bleeds forward by its own radius (ringWidth/2 = 2.5) in every
+      // direction, same as a real lineCap would. Round-capping both
+      // tip-facing ends eats 2.5px of gap from each side, so the trim
+      // itself needs to grow by that much on top of the ~8px that
+      // already read as a clean visible gap, or the caps just eat the
+      // whole thing again.
+      var gapPx = 18
       var gapRad = gapPx / r
+      var trackStartAngle = Math.min(seek.startAngle + seek.spanAngle, endAngle + gapRad)
       ctx.strokeStyle = seek.trackColor
       ctx.beginPath()
-      ctx.arc(cx, cy, r, Math.min(seek.startAngle + seek.spanAngle, endAngle + gapRad), seek.startAngle + seek.spanAngle)
+      ctx.arc(cx, cy, r, trackStartAngle, seek.startAngle + seek.spanAngle)
       ctx.stroke()
-      // Fake round cap at the track's own natural end (the ring's true
-      // terminus, unrelated to the tip/gap) -- "butt" above keeps the
-      // gap-side end flat on purpose, but that flattened BOTH ends of
-      // the arc since lineCap applies uniformly to a whole stroke. A
-      // small filled circle here restores the soft rounded look at
-      // just this one end, matching what "round" used to give it
-      // before the gap fix needed "butt" globally.
+      // Fake round caps at BOTH of the track arc's ends -- its own
+      // natural terminus (unrelated to the tip) AND, per direct
+      // follow-up, the tip-facing end too ("the wave head facing the
+      // tip is still like not round"). "butt" above keeps the stroke
+      // itself flat on purpose (a real round lineCap bleeds into the
+      // gap from BOTH ends of the path, not just the far one), these
+      // two filled circles add the rounded look back at each specific
+      // point without extending the actual stroke.
+      if (trackStartAngle < seek.startAngle + seek.spanAngle) {
+        ctx.fillStyle = seek.trackColor
+        ctx.beginPath()
+        ctx.arc(cx + r * Math.cos(trackStartAngle), cy + r * Math.sin(trackStartAngle), seek.ringWidth / 2, 0, Math.PI * 2)
+        ctx.fill()
+      }
       {
         var trackEndAngle = seek.startAngle + seek.spanAngle
         ctx.fillStyle = seek.trackColor
@@ -262,7 +280,7 @@ Item {
       ctx.strokeStyle = seek.progressColor
       ctx.beginPath()
       var steps = 48
-      var startX, startY
+      var startX, startY, endX, endY
       for (var i = 0; i <= steps; i++) {
         var t = i / steps
         var angle = seek.startAngle + (progressEndAngle - seek.startAngle) * t
@@ -272,16 +290,21 @@ Item {
         var y = cy + rr * Math.sin(angle)
         if (i === 0) { ctx.moveTo(x, y); startX = x; startY = y }
         else ctx.lineTo(x, y)
+        if (i === steps) { endX = x; endY = y }
       }
       ctx.stroke()
-      // Same fake round cap, at the progress stroke's own natural
-      // start (seek.startAngle, unrelated to the tip) -- uses the
-      // polyline's own actual first point so it matches exactly even
-      // with the wave's sine perturbation applied.
+      // Same fake round caps, at BOTH the progress stroke's own
+      // natural start (seek.startAngle) AND its tip-facing end
+      // (progressEndAngle) -- uses the polyline's own actual computed
+      // points so both line up exactly, including through the wave's
+      // sine perturbation.
       if (progressEndAngle > seek.startAngle) {
         ctx.fillStyle = seek.progressColor
         ctx.beginPath()
         ctx.arc(startX, startY, seek.ringWidth / 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(endX, endY, seek.ringWidth / 2, 0, Math.PI * 2)
         ctx.fill()
       }
 
@@ -1195,7 +1218,12 @@ Item {
             // start short of the handle position. Subtle on purpose,
             // per direct request ("slight gap... subtle, small
             // detail").
-            var gapRad = 3 / r
+            // 3 -> 6: bumped to make room for round caps on the
+            // TIP-FACING ends too, same reasoning as the player ring
+            // -- a fake round cap bleeds forward by its own radius
+            // (1.5), so round-capping both tip-facing ends eats 1.5px
+            // of gap from each side.
+            var gapRad = 6 / r
             ctx.lineWidth = 3
             // "butt", not "round", for these two -- a round cap on the
             // TRIMMED end of an arc visually extends the stroke past
@@ -1204,14 +1232,21 @@ Item {
             // erasing it. The tip below still gets its own round cap,
             // set right before it's drawn.
             ctx.lineCap = "butt"
+            var trackStartAngle = Math.min(startAngle + totalSweep, endAngle + gapRad)
             ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()
-            ctx.arc(cx, cy, r, Math.min(startAngle + totalSweep, endAngle + gapRad), startAngle + totalSweep)
+            ctx.arc(cx, cy, r, trackStartAngle, startAngle + totalSweep)
             ctx.stroke()
-            // Fake round cap at the track's own natural end (the
-            // ring's true ~4:30 terminus, unrelated to the tip) --
-            // "butt" above flattened both ends of the arc, same fix
-            // as the player ring's CircularSeek.
+            // Fake round caps at BOTH the track arc's ends -- its own
+            // natural ~4:30 terminus (unrelated to the tip) AND, per
+            // direct follow-up, the tip-facing end too. "butt" above
+            // keeps the actual stroke flat on purpose.
+            if (trackStartAngle < startAngle + totalSweep) {
+              ctx.fillStyle = Qt.rgba(1, 1, 1, 0.15)
+              ctx.beginPath()
+              ctx.arc(cx + r * Math.cos(trackStartAngle), cy + r * Math.sin(trackStartAngle), 1.5, 0, Math.PI * 2)
+              ctx.fill()
+            }
             ctx.fillStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()
             ctx.arc(cx + r * Math.cos(startAngle + totalSweep), cy + r * Math.sin(startAngle + totalSweep), 1.5, 0, Math.PI * 2)
@@ -1222,12 +1257,15 @@ Item {
             var dialProgressEnd = Math.max(startAngle, endAngle - gapRad)
             ctx.arc(cx, cy, r, startAngle, dialProgressEnd)
             ctx.stroke()
-            // Same fake round cap, at the progress arc's own natural
-            // start (~7:30, unrelated to the tip).
+            // Same fake round caps, at BOTH the progress arc's own
+            // natural start (~7:30) AND its tip-facing end.
             if (dialProgressEnd > startAngle) {
               ctx.fillStyle = root.accent
               ctx.beginPath()
               ctx.arc(cx + r * Math.cos(startAngle), cy + r * Math.sin(startAngle), 1.5, 0, Math.PI * 2)
+              ctx.fill()
+              ctx.beginPath()
+              ctx.arc(cx + r * Math.cos(dialProgressEnd), cy + r * Math.sin(dialProgressEnd), 1.5, 0, Math.PI * 2)
               ctx.fill()
             }
 

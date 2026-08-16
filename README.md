@@ -26,16 +26,23 @@ plugin reads the exact same data through the exact same real API:
 
 ## The look
 
-Each workspace renders as a small `8px` round dot; the currently focused
-one animates into a `20px`-wide horizontal capsule instead (`Behavior on
-width`, `180ms` `OutCubic`) -- the actual GNOME Shell tell, not just a
-color swap. Fill color: `Color.accent` (the real theme token, follows
-theme switches) for the focused pill, `Color.foreground` for the rest,
-at `60%` opacity if that workspace has real windows in it or `30%` if
-it's genuinely empty (same occupied/empty distinction the stock widget's
-own `opacity: occupied || focused ? 1 : 0.5` already draws, just
-translated to this shape). Both color and opacity animate too
+Each workspace renders as a round dot; the currently focused one
+animates into a wider horizontal capsule instead (`Behavior on width`,
+`180ms` `OutCubic`) -- the actual GNOME Shell tell, not just a color
+swap. Fill color: `Color.accent` (the real theme token, follows theme
+switches) for the focused pill, `Color.foreground` for the rest, at
+`60%` opacity if that workspace has real windows in it or `30%` if it's
+genuinely empty (same occupied/empty distinction the stock widget's own
+`opacity: occupied || focused ? 1 : 0.5` already draws, just translated
+to this shape). Both color and opacity animate too
 (`ColorAnimation`/`NumberAnimation`, `180ms`).
+
+Sizing (`dotSize`/`pillWidth`/`itemSpacing`/`sidePadding`): started at
+`8`/`20`/`6`/none, grown to `11`/`30`/`9`/`8` per direct follow-up ("a
+bit compact... bigger fat bar and some side padding to the start and
+end") -- `sidePadding` is real breathing room baked into this widget's
+own `implicitWidth` now, not just relying on `ruixen-bar`'s own
+`workspacesPill` outer inset.
 
 Click target is deliberately much bigger than the dot itself
 (`anchors.margins: -6` on the `MouseArea`, same pattern used throughout

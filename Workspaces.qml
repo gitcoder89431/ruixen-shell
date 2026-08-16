@@ -51,11 +51,16 @@ BarWidget {
   // Dot/pill geometry -- classic GNOME Shell look: small round dots,
   // the focused one stretches into a horizontal capsule instead of
   // just changing color or swapping a glyph.
-  readonly property int dotSize: 8
-  readonly property int pillWidth: 20
-  readonly property int itemSpacing: 6
+  // Grown 8->11 / 20->30 / 6->9, plus real side padding added (was
+  // relying entirely on Bar.qml's own workspacesPill outer inset) --
+  // per direct feedback ("a bit compact... bigger fat bar and some
+  // side padding to the start and end").
+  readonly property int dotSize: 11
+  readonly property int pillWidth: 30
+  readonly property int itemSpacing: 9
+  readonly property int sidePadding: 8
 
-  implicitWidth: row.implicitWidth
+  implicitWidth: row.implicitWidth + sidePadding * 2
   implicitHeight: row.implicitHeight
 
   Row {

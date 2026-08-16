@@ -1810,15 +1810,42 @@ reads as a sharp point rather than a soft curve -- a genuinely different
 failure mode from the gap/lineCap issues above, not another instance of
 the same bug.
 
-Fixed by tapering the wave amplitude to `0` within the first/last 15%
-of the polyline (`edgeTaper`, a linear ramp based on `t`) instead of
-holding it constant all the way to both endpoints -- guarantees a
-smooth tangential approach at both ends regardless of where `wavePhase`
-happens to be on any given frame, rather than getting lucky/unlucky
-based on animation timing. Verified by explicitly forcing `isPlaying:
-true` and re-zooming at 3x (the level that actually revealed the sharp
-point in the first place, not the previous zoom level that missed it)
--- both ends read as genuinely rounded now.
+**That diagnosis was wrong -- the taper fix above was treating a
+symptom, not the cause.** A second independent review pointed out the
+actual issue: this ring's tip is deliberately thicker than ambxst's own
+handle (`ringWidth * 1.5`, from an earlier direct "pretty thick"
+request) -- ambxst's `handleSpacing: 10` (5px trim/side) is sized for a
+handle that's the SAME width as their ring, so copying that constant
+unchanged doesn't clear a wider tip. The tip's own body (tangential
+half-width `~3.75px`, from its `7.5px` line width) was overlapping back
+into the trimmed region and covering the wave's ALREADY-correctly-round
+cap, which is what actually read as "sharp/clipped" -- not a geometric
+cusp in the wave path itself.
+
+Verified this by testing empirically rather than trusting either
+diagnosis blindly: temporarily disabled the taper and applied a
+width-aware trim instead (`gapPx = ringWidth/2 + tipLineWidth/2 +
+desiredGap`, `= 2.5 + 3.75 + 2 = 8.25px`, vs the flat `5px` copied from
+ambxst) -- zoomed in tight specifically on the tip-facing endpoint (not
+just the same crop as before) and the round cap was there all along,
+now with real visible separation from the tip. Removed the taper
+entirely once this was confirmed -- it wasn't needed, `CircularSeek`'s
+wave rendering is back to the exact same constant-amplitude loop the
+dials/plain arcs already use, no special-casing.
+
+Also added a real missing clamp (`Math.min(startAngle + spanAngle,
+endAngle + gapRad)`) on the track's start angle -- without it, `ctx.arc`
+could receive a start angle past its own end angle near `value: 1`,
+drawing the long way around instead of nothing. Verified at
+`progressRatio: 1` exactly (the case that would trigger it) -- clean,
+no wraparound artifact.
+
+`Dial` (speaker/mic) needed no equivalent change -- its own tip is only
+`ringWidth * 1.5` against a much thinner `ringWidth: 3`, and the
+already-in-place `handleSpacing: 6` trim happens to already work out
+close to the width-aware formula's own answer for those proportions
+(`~5.75px` computed vs `6px` in place), consistent with it visually
+already working correctly per direct confirmation before this fix.
 
 ## Companion setup
 

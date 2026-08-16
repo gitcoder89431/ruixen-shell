@@ -227,25 +227,29 @@ Item {
       var clamped = Math.max(0, Math.min(1, seek.value))
       var endAngle = seek.startAngle + seek.spanAngle * clamped
 
-      // Gap around the tip -- ported directly from ambxst's real
-      // CircularSeekBar.qml this time, not approximated. Their actual
-      // model: handleSpacing: 10 (a literal pixel value, their own
-      // constant), gapAngleRad = (handleSpacing / 2) / radius --
-      // i.e. a flat 5px trim on EACH side, native RoundCap, no fake
-      // endpoint circles, no extra "compensation" for the cap's own
-      // bleed. Previous passes here kept inventing a second
-      // compensation system on top of the gap (bumping gapPx to 8,
-      // then 18, then adding manual circles) instead of just using
-      // their one real number -- their own round caps DO bleed into
-      // the trim exactly the same way Canvas's do, they just accept
-      // that as part of the 5px, rather than solving for a gap that
-      // stays fully clear underneath the cap. Match their real
-      // invariant, not a from-scratch approximation of it.
-      var handleSpacing = 10
-      var gapRad = (handleSpacing / 2) / r
+      // Gap around the tip -- ambxst's own CircularSeekBar.qml uses a
+      // flat handleSpacing: 10 (5px trim/side) because their handle is
+      // the SAME width as the ring. This tip is deliberately thicker
+      // (ringWidth * 1.5, per an earlier direct request for "pretty
+      // thick") -- a flat 5px trim doesn't clear a wider tip, so the
+      // tip's own body was overlapping back into the trimmed region
+      // and covering the wave's rounded end, reading as if the cap
+      // were clipped/pointy. Trim computed from the actual rendered
+      // widths instead of copying ambxst's literal constant unchanged:
+      // half the ring's own cap bleed + half the tip's width + the
+      // actual desired daylight gap.
+      var tipLineWidth = seek.ringWidth * 1.5
+      var desiredGap = 2
+      var gapPx = seek.ringWidth / 2 + tipLineWidth / 2 + desiredGap
+      var gapRad = gapPx / r
+      // Clamped -- without this, ctx.arc's start angle could land past
+      // its own end angle near value: 1 (endAngle + gapRad exceeding
+      // the ring's own true terminus), which draws the long way around
+      // instead of nothing.
+      var trackStartAngle = Math.min(seek.startAngle + seek.spanAngle, endAngle + gapRad)
       ctx.strokeStyle = seek.trackColor
       ctx.beginPath()
-      ctx.arc(cx, cy, r, endAngle + gapRad, seek.startAngle + seek.spanAngle)
+      ctx.arc(cx, cy, r, trackStartAngle, seek.startAngle + seek.spanAngle)
       ctx.stroke()
 
       // Progress -- up to value, accent, wavy (a sine ripple on the
@@ -256,26 +260,11 @@ Item {
       ctx.strokeStyle = seek.progressColor
       ctx.beginPath()
       var steps = 48
-      // Wave amplitude tapers to 0 within the first/last 15% of the
-      // polyline instead of staying constant all the way to both
-      // endpoints. Without this, native round caps looked fine on the
-      // plain arcs/dials but stayed visibly SHARP/pointy on this wavy
-      // one specifically -- the sine perturbation slices off mid-
-      // oscillation wherever wavePhase happens to land, so the final
-      // segment's own direction can end up nearly radial instead of
-      // tangential, defeating the round cap's roundness regardless of
-      // the gap math being otherwise identical to the working dials.
-      // Fading the amplitude out near both ends guarantees a smooth
-      // tangential approach every time, independent of wavePhase.
-      var taperFrac = 0.15
       for (var i = 0; i <= steps; i++) {
         var t = i / steps
         var angle = seek.startAngle + (progressEndAngle - seek.startAngle) * t
-        var edgeTaper = 1
-        if (t < taperFrac) edgeTaper = t / taperFrac
-        else if (t > 1 - taperFrac) edgeTaper = (1 - t) / taperFrac
         var rr = r
-        if (seek.wavy) rr += Math.sin(angle * 16 + seek.wavePhase) * 2.5 * edgeTaper
+        if (seek.wavy) rr += Math.sin(angle * 16 + seek.wavePhase) * 2.5
         var x = cx + rr * Math.cos(angle)
         var y = cy + rr * Math.sin(angle)
         if (i === 0) ctx.moveTo(x, y)

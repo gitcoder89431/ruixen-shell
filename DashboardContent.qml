@@ -1172,7 +1172,22 @@ Item {
       component Dial: Rectangle {
         id: dialRoot
         property string glyph: ""
+        // Shown/colored instead of glyph while muted -- per direct
+        // request ("clicking on the mic and audio... toggles mute...
+        // we get a red no sound icon or red no mic icon").
+        property string mutedGlyph: ""
+        property bool muted: false
         property real value: 0.7
+        signal activated()
+
+        // What actually gets drawn/painted -- 0 while muted regardless
+        // of the real value ("the audio volume goes to 0"), the real
+        // value otherwise. Muting in Pipewire doesn't change the
+        // underlying volume level (unmuting restores it exactly, the
+        // correct OS behavior), so this is purely a DISPLAY override,
+        // not a write to the real value.
+        readonly property real effectiveValue: muted ? 0 : value
+
         // Canvas onPaint is a plain JS function, not a reactive
         // binding -- it never re-runs on its own just because a
         // property it happens to read (value) changes elsewhere. Was
@@ -1182,8 +1197,9 @@ Item {
         // explicit repaint is required or the ring only ever reflects
         // whatever the volume happened to be at first paint, per
         // direct request ("it does need to show actual dial live as i
-        // use the keyboard to adjust it").
-        onValueChanged: dialCanvas.requestPaint()
+        // use the keyboard to adjust it"). Triggers off effectiveValue
+        // now, not value directly, so toggling muted repaints too.
+        onEffectiveValueChanged: dialCanvas.requestPaint()
         // 48 -> 56, matching the left-rail tab bar's own bump -- also
         // grows the ring radius (width/2-8) and makes the tip's gap
         // relatively easier to see, both per direct request.
@@ -1210,7 +1226,7 @@ Item {
             var cx = width / 2, cy = height / 2, r = width / 2 - 8
             var startAngle = Math.PI / 2 + Math.PI / 4
             var totalSweep = Math.PI * 2 - Math.PI / 2
-            var endAngle = startAngle + value * totalSweep
+            var endAngle = startAngle + dialRoot.effectiveValue * totalSweep
             // Gap around the tip -- ported directly from ambxst's real
             // CircularControl.qml this time (their handleSpacing: 6,
             // handleGapRad = handleSpacing * (360/(2*PI*radius)) *
@@ -1245,7 +1261,7 @@ Item {
             // noticeably thicker instead per direct request ("pretty
             // thick"), matching how the bigger player ring's tip
             // already reads chunkier than its own track.
-            if (value > 0) {
+            if (dialRoot.effectiveValue > 0) {
               // Shortened -- r-3/r+5 (an 8px span) stuck out too far
               // past the ring, per direct feedback.
               var tipR1 = r - 2
@@ -1267,13 +1283,22 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: parent.glyph
-          color: root.textColor
+          text: dialRoot.muted ? dialRoot.mutedGlyph : dialRoot.glyph
+          // Same fixed red used for DND-active elsewhere in this file
+          // (#e05252) -- a semantic "muted/off" color, not theme-linked,
+          // same reasoning as the bell's own red.
+          color: dialRoot.muted ? "#e05252" : root.textColor
           font.family: root.fontFamily
           // Matches the left-rail tab bar's own glyph size (20px,
           // bumped alongside it from 18) -- was 14 originally, read
           // small next to it, per direct feedback.
           font.pixelSize: 20
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: dialRoot.activated()
         }
       }
 
@@ -1416,8 +1441,20 @@ Item {
         }
       }
 
-      Dial { glyph: "󰕾"; value: root.speakerVolume }
-      Dial { glyph: "󰍬"; value: root.micVolume }
+      Dial {
+        glyph: "󰕾"
+        mutedGlyph: "󰖁"
+        muted: root.audioSink && root.audioSink.audio ? root.audioSink.audio.muted : false
+        value: root.speakerVolume
+        onActivated: if (root.audioSink && root.audioSink.audio) root.audioSink.audio.muted = !root.audioSink.audio.muted
+      }
+      Dial {
+        glyph: "󰍬"
+        mutedGlyph: "󰍭"
+        muted: root.audioSource && root.audioSource.audio ? root.audioSource.audio.muted : false
+        value: root.micVolume
+        onActivated: if (root.audioSource && root.audioSource.audio) root.audioSource.audio.muted = !root.audioSource.audio.muted
+      }
     }
   }
 }

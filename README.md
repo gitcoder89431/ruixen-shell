@@ -2048,6 +2048,37 @@ set-volume @DEFAULT_AUDIO_SINK@ 0.85` directly in the terminal --
 *without restarting the shell* -- and screenshotted again: the ring
 visibly jumped to `~85%` on its own. Restored the original volume after.
 
+## Speaker/mic dials now toggle mute on click
+
+Per direct request ("clicking on the mic and audio, we should make it
+so it toggles mute on them... audio volume goes to 0 and we get a red
+no sound icon or red no mic icon"):
+
+- `Dial` gained `mutedGlyph`, `muted`, and `signal activated()`
+  properties (matching `QuickToggle`'s own `activated()` pattern
+  already established in this file), plus a `MouseArea` calling it.
+- New `effectiveValue: muted ? 0 : value` -- what actually gets drawn.
+  Muting in Pipewire doesn't change the real volume level (unmuting
+  restores it exactly, correct OS behavior), so this is a pure DISPLAY
+  override, not a write to the real value. `onValueChanged` -- the
+  repaint trigger added in the previous pass -- switched to
+  `onEffectiveValueChanged` so toggling `muted` alone also repaints.
+- Icon swaps to `md-volume_off` (`U+F0581`) / `md-microphone_off`
+  (`U+F036D`) and turns the same fixed red used for DND elsewhere in
+  this file (`#e05252`) while muted -- both PUA codepoints, looked up
+  via the established `fontTools` cmap method and inserted via the
+  usual Python heredoc (`Edit` writes the literal escape text for
+  these, not the actual character).
+- Each `Dial` instance's `onActivated` toggles the real
+  `audioSink`/`audioSource` `.audio.muted` directly -- the same
+  Pipewire property ambxst's own panel writes to, no new API.
+
+Verified genuinely live for both, same method as the volume-tracking
+fix: pinned the dashboard open, ran `wpctl set-mute @DEFAULT_AUDIO_SINK@
+1` / `@DEFAULT_AUDIO_SOURCE@ 1` directly in the terminal *without
+restarting the shell*, screenshotted each -- red icon, empty ring, both
+correct. Restored both to unmuted after.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

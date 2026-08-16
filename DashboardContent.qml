@@ -346,52 +346,58 @@ Item {
         // ring container barely changed, per "progress bar is almost
         // fine, just make the album art circle bigger to get closer").
         //
-        // A shorter clipped wrapper (190x160, shifted up 18px) was
-        // tried here to crop the ring's own blank top strip, on the
-        // assumption the topmost drawn pixel was always the plain
-        // arc's own top point (~14px down). Wrong -- the THICK TIP
-        // can swing further up than the plain arc at any progress
-        // near the top of the sweep (its outer edge reaches within
-        // ~4px of the square's top edge at ~50% progress), so an
-        // 18px crop sliced the tip itself off at exactly the
-        // progress values where it'd swing up that far. Reverted to
-        // a plain, uncropped 190x190 square -- the ring must stay
-        // fully unclipped at every progress value, not just the ones
-        // tested. If the top padding needs trimming again, do it
-        // above this Item (layout spacing), not by cropping the
-        // canvas itself.
+        // A crop wrapper was tried once already for the TOP of this
+        // container and reverted -- the thick tip swings up into that
+        // zone depending on progress angle, so cropping it was unsafe
+        // at every playback position. The BOTTOM is different: the
+        // ring's sweep (startAngle: PI, spanAngle: PI, i.e. angle in
+        // [PI, 2*PI]) has sin(angle) <= 0 throughout that whole range,
+        // so cx/cy math never places the ring OR its tip below the
+        // container's own vertical center, at any progress value --
+        // only the disc's own lower half lives down there, and the
+        // disc's position doesn't move with progress at all. Safe to
+        // crop unconditionally: disc bottom sits at a fixed 160 (95
+        // center + 65 radius) inside the 190-tall square, so a 165px
+        // wrapper trims the genuinely-always-empty 25px below it
+        // without risking clipping the disc itself under any state.
         Item {
           Layout.preferredWidth: 190
-          Layout.preferredHeight: 190
+          Layout.preferredHeight: 165
           Layout.alignment: Qt.AlignHCenter
           visible: root.artUrl !== ""
+          clip: true
 
-          CircularSeek {
-            anchors.fill: parent
-            value: root.progressRatio
-            wavy: root.isPlaying
-            ringWidth: 5
-          }
+          Item {
+            width: 190
+            height: 190
 
-          // ClippingRectangle, not a plain Rectangle -- confirmed the
-          // hard way: plain QtQuick Rectangle.clip only clips children
-          // to the bounding BOX, it does not follow radius, regardless
-          // of how high radius is set. Quickshell's own ClippingRectangle
-          // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
-          // for exactly this reason.
-          ClippingRectangle {
-            width: 130
-            height: 130
-            anchors.centerIn: parent
-            radius: width / 2
-            color: "transparent"
-
-            Image {
+            CircularSeek {
               anchors.fill: parent
-              source: root.artUrl
-              sourceSize: Qt.size(260, 260)
-              fillMode: Image.PreserveAspectCrop
-              asynchronous: true
+              value: root.progressRatio
+              wavy: root.isPlaying
+              ringWidth: 5
+            }
+
+            // ClippingRectangle, not a plain Rectangle -- confirmed the
+            // hard way: plain QtQuick Rectangle.clip only clips children
+            // to the bounding BOX, it does not follow radius, regardless
+            // of how high radius is set. Quickshell's own ClippingRectangle
+            // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
+            // for exactly this reason.
+            ClippingRectangle {
+              width: 130
+              height: 130
+              anchors.centerIn: parent
+              radius: width / 2
+              color: "transparent"
+
+              Image {
+                anchors.fill: parent
+                source: root.artUrl
+                sourceSize: Qt.size(260, 260)
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+              }
             }
           }
         }

@@ -1056,6 +1056,35 @@ the same ~1.3x factor the play/pause button grew by: `14px -> 18px`
 glyphs, `18px -> 22px` row spacing (a bit more breathing room needed
 between the now-physically-bigger elements).
 
+## Real remaining gap found: the container's own dead space below the disc
+
+Per direct follow-up ("still think the song title group is far from the
+circle"): the `8px` `ColumnLayout` spacing fixed in the previous pass was
+correct, but it wasn't the actual source of most of the gap. The disc/
+ring `Item` is a `190x190` square with the `130px` disc centered inside
+it -- disc bottom sits at a fixed `y=160` (95 center + 65 radius), which
+leaves `30px` of genuinely empty container space below the disc before
+the `8px` layout spacing even starts. That dead space, not the spacing,
+was most of what read as "far."
+
+Cropped it this time using the bottom, not the top -- the earlier top-
+crop attempt (see above) was reverted because the thick tip swings up
+into that zone depending on progress angle. The bottom is provably safe
+instead: `CircularSeek`'s sweep is `startAngle: PI, spanAngle: PI`, i.e.
+angle always in `[PI, 2*PI]`, where `sin(angle) <= 0` for the entire
+range -- the ring and its tip mathematically never draw below the
+container's own vertical center, at any progress value. Only the disc's
+own (fixed-position) lower half lives in that zone. Wrapped the
+`190x190` content in a shorter `165px`-tall `Item` with `clip: true` --
+trims `25` of the `30` dead pixels, leaves a small `5px` buffer under the
+disc, and is safe unconditionally rather than needing a "looks fine at
+this progress value" check.
+
+Verified at `progressRatio: 0.99` (the opposite-side worst case from the
+one that broke the top-crop) via the same hardcode-and-screenshot method
+-- tip fully intact, real visible reduction in the gap to the title
+group.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

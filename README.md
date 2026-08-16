@@ -945,6 +945,22 @@ available at test time) — temporarily pointed `Overlay.qml`'s `artUrl` at
 a real local wallpaper file, confirmed via screenshot the tip renders as a
 short thick white tick at the true playhead angle, reverted after.
 
+## Ring/tip gap from the disc
+
+Per direct follow-up ("the progress bar and tip is touching the album
+art... need more gap"): the tip's outer edge was already computing past
+the 140px container's own bounds (`r=65`, tip outer `~74.75` vs a `70`
+half-size canvas -- getting cut off at the top) while its inner edge sat
+almost flush against the `110px` disc's own edge (`~55` radius vs tip
+inner `~55.25` -- effectively zero clearance). Rather than shrink the
+disc back down to make room, grew the ring container `140` -> `180` and
+added a fixed `-6` extra inset to `CircularSeek`'s radius formula
+(`r = min(width,height)/2 - ringWidth - 6`) -- the disc itself is
+untouched at `110px`, the ring/tip just got more room to sit further out
+from it. Verified via the established art-hardcode test method, real
+visible gap between disc edge and the ring's inner edge now, no more
+clipping at the canvas's own top edge either.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

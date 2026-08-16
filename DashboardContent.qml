@@ -161,7 +161,11 @@ Item {
 
       var cx = width / 2
       var cy = height / 2
-      var r = Math.min(width, height) / 2 - seek.ringWidth
+      // Extra -6 beyond ringWidth keeps the tip's thick outer edge
+      // clear of the canvas boundary (it extends further out than
+      // the plain track) and gives the disc more breathing room on
+      // the inner side too, since both ends move together.
+      var r = Math.min(width, height) / 2 - seek.ringWidth - 6
 
       ctx.lineWidth = seek.ringWidth
       ctx.lineCap = "round"
@@ -337,10 +341,13 @@ Item {
         // sitting as a separate row underneath.
         // Bumped up (100->140 container, 80->110 disc) per direct
         // request -- this is the card's centerpiece, wanted more
-        // visual weight/presence.
+        // visual weight/presence. Container grown again (140->180,
+        // disc left at 110) per follow-up feedback that the ring/tip
+        // were touching the disc -- disc stays the same size, the
+        // ring just gets more room to sit further out from it.
         Item {
-          Layout.preferredWidth: 140
-          Layout.preferredHeight: 140
+          Layout.preferredWidth: 180
+          Layout.preferredHeight: 180
           Layout.alignment: Qt.AlignHCenter
           visible: root.artUrl !== ""
 

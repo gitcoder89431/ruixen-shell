@@ -48,22 +48,39 @@ Item {
   property string userHost: ""
   property string displayedTitle: ""
 
-  // Idle-state artist placeholder -- a classic braille spinner instead
-  // of a made-up name (was "White Noise", then a real OS-version idea
-  // that got dropped as overkill), per direct request ("some braille
-  // stuff that animates in one row"). Ten-frame sequence is the same
-  // rotating-dot pattern used by countless CLI spinners (cli-spinners'
-  // "dots" set) -- reads as "quietly working/idle" rather than a fixed
-  // label, fitting for a "nothing playing" state.
-  readonly property var brailleFrames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-  property int brailleIndex: 0
-  readonly property string brailleSpinner: brailleFrames[brailleIndex]
+  // Idle-state artist placeholder -- a small ROW of braille cells with
+  // one lit dot scanning back and forth (Cylon/KITT-scanner style),
+  // not one single big spinner glyph. First attempt used ONE braille
+  // character bumped to 16px+bold to be legible at all -- per direct
+  // follow-up ("taking too much space... multiple braille patterns
+  // looping in one row, not really a big braille... like ascii art
+  // pattern"), that was the wrong shape of animation entirely. This
+  // builds a fixed-width string of brailleCells characters every tick,
+  // one "lit" cell (full block) at the scanning position and dim
+  // resting dots everywhere else, so it reads as a small loading-bar
+  // ASCII animation at the SAME 10px size the album/artist lines
+  // already use, instead of a single oversized glyph.
+  readonly property int brailleCells: 6
+  property int brailleStep: 0
+  // Ping-pong 0..brailleCells-1..0 instead of wrapping, so the lit
+  // dot visibly scans back and forth rather than jump-cutting.
+  readonly property int braillePeriod: (brailleCells - 1) * 2
+  readonly property int brailleActiveIndex: {
+    var p = brailleStep % braillePeriod
+    return p < brailleCells ? p : braillePeriod - p
+  }
+  readonly property string brailleSpinner: {
+    var s = ""
+    for (var i = 0; i < brailleCells; i++)
+      s += (i === brailleActiveIndex ? "⣿" : "⠂")
+    return s
+  }
 
   Timer {
-    interval: 90
+    interval: 110
     repeat: true
     running: !root.hasMedia
-    onTriggered: root.brailleIndex = (root.brailleIndex + 1) % root.brailleFrames.length
+    onTriggered: root.brailleStep++
   }
 
   // Quick-controls backends -- wifi/bluetooth are real global Quickshell
@@ -498,13 +515,7 @@ Item {
             text: root.hasMedia ? root.artist : root.brailleSpinner
             color: root.muted
             font.family: root.fontFamily
-            // Braille glyphs render tiny/near-invisible at the normal
-            // 10px this line otherwise uses -- each dot only occupies
-            // a fraction of the cell. Bumped bigger + bold just for
-            // the spinner so the animation actually reads instead of
-            // looking like a stray pixel.
-            font.pixelSize: root.hasMedia ? 10 : 16
-            font.bold: !root.hasMedia
+            font.pixelSize: 10
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
           }

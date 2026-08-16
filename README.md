@@ -1243,20 +1243,27 @@ time anyway.
 more "real" placeholder than the made-up "White Noise". Scrapped before
 finishing, per direct follow-up ("fuck nvm maybe thats too much") in
 favor of an animated braille spinner instead ("some braille stuff we can
-do that animates in one row that might be cooler"). Implemented as a
-10-frame classic CLI-spinner sequence (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`, the same
-"dots" pattern used by countless terminal spinners) cycled on a `90ms`
-`Timer`, `running: !root.hasMedia` so it's inert (no wasted paint calls)
-whenever real media is showing. Had to bump the glyph specifically to
-`16px` + bold for just this line (`root.hasMedia ? 10 : 16`) -- braille
-characters render near-invisible at the shared `10px` size the album/
-artist lines otherwise use, since each dot only occupies a fraction of
-the character cell.
+do that animates in one row that might be cooler"). First implementation
+used ONE braille character bumped to `16px` + bold (braille glyphs are
+near-invisible at the shared `10px` size otherwise, each dot only a
+fraction of the cell) -- wrong shape of animation per the immediate
+follow-up ("taking too much space... multiple braille patterns looping
+in one row, not really a big braille... like ascii art pattern").
 
-Verified the spinner is genuinely animating, not just present, by
-diffing consecutive screenshots ~300ms apart -- different dot patterns
-each time, confirming the `Timer` is actually advancing frames rather
-than being stuck on one.
+Rebuilt as an actual row: `brailleCells: 6` fixed-width string rebuilt
+every tick, one "lit" cell (`"⣿"`, a full block) at the scanning
+position and dim resting dots (`"⠂"`) everywhere else -- a small
+Cylon/KITT-style scanner instead of a single spinning glyph, back at the
+same plain `10px` the album/artist lines already use (the `16px`/bold
+override was removed along with the single-glyph approach). Position
+ping-pongs `0..5..0` (`brailleStep % braillePeriod`, reflected back
+instead of wrapping) so the lit dot visibly scans back and forth. `Timer`
+interval bumped `90ms -> 110ms` to match the calmer sweep.
+
+Verified twice: first that the ROW actually renders as 6 small dots at
+the right size (zoomed crop), then that it's genuinely animating -- two
+screenshots ~400ms apart show the lit cell at different positions in the
+row, confirming the scan is actually moving rather than static.
 
 ## Companion setup
 

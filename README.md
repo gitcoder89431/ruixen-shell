@@ -2905,6 +2905,31 @@ Memory vs `39%`/`8%` disk usage in the same capture, not copies of each
 other), and the left panel's per-core CPU list still intact and
 scrolling independently alongside it.
 
+## Storage grouped into one full-width panel instead of square tiles
+
+Per direct follow-up: "for the storage, can we group them together so
+that panel is full width, so the percentage like 45/117 GB and then
+right align is the percentage full." Storage's own square `StatTile`s
+(one per disk, matching CPU/GPU/Network/Memory's shape) were the wrong
+form factor here -- disks are a genuinely variable-length list (could
+be 1, could be several), better suited to stacked rows in one shared
+panel than more square tiles competing for the same row width.
+
+Row 3 is now a single `Layout.fillWidth` `Rectangle` (same tile
+styling -- radius 10, `Qt.rgba(1,1,1,0.05)` fill) containing a
+`Repeater`-generated `RowLayout` per disk: icon + name on the left,
+`usedGB / totalGB` (right-aligned, `Layout.fillWidth`), then the
+percentage in its own fixed `32px` column so multiple disks' percentages
+line up in a clean vertical column rather than each trailing its own
+row at a different position. `disksColumn.implicitHeight` drives the
+panel's own height, so it grows/shrinks with however many disks are
+actually detected instead of a fixed guess.
+
+**Verified**: screenshotted the live tab -- confirmed one panel
+spanning the full row width holding both real disks (`/` at `45 / 117
+GB`, `39%`; `/boot` at `0 / 2 GB`, `8%`), percentages aligned in a
+column on the right edge.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

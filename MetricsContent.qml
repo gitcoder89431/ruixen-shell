@@ -827,29 +827,69 @@ Item {
         }
       }
 
-      RowLayout {
+      // Storage -- grouped into one full-width panel instead of square
+      // tiles, per direct request ("group them together so that panel
+      // is full width... 45/117 GB and then right align is the
+      // percentage"): one row per real disk, name+used/total on the
+      // left, percentage right-aligned in its own fixed-width column
+      // so multiple disks' percentages line up vertically.
+      Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 92
-        spacing: 8
+        Layout.preferredHeight: Math.max(40, disksColumn.implicitHeight + 20)
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.05)
 
-        Repeater {
-          model: root.disks
+        ColumnLayout {
+          id: disksColumn
+          anchors.fill: parent
+          anchors.margins: 10
+          spacing: 6
 
-          StatTile {
-            required property var modelData
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            glyph: "󰋊"
-            title: modelData.name
-            valueText: Math.round(modelData.percent * 100) + "%"
-            barValue: modelData.percent
-            subText: modelData.usedGB.toFixed(0) + " / " + modelData.totalGB.toFixed(0) + " GB"
+          Repeater {
+            model: root.disks
+
+            RowLayout {
+              id: diskRow
+              required property var modelData
+              Layout.fillWidth: true
+              spacing: 8
+
+              Text {
+                text: "󰋊"
+                font.family: root.fontFamily
+                font.pixelSize: 13
+                color: root.muted
+              }
+
+              Text {
+                text: diskRow.modelData.name
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.textColor
+                elide: Text.ElideRight
+              }
+
+              Text {
+                text: diskRow.modelData.usedGB.toFixed(0) + " / " + diskRow.modelData.totalGB.toFixed(0) + " GB"
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignRight
+              }
+
+              Text {
+                text: Math.round(diskRow.modelData.percent * 100) + "%"
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
+                color: root.textColor
+                Layout.preferredWidth: 32
+                horizontalAlignment: Text.AlignRight
+              }
+            }
           }
         }
-
-        // Padding filler so a single disk doesn't stretch to fill the
-        // whole row width like the 2-tile rows above it.
-        Item { Layout.fillWidth: root.disks.length < 2; visible: root.disks.length < 2 }
       }
 
       Item { Layout.fillHeight: true }

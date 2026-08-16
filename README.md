@@ -1536,6 +1536,10 @@ offset `r-3` to `r+5` (asymmetric, loosely matching ambxst's own
 symmetric one). Only drawn when `value > 0`, same guard pattern as the
 player ring. Verified via zoomed screenshot crops on both dials.
 
+**Follow-up: shortened.** Per direct feedback ("abit too long...
+sticking out too much") -- offset span `r-3`/`r+5` (8px) tightened to
+`r-2`/`r+3` (5px).
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

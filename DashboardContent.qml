@@ -1160,8 +1160,10 @@ Item {
             // already reads chunkier than its own track.
             if (value > 0) {
               var endAngle = startAngle + value * totalSweep
-              var tipR1 = r - 3
-              var tipR2 = r + 5
+              // Shortened -- r-3/r+5 (an 8px span) stuck out too far
+              // past the ring, per direct feedback.
+              var tipR1 = r - 2
+              var tipR2 = r + 3
               var tx1 = cx + tipR1 * Math.cos(endAngle)
               var ty1 = cy + tipR1 * Math.sin(endAngle)
               var tx2 = cx + tipR2 * Math.cos(endAngle)

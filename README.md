@@ -34,6 +34,16 @@ Enable it by adding an entry to the `plugins` array in `~/.config/omarchy/shell.
 }
 ```
 
+(`shell.json` itself isn't tracked in any dotfiles repo — Omarchy
+rewrites it constantly, theme changes and `omarchy bar` commands both
+write through it — so it's live state on the machine, not a static
+dotfile. This README is the reproducible record of what to add.)
+
+Also add a `ruixen.settingsbutton` bar-widget entry (from the
+[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)
+repo) to `bar.layout.left` if you want a one-click toggle on the bar
+instead of only a keybind — see that repo's own README.
+
 Then bind a key to it in `~/.config/hypr/bindings.lua`:
 
 ```lua

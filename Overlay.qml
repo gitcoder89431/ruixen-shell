@@ -700,7 +700,12 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "󰂛"
-            color: root.dnd ? "#e05252" : root.muted
+            // Matches the dashboard's own bell exactly (see
+            // DashboardContent.qml's notification header) -- theme
+            // accent when notifications are live, the same fixed red
+            // when silenced. Was root.muted, per direct request to
+            // bring the same theme-color/red treatment here too.
+            color: root.dnd ? "#e05252" : root.accent
             font.family: root.fontFamily
             font.pixelSize: 18
 

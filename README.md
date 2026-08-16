@@ -1884,6 +1884,17 @@ extends nearly the full length with the playhead and its gap sitting
 near the right edge, track correctly near-invisible. All three clean on
 the first implementation.
 
+## Compact notch's own bell matches the dashboard's
+
+Per direct request ("we have a bell thats muted right now, lets match
+it and use the theme color here too. red when its silence. theme color
+on standby"): the collapsed notch's bell was `root.muted` normally,
+`#e05252` red under DND -- same red as the dashboard's own bell, but a
+plain muted grey instead of the theme accent otherwise. Swapped to
+`root.accent` to match exactly. Verified both states via screenshot
+(forced `root.dnd: true` for the red case) -- teal accent normally, red
+under DND, consistent with the dashboard's header bell now.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

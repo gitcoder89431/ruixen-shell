@@ -1224,6 +1224,40 @@ simulate a genuinely idle state -- empty ring, play (not pause) icon,
 wallpaper crop in the disc, all three placeholder lines, `--:-- / --:--`.
 Matches the actual "nothing playing at all" case correctly.
 
+## Playhead tip always visible, artist placeholder becomes a braille spinner
+
+Two follow-ups on the empty-state work above, per direct feedback:
+
+**Tip at value 0**: `CircularSeek`'s tip was gated on `clamped > 0`, so
+it fully disappeared in the idle state (`progressRatio` is `0` with no
+active player). Per direct request ("keep the playtip head at the head
+of the progress bar when theres nothing playing"), removed the gate --
+the tip now always draws, sitting right at the arc's own start point
+(`endAngle === startAngle`) when `clamped` is exactly `0`. No behavior
+change for real playback, which already had `clamped > 0` almost all the
+time anyway.
+
+**Artist placeholder**: first tried wiring up the real Omarchy version
+(matching fastfetch's own "OS: Omarchy 4.0.0-1" line, via
+`omarchy-version` -- the same CLI fastfetch itself shells out to) as a
+more "real" placeholder than the made-up "White Noise". Scrapped before
+finishing, per direct follow-up ("fuck nvm maybe thats too much") in
+favor of an animated braille spinner instead ("some braille stuff we can
+do that animates in one row that might be cooler"). Implemented as a
+10-frame classic CLI-spinner sequence (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`, the same
+"dots" pattern used by countless terminal spinners) cycled on a `90ms`
+`Timer`, `running: !root.hasMedia` so it's inert (no wasted paint calls)
+whenever real media is showing. Had to bump the glyph specifically to
+`16px` + bold for just this line (`root.hasMedia ? 10 : 16`) -- braille
+characters render near-invisible at the shared `10px` size the album/
+artist lines otherwise use, since each dot only occupies a fraction of
+the character cell.
+
+Verified the spinner is genuinely animating, not just present, by
+diffing consecutive screenshots ~300ms apart -- different dot patterns
+each time, confirming the `Timer` is actually advancing frames rather
+than being stuck on one.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

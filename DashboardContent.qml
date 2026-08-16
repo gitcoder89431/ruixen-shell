@@ -48,6 +48,24 @@ Item {
   property string userHost: ""
   property string displayedTitle: ""
 
+  // Idle-state artist placeholder -- a classic braille spinner instead
+  // of a made-up name (was "White Noise", then a real OS-version idea
+  // that got dropped as overkill), per direct request ("some braille
+  // stuff that animates in one row"). Ten-frame sequence is the same
+  // rotating-dot pattern used by countless CLI spinners (cli-spinners'
+  // "dots" set) -- reads as "quietly working/idle" rather than a fixed
+  // label, fitting for a "nothing playing" state.
+  readonly property var brailleFrames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+  property int brailleIndex: 0
+  readonly property string brailleSpinner: brailleFrames[brailleIndex]
+
+  Timer {
+    interval: 90
+    repeat: true
+    running: !root.hasMedia
+    onTriggered: root.brailleIndex = (root.brailleIndex + 1) % root.brailleFrames.length
+  }
+
   // Quick-controls backends -- wifi/bluetooth are real global Quickshell
   // singletons (not gated behind Omarchy's plugin registry at all);
   // nightlight/idle are Omarchy first-party "service" kind plugins, same
@@ -207,8 +225,12 @@ Item {
 
       // Tip -- a thick radial tick at the current progress position,
       // ported from ambxst's own CircularSeekBar handle (a fat line
-      // straddling the track radius, not a dot on top of it).
-      if (clamped > 0) {
+      // straddling the track radius, not a dot on top of it). Always
+      // drawn now, even at value: 0 (clamped === 0 just means it sits
+      // right at the arc's own start point) -- per direct request to
+      // keep it visible at the head of the ring in the idle/no-media
+      // state too, instead of disappearing entirely.
+      {
         var tipOffset = 6
         var tipR1 = r - tipOffset
         var tipR2 = r + tipOffset
@@ -473,10 +495,16 @@ Item {
           Text {
             Layout.fillWidth: true
             visible: root.hasMedia ? root.artist !== "" : true
-            text: root.hasMedia ? root.artist : "White Noise"
+            text: root.hasMedia ? root.artist : root.brailleSpinner
             color: root.muted
             font.family: root.fontFamily
-            font.pixelSize: 10
+            // Braille glyphs render tiny/near-invisible at the normal
+            // 10px this line otherwise uses -- each dot only occupies
+            // a fraction of the cell. Bumped bigger + bold just for
+            // the spinner so the animation actually reads instead of
+            // looking like a stray pixel.
+            font.pixelSize: root.hasMedia ? 10 : 16
+            font.bold: !root.hasMedia
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
           }

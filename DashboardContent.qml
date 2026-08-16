@@ -565,13 +565,15 @@ Item {
 
             Text {
               anchors.centerIn: parent
-              // Stop-circle-outline (md-stop_circle_outline, U+F0667)
-              // in the genuinely idle state instead of the play
-              // triangle -- per direct request ("instead of the play
-              // icon... a stop like ghost unfilled stop icon"), a
-              // hollow outline glyph reads as "stopped", not "ready to
-              // play something that isn't there".
-              text: root.hasMedia ? root.playIcon : "󰙧"
+              // Plain square-outline (md-square_outline, U+F0763) in
+              // the genuinely idle state instead of the play triangle
+              // -- a stop symbol reads as "stopped", not "ready to
+              // play something that isn't there". First attempt used
+              // md-stop_circle_outline (a square-in-a-circle) -- per
+              // direct follow-up ("looks weird with the circle, just
+              // use the square icon"), dropped the circle wrapper
+              // entirely for a plain hollow square.
+              text: root.hasMedia ? root.playIcon : "󰝣"
               color: "#000000"
               font.family: root.fontFamily
               font.pixelSize: 20

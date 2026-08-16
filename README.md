@@ -1405,6 +1405,12 @@ Only the glyph changed, not the chip's fill/color -- still the same
 accent-filled square, just showing the outline-stop icon instead of
 play when idle. Verified via screenshot with `hasMedia` forced `false`.
 
+**Follow-up: dropped the circle.** Per direct feedback ("the stop icon
+looks weird with the circle, just use the square icon") -- swapped
+`md-stop_circle_outline` for `md-square_outline` (`U+F0763`, a plain
+hollow square, no circle wrapper). Same PUA-glyph insertion method as
+above.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

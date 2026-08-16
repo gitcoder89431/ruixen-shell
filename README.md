@@ -912,6 +912,20 @@ authoritative check is the live `log.qslog`
 `openlayer>>ruixen-notch` actually appears after a restart — not just a
 clean `validate` exit code.
 
+## Disc + progress ring: made bigger
+
+Per direct request ("make the album art circle and progress part, that
+top section bigger please, it should be more features") — the centerpiece
+of the player card was scaled up: ring container `100x100` -> `140x140`,
+disc `80x80` -> `110x110` (`ClippingRectangle`, same component as before),
+art `sourceSize` `160x160` -> `220x220` to stay crisp at the new disc size
+(kept at 2x disc dimensions, same ratio as before), `CircularSeek.ringWidth`
+`4` -> `5` so the arc stays proportionally readable at the bigger radius.
+Fits fine inside `playerCard`'s `210px` width (centered content area is
+`parent.width - 20` = `190px`, well clear of `140px`). Confirmed via
+screenshot, no other layout changes needed — the surrounding `ColumnLayout`
+already centers the whole content block as one unit.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

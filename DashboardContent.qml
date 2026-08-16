@@ -315,9 +315,12 @@ Item {
         // centered -- the ring's radius is bigger than the disc's, so
         // it arcs over the disc's own top edge like a halo instead of
         // sitting as a separate row underneath.
+        // Bumped up (100->140 container, 80->110 disc) per direct
+        // request -- this is the card's centerpiece, wanted more
+        // visual weight/presence.
         Item {
-          Layout.preferredWidth: 100
-          Layout.preferredHeight: 100
+          Layout.preferredWidth: 140
+          Layout.preferredHeight: 140
           Layout.alignment: Qt.AlignHCenter
           visible: root.artUrl !== ""
 
@@ -325,6 +328,7 @@ Item {
             anchors.fill: parent
             value: root.progressRatio
             wavy: root.isPlaying
+            ringWidth: 5
           }
 
           // ClippingRectangle, not a plain Rectangle -- confirmed the
@@ -334,8 +338,8 @@ Item {
           // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
           // for exactly this reason.
           ClippingRectangle {
-            width: 80
-            height: 80
+            width: 110
+            height: 110
             anchors.centerIn: parent
             radius: width / 2
             color: "transparent"
@@ -343,7 +347,7 @@ Item {
             Image {
               anchors.fill: parent
               source: root.artUrl
-              sourceSize: Qt.size(160, 160)
+              sourceSize: Qt.size(220, 220)
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
             }

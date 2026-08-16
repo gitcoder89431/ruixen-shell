@@ -1629,6 +1629,10 @@ so it needed no changes -- it just recomputes correctly at whatever
 height `fillHeight` resolves to. Verified via screenshot -- bar now
 spans the full length between header and footer.
 
+**Follow-up: tip too small.** Per direct feedback ("should stick out
+more") -- widened `+4px -> +12px` past the bar's own edges, height
+`5px -> 7px`, `radius: 2.5 -> 3.5`. Verified via zoomed screenshot.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

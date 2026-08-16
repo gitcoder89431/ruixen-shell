@@ -1280,12 +1280,15 @@ Item {
           color: root.accent
         }
 
+        // Sticks out further past the bar's own edges (+4 -> +12) and
+        // grown a bit taller (5 -> 7) -- per direct feedback it read
+        // too small/subtle before.
         Rectangle {
           anchors.horizontalCenter: parent.horizontalCenter
           y: parent.valueY - height / 2
-          width: parent.width + 4
-          height: 5
-          radius: 2.5
+          width: parent.width + 12
+          height: 7
+          radius: 3.5
           color: "#ffffff"
         }
       }

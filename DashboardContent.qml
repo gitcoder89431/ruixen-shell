@@ -1149,6 +1149,30 @@ Item {
             ctx.beginPath()
             ctx.arc(cx, cy, r, startAngle, startAngle + value * totalSweep)
             ctx.stroke()
+
+            // Thick tip at the current value, same treatment as the
+            // player card's own CircularSeek tip -- a fat radial tick,
+            // not a dot, white for contrast against the accent arc.
+            // Ambxst's own handle here is the SAME width as the ring
+            // itself (their lineWidth: 4 reused for both) -- went
+            // noticeably thicker instead per direct request ("pretty
+            // thick"), matching how the bigger player ring's tip
+            // already reads chunkier than its own track.
+            if (value > 0) {
+              var endAngle = startAngle + value * totalSweep
+              var tipR1 = r - 3
+              var tipR2 = r + 5
+              var tx1 = cx + tipR1 * Math.cos(endAngle)
+              var ty1 = cy + tipR1 * Math.sin(endAngle)
+              var tx2 = cx + tipR2 * Math.cos(endAngle)
+              var ty2 = cy + tipR2 * Math.sin(endAngle)
+              ctx.lineWidth = 5
+              ctx.strokeStyle = "#ffffff"
+              ctx.beginPath()
+              ctx.moveTo(tx1, ty1)
+              ctx.lineTo(tx2, ty2)
+              ctx.stroke()
+            }
           }
         }
 

@@ -1522,6 +1522,20 @@ range instead of the full circle. Verified via zoomed screenshot crops
 on both dials -- visible gap at the bottom of each badge, matching the
 description.
 
+## Thick tip added to the speaker/mic dials
+
+Per direct request ("put a pretty thick progress bar header tip on
+these dials"): same treatment as the player card's own `CircularSeek`
+tip -- a fat radial tick at the current value's angle, white for
+contrast against the accent arc, not a dot. Checked ambxst's own handle
+first (`CircularControl.qml`): theirs reuses the SAME `lineWidth` (4px)
+as the ring itself, no extra emphasis. Went thicker than that on purpose
+per "pretty thick" -- `lineWidth: 5` against the ring's own `3px`,
+offset `r-3` to `r+5` (asymmetric, loosely matching ambxst's own
+`radius-2`/`radius+4` handle offsets rather than the player ring's
+symmetric one). Only drawn when `value > 0`, same guard pattern as the
+player ring. Verified via zoomed screenshot crops on both dials.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

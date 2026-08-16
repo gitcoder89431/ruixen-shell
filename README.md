@@ -3248,6 +3248,22 @@ as its footer; visual ratio (mostly green, download at `95.1 KB/s`
 heavily outweighing upload's `3.3 KB/s` at capture time) still tracked
 the real numbers correctly after the reorder.
 
+## Color-matched rate caption added directly under the bar
+
+Follow-up question, confirmed and implemented: "under this progress
+bar on the left and right side below it can you put like whats
+actually happening? is that where the up down speed is supposed to
+go?" -- yes: a small `RowLayout` right under the bar, `"↓ rate"` on
+the left in the bar's own green (`#3ecf5b`), `"↑ rate"` on the right in
+its red (`#e05252`). The rate/total rows above already have the full
+numbers -- this caption's job is purely pairing color to value at a
+glance, without tracing back up to the (uncolored) rows above the bar.
+
+**Verified**: screenshotted the live tab -- confirmed a green `"↓ 1.8
+KB/s"` on the left and red `"↑ 1.1 KB/s"` on the right, directly under
+the matching bar segments, everything still fitting within the tile's
+existing height with no clipping.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

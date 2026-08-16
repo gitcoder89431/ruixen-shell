@@ -1289,6 +1289,35 @@ Item {
                 }
               }
             }
+
+            // Caption directly under the bar -- per direct follow-up
+            // ("under this progress bar on the left and right side
+            // below it can you put like whats actually happening...
+            // is that where the up down speed is supposed to go?").
+            // The rate/total rows above already have the full numbers;
+            // this is just the two rates again, color-matched to the
+            // bar's own green/red so which segment is which reads
+            // instantly without tracing back up to the rows.
+            RowLayout {
+              Layout.fillWidth: true
+              visible: root.netInterface !== ""
+
+              Text {
+                text: "↓ " + root.formatRate(root.netRxRate)
+                font.family: root.fontFamily
+                font.pixelSize: 10
+                color: "#3ecf5b"
+              }
+
+              Item { Layout.fillWidth: true }
+
+              Text {
+                text: "↑ " + root.formatRate(root.netTxRate)
+                font.family: root.fontFamily
+                font.pixelSize: 10
+                color: "#e05252"
+              }
+            }
           }
         }
 

@@ -2818,6 +2818,35 @@ directly below it. Cross-checked the RC6-residency math by sampling
 `rc6_residency_ms` directly in the terminal a second time before
 implementing, not just trusting the formula on paper.
 
+## Per-core rows restored -- GPU/RAM/Disk move to the right panel instead
+
+Direct correction, immediately after the GPU-swap above landed: "i
+still feel like people wanna see the CPU cores if possible, like this
+guys got 16 cores and 1 or 2 cpu... maybe the tiles can be for the
+aggregate cpu and gpu stuff, cause it seems for performance we wanna
+see the CPU Cores?" -- then, confirmed directly: "just bring back the
+CPU cores like we had before than we can tile everything else so CPU
+core has its own section like it did."
+
+The actual insight: per-core detail is exactly the kind of thing worth
+a dedicated, scrollable section (a 16-core machine has 16 rows worth of
+detail no tile grid could show at a glance), while CPU-aggregate/GPU/
+RAM/Disk are each naturally a single value per device -- a better fit
+for small at-a-glance tiles in the right panel (still a stub) than for
+more rows in this list. Reversed course cleanly: restored
+`MetricsContent.qml` to its exact state from immediately before the
+GPU swap (`git show <prior-commit>:MetricsContent.qml`, not
+hand-reconstructed) -- aggregate CPU row + `Core 0`-`Core N` `Repeater`
+back under the `"CPUs"` header, `gpuName`/`gpuUsage`/`gpuFreqMhz`/
+`gpuProc` all removed again. This section stays CPU-only going forward;
+GPU (multi-GPU aware, since "people have more than 1 GPU?"), RAM, and
+Disk are next up as right-panel tiles, not additions to this list.
+
+**Verified**: screenshotted the live tab -- confirmed `Core 0`-`Core 3`
+are back under the aggregate `Intel(R) N97` row, matching the earlier
+per-core screenshot's exact layout/shape (icon+bar+percent, name+temp
+below), with real live numbers in both rows again.
+
 ## Companion setup
 
 - **[`ruixen-tray-widgets`](https://github.com/gitcoder89431/ruixen-tray-widgets)**

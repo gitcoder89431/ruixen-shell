@@ -6,7 +6,7 @@ This is also the first of what's meant to become a small family of "ruixen apps"
 
 ## What it does right now
 
-Toggling it opens a centered, dark modal card (gear icon + "Settings" header, close button, click-outside-to-dismiss, Escape-to-dismiss) with a placeholder body. No real settings sections yet — this is the initial working scaffold, not a finished app. Real sections (appearance, notifications, about, etc.) are follow-up work, the same "coming soon" stub pattern `ruixen-notch`'s own Metrics/Wallpapers tabs started from before being filled in iteratively.
+Toggling it opens a centered 680x440 dark modal card (gear icon + "Settings" header, close button, click-outside-to-dismiss, Escape-to-dismiss) with two panels inside: a left sidebar for switching between setting sections, and a right detail panel showing whichever section is selected. No real settings content yet — sections currently just show a "coming soon" placeholder, the same stub pattern `ruixen-notch`'s own Metrics/Wallpapers tabs started from before being filled in iteratively. The sidebar/detail *navigation* itself is real, not decorative — clicking a section actually switches `selectedSection` and the detail panel's own label.
 
 ## How it works
 
@@ -16,7 +16,9 @@ Follows the exact contract Omarchy's own built-in overlay plugins use (confirmed
 - `open()` / `close()` / `toggle()` / `dismiss()` functions — `dismiss()` additionally calls `shell.hide(manifest.id)` so the host's own toggle bookkeeping stays in sync whether the panel was closed via the host's toggle command, a click outside, the close button, or Escape.
 - An internal `PanelWindow` (`WlrLayershell.namespace: "ruixen-settings"`, `layer: WlrLayer.Overlay`, `keyboardFocus: WlrKeyboardFocus.Exclusive` so Escape reaches it) whose `visible` follows `root.opened`.
 
-Colors come from `qs.Commons`' real `Color` singleton — `Color.menu.background`/`border`/`scrim` for the panel chrome (the same tokens Omarchy's own built-in modal overlays use, so it stays theme-correct instead of a hardcoded black that could clash with a light theme) and `Color.accent`/`Color.bar.text` (with the same luminance-safety-net fallback `ruixen-notch`/`ruixen-bar` already use) for the accent and text colors. `qs.Commons` is part of the Omarchy shell runtime itself, not a ruixen-specific dependency, so using it doesn't break this plugin's standalone-ness.
+The card's own background is a hardcoded `#000000` — matching `ruixen-notch`/`ruixen-bar`'s own established OLED-black convention (see `Overlay.qml`'s `notchColor` / `Bar.qml`'s `GroupPill` comment), not a theme-driven token, since that's this family's own signature look. Text/accent colors still come from `qs.Commons`' real `Color` singleton (`Color.accent`, `Color.bar.text` with the same luminance-safety-net fallback `ruixen-notch`/`ruixen-bar` already use) so they stay theme-correct, and the backdrop scrim (`Color.menu.scrim`) is real theme data too — only the card's own fill is hardcoded. `qs.Commons` is part of the Omarchy shell runtime itself, not a ruixen-specific dependency, so using it doesn't break this plugin's standalone-ness.
+
+Sections are a plain `readonly property var sections` array of `{ id, label, glyph }`, rendered via a `Repeater` in the sidebar and driving `property int selectedSection`. Same left-nav/right-content shape `ruixen-notch`'s own dashboard already uses (a tab-button column + the active tab's own content) — reused here as this repo's own version of that pattern, not copied code (see the top-level "no shared library across plugin repos" note above).
 
 ## Installation
 
@@ -55,6 +57,14 @@ Or toggle it manually to test:
 ```bash
 omarchy-shell shell toggle ruixen.settings
 ```
+
+## Sidebar + detail panel, OLED black background
+
+Direct follow-up right after the initial scaffold: "can we make it match our other plug in with the oled black bg as well and then 2 panels, so theres a left side for switching between setting options and then to the right is where the settings and toggles are. so like a sidebar for the settings and then details to the right of it. i feel like thats a highly reusable design."
+
+Two changes: `panelBackground` switched from `Color.menu.background` (real theme data, but the wrong real data — that token is meant for Omarchy's own built-in menus) to a hardcoded `#000000`, matching `ruixen-notch`/`ruixen-bar`'s own established convention. The card also grew from 480x360 to 680x440 to fit a sidebar beside real content instead of just a header and one centered message, and gained the sidebar/detail split described above.
+
+**Verified**: brace-balance check clean, glyph codepoints (`fa-sliders` U+F1DE, `fa-palette` U+EFCC, `fa-info` U+F129) confirmed against the font's own cmap, not guessed. Hit a real hot-reload gap during testing — `omarchy-shell shell rescanPlugins` and even a `touch`-forced reload event didn't actually re-render the already-open `PanelWindow` instance (old 480x360 layout kept showing after both), only a full `omarchy restart shell` picked up the new file. Section-switching itself verified as real (not just laid out) by temporarily hardcoding `selectedSection: 1`, restarting, and screenshotting — sidebar highlight and detail label both tracked the hardcoded value correctly before being reverted.
 
 ## License
 

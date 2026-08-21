@@ -39,16 +39,37 @@ Item {
   readonly property color muted: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.5)
   readonly property color accent: Color.accent
 
-  // Real menu-surface tokens (Color.menu.*) for the panel chrome itself
-  // -- same tokens Omarchy's own built-in modal-style overlays (Emojis,
-  // the root menu) use, so this panel's card/border/scrim stay
-  // theme-correct instead of a hardcoded black that could clash with a
-  // light theme.
-  readonly property color panelBackground: Color.menu.background
-  readonly property color panelBorder: Color.menu.border
+  // Hardcoded OLED black, not a theme-driven token -- per direct request
+  // ("can we make it match our other plugin with the oled black bg as
+  // well") to match ruixen.notch/ruixen.bar's own established
+  // convention (see Overlay.qml's notchColor / Bar.qml's GroupPill
+  // comment: "Every pill is hardcoded OLED black... has to do with
+  // what's actually readable against our pills"). The theme-driven
+  // Color.menu.background used in the first pass was real data too, but
+  // the wrong real data -- that token is meant for Omarchy's own
+  // built-in menus, not this family's own signature look. Scrim (the
+  // backdrop dimming) stays theme-driven -- that's a different surface,
+  // not part of the "match our other plugins" ask.
+  readonly property color panelBackground: "#000000"
   readonly property color scrim: Color.menu.scrim
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
+
+  // Sidebar-driven sections -- per direct request ("2 panels, so theres
+  // a left side for switching between setting options and then to the
+  // right is where the settings and toggles are... a highly reusable
+  // design"). Same left-nav/right-content shape ruixen.notch's own
+  // dashboard already uses (TabButton column + active tab's content),
+  // just applied to this panel's own sections instead of Widgets/
+  // Wallpapers/Metrics. glyph codepoints confirmed against
+  // JetBrainsMonoNerdFont's own cmap (fa-sliders, fa-palette, fa-info),
+  // not guessed.
+  readonly property var sections: [
+    { id: "general", label: "General", glyph: "" },
+    { id: "appearance", label: "Appearance", glyph: "" },
+    { id: "about", label: "About", glyph: "" }
+  ]
+  property int selectedSection: 0
 
   function open() {
     root.opened = true
@@ -96,13 +117,13 @@ Item {
 
     Rectangle {
       id: card
+      // 480x360 -> 680x440 -- the square card had room for a header and
+      // one placeholder message, not a sidebar beside real content.
       anchors.centerIn: parent
-      width: 480
-      height: 360
+      width: 680
+      height: 440
       radius: 16
       color: root.panelBackground
-      border.width: 1
-      border.color: root.panelBorder
       focus: root.opened
 
       Keys.onEscapePressed: root.dismiss()
@@ -156,20 +177,93 @@ Item {
 
         Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; color: root.muted }
 
-        // Placeholder -- real sections (appearance, notifications,
-        // about, etc.) land in a follow-up pass, same "coming soon"
-        // stub pattern ruixen.notch's own Metrics/Wallpapers tabs
-        // started from before being filled in iteratively.
-        Item {
+        // Sidebar (section switcher) + detail (selected section's own
+        // content) -- per direct request ("2 panels, so theres a left
+        // side for switching between setting options and then to the
+        // right is where the settings and toggles are"). No divider
+        // rectangle between them, matching ruixen.notch's own left-tab/
+        // right-content split, which relies on spacing alone.
+        RowLayout {
           Layout.fillWidth: true
           Layout.fillHeight: true
+          spacing: 16
 
-          Text {
-            anchors.centerIn: parent
-            text: "Settings sections coming soon"
-            font.family: root.fontFamily
-            font.pixelSize: 12
-            color: root.muted
+          ColumnLayout {
+            Layout.preferredWidth: 150
+            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignTop
+            spacing: 4
+
+            Repeater {
+              model: root.sections
+
+              Rectangle {
+                id: sectionRow
+                required property var modelData
+                required property int index
+                readonly property bool selected: root.selectedSection === index
+
+                Layout.fillWidth: true
+                Layout.preferredHeight: 32
+                radius: 8
+                color: selected ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: 8
+                  anchors.rightMargin: 8
+                  spacing: 8
+
+                  Text {
+                    text: sectionRow.modelData.glyph
+                    font.family: root.fontFamily
+                    font.pixelSize: 13
+                    color: sectionRow.selected ? root.accent : root.muted
+                  }
+
+                  Text {
+                    text: sectionRow.modelData.label
+                    font.family: root.fontFamily
+                    font.pixelSize: 12
+                    font.weight: sectionRow.selected ? Font.DemiBold : Font.Normal
+                    color: sectionRow.selected ? root.textColor : root.muted
+                    Layout.fillWidth: true
+                  }
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.selectedSection = sectionRow.index
+                }
+              }
+            }
+
+            Item { Layout.fillHeight: true }
+          }
+
+          Rectangle {
+            // Detail panel -- own faint card background, matching
+            // ruixen.notch's own stat-tile fill (Qt.rgba(1, 1, 1, 0.05))
+            // so it reads as a distinct surface from the sidebar instead
+            // of bleeding into the same flat black.
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            radius: 10
+            color: Qt.rgba(1, 1, 1, 0.05)
+
+            // Placeholder -- real per-section content lands in a
+            // follow-up pass, same "coming soon" stub pattern
+            // ruixen.notch's own Metrics/Wallpapers tabs started from.
+            // Section switching itself is real, not decorative -- the
+            // label below tracks root.selectedSection.
+            Text {
+              anchors.centerIn: parent
+              text: root.sections[root.selectedSection].label + " settings coming soon"
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              color: root.muted
+            }
           }
         }
       }

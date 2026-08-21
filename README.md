@@ -66,6 +66,16 @@ Two changes: `panelBackground` switched from `Color.menu.background` (real theme
 
 **Verified**: brace-balance check clean, glyph codepoints (`fa-sliders` U+F1DE, `fa-palette` U+EFCC, `fa-info` U+F129) confirmed against the font's own cmap, not guessed. Hit a real hot-reload gap during testing — `omarchy-shell shell rescanPlugins` and even a `touch`-forced reload event didn't actually re-render the already-open `PanelWindow` instance (old 480x360 layout kept showing after both), only a full `omarchy restart shell` picked up the new file. Section-switching itself verified as real (not just laid out) by temporarily hardcoding `selectedSection: 1`, restarting, and screenshotting — sidebar highlight and detail label both tracked the hardcoded value correctly before being reverted.
 
+## Detail panel collapsed to zero width -- real fillWidth bug
+
+Direct report right after the sidebar/detail redesign: "the panel on the right that says general settings comming soon etc is off to the right of the menu. is it cause its empty now?" -- the "coming soon" text was rendering past the card's own right edge instead of centered in the detail panel.
+
+Root cause: the exact same `ColumnLayout`/`RowLayout` default-`fillWidth` quirk `ruixen-notch` hit before (see that repo's own README) -- Qt's `Layout`-type items default their own `Layout.fillWidth` attached property to `true` even when unset, unlike a plain `Item`/`Rectangle` which defaults to `false`. The sidebar `ColumnLayout` had `Layout.preferredWidth: 150` set but no explicit `Layout.fillWidth: false`, so it was still competing for extra distributable width by default, right alongside the detail `Rectangle`'s own `Layout.fillWidth: true` -- and lost that contest, collapsing the detail panel down to a sliver at the card's far-right edge instead of the ~480px it should have gotten.
+
+Confirmed with real evidence, not guesswork: added a temporary `border.width: 3; border.color: "#ff0000"` to the detail `Rectangle` (same debug-border technique `ruixen-notch` used for its own version of this bug), then pixel-scanned the screenshot for red pixels via `magick`+Python instead of eyeballing it -- found a ~2px-wide red sliver at the card's right edge, confirming the Rectangle had collapsed to near-zero width rather than just being mispositioned. Isolated it further with a hardcoded `Layout.preferredWidth: 100` + bright green fill, which rendered correctly-sized but still pinned to the far right with a large empty gap before it -- proving the sidebar itself was the one eating the space, not a detail-panel-side bug. Fix: `Layout.fillWidth: false` added to the sidebar `ColumnLayout`.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate` clean, full shell restarts between each debug iteration (this specific overlay plugin doesn't reliably pick up changes from `rescanPlugins`/file-touch alone -- see the note above), screenshotted after removing the debug border -- detail panel now correctly fills the remaining space right after the sidebar, "General settings coming soon" properly centered within it.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

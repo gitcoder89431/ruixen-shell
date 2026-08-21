@@ -190,6 +190,7 @@ Item {
 
           ColumnLayout {
             Layout.preferredWidth: 150
+            Layout.fillWidth: false
             Layout.fillHeight: true
             Layout.alignment: Qt.AlignTop
             spacing: 4

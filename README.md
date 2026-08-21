@@ -100,6 +100,14 @@ Immediate direct follow-up once this was live: "the x to close doesnt line up an
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, tested with the real deep-link payload (`omarchy-shell shell toggle ruixen.settings '{"section":"bluetooth"}'`) and screenshotted a tight crop around the title row -- close button now sits precisely level with "Bluetooth"/"Audio"/"Wi-Fi" instead of floating above it.
 
+## Corner close button removed entirely
+
+The `verticalCenter`-bound fix above still wasn't enough: "the x to close doesnt line up anymore lol its still too high, i guess maybe easier to remove cause we have click away from panel to close already right." Correct -- the backdrop's own `MouseArea { onClicked: root.dismiss() }` and the card's `Keys.onEscapePressed: root.dismiss()` were never touched by any of the header/close-button changes, so removing the corner X loses zero functionality. Simpler than continuing to chase pixel alignment on a redundant affordance.
+
+Removed the whole corner-X `Text`+`MouseArea` block, the now-stale `id: sectionTitle` (only existed for the removed button's `verticalCenter` binding) and its matching comment, and a stray double-blank-line left over from an earlier splice.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate` clean, live-restarted the shell, screenshotted -- panel now leads cleanly with just the section title ("Audio"/"Wi-Fi"/"Bluetooth"), no misaligned close button. Confirmed the backdrop's own dismiss handler is untouched (`grep` still finds it wired at the same line), so click-outside-to-dismiss and Escape both still work.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

@@ -159,38 +159,10 @@ Item {
         onClicked: {}
       }
 
-      // Close button -- small corner X instead of a full header row,
-      // per direct follow-up ("we dont need to mention its a setting.
-      // remove the header"). Escape and click-outside-to-dismiss still
-      // work too; this is just a visible affordance for a first
-      // encounter with the panel. Vertically centered on the page
-      // title's own row (sectionTitle, nested inside the detail panel)
-      // rather than a fixed top margin -- per direct follow-up ("the x
-      // to close doesnt line up anymore... should go on the row") once
-      // the title became the only thing left at the top of the card.
-      Text {
-        text: ""
-        font.family: root.fontFamily
-        font.pixelSize: 14
-        color: root.muted
-        anchors.right: parent.right
-        anchors.rightMargin: 16
-        anchors.verticalCenter: sectionTitle.verticalCenter
-        z: 1
-
-        MouseArea {
-          anchors.fill: parent
-          anchors.margins: -6
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.dismiss()
-        }
-      }
-
       ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
         spacing: 12
-
 
         // Sidebar (section switcher) + detail (selected section's own
         // content) -- per direct request ("2 panels, so theres a left
@@ -279,11 +251,7 @@ Item {
               // Wifi Audio inside the top of the right panel instead").
               // The removed header used to say "Settings"; this now
               // says which section you're actually looking at instead.
-              // id'd so the corner close button (a sibling several
-              // levels up, see above) can bind to its actual vertical
-              // center instead of a guessed matching margin.
               Text {
-                id: sectionTitle
                 text: root.sections[root.selectedSection].label
                 font.family: root.fontFamily
                 font.pixelSize: 15

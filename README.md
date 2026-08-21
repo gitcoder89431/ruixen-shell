@@ -90,6 +90,16 @@ omarchy-shell shell toggle ruixen.settings '{"section":"bluetooth"}'
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed against the font's own cmap, `omarchy plugin validate` clean, live-restarted the shell, ran the exact real command above (`omarchy-shell shell toggle ruixen.settings '{"section":"bluetooth"}'`) and screenshotted -- panel opened directly on the Bluetooth section, sidebar highlight and detail label both correct, no errors in the Quickshell log.
 
+## Header removed, page name leads the detail panel instead
+
+Direct follow-up: "right now the header has like a settings text and a seperator, we dont need to mention its a setting. remove the header and then just lead with the settings options page name like Bluetooth Wifi Audio inside the top of the right panel instead, is that a better way to do it?" -- agreed and implemented. The header row (gear icon + "Settings" text + close X) and the separator line below it are gone entirely.
+
+The detail panel's own top now shows the selected section's real name ("Audio"/"Wi-Fi"/"Bluetooth") as its title, replacing the old generic "X settings coming soon" single centered line -- title up top, placeholder body below it, no longer repeating the section name twice. Close button became a small `fa-xmark` in the card's own top-right corner instead of living in a full header row; Escape and click-outside-to-dismiss still work too, so losing the header didn't remove any actual functionality.
+
+Immediate direct follow-up once this was live: "the x to close doesnt line up anymore lol, should go on the row as[...]" -- the corner X was anchored to the card's own top-right at a fixed 16px margin, while the new page title sits one level deeper (card's own 16px margin + the detail panel's own 16px inner margin = 32px), so they didn't sit on the same visual row. Fixed by giving the title `Text` an `id` (`sectionTitle`) and binding the close button's `anchors.verticalCenter` directly to `sectionTitle.verticalCenter`, instead of guessing a matching margin -- stays correct regardless of future spacing changes to either element.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, tested with the real deep-link payload (`omarchy-shell shell toggle ruixen.settings '{"section":"bluetooth"}'`) and screenshotted a tight crop around the title row -- close button now sits precisely level with "Bluetooth"/"Audio"/"Wi-Fi" instead of floating above it.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

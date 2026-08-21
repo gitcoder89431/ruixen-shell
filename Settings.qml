@@ -159,47 +159,38 @@ Item {
         onClicked: {}
       }
 
+      // Close button -- small corner X instead of a full header row,
+      // per direct follow-up ("we dont need to mention its a setting.
+      // remove the header"). Escape and click-outside-to-dismiss still
+      // work too; this is just a visible affordance for a first
+      // encounter with the panel. Vertically centered on the page
+      // title's own row (sectionTitle, nested inside the detail panel)
+      // rather than a fixed top margin -- per direct follow-up ("the x
+      // to close doesnt line up anymore... should go on the row") once
+      // the title became the only thing left at the top of the card.
+      Text {
+        text: ""
+        font.family: root.fontFamily
+        font.pixelSize: 14
+        color: root.muted
+        anchors.right: parent.right
+        anchors.rightMargin: 16
+        anchors.verticalCenter: sectionTitle.verticalCenter
+        z: 1
+
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -6
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.dismiss()
+        }
+      }
+
       ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
         spacing: 12
 
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 8
-
-          Text {
-            text: ""
-            font.family: root.fontFamily
-            font.pixelSize: 16
-            color: root.accent
-          }
-
-          Text {
-            text: "Settings"
-            font.family: root.fontFamily
-            font.pixelSize: 15
-            font.weight: Font.DemiBold
-            color: root.textColor
-            Layout.fillWidth: true
-          }
-
-          Text {
-            text: ""
-            font.family: root.fontFamily
-            font.pixelSize: 14
-            color: root.muted
-
-            MouseArea {
-              anchors.fill: parent
-              anchors.margins: -6
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.dismiss()
-            }
-          }
-        }
-
-        Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; color: root.muted }
 
         // Sidebar (section switcher) + detail (selected section's own
         // content) -- per direct request ("2 panels, so theres a left
@@ -277,17 +268,46 @@ Item {
             radius: 10
             color: Qt.rgba(1, 1, 1, 0.05)
 
-            // Placeholder -- real per-section content lands in a
-            // follow-up pass, same "coming soon" stub pattern
-            // ruixen.notch's own Metrics/Wallpapers tabs started from.
-            // Section switching itself is real, not decorative -- the
-            // label below tracks root.selectedSection.
-            Text {
-              anchors.centerIn: parent
-              text: root.sections[root.selectedSection].label + " settings coming soon"
-              font.family: root.fontFamily
-              font.pixelSize: 12
-              color: root.muted
+            ColumnLayout {
+              anchors.fill: parent
+              anchors.margins: 16
+              spacing: 8
+
+              // Page title -- per direct follow-up ("we dont need to
+              // mention its a setting. remove the header and then just
+              // lead with the settings options page name like Bluetooth
+              // Wifi Audio inside the top of the right panel instead").
+              // The removed header used to say "Settings"; this now
+              // says which section you're actually looking at instead.
+              // id'd so the corner close button (a sibling several
+              // levels up, see above) can bind to its actual vertical
+              // center instead of a guessed matching margin.
+              Text {
+                id: sectionTitle
+                text: root.sections[root.selectedSection].label
+                font.family: root.fontFamily
+                font.pixelSize: 15
+                font.weight: Font.DemiBold
+                color: root.textColor
+                Layout.fillWidth: true
+              }
+
+              // Placeholder -- real per-section content lands in a
+              // follow-up pass, same "coming soon" stub pattern
+              // ruixen.notch's own Metrics/Wallpapers tabs started
+              // from. Doesn't repeat the section name again (the title
+              // above already says it) -- per the same duplicate-text
+              // lesson from CPU/GPU's own "Usage X%" line earlier in
+              // this project.
+              Text {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.fillHeight: true
+                verticalAlignment: Text.AlignVCenter
+                text: "Settings coming soon"
+                font.family: root.fontFamily
+                font.pixelSize: 12
+                color: root.muted
+              }
             }
           }
         }

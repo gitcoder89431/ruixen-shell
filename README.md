@@ -76,6 +76,20 @@ Confirmed with real evidence, not guesswork: added a temporary `border.width: 3;
 
 **Verified**: brace-balance check clean, `omarchy plugin validate` clean, full shell restarts between each debug iteration (this specific overlay plugin doesn't reliably pick up changes from `rescanPlugins`/file-touch alone -- see the note above), screenshotted after removing the debug border -- detail panel now correctly fills the remaining space right after the sidebar, "General settings coming soon" properly centered within it.
 
+## Real sections + deep-linkable via payload
+
+Direct plan, shared right after the layout fix above: "for these settings, i think im gonna use it to control the audio, wifi, and bluetooth display, so then we dont need to use the omarchy one. on our top bar we can use the icon to open the settings we are making onto like the bluetooth page there."
+
+`sections` renamed from the placeholder General/Appearance/About to Audio/Wi-Fi/Bluetooth (`fa-volume_up`, `fa-wifi`, `fa-bluetooth` -- confirmed against the font's own cmap). `open(payloadJson)` and `toggle(payloadJson)` now accept an optional JSON payload, matching the real host convention (`omarchy-shell --help` documents `omarchy-shell shell toggle omarchy.menu '{"menu":"root"}'` as an example) -- a bar icon can jump straight to a section:
+
+```bash
+omarchy-shell shell toggle ruixen.settings '{"section":"bluetooth"}'
+```
+
+`sectionIndexFor(id)` resolves the payload's `section` id to an array index; malformed/missing payloads are caught and just leave `selectedSection` at whatever it already was. The actual audio/Wi-Fi/Bluetooth *controls* (real PipeWire/NetworkManager/bluez wiring, not just navigation) are separate follow-up work -- this pass only makes the sections real and jump-to-able.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed against the font's own cmap, `omarchy plugin validate` clean, live-restarted the shell, ran the exact real command above (`omarchy-shell shell toggle ruixen.settings '{"section":"bluetooth"}'`) and screenshotted -- panel opened directly on the Bluetooth section, sidebar highlight and detail label both correct, no errors in the Quickshell log.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

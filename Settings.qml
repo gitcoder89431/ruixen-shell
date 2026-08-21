@@ -61,18 +61,42 @@ Item {
   // design"). Same left-nav/right-content shape ruixen.notch's own
   // dashboard already uses (TabButton column + active tab's content),
   // just applied to this panel's own sections instead of Widgets/
-  // Wallpapers/Metrics. glyph codepoints confirmed against
-  // JetBrainsMonoNerdFont's own cmap (fa-sliders, fa-palette, fa-info),
-  // not guessed.
+  // Wallpapers/Metrics. Renamed from the placeholder General/
+  // Appearance/About to the real plan ("im gonna use it to control the
+  // audio, wifi, and bluetooth display, so then we dont need to use
+  // the omarchy one") -- glyph codepoints confirmed against
+  // JetBrainsMonoNerdFont's own cmap (fa-volume_up, fa-wifi,
+  // fa-bluetooth), not guessed.
   readonly property var sections: [
-    { id: "general", label: "General", glyph: "" },
-    { id: "appearance", label: "Appearance", glyph: "" },
-    { id: "about", label: "About", glyph: "" }
+    { id: "audio", label: "Audio", glyph: "" },
+    { id: "wifi", label: "Wi-Fi", glyph: "" },
+    { id: "bluetooth", label: "Bluetooth", glyph: "" }
   ]
   property int selectedSection: 0
 
-  function open() {
+  function sectionIndexFor(id) {
+    for (var i = 0; i < root.sections.length; i++)
+      if (root.sections[i].id === id) return i
+    return 0
+  }
+
+  // Accepts an optional JSON payload, matching the real host convention
+  // (confirmed directly: `omarchy-shell shell toggle omarchy.menu
+  // '{"menu":"root"}'` in `omarchy-shell --help`'s own example) -- per
+  // direct plan ("on our top bar we can use the icon to open the
+  // settings we are making onto like the bluetooth page there"), a bar
+  // icon can jump straight to a section via `omarchy-shell shell
+  // toggle ruixen.settings '{"section":"bluetooth"}'` instead of
+  // always landing on whatever was last selected.
+  function open(payloadJson) {
     root.opened = true
+    if (payloadJson) {
+      try {
+        var payload = JSON.parse(payloadJson)
+        if (payload && payload.section)
+          root.selectedSection = root.sectionIndexFor(payload.section)
+      } catch (e) {}
+    }
   }
 
   function close() {
@@ -85,9 +109,9 @@ Item {
       root.shell.hide((root.manifest && root.manifest.id) || "ruixen.settings")
   }
 
-  function toggle() {
+  function toggle(payloadJson) {
     if (root.opened) root.dismiss()
-    else root.open()
+    else root.open(payloadJson)
   }
 
   PanelWindow {

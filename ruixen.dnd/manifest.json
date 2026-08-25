@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.dnd",
+  "name": "Ruixen Silence Notifications",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Always-visible do-not-disturb toggle, for the tray pill instead of the hover-reveal indicator cluster.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Dnd.qml"
+  },
+  "barWidget": {
+    "displayName": "Ruixen Silence Notifications",
+    "description": "Toggle do-not-disturb on or off.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

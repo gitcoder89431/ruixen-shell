@@ -1192,6 +1192,17 @@ Item {
     // exclusiveZone) needs frameInset backed out here instead of
     // topInset, or it quietly shrinks from 44 to 37 and tiled windows
     // creep 7px higher than intended, into the notch's own space.
+    //
+    // Deliberately NOT also adding root.shoulderWingSize here, even
+    // though implicitHeight below grows by that much when docked (for
+    // the frame-hem wing's own room) -- reserving the wing's FULL box
+    // left a huge gap between the dock and tiled windows, since the
+    // wing's actual painted material is a small curved sliver, not a
+    // solid block (per direct report). This window's own bottom edge
+    // extends slightly past the reservation as a result, same as
+    // ruixen.notch/ruixen.frame-widget already do (ExclusionMode.Ignore,
+    // reserve nothing) -- fine here too since that extra room is almost
+    // entirely transparent.
     exclusiveZone: root.docked ? (44 - frameInset) : root.notchClearance
 
     ScreenMoveRemap {
@@ -1243,7 +1254,12 @@ Item {
     }
 
     implicitWidth: root.vertical ? root.barSize : 0
-    implicitHeight: root.vertical ? 0 : root.barSize
+    // Taller when docked -- the frame-hem corner's own wing (see
+    // leftFrameHemWing below) needs room below the pill row itself,
+    // there's none within barSize alone. The pill row's own content
+    // stays pinned to the original barSize band regardless (see
+    // dockedRow below), so this never affects floating-mode pills.
+    implicitHeight: root.vertical ? 0 : (root.docked ? root.barSize + root.shoulderWingSize : root.barSize)
     // Always transparent, not root.transparent-gated — the bar-wide solid
     // background is gone entirely now that each module group draws its own
     // floating pill background (see horizontalBar below).
@@ -1373,12 +1389,14 @@ Item {
           // up).
           topLeftRadius: 24
           topRightRadius: 0
-          // Small curve, not square -- this corner is against ruixen.
-          // frame-widget's own continuing border strip, still unresolved
-          // for now (see dev notes), but a modest curve reads better than
-          // a hard square while that's pending. Kept small (10, not 24+)
-          // so it doesn't overlap topLeftRadius on the same edge.
-          bottomLeftRadius: 10
+          // Square, not a plain recede curve -- the actual concave wrap
+          // (per direct request: "the smooth curve should face inward")
+          // is leftFrameHemWing below, in its own dedicated space
+          // (root.shoulderWingSize, added to BarPanel's implicitHeight
+          // when docked). Squaring this off keeps it a flush, seamless
+          // hand-off into that wing rather than competing with
+          // topLeftRadius for room on the same 34px edge.
+          bottomLeftRadius: 0
           // The real shoulder. Matches shoulderWingSize (24), not the
           // pill's full height -- the earlier seam/glitch came from this
           // being `height` (34) while the wing was ALSO full-height: two
@@ -1405,6 +1423,24 @@ Item {
           y: 0
         }
 
+        // The frame-hem corner's own wing -- concave, curving inward,
+        // not the plain recede curve a Rectangle radius gives. Flush
+        // against leftDockedBg's own square bottom edge at its own top
+        // (y: leftDockedBg.height, no seam -- both are simply square
+        // there) and flush against the true screen edge on its own left
+        // (x: 0, matching ruixen.frame-widget's continuing border strip),
+        // with the curve itself down at its far corner, closer to where
+        // this hands off to frame's plain strip continuing further down.
+        RoundCorner {
+          id: leftFrameHemWing
+          visible: root.docked
+          corner: "topLeft"
+          size: root.shoulderWingSize
+          color: "#000000"
+          x: 0
+          y: leftDockedBg.height
+        }
+
         Rectangle {
           id: rightDockedBg
           visible: root.docked
@@ -1417,7 +1453,7 @@ Item {
           topRightRadius: 24
           topLeftRadius: 0
           // Mirrors leftDockedBg's own bottomLeftRadius -- see its comment.
-          bottomRightRadius: 10
+          bottomRightRadius: 0
           // Mirrors leftDockedBg's own bottomRightRadius -- see its comment.
           bottomLeftRadius: root.shoulderWingSize
         }
@@ -1431,6 +1467,17 @@ Item {
           color: "#000000"
           x: rightDockedBg.x - size
           y: 0
+        }
+
+        // Mirrors leftFrameHemWing -- see its comment.
+        RoundCorner {
+          id: rightFrameHemWing
+          visible: root.docked
+          corner: "topRight"
+          size: root.shoulderWingSize
+          color: "#000000"
+          x: rightDockedBg.x + rightDockedBg.width - size
+          y: rightDockedBg.height
         }
 
         // Everything else (every pill's own content).

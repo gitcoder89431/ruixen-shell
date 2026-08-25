@@ -48,7 +48,6 @@ cat > "$shell_json" <<'EOF'
         "centerAnchor": "omarchy.clock",
         "layout": {
             "left": [
-                { "id": "ruixen.settingsbutton" },
                 { "id": "ruixen.applauncher" },
                 { "id": "ruixen.workspaces" }
             ],
@@ -71,11 +70,8 @@ cat > "$shell_json" <<'EOF'
                 { "id": "ruixen.stayawake" },
                 { "id": "ruixen.quickactions" },
                 { "id": "omarchy.agents" },
-                { "id": "omarchy.bluetooth" },
-                { "id": "omarchy.network" },
-                { "id": "omarchy.audio" },
-                { "id": "omarchy.monitor" },
-                { "id": "omarchy.power" }
+                { "id": "omarchy.power" },
+                { "id": "ruixen.settingsbutton" }
             ]
         }
     },

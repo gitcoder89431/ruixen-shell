@@ -6,6 +6,7 @@ import Quickshell.Widgets
 import Quickshell.Networking
 import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
+import qs.Commons
 
 // Pure-frontend port of ambxst's WidgetsTab.qml (the actual content of
 // their dashboard's default tab -- what most people mean by "the
@@ -1190,6 +1191,12 @@ Item {
         property bool muted: false
         property real value: 0.7
         signal activated()
+        // Steps positive (up) or negative (down), one per 5% notch --
+        // matches Omarchy's own audio panel scroll convention exactly
+        // (see /usr/share/omarchy/shell/plugins/panels/audio/Panel.qml's
+        // onWheelMoved, same 0.05 step and Util.wheelSteps accumulator).
+        signal wheelStepped(int steps)
+        property real wheelAccumulator: 0
 
         // What actually gets drawn/painted -- 0 while muted regardless
         // of the real value ("the audio volume goes to 0"), the real
@@ -1334,6 +1341,11 @@ Item {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
           onClicked: dialRoot.activated()
+          onWheel: function(wheel) {
+            var steps = Util.wheelSteps(dialRoot.wheelAccumulator, wheel.angleDelta.y)
+            dialRoot.wheelAccumulator = steps.remainder
+            if (steps.steps !== 0) dialRoot.wheelStepped(steps.steps)
+          }
         }
       }
 
@@ -1482,6 +1494,10 @@ Item {
         muted: root.audioSink && root.audioSink.audio ? root.audioSink.audio.muted : false
         value: root.speakerVolume
         onActivated: if (root.audioSink && root.audioSink.audio) root.audioSink.audio.muted = !root.audioSink.audio.muted
+        onWheelStepped: function(steps) {
+          if (root.audioSink && root.audioSink.audio)
+            root.audioSink.audio.volume = Math.max(0, Math.min(1, root.audioSink.audio.volume + steps * 0.05))
+        }
       }
       Dial {
         glyph: "󰍬"
@@ -1489,6 +1505,10 @@ Item {
         muted: root.audioSource && root.audioSource.audio ? root.audioSource.audio.muted : false
         value: root.micVolume
         onActivated: if (root.audioSource && root.audioSource.audio) root.audioSource.audio.muted = !root.audioSource.audio.muted
+        onWheelStepped: function(steps) {
+          if (root.audioSource && root.audioSource.audio)
+            root.audioSource.audio.volume = Math.max(0, Math.min(1, root.audioSource.audio.volume + steps * 0.05))
+        }
       }
     }
   }

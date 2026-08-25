@@ -120,4 +120,12 @@ Want Hyprland's default window look back instead? Run:
 
   $script_dir/hyprland/ruixen-lookfeel.sh off
 
+Want to try the bar's docked mode (merged pills, flush with the frame)?
+Run:
+
+  $script_dir/ruixen-bar-mode.sh docked
+
+Both of these only work from this checkout -- keep it around after
+installing (don't delete the cloned folder), or note its path above.
+
 EOF

@@ -125,6 +125,19 @@ UI: a custom drag-to-set volume bar (icon toggles mute, `Rectangle` track + fill
 
 **Verified**: brace-balance check clean (caught and fixed a real double-closed-brace from the line-splice edit before testing), glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- volume slider showed the actual live system volume (27%) and both real connected output devices ("USB Audio and HID", "CB242Y E" -- an actual connected monitor), not placeholder data. Drag-to-set/mute-click/device-switch-click themselves couldn't be directly simulated (same standing mouse-interaction limitation as the rest of this project), but every property path and function call is copied byte-for-byte from Omarchy's own shipped, working implementation rather than guessed.
 
+## Input (microphone) section added
+
+Direct follow-up right after Output shipped: "cool does it also shows the input? the omarchy has it showing." Mirrored the exact same real API shape from `Panel.qml`'s own `source`/`inputVolume`/`inputMuted`/`candidateSources`/`setDefaultSource`:
+
+- `Pipewire.defaultAudioSource.audio.volume`/`.muted` -- input volume/mute
+- `Pipewire.preferredDefaultAudioSource = node` -- switches the default input device
+- A new `inputDevices` filter ported from Omarchy's real `isAudioSource()` (Model.js) rather than reusing the sink filter -- a source node can be a true audio source without `isSink` ever being set, so this checks `node.audio` presence and the node's own media-class string, same broader real check their widget uses. Also excludes the `"quickshell"` self-node, same as their own `candidateSources`.
+- A second `PwObjectTracker { objects: root.inputDevices }`, same live-update requirement as the output list.
+
+`outputLabel` renamed to `deviceLabel` and reused for both output and input rows -- Omarchy's own `nodeLabel()` is generic in the real source too, not sink-specific. Also picked up the two label fixes their `friendlyDeviceLabel()` has that the first pass missed: trimming a trailing `" Input"` suffix (only `" Output"` was ported before) and normalizing `"Microphones"` -> `"Microphone"`. Added small muted "Output"/"Input" sub-labels above each block now that there are two.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed (`fa-microphone` U+F130, `fa-microphone_slash` U+F131), `omarchy plugin validate` clean, live-restarted the shell, screenshotted -- Input section shows the real live mic volume (100%) and the real connected input device ("USB Audio and HID"), not placeholder data, right below the unchanged Output section.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

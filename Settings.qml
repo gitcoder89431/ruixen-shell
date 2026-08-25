@@ -120,11 +120,13 @@ Item {
   // reading Omarchy's own audio bar-widget directly
   // ($OMARCHY_PATH/shell/plugins/panels/audio/Panel.qml) for the real
   // property paths (node.audio.volume/muted, Pipewire.
-  // preferredDefaultAudioSink) rather than guessing -- ported the exact
-  // API calls, not the file itself (theirs is a 1200-line full mixer
-  // with per-app streams + MPRIS matching; this pass is scoped to
-  // volume + output device picker only, per direct request: "should we
-  // start with the audio then... volume + output device picker").
+  // preferredDefaultAudioSink/Source) rather than guessing -- ported
+  // the exact API calls, not the file itself (theirs is a 1200-line
+  // full mixer with per-app streams + MPRIS matching; this pass is
+  // scoped to volume + output/input device pickers only, per direct
+  // request: "should we start with the audio then... volume + output
+  // device picker", then "does it also shows the input? the omarchy
+  // has it showing").
   readonly property var outputSink: Pipewire.defaultAudioSink
   readonly property real outputVolume: outputSink && outputSink.audio ? outputSink.audio.volume : 0
   readonly property bool outputMuted: outputSink && outputSink.audio ? outputSink.audio.muted : false
@@ -153,12 +155,56 @@ Item {
     Pipewire.preferredDefaultAudioSink = node
   }
 
+  // Input (microphone) -- same real API shape as output, mirrored from
+  // Panel.qml's own source/inputVolume/inputMuted/candidateSources/
+  // setDefaultSource. isAudioSource's real filter (ported from
+  // Model.js) is broader than isSink/isStream alone -- a source node
+  // can be true audio-source without node.isSink ever being set, so
+  // this checks node.audio presence and the node's own media-class
+  // string, same as their real isAudioSource().
+  readonly property var inputSource: Pipewire.defaultAudioSource
+  readonly property real inputVolume: inputSource && inputSource.audio ? inputSource.audio.volume : 0
+  readonly property bool inputMuted: inputSource && inputSource.audio ? inputSource.audio.muted : false
+
+  readonly property var inputDevices: {
+    var list = []
+    var all = Pipewire.nodes ? Pipewire.nodes.values : []
+    for (var i = 0; i < all.length; i++) {
+      var n = all[i]
+      if (!n || n.isSink || n.isStream) continue
+      var mediaClass = String(n.type || "")
+      var isSource = !!n.audio || mediaClass.indexOf("Audio/Source") !== -1
+        || mediaClass.indexOf("AudioSource") !== -1 || mediaClass.indexOf("Source") !== -1
+      if (!isSource) continue
+      if ((n.name || "") === "quickshell") continue
+      list.push(n)
+    }
+    return list
+  }
+
+  function setInputVolume(v) {
+    if (root.inputSource && root.inputSource.audio)
+      root.inputSource.audio.volume = Math.max(0, Math.min(1, v))
+  }
+
+  function toggleInputMute() {
+    if (root.inputSource && root.inputSource.audio)
+      root.inputSource.audio.muted = !root.inputSource.audio.muted
+  }
+
+  function setDefaultInput(node) {
+    Pipewire.preferredDefaultAudioSource = node
+  }
+
   // Same real property-preference order as Omarchy's own nodeLabel()/
   // friendlyDeviceLabel() in Model.js, ported directly (not guessed):
   // nickname/nick fields first, falling back to description/name, then
-  // trimmed of the same noisy driver-name prefixes/suffixes their real
-  // hardware strings carry on this exact machine class.
-  function outputLabel(node) {
+  // trimmed of the same noisy driver-name prefixes/suffixes and the
+  // Microphones->Microphone normalization their real hardware strings
+  // carry on this exact machine class. Shared by both output and input
+  // rows -- nodeLabel() itself is generic, not sink-specific, in the
+  // real source either.
+  function deviceLabel(node) {
     if (!node) return "Unknown"
     var props = (node.ready && node.properties) ? node.properties : {}
     var nickname = node.nickname || node.nick || props["node.nick"] || props["device.profile.description"] || ""
@@ -166,14 +212,18 @@ Item {
     label = label.replace(/^sof-soundwire\s+/i, "")
     label = label.replace(/^built-?in audio\s+/i, "")
     label = label.replace(/\s+Output$/i, "")
+    label = label.replace(/\s+Input$/i, "")
+    label = label.replace(/\bMicrophones\b/g, "Microphone")
     return label
   }
 
-  // Binds/tracks the candidate output nodes so their volume/muted/name
-  // properties actually receive live updates -- same real requirement
-  // Omarchy's own audio widget has (its own Panel.qml uses the
-  // identical PwObjectTracker pattern for its candidateSinks list).
+  // Binds/tracks the candidate output/input nodes so their volume/
+  // muted/name properties actually receive live updates -- same real
+  // requirement Omarchy's own audio widget has (its own Panel.qml uses
+  // the identical PwObjectTracker pattern for its candidateSinks/
+  // candidateSources lists).
   PwObjectTracker { objects: root.outputDevices }
+  PwObjectTracker { objects: root.inputDevices }
 
   PanelWindow {
     id: panel
@@ -321,16 +371,25 @@ Item {
                 Layout.fillWidth: true
               }
 
-              // Audio -- real Pipewire volume + output device picker,
-              // per direct request ("should we start with the audio
-              // then... volume + output device picker"). Wi-Fi/
-              // Bluetooth stay on the generic placeholder below until
-              // their own real backends land.
+              // Audio -- real Pipewire volume + output/input device
+              // pickers, per direct request ("should we start with the
+              // audio then... volume + output device picker", then
+              // "does it also shows the input? the omarchy has it
+              // showing"). Wi-Fi/Bluetooth stay on the generic
+              // placeholder below until their own real backends land.
               ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.selectedSection === 0
                 spacing: 16
+
+                Text {
+                  text: "Output"
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                  color: root.muted
+                }
 
                 RowLayout {
                   Layout.fillWidth: true
@@ -414,7 +473,7 @@ Item {
                         }
 
                         Text {
-                          text: root.outputLabel(deviceRow.modelData)
+                          text: root.deviceLabel(deviceRow.modelData)
                           font.family: root.fontFamily
                           font.pixelSize: 12
                           font.weight: deviceRow.isDefault ? Font.DemiBold : Font.Normal
@@ -432,6 +491,116 @@ Item {
                     }
                   }
                 }
+
+                Text {
+                  text: "Input"
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                  color: root.muted
+                }
+
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 10
+
+                  Text {
+                    text: root.inputMuted ? "" : ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 15
+                    color: root.textColor
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -6
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.toggleInputMute()
+                    }
+                  }
+
+                  Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 6
+                    radius: 3
+                    color: Qt.rgba(1, 1, 1, 0.1)
+
+                    Rectangle {
+                      width: parent.width * Math.max(0, Math.min(1, root.inputVolume))
+                      height: parent.height
+                      radius: 3
+                      color: root.inputMuted ? root.muted : root.accent
+                      Behavior on width { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.topMargin: -8
+                      anchors.bottomMargin: -8
+                      onPressed: mouse => root.setInputVolume(mouse.x / width)
+                      onPositionChanged: mouse => { if (pressed) root.setInputVolume(mouse.x / width) }
+                    }
+                  }
+
+                  Text {
+                    text: Math.round(root.inputVolume * 100) + "%"
+                    font.family: root.fontFamily
+                    font.pixelSize: 12
+                    color: root.muted
+                    Layout.preferredWidth: 32
+                    horizontalAlignment: Text.AlignRight
+                  }
+                }
+
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  spacing: 4
+
+                  Repeater {
+                    model: root.inputDevices
+
+                    Rectangle {
+                      id: inputRow
+                      required property var modelData
+                      readonly property bool isDefault: root.inputSource && inputRow.modelData && root.inputSource.id === inputRow.modelData.id
+
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: 32
+                      radius: 8
+                      color: inputRow.isDefault ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+
+                      RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
+
+                        Text {
+                          text: ""
+                          font.family: root.fontFamily
+                          font.pixelSize: 13
+                          color: inputRow.isDefault ? root.accent : root.muted
+                        }
+
+                        Text {
+                          text: root.deviceLabel(inputRow.modelData)
+                          font.family: root.fontFamily
+                          font.pixelSize: 12
+                          font.weight: inputRow.isDefault ? Font.DemiBold : Font.Normal
+                          color: inputRow.isDefault ? root.textColor : root.muted
+                          elide: Text.ElideRight
+                          Layout.fillWidth: true
+                        }
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.setDefaultInput(inputRow.modelData)
+                      }
+                    }
+                  }
+                }
+
 
                 Item { Layout.fillHeight: true }
               }

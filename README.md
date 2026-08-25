@@ -26,7 +26,8 @@ language, so they read as one shell instead of a pile of separate widgets.
 
 ## Install
 
-Ruixen Shell targets Omarchy `4.0.0-1`. Install from source:
+Ruixen Shell targets Omarchy `4.0.0-1` (also confirmed working on `4.0.1-1`).
+Install from source:
 
 ```bash
 git clone https://github.com/gitcoder89431/ruixen-shell.git
@@ -48,8 +49,10 @@ the installer deliberately doesn't touch your Hyprland config:
 
 ```lua
 -- in your ~/.config/hypr/bindings.lua
-bind("SUPER", "comma", "exec", "omarchy-shell shell toggle ruixen.settings")
+o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
 ```
+
+`SUPER + comma` is already Omarchy's own "dismiss last notification" — don't reuse it. `SUPER + R` is free by default; pick any other unbound key if you'd rather (`omarchy menu keybindings --print` lists what's already taken).
 
 ## Disabling / going back to Omarchy defaults
 

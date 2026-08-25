@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import Quickshell.Networking
+import Quickshell.Io
 import qs.Commons
 
 // Ruixen Settings -- standalone center-panel settings app. First plugin
@@ -346,6 +347,48 @@ Item {
   onWifiDeviceChanged: root.setScannerEnabled(true)
   Component.onDestruction: {
     if (root.scannerDevice) root.scannerDevice.scannerEnabled = false
+  }
+
+  // Real connection stats (IP, gateway, ping) via `omarchy-network-
+  // status --verbose` -- a real standalone Omarchy CLI binary (same
+  // class of dependency as fastfetch/sensors/df, which ruixen-notch
+  // already uses freely -- this is a real system tool this plugin runs
+  // on top of by definition, not a dependency on ruixen-bar/ruixen-
+  // notch's own internal services, so it doesn't break this plugin's
+  // standalone-ness). Confirmed the real output format by running it
+  // directly on this machine, not guessed: tab-separated key\tvalue
+  // lines (iface, ip, prefix, gateway, rx_bytes, tx_bytes, type, ssid,
+  // signal_dbm, freq, bitrate, router_ping_ms, internet_ping_ms).
+  property var netInfo: ({})
+
+  function parseNetStatus(raw) {
+    var next = {}
+    var lines = String(raw || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i]
+      if (!line) continue
+      var idx = line.indexOf("\t")
+      if (idx === -1) continue
+      next[line.substring(0, idx)] = line.substring(idx + 1).trim()
+    }
+    return next
+  }
+
+  Process {
+    id: netStatusProc
+    command: ["omarchy-network-status", "--verbose"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.netInfo = root.parseNetStatus(text)
+    }
+  }
+
+  Timer {
+    interval: 2000
+    running: root.opened
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!netStatusProc.running) netStatusProc.running = true
   }
 
   PanelWindow {
@@ -760,14 +803,6 @@ Item {
                     elide: Text.ElideRight
                   }
 
-                  Text {
-                    visible: root.connectedWifiNetwork !== null
-                    text: root.connectedWifiNetwork ? root.connectedWifiNetwork.signal + "%" : ""
-                    font.family: root.fontFamily
-                    font.pixelSize: 12
-                    color: root.muted
-                  }
-
                   // Toggle switch -- radio on/off, same real property
                   // (Networking.wifiEnabled) Omarchy's own toggleHint/
                   // click handler uses.
@@ -794,6 +829,70 @@ Item {
                       cursorShape: Qt.PointingHandCursor
                       onClicked: root.toggleWifiRadio()
                     }
+                  }
+                }
+
+                // Real connection stats -- IP/Gateway/Ping -- per direct
+                // follow-up ("what about the other stats, the omarchy
+                // one has way better. it shows ping ip all that stuff i
+                // dont think it shows the % wifi strenght too"). The
+                // raw signal % above is gone -- confirmed directly that
+                // Omarchy's own header treats signal as a 5-tier bar
+                // icon (wifiIconFor() in their Model.js), never a
+                // number, so dropping it here actually matches their
+                // real behavior, not a guess.
+                GridLayout {
+                  Layout.fillWidth: true
+                  visible: root.connectedWifiNetwork !== null
+                  columns: 2
+                  columnSpacing: 12
+                  rowSpacing: 2
+
+                  Text {
+                    text: "IP Address"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    color: root.muted
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    text: root.netInfo.ip || "--"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    color: root.textColor
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideLeft
+                  }
+
+                  Text {
+                    text: "Gateway"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    color: root.muted
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    text: root.netInfo.gateway || "--"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    color: root.textColor
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideLeft
+                  }
+
+                  Text {
+                    text: "Ping"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    color: root.muted
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    text: root.netInfo.internet_ping_ms ? Math.round(parseFloat(root.netInfo.internet_ping_ms)) + " ms" : "--"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    color: root.textColor
+                    horizontalAlignment: Text.AlignRight
                   }
                 }
 

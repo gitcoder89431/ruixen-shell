@@ -163,6 +163,18 @@ Added `readonly property var knownWifiRows: root.wifiRows.filter(function(r) { r
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed intact after the restructure, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- this machine had actually joined "STZ-P2" (90% signal) by this point, and the list now shows exactly that one known network instead of every scanned AP, matching the status row above it.
 
+## Real connection stats: IP, Gateway, Ping -- dropped the raw signal %
+
+Direct report: "damn what about the other stats, the omarchy one has way better. it shows ping ip all that stuff i dont think it shows the % wifi strenght too. idk bro i think they have a way better one." Confirmed both halves directly rather than guessing: Omarchy's own network panel builds an 8-field grid (Ping, Packet Loss, Receiving, Sending, Downloaded, Uploaded, IP Address, Gateway) from a real standalone CLI, `omarchy-network-status --verbose`; and their own header signal treatment is a 5-tier bar icon (`wifiIconFor()` in their `Model.js`), never a raw percentage -- so the number this plugin was showing wasn't just less impressive, it was showing something their real UI deliberately doesn't.
+
+Before implementing, checked whether this duplicated something already built: `ruixen-notch`'s own Network stat tile already has real download/upload rate + lifetime totals, but sourced from `/proc/net/dev` + `ip route show default`, not `omarchy-network-status`. Scoped this pass to the three fields actually named (IP, Gateway, Ping) via the new real source, and dropped the raw `%` -- rate/totals reusing `ruixen-notch`'s own already-proven `/proc/net/dev` mechanism is a natural follow-up but wasn't re-confirmed as in-scope for this specific pass, so it's not included here.
+
+`omarchy-network-status --verbose` is a real standalone Omarchy CLI binary, same class of dependency as `fastfetch`/`sensors`/`df` (which `ruixen-notch` already uses freely) -- not a dependency on `ruixen-bar`/`ruixen-notch`'s own internal services, so it doesn't break this plugin's standalone-ness. Confirmed the real output format by running it directly on this machine rather than guessing: tab-separated `key\tvalue` lines (`iface`, `ip`, `prefix`, `gateway`, `rx_bytes`, `tx_bytes`, `type`, `ssid`, `signal_dbm`, `freq`, `bitrate`, `router_ping_ms`, `internet_ping_ms`). Polled on a 2-second `Timer` gated to `root.opened` (no point polling ping/IP while the panel is closed), parsed with the same tab-split logic as their own `parseKeyValue()`.
+
+New `GridLayout` under the status row shows IP Address, Gateway, and Ping (from `internet_ping_ms`, rounded), visible only when actually connected. The old raw `signal + "%"` `Text` is gone.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed intact, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, waited for a real poll cycle, and screenshotted -- IP Address (`192.168.1.153`), Gateway (`192.168.1.1`), and Ping (`7 ms`) all matched this machine's real live connection state, not placeholder data, and the raw `%` no longer appears in the status row.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

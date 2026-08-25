@@ -223,6 +223,20 @@ Applied the same header-collapse pattern from Wi-Fi's last pass from the start t
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed (`fa-bluetooth` U+F293), `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- header correctly showed "Tang, Sittinon's Keyboard" (this machine's real connected device), toggle on, and the device list showing that same device as "Connected" -- not placeholder data.
 
+## Bluetooth header un-collapsed, row label fixed to an action verb
+
+Direct correction: "bluetooth setting doesnnt make sense, we should keep bluetooth text. its more like audio imo. and instead of connected... like its not showing anything else to discover so idk bro like the omarchy one has a disconnect click. this bluetooth setting we have doesnt make sense."
+
+Two real fixes:
+
+**Header title no longer collapses to a device name.** The previous pass applied Wi-Fi's header-collapse pattern to Bluetooth proactively "since the pattern was established" -- wrong call. Wi-Fi has exactly one active connection, so collapsing its header to the connected SSID is unambiguous; Bluetooth (like Audio's own output+input) can have several devices connected at once, so collapsing to a single device's name would misrepresent the real state whenever more than one is connected. Bluetooth's title reverted to always reading "Bluetooth," matching Audio's own header treatment (Bluetooth "is more like audio" here, exactly as put). The now-unused `connectedBtDevice` property was removed too, not left as dead state.
+
+**Row label changed from a status word to an action verb.** Checked Omarchy's own real row-label logic rather than guessing: `isConnected ? "Disconnect" : "Connect"` -- both action verbs, describing what clicking the row *does*. This plugin's own row said "Connected"/"Connect" -- a status word paired with an action word, which read as inert on the connected row even though the click handler (`toggleBtConnection`) already correctly disconnected on click. Changed to `"Disconnect"`/`"Connect"`, matching their exact real convention.
+
+The "nothing else to discover" observation is real too, but expected -- this section is still deliberately scoped to known/paired devices only (same scope decision as Wi-Fi's known-networks list), so a machine with one paired device will show exactly one row. New-device discovery stays a separate, larger follow-up, not something this pass silently promised.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- header now reads plain "Bluetooth" regardless of connection state, and the connected device's row reads "Disconnect" instead of "Connected."
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

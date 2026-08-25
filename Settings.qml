@@ -503,12 +503,6 @@ Item {
 
   onBtDeviceObjectsChanged: root.syncBtDevices()
 
-  readonly property var connectedBtDevice: {
-    for (var i = 0; i < root.btRows.length; i++)
-      if (root.btRows[i].connected) return root.btRows[i]
-    return null
-  }
-
   function toggleBluetoothRadio() {
     Quickshell.execDetached(["omarchy-bluetooth-power", root.btEnabled ? "off" : "on"])
   }
@@ -680,14 +674,19 @@ Item {
                   // Wifi header text with the Wifi connected name, so
                   // it says Wifi when nothing is connected, and then
                   // the Wifi network name when connected... seems like
-                  // we can save a row this way"). Bluetooth gets the
-                  // same treatment from the start now that the pattern
-                  // is established. Other sections keep their plain
-                  // label.
+                  // we can save a row this way"). Bluetooth does NOT
+                  // get the same treatment -- per direct correction
+                  // ("bluetooth setting doesnnt make sense, we should
+                  // keep bluetooth text. its more like audio imo"):
+                  // Wi-Fi has exactly one active connection, so
+                  // collapsing the title to its name is unambiguous,
+                  // but Bluetooth (like Audio's own output+input) can
+                  // have several devices connected at once, so a
+                  // single collapsed name would misrepresent the real
+                  // state. Bluetooth keeps its plain label, same as
+                  // Audio.
                   text: root.selectedSection === 1
                     ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
-                    : root.selectedSection === 2
-                    ? (root.connectedBtDevice ? root.connectedBtDevice.name : "Bluetooth")
                     : root.sections[root.selectedSection].label
                   font.family: root.fontFamily
                   font.pixelSize: 15
@@ -1336,8 +1335,15 @@ Item {
                             Layout.fillWidth: true
                           }
 
+                          // Action verb, not a status word -- per
+                          // direct correction ("the omarchy one has a
+                          // disconnect click"), matching their own real
+                          // row label logic exactly (isConnected ?
+                          // "Disconnect" : "Connect"). Reads as what
+                          // clicking the row DOES, not just what the
+                          // current state IS.
                           Text {
-                            text: btRow.modelData.connected ? "Connected" : "Connect"
+                            text: btRow.modelData.connected ? "Disconnect" : "Connect"
                             font.family: root.fontFamily
                             font.pixelSize: 11
                             color: root.muted

@@ -158,6 +158,45 @@ Item {
     ? (artist ? artist + " - " + title : title)
     : userHost
 
+  // ~/.local/state/omarchy/current/background is a symlink Omarchy
+  // repoints at the real wallpaper file on every theme/wallpaper change
+  // -- the symlink PATH itself never changes, only what it points to.
+  // Both playerPill (below) and DashboardContent.qml's own playerCard
+  // used to use that path directly as their idle-background Image
+  // source: Qt never saw a different URL string, so it never re-fetched
+  // after the first load -- direct report ("its been stalled... when i
+  // switch theme or wallpaper, its not updating that"). Omarchy's own
+  // background plugin (shell/plugins/background/Background.qml) avoids
+  // this by resolving the symlink with `readlink -f` and using THAT
+  // (genuinely different each time) as the source; same fix here, polled
+  // rather than IPC-driven since there's no shared channel to this
+  // plugin for "the wallpaper changed" the way that plugin gets one.
+  property string resolvedWallpaperPath: ""
+
+  function refreshWallpaperPath() {
+    if (!wallpaperReadlinkProc.running) wallpaperReadlinkProc.running = true
+  }
+
+  Component.onCompleted: refreshWallpaperPath()
+
+  Timer {
+    interval: 5000
+    running: true
+    repeat: true
+    onTriggered: root.refreshWallpaperPath()
+  }
+
+  Process {
+    id: wallpaperReadlinkProc
+    command: ["readlink", "-f", Quickshell.env("HOME") + "/.local/state/omarchy/current/background"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var resolved = String(text || "").trim()
+        if (resolved) root.resolvedWallpaperPath = resolved
+      }
+    }
+  }
+
   property real trackPosition: 0
   readonly property real trackLength: activePlayer ? Math.max(0, Number(activePlayer.length || 0)) : 0
   readonly property real progressRatio: trackLength > 0 ? Math.min(1, trackPosition / trackLength) : 0
@@ -676,7 +715,11 @@ Item {
             color: Color.background
 
             readonly property int pillPadding: 10
-            readonly property string wallpaperPath: "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
+            // root.resolvedWallpaperPath (see its own comment) rather
+            // than the symlink path directly -- see that comment for why.
+            readonly property string wallpaperPath: root.resolvedWallpaperPath !== ""
+              ? "file://" + root.resolvedWallpaperPath
+              : "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
             readonly property string pillBgSource: root.artUrl !== "" ? root.artUrl : wallpaperPath
 
             Image {
@@ -945,6 +988,7 @@ Item {
                 artist: root.artist
                 album: root.album
                 artUrl: root.artUrl
+                resolvedWallpaperPath: root.resolvedWallpaperPath
                 progressRatio: root.progressRatio
                 trackPosition: root.trackPosition
                 trackLength: root.trackLength

@@ -63,6 +63,13 @@ Item {
   property bool brightnessAvailable: false
   property var setBrightness: null
 
+  // Passthrough -- Overlay.qml owns the actual readlink polling (its own
+  // playerPill has the identical wallpaper-as-idle-background pattern,
+  // one real resolution shared by both instead of two). See its own
+  // comment for why this needs to be a resolved real path, not the
+  // symlink path directly.
+  property string resolvedWallpaperPath: ""
+
   // Idle-state artist placeholder -- a small ROW of braille cells with
   // one lit dot scanning back and forth (Cylon/KITT-scanner style),
   // not one single big spinner glyph. First attempt used ONE braille
@@ -379,7 +386,14 @@ Item {
       // (that was the wrong target entirely) -- ambxst's own player
       // never shows real desktop, just blurred art OR a blurred static
       // wallpaper image, same MultiEffect either way.
-      readonly property string wallpaperPath: "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
+      // root.resolvedWallpaperPath (see its own comment above) rather than
+      // the symlink path directly -- a genuinely different URL each time
+      // the wallpaper changes, so the Image elements below actually
+      // refetch instead of staying on whatever loaded first. Falls back
+      // to the raw symlink path only until the first readlink resolves.
+      readonly property string wallpaperPath: root.resolvedWallpaperPath !== ""
+        ? "file://" + root.resolvedWallpaperPath
+        : "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
       readonly property string playerBgSource: root.artUrl !== "" ? root.artUrl : wallpaperPath
 
       Image {

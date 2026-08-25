@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Services.Pipewire
 import qs.Commons
 
 // Ruixen Settings -- standalone center-panel settings app. First plugin
@@ -113,6 +114,66 @@ Item {
     if (root.opened) root.dismiss()
     else root.open(payloadJson)
   }
+
+  // Real Pipewire-backed audio state -- Quickshell.Services.Pipewire is
+  // a standard Quickshell module (not Omarchy-private), confirmed by
+  // reading Omarchy's own audio bar-widget directly
+  // ($OMARCHY_PATH/shell/plugins/panels/audio/Panel.qml) for the real
+  // property paths (node.audio.volume/muted, Pipewire.
+  // preferredDefaultAudioSink) rather than guessing -- ported the exact
+  // API calls, not the file itself (theirs is a 1200-line full mixer
+  // with per-app streams + MPRIS matching; this pass is scoped to
+  // volume + output device picker only, per direct request: "should we
+  // start with the audio then... volume + output device picker").
+  readonly property var outputSink: Pipewire.defaultAudioSink
+  readonly property real outputVolume: outputSink && outputSink.audio ? outputSink.audio.volume : 0
+  readonly property bool outputMuted: outputSink && outputSink.audio ? outputSink.audio.muted : false
+
+  readonly property var outputDevices: {
+    var list = []
+    var all = Pipewire.nodes ? Pipewire.nodes.values : []
+    for (var i = 0; i < all.length; i++) {
+      var n = all[i]
+      if (n && n.isSink && !n.isStream) list.push(n)
+    }
+    return list
+  }
+
+  function setOutputVolume(v) {
+    if (root.outputSink && root.outputSink.audio)
+      root.outputSink.audio.volume = Math.max(0, Math.min(1, v))
+  }
+
+  function toggleOutputMute() {
+    if (root.outputSink && root.outputSink.audio)
+      root.outputSink.audio.muted = !root.outputSink.audio.muted
+  }
+
+  function setDefaultOutput(node) {
+    Pipewire.preferredDefaultAudioSink = node
+  }
+
+  // Same real property-preference order as Omarchy's own nodeLabel()/
+  // friendlyDeviceLabel() in Model.js, ported directly (not guessed):
+  // nickname/nick fields first, falling back to description/name, then
+  // trimmed of the same noisy driver-name prefixes/suffixes their real
+  // hardware strings carry on this exact machine class.
+  function outputLabel(node) {
+    if (!node) return "Unknown"
+    var props = (node.ready && node.properties) ? node.properties : {}
+    var nickname = node.nickname || node.nick || props["node.nick"] || props["device.profile.description"] || ""
+    var label = String(nickname || node.description || props["node.description"] || node.name || "Unknown").trim()
+    label = label.replace(/^sof-soundwire\s+/i, "")
+    label = label.replace(/^built-?in audio\s+/i, "")
+    label = label.replace(/\s+Output$/i, "")
+    return label
+  }
+
+  // Binds/tracks the candidate output nodes so their volume/muted/name
+  // properties actually receive live updates -- same real requirement
+  // Omarchy's own audio widget has (its own Panel.qml uses the
+  // identical PwObjectTracker pattern for its candidateSinks list).
+  PwObjectTracker { objects: root.outputDevices }
 
   PanelWindow {
     id: panel
@@ -260,7 +321,122 @@ Item {
                 Layout.fillWidth: true
               }
 
-              // Placeholder -- real per-section content lands in a
+              // Audio -- real Pipewire volume + output device picker,
+              // per direct request ("should we start with the audio
+              // then... volume + output device picker"). Wi-Fi/
+              // Bluetooth stay on the generic placeholder below until
+              // their own real backends land.
+              ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.selectedSection === 0
+                spacing: 16
+
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 10
+
+                  Text {
+                    text: root.outputMuted ? "" : ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 15
+                    color: root.textColor
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -6
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.toggleOutputMute()
+                    }
+                  }
+
+                  Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 6
+                    radius: 3
+                    color: Qt.rgba(1, 1, 1, 0.1)
+
+                    Rectangle {
+                      width: parent.width * Math.max(0, Math.min(1, root.outputVolume))
+                      height: parent.height
+                      radius: 3
+                      color: root.outputMuted ? root.muted : root.accent
+                      Behavior on width { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.topMargin: -8
+                      anchors.bottomMargin: -8
+                      onPressed: mouse => root.setOutputVolume(mouse.x / width)
+                      onPositionChanged: mouse => { if (pressed) root.setOutputVolume(mouse.x / width) }
+                    }
+                  }
+
+                  Text {
+                    text: Math.round(root.outputVolume * 100) + "%"
+                    font.family: root.fontFamily
+                    font.pixelSize: 12
+                    color: root.muted
+                    Layout.preferredWidth: 32
+                    horizontalAlignment: Text.AlignRight
+                  }
+                }
+
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  spacing: 4
+
+                  Repeater {
+                    model: root.outputDevices
+
+                    Rectangle {
+                      id: deviceRow
+                      required property var modelData
+                      readonly property bool isDefault: root.outputSink && deviceRow.modelData && root.outputSink.id === deviceRow.modelData.id
+
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: 32
+                      radius: 8
+                      color: deviceRow.isDefault ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+
+                      RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
+
+                        Text {
+                          text: ""
+                          font.family: root.fontFamily
+                          font.pixelSize: 13
+                          color: deviceRow.isDefault ? root.accent : root.muted
+                        }
+
+                        Text {
+                          text: root.outputLabel(deviceRow.modelData)
+                          font.family: root.fontFamily
+                          font.pixelSize: 12
+                          font.weight: deviceRow.isDefault ? Font.DemiBold : Font.Normal
+                          color: deviceRow.isDefault ? root.textColor : root.muted
+                          elide: Text.ElideRight
+                          Layout.fillWidth: true
+                        }
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.setDefaultOutput(deviceRow.modelData)
+                      }
+                    }
+                  }
+                }
+
+                Item { Layout.fillHeight: true }
+              }
+
+              // Placeholder -- Wi-Fi/Bluetooth real backends land in a
               // follow-up pass, same "coming soon" stub pattern
               // ruixen.notch's own Metrics/Wallpapers tabs started
               // from. Doesn't repeat the section name again (the title
@@ -268,6 +444,7 @@ Item {
               // lesson from CPU/GPU's own "Usage X%" line earlier in
               // this project.
               Text {
+                visible: root.selectedSection !== 0
                 Layout.alignment: Qt.AlignHCenter
                 Layout.fillHeight: true
                 verticalAlignment: Text.AlignVCenter

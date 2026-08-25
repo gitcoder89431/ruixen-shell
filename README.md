@@ -108,6 +108,23 @@ Removed the whole corner-X `Text`+`MouseArea` block, the now-stale `id: sectionT
 
 **Verified**: brace-balance check clean, `omarchy plugin validate` clean, live-restarted the shell, screenshotted -- panel now leads cleanly with just the section title ("Audio"/"Wi-Fi"/"Bluetooth"), no misaligned close button. Confirmed the backdrop's own dismiss handler is untouched (`grep` still finds it wired at the same line), so click-outside-to-dismiss and Escape both still work.
 
+## Real Audio section: volume slider + output device picker
+
+Direct request: "cool ok so should we start with the audio then. do we use the audio from omarchy as reference it seems to have what we need." Read Omarchy's own audio bar-widget directly (`$OMARCHY_PATH/shell/plugins/panels/audio/Panel.qml` + `Model.js`, 1,237 + 262 lines) to find the real API rather than guessing -- `Quickshell.Services.Pipewire` is a standard Quickshell module (not Omarchy-private), so it's fair game for this standalone plugin too. Scope for this first pass (confirmed): volume + output device picker, not a full per-app mixer.
+
+Ported the exact real property paths and calls, not the file itself (theirs also covers per-app streams + MPRIS stream-name matching, well beyond this pass's scope, and pulls in `qs.Ui` widgets this plugin deliberately avoids):
+
+- `Pipewire.defaultAudioSink.audio.volume` (0-1) / `.audio.muted` -- master output volume/mute
+- `Pipewire.nodes.values` filtered to `n.isSink && !n.isStream` -- the real output device list
+- `Pipewire.preferredDefaultAudioSink = node` -- switches the default output device
+- `PwObjectTracker { objects: root.outputDevices }` -- required so tracked nodes' properties actually receive live updates (same real requirement their own widget has)
+- `outputLabel(node)` ports Omarchy's own `nodeLabel()`/`friendlyDeviceLabel()` property-preference order verbatim (nickname/nick fields first, falling back to description/name, trimmed of the same noisy driver-name prefixes their real hardware strings carry) -- not reimplemented from scratch, copied from a working reference.
+- Default-device comparison uses `root.outputSink.id === node.id`, the same real comparison their own `isActive` property uses.
+
+UI: a custom drag-to-set volume bar (icon toggles mute, `Rectangle` track + fill, `MouseArea` computing volume from `mouse.x / width` on press and drag) since this plugin doesn't use `qs.Ui.Slider`, plus a device list styled like the sidebar's own selected-row treatment (accent-colored icon/text + faint background pill for whichever device is currently default).
+
+**Verified**: brace-balance check clean (caught and fixed a real double-closed-brace from the line-splice edit before testing), glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- volume slider showed the actual live system volume (27%) and both real connected output devices ("USB Audio and HID", "CB242Y E" -- an actual connected monitor), not placeholder data. Drag-to-set/mute-click/device-switch-click themselves couldn't be directly simulated (same standing mouse-interaction limitation as the rest of this project), but every property path and function call is copied byte-for-byte from Omarchy's own shipped, working implementation rather than guessed.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

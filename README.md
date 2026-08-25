@@ -51,9 +51,7 @@ bind("SUPER", "comma", "exec", "omarchy-shell shell toggle ruixen.settings")
 
 ## Disabling / going back to Omarchy defaults
 
-Nothing here is a one-way door. Omarchy's own plugin commands handle
-enable/disable and bar-switching live, with no file edits or shell restart
-needed:
+Nothing here is a one-way door.
 
 **Turn individual plugins off, keep everything installed:**
 
@@ -66,25 +64,21 @@ omarchy plugin disable ruixen.settings
 omarchy plugin enable ruixen.notch   # turns it back on
 ```
 
+If a plugin stops updating after toggling it a few times, run
+`omarchy restart shell` — a full restart always clears it.
+
 **Switch the bar back to stock Omarchy:**
 
 ```bash
 omarchy bar defaults
 ```
 
-`omarchy plugin enable omarchy.bar` looks like the obvious command here, but
-it only swaps which bar *engine* renders — it leaves your saved widget
-`layout` untouched, so you get Omarchy's bar trying to render Ruixen's widget
-IDs, not a clean default. `omarchy bar defaults` is the real reset: it
-replaces the whole bar config (id, layout, position, transparency) with
-Omarchy's shipped defaults in one shot. We hit this ourselves — the first
-version of this doc was wrong, and we caught it because a live toggle test
-came back looking broken, not because we imagined the failure mode.
+Use `omarchy bar defaults`, not `omarchy plugin enable omarchy.bar` — that
+command only swaps the bar engine and leaves Ruixen's widget layout in
+place, which looks broken rather than default. `omarchy bar defaults`
+resets everything (id, layout, position, transparency) in one shot.
 
-There's no single command to get back to Ruixen's own bar layout afterward
-(swapping bar identity doesn't restore a custom layout any more than it did
-going the other way) — reinstalling (`./install.sh`) is the straightforward
-way back if you want it.
+To bring Ruixen's own bar back afterward, just run `./install.sh` again.
 
 **Fully remove a plugin's files:**
 
@@ -92,39 +86,19 @@ way back if you want it.
 omarchy plugin remove ruixen.bar
 ```
 
-Disable/enable only flips a live flag — nothing is deleted, and there's no
-reason to reinstall just to try turning something off. `remove` is the one
-destructive step, and it only touches the plugin you name.
-
-We ran this full off → on cycle on a live setup (disable the overlays,
-`omarchy bar defaults` to reset the bar, then reinstall to bring Ruixen's
-layout back) to confirm it's clean: the stock Omarchy bar and panels render
-correctly with Ruixen off, the shell process never restarts or drops, and
-`hyprctl` confirms every setting the toggle touches actually changes.
+This is the only step that deletes anything — disable/enable and the bar
+reset just flip settings.
 
 ## Window look'n'feel (Hyprland)
 
-Ruixen's frame and bar use a 24px corner radius, and `hyprland/looknfeel.ruixen.lua`
-matches that in Hyprland itself (window rounding + blur) so windows read as
-part of the same shell instead of clashing with it. This is a real Hyprland
-`decoration` override, separate from the plugin toggles above — disabling
-the shell plugins doesn't touch it.
-
-A small script ships alongside it to swap between Ruixen's look and stock
-Omarchy's (square corners, no blur):
+Ruixen also rounds window corners (24px) and adds blur, to match the
+frame/bar. Toggle it independently of the plugins above:
 
 ```bash
 hyprland/ruixen-lookfeel.sh on      # rounded corners + blur, matches the frame
 hyprland/ruixen-lookfeel.sh off     # stock Omarchy: square corners, no blur
-hyprland/ruixen-lookfeel.sh status  # show which variant is active
+hyprland/ruixen-lookfeel.sh status  # show which one is active
 ```
-
-It works by symlinking `~/.config/hypr/looknfeel.lua` to whichever variant
-file you pick and running `hyprctl reload` — no shell restart, and any
-existing plain (non-symlinked) `looknfeel.lua` you already have gets backed
-up rather than overwritten. Verified directly with `hyprctl getoption
-decoration:rounding` / `decoration:blur:enabled` before and after each
-toggle, not just by eye.
 
 ## Requirements
 

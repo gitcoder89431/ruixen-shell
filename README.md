@@ -189,6 +189,16 @@ The shared page-title `Text` became a `RowLayout` (title + the switch, `visible:
 
 **Verified**: brace-balance check clean, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- toggle sat correctly right-aligned on the "Audio" header, showing "on" while output was genuinely audible (27%, unmuted). Also muted the real system output directly via `wpctl set-mute @DEFAULT_AUDIO_SINK@ 1` (confirmed via the bar's own speaker icon switching to muted) to verify `anyAudible`/`toggleAllMuted()` are wired to the real property, not a local-only flag -- then restored it unmuted afterward.
 
+## Wi-Fi header gains a toggle, QR button, and speed test button
+
+Direct request: "cool for the wifi page the header Wifi doesnt have a toggle. can we add the icons that opens the QR and the speedtest similar to how omarchy wifi setting has it." Two changes:
+
+**Toggle moved to the header.** The Wi-Fi radio switch used to live in the Wi-Fi-specific status row (below the shared title), not on the "Wi-Fi" header row itself -- inconsistent with Audio's own master switch, which sits directly on the "Audio" header. Moved it up onto the shared title `RowLayout` (`visible: selectedSection === 1`), removing the now-duplicate copy from the status row below.
+
+**QR + speed test buttons, ported from Omarchy's own real mechanism.** Found `root.shell.summon(pluginId, payloadJson)` at `$OMARCHY_PATH/shell/shell.qml` -- the same generic host API our own `dismiss()` already calls as `shell.hide(id)`, just the "open a panel" verb instead of "close this one." Omarchy's own network panel uses it to open two other real, already-enabled panel plugins (confirmed via `omarchy-shell shell listPlugins`, not guessed): `omarchy.wifiqr` and `omarchy.speedtest`. Ported their exact real payload shapes -- `summonWifiQr()` sends `{iface, ssid}` when a connection is known (empty object otherwise, letting the QR panel self-detect), `summonSpeedTest()` sends `{connection: ssid}` (or `"{}"`). Icons (`fa-qrcode` U+F029, `fa-gauge_high` U+ED2F) sit on the same header row as the toggle, right-aligned in the same qr-then-speedtest-then-toggle order Omarchy's own header actions use.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- QR icon, gauge icon, and toggle all render correctly right-aligned on the "Wi-Fi" header, matching Audio's own header layout, with the old duplicate toggle gone from the status row below. Confirmed both target plugins (`omarchy.wifiqr`, `omarchy.speedtest`) are real and already enabled in this shell. The click-through itself (actually opening either panel) couldn't be directly simulated -- same standing mouse-interaction limitation as the rest of this project -- but `summon()` is the same real, already-proven API this plugin's own `dismiss()` uses for `hide()`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

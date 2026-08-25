@@ -342,6 +342,30 @@ Item {
     Networking.wifiEnabled = !Networking.wifiEnabled
   }
 
+  // Both real Omarchy panel plugins (kind: panel), already enabled in
+  // this shell -- confirmed via omarchy-shell shell listPlugins, not
+  // guessed. root.shell.summon(id, payloadJson) is the same generic
+  // host API our own dismiss() already calls as shell.hide(id)
+  // (confirmed real at $OMARCHY_PATH/shell/shell.qml's own summon()/
+  // hide() functions), just the "open a panel" verb instead of "close
+  // this one". Payload shapes ported directly from Omarchy's own
+  // summonWifiQr()/summonSpeedTest() in Panel.qml.
+  function summonWifiQr() {
+    if (!root.shell || typeof root.shell.summon !== "function") return
+    var payload = {}
+    if (root.connectedWifiNetwork) {
+      if (root.netInfo.iface) payload.iface = root.netInfo.iface
+      payload.ssid = root.connectedWifiNetwork.ssid
+    }
+    root.shell.summon("omarchy.wifiqr", JSON.stringify(payload))
+  }
+
+  function summonSpeedTest() {
+    if (!root.shell || typeof root.shell.summon !== "function") return
+    var connection = root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : ""
+    root.shell.summon("omarchy.speedtest", connection ? JSON.stringify({ connection: connection }) : "{}")
+  }
+
   // scannerEnabled lives on the shared WifiDevice (not per-panel-
   // instance state), so it has to be explicitly released -- ported
   // directly from Omarchy's own setScannerEnabled()/scannerDevice
@@ -594,6 +618,79 @@ Item {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.toggleAllMuted()
+                  }
+                }
+
+
+                // QR code button -- summons Omarchy's own real
+                // omarchy.wifiqr panel plugin via the shared host
+                // summon() API (root.shell.summon(id, payloadJson),
+                // same generic function as our own dismiss()'s
+                // shell.hide(id), confirmed real at
+                // $OMARCHY_PATH/shell/shell.qml). Same real payload
+                // shape their own network panel uses -- iface+ssid
+                // when a wifi connection is known, empty object
+                // otherwise (the QR panel self-detects then).
+                Text {
+                  visible: root.selectedSection === 1
+                  text: ""
+                  font.family: root.fontFamily
+                  font.pixelSize: 14
+                  color: root.muted
+
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -6
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.summonWifiQr()
+                  }
+                }
+
+                // Speed test button -- summons Omarchy's own real
+                // omarchy.speedtest panel plugin, same summon() API
+                // and payload shape (connection name) as their own.
+                Text {
+                  visible: root.selectedSection === 1
+                  text: ""
+                  font.family: root.fontFamily
+                  font.pixelSize: 14
+                  color: root.muted
+
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -6
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.summonSpeedTest()
+                  }
+                }
+
+                // Wi-Fi radio toggle -- moved up here from the status
+                // row below, per direct follow-up ("the header Wifi
+                // doesnt have a toggle"), matching exactly where
+                // Audio's own master toggle sits on its header.
+                Rectangle {
+                  visible: root.selectedSection === 1
+                  Layout.preferredWidth: 36
+                  Layout.preferredHeight: 18
+                  radius: 9
+                  color: Networking.wifiEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+
+                  Behavior on color { ColorAnimation { duration: 120 } }
+
+                  Rectangle {
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: "#ffffff"
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: Networking.wifiEnabled ? parent.width - width - 2 : 2
+                    Behavior on x { NumberAnimation { duration: 120 } }
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.toggleWifiRadio()
                   }
                 }
               }
@@ -862,34 +959,6 @@ Item {
                     font.weight: Font.DemiBold
                     color: root.textColor
                     elide: Text.ElideRight
-                  }
-
-                  // Toggle switch -- radio on/off, same real property
-                  // (Networking.wifiEnabled) Omarchy's own toggleHint/
-                  // click handler uses.
-                  Rectangle {
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 18
-                    radius: 9
-                    color: Networking.wifiEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
-
-                    Behavior on color { ColorAnimation { duration: 120 } }
-
-                    Rectangle {
-                      width: 14
-                      height: 14
-                      radius: 7
-                      color: "#ffffff"
-                      anchors.verticalCenter: parent.verticalCenter
-                      x: Networking.wifiEnabled ? parent.width - width - 2 : 2
-                      Behavior on x { NumberAnimation { duration: 120 } }
-                    }
-
-                    MouseArea {
-                      anchors.fill: parent
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.toggleWifiRadio()
-                    }
                   }
                 }
 

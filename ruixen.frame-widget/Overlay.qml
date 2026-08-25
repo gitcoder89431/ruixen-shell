@@ -22,9 +22,18 @@ Item {
     readonly property int thickness: 6
     readonly property int cornerRadius: 24
 
+    // Real fullscreen-state watching, not a layer trick -- this stays on
+    // WlrLayer.Overlay (see ruixen.notch's own Overlay.qml for why: Top
+    // caused click-stacking contention with ruixen.bar's own top-layer
+    // surface), so a fullscreen window would otherwise never cover it.
+    // ToplevelManager.activeToplevel.fullscreen is the same Wayland
+    // foreign-toplevel property Omarchy's own ActiveWindow.qml reads.
+    readonly property bool fullscreenActive: ToplevelManager.activeToplevel
+      ? ToplevelManager.activeToplevel.fullscreen : false
+
     PanelWindow {
         id: panel
-        visible: true
+        visible: !root.fullscreenActive
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
 

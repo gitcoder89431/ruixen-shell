@@ -33,6 +33,13 @@ Item {
   property var shell: null
   property var manifest: null
 
+  // Real fullscreen-state watching -- see the layer comment on `panel`
+  // below for why this stays on WlrLayer.Overlay instead of a layer trick.
+  // ToplevelManager.activeToplevel.fullscreen is the same Wayland
+  // foreign-toplevel property Omarchy's own ActiveWindow.qml reads.
+  readonly property bool fullscreenActive: ToplevelManager.activeToplevel
+    ? ToplevelManager.activeToplevel.fullscreen : false
+
   readonly property color notchColor: "#000000"
   // Same theme-aware-with-safety-net treatment as ruixen.bar's
   // pillForeground (see Bar.qml for the full reasoning): this notch is
@@ -374,7 +381,7 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: true
+    visible: !root.fullscreenActive
     // bottom:true too, not just top/left/right -- the click-away-to-
     // dismiss MouseArea (see below) needs the panel's own surface to
     // actually reach the full screen height for its widened mask to

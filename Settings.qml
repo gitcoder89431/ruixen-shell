@@ -580,11 +580,21 @@ Item {
                 spacing: 8
 
                 Text {
-                  text: root.sections[root.selectedSection].label
+                  // Wi-Fi's own title collapses with its connection
+                  // name -- per direct follow-up ("can we collapse the
+                  // Wifi header text with the Wifi connected name, so
+                  // it says Wifi when nothing is connected, and then
+                  // the Wifi network name when connected... seems like
+                  // we can save a row this way"). Other sections keep
+                  // their plain label.
+                  text: root.selectedSection === 1
+                    ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
+                    : root.sections[root.selectedSection].label
                   font.family: root.fontFamily
                   font.pixelSize: 15
                   font.weight: Font.DemiBold
                   color: root.textColor
+                  elide: Text.ElideRight
                   Layout.fillWidth: true
                 }
 
@@ -939,28 +949,11 @@ Item {
                 visible: root.selectedSection === 1
                 spacing: 12
 
-                RowLayout {
-                  Layout.fillWidth: true
-                  spacing: 10
+                // Status row removed -- its own job (icon + SSID/"Not
+                // connected"/"Wi-Fi off") is now the collapsed header
+                // title above (see the shared title Text's own
+                // comment), saving a row per direct follow-up.
 
-                  Text {
-                    text: ""
-                    font.family: root.fontFamily
-                    font.pixelSize: 15
-                    color: root.textColor
-                  }
-
-                  Text {
-                    Layout.fillWidth: true
-                    text: !Networking.wifiEnabled ? "Wi-Fi off"
-                      : (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Not connected")
-                    font.family: root.fontFamily
-                    font.pixelSize: 13
-                    font.weight: Font.DemiBold
-                    color: root.textColor
-                    elide: Text.ElideRight
-                  }
-                }
 
                 // Real connection stats -- IP/Gateway/Ping -- per direct
                 // follow-up ("what about the other stats, the omarchy

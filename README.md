@@ -199,6 +199,14 @@ Direct request: "cool for the wifi page the header Wifi doesnt have a toggle. ca
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- QR icon, gauge icon, and toggle all render correctly right-aligned on the "Wi-Fi" header, matching Audio's own header layout, with the old duplicate toggle gone from the status row below. Confirmed both target plugins (`omarchy.wifiqr`, `omarchy.speedtest`) are real and already enabled in this shell. The click-through itself (actually opening either panel) couldn't be directly simulated -- same standing mouse-interaction limitation as the rest of this project -- but `summon()` is the same real, already-proven API this plugin's own `dismiss()` uses for `hide()`.
 
+## Wi-Fi header collapses with the connection name, saving a row
+
+Direct request: "cool hmm can we collapse the Wifi header text with the Wifi connected name, so it says Wifi when nothing is connected, and then the Wifi network name when connected on the header, seems like we can save a row this way."
+
+The shared page-title `Text`'s own `text` binding is now conditional on `selectedSection === 1`: Wi-Fi shows `root.connectedWifiNetwork.ssid` when connected, else the plain "Wi-Fi" label; every other section keeps its plain `sections[...].label` as before. Added `elide: Text.ElideRight` too, since a real SSID can run longer than "Wi-Fi" ever would. With the header now carrying that job, the old dedicated status row (wifi icon + SSID/"Not connected"/"Wi-Fi off" text) inside the Wi-Fi content block was pure duplication -- removed entirely, actually saving the row as asked rather than just moving the same text around.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed (the old status row's own wifi icon is correctly gone, all other glyphs intact), `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- header read "STZ-P2" while genuinely connected. Also force-tested the disconnected fallback (temporarily hardcoding the connected-branch condition to `false`, restarting, screenshotting, then reverting) -- header correctly fell back to plain "Wi-Fi".
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

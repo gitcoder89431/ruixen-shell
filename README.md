@@ -243,6 +243,18 @@ Direct follow-up: "uhh the text disconnect is confusing, how about like clicking
 
 **Verified**: brace-balance check clean (caught and fixed a real double-closed-brace from the line-splice edit before testing, same class of mistake as an earlier pass), glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- connected device row now shows a small red X instead of the word "Disconnect."
 
+## Real Display section: brightness slider
+
+Direct request: "nice ok i just noticed, can we do a display one too, the omarchy one has it, looks pretty simple?" This one genuinely was simple, for a different reason than expected -- didn't need to read Omarchy's own `Panel.qml` (922 lines) at all. `ruixen-notch` already has this exact real mechanism proven and running in production (`Overlay.qml`'s own `brightnessPercent`/`setBrightness`), so it was ported directly instead of reinvented:
+
+- `omarchy-monitor-state` for reading -- line 0 is brightness %, line 5 is the focused monitor's name (confirmed by running it directly on this machine, not guessed: `"56\n\nHDMI-A-1\n\n\nHDMI-A-1\n1\n[...]"`)
+- `omarchy-brightness-display --no-osd --monitor <name> <percent>%` for writing
+- Deliberately no re-read-on-write -- ported `ruixen-notch`'s own reasoning verbatim: reading right after writing races the hardware/driver and can briefly bounce the slider back to 0, so the locally-set value stays authoritative until the next periodic poll
+
+Fourth sidebar entry (`fa-desktop` U+F108), same custom drag-to-set slider style as Audio's volume bar. No header-collapse -- matches Audio/Bluetooth's plain-label treatment, not Wi-Fi's connection-name one.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- brightness slider showed 56%, matching `omarchy-monitor-state`'s own real output on this machine exactly, not placeholder data.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

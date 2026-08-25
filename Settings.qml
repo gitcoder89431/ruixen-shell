@@ -74,7 +74,8 @@ Item {
   readonly property var sections: [
     { id: "audio", label: "Audio", glyph: "" },
     { id: "wifi", label: "Wi-Fi", glyph: "" },
-    { id: "bluetooth", label: "Bluetooth", glyph: "" }
+    { id: "bluetooth", label: "Bluetooth", glyph: "" },
+    { id: "display", label: "Display", glyph: "" }
   ]
   property int selectedSection: 0
 
@@ -518,6 +519,61 @@ Item {
     if (!row || !row.address) return
     if (row.connected) Quickshell.execDetached(["omarchy-bluetooth-device", "disconnect", row.address])
     else Quickshell.execDetached(["omarchy-bluetooth-device", "connect", row.address])
+  }
+
+  // Display brightness -- per direct request ("can we do a display
+  // one too, the omarchy one has it, looks pretty simple?"). Didn't
+  // need to read Omarchy's own Panel.qml for this one -- ruixen-notch
+  // already has this exact real mechanism proven and running in
+  // production (Overlay.qml's own brightnessPercent/setBrightness),
+  // ported directly rather than reinvented: `omarchy-monitor-state`
+  // for reading (line 0 = brightness %, line 5 = focused monitor
+  // name, confirmed by running it directly on this machine --
+  // "56\n\nHDMI-A-1\n\n\nHDMI-A-1\n1\n[...]"), `omarchy-brightness-
+  // display --no-osd --monitor <name> <percent>%` for writing.
+  property real brightnessPercent: 50
+  property string focusedMonitor: ""
+  property bool brightnessAvailable: false
+
+  Process {
+    id: brightnessStateProc
+    command: ["omarchy-monitor-state"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").split("\n")
+        var b = String(lines[0] || "").trim()
+        root.brightnessAvailable = b !== "unavailable" && b !== ""
+        if (root.brightnessAvailable) root.brightnessPercent = Math.max(0, Math.min(100, parseInt(b, 10)))
+        root.focusedMonitor = String(lines[5] || "").trim()
+      }
+    }
+  }
+
+  Timer {
+    interval: 5000
+    running: root.opened
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!brightnessStateProc.running) brightnessStateProc.running = true
+  }
+
+  Process {
+    id: setBrightnessProc
+    stdout: StdioCollector { waitForEnd: true }
+    // Deliberately does NOT trigger a re-read on completion -- same
+    // reasoning ported from ruixen-notch's own comment: re-reading via
+    // omarchy-monitor-state right after a write races the hardware/
+    // driver and can return an empty string, briefly bouncing the
+    // slider back to 0. The locally-set value is authoritative until
+    // the next periodic poll.
+  }
+
+  function setBrightness(percent) {
+    var p = Math.max(0, Math.min(100, Math.round(percent)))
+    root.brightnessPercent = p
+    setBrightnessProc.command = ["omarchy-brightness-display", "--no-osd", "--monitor", root.focusedMonitor, p + "%"]
+    setBrightnessProc.running = true
   }
 
   PanelWindow {
@@ -1373,6 +1429,78 @@ Item {
                   }
                 }
               }
+
+              // Display -- real brightness slider, ported directly
+              // from ruixen-notch's own proven mechanism (see the
+              // brightnessPercent/setBrightness block above) rather
+              // than reading Omarchy's own Panel.qml, per direct
+              // request ("can we do a display one too, the omarchy one
+              // has it, looks pretty simple?").
+              ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.selectedSection === 3
+                spacing: 16
+
+                Text {
+                  visible: !root.brightnessAvailable
+                  Layout.alignment: Qt.AlignHCenter
+                  Layout.fillHeight: true
+                  verticalAlignment: Text.AlignVCenter
+                  text: "No controllable display found"
+                  font.family: root.fontFamily
+                  font.pixelSize: 12
+                  color: root.muted
+                }
+
+                RowLayout {
+                  visible: root.brightnessAvailable
+                  Layout.fillWidth: true
+                  spacing: 10
+
+                  Text {
+                    text: ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 15
+                    color: root.textColor
+                  }
+
+                  Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 6
+                    radius: 3
+                    color: Qt.rgba(1, 1, 1, 0.1)
+
+                    Rectangle {
+                      width: parent.width * Math.max(0, Math.min(1, root.brightnessPercent / 100))
+                      height: parent.height
+                      radius: 3
+                      color: root.accent
+                      Behavior on width { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.topMargin: -8
+                      anchors.bottomMargin: -8
+                      onPressed: mouse => root.setBrightness(100 * mouse.x / width)
+                      onPositionChanged: mouse => { if (pressed) root.setBrightness(100 * mouse.x / width) }
+                    }
+                  }
+
+                  Text {
+                    text: Math.round(root.brightnessPercent) + "%"
+                    font.family: root.fontFamily
+                    font.pixelSize: 12
+                    color: root.muted
+                    Layout.preferredWidth: 32
+                    horizontalAlignment: Text.AlignRight
+                  }
+                }
+
+                Item { Layout.fillHeight: true }
+              }
+
 
             }
           }

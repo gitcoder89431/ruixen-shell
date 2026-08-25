@@ -546,6 +546,13 @@ Item {
         root.brightnessAvailable = b !== "unavailable" && b !== ""
         if (root.brightnessAvailable) root.brightnessPercent = Math.max(0, Math.min(100, parseInt(b, 10)))
         root.focusedMonitor = String(lines[5] || "").trim()
+        // Same real omarchy-monitor-state output already being parsed
+        // above -- line 6 is the current Hyprland monitor scale
+        // (confirmed directly: "...HDMI-A-1\n1\n[...]" on this
+        // machine), read from the same process instead of polling a
+        // second one just for this.
+        var scaleLine = parseFloat(String(lines[6] || "").trim())
+        if (isFinite(scaleLine)) root.displayScale = String(Math.round(scaleLine * 100) / 100)
       }
     }
   }
@@ -574,6 +581,27 @@ Item {
     root.brightnessPercent = p
     setBrightnessProc.command = ["omarchy-brightness-display", "--no-osd", "--monitor", root.focusedMonitor, p + "%"]
     setBrightnessProc.running = true
+  }
+
+  // Display scale (Hyprland's own per-monitor fractional scaling) --
+  // per direct follow-up ("can we no do text size and scale as well?
+  // without them this setting kinda useless"). Real presets ported
+  // from Omarchy's own scalePresets in Panel.qml -- skips their
+  // resolution-aware availableScales() dedup (filters out presets that
+  // render identically at the current resolution), a real refinement
+  // left for later rather than guessed at.
+  readonly property var scalePresets: ["1", "1.25", "1.6", "2", "3", "4"]
+  property string displayScale: ""
+
+  Process {
+    id: setScaleProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setDisplayScale(scale) {
+    root.displayScale = scale
+    setScaleProc.command = ["bash", "-c", "omarchy-hyprland-monitor-scaling " + scale]
+    setScaleProc.running = true
   }
 
   PanelWindow {
@@ -1453,6 +1481,18 @@ Item {
                   color: root.muted
                 }
 
+                // "Brightness" label -- per direct follow-up ("it
+                // doesnt say brightness so user dont know that is").
+                Text {
+                  visible: root.brightnessAvailable
+                  text: "Brightness"
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                  color: root.muted
+                }
+
+
                 RowLayout {
                   visible: root.brightnessAvailable
                   Layout.fillWidth: true
@@ -1497,6 +1537,54 @@ Item {
                     horizontalAlignment: Text.AlignRight
                   }
                 }
+
+                Text {
+                  visible: root.brightnessAvailable
+                  text: "Display Scale"
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  font.weight: Font.DemiBold
+                  color: root.muted
+                }
+
+                RowLayout {
+                  visible: root.brightnessAvailable
+                  Layout.fillWidth: true
+                  spacing: 6
+
+                  Repeater {
+                    model: root.scalePresets
+
+                    Rectangle {
+                      id: scaleBtn
+                      required property string modelData
+                      readonly property bool isCurrent: root.displayScale === scaleBtn.modelData
+
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: 28
+                      radius: 6
+                      color: scaleBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                      border.width: 1
+                      border.color: scaleBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+                      Text {
+                        anchors.centerIn: parent
+                        text: scaleBtn.modelData + "x"
+                        font.family: root.fontFamily
+                        font.pixelSize: 11
+                        font.weight: scaleBtn.isCurrent ? Font.DemiBold : Font.Normal
+                        color: scaleBtn.isCurrent ? root.textColor : root.muted
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.setDisplayScale(scaleBtn.modelData)
+                      }
+                    }
+                  }
+                }
+
 
                 Item { Layout.fillHeight: true }
               }

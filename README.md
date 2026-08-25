@@ -255,6 +255,16 @@ Fourth sidebar entry (`fa-desktop` U+F108), same custom drag-to-set slider style
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- brightness slider showed 56%, matching `omarchy-monitor-state`'s own real output on this machine exactly, not placeholder data.
 
+## Brightness label added, real Display Scale controls added
+
+Direct follow-up: "it doesnnt say brightness so user dont know that is, also can we no do text size and scale as well? without them this setting kinda useless lol."
+
+Added a "Brightness" sub-label above the slider (same treatment Audio's own Output/Input sections already use). Added real Display Scale controls -- Hyprland's own per-monitor fractional scaling, not something invented: presets (`1`, `1.25`, `1.6`, `2`, `3`, `4`) ported from Omarchy's own `scalePresets` in `Panel.qml`, read from `omarchy-monitor-state`'s own line 6 (confirmed directly: `"...HDMI-A-1\n1\n[...]"` on this machine -- the same process already being polled for brightness, no second poll needed just for this), written via `omarchy-hyprland-monitor-scaling <scale>`, the same real CLI their own `setScale()` calls. Deliberately skipped their `availableScales()` resolution-aware dedup (filters out presets that would render identically at the current resolution) -- a real refinement, left for later rather than guessed at.
+
+Text size was requested in the same message but held back: `omarchy display text size` writes to the same `[font] base-size` key in `~/.config/omarchy/shell.toml` that `ruixen-bar` already hand-tunes to `17` specifically to avoid that command's own real side effects (it also scales GTK text-scaling-factor and terminal font size, confirmed directly in `ruixen-bar`'s own `shell.toml` comment) -- building it as-is would silently clobber that existing setup. Flagged for the user to decide rather than guessed past.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- "Brightness" label visible above the slider, "Display Scale" row showing all six presets with "1x" correctly highlighted as active, matching this machine's real current scale.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

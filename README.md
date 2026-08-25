@@ -237,6 +237,12 @@ The "nothing else to discover" observation is real too, but expected -- this sec
 
 **Verified**: brace-balance check clean, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- header now reads plain "Bluetooth" regardless of connection state, and the connected device's row reads "Disconnect" instead of "Connected."
 
+## Disconnect text replaced with a red X icon
+
+Direct follow-up: "uhh the text disconnect is confusing, how about like clicking on an X red icon to disconnect then." Swapped the `"Disconnect"` text label (from the previous pass) for a small `fa-xmark` (U+F00D) icon in `#e05252`, shown only when the row is connected. "Connect" stays a plain text label for the not-yet-active state -- that half wasn't flagged as confusing, and there's no single obvious icon for "connect to this specific known device" the way a plain X reads unambiguously for "disconnect this one." The row's own click handler (`toggleBtConnection`) is unchanged -- clicking anywhere on the row still works, the icon is just a clearer visual cue for what that click does on a connected row.
+
+**Verified**: brace-balance check clean (caught and fixed a real double-closed-brace from the line-splice edit before testing, same class of mistake as an earlier pass), glyph codepoints confirmed, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- connected device row now shows a small red X instead of the word "Disconnect."
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

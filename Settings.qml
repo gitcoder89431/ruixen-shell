@@ -1335,15 +1335,28 @@ Item {
                             Layout.fillWidth: true
                           }
 
-                          // Action verb, not a status word -- per
-                          // direct correction ("the omarchy one has a
-                          // disconnect click"), matching their own real
-                          // row label logic exactly (isConnected ?
-                          // "Disconnect" : "Connect"). Reads as what
-                          // clicking the row DOES, not just what the
-                          // current state IS.
+                          // Red X icon for disconnect instead of a
+                          // text label -- per direct follow-up ("the
+                          // text disconnect is confusing, how about
+                          // like clicking on an X red icon to
+                          // disconnect then"). "Connect" (not yet
+                          // active) stays a plain text label -- that
+                          // half wasn't flagged as confusing, and
+                          // there's no single obvious icon for
+                          // "connect to this specific known device"
+                          // the way a plain X reads for "disconnect
+                          // this one".
                           Text {
-                            text: btRow.modelData.connected ? "Disconnect" : "Connect"
+                            visible: btRow.modelData.connected
+                            text: ""
+                            font.family: root.fontFamily
+                            font.pixelSize: 12
+                            color: "#e05252"
+                          }
+
+                          Text {
+                            visible: !btRow.modelData.connected
+                            text: "Connect"
                             font.family: root.fontFamily
                             font.pixelSize: 11
                             color: root.muted

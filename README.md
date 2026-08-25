@@ -175,6 +175,20 @@ New `GridLayout` under the status row shows IP Address, Gateway, and Ping (from 
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed intact, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, waited for a real poll cycle, and screenshotted -- IP Address (`192.168.1.153`), Gateway (`192.168.1.1`), and Ping (`7 ms`) all matched this machine's real live connection state, not placeholder data, and the raw `%` no longer appears in the status row.
 
+## Audio master mute toggle, matching Wi-Fi's radio switch
+
+Direct request: "ah ok theres a toggle to enable or disable wifi, we need the same toggle for the audio on the previous page right alignned to the top on the Audio header." Read Omarchy's own audio panel for the real equivalent rather than inventing one -- they call it "the hero switch": a single top-of-panel on/off that covers both output and input at once, reading as on while *either* channel is still audible, so muting just one channel from its own row never silently flips it.
+
+Ported the exact real property/function shape:
+
+- `hasOutput = !!(outputSink && outputSink.audio)`, `hasInput = !!(inputSource && inputSource.audio)`
+- `anyAudible = (hasOutput && !outputMuted) || (hasInput && !inputMuted)`
+- `toggleAllMuted()` -- sets both channels' `muted` to `anyAudible` (mute both if currently audible, unmute both if currently silent)
+
+The shared page-title `Text` became a `RowLayout` (title + the switch, `visible: selectedSection === 0`), matching exactly where Wi-Fi's own radio toggle sits relative to its header. Same visual toggle-switch component as Wi-Fi's (36x18 rounded rect, animated knob), just bound to `anyAudible`/`toggleAllMuted()` instead of `Networking.wifiEnabled`.
+
+**Verified**: brace-balance check clean, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- toggle sat correctly right-aligned on the "Audio" header, showing "on" while output was genuinely audible (27%, unmuted). Also muted the real system output directly via `wpctl set-mute @DEFAULT_AUDIO_SINK@ 1` (confirmed via the bar's own speaker icon switching to muted) to verify `anyAudible`/`toggleAllMuted()` are wired to the real property, not a local-only flag -- then restored it unmuted afterward.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

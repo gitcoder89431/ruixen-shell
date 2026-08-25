@@ -198,6 +198,22 @@ Item {
     Pipewire.preferredDefaultAudioSource = node
   }
 
+  // Master mute switch -- ported directly from Omarchy's own audio
+  // panel's "hero switch" (hasOutput/hasInput/anyAudible/
+  // toggleAllMuted): reads as on while EITHER channel is still
+  // audible, and toggling it mutes or unmutes both at once, so muting
+  // just one channel from its own row below never silently flips this
+  // master switch on its own.
+  readonly property bool hasOutput: !!(outputSink && outputSink.audio)
+  readonly property bool hasInput: !!(inputSource && inputSource.audio)
+  readonly property bool anyAudible: (hasOutput && !outputMuted) || (hasInput && !inputMuted)
+
+  function toggleAllMuted() {
+    var mute = root.anyAudible
+    if (root.hasOutput) root.outputSink.audio.muted = mute
+    if (root.hasInput) root.inputSource.audio.muted = mute
+  }
+
   // Same real property-preference order as Omarchy's own nodeLabel()/
   // friendlyDeviceLabel() in Model.js, ported directly (not guessed):
   // nickname/nick fields first, falling back to description/name, then
@@ -528,13 +544,58 @@ Item {
               // Wifi Audio inside the top of the right panel instead").
               // The removed header used to say "Settings"; this now
               // says which section you're actually looking at instead.
-              Text {
-                text: root.sections[root.selectedSection].label
-                font.family: root.fontFamily
-                font.pixelSize: 15
-                font.weight: Font.DemiBold
-                color: root.textColor
+              // A RowLayout now, not a lone Text -- per direct follow-
+              // up ("theres a toggle to enable or disable wifi, we need
+              // the same toggle for the audio on the previous page
+              // right alignned to the top on the Audio header"), the
+              // Audio section's own master mute switch lives on this
+              // same title row, right-aligned, mirroring where Wi-Fi's
+              // radio toggle sits relative to its own header.
+              RowLayout {
                 Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                  text: root.sections[root.selectedSection].label
+                  font.family: root.fontFamily
+                  font.pixelSize: 15
+                  font.weight: Font.DemiBold
+                  color: root.textColor
+                  Layout.fillWidth: true
+                }
+
+                // Master mute switch -- ported directly from Omarchy's
+                // own audio panel ("the hero switch is the whole
+                // panel's on/off, so it carries both channels at
+                // once... reads as on while anything is still
+                // audible"): anyAudible/toggleAllMuted below are the
+                // exact same real property/function shape as their own
+                // hasOutput/hasInput/anyAudible/toggleAllMuted.
+                Rectangle {
+                  visible: root.selectedSection === 0
+                  Layout.preferredWidth: 36
+                  Layout.preferredHeight: 18
+                  radius: 9
+                  color: root.anyAudible ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+
+                  Behavior on color { ColorAnimation { duration: 120 } }
+
+                  Rectangle {
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: "#ffffff"
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: root.anyAudible ? parent.width - width - 2 : 2
+                    Behavior on x { NumberAnimation { duration: 120 } }
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.toggleAllMuted()
+                  }
+                }
               }
 
               // Audio -- real Pipewire volume + output/input device

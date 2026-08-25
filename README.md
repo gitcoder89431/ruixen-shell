@@ -94,6 +94,27 @@ omarchy plugin remove ruixen.bar
 This is the only step that deletes anything — disable/enable and the bar
 reset just flip settings.
 
+## Docked bar mode (experimental)
+
+By default the left and right icon groups float as separate pills, inset
+from the frame. Docked mode merges each side into one continuous shape
+flush with the frame's corners instead — like the notch, just with one
+shoulder curve per side instead of two. Not the default look, but worth
+trying:
+
+```json
+// in ~/.config/omarchy/shell.json, inside "bar":
+"docked": true
+```
+
+Then reload:
+
+```bash
+omarchy-shell shell reloadConfig
+```
+
+Set it back to `false` (or remove the key) to go back to floating pills.
+
 ## Window look'n'feel (Hyprland)
 
 Ruixen also rounds window corners (24px) and adds blur, to match the

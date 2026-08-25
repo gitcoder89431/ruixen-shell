@@ -44,6 +44,13 @@ Item {
   property bool requestedTransparent: false
   property bool useTransparentForeground: false
   property bool transparent: false
+  // Experimental second look: the outermost left/right pill groups merge
+  // into one continuous shape flush with ruixen.frame-widget's corners
+  // instead of floating, "growing out of the frame" the way ruixen.notch
+  // grows out of the top edge -- one shoulder curve per side instead of
+  // the notch's two. Off by default; set bar.docked: true in shell.json
+  // to try it. Not the team's favorite mode, kept as an opt-in option.
+  property bool docked: false
   property bool centerSectionHovered: false
   // One bar surface exists per monitor and each reports into this count, so a
   // pointer crossing from one monitor's bar to another's stays counted however
@@ -438,6 +445,7 @@ Item {
 
     position = normalizePosition(config.position)
     setRequestedTransparency(config.transparent === true)
+    docked = config.docked === true
     centerAnchor = Util.canonicalWidgetId(config.centerAnchor || "")
 
     // layoutEntries feeds plain JS arrays to the module Repeaters, and QML
@@ -1141,7 +1149,12 @@ Item {
     readonly property int topInset: 13
 
     margins {
-      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? topInset : 0)
+      // Docked mode uses frameInset here too, not topInset -- the merged
+      // corner (leftDockedBg/rightDockedBg below) needs to land on
+      // exactly the same point ruixen.frame-widget's own rounded corner
+      // starts (thickness, thickness), same on all three sides, or its
+      // topLeftRadius/topRightRadius arc won't line up with the frame's.
+      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? (root.docked ? frameInset : topInset) : 0)
       bottom: root.barHidden && root.position === "bottom" ? -root.barSize : 0
       left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? frameInset : 0)
       right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? frameInset : 0)
@@ -1248,6 +1261,63 @@ Item {
       Item {
         anchors.fill: parent
 
+        // Docked mode: the left group (menuPill/workspacesPill/
+        // settingsPill) and right group (trayPill/togglesPill/rightPill/
+        // clockPill) merge into one continuous shape each, flush with
+        // ruixen.frame-widget's own rounded corner instead of floating
+        // inset from it -- "growing out of the frame" the same way
+        // ruixen.notch grows out of the top edge, just one shoulder per
+        // side instead of the notch's two (see ruixen.notch/Overlay.qml's
+        // own bottomLeftRadius/bottomRightRadius treatment -- same simple
+        // per-corner-radius technique, not a custom Shape/Canvas). Declared
+        // first (behind every pill below) since they're all siblings, not
+        // nested -- QML paints siblings in document order.
+        //
+        // Positioned/sized off the existing pills' own x/width rather than
+        // duplicating their layout math: settingsPill.x + settingsPill.width
+        // is wherever the left group actually ends (0 width when
+        // settingsPill's empty, same as its own fade-out), and
+        // parent.width - trayPill.x is the mirror for the right group.
+        Rectangle {
+          id: leftDockedBg
+          visible: root.docked
+          x: 0
+          y: 0
+          width: settingsPill.x + settingsPill.width
+          height: parent.height
+          color: "#000000"
+          antialiasing: true
+          // Matches ruixen.frame-widget's own cornerRadius (24) exactly --
+          // this corner sits at the same point the frame's rounded-rect
+          // hole starts (see BarPanel's margins above: frameInset used for
+          // top too when docked, not topInset, specifically so this lines
+          // up).
+          topLeftRadius: 24
+          topRightRadius: 0
+          bottomLeftRadius: 0
+          // The one shoulder -- bigger than half the pill height so the
+          // square topRightRadius:0 corner reads as a smooth curve, not a
+          // flat edge with a small round bottom. Same shape logic as
+          // ruixen.notch's own bottomLeftRadius/bottomRightRadius, just on
+          // one corner instead of both.
+          bottomRightRadius: height
+        }
+
+        Rectangle {
+          id: rightDockedBg
+          visible: root.docked
+          x: trayPill.x
+          y: 0
+          width: parent.width - trayPill.x
+          height: parent.height
+          color: "#000000"
+          antialiasing: true
+          topRightRadius: 24
+          topLeftRadius: 0
+          bottomRightRadius: 0
+          bottomLeftRadius: height
+        }
+
         // Media used to have its own bar-center pill here. Replaced by
         // ruixen.notch (a standalone overlay, not part of this window) --
         // see that plugin's README for why: it needed to grow downward
@@ -1278,7 +1348,11 @@ Item {
           width: clockRow.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent }
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
 
           Row {
             id: clockRow
@@ -1336,7 +1410,11 @@ Item {
           width: menuContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent }
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
             id: menuContent
@@ -1359,7 +1437,11 @@ Item {
           width: workspacesContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent }
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
             id: workspacesContent
@@ -1392,7 +1474,11 @@ Item {
           width: settingsContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent }
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
             id: settingsContent
@@ -1419,7 +1505,11 @@ Item {
           width: rightContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent }
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
             id: rightContent
@@ -1451,7 +1541,11 @@ Item {
           width: togglesContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent }
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
             id: togglesContent
@@ -1479,7 +1573,11 @@ Item {
           width: trayContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent }
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
             id: trayContent

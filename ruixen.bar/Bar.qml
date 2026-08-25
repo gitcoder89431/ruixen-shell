@@ -1380,6 +1380,12 @@ Item {
 
         Item {
           id: settingsPill
+          // Fades out instead of collapsing width/anchors when
+          // ruixen.settingsbutton isn't in the "left" layout -- same
+          // reasoning as trayPill below: simpler than juggling anchors
+          // around a pill that comes and goes, and nothing else anchors
+          // off settingsPill's own edges.
+          opacity: settingsContent.width > 0 ? 1 : 0
           anchors.left: workspacesPill.right
           anchors.leftMargin: 6
           anchors.verticalCenter: parent.verticalCenter

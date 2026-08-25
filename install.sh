@@ -15,7 +15,7 @@ command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarch
 
 mkdir -p "$plugins_dir"
 
-printf '\n[1/3] Validating and installing plugins\n'
+printf '\n[1/4] Validating and installing plugins\n'
 for dir in "$script_dir"/ruixen.*/; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
@@ -32,7 +32,7 @@ for dir in "$script_dir"/ruixen.*/; do
   printf '  installed %s\n' "$id"
 done
 
-printf '\n[2/3] Applying shell layout\n'
+printf '\n[2/4] Applying shell layout\n'
 if [[ -e "$shell_json" ]]; then
   cp "$shell_json" "${shell_json}.bak.${stamp}"
   printf '  backed up existing shell.json -> shell.json.bak.%s\n' "$stamp"
@@ -92,17 +92,34 @@ cat > "$shell_json" <<'EOF'
 EOF
 printf '  wrote %s\n' "$shell_json"
 
-printf '\n[3/3] Restarting Omarchy shell\n'
+printf '\n[3/4] Matching Hyprland window look to the frame/bar\n'
+looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
+looknfeel_src="$script_dir/hyprland/looknfeel.ruixen.lua"
+if [[ -e "$looknfeel_target" && ! -L "$looknfeel_target" ]]; then
+  mv "$looknfeel_target" "${looknfeel_target}.bak.${stamp}"
+  printf '  backed up existing looknfeel.lua -> looknfeel.lua.bak.%s\n' "$stamp"
+fi
+mkdir -p "$(dirname "$looknfeel_target")"
+ln -sf "$looknfeel_src" "$looknfeel_target"
+hyprctl reload >/dev/null 2>&1 || true
+printf '  applied rounded corners + blur matching the frame (24px)\n'
+printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"
+
+printf '\n[4/4] Restarting Omarchy shell\n'
 omarchy restart shell
 
-cat <<'EOF'
+cat <<EOF
 
 Ruixen Shell is installed.
 
 One manual step left: add a keybind of your own for Ruixen Settings, since
-this installer deliberately doesn't touch your Hyprland config. In
+this installer deliberately doesn't touch your Hyprland keybindings. In
 ~/.config/hypr/bindings.lua:
 
   bind("SUPER", "comma", "exec", "omarchy-shell shell toggle ruixen.settings")
+
+Want Hyprland's default window look back instead? Run:
+
+  $script_dir/hyprland/ruixen-lookfeel.sh off
 
 EOF

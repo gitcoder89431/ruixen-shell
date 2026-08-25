@@ -392,6 +392,12 @@ Item {
   // Hyprland's reservation ends.
   readonly property int barSize: 34
 
+  // Docked mode's open-facing shoulder: shared between the docked pill's
+  // OWN corner radius and its RoundCorner wing's size, so they meet with
+  // a matching straight edge and tangent instead of a visible seam (see
+  // leftDockedBg/leftShoulderWing).
+  readonly property int shoulderWingSize: 24
+
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
   // room for its collapsed height (44, full ambxst parity) without its
@@ -1099,6 +1105,70 @@ Item {
     antialiasing: true
   }
 
+  // Ported from ambxst's own modules/corners/RoundCorner.qml -- the small
+  // concave wing piece a shape needs ADDED at a corner to flow smoothly
+  // into whatever continues past its edge, not a Rectangle corner cut
+  // (which recedes into the shape instead). Used for the docked pill
+  // groups' open-facing shoulder, same technique ruixen.notch's own two
+  // shoulders use, ported the same way there.
+  component RoundCorner: Item {
+    id: cornerRoot
+    // Plain strings, not an enum -- a `component`-local enum's qualified
+    // values don't resolve from inside an inline component the way they
+    // would in ambxst's own standalone file. One of: "topLeft",
+    // "topRight", "bottomLeft", "bottomRight".
+    property string corner: "topLeft"
+    property int size: 25
+    property color color: "#000000"
+
+    onColorChanged: cornerCanvas.requestPaint()
+    onCornerChanged: cornerCanvas.requestPaint()
+    onSizeChanged: cornerCanvas.requestPaint()
+    onVisibleChanged: if (visible) cornerCanvas.requestPaint()
+
+    // implicitWidth/Height alone (ambxst's own original) only sizes this
+    // when something else (a Layout, or a wrapper's anchors.fill) reads
+    // it -- placed as a bare sibling Item like it is below, that never
+    // happens and it silently renders at 0x0. Set the real size directly.
+    width: size
+    height: size
+    implicitWidth: size
+    implicitHeight: size
+
+    Canvas {
+      id: cornerCanvas
+      anchors.fill: parent
+      antialiasing: true
+      onPaint: {
+        var ctx = getContext("2d")
+        var r = cornerRoot.size
+        ctx.clearRect(0, 0, width, height)
+        ctx.beginPath()
+        switch (cornerRoot.corner) {
+        case "topLeft":
+          ctx.arc(r, r, r, Math.PI, 3 * Math.PI / 2)
+          ctx.lineTo(0, 0)
+          break
+        case "topRight":
+          ctx.arc(0, r, r, 3 * Math.PI / 2, 2 * Math.PI)
+          ctx.lineTo(r, 0)
+          break
+        case "bottomLeft":
+          ctx.arc(r, 0, r, Math.PI / 2, Math.PI)
+          ctx.lineTo(0, r)
+          break
+        case "bottomRight":
+          ctx.arc(0, 0, r, 0, Math.PI / 2)
+          ctx.lineTo(r, r)
+          break
+        }
+        ctx.closePath()
+        ctx.fillStyle = cornerRoot.color
+        ctx.fill()
+      }
+    }
+  }
+
   component BarPanel: PanelWindow {
     id: barWindow
 
@@ -1117,7 +1187,12 @@ Item {
     // own implicitHeight + margins (26 + 6 frameInset = 32), which is
     // shorter than the notch's own collapsed height.
     exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    exclusiveZone: root.notchClearance
+    // Docked mode's own top margin is frameInset (6), not topInset (13) --
+    // see margins below -- so the total reservation (margin.top +
+    // exclusiveZone) needs frameInset backed out here instead of
+    // topInset, or it quietly shrinks from 44 to 37 and tiled windows
+    // creep 7px higher than intended, into the notch's own space.
+    exclusiveZone: root.docked ? (44 - frameInset) : root.notchClearance
 
     ScreenMoveRemap {
       id: remapGuard
@@ -1284,7 +1359,11 @@ Item {
           x: 0
           y: 0
           width: settingsPill.x + settingsPill.width
-          height: parent.height
+          // root.barSize, not parent.height -- parent (the outer Item,
+          // sized to the whole window) is taller than the pill row when
+          // docked, to make room for leftFrameTaper below. This piece is
+          // just the pill row itself.
+          height: root.barSize
           color: "#000000"
           antialiasing: true
           // Matches ruixen.frame-widget's own cornerRadius (24) exactly --
@@ -1294,21 +1373,36 @@ Item {
           // up).
           topLeftRadius: 24
           topRightRadius: 0
-          // Both bottom corners round now, not just the open/inner one.
-          // ruixen.frame-widget's own left border is a separate overlay
-          // (always drawn on top, always opaque at that 6px strip) that
-          // keeps running straight down past this shape's bottom edge --
-          // a square bottomLeftRadius left a hard step where this much
-          // wider pill met that thin strip, reading as a sharp leftover
-          // corner instead of a clean curve. Rounding it the same as the
-          // real shoulder fixes that; the frame's own border still covers
-          // the strip underneath either way, so this can't open a gap.
-          bottomLeftRadius: height
-          // The (other) shoulder -- bigger than half the pill height so
-          // the square topRightRadius:0 corner reads as a smooth curve,
-          // not a flat edge with a small round bottom. Same shape logic
-          // as ruixen.notch's own bottomLeftRadius/bottomRightRadius.
-          bottomRightRadius: height
+          // Small curve, not square -- this corner is against ruixen.
+          // frame-widget's own continuing border strip, still unresolved
+          // for now (see dev notes), but a modest curve reads better than
+          // a hard square while that's pending. Kept small (10, not 24+)
+          // so it doesn't overlap topLeftRadius on the same edge.
+          bottomLeftRadius: 10
+          // The real shoulder. Matches shoulderWingSize (24), not the
+          // pill's full height -- the earlier seam/glitch came from this
+          // being `height` (34) while the wing was ALSO full-height: two
+          // full-height curves with no shared straight edge to align
+          // against. Same radius as the wing's own size instead, so
+          // there's a real flush edge between them and their curves
+          // share a tangent at the join.
+          bottomRightRadius: root.shoulderWingSize
+        }
+
+        // ambxst's own rightCornerMaskPart, ported: a small square sitting
+        // immediately past the body's own right edge, corner: topLeft.
+        // Same size as leftDockedBg's own bottomRightRadius above (24),
+        // not the full pill height -- their own notch wing is a small
+        // square matched to its body's own corner radius, not a
+        // full-height piece; that mismatch was the earlier bug.
+        RoundCorner {
+          id: leftShoulderWing
+          visible: root.docked
+          corner: "topLeft"
+          size: root.shoulderWingSize
+          color: "#000000"
+          x: leftDockedBg.x + leftDockedBg.width
+          y: 0
         }
 
         Rectangle {
@@ -1317,17 +1411,35 @@ Item {
           x: trayPill.x
           y: 0
           width: parent.width - trayPill.x
-          height: parent.height
+          height: root.barSize
           color: "#000000"
           antialiasing: true
           topRightRadius: 24
           topLeftRadius: 0
-          // Mirrors leftDockedBg's own bottomLeftRadius fix -- see its
-          // comment. This is the corner against ruixen.frame-widget's
-          // right-edge border strip, same sharp-step issue there.
-          bottomRightRadius: height
-          bottomLeftRadius: height
+          // Mirrors leftDockedBg's own bottomLeftRadius -- see its comment.
+          bottomRightRadius: 10
+          // Mirrors leftDockedBg's own bottomRightRadius -- see its comment.
+          bottomLeftRadius: root.shoulderWingSize
         }
+
+        // Mirrors leftShoulderWing -- see its comment.
+        RoundCorner {
+          id: rightShoulderWing
+          visible: root.docked
+          corner: "topRight"
+          size: root.shoulderWingSize
+          color: "#000000"
+          x: rightDockedBg.x - size
+          y: 0
+        }
+
+        // Everything else (every pill's own content).
+        Item {
+          id: dockedRow
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          height: root.barSize
 
         // Media used to have its own bar-center pill here. Replaced by
         // ruixen.notch (a standalone overlay, not part of this window) --
@@ -1604,6 +1716,7 @@ Item {
             active: true
           }
         }
+        } // dockedRow
       }
     }
 

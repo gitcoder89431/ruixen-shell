@@ -1294,12 +1294,20 @@ Item {
           // up).
           topLeftRadius: 24
           topRightRadius: 0
-          bottomLeftRadius: 0
-          // The one shoulder -- bigger than half the pill height so the
-          // square topRightRadius:0 corner reads as a smooth curve, not a
-          // flat edge with a small round bottom. Same shape logic as
-          // ruixen.notch's own bottomLeftRadius/bottomRightRadius, just on
-          // one corner instead of both.
+          // Both bottom corners round now, not just the open/inner one.
+          // ruixen.frame-widget's own left border is a separate overlay
+          // (always drawn on top, always opaque at that 6px strip) that
+          // keeps running straight down past this shape's bottom edge --
+          // a square bottomLeftRadius left a hard step where this much
+          // wider pill met that thin strip, reading as a sharp leftover
+          // corner instead of a clean curve. Rounding it the same as the
+          // real shoulder fixes that; the frame's own border still covers
+          // the strip underneath either way, so this can't open a gap.
+          bottomLeftRadius: height
+          // The (other) shoulder -- bigger than half the pill height so
+          // the square topRightRadius:0 corner reads as a smooth curve,
+          // not a flat edge with a small round bottom. Same shape logic
+          // as ruixen.notch's own bottomLeftRadius/bottomRightRadius.
           bottomRightRadius: height
         }
 
@@ -1314,7 +1322,10 @@ Item {
           antialiasing: true
           topRightRadius: 24
           topLeftRadius: 0
-          bottomRightRadius: 0
+          // Mirrors leftDockedBg's own bottomLeftRadius fix -- see its
+          // comment. This is the corner against ruixen.frame-widget's
+          // right-edge border strip, same sharp-step issue there.
+          bottomRightRadius: height
           bottomLeftRadius: height
         }
 

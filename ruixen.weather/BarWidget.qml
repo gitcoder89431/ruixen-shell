@@ -74,6 +74,12 @@ BarWidget {
     // it doesn't look undersized next to the icon-style widgets sharing
     // togglesPill (stay-awake, dnd, quick actions).
     slotSize: Style.bar.iconSlot
+    // Matching the slot wasn't enough on its own -- the weather glyph set
+    // (Model.js's iconForCode) has noticeably less ink within its
+    // character box than the Font Awesome/MDI glyphs used elsewhere
+    // (coffee, bell), so it read as smaller even at the same font size.
+    // Bumped to compensate.
+    fontSize: Style.bar.iconFont + 4
     // Tooltip suppressed because the panel is the detail view.
     tooltipText: ""
 

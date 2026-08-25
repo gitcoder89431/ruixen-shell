@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.notch",
+  "name": "Ruixen Notch",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Hover-expanding media notch at bar-center, floating above windows independent of the bar's own window.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Overlay.qml"
+  }
+}

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import Quickshell.Networking
+import Quickshell.Bluetooth
 import Quickshell.Io
 import qs.Commons
 
@@ -431,6 +432,100 @@ Item {
     onTriggered: if (!netStatusProc.running) netStatusProc.running = true
   }
 
+  // Real Quickshell.Bluetooth-backed state -- another standard
+  // Quickshell module, confirmed by reading Omarchy's own bluetooth
+  // bar-widget directly ($OMARCHY_PATH/shell/plugins/panels/bluetooth/
+  // Panel.qml + Model.js, 1039 + 177 lines). Scoped the same way as
+  // Wi-Fi: adapter toggle + already-paired/known devices with connect/
+  // disconnect, no new-device discovery/pairing flow yet (their own
+  // file has a real separate one -- scanning, a pairing PIN/passkey
+  // sequence -- genuinely out of scope for this pass, same reasoning
+  // as Wi-Fi's own deferred passphrase flow).
+  //
+  // Real mechanism difference from Wi-Fi/Audio, confirmed directly:
+  // the adapter's own `enabled` property doesn't persist by itself
+  // (Omarchy's own comment: "that writes BlueZ's Powered, which
+  // nothing persists"), so toggling and per-device actions both go
+  // through real external CLIs (omarchy-bluetooth-power, omarchy-
+  // bluetooth-device) via Quickshell.execDetached(), not direct
+  // property writes the way Wi-Fi's own network.connect() was.
+  readonly property var btAdapter: Bluetooth.defaultAdapter
+  readonly property bool btEnabled: !!(btAdapter && btAdapter.enabled)
+  readonly property var btDeviceObjects: Bluetooth.devices ? Bluetooth.devices.values : []
+  property var btRows: []
+
+  function btDeviceLabel(d) {
+    return String((d && (d.deviceName || d.name)) || "").trim()
+  }
+
+  function btIsUuidLike(value) {
+    var text = String(value || "").trim()
+    if (text === "") return false
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)
+      || /^[0-9a-f]{32}$/i.test(text)
+  }
+
+  function btIsAddressLike(value) {
+    return /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(String(value || "").trim())
+  }
+
+  function btHasHumanName(d) {
+    var label = root.btDeviceLabel(d)
+    return label !== "" && !root.btIsUuidLike(label) && !root.btIsAddressLike(label)
+  }
+
+  // Primitives only, not the live Bluetooth device objects -- same
+  // real crash-avoidance reasoning as Wi-Fi's own wifiRow()/syncWifi-
+  // Networks() (see that comment above): BlueZ churn (discovery
+  // timeouts, unpair) can destroy a device object while a delegate
+  // built from it is still incubating. Actions resolve back to the
+  // live object via btDeviceForAddress() at click time instead, same
+  // pattern as Wi-Fi's own networkForSsid().
+  function syncBtDevices() {
+    var rows = []
+    var devs = root.btDeviceObjects
+    for (var i = 0; i < devs.length; i++) {
+      var d = devs[i]
+      if (!d || !root.btHasHumanName(d)) continue
+      if (!(d.connected || d.paired || d.bonded || d.trusted)) continue
+      rows.push({
+        address: d.address || "",
+        name: root.btDeviceLabel(d),
+        connected: !!d.connected
+      })
+    }
+    rows.sort(function(a, b) {
+      if (a.connected !== b.connected) return a.connected ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    root.btRows = rows
+  }
+
+  onBtDeviceObjectsChanged: root.syncBtDevices()
+
+  readonly property var connectedBtDevice: {
+    for (var i = 0; i < root.btRows.length; i++)
+      if (root.btRows[i].connected) return root.btRows[i]
+    return null
+  }
+
+  function toggleBluetoothRadio() {
+    Quickshell.execDetached(["omarchy-bluetooth-power", root.btEnabled ? "off" : "on"])
+  }
+
+  function btDeviceForAddress(address) {
+    var devs = root.btDeviceObjects
+    for (var i = 0; i < devs.length; i++)
+      if (devs[i] && devs[i].address === address) return devs[i]
+    return null
+  }
+
+  function toggleBtConnection(row) {
+    if (!row || !row.address) return
+    if (row.connected) Quickshell.execDetached(["omarchy-bluetooth-device", "disconnect", row.address])
+    else Quickshell.execDetached(["omarchy-bluetooth-device", "connect", row.address])
+  }
+
   PanelWindow {
     id: panel
     visible: root.opened
@@ -585,10 +680,14 @@ Item {
                   // Wifi header text with the Wifi connected name, so
                   // it says Wifi when nothing is connected, and then
                   // the Wifi network name when connected... seems like
-                  // we can save a row this way"). Other sections keep
-                  // their plain label.
+                  // we can save a row this way"). Bluetooth gets the
+                  // same treatment from the start now that the pattern
+                  // is established. Other sections keep their plain
+                  // label.
                   text: root.selectedSection === 1
                     ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
+                    : root.selectedSection === 2
+                    ? (root.connectedBtDevice ? root.connectedBtDevice.name : "Bluetooth")
                     : root.sections[root.selectedSection].label
                   font.family: root.fontFamily
                   font.pixelSize: 15
@@ -701,6 +800,40 @@ Item {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.toggleWifiRadio()
+                  }
+                }
+
+                // Bluetooth radio toggle -- same header placement as
+                // Wi-Fi's own, established from the start this time.
+                // Real adapter power state (Bluetooth.defaultAdapter.
+                // enabled) doesn't persist on its own, per Omarchy's
+                // own comment ("that writes BlueZ's Powered, which
+                // nothing persists"), so toggling goes through the
+                // same real omarchy-bluetooth-power CLI their own
+                // toggleBluetooth() uses, not a direct property write.
+                Rectangle {
+                  visible: root.selectedSection === 2
+                  Layout.preferredWidth: 36
+                  Layout.preferredHeight: 18
+                  radius: 9
+                  color: root.btEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+
+                  Behavior on color { ColorAnimation { duration: 120 } }
+
+                  Rectangle {
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: "#ffffff"
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: root.btEnabled ? parent.width - width - 2 : 2
+                    Behavior on x { NumberAnimation { duration: 120 } }
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.toggleBluetoothRadio()
                   }
                 }
               }
@@ -1125,24 +1258,103 @@ Item {
                 }
               }
 
-
-              // Placeholder -- Bluetooth's real backend lands in a
-              // follow-up pass, same "coming soon" stub pattern
-              // ruixen.notch's own Metrics/Wallpapers tabs started
-              // from. Doesn't repeat the section name again (the title
-              // above already says it) -- per the same duplicate-text
-              // lesson from CPU/GPU's own "Usage X%" line earlier in
-              // this project.
-              Text {
-                visible: root.selectedSection !== 0 && root.selectedSection !== 1
-                Layout.alignment: Qt.AlignHCenter
+              // Bluetooth -- real known/paired device list + connect/
+              // disconnect, per direct request ("bluetooth next, looks
+              // pretty simple to copy all?") and scope confirmation
+              // (adapter toggle + known devices only, same shape as
+              // Wi-Fi's own known-networks scope -- new-device
+              // discovery/pairing is real but genuinely more, not
+              // "simple to copy all": their own file is 1216 lines
+              // covering scanning, a PIN/passkey pairing sequence, and
+              // audio-output auto-switch on connect).
+              ColumnLayout {
+                Layout.fillWidth: true
                 Layout.fillHeight: true
-                verticalAlignment: Text.AlignVCenter
-                text: "Settings coming soon"
-                font.family: root.fontFamily
-                font.pixelSize: 12
-                color: root.muted
+                visible: root.selectedSection === 2
+                spacing: 12
+
+                Text {
+                  visible: root.btRows.length === 0
+                  Layout.alignment: Qt.AlignHCenter
+                  Layout.fillHeight: true
+                  verticalAlignment: Text.AlignVCenter
+                  text: !root.btEnabled ? "Turn on Bluetooth to see paired devices" : "No paired devices"
+                  font.family: root.fontFamily
+                  font.pixelSize: 12
+                  color: root.muted
+                }
+
+                // Same scoped-Flickable safety net as Wi-Fi's own known-
+                // networks list -- bounded height, internal scroll,
+                // matching ruixen-notch's own storage-section pattern.
+                Flickable {
+                  Layout.fillWidth: true
+                  Layout.fillHeight: true
+                  visible: root.btRows.length > 0
+                  contentWidth: width
+                  contentHeight: btList.implicitHeight
+                  clip: true
+                  boundsBehavior: Flickable.StopAtBounds
+
+                  ColumnLayout {
+                    id: btList
+                    width: parent.width
+                    spacing: 4
+
+                    Repeater {
+                      model: root.btRows
+
+                      Rectangle {
+                        id: btRow
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 32
+                        radius: 8
+                        color: btRow.modelData.connected ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+
+                        RowLayout {
+                          anchors.fill: parent
+                          anchors.leftMargin: 8
+                          anchors.rightMargin: 8
+                          spacing: 8
+
+                          Text {
+                            text: ""
+                            font.family: root.fontFamily
+                            font.pixelSize: 13
+                            color: btRow.modelData.connected ? root.accent : root.muted
+                          }
+
+                          Text {
+                            text: btRow.modelData.name
+                            font.family: root.fontFamily
+                            font.pixelSize: 12
+                            font.weight: btRow.modelData.connected ? Font.DemiBold : Font.Normal
+                            color: btRow.modelData.connected ? root.textColor : root.muted
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                          }
+
+                          Text {
+                            text: btRow.modelData.connected ? "Connected" : "Connect"
+                            font.family: root.fontFamily
+                            font.pixelSize: 11
+                            color: root.muted
+                          }
+                        }
+
+                        MouseArea {
+                          anchors.fill: parent
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.toggleBtConnection(btRow.modelData)
+                        }
+                      }
+                    }
+                  }
+                }
               }
+
             }
           }
         }

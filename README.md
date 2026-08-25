@@ -207,6 +207,22 @@ The shared page-title `Text`'s own `text` binding is now conditional on `selecte
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed (the old status row's own wifi icon is correctly gone, all other glyphs intact), `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- header read "STZ-P2" while genuinely connected. Also force-tested the disconnected fallback (temporarily hardcoding the connected-branch condition to `false`, restarting, screenshotting, then reverting) -- header correctly fell back to plain "Wi-Fi".
 
+## Real Bluetooth section: adapter toggle + paired devices
+
+Direct request: "cool ok bluetooth next, looks pretty simple to copy all?" Read Omarchy's own bluetooth bar-widget directly first (`$OMARCHY_PATH/shell/plugins/panels/bluetooth/Panel.qml` + `Model.js`, 1,039 + 177 lines) -- not actually "simple to copy all": comparable scale to the Wi-Fi panel, covering new-device discovery/scanning, a PIN/passkey pairing sequence, and an audio-output auto-switch on connect. Scoped the same way as Wi-Fi instead: adapter toggle + already-paired/known devices with connect/disconnect, no new-device pairing flow.
+
+`Quickshell.Bluetooth` is another standard Quickshell module. One real mechanism difference from Wi-Fi/Audio, confirmed directly rather than assumed: the adapter's own `enabled` property doesn't persist by itself -- Omarchy's own comment explains why ("that writes BlueZ's Powered, which nothing persists") -- so both the radio toggle and per-device actions go through real external CLIs via `Quickshell.execDetached()`, not direct property writes the way Wi-Fi's `network.connect()` was:
+
+- `Bluetooth.defaultAdapter.enabled` (read-only) -- toggling calls `omarchy-bluetooth-power on|off` instead
+- `Bluetooth.devices.values`, filtered to `d.connected || d.paired || d.bonded || d.trusted` -- known devices only, same "known" scoping precedent as Wi-Fi
+- Connect/disconnect via `omarchy-bluetooth-device connect|disconnect <address>`
+- **Same real crash-avoidance pattern as Wi-Fi's own `wifiRow()`**, ported again: primitives-only rows (`address`, `name`, `connected`), never the live device object, since BlueZ churn can destroy a device object mid-incubation. Actions resolve back to the live object via `btDeviceForAddress()` at click time.
+- `btHasHumanName()`/`btIsUuidLike()`/`btIsAddressLike()` ported directly from Omarchy's own `hasHumanName()` in `Model.js` -- filters out devices whose only "name" is a raw UUID or MAC address.
+
+Applied the same header-collapse pattern from Wi-Fi's last pass from the start this time: the shared title shows the connected device's name when connected, else plain "Bluetooth", and the radio toggle sits right-aligned on that same header row -- no separate status row needed, no follow-up correction required. Same scoped `Flickable` safety net as the Wi-Fi list too.
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed (`fa-bluetooth` U+F293), `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- header correctly showed "Tang, Sittinon's Keyboard" (this machine's real connected device), toggle on, and the device list showing that same device as "Connected" -- not placeholder data.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

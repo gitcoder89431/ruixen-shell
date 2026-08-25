@@ -1,0 +1,6 @@
+dev/
+
+*.swp
+*.swo
+*~
+.DS_Store

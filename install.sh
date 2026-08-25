@@ -114,8 +114,7 @@ this installer deliberately doesn't touch your Hyprland keybindings. In
 
   o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
 
-(SUPER + comma is already Omarchy's "dismiss last notification" -- pick any
-other unbound key; run `omarchy menu keybindings --print` to see what's taken.)
+Pick any other unbound key if you'd rather -- run \`omarchy menu keybindings --print\` to see what's taken.
 
 Want Hyprland's default window look back instead? Run:
 

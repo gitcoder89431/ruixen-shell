@@ -52,7 +52,7 @@ the installer deliberately doesn't touch your Hyprland config:
 o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
 ```
 
-`SUPER + comma` is already Omarchy's own "dismiss last notification" — don't reuse it. `SUPER + R` is free by default; pick any other unbound key if you'd rather (`omarchy menu keybindings --print` lists what's already taken).
+Pick any other unbound key if you'd rather — `omarchy menu keybindings --print` lists what's already taken.
 
 ## Disabling / going back to Omarchy defaults
 

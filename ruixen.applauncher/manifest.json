@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.applauncher",
+  "name": "Ruixen App Launcher",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Opens ruixen.notch's own app launcher mode, separate from the omarchy.menu icon (which stays wired to Super+Space).",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "AppLauncher.qml"
+  },
+  "barWidget": {
+    "displayName": "Ruixen App Launcher",
+    "description": "Toggle the notch's app launcher.",
+    "category": "Compositor",
+    "allowMultiple": false
+  }
+}

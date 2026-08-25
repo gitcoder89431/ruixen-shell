@@ -290,6 +290,14 @@ Item {
     return null
   }
 
+  // Known networks only -- per direct follow-up ("it showing all wifi
+  // spot available to join and its overflowing... were we gonna show
+  // just the one[s] we already connected to so they can switch"). Every
+  // scanned nearby AP was the real overflow cause; this list is a
+  // switcher between networks this device already knows, not a
+  // site-survey of everything in range.
+  readonly property var knownWifiRows: root.wifiRows.filter(function(r) { return r.known })
+
   function isOpenNetwork(security) {
     return security === WifiSecurityType.Open
   }
@@ -791,14 +799,37 @@ Item {
 
                 Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; color: root.muted }
 
-                ColumnLayout {
+                // Scoped Flickable, same bounded-height + internal
+                // scroll pattern ruixen-notch's own storage section
+                // uses -- a plain ColumnLayout + Repeater grows
+                // unbounded past the panel's own visible height with
+                // no clipping, same root cause as that earlier bug.
+                Flickable {
                   Layout.fillWidth: true
                   Layout.fillHeight: true
                   visible: Networking.wifiEnabled
-                  spacing: 4
+                  contentWidth: width
+                  contentHeight: wifiList.implicitHeight
+                  clip: true
+                  boundsBehavior: Flickable.StopAtBounds
+
+                  ColumnLayout {
+                    id: wifiList
+                    width: parent.width
+                    spacing: 4
 
                   Repeater {
-                    model: root.wifiRows
+                    // Known networks only -- per direct follow-up
+                    // ("it showing all wifi spot available to join and
+                    // its overflowing... were we gonna show just the
+                    // one[s] we already connected to so they can
+                    // switch"). Every scanned nearby AP was the actual
+                    // overflow cause; this list is meant to be a
+                    // switcher between networks this device already
+                    // knows, not a full site-survey. Discovering/
+                    // joining brand-new networks stays out of scope
+                    // for this pass either way (no passphrase UI yet).
+                    model: root.knownWifiRows
 
                     Rectangle {
                       id: wifiRow
@@ -856,6 +887,7 @@ Item {
                         onClicked: root.connectToWifi(wifiRow.modelData)
                       }
                     }
+                  }
                   }
                 }
 

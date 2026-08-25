@@ -155,6 +155,14 @@ UI: real toggle switch (animated knob, bound to `Networking.wifiEnabled`), curre
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed (`fa-wifi` U+F1EB, `fa-lock` U+F023), `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- toggle correctly reflected the real Wi-Fi radio state, status line correctly showed "Not connected" (this machine wasn't actively joined to a network), and one real scanned network appeared ("STZ-P2", lock icon for its real protected security, real signal reading) -- not placeholder data.
 
+## Wi-Fi list scoped to known networks, wrapped in a scoped Flickable
+
+Direct report right after Wi-Fi shipped: "hmm but it showing all wifi spot available to join and its overflowing down the center panel. were we gonna show just the one[s] we already connected to so they can switch, and then the wifi stats section above it?" Correct on both counts -- the status row (SSID/signal/toggle) already served as the "stats section," but the list below was every scanned nearby AP, which is what actually overflowed the panel.
+
+Added `readonly property var knownWifiRows: root.wifiRows.filter(function(r) { return r.known })` and pointed the list `Repeater`'s `model` at it instead of the full `wifiRows` -- the list is now a switcher between networks this device already knows, not a site-survey of everything in range. Also wrapped the list in a scoped `Flickable` (`clip: true`, `boundsBehavior: Flickable.StopAtBounds`, `contentHeight` bound to the inner `ColumnLayout`'s `implicitHeight`) as a defensive safety net -- same bounded-height + internal-scroll pattern `ruixen-notch`'s own storage section uses, since a plain `ColumnLayout`+`Repeater` grows unbounded past the panel's visible height with no clipping otherwise (same root cause as that earlier bug, ported the same fix).
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed intact after the restructure, `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- this machine had actually joined "STZ-P2" (90% signal) by this point, and the list now shows exactly that one known network instead of every scanned AP, matching the status row above it.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

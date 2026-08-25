@@ -47,6 +47,49 @@ the installer deliberately doesn't touch your Hyprland config:
 bind("SUPER", "comma", "exec", "omarchy-shell shell toggle ruixen.settings")
 ```
 
+## Disabling / going back to Omarchy defaults
+
+Nothing here is a one-way door. Omarchy's own plugin commands handle
+enable/disable and bar-switching live, with no file edits or shell restart
+needed:
+
+**Turn individual plugins off, keep everything installed:**
+
+```bash
+omarchy plugin disable ruixen.notch
+omarchy plugin disable ruixen.frame-widget
+omarchy plugin disable ruixen.settings
+# same for any of the tray widgets: ruixen.tray, ruixen.weather, etc.
+
+omarchy plugin enable ruixen.notch   # turns it back on
+```
+
+**Switch the bar back to stock Omarchy** (the bar is exclusive — only one
+renders at a time):
+
+```bash
+omarchy plugin enable omarchy.bar
+# and back again:
+omarchy plugin enable ruixen.bar
+```
+
+**Fully remove a plugin's files:**
+
+```bash
+omarchy plugin remove ruixen.bar
+```
+
+Disable/enable and the bar switch only flip a live flag — nothing is
+deleted, and there's no reason to reinstall just to try turning something
+off. `remove` is the one destructive step, and it only touches the plugin
+you name.
+
+We ran this full off → on cycle on a live setup (disable the overlays,
+switch the bar back to `omarchy.bar`, then re-enable everything) to confirm
+it's clean: the stock Omarchy bar and panels render correctly with Ruixen
+off, the shell process never restarts or drops, and the layout comes back
+byte-for-byte once everything's re-enabled.
+
 ## Requirements
 
 - Omarchy `4.0.0-1` (or a nearby build of the same shell generation)

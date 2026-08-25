@@ -102,18 +102,13 @@ flush with the frame's corners instead — like the notch, just with one
 shoulder curve per side instead of two. Not the default look, but worth
 trying:
 
-```json
-// in ~/.config/omarchy/shell.json, inside "bar":
-"docked": true
-```
-
-Then reload:
-
 ```bash
-omarchy-shell shell reloadConfig
+./ruixen-bar-mode.sh docked      # merged pills, flush with the frame
+./ruixen-bar-mode.sh floating    # back to the default separate pills
+./ruixen-bar-mode.sh status      # show which one is active
 ```
 
-Set it back to `false` (or remove the key) to go back to floating pills.
+No restart needed either way — it's a live config reload.
 
 ## Window look'n'feel (Hyprland)
 

@@ -487,7 +487,16 @@ Item {
   }
 
   IpcHandler {
-    target: "media"
+    // Not "media" -- that collides with the stock omarchy.media service,
+    // which also ships keepLoaded and registers the same target regardless
+    // of whether its bar widget is enabled/placed. Whichever loads first
+    // wins the registration; the other's calls (including our
+    // ruixen-specific sourceNext/sourcePrevious/sourceSwitch) silently do
+    // nothing. Bar-widget clicks are unaffected either way -- they call
+    // this service directly via firstPartyServiceFor("ruixen.media"), not
+    // through this IPC target -- but external callers (a keybind calling
+    // `omarchy-shell shell media ...`) need a name that's ours alone.
+    target: "ruixen-media"
 
     function status(): string {
       return root.statusJson()

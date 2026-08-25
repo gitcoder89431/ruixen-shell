@@ -138,6 +138,23 @@ Direct follow-up right after Output shipped: "cool does it also shows the input?
 
 **Verified**: brace-balance check clean, glyph codepoints confirmed (`fa-microphone` U+F130, `fa-microphone_slash` U+F131), `omarchy plugin validate` clean, live-restarted the shell, screenshotted -- Input section shows the real live mic volume (100%) and the real connected input device ("USB Audio and HID"), not placeholder data, right below the unchanged Output section.
 
+## Real Wi-Fi section: status + network list + connect
+
+Direct request: "cool ok wifi next." Read Omarchy's own network bar-widget directly (`$OMARCHY_PATH/shell/plugins/panels/network/Panel.qml` + `Model.js`, 1,958 + 369 lines) before writing anything -- `Quickshell.Networking` is another standard Quickshell module, not Omarchy-private. Confirmed scope up front: status + network list + connect to open/known networks only, no passphrase-entry UI for brand-new protected networks yet (their own file has a real separate flow for that -- passphrase prompt, WPA-Enterprise `nmcli` scripting, retry-on-failure state -- genuinely out of scope for this pass, not skipped by accident).
+
+Ported the real API shape, not the file:
+
+- `Networking.wifiEnabled` (bool, settable) -- radio on/off, driving a real toggle switch
+- `Networking.devices.values` filtered to `d.type === DeviceType.Wifi`, preferring an already-connected device -- same `findDevice()` logic as their own `wifiDevice`/`wiredDevice`
+- `wifiDevice.networks.values` -- the real scanned network list
+- **Real crash-avoidance pattern, ported verbatim, not simplified away**: Omarchy's own `wifiRow()` in `Model.js` explicitly extracts primitives only (`connected`, `known`, `ssid` from `network.name`, `signal` from `signalStrength`, `security`) into list-model rows, never the live `WifiNetwork` object -- their own comment explains why: NetworkManager scan churn can destroy a network object while a delegate built from it is still incubating, segfaulting Quickshell if a live QObject wrapper sits in list-model data. Connecting resolves back to the live object via `networkForSsid()` (matching on `.name`) at click time instead, same as their real `connectKnown()`.
+- `network.connect()` -- called only for known networks or networks whose `security === WifiSecurityType.Open`; a protected+unknown network is a deliberate no-op this pass (no passphrase UI to collect one)
+- **`wifiDevice.scannerEnabled`, ported directly** -- scanning isn't automatic; Omarchy's own `setScannerEnabled()`/`scannerDevice` tracks which device *this* panel instance turned scanning on for, releasing it when the panel closes or the device changes, since `scannerEnabled` lives on the shared device with no reference counting. Without this, the network list would just stay empty.
+
+UI: real toggle switch (animated knob, bound to `Networking.wifiEnabled`), current connection status line (SSID + signal when connected, "Wi-Fi off" when disabled), and a network list styled like the audio device rows (lock icon for protected networks, signal %, click-to-connect).
+
+**Verified**: brace-balance check clean, glyph codepoints confirmed (`fa-wifi` U+F1EB, `fa-lock` U+F023), `omarchy plugin validate` clean, live-restarted the shell, opened via the real deep-link payload, and screenshotted -- toggle correctly reflected the real Wi-Fi radio state, status line correctly showed "Not connected" (this machine wasn't actively joined to a network), and one real scanned network appeared ("STZ-P2", lock icon for its real protected security, real signal reading) -- not placeholder data.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

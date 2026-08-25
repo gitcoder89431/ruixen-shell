@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
+import Quickshell.Networking
 import qs.Commons
 
 // Ruixen Settings -- standalone center-panel settings app. First plugin
@@ -224,6 +225,120 @@ Item {
   // candidateSources lists).
   PwObjectTracker { objects: root.outputDevices }
   PwObjectTracker { objects: root.inputDevices }
+
+  // Real Quickshell.Networking-backed Wi-Fi state -- another standard
+  // Quickshell module, confirmed by reading Omarchy's own network
+  // bar-widget directly ($OMARCHY_PATH/shell/plugins/panels/network/
+  // Panel.qml + Model.js, 1958 + 369 lines). Scoped per direct
+  // confirmation: status + network list + connect to open/known
+  // networks only -- no password-entry UI for new protected networks
+  // yet (their own file has one, it's a real separate flow: passphrase
+  // prompt, WPA-Enterprise nmcli scripting, retry-on-failure state --
+  // out of scope for this pass).
+  readonly property var networkDevices: Networking.devices ? Networking.devices.values : []
+
+  function findWifiDevice() {
+    var devices = root.networkDevices
+    var fallback = null
+    for (var i = 0; i < devices.length; i++) {
+      var d = devices[i]
+      if (!d || d.type !== DeviceType.Wifi) continue
+      if (d.connected) return d
+      if (!fallback) fallback = d
+    }
+    return fallback
+  }
+
+  readonly property var wifiDevice: findWifiDevice()
+  readonly property var wifiNetworkObjects: wifiDevice && wifiDevice.networks ? wifiDevice.networks.values : []
+  property var wifiRows: []
+
+  // Primitives only, not the live WifiNetwork objects -- ported
+  // directly from Omarchy's own wifiRow() comment/reasoning in
+  // Model.js: NetworkManager scan churn can destroy a network object
+  // while a delegate built from it is still incubating, which segfaults
+  // quickshell if a live QObject wrapper is sitting in list-model data.
+  // Connecting resolves back to the live object via networkForSsid() at
+  // click time instead (same real pattern, see connectToWifi below).
+  function syncWifiNetworks() {
+    var nets = []
+    var networks = root.wifiNetworkObjects
+    for (var i = 0; i < networks.length; i++) {
+      var n = networks[i]
+      if (!n) continue
+      nets.push({
+        connected: !!n.connected,
+        known: !!n.known,
+        ssid: n.name || "",
+        signal: Math.round((n.signalStrength || 0) * 100),
+        security: n.security
+      })
+    }
+    nets.sort(function(a, b) {
+      if (a.connected !== b.connected) return a.connected ? -1 : 1
+      if (a.known !== b.known) return a.known ? -1 : 1
+      return b.signal - a.signal
+    })
+    root.wifiRows = nets
+  }
+
+  onWifiNetworkObjectsChanged: root.syncWifiNetworks()
+
+  readonly property var connectedWifiNetwork: {
+    for (var i = 0; i < root.wifiRows.length; i++)
+      if (root.wifiRows[i].connected) return root.wifiRows[i]
+    return null
+  }
+
+  function isOpenNetwork(security) {
+    return security === WifiSecurityType.Open
+  }
+
+  function networkForSsid(ssid) {
+    var networks = root.wifiNetworkObjects
+    for (var i = 0; i < networks.length; i++)
+      if (networks[i] && networks[i].name === ssid) return networks[i]
+    return null
+  }
+
+  // Real click-to-connect, scoped to known or open networks per direct
+  // confirmation -- a protected network this device has never joined
+  // before needs a passphrase this pass doesn't collect yet, so it's a
+  // deliberate no-op rather than silently failing against
+  // NetworkManager with no credentials.
+  function connectToWifi(row) {
+    if (!row || row.connected) return
+    if (!row.known && !root.isOpenNetwork(row.security)) return
+    var network = root.networkForSsid(row.ssid)
+    if (network) network.connect()
+  }
+
+  function toggleWifiRadio() {
+    Networking.wifiEnabled = !Networking.wifiEnabled
+  }
+
+  // scannerEnabled lives on the shared WifiDevice (not per-panel-
+  // instance state), so it has to be explicitly released -- ported
+  // directly from Omarchy's own setScannerEnabled()/scannerDevice
+  // comment: tracks which device THIS instance turned scanning on for,
+  // so closing the panel (or the device changing) never leaves the
+  // radio scanning in the background for nothing.
+  property var scannerDevice: null
+
+  function setScannerEnabled(enabled) {
+    var nextDevice = root.opened ? root.wifiDevice : null
+    if (root.scannerDevice && root.scannerDevice !== nextDevice)
+      root.scannerDevice.scannerEnabled = false
+    root.scannerDevice = nextDevice
+    if (root.scannerDevice)
+      root.scannerDevice.scannerEnabled = enabled
+  }
+
+  onOpenedChanged: root.setScannerEnabled(true)
+  onWifiDeviceChanged: root.setScannerEnabled(true)
+  Component.onDestruction: {
+    if (root.scannerDevice) root.scannerDevice.scannerEnabled = false
+  }
 
   PanelWindow {
     id: panel
@@ -601,11 +716,163 @@ Item {
                   }
                 }
 
-
                 Item { Layout.fillHeight: true }
               }
 
-              // Placeholder -- Wi-Fi/Bluetooth real backends land in a
+              // Wi-Fi -- real Quickshell.Networking status + network
+              // list + connect to open/known networks, per direct
+              // request ("wifi next") and scope confirmation (status +
+              // list + connect to open/known only, no new-password
+              // flow yet).
+              ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.selectedSection === 1
+                spacing: 12
+
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 10
+
+                  Text {
+                    text: ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 15
+                    color: root.textColor
+                  }
+
+                  Text {
+                    Layout.fillWidth: true
+                    text: !Networking.wifiEnabled ? "Wi-Fi off"
+                      : (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Not connected")
+                    font.family: root.fontFamily
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    color: root.textColor
+                    elide: Text.ElideRight
+                  }
+
+                  Text {
+                    visible: root.connectedWifiNetwork !== null
+                    text: root.connectedWifiNetwork ? root.connectedWifiNetwork.signal + "%" : ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 12
+                    color: root.muted
+                  }
+
+                  // Toggle switch -- radio on/off, same real property
+                  // (Networking.wifiEnabled) Omarchy's own toggleHint/
+                  // click handler uses.
+                  Rectangle {
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 18
+                    radius: 9
+                    color: Networking.wifiEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    Rectangle {
+                      width: 14
+                      height: 14
+                      radius: 7
+                      color: "#ffffff"
+                      anchors.verticalCenter: parent.verticalCenter
+                      x: Networking.wifiEnabled ? parent.width - width - 2 : 2
+                      Behavior on x { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.toggleWifiRadio()
+                    }
+                  }
+                }
+
+                Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; color: root.muted }
+
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  Layout.fillHeight: true
+                  visible: Networking.wifiEnabled
+                  spacing: 4
+
+                  Repeater {
+                    model: root.wifiRows
+
+                    Rectangle {
+                      id: wifiRow
+                      required property var modelData
+
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: 32
+                      radius: 8
+                      color: wifiRow.modelData.connected ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+
+                      RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
+
+                        Text {
+                          text: ""
+                          font.family: root.fontFamily
+                          font.pixelSize: 13
+                          color: wifiRow.modelData.connected ? root.accent : root.muted
+                        }
+
+                        Text {
+                          text: wifiRow.modelData.ssid
+                          font.family: root.fontFamily
+                          font.pixelSize: 12
+                          font.weight: wifiRow.modelData.connected ? Font.DemiBold : Font.Normal
+                          color: wifiRow.modelData.connected ? root.textColor : root.muted
+                          elide: Text.ElideRight
+                          Layout.fillWidth: true
+                        }
+
+                        Text {
+                          visible: !root.isOpenNetwork(wifiRow.modelData.security)
+                          text: ""
+                          font.family: root.fontFamily
+                          font.pixelSize: 10
+                          color: root.muted
+                        }
+
+                        Text {
+                          text: wifiRow.modelData.signal + "%"
+                          font.family: root.fontFamily
+                          font.pixelSize: 11
+                          color: root.muted
+                          Layout.preferredWidth: 28
+                          horizontalAlignment: Text.AlignRight
+                        }
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.connectToWifi(wifiRow.modelData)
+                      }
+                    }
+                  }
+                }
+
+                Text {
+                  visible: !Networking.wifiEnabled
+                  Layout.alignment: Qt.AlignHCenter
+                  Layout.fillHeight: true
+                  verticalAlignment: Text.AlignVCenter
+                  text: "Turn on Wi-Fi to see nearby networks"
+                  font.family: root.fontFamily
+                  font.pixelSize: 12
+                  color: root.muted
+                }
+              }
+
+
+              // Placeholder -- Bluetooth's real backend lands in a
               // follow-up pass, same "coming soon" stub pattern
               // ruixen.notch's own Metrics/Wallpapers tabs started
               // from. Doesn't repeat the section name again (the title
@@ -613,7 +880,7 @@ Item {
               // lesson from CPU/GPU's own "Usage X%" line earlier in
               // this project.
               Text {
-                visible: root.selectedSection !== 0
+                visible: root.selectedSection !== 0 && root.selectedSection !== 1
                 Layout.alignment: Qt.AlignHCenter
                 Layout.fillHeight: true
                 verticalAlignment: Text.AlignVCenter

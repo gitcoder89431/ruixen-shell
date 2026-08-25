@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.workspaces",
+  "name": "Ruixen Workspaces",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "GNOME/Ubuntu-style workspace indicator -- small dots for inactive workspaces, a wider pill for the focused one, instead of numbered digits.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Workspaces.qml"
+  },
+  "barWidget": {
+    "displayName": "Ruixen Workspaces",
+    "description": "GNOME-style dots + pill workspace switcher.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

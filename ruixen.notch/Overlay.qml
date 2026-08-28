@@ -532,14 +532,15 @@ Item {
       function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }
     }
 
-    // Fire-once, not auto-running -- triggered by the tab bar's settings
-    // button (see expandedContent below). Opens Omarchy's own real
-    // settings menu rather than reimplementing a settings page here:
-    // "setup" is the root omarchy-menu.jsonc entry, aliased "settings",
-    // confirmed working via `omarchy-menu summon settings`.
+    // Fire-once, not auto-running -- triggered by the tab bar's bottom
+    // button (see expandedContent below). Opens Omarchy's own real main
+    // menu -- the exact same command Super+Space itself runs (confirmed
+    // in ~/.config/hypr/bindings/utilities.lua: `o.bind("SUPER + SPACE",
+    // "Omarchy menu", "omarchy-menu toggle")`) -- rather than jumping
+    // straight to the settings submenu or reimplementing a menu here.
     Process {
-      id: settingsProc
-      command: ["omarchy-menu", "summon", "settings"]
+      id: mainMenuProc
+      command: ["omarchy-menu", "toggle"]
       running: false
     }
 
@@ -577,9 +578,9 @@ Item {
       //
       // Tab rotates the three real dashboard panels -- Widgets ->
       // Wallpapers -> Metrics -> back to Widgets, same as clicking each
-      // TabButton in turn. Settings deliberately isn't part of this
-      // cycle: it's a one-shot action (settingsProc, opens Omarchy's
-      // real settings menu), not a view, and landing on it via Tab
+      // TabButton in turn. The bottom button deliberately isn't part of
+      // this cycle: it's a one-shot action (mainMenuProc, opens
+      // Omarchy's real main menu), not a view, and landing on it via Tab
       // either fired it immediately (one direct report: "giving me a
       // jump scare") or needed a whole separate selected-vs-activated
       // state to avoid that -- simpler to just leave it mouse-only.
@@ -1018,13 +1019,16 @@ Item {
               Item { Layout.fillHeight: true }
 
               // The one real action in this tab bar -- opens Omarchy's
-              // actual settings menu (see settingsProc above), not a
-              // notch-local settings page. Mouse-only on purpose -- see
-              // notchOuter's Keys.onPressed comment for why Tab
-              // deliberately skips this one.
+              // actual main menu (see mainMenuProc above), the same
+              // Super+Space menu, not a notch-local settings page. Was
+              // "omarchy-menu summon settings" (straight to the Setup
+              // submenu) per direct follow-up asking for the real root
+              // menu instead. Mouse-only on purpose -- see notchOuter's
+              // Keys.onPressed comment for why Tab deliberately skips
+              // this one.
               TabButton {
                 glyph: ""
-                onActivated: settingsProc.running = true
+                onActivated: mainMenuProc.running = true
               }
             }
 

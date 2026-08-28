@@ -574,10 +574,26 @@ Item {
       // forceActiveFocus above) and still catches it if focus later
       // moves to a child that doesn't handle Escape itself, since
       // unhandled key events bubble up the visual parent chain.
+      //
+      // Tab rotates the three real dashboard panels -- Widgets ->
+      // Wallpapers -> Metrics -> back to Widgets, same as clicking each
+      // TabButton in turn. Settings deliberately isn't part of this
+      // cycle: it's a one-shot action (settingsProc, opens Omarchy's
+      // real settings menu), not a view, and landing on it via Tab
+      // either fired it immediately (one direct report: "giving me a
+      // jump scare") or needed a whole separate selected-vs-activated
+      // state to avoid that -- simpler to just leave it mouse-only.
+      // Guarded to pinnedOpen only so this never fights the launcher's
+      // own Tab handler (launcherOpen's Tab is fully consumed inside
+      // launcherContent before it could bubble here anyway, but the
+      // guard makes the split explicit rather than relying on that).
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape && panel.expanded) {
           panel.pinnedOpen = false
           panel.launcherOpen = false
+          event.accepted = true
+        } else if (event.key === Qt.Key_Tab && panel.pinnedOpen && !panel.launcherOpen) {
+          panel.dashboardTab = (panel.dashboardTab + 1) % 3
           event.accepted = true
         }
       }
@@ -1003,7 +1019,9 @@ Item {
 
               // The one real action in this tab bar -- opens Omarchy's
               // actual settings menu (see settingsProc above), not a
-              // notch-local settings page.
+              // notch-local settings page. Mouse-only on purpose -- see
+              // notchOuter's Keys.onPressed comment for why Tab
+              // deliberately skips this one.
               TabButton {
                 glyph: ""
                 onActivated: settingsProc.running = true

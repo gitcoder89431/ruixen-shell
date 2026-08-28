@@ -1267,6 +1267,19 @@ Item {
             panel.launcherOpen = false
           }
 
+          // Shared by the toggle button and the Tab shortcut below.
+          // Clearing search here makes the toggle take priority over an
+          // active query -- without it, toggling while search results
+          // were showing flipped pinnedMode but activeTiles stayed on
+          // searchResults (showingSearch was still true), so nothing
+          // visibly happened.
+          function togglePinnedMode() {
+            pinnedMode = pinnedMode === "favorites" ? "actions" : "favorites"
+            launcherSearchInput.text = ""
+            searchText = ""
+            Qt.callLater(function() { launcherSearchInput.forceActiveFocus() })
+          }
+
           Process {
             id: launcherActionProc
             stdout: StdioCollector { waitForEnd: true }
@@ -1298,7 +1311,7 @@ Item {
               id: launcherSearchInput
               anchors.fill: parent
               anchors.leftMargin: 12
-              anchors.rightMargin: 12
+              anchors.rightMargin: 28
               verticalAlignment: TextInput.AlignVCenter
               color: root.textColor
               font.family: root.fontFamily
@@ -1333,6 +1346,12 @@ Item {
                     launcherContent.removeFavorite(active.id)
                   }
                   event.accepted = true
+                } else if (event.key === Qt.Key_Tab) {
+                  // Same toggle as the star button, keyboard-only --
+                  // switches between pinned Omarchy actions and pinned
+                  // favorite apps.
+                  launcherContent.togglePinnedMode()
+                  event.accepted = true
                 }
               }
 
@@ -1343,6 +1362,32 @@ Item {
                 font.family: root.fontFamily
                 font.pixelSize: 12
                 visible: launcherSearchInput.text.length === 0
+              }
+            }
+
+            // Clear button -- only meaningful once there's something to
+            // clear; sits in the rightMargin space reserved above so it
+            // never overlaps typed text.
+            Text {
+              visible: launcherSearchInput.text.length > 0
+              anchors.right: parent.right
+              anchors.rightMargin: 10
+              anchors.verticalCenter: parent.verticalCenter
+              text: "✕"
+              font.pixelSize: 11
+              color: clearMouse.containsMouse ? root.textColor : root.muted
+
+              MouseArea {
+                id: clearMouse
+                anchors.centerIn: parent
+                width: 20
+                height: 20
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  launcherSearchInput.text = ""
+                  launcherSearchInput.forceActiveFocus()
+                }
               }
             }
           }
@@ -1366,7 +1411,7 @@ Item {
 
             Text {
               anchors.centerIn: parent
-              text: ""
+              text: ""
               font.family: root.fontFamily
               font.pixelSize: 14
               color: launcherContent.pinnedMode === "favorites" ? root.textColor : root.muted
@@ -1377,10 +1422,7 @@ Item {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                launcherContent.pinnedMode = launcherContent.pinnedMode === "favorites" ? "actions" : "favorites"
-                Qt.callLater(function() { launcherSearchInput.forceActiveFocus() })
-              }
+              onClicked: launcherContent.togglePinnedMode()
             }
           }
 
@@ -1417,7 +1459,14 @@ Item {
                   Behavior on color { ColorAnimation { duration: 120 } }
 
                   Image {
-                    visible: launcherContent.tilesAreApps
+                    id: appIcon
+                    // Only visible once actually loaded -- gating on
+                    // tilesAreApps alone left a blank tile for any app
+                    // missing a real icon (no icon in its .desktop entry,
+                    // or iconSource() couldn't resolve one), since a
+                    // failed/empty Image source just renders nothing.
+                    // The fallback glyph below covers that gap.
+                    visible: launcherContent.tilesAreApps && status === Image.Ready
                     anchors.centerIn: parent
                     width: 26
                     height: 26
@@ -1425,6 +1474,20 @@ Item {
                     asynchronous: true
                     source: launcherContent.tilesAreApps && root.shell && root.shell.appLibrary
                       ? root.shell.appLibrary.iconSource(tile.modelData.icon) : ""
+                  }
+
+                  // Generic app glyph -- shown once loading has settled
+                  // and it didn't resolve to a real icon (Error/Null),
+                  // not during the brief async Loading window, so apps
+                  // with a working icon never flash this first.
+                  Text {
+                    visible: launcherContent.tilesAreApps
+                      && (appIcon.status === Image.Error || appIcon.status === Image.Null)
+                    anchors.centerIn: parent
+                    text: ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 18
+                    color: root.muted
                   }
 
                   Text {
@@ -1435,13 +1498,18 @@ Item {
                     font.pixelSize: 20
                   }
 
-                  // Pin badge -- only meaningful while browsing search
-                  // results (favorites-view tiles are favorites by
-                  // definition; action tiles aren't apps at all). Plain
-                  // theme-accent dot, no glyph -- a quieter "already
-                  // pinned" indicator than an icon-in-a-circle.
+                  // Pin badge -- shown on any app tile (search results or
+                  // the favorites view itself) that's a real, persisted
+                  // favorite. isFavorited() checks favoriteAppIds
+                  // directly, not the empty-state fallback list, so this
+                  // naturally stays off the fallback defaults shown when
+                  // the user has no real favorites yet -- only genuine
+                  // pins get the dot. Action tiles aren't apps at all, so
+                  // gated on tilesAreApps too. Plain theme-accent dot, no
+                  // glyph -- a quieter "already pinned" indicator than an
+                  // icon-in-a-circle.
                   Rectangle {
-                    visible: launcherContent.showingSearch && launcherContent.isFavorited(tile.modelData.id)
+                    visible: launcherContent.tilesAreApps && launcherContent.isFavorited(tile.modelData.id)
                     anchors.top: parent.top
                     anchors.right: parent.right
                     anchors.topMargin: -1

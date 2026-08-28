@@ -451,17 +451,19 @@ Item {
     // always-on surface already occupies.
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
-    // None except while the launcher's own search box is open, when it
+    // None except while expanded (pinned dashboard or launcher), when it
     // switches to Exclusive (same mode ruixen.settings/Settings.qml and
-    // Omarchy's own real Menu.qml use for their modal panels) so the
-    // TextInput below can actually receive typed characters. Every other
-    // state (collapsed, pinnedOpen) stays None -- passive hover, no
+    // Omarchy's own real Menu.qml use for their modal panels) so Escape
+    // can dismiss either view and the launcher's own TextInput can
+    // receive typed characters. Collapsed stays None -- passive hover, no
     // reason to grab keyboard input. v1 of the launcher's search box
     // needed this SAME flip, but combined it with a taller notch size,
     // which is what actually broke (see launcherContent's own comment
     // below) -- this flip alone, without the resize, is the untested
-    // half of that old combination.
-    WlrLayershell.keyboardFocus: launcherOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // half of that old combination. Extending it to pinnedOpen too
+    // carries the same low risk noted there: no new size involved, just
+    // a focus-mode change on an already-proven 900x400 footprint.
+    WlrLayershell.keyboardFocus: expanded ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // Widens to the full panel only while open (pinned or launcher --
     // see expanded below), so a click anywhere outside the notch itself
@@ -489,6 +491,22 @@ Item {
     // a real click has no equivalent "did I actually mean to leave"
     // ambiguity a hover does.
     property bool pinnedOpen: false
+    // Launcher mode grabs focus itself (its own TextInput needs it to
+    // receive typed characters -- see launcherContent's onVisibleChanged
+    // below). pinnedOpen has no such input by default, so it needs an
+    // explicit focus target of its own for Escape to have anything to
+    // bubble up from -- WlrKeyboardFocus.Exclusive alone only grants the
+    // *surface* keyboard focus at the Wayland level, not Qt Quick's own
+    // scene-level activeFocus (same lesson learned building the
+    // launcher's search box). notchOuter is the shared ancestor of every
+    // dashboard tab's content, so giving it focus here means Escape
+    // closes the panel by default, and if the user then clicks into
+    // WallpapersContent's own search box, focus moves there like normal
+    // -- Escape typed there has nothing to handle it locally and bubbles
+    // back up to notchOuter's own Keys.onPressed (see below), so it
+    // keeps working either way without WallpapersContent.qml needing any
+    // changes of its own.
+    onPinnedOpenChanged: if (pinnedOpen) Qt.callLater(function() { notchOuter.forceActiveFocus() })
     // Third mode, alongside collapsed/media -- quick app launcher (a
     // few favorite icons), triggered by ruixen.applauncher's own bar
     // icon over IPC (see IpcHandler below), not by clicking the avatar
@@ -536,7 +554,12 @@ Item {
     // but clearing both is simpler than tracking which.
     MouseArea {
       anchors.fill: parent
-      enabled: panel.clickedOpen
+      // Was panel.clickedOpen, a property that never existed on panel --
+      // enabled evaluated to undefined (silently falsy), so click-away
+      // never actually worked despite the comment above describing it as
+      // live. Real fix: the same expanded flag everything else already
+      // uses.
+      enabled: panel.expanded
       onClicked: { panel.pinnedOpen = false; panel.launcherOpen = false }
     }
 
@@ -544,6 +567,20 @@ Item {
       id: notchOuter
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
+
+      // Escape closes the expanded dashboard, same as the launcher's own
+      // search box already does. Placed here (not on some deeper child)
+      // so it catches Escape by default (see onPinnedOpenChanged's
+      // forceActiveFocus above) and still catches it if focus later
+      // moves to a child that doesn't handle Escape itself, since
+      // unhandled key events bubble up the visual parent chain.
+      Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Escape && panel.expanded) {
+          panel.pinnedOpen = false
+          panel.launcherOpen = false
+          event.accepted = true
+        }
+      }
       // Ambxst derives its own notch corner geometry from its window
       // rounding config (roundness=16 default): cornerSize=roundness+4,
       // collapsed radius=roundness+4, expanded radius=roundness+20. Our

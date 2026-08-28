@@ -54,6 +54,17 @@ o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settin
 
 Pick any other unbound key if you'd rather — `omarchy menu keybindings --print` lists what's already taken.
 
+## Updating
+
+```bash
+./update.sh
+```
+
+Pulls the latest changes and reinstalls — same backup-then-overwrite
+behavior as `install.sh` itself, so it's always safe to re-run. Only
+works from your existing cloned checkout (it just wraps `git pull` +
+`./install.sh`), so don't delete the folder after installing.
+
 ## Disabling / going back to Omarchy defaults
 
 Nothing here is a one-way door.

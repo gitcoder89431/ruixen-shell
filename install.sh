@@ -125,7 +125,11 @@ Run:
 
   $script_dir/ruixen-bar-mode.sh docked
 
-Both of these only work from this checkout -- keep it around after
+Pulling new changes later? Run:
+
+  $script_dir/update.sh
+
+All three only work from this checkout -- keep it around after
 installing (don't delete the cloned folder), or note its path above.
 
 EOF

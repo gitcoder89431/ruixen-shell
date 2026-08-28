@@ -451,10 +451,17 @@ Item {
     // always-on surface already occupies.
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
-    // Stays None always -- the launcher is click-only (a few favorite
-    // app icons, no search box), so this surface never needs keyboard
-    // input, same as every other passive hover state in this file.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // None except while the launcher's own search box is open, when it
+    // switches to Exclusive (same mode ruixen.settings/Settings.qml and
+    // Omarchy's own real Menu.qml use for their modal panels) so the
+    // TextInput below can actually receive typed characters. Every other
+    // state (collapsed, pinnedOpen) stays None -- passive hover, no
+    // reason to grab keyboard input. v1 of the launcher's search box
+    // needed this SAME flip, but combined it with a taller notch size,
+    // which is what actually broke (see launcherContent's own comment
+    // below) -- this flip alone, without the resize, is the untested
+    // half of that old combination.
+    WlrLayershell.keyboardFocus: launcherOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // Widens to the full panel only while open (pinned or launcher --
     // see expanded below), so a click anywhere outside the notch itself
@@ -1023,87 +1030,261 @@ Item {
           }
         }
 
-        // Quick app launcher -- a handful of pinned favorites, click to
-        // launch. No search box, no keyboard focus, no scrolling -- v1's
-        // search-box version needed WlrKeyboardFocus.Exclusive and a new
-        // notch size (340x260/etc) to fit a scrollable list, and that new
-        // size turned out to hit a real, non-deterministic bug in the
+        // Quick app launcher -- a search box for finding any installed app,
+        // plus a row of pinned Omarchy system-menu actions shown while the
+        // search is empty (Lock, Power, etc.). Deliberately stays inside
+        // the exact same 420x190 launcherOpen footprint used by the old
+        // click-only grid below -- v1's own search box needed
+        // WlrKeyboardFocus.Exclusive (see panel's keyboardFocus above)
+        // AND a taller notch (340x260/etc) to fit a scrollable list, and
+        // that combination hit a real, non-deterministic bug in the
         // notchBg masking (MultiEffect layer effect below) at taller
-        // heights. Simplified per direct feedback: a few favorite apps
-        // don't need any of that -- this reuses the exact same 260x44
-        // collapsed-state dimensions (see bodyWidth/height above), the
-        // most-exercised, proven-stable code path in this whole file.
+        // heights. Only the keyboard-focus flip happens this time; no new
+        // size, so the resize half of that bad combination never occurs.
         //
-        // Favorites are a plain hardcoded list of desktop-entry ids --
-        // edit favoriteAppIds below to change which apps show. Reads
-        // shell.appLibrary the same way the search version did, just
-        // looks entries up by id instead of running a search query.
-        // Laid out as a grid (3 columns) since the notch expands to the
-        // full 420x190 media size now -- plenty of room for icons at
-        // full size across two rows instead of squeezing everything
-        // into one cramped line.
-        Grid {
+        // Pinned actions run through Omarchy's own `omarchy menu summon
+        // <id>` CLI (launcherActionProc below) instead of duplicating any
+        // command strings here -- same id space as
+        // /usr/share/omarchy/default/omarchy/omarchy-menu.jsonc, so this
+        // can never drift out of sync with Omarchy's real menu. Edit
+        // pinnedActions below to change which ones show. App search reads
+        // shell.appLibrary.sortedEntries() -- real ranking (prefix match
+        // highest, then substring, then a bounded acronym fallback), not
+        // fuzzy/subsequence matching, confirmed by reading AppSearch.js.
+        //
+        // Both states share one Grid + Repeater (model swaps, tile visual
+        // stays identical) capped to a single row (6 tiles) -- deliberately
+        // not enough room for a second row within 190px alongside the
+        // search box, and no scrolling, so this stays a fast glance/click
+        // UI rather than growing into something that needs the taller,
+        // unproven notch size.
+        Item {
           id: launcherContent
           visible: panel.launcherOpen
           opacity: panel.launcherOpen ? 1 : 0
           anchors.centerIn: parent
-          columns: 4
-          spacing: 20
+          width: 410
+          height: 190
+          // Inner content (search box + tile row) sits at this width,
+          // centered within the 410 footprint above -- leaves real side
+          // padding so neither touches the notch's own curved edge.
+          readonly property int contentWidth: 366
           Behavior on opacity { NumberAnimation { duration: 160 } }
 
-          readonly property var favoriteAppIds: ["kitty", "org.gnome.Nautilus", "chromium", "code", "spotify", "Discord", "obsidian", "1password"]
-          readonly property var favoriteEntries: {
-            if (!panel.launcherOpen || !root.shell || !root.shell.appLibrary) return []
-            var all = root.shell.appLibrary.sortedEntries("")
-            var byId = {}
-            for (var i = 0; i < all.length; i++) byId[all[i].entry.id] = all[i].entry
-            var picked = []
-            for (var j = 0; j < favoriteAppIds.length; j++) {
-              if (byId[favoriteAppIds[j]]) picked.push(byId[favoriteAppIds[j]])
+          onVisibleChanged: {
+            if (visible) {
+              selectedIndex = 0
+              // WlrLayershell.keyboardFocus: Exclusive only grants the
+              // layer surface itself keyboard focus at the Wayland level
+              // -- Qt Quick's own scene-graph focus is separate, and
+              // nothing gets it by default. Same forceActiveFocus() call
+              // ruixen.weather/Panel.qml already needs for its own search
+              // field (startEditingLocation()); without it the TextInput
+              // never receives typed characters despite the surface-level
+              // grab succeeding.
+              Qt.callLater(function() { launcherSearchInput.forceActiveFocus() })
+            } else {
+              launcherSearchInput.text = ""
+              searchText = ""
             }
+          }
+
+          property string searchText: ""
+          readonly property bool showingSearch: searchText.length > 0
+          // Arrow-key selection, matching ruixen.weather/Panel.qml's own
+          // Keys.onPressed pattern (its locationField -- the closest real
+          // precedent in this repo). Reset on every keystroke so a new
+          // query always starts from the top match, and on open so a
+          // stale selection from the last session never carries over.
+          property int selectedIndex: 0
+          onSearchTextChanged: selectedIndex = 0
+
+          // Glyphs copied verbatim from
+          // /usr/share/omarchy/default/omarchy/omarchy-menu.jsonc so these
+          // tiles match what Omarchy's own menu shows for the same ids.
+          readonly property var pinnedActions: [
+            { id: "system.lock", label: "Lock", icon: "" },
+            { id: "system", label: "Power", icon: "" },
+            { id: "learn.keybindings", label: "Keybind", icon: "" },
+            { id: "trigger.capture.screenshot", label: "Screenshot", icon: "" },
+            { id: "style.theme", label: "Theme", icon: "󰸌" },
+            { id: "setup", label: "Settings", icon: "" }
+          ]
+
+          readonly property var searchResults: {
+            if (!showingSearch || !root.shell || !root.shell.appLibrary) return []
+            var rows = root.shell.appLibrary.sortedEntries(searchText)
+            var picked = []
+            for (var i = 0; i < rows.length && picked.length < 6; i++) picked.push(rows[i].entry)
             return picked
           }
 
-          Repeater {
-            model: launcherContent.favoriteEntries
+          readonly property var activeTiles: showingSearch ? searchResults : pinnedActions
 
-            Item {
-              id: favIcon
-              required property var modelData
-              width: 64
-              height: 64
+          function activateTile(data) {
+            if (!data) return
+            if (showingSearch) {
+              root.shell.appLibrary.launch(data.id, root.shell.appLibrary.entryName(data))
+            } else {
+              launcherActionProc.command = ["omarchy", "menu", "summon", data.id]
+              launcherActionProc.running = true
+            }
+            panel.launcherOpen = false
+          }
 
-              // Tonal card behind the icon -- lets the icon itself stay
-              // modest (32px) while the tile as a whole still fills a
-              // comfortable amount of space, instead of just blowing the
-              // icon up to fill the grid cell.
-              Rectangle {
-                anchors.fill: parent
-                radius: 14
-                color: cardMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-                Behavior on color { ColorAnimation { duration: 120 } }
-              }
+          Process {
+            id: launcherActionProc
+            stdout: StdioCollector { waitForEnd: true }
+          }
 
-              Image {
-                anchors.centerIn: parent
-                width: 32
-                height: 32
-                sourceSize: Qt.size(32, 32)
-                asynchronous: true
-                source: root.shell.appLibrary.iconSource(favIcon.modelData.icon)
-              }
+          // Search box sits at a FIXED offset from the top rather than
+          // inside a height-based-centered Column -- with the old layout,
+          // an empty result set hid the Grid entirely, shrinking the
+          // Column's total height and re-centering it, which visibly
+          // shifted the search box up/down every time the match count hit
+          // zero. Anchoring everything to searchBox instead means the
+          // Grid and the "no matches" text swapping in and out never
+          // moves it. topMargin chosen to match the old centered look for
+          // the common (results visible) case: 36 (search) + 28 (gap) +
+          // 66 (tile row) = 130 content height inside a 190 box centers
+          // at (190-130)/2 = 30.
+          Rectangle {
+            id: searchBox
+            anchors.top: parent.top
+            anchors.topMargin: 30
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: launcherContent.contentWidth
+            height: 36
+            radius: 12
+            color: Qt.rgba(1, 1, 1, 0.06)
 
-              MouseArea {
-                id: cardMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  root.shell.appLibrary.launch(favIcon.modelData.id, root.shell.appLibrary.entryName(favIcon.modelData))
+            TextInput {
+              id: launcherSearchInput
+              anchors.fill: parent
+              anchors.leftMargin: 12
+              anchors.rightMargin: 12
+              verticalAlignment: TextInput.AlignVCenter
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              clip: true
+
+              onTextChanged: launcherContent.searchText = text
+
+              Keys.onPressed: function(event) {
+                var count = launcherContent.activeTiles.length
+                if (event.key === Qt.Key_Escape) {
                   panel.launcherOpen = false
+                  event.accepted = true
+                } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) {
+                  if (launcherContent.selectedIndex > 0) launcherContent.selectedIndex--
+                  event.accepted = true
+                } else if (event.key === Qt.Key_Right || event.key === Qt.Key_Down) {
+                  if (launcherContent.selectedIndex < count - 1) launcherContent.selectedIndex++
+                  event.accepted = true
+                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                  launcherContent.activateTile(launcherContent.activeTiles[launcherContent.selectedIndex])
+                  event.accepted = true
+                }
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Search apps..."
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 12
+                visible: launcherSearchInput.text.length === 0
+              }
+            }
+          }
+
+          Grid {
+            visible: launcherContent.showingSearch ? launcherContent.searchResults.length > 0 : true
+            anchors.top: searchBox.bottom
+            anchors.topMargin: 28
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: launcherContent.contentWidth
+            columns: 6
+            spacing: 8
+
+            Repeater {
+              model: launcherContent.activeTiles
+
+              Item {
+                id: tile
+                required property var modelData
+                required property int index
+                width: 54
+                height: 66
+
+                Rectangle {
+                  id: cardBg
+                  anchors.top: parent.top
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: 52
+                  height: 52
+                  radius: 14
+                  color: (cardMouse.containsMouse || tile.index === launcherContent.selectedIndex)
+                    ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.06)
+                  Behavior on color { ColorAnimation { duration: 120 } }
+
+                  Image {
+                    visible: launcherContent.showingSearch
+                    anchors.centerIn: parent
+                    width: 26
+                    height: 26
+                    sourceSize: Qt.size(26, 26)
+                    asynchronous: true
+                    source: launcherContent.showingSearch && root.shell && root.shell.appLibrary
+                      ? root.shell.appLibrary.iconSource(tile.modelData.icon) : ""
+                  }
+
+                  Text {
+                    visible: !launcherContent.showingSearch
+                    anchors.centerIn: parent
+                    text: launcherContent.showingSearch ? "" : tile.modelData.icon
+                    color: root.textColor
+                    font.pixelSize: 20
+                  }
+                }
+
+                Text {
+                  anchors.top: cardBg.bottom
+                  anchors.topMargin: 4
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: parent.width
+                  horizontalAlignment: Text.AlignHCenter
+                  elide: Text.ElideRight
+                  text: launcherContent.showingSearch && root.shell && root.shell.appLibrary
+                    ? root.shell.appLibrary.entryName(tile.modelData) : (tile.modelData.label || "")
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: 9
+                }
+
+                MouseArea {
+                  id: cardMouse
+                  anchors.fill: cardBg
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: launcherContent.activateTile(tile.modelData)
                 }
               }
             }
+          }
+
+          Text {
+            visible: launcherContent.showingSearch && launcherContent.searchResults.length === 0
+            anchors.top: searchBox.bottom
+            anchors.topMargin: 28
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: launcherContent.contentWidth
+            horizontalAlignment: Text.AlignHCenter
+            text: "No apps match “" + launcherContent.searchText + "”"
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 12
           }
         }
       }

@@ -849,197 +849,194 @@ Item {
           anchors.margins: 8
           spacing: 4
 
-          // Header row -- matching Network/Memory's own icon+title
-          // shape, per direct request ("make the header like network
-          // and memory for CPU and GPU too"). CPU/GPU never had a
-          // distinct header row before; the icon lived inside the
-          // dial and the title was folded into the "Usage X%" line
-          // instead.
-          RowLayout {
+          // No separate header row -- per direct follow-up, the
+          // icon+title row (matching Network/Memory's own shape) took
+          // space this tile didn't need: the icon already lives inside
+          // the dial (see dialItem's own Text below) and the title now
+          // folds into the "Usage X%" line instead ("CPU Usage 5%"),
+          // freeing that height for the dial+usage row and temp bar to
+          // actually be the featured content instead of centering the
+          // group.
+          //
+          // Centering: an earlier version used two separate
+          // Item { Layout.fillHeight: true } spacers, one before this
+          // content and one after, expecting them to split the tile's
+          // leftover height evenly (Network/Memory's own tiles use that
+          // exact pattern). Confirmed directly with debug-colored
+          // Rectangles in place of each spacer that they don't split
+          // evenly here -- the first stayed a sliver, the second
+          // absorbed nearly everything, pushing the real content to the
+          // top instead of centering it (the reported "squeezed"
+          // look). Root cause not fully chased down; fixed by dropping
+          // the two-spacer approach for this tile in favor of one
+          // fillHeight wrapper Item with anchors.centerIn, which
+          // doesn't depend on ColumnLayout's fill distribution at all.
+          Item {
             Layout.fillWidth: true
-            spacing: 6
+            Layout.fillHeight: true
 
-            Text {
-              text: tile.glyph
-              font.family: root.fontFamily
-              font.pixelSize: 15
-              color: root.muted
+            Column {
+              id: contentBlock
+              anchors.centerIn: parent
+              width: parent.width
+              spacing: 4
+
+              RowLayout {
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: 10
+
+              Item {
+                id: dialItem
+                // 46 -> 60 (bigger dial, per direct request), then
+                // trimmed to 52 (storage headroom), then 46 -- per direct
+                // follow-up asking specifically to shave more off just
+                // the CPU/GPU row (Network/Memory's own row height is
+                // untouched this time). Ring radius (width/2-6) and the
+                // tip/arc math below both scale off this automatically.
+                Layout.preferredWidth: 46
+                Layout.preferredHeight: 46
+                Layout.alignment: Qt.AlignVCenter
+
+                Canvas {
+                  id: dialCanvas
+                  anchors.fill: parent
+                  onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.reset()
+                    var cx = width / 2, cy = height / 2, r = width / 2 - 6
+                    var startAngle = Math.PI / 2 + Math.PI / 4
+                    var totalSweep = Math.PI * 2 - Math.PI / 2
+                    // No reading -> empty track only, no progress arc or
+                    // tip marker at all (not just a 0%-looking dial) --
+                    // same "don't draw something that looks like real data
+                    // when it isn't" reasoning as the Usage text above.
+                    var endAngle = startAngle + (tile.available ? Math.max(0, Math.min(1, tile.value)) : 0) * totalSweep
+                    var handleSpacing = 5
+                    var gapRad = handleSpacing / r
+                    ctx.lineWidth = 4
+                    ctx.lineCap = "round"
+                    ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+                    ctx.beginPath()
+                    ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
+                    ctx.stroke()
+
+                    if (!tile.available) return
+
+                    ctx.strokeStyle = tile.ringAccent
+                    ctx.beginPath()
+                    var progressEnd = Math.max(startAngle, endAngle - gapRad)
+                    ctx.arc(cx, cy, r, startAngle, progressEnd)
+                    ctx.stroke()
+
+                    var tipR1 = r - 2
+                    var tipR2 = r + 3
+                    var tx1 = cx + tipR1 * Math.cos(endAngle)
+                    var ty1 = cy + tipR1 * Math.sin(endAngle)
+                    var tx2 = cx + tipR2 * Math.cos(endAngle)
+                    var ty2 = cy + tipR2 * Math.sin(endAngle)
+                    ctx.lineWidth = 5
+                    ctx.lineCap = "round"
+                    ctx.strokeStyle = "#ffffff"
+                    ctx.beginPath()
+                    ctx.moveTo(tx1, ty1)
+                    ctx.lineTo(tx2, ty2)
+                    ctx.stroke()
+                  }
+                }
+
+                Text {
+                  anchors.centerIn: parent
+                  text: tile.glyph
+                  font.family: root.fontFamily
+                  font.pixelSize: 15
+                  color: root.textColor
+                }
+              }
+
+              // Beside the dial, not stacked under it -- per direct
+              // feedback the all-vertical layout made the whole tile too
+              // tall. "Usage 10%" then the CPU/GPU name below it. No
+              // longer Layout.fillWidth:true -- sized to its own natural
+              // content width instead (with a maximumWidth safety cap
+              // for real GPU names longer than this machine's own), so
+              // the RowLayout above it centers as a compact unit instead
+              // of stretching this column all the way to the tile edge.
+              ColumnLayout {
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 2
+
+                Text {
+                  // Title prefix back (was dropped when a separate header
+                  // row said "CPU"/"GPU" above this) -- now that the
+                  // header's gone, this is the only place the tile
+                  // identifies itself.
+                  text: tile.available
+                    ? (tile.title + " Usage " + Math.round(tile.value * 100) + "%")
+                    : (tile.title + " Unavailable")
+                  font.family: root.fontFamily
+                  font.pixelSize: 13
+                  font.weight: Font.DemiBold
+                  color: root.textColor
+                  elide: Text.ElideRight
+                  Layout.maximumWidth: 140
+                }
+
+                Text {
+                  text: tile.subText
+                  font.family: root.fontFamily
+                  font.pixelSize: 10
+                  color: root.muted
+                  elide: Text.ElideRight
+                  Layout.maximumWidth: 140
+                }
+              }
             }
 
-            Text {
-              text: tile.title
-              font.family: root.fontFamily
-              font.pixelSize: 13
-              font.weight: Font.DemiBold
-              color: root.textColor
-              Layout.fillWidth: true
-            }
-          }
+            // Temperature bar, below the dial+usage row, per direct
+            // request -- same visual language as the per-core CPU list's
+            // own bars (thin rounded track + accent fill), just sharing
+            // a row with a temperature label instead of an icon/name.
+            // Side margins added per direct follow-up ("maybe center the
+            // progress bar too, so like that means some side padding to
+            // it?") -- matches the dial+usage row above it, which reads
+            // as centered/inset now rather than running edge-to-edge.
+            // width/anchors instead of Layout.fillWidth+margins now that
+            // the immediate parent is a plain Column, not a Layout (see
+            // contentBlock above) -- Layout.* properties are silently
+            // ignored outside an actual Layout parent.
+            RowLayout {
+              width: contentBlock.width - 16
+              anchors.horizontalCenter: parent.horizontalCenter
+              visible: tile.tempC >= 0
+              spacing: 6
 
-          // Centers the dial+usage row and the temperature bar below
-          // as one block, same top+bottom Item { Layout.fillHeight:
-          // true } pattern Network/Memory already use -- per direct
-          // follow-up ("kinda center the current middle section").
-          Item { Layout.fillHeight: true }
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 6
+                radius: 3
+                color: Qt.rgba(1, 1, 1, 0.08)
 
-          RowLayout {
-            // Centered as a compact unit instead of stretched full
-            // width -- per direct follow-up ("center the usage and
-            // dial stuff for cpu and gpu though right now its leaning
-            // left"). The old fillWidth:true here (combined with the
-            // text column's own fillWidth:true below) stretched the
-            // usage/subtext column all the way to the tile's right
-            // edge, which visually clustered the dial+text together
-            // at the left instead of centering the group.
-            Layout.fillWidth: false
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 10
-
-            Item {
-              id: dialItem
-              // 46 -> 60 (bigger dial, per direct request), then
-              // trimmed to 52 (storage headroom), then 46 -- per direct
-              // follow-up asking specifically to shave more off just
-              // the CPU/GPU row (Network/Memory's own row height is
-              // untouched this time). Ring radius (width/2-6) and the
-              // tip/arc math below both scale off this automatically.
-              Layout.preferredWidth: 46
-              Layout.preferredHeight: 46
-              Layout.alignment: Qt.AlignVCenter
-
-              Canvas {
-                id: dialCanvas
-                anchors.fill: parent
-                onPaint: {
-                  var ctx = getContext("2d")
-                  ctx.reset()
-                  var cx = width / 2, cy = height / 2, r = width / 2 - 6
-                  var startAngle = Math.PI / 2 + Math.PI / 4
-                  var totalSweep = Math.PI * 2 - Math.PI / 2
-                  // No reading -> empty track only, no progress arc or
-                  // tip marker at all (not just a 0%-looking dial) --
-                  // same "don't draw something that looks like real data
-                  // when it isn't" reasoning as the Usage text above.
-                  var endAngle = startAngle + (tile.available ? Math.max(0, Math.min(1, tile.value)) : 0) * totalSweep
-                  var handleSpacing = 5
-                  var gapRad = handleSpacing / r
-                  ctx.lineWidth = 4
-                  ctx.lineCap = "round"
-                  ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
-                  ctx.beginPath()
-                  ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
-                  ctx.stroke()
-
-                  if (!tile.available) return
-
-                  ctx.strokeStyle = tile.ringAccent
-                  ctx.beginPath()
-                  var progressEnd = Math.max(startAngle, endAngle - gapRad)
-                  ctx.arc(cx, cy, r, startAngle, progressEnd)
-                  ctx.stroke()
-
-                  var tipR1 = r - 2
-                  var tipR2 = r + 3
-                  var tx1 = cx + tipR1 * Math.cos(endAngle)
-                  var ty1 = cy + tipR1 * Math.sin(endAngle)
-                  var tx2 = cx + tipR2 * Math.cos(endAngle)
-                  var ty2 = cy + tipR2 * Math.sin(endAngle)
-                  ctx.lineWidth = 5
-                  ctx.lineCap = "round"
-                  ctx.strokeStyle = "#ffffff"
-                  ctx.beginPath()
-                  ctx.moveTo(tx1, ty1)
-                  ctx.lineTo(tx2, ty2)
-                  ctx.stroke()
+                Rectangle {
+                  width: parent.width * Math.max(0, Math.min(1, tile.tempC / tile.tempMaxC))
+                  height: parent.height
+                  radius: 3
+                  color: root.accent
+                  Behavior on width { NumberAnimation { duration: 200 } }
                 }
               }
 
               Text {
-                anchors.centerIn: parent
-                text: tile.glyph
-                font.family: root.fontFamily
-                font.pixelSize: 15
-                color: root.textColor
-              }
-            }
-
-            // Beside the dial, not stacked under it -- per direct
-            // feedback the all-vertical layout made the whole tile too
-            // tall. "Usage 10%" then the CPU/GPU name below it. No
-            // longer Layout.fillWidth:true -- sized to its own natural
-            // content width instead (with a maximumWidth safety cap
-            // for real GPU names longer than this machine's own), so
-            // the RowLayout above it centers as a compact unit instead
-            // of stretching this column all the way to the tile edge.
-            ColumnLayout {
-              Layout.alignment: Qt.AlignVCenter
-              spacing: 2
-
-              Text {
-                // Title prefix dropped -- the new header row above
-                // already says "CPU"/"GPU", so repeating it here read
-                // as "CPU CPU Usage 5%".
-                text: tile.available ? ("Usage " + Math.round(tile.value * 100) + "%") : "Unavailable"
-                font.family: root.fontFamily
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                color: root.textColor
-                elide: Text.ElideRight
-                Layout.maximumWidth: 140
-              }
-
-              Text {
-                text: tile.subText
+                text: Math.round(tile.tempC) + "\u00b0C"
                 font.family: root.fontFamily
                 font.pixelSize: 10
                 color: root.muted
-                elide: Text.ElideRight
-                Layout.maximumWidth: 140
-              }
-            }
-          }
-
-          // Temperature bar, below the dial+usage row, per direct
-          // request -- same visual language as the per-core CPU list's
-          // own bars (thin rounded track + accent fill), just sharing
-          // a row with a temperature label instead of an icon/name.
-          // Side margins added per direct follow-up ("maybe center the
-          // progress bar too, so like that means some side padding to
-          // it?") -- matches the dial+usage row above it, which reads
-          // as centered/inset now rather than running edge-to-edge.
-          RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
-            visible: tile.tempC >= 0
-            spacing: 6
-
-            Rectangle {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 6
-              radius: 3
-              color: Qt.rgba(1, 1, 1, 0.08)
-
-              Rectangle {
-                width: parent.width * Math.max(0, Math.min(1, tile.tempC / tile.tempMaxC))
-                height: parent.height
-                radius: 3
-                color: root.accent
-                Behavior on width { NumberAnimation { duration: 200 } }
+                Layout.preferredWidth: 32
+                horizontalAlignment: Text.AlignRight
               }
             }
 
-            Text {
-              text: Math.round(tile.tempC) + "\u00b0C"
-              font.family: root.fontFamily
-              font.pixelSize: 10
-              color: root.muted
-              Layout.preferredWidth: 32
-              horizontalAlignment: Text.AlignRight
             }
           }
-
-          Item { Layout.fillHeight: true }
         }
       }
 

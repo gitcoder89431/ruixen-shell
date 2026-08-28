@@ -66,6 +66,23 @@ Item {
   property string gpuName: ""
   property real gpuUsage: 0
   property var prevGpuSample: null
+  // Real bug report: a friend's machine showed a stuck 100% GPU usage
+  // while btop showed 0%. Root cause, confirmed directly -- the rc6
+  // path below used to be hardcoded to /sys/class/drm/card1, which is
+  // this machine's real Intel iGPU (there's no card0 here at all), but
+  // that's this machine's own enumeration, not a guarantee. On a
+  // machine where the iGPU is card0 instead (or any non-Intel GPU,
+  // which never exposes an rc6_residency_ms file), `cat` on the wrong
+  // path fails silently -- stdout is empty, and JS's Number("") is 0,
+  // not NaN, so rc6Delta stayed permanently 0 while wallDelta kept
+  // climbing, making 1 - 0/wallDelta = 1 forever. Fixed by discovering
+  // the real path at runtime (gpuDiscoveryProc below) instead of
+  // assuming card1, and by never computing a percentage at all when no
+  // path was found or a read comes back empty -- gpuAvailable gates the
+  // DialTile into an explicit "Unavailable" state instead.
+  property string gpuRc6Path: ""
+  property bool gpuAvailable: false
+  property bool gpuDiscoveryAttempted: false
 
   property real memUsedPercent: 0
   property real memUsedGB: 0
@@ -269,13 +286,44 @@ Item {
   // root, but RC6 idle-residency compared between two samples against
   // real wall-clock time gives busy% = 1 - (Δrc6 / Δwall). Confirmed
   // directly on this machine, not guessed.
+  //
+  // The card index is NOT hardcoded (used to be card1, this machine's
+  // real path since there's no card0 here -- but that's this machine's
+  // own PCI enumeration, not a rule). gpuDiscoveryProc finds whichever
+  // /sys/class/drm/card* actually has an rc6_residency_ms file --
+  // connectors (card1-HDMI-A-1 etc) never have one (confirmed directly:
+  // they expose autosuspend_delay_ms/control/runtime_* instead), and
+  // neither does any non-Intel GPU, so file existence alone is a
+  // reliable enough filter without also needing to grep each card's
+  // uevent for DRIVER=i915.
   Process {
-    id: gpuProc
-    command: ["cat", "/sys/class/drm/card1/power/rc6_residency_ms"]
+    id: gpuDiscoveryProc
+    command: ["bash", "-c", "for d in /sys/class/drm/card*; do [ -f \"$d/power/rc6_residency_ms\" ] && echo \"$d/power/rc6_residency_ms\" && break; done"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var rc6Ms = Number(String(text || "").trim())
+        var path = String(text || "").trim()
+        root.gpuRc6Path = path
+        root.gpuAvailable = path !== ""
+      }
+    }
+  }
+
+  Process {
+    id: gpuProc
+    command: ["cat", root.gpuRc6Path]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var raw = String(text || "").trim()
+        // Empty on a transient read failure (sysfs hiccup, permissions)
+        // even though discovery found a real path -- skip the update
+        // rather than let Number("") coerce to 0 and poison the delta
+        // calc below into reading as 100% busy (the exact reported bug:
+        // "100 gpu usage" while btop showed 0%, traced to this coercion
+        // firing every single poll against a permanently-wrong path).
+        if (raw === "") return
+        var rc6Ms = Number(raw)
         var nowMs = Date.now()
         if (root.prevGpuSample) {
           var wallDelta = nowMs - root.prevGpuSample.wallMs
@@ -405,9 +453,17 @@ Item {
     repeat: true
     triggeredOnStart: true
     onTriggered: {
+      // Runs once (gpuDiscoveryAttempted latches it) rather than every
+      // 2s -- the real GPU's sysfs path can't change mid-session, and a
+      // machine with no rc6-capable GPU at all (AMD/NVIDIA-only) would
+      // otherwise re-fork this forever for nothing.
+      if (!root.gpuDiscoveryAttempted && !gpuDiscoveryProc.running) {
+        root.gpuDiscoveryAttempted = true
+        gpuDiscoveryProc.running = true
+      }
       if (!statProc.running) statProc.running = true
       if (!sensorsProc.running) sensorsProc.running = true
-      if (!gpuProc.running) gpuProc.running = true
+      if (root.gpuRc6Path !== "" && !gpuProc.running) gpuProc.running = true
       if (!memProc.running) memProc.running = true
       if (!netProc.running) netProc.running = true
       if (!diskProc.running) diskProc.running = true
@@ -760,6 +816,14 @@ Item {
         property string title: ""
         property real value: 0
         property string subText: ""
+        // True for tiles with no meaningful "unavailable" state (CPU
+        // usage reads /proc/stat, always present on Linux). GPU sets
+        // this to root.gpuAvailable -- same "be honest about no
+        // reading" philosophy as tempC's -1 sentinel below, after a
+        // real bug (a stuck 100% reading on a machine where the
+        // hardcoded sysfs path didn't exist) made silently drawing a
+        // plausible-looking percentage the actual problem.
+        property bool available: true
         // Temperature -- per direct request ("for the tempture for
         // CPU and GPU we can put this in the card below the section
         // we just made but full width bar inside its cpu or gpu
@@ -778,6 +842,7 @@ Item {
         property color ringAccent: root.accent
         onRingAccentChanged: dialCanvas.requestPaint()
         onValueChanged: dialCanvas.requestPaint()
+        onAvailableChanged: dialCanvas.requestPaint()
 
         ColumnLayout {
           anchors.fill: parent
@@ -851,7 +916,11 @@ Item {
                   var cx = width / 2, cy = height / 2, r = width / 2 - 6
                   var startAngle = Math.PI / 2 + Math.PI / 4
                   var totalSweep = Math.PI * 2 - Math.PI / 2
-                  var endAngle = startAngle + Math.max(0, Math.min(1, tile.value)) * totalSweep
+                  // No reading -> empty track only, no progress arc or
+                  // tip marker at all (not just a 0%-looking dial) --
+                  // same "don't draw something that looks like real data
+                  // when it isn't" reasoning as the Usage text above.
+                  var endAngle = startAngle + (tile.available ? Math.max(0, Math.min(1, tile.value)) : 0) * totalSweep
                   var handleSpacing = 5
                   var gapRad = handleSpacing / r
                   ctx.lineWidth = 4
@@ -860,6 +929,8 @@ Item {
                   ctx.beginPath()
                   ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
                   ctx.stroke()
+
+                  if (!tile.available) return
 
                   ctx.strokeStyle = tile.ringAccent
                   ctx.beginPath()
@@ -908,7 +979,7 @@ Item {
                 // Title prefix dropped -- the new header row above
                 // already says "CPU"/"GPU", so repeating it here read
                 // as "CPU CPU Usage 5%".
-                text: "Usage " + Math.round(tile.value * 100) + "%"
+                text: tile.available ? ("Usage " + Math.round(tile.value * 100) + "%") : "Unavailable"
                 font.family: root.fontFamily
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
@@ -1125,11 +1196,14 @@ Item {
           title: "GPU"
           value: root.gpuUsage
           subText: root.gpuName || ""
+          available: root.gpuAvailable
           // Same real sensor as the CPU tile -- this iGPU shares
           // the CPU package's die/thermal zone, confirmed directly (no
           // separate hwmon/thermal-zone entry exists for it anywhere
-          // under /sys/class/drm/card1 on this machine), not a
-          // fallback/guess.
+          // under this machine's own GPU card path), not a
+          // fallback/guess. Independent of gpuAvailable above -- this
+          // comes from `sensors` (coretemp), not the rc6 sysfs path, so
+          // it still shows even if usage discovery found nothing.
           tempC: root.packageTemp
         }
       }

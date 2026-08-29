@@ -280,6 +280,17 @@ Item {
   // Connecting resolves back to the live object via networkForSsid() at
   // click time instead (same real pattern, see connectToWifi below).
   function syncWifiNetworks() {
+    // Skip while a password prompt is open. Real bug this caught: NM
+    // scan ticks fire every few seconds regardless, each one replacing
+    // wifiRows with a brand-new array (this function always does that,
+    // never mutates in place) -- Repeater treats a new array as a new
+    // model and tears down/recreates every delegate, INCLUDING the row
+    // whose TextInput the user is actively typing into, and rows also
+    // re-sort by live signal strength each time, so the list visibly
+    // jumped mid-interaction. Freezing here and catching up in
+    // closeWifiPasswordPrompt() (below) means the list only reflows
+    // when nothing's actively being typed into it.
+    if (root.wifiPasswordSsid !== "") return
     var nets = []
     var networks = root.wifiNetworkObjects
     for (var i = 0; i < networks.length; i++) {
@@ -309,13 +320,14 @@ Item {
     return null
   }
 
-  // Known networks only -- per direct follow-up ("it showing all wifi
-  // spot available to join and its overflowing... were we gonna show
-  // just the one[s] we already connected to so they can switch"). Every
-  // scanned nearby AP was the real overflow cause; this list is a
-  // switcher between networks this device already knows, not a
-  // site-survey of everything in range.
+  // Known networks stay their own switcher list -- per the original
+  // direct follow-up ("it showing all wifi spot available to join and
+  // its overflowing... were we gonna show just the one[s] we already
+  // connected to so they can switch") -- with new networks reachable via
+  // the always-visible "Other Networks" section below (see
+  // otherWifiRows) instead of mixed into this one.
   readonly property var knownWifiRows: root.wifiRows.filter(function(r) { return r.known })
+  readonly property var otherWifiRows: root.wifiRows.filter(function(r) { return !r.known })
 
   function isOpenNetwork(security) {
     return security === WifiSecurityType.Open
@@ -328,16 +340,118 @@ Item {
     return null
   }
 
-  // Real click-to-connect, scoped to known or open networks per direct
-  // confirmation -- a protected network this device has never joined
-  // before needs a passphrase this pass doesn't collect yet, so it's a
-  // deliberate no-op rather than silently failing against
-  // NetworkManager with no credentials.
+  // Passphrase prompt state for connecting to a new (unknown) protected
+  // network -- WPA-PSK only via Quickshell.Networking's own
+  // network.connectWithPsk(), the exact call Omarchy's own real network
+  // panel uses (confirmed by reading $OMARCHY_PATH/shell/plugins/panels/
+  // network/Panel.qml directly). WPA-Enterprise is real but needs a
+  // separate nmcli-scripted flow (their own Model.enterpriseConnectScript)
+  // -- out of scope here, deliberately: enterprise networks are rare
+  // outside campus/corporate Wi-Fi, and the whole point of this pass was
+  // making the common "type a password, join home Wi-Fi" case actually
+  // work instead of silently no-op'ing.
+  property string wifiPasswordSsid: ""
+  property string wifiPasswordAttempt: ""
+  property bool wifiConnecting: false
+  property string wifiConnectError: ""
+
+  function openWifiPasswordPrompt(ssid) {
+    root.wifiPasswordSsid = ssid
+    root.wifiPasswordAttempt = ""
+    root.wifiConnectError = ""
+    root.wifiConnecting = false
+  }
+
+  function closeWifiPasswordPrompt() {
+    root.wifiPasswordSsid = ""
+    root.wifiPasswordAttempt = ""
+    root.wifiConnectError = ""
+    root.wifiConnecting = false
+    // Catches up on whatever scan ticks syncWifiNetworks() skipped
+    // while the prompt was open (see its own comment) -- otherwise
+    // wifiRows stays frozen at a stale snapshot until the next real
+    // change event happens to fire on its own.
+    root.syncWifiNetworks()
+  }
+
+  function submitWifiPassword() {
+    if (root.wifiConnecting || root.wifiPasswordAttempt.length === 0) return
+    var network = root.networkForSsid(root.wifiPasswordSsid)
+    if (!network) { root.wifiConnectError = "Network no longer in range"; return }
+    // Real error hit live: "WifiNetwork is already connected" -- the
+    // network can transition to connected on its own between the row
+    // being clicked and the password actually being submitted (seen
+    // with two SSIDs off the same router, likely 802.11k/v roaming),
+    // and connectWithPsk() on an already-connected network throws that
+    // error instead of being a harmless no-op. Guard it directly.
+    if (network.connected) { root.closeWifiPasswordPrompt(); return }
+    root.wifiConnectError = ""
+    root.wifiConnecting = true
+    network.connectWithPsk(root.wifiPasswordAttempt)
+  }
+
+  // Scoped to whichever network the open passphrase prompt targets (null
+  // target when the prompt is closed, so this is a no-op the rest of the
+  // time). connectionFailed(reason) and connectedChanged are the same
+  // two signals Omarchy's own network panel listens to for this exact
+  // purpose (confirmed by reading their Panel.qml).
+  Connections {
+    target: root.wifiPasswordSsid !== "" ? root.networkForSsid(root.wifiPasswordSsid) : null
+    function onConnectionFailed(reason) {
+      root.wifiConnecting = false
+      root.wifiConnectError = (reason === ConnectionFailReason.NoSecrets || reason === ConnectionFailReason.WifiAuthTimeout)
+        ? "Wrong password" : "Couldn't connect"
+      // Real bug hit live: connectWithPsk() creates a full, autoconnect-
+      // enabled NetworkManager profile immediately as part of attempting
+      // the connection -- BEFORE the password is validated. On failure
+      // that broken profile just sits there, showing as "known" despite
+      // never actually authenticating, and NM will keep quietly
+      // retrying it (autoconnect: yes) in the background whenever it's
+      // in range. This flow only ever opens for networks that were NOT
+      // known when clicked (see connectToWifi's own guard), so failure
+      // here always means "the attempt failed, not that a real saved
+      // network's password changed" -- safe to forget unconditionally,
+      // and it must happen so a wrong guess doesn't leave a dead
+      // autoconnect profile behind. Omarchy's own real panel has this
+      // same gap (confirmed by reading their Panel.qml directly, no
+      // forget-on-failure there either) -- not something this port did
+      // differently, but worth fixing regardless.
+      if (target) target.forget()
+    }
+    function onConnectedChanged() {
+      if (target && target.connected) root.closeWifiPasswordPrompt()
+    }
+  }
+
+  // Real click-to-connect. Known networks (already have saved
+  // credentials) and open networks connect immediately via
+  // network.connect(); a new protected network opens the passphrase
+  // prompt instead of the old deliberate no-op.
   function connectToWifi(row) {
     if (!row || row.connected) return
-    if (!row.known && !root.isOpenNetwork(row.security)) return
+    if (!row.known && !root.isOpenNetwork(row.security)) {
+      // Clicking the row that's already expanded closes it back up
+      // instead of just clearing whatever was typed -- matches normal
+      // disclosure-row expectations.
+      if (root.wifiPasswordSsid === row.ssid) root.closeWifiPasswordPrompt()
+      else root.openWifiPasswordPrompt(row.ssid)
+      return
+    }
     var network = root.networkForSsid(row.ssid)
-    if (network) network.connect()
+    // row.connected is a stale snapshot (see the syncWifiNetworks
+    // comment above) -- re-check the live object too, same reasoning
+    // as submitWifiPassword's own guard.
+    if (network && !network.connected) network.connect()
+  }
+
+  // Excludes the connected network (mirrors Omarchy's own real panel's
+  // canForgetNetwork: known && !connected) -- forgetting the network
+  // you're actively using would disconnect you as a side effect of
+  // what's meant to be a plain cleanup click.
+  function forgetWifi(row) {
+    if (!row || row.connected) return
+    var network = root.networkForSsid(row.ssid)
+    if (network) network.forget()
   }
 
   function toggleWifiRadio() {
@@ -1309,7 +1423,17 @@ Item {
                           color: root.muted
                         }
 
+                        // Swaps to a "forget" icon on hover -- direct
+                        // follow-up after a couple of test-password
+                        // attempts left stray known networks with no way
+                        // to remove them short of asking nmcli directly.
+                        // Excludes the connected network, same rule
+                        // Omarchy's own real panel uses (canForgetNetwork:
+                        // known && !connected) -- forgetting the network
+                        // you're actively on would disconnect you as a
+                        // side effect of what reads like a cleanup click.
                         Text {
+                          visible: !(wifiRowMouse.containsMouse && !wifiRow.modelData.connected)
                           text: wifiRow.modelData.signal + "%"
                           font.family: root.fontFamily
                           font.pixelSize: 11
@@ -1317,12 +1441,225 @@ Item {
                           Layout.preferredWidth: 28
                           horizontalAlignment: Text.AlignRight
                         }
+
+                        Text {
+                          visible: wifiRowMouse.containsMouse && !wifiRow.modelData.connected
+                          text: ""
+                          font.family: root.fontFamily
+                          font.pixelSize: 13
+                          color: forgetMouse.containsMouse ? "#e05252" : root.muted
+                          Layout.preferredWidth: 28
+                          horizontalAlignment: Text.AlignRight
+
+                          MouseArea {
+                            id: forgetMouse
+                            anchors.fill: parent
+                            anchors.margins: -4
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.forgetWifi(wifiRow.modelData)
+                          }
+                        }
                       }
 
                       MouseArea {
+                        id: wifiRowMouse
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.connectToWifi(wifiRow.modelData)
+                      }
+                    }
+                  }
+
+                  // "Other Networks" -- always visible now (was a
+                  // collapse/expand toggle; dropped per direct
+                  // follow-up). The real bug that follow-up caught: the
+                  // old design put ONE shared passphrase prompt after
+                  // the whole list, so clicking a network near the top
+                  // of a long list opened a prompt scrolled off-screen
+                  // below the fold -- looked exactly like "clicking does
+                  // nothing". Fixed by making each row expand in place
+                  // instead (see otherRow below): the field appears
+                  // exactly where you clicked, so there's nothing to
+                  // scroll to find.
+                  Text {
+                    visible: root.otherWifiRows.length > 0
+                    text: "Other Networks"
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    color: root.muted
+                    Layout.topMargin: 4
+                    Layout.leftMargin: 8
+                  }
+
+                  Repeater {
+                    model: root.otherWifiRows
+
+                    Rectangle {
+                      id: otherRow
+                      required property var modelData
+                      readonly property bool expanded: root.wifiPasswordSsid === otherRow.modelData.ssid
+
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: otherContent.implicitHeight + 16
+                      radius: 8
+                      color: otherRow.expanded ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                      clip: true
+                      Behavior on Layout.preferredHeight { NumberAnimation { duration: 120 } }
+
+                      ColumnLayout {
+                        id: otherContent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 8
+                        spacing: 6
+
+                        RowLayout {
+                          id: otherHeaderRow
+                          Layout.fillWidth: true
+                          Layout.preferredHeight: 16
+                          spacing: 8
+
+                          Text {
+                            text: ""
+                            font.family: root.fontFamily
+                            font.pixelSize: 13
+                            color: root.muted
+                          }
+
+                          Text {
+                            text: otherRow.modelData.ssid
+                            font.family: root.fontFamily
+                            font.pixelSize: 12
+                            color: root.muted
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                          }
+
+                          Text {
+                            visible: !root.isOpenNetwork(otherRow.modelData.security)
+                            text: ""
+                            font.family: root.fontFamily
+                            font.pixelSize: 10
+                            color: root.muted
+                          }
+
+                          Text {
+                            text: otherRow.modelData.signal + "%"
+                            font.family: root.fontFamily
+                            font.pixelSize: 11
+                            color: root.muted
+                            Layout.preferredWidth: 28
+                            horizontalAlignment: Text.AlignRight
+                          }
+                        }
+
+                        // Inline passphrase field -- same plain-primitive
+                        // search-box style ruixen.notch's own launcher/
+                        // wallpaper search boxes use (Rectangle radius
+                        // 12, Qt.rgba(1,1,1,0.06) background, TextInput +
+                        // placeholder Text overlay), not a new visual
+                        // language. Submit button is icon-only (arrow) on
+                        // the right per direct request ("with enter on
+                        // the right"), Enter key on the field does the
+                        // same thing.
+                        RowLayout {
+                          visible: otherRow.expanded
+                          Layout.fillWidth: true
+                          spacing: 6
+
+                          Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 10
+                            color: Qt.rgba(1, 1, 1, 0.06)
+
+                            TextInput {
+                              id: wifiPasswordInput
+                              anchors.fill: parent
+                              anchors.leftMargin: 10
+                              anchors.rightMargin: 10
+                              verticalAlignment: TextInput.AlignVCenter
+                              echoMode: TextInput.Password
+                              enabled: !root.wifiConnecting
+                              color: root.textColor
+                              font.family: root.fontFamily
+                              font.pixelSize: 12
+                              clip: true
+                              focus: otherRow.expanded
+                              text: root.wifiPasswordAttempt
+                              onTextChanged: root.wifiPasswordAttempt = text
+                              Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_Escape) {
+                                  root.closeWifiPasswordPrompt()
+                                  event.accepted = true
+                                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                  root.submitWifiPassword()
+                                  event.accepted = true
+                                }
+                              }
+
+                              Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: root.wifiConnecting ? "Connecting…" : "Enter password..."
+                                color: root.muted
+                                font.family: root.fontFamily
+                                font.pixelSize: 12
+                                visible: wifiPasswordInput.text.length === 0
+                              }
+                            }
+                          }
+
+                          Rectangle {
+                            Layout.preferredWidth: 32
+                            Layout.preferredHeight: 32
+                            radius: 10
+                            color: connectMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                            opacity: root.wifiConnecting ? 0.5 : 1
+
+                            Text {
+                              anchors.centerIn: parent
+                              text: ""
+                              font.family: root.fontFamily
+                              font.pixelSize: 13
+                              color: root.textColor
+                            }
+
+                            MouseArea {
+                              id: connectMouse
+                              anchors.fill: parent
+                              hoverEnabled: true
+                              enabled: !root.wifiConnecting
+                              cursorShape: Qt.PointingHandCursor
+                              onClicked: root.submitWifiPassword()
+                            }
+                          }
+                        }
+
+                        Text {
+                          visible: otherRow.expanded && root.wifiConnectError !== ""
+                          text: root.wifiConnectError
+                          font.family: root.fontFamily
+                          font.pixelSize: 10
+                          color: "#e05252"
+                          Layout.leftMargin: 4
+                        }
+                      }
+
+                      // Only covers the header row's own height, not the
+                      // password field below it once expanded -- an
+                      // anchors.fill MouseArea here would sit on top of
+                      // (and swallow clicks meant for) the TextInput/
+                      // submit button once the row grows.
+                      MouseArea {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: otherHeaderRow.height
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.connectToWifi(otherRow.modelData)
                       }
                     }
                   }

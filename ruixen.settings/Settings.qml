@@ -981,178 +981,211 @@ Item {
               // Audio section's own master mute switch lives on this
               // same title row, right-aligned, mirroring where Wi-Fi's
               // radio toggle sits relative to its own header.
-              RowLayout {
+              Rectangle {
+                // Whole header row, rounded bar rather than a true
+                // stadium pill -- a full radius: height/2 pill and
+                // flush alignment with the plain body rows below it
+                // (Output, device rows) were fighting each other no
+                // matter what inset got picked: a small inset that
+                // lined up with the body crowded the pill's own sharp
+                // corner curve, a bigger inset that cleared the curve
+                // broke the alignment again (three direct follow-ups on
+                // this exact tension: "starts too close to the pill
+                // edge", then "the header is so much misalligned with
+                // the body"). Same radius as this settings panel's own
+                // detail-panel card (10, see the Rectangle at the top
+                // of this file's ColumnLayout) instead of a full pill --
+                // gentle enough that an 8px inset (matching every other
+                // row in this file) both clears the corner AND stays
+                // flush with the body.
                 Layout.fillWidth: true
-                spacing: 8
+                Layout.preferredHeight: 32
+                Layout.maximumHeight: 32
+                radius: 10
+                color: "#000000"
 
-                Text {
-                  // Wi-Fi's own title collapses with its connection
-                  // name -- per direct follow-up ("can we collapse the
-                  // Wifi header text with the Wifi connected name, so
-                  // it says Wifi when nothing is connected, and then
-                  // the Wifi network name when connected... seems like
-                  // we can save a row this way"). Bluetooth does NOT
-                  // get the same treatment -- per direct correction
-                  // ("bluetooth setting doesnnt make sense, we should
-                  // keep bluetooth text. its more like audio imo"):
-                  // Wi-Fi has exactly one active connection, so
-                  // collapsing the title to its name is unambiguous,
-                  // but Bluetooth (like Audio's own output+input) can
-                  // have several devices connected at once, so a
-                  // single collapsed name would misrepresent the real
-                  // state. Bluetooth keeps its plain label, same as
-                  // Audio.
-                  text: root.selectedSection === 1
-                    ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
-                    : root.sections[root.selectedSection].label
-                  font.family: root.fontFamily
-                  font.pixelSize: 15
-                  font.weight: Font.DemiBold
-                  color: root.textColor
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                }
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.leftMargin: 8
+                  anchors.rightMargin: 8
+                  spacing: 8
 
-                // Master mute switch -- ported directly from Omarchy's
-                // own audio panel ("the hero switch is the whole
-                // panel's on/off, so it carries both channels at
-                // once... reads as on while anything is still
-                // audible"): anyAudible/toggleAllMuted below are the
-                // exact same real property/function shape as their own
-                // hasOutput/hasInput/anyAudible/toggleAllMuted.
-                Rectangle {
-                  visible: root.selectedSection === 0
-                  Layout.preferredWidth: 36
-                  Layout.preferredHeight: 18
-                  radius: 9
-                  color: root.anyAudible ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+                  Text {
+                    id: titleText
+                    // Wi-Fi's own title collapses with its connection
+                    // name -- per direct follow-up ("can we collapse the
+                    // Wifi header text with the Wifi connected name, so
+                    // it says Wifi when nothing is connected, and then
+                    // the Wifi network name when connected... seems like
+                    // we can save a row this way"). Bluetooth does NOT
+                    // get the same treatment -- per direct correction
+                    // ("bluetooth setting doesnnt make sense, we should
+                    // keep bluetooth text. its more like audio imo"):
+                    // Wi-Fi has exactly one active connection, so
+                    // collapsing the title to its name is unambiguous,
+                    // but Bluetooth (like Audio's own output+input) can
+                    // have several devices connected at once, so a
+                    // single collapsed name would misrepresent the real
+                    // state. Bluetooth keeps its plain label, same as
+                    // Audio.
+                    text: root.selectedSection === 1
+                      ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
+                      : root.sections[root.selectedSection].label
+                    font.family: root.fontFamily
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                    color: root.textColor
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                  }
 
-                  Behavior on color { ColorAnimation { duration: 120 } }
-
+                  // Master mute switch -- ported directly from Omarchy's
+                  // own audio panel ("the hero switch is the whole
+                  // panel's on/off, so it carries both channels at
+                  // once... reads as on while anything is still
+                  // audible"): anyAudible/toggleAllMuted below are the
+                  // exact same real property/function shape as their own
+                  // hasOutput/hasInput/anyAudible/toggleAllMuted.
                   Rectangle {
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: "#ffffff"
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: root.anyAudible ? parent.width - width - 2 : 2
-                    Behavior on x { NumberAnimation { duration: 120 } }
+                    visible: root.selectedSection === 0
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 18
+                    radius: 9
+                    color: root.anyAudible ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    Rectangle {
+                      width: 14
+                      height: 14
+                      radius: 7
+                      color: "#ffffff"
+                      anchors.verticalCenter: parent.verticalCenter
+                      x: root.anyAudible ? parent.width - width - 2 : 2
+                      Behavior on x { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.toggleAllMuted()
+                    }
                   }
 
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleAllMuted()
+
+                  // QR code button -- summons Omarchy's own real
+                  // omarchy.wifiqr panel plugin via the shared host
+                  // summon() API (root.shell.summon(id, payloadJson),
+                  // same generic function as our own dismiss()'s
+                  // shell.hide(id), confirmed real at
+                  // $OMARCHY_PATH/shell/shell.qml). Same real payload
+                  // shape their own network panel uses -- iface+ssid
+                  // when a wifi connection is known, empty object
+                  // otherwise (the QR panel self-detects then).
+                  Text {
+                    visible: root.selectedSection === 1
+                    Layout.alignment: Qt.AlignVCenter
+                    text: ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 14
+                    color: root.muted
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -6
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.summonWifiQr()
+                    }
                   }
-                }
 
+                  // Speed test button -- summons Omarchy's own real
+                  // omarchy.speedtest panel plugin, same summon() API
+                  // and payload shape (connection name) as their own.
+                  Text {
+                    visible: root.selectedSection === 1
+                    Layout.alignment: Qt.AlignVCenter
+                    text: ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 14
+                    color: root.muted
 
-                // QR code button -- summons Omarchy's own real
-                // omarchy.wifiqr panel plugin via the shared host
-                // summon() API (root.shell.summon(id, payloadJson),
-                // same generic function as our own dismiss()'s
-                // shell.hide(id), confirmed real at
-                // $OMARCHY_PATH/shell/shell.qml). Same real payload
-                // shape their own network panel uses -- iface+ssid
-                // when a wifi connection is known, empty object
-                // otherwise (the QR panel self-detects then).
-                Text {
-                  visible: root.selectedSection === 1
-                  text: ""
-                  font.family: root.fontFamily
-                  font.pixelSize: 14
-                  color: root.muted
-
-                  MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -6
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.summonWifiQr()
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -6
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.summonSpeedTest()
+                    }
                   }
-                }
 
-                // Speed test button -- summons Omarchy's own real
-                // omarchy.speedtest panel plugin, same summon() API
-                // and payload shape (connection name) as their own.
-                Text {
-                  visible: root.selectedSection === 1
-                  text: ""
-                  font.family: root.fontFamily
-                  font.pixelSize: 14
-                  color: root.muted
-
-                  MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -6
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.summonSpeedTest()
-                  }
-                }
-
-                // Wi-Fi radio toggle -- moved up here from the status
-                // row below, per direct follow-up ("the header Wifi
-                // doesnt have a toggle"), matching exactly where
-                // Audio's own master toggle sits on its header.
-                Rectangle {
-                  visible: root.selectedSection === 1
-                  Layout.preferredWidth: 36
-                  Layout.preferredHeight: 18
-                  radius: 9
-                  color: Networking.wifiEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
-
-                  Behavior on color { ColorAnimation { duration: 120 } }
-
+                  // Wi-Fi radio toggle -- moved up here from the status
+                  // row below, per direct follow-up ("the header Wifi
+                  // doesnt have a toggle"), matching exactly where
+                  // Audio's own master toggle sits on its header.
                   Rectangle {
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: "#ffffff"
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: Networking.wifiEnabled ? parent.width - width - 2 : 2
-                    Behavior on x { NumberAnimation { duration: 120 } }
+                    visible: root.selectedSection === 1
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 18
+                    radius: 9
+                    color: Networking.wifiEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    Rectangle {
+                      width: 14
+                      height: 14
+                      radius: 7
+                      color: "#ffffff"
+                      anchors.verticalCenter: parent.verticalCenter
+                      x: Networking.wifiEnabled ? parent.width - width - 2 : 2
+                      Behavior on x { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.toggleWifiRadio()
+                    }
                   }
 
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleWifiRadio()
-                  }
-                }
-
-                // Bluetooth radio toggle -- same header placement as
-                // Wi-Fi's own, established from the start this time.
-                // Real adapter power state (Bluetooth.defaultAdapter.
-                // enabled) doesn't persist on its own, per Omarchy's
-                // own comment ("that writes BlueZ's Powered, which
-                // nothing persists"), so toggling goes through the
-                // same real omarchy-bluetooth-power CLI their own
-                // toggleBluetooth() uses, not a direct property write.
-                Rectangle {
-                  visible: root.selectedSection === 2
-                  Layout.preferredWidth: 36
-                  Layout.preferredHeight: 18
-                  radius: 9
-                  color: root.btEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
-
-                  Behavior on color { ColorAnimation { duration: 120 } }
-
+                  // Bluetooth radio toggle -- same header placement as
+                  // Wi-Fi's own, established from the start this time.
+                  // Real adapter power state (Bluetooth.defaultAdapter.
+                  // enabled) doesn't persist on its own, per Omarchy's
+                  // own comment ("that writes BlueZ's Powered, which
+                  // nothing persists"), so toggling goes through the
+                  // same real omarchy-bluetooth-power CLI their own
+                  // toggleBluetooth() uses, not a direct property write.
                   Rectangle {
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: "#ffffff"
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: root.btEnabled ? parent.width - width - 2 : 2
-                    Behavior on x { NumberAnimation { duration: 120 } }
-                  }
+                    visible: root.selectedSection === 2
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 18
+                    radius: 9
+                    color: root.btEnabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
 
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleBluetoothRadio()
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    Rectangle {
+                      width: 14
+                      height: 14
+                      radius: 7
+                      color: "#ffffff"
+                      anchors.verticalCenter: parent.verticalCenter
+                      x: root.btEnabled ? parent.width - width - 2 : 2
+                      Behavior on x { NumberAnimation { duration: 120 } }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.toggleBluetoothRadio()
+                    }
                   }
                 }
               }
+
 
               // Audio -- real Pipewire volume + output/input device
               // pickers, per direct request ("should we start with the
@@ -1166,223 +1199,271 @@ Item {
                 visible: root.selectedSection === 0
                 spacing: 16
 
-                Text {
-                  text: "Output"
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  font.weight: Font.DemiBold
-                  color: root.muted
-                }
-
-                RowLayout {
+                Rectangle {
+                  // Groups the whole Output/Input section (label +
+                  // slider + device list) into one card, same real
+                  // shape as the header pill (radius: 10, color:
+                  // "#000000") -- direct follow-up ("still feels a bit
+                  // off, can we try nesting few things like the black
+                  // card too Output and Input group"). Height tracks
+                  // the inner content's own implicitHeight (12px margin
+                  // top/bottom) instead of a fixed number, so it still
+                  // fits correctly as the device list grows/shrinks.
                   Layout.fillWidth: true
-                  spacing: 10
+                  Layout.preferredHeight: outputCardContent.implicitHeight + 24
+                  radius: 10
+                  color: "#000000"
 
-                  Text {
-                    text: root.outputMuted ? "" : ""
-                    font.family: root.fontFamily
-                    font.pixelSize: 15
-                    color: root.textColor
+                  ColumnLayout {
+                    id: outputCardContent
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 12
 
-                    MouseArea {
-                      anchors.fill: parent
-                      anchors.margins: -6
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.toggleOutputMute()
-                    }
-                  }
-
-                  Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 6
-                    radius: 3
-                    color: Qt.rgba(1, 1, 1, 0.1)
-
-                    Rectangle {
-                      width: parent.width * Math.max(0, Math.min(1, root.outputVolume))
-                      height: parent.height
-                      radius: 3
-                      color: root.outputMuted ? root.muted : root.accent
-                      Behavior on width { NumberAnimation { duration: 120 } }
+                    Text {
+                      text: "Output"
+                      font.family: root.fontFamily
+                      font.pixelSize: 11
+                      font.weight: Font.DemiBold
+                      color: root.muted
                     }
 
-                    MouseArea {
-                      anchors.fill: parent
-                      anchors.topMargin: -8
-                      anchors.bottomMargin: -8
-                      onPressed: mouse => root.setOutputVolume(mouse.x / width)
-                      onPositionChanged: mouse => { if (pressed) root.setOutputVolume(mouse.x / width) }
-                    }
-                  }
-
-                  Text {
-                    text: Math.round(root.outputVolume * 100) + "%"
-                    font.family: root.fontFamily
-                    font.pixelSize: 12
-                    color: root.muted
-                    Layout.preferredWidth: 32
-                    horizontalAlignment: Text.AlignRight
-                  }
-                }
-
-                ColumnLayout {
-                  Layout.fillWidth: true
-                  spacing: 4
-
-                  Repeater {
-                    model: root.outputDevices
-
-                    Rectangle {
-                      id: deviceRow
-                      required property var modelData
-                      readonly property bool isDefault: root.outputSink && deviceRow.modelData && root.outputSink.id === deviceRow.modelData.id
-
+                    RowLayout {
                       Layout.fillWidth: true
-                      Layout.preferredHeight: 32
-                      radius: 8
-                      color: deviceRow.isDefault ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                      spacing: 10
 
-                      RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
-                        spacing: 8
+                      Text {
+                        text: root.outputMuted ? "" : ""
+                        font.family: root.fontFamily
+                        font.pixelSize: 15
+                        color: root.textColor
 
-                        Text {
-                          text: ""
-                          font.family: root.fontFamily
-                          font.pixelSize: 13
-                          color: deviceRow.isDefault ? root.accent : root.muted
-                        }
-
-                        Text {
-                          text: root.deviceLabel(deviceRow.modelData)
-                          font.family: root.fontFamily
-                          font.pixelSize: 12
-                          font.weight: deviceRow.isDefault ? Font.DemiBold : Font.Normal
-                          color: deviceRow.isDefault ? root.textColor : root.muted
-                          elide: Text.ElideRight
-                          Layout.fillWidth: true
+                        MouseArea {
+                          anchors.fill: parent
+                          anchors.margins: -6
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.toggleOutputMute()
                         }
                       }
 
-                      MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.setDefaultOutput(deviceRow.modelData)
+                      Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.1)
+
+                        Rectangle {
+                          width: parent.width * Math.max(0, Math.min(1, root.outputVolume))
+                          height: parent.height
+                          radius: 3
+                          color: root.outputMuted ? root.muted : root.accent
+                          Behavior on width { NumberAnimation { duration: 120 } }
+                        }
+
+                        MouseArea {
+                          anchors.fill: parent
+                          anchors.topMargin: -8
+                          anchors.bottomMargin: -8
+                          onPressed: mouse => root.setOutputVolume(mouse.x / width)
+                          onPositionChanged: mouse => { if (pressed) root.setOutputVolume(mouse.x / width) }
+                        }
+                      }
+
+                      Text {
+                        text: Math.round(root.outputVolume * 100) + "%"
+                        font.family: root.fontFamily
+                        font.pixelSize: 12
+                        color: root.muted
+                        Layout.preferredWidth: 32
+                        horizontalAlignment: Text.AlignRight
                       }
                     }
-                  }
-                }
 
-                Text {
-                  text: "Input"
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  font.weight: Font.DemiBold
-                  color: root.muted
-                }
-
-                RowLayout {
-                  Layout.fillWidth: true
-                  spacing: 10
-
-                  Text {
-                    text: root.inputMuted ? "" : ""
-                    font.family: root.fontFamily
-                    font.pixelSize: 15
-                    color: root.textColor
-
-                    MouseArea {
-                      anchors.fill: parent
-                      anchors.margins: -6
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.toggleInputMute()
-                    }
-                  }
-
-                  Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 6
-                    radius: 3
-                    color: Qt.rgba(1, 1, 1, 0.1)
-
-                    Rectangle {
-                      width: parent.width * Math.max(0, Math.min(1, root.inputVolume))
-                      height: parent.height
-                      radius: 3
-                      color: root.inputMuted ? root.muted : root.accent
-                      Behavior on width { NumberAnimation { duration: 120 } }
-                    }
-
-                    MouseArea {
-                      anchors.fill: parent
-                      anchors.topMargin: -8
-                      anchors.bottomMargin: -8
-                      onPressed: mouse => root.setInputVolume(mouse.x / width)
-                      onPositionChanged: mouse => { if (pressed) root.setInputVolume(mouse.x / width) }
-                    }
-                  }
-
-                  Text {
-                    text: Math.round(root.inputVolume * 100) + "%"
-                    font.family: root.fontFamily
-                    font.pixelSize: 12
-                    color: root.muted
-                    Layout.preferredWidth: 32
-                    horizontalAlignment: Text.AlignRight
-                  }
-                }
-
-                ColumnLayout {
-                  Layout.fillWidth: true
-                  spacing: 4
-
-                  Repeater {
-                    model: root.inputDevices
-
-                    Rectangle {
-                      id: inputRow
-                      required property var modelData
-                      readonly property bool isDefault: root.inputSource && inputRow.modelData && root.inputSource.id === inputRow.modelData.id
-
+                    ColumnLayout {
                       Layout.fillWidth: true
-                      Layout.preferredHeight: 32
-                      radius: 8
-                      color: inputRow.isDefault ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                      spacing: 4
 
-                      RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
-                        spacing: 8
+                      Repeater {
+                        model: root.outputDevices
 
-                        Text {
-                          text: ""
-                          font.family: root.fontFamily
-                          font.pixelSize: 13
-                          color: inputRow.isDefault ? root.accent : root.muted
-                        }
+                        Rectangle {
+                          id: deviceRow
+                          required property var modelData
+                          readonly property bool isDefault: root.outputSink && deviceRow.modelData && root.outputSink.id === deviceRow.modelData.id
 
-                        Text {
-                          text: root.deviceLabel(inputRow.modelData)
-                          font.family: root.fontFamily
-                          font.pixelSize: 12
-                          font.weight: inputRow.isDefault ? Font.DemiBold : Font.Normal
-                          color: inputRow.isDefault ? root.textColor : root.muted
-                          elide: Text.ElideRight
                           Layout.fillWidth: true
-                        }
-                      }
+                          Layout.preferredHeight: 32
+                          radius: 8
+                          color: deviceRow.isDefault ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
-                      MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.setDefaultInput(inputRow.modelData)
+                          RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: 8
+
+                            Text {
+                              text: ""
+                              font.family: root.fontFamily
+                              font.pixelSize: 13
+                              color: deviceRow.isDefault ? root.accent : root.muted
+                            }
+
+                            Text {
+                              text: root.deviceLabel(deviceRow.modelData)
+                              font.family: root.fontFamily
+                              font.pixelSize: 12
+                              font.weight: deviceRow.isDefault ? Font.DemiBold : Font.Normal
+                              color: deviceRow.isDefault ? root.textColor : root.muted
+                              elide: Text.ElideRight
+                              Layout.fillWidth: true
+                            }
+                          }
+
+                          MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.setDefaultOutput(deviceRow.modelData)
+                          }
+                        }
                       }
                     }
                   }
                 }
+
+
+                Rectangle {
+                  // Groups the whole Output/Input section (label +
+                  // slider + device list) into one card, same real
+                  // shape as the header pill (radius: 10, color:
+                  // "#000000") -- direct follow-up ("still feels a bit
+                  // off, can we try nesting few things like the black
+                  // card too Output and Input group"). Height tracks
+                  // the inner content's own implicitHeight (12px margin
+                  // top/bottom) instead of a fixed number, so it still
+                  // fits correctly as the device list grows/shrinks.
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: inputCardContent.implicitHeight + 24
+                  radius: 10
+                  color: "#000000"
+
+                  ColumnLayout {
+                    id: inputCardContent
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 12
+
+                    Text {
+                      text: "Input"
+                      font.family: root.fontFamily
+                      font.pixelSize: 11
+                      font.weight: Font.DemiBold
+                      color: root.muted
+                    }
+
+                    RowLayout {
+                      Layout.fillWidth: true
+                      spacing: 10
+
+                      Text {
+                        text: root.inputMuted ? "" : ""
+                        font.family: root.fontFamily
+                        font.pixelSize: 15
+                        color: root.textColor
+
+                        MouseArea {
+                          anchors.fill: parent
+                          anchors.margins: -6
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.toggleInputMute()
+                        }
+                      }
+
+                      Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.1)
+
+                        Rectangle {
+                          width: parent.width * Math.max(0, Math.min(1, root.inputVolume))
+                          height: parent.height
+                          radius: 3
+                          color: root.inputMuted ? root.muted : root.accent
+                          Behavior on width { NumberAnimation { duration: 120 } }
+                        }
+
+                        MouseArea {
+                          anchors.fill: parent
+                          anchors.topMargin: -8
+                          anchors.bottomMargin: -8
+                          onPressed: mouse => root.setInputVolume(mouse.x / width)
+                          onPositionChanged: mouse => { if (pressed) root.setInputVolume(mouse.x / width) }
+                        }
+                      }
+
+                      Text {
+                        text: Math.round(root.inputVolume * 100) + "%"
+                        font.family: root.fontFamily
+                        font.pixelSize: 12
+                        color: root.muted
+                        Layout.preferredWidth: 32
+                        horizontalAlignment: Text.AlignRight
+                      }
+                    }
+
+                    ColumnLayout {
+                      Layout.fillWidth: true
+                      spacing: 4
+
+                      Repeater {
+                        model: root.inputDevices
+
+                        Rectangle {
+                          id: inputRow
+                          required property var modelData
+                          readonly property bool isDefault: root.inputSource && inputRow.modelData && root.inputSource.id === inputRow.modelData.id
+
+                          Layout.fillWidth: true
+                          Layout.preferredHeight: 32
+                          radius: 8
+                          color: inputRow.isDefault ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+
+                          RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: 8
+
+                            Text {
+                              text: ""
+                              font.family: root.fontFamily
+                              font.pixelSize: 13
+                              color: inputRow.isDefault ? root.accent : root.muted
+                            }
+
+                            Text {
+                              text: root.deviceLabel(inputRow.modelData)
+                              font.family: root.fontFamily
+                              font.pixelSize: 12
+                              font.weight: inputRow.isDefault ? Font.DemiBold : Font.Normal
+                              color: inputRow.isDefault ? root.textColor : root.muted
+                              elide: Text.ElideRight
+                              Layout.fillWidth: true
+                            }
+                          }
+
+                          MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.setDefaultInput(inputRow.modelData)
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
 
                 Item { Layout.fillHeight: true }
               }
@@ -1961,12 +2042,35 @@ Item {
                             Layout.fillWidth: true
                           }
 
+                          // Icon instead of text -- direct follow-up,
+                          // matching the trash icon's own treatment
+                          // rather than a text label. Busy state swaps
+                          // to a spinner glyph with a running rotation
+                          // instead of "Connecting..." text.
                           Text {
                             visible: !btRow.modelData.connected
-                            text: btRow.busy ? "Connecting…" : "Connect"
+                            text: btRow.busy ? "" : ""
                             font.family: root.fontFamily
-                            font.pixelSize: 11
+                            font.pixelSize: 13
                             color: root.muted
+                            // rotation is forced to 0 whenever not busy
+                            // (see spinAngle below) rather than bound
+                            // straight to a RotationAnimation -- that
+                            // animation never resets rotation when it
+                            // stops, so the plug glyph could land at
+                            // whatever crooked angle the spin was mid-
+                            // cycle at instead of upright. Real report:
+                            // "the plug spin is too much".
+                            rotation: btRow.busy ? spinAngle : 0
+                            property real spinAngle: 0
+
+                            NumberAnimation on spinAngle {
+                              running: btRow.busy
+                              loops: Animation.Infinite
+                              from: 0
+                              to: 360
+                              duration: 900
+                            }
                           }
 
                           // Red X -- passive "you can click the row to
@@ -2129,11 +2233,31 @@ Item {
                               Layout.fillWidth: true
                             }
 
+                            // Icon instead of text, same treatment as
+                            // the known-row connect icon above.
                             Text {
-                              text: root.btBusyAddress === otherBtRow.modelData.address ? "Pairing…" : "Pair"
+                              readonly property bool busy: root.btBusyAddress === otherBtRow.modelData.address
+                              // Link icon, not the same plug used for
+                              // Connect above -- direct follow-up:
+                              // "the reconnect and pair with the plug
+                              // looks weird, maybe another one for
+                              // pair so its not too many plugs".
+                              text: busy ? "" : ""
                               font.family: root.fontFamily
-                              font.pixelSize: 11
+                              font.pixelSize: 13
                               color: root.muted
+                              // Same rotation-reset fix as the known-row
+                              // connect icon above -- see its comment.
+                              rotation: busy ? spinAngle : 0
+                              property real spinAngle: 0
+
+                              NumberAnimation on spinAngle {
+                                running: parent.busy
+                                loops: Animation.Infinite
+                                from: 0
+                                to: 360
+                                duration: 900
+                              }
                             }
                           }
 

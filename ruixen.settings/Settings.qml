@@ -1410,7 +1410,15 @@ Item {
                   Text {
                     visible: root.selectedSection === 4
                     Layout.alignment: Qt.AlignVCenter
-                    text: root.pluginUpdateStatus === "updating" ? "" : ""
+                    // Download glyph at rest, not the sync/refresh glyph --
+                    // direct follow-up ("kinda looks more like a refresh
+                    // button"): refresh reads as "reload the list", update
+                    // reads as "fetch and install a new version", and
+                    // this repo has no separate icon for that distinction
+                    // yet. Swaps to the spin glyph while actually running,
+                    // same as before -- that one still reads correctly as
+                    // "in progress" regardless of the idle icon.
+                    text: root.pluginUpdateStatus === "updating" ? "" : ""
                     font.family: root.fontFamily
                     font.pixelSize: 14
                     color: root.ruixenRepoPath === "" ? Qt.rgba(1, 1, 1, 0.25) : root.muted

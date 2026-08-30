@@ -506,10 +506,31 @@ Item {
       root.scannerDevice.scannerEnabled = enabled
   }
 
-  onOpenedChanged: root.setScannerEnabled(true)
+  // Same ownership-release reasoning as Wi-Fi's own scannerDevice
+  // above, applied to BlueZ's discovery session instead of the Wi-Fi
+  // radio's scan -- adapter.discovering is the real property (confirmed
+  // in Omarchy's own bluetooth Panel.qml: "keep nudging it back on so
+  // an enabled adapter is always scanning" while their panel is open).
+  property var btScannerAdapter: null
+
+  function setBtScannerEnabled(enabled) {
+    var nextAdapter = root.opened ? root.btAdapter : null
+    if (root.btScannerAdapter && root.btScannerAdapter !== nextAdapter)
+      root.btScannerAdapter.discovering = false
+    root.btScannerAdapter = nextAdapter
+    if (root.btScannerAdapter)
+      root.btScannerAdapter.discovering = enabled
+  }
+
+  onOpenedChanged: {
+    root.setScannerEnabled(true)
+    root.setBtScannerEnabled(true)
+  }
   onWifiDeviceChanged: root.setScannerEnabled(true)
+  onBtAdapterChanged: root.setBtScannerEnabled(true)
   Component.onDestruction: {
     if (root.scannerDevice) root.scannerDevice.scannerEnabled = false
+    if (root.btScannerAdapter) root.btScannerAdapter.discovering = false
   }
 
   // Real connection stats (IP, gateway, ping) via `omarchy-network-
@@ -557,12 +578,16 @@ Item {
   // Real Quickshell.Bluetooth-backed state -- another standard
   // Quickshell module, confirmed by reading Omarchy's own bluetooth
   // bar-widget directly ($OMARCHY_PATH/shell/plugins/panels/bluetooth/
-  // Panel.qml + Model.js, 1039 + 177 lines). Scoped the same way as
-  // Wi-Fi: adapter toggle + already-paired/known devices with connect/
-  // disconnect, no new-device discovery/pairing flow yet (their own
-  // file has a real separate one -- scanning, a pairing PIN/passkey
-  // sequence -- genuinely out of scope for this pass, same reasoning
-  // as Wi-Fi's own deferred passphrase flow).
+  // Panel.qml + Model.js, 1039 + 177 lines). Originally scoped to
+  // known/paired devices only, matching Wi-Fi's own original scope --
+  // extended once Wi-Fi got its own discovery+connect flow, per direct
+  // follow-up asking whether the same made sense here. Turned out
+  // simpler than Wi-Fi's version: pairing a brand-new device needs no
+  // password UI at all in the common case -- omarchy-bluetooth-device
+  // (below) just shells out to `bluetoothctl pair`, which uses BlueZ's
+  // default "Just Works" agent for most real devices (headphones,
+  // speakers, keyboards), confirmed by reading that script directly,
+  // not the PIN/passkey sequence assumed here previously.
   //
   // Real mechanism difference from Wi-Fi/Audio, confirmed directly:
   // the adapter's own `enabled` property doesn't persist by itself
@@ -609,21 +634,79 @@ Item {
     for (var i = 0; i < devs.length; i++) {
       var d = devs[i]
       if (!d || !root.btHasHumanName(d)) continue
-      if (!(d.connected || d.paired || d.bonded || d.trusted)) continue
+      // known no longer gates inclusion (used to drop anything not
+      // already paired/bonded/trusted) -- unpaired-but-discovered
+      // devices now flow into otherBtRows below instead of being
+      // filtered out entirely, same known/other split Wi-Fi's own
+      // wifiRows already uses.
       rows.push({
         address: d.address || "",
         name: root.btDeviceLabel(d),
-        connected: !!d.connected
+        connected: !!d.connected,
+        known: !!(d.paired || d.bonded || d.trusted),
+        // Real gap this flags: omarchy-bluetooth-device's pair action
+        // calls trust_device() unconditionally, win or lose, so a
+        // device can land in "known" purely off a `Trusted: yes` side
+        // effect with no actual bond -- e.g. a BLE-only device where
+        // classic pairing no-ops but the follow-up raw connect still
+        // succeeds. Kept in the same known list (that's still the
+        // right place -- it's the only way back to reconnect it) but
+        // this distinguishes "genuinely paired" from "merely trusted"
+        // so the row can say so instead of looking identical.
+        pairedFormally: !!(d.paired || d.bonded)
       })
     }
     rows.sort(function(a, b) {
       if (a.connected !== b.connected) return a.connected ? -1 : 1
+      if (a.known !== b.known) return a.known ? -1 : 1
       return a.name.localeCompare(b.name)
     })
     root.btRows = rows
+    // Clear a busy marker once the device's real state actually moved
+    // (connected flipped, or an armed/pending device disappeared) --
+    // see btBusyAddress below. Without this, "Connecting..."/"Pairing..."
+    // would hang forever if the CLI's own best-effort connect/pair
+    // silently no-ops.
+    if (root.btBusyAddress !== "") {
+      var busy = root.btDeviceForAddress(root.btBusyAddress)
+      if (!busy || busy.connected) root.btBusyAddress = ""
+    }
   }
 
   onBtDeviceObjectsChanged: root.syncBtDevices()
+
+  // Busy feedback for an in-flight connect/pair -- real report hit
+  // live: "i clicked mibox again... nothing happens then after a
+  // minute it shows up". Nothing was actually broken; there was just
+  // zero feedback that a fire-and-forget CLI call was even in flight,
+  // so a real ~1-minute BLE connect latency read as "did nothing".
+  // Cleared above once the device's connected state moves, or by this
+  // timeout as a backstop if it never does.
+  property string btBusyAddress: ""
+
+  Timer {
+    id: btBusyTimeout
+    interval: 20000
+    onTriggered: root.btBusyAddress = ""
+  }
+
+  readonly property var knownBtRows: root.btRows.filter(function(r) { return r.known })
+  readonly property var otherBtRows: root.btRows.filter(function(r) { return !r.known })
+  property bool showOtherBtDevices: true
+
+  // Confirm-before-pair for unknown devices -- real report hit live: a
+  // single click on a nearby "Other Devices" row fired a real
+  // bluetoothctl pair immediately, no confirmation at all. Wi-Fi's own
+  // flow always needed a real click AND typing a password before
+  // anything happened; Bluetooth discovery has no equivalent natural
+  // pause, and unlike Wi-Fi (you're picking a network you already
+  // recognize as yours), nearby Bluetooth devices can easily be
+  // someone else's phone/earbuds in a shared space -- a stray click
+  // shouldn't be able to attempt pairing with those. First click on an
+  // other-device row now just arms it (expands to show a real "Confirm
+  // Pair" button); the actual pair command only fires on that second,
+  // deliberate click.
+  property string btPairArmedAddress: ""
 
   function toggleBluetoothRadio() {
     Quickshell.execDetached(["omarchy-bluetooth-power", root.btEnabled ? "off" : "on"])
@@ -638,8 +721,37 @@ Item {
 
   function toggleBtConnection(row) {
     if (!row || !row.address) return
-    if (row.connected) Quickshell.execDetached(["omarchy-bluetooth-device", "disconnect", row.address])
-    else Quickshell.execDetached(["omarchy-bluetooth-device", "connect", row.address])
+    if (row.connected) { Quickshell.execDetached(["omarchy-bluetooth-device", "disconnect", row.address]); return }
+    if (row.known) {
+      root.btBusyAddress = row.address
+      btBusyTimeout.restart()
+      Quickshell.execDetached(["omarchy-bluetooth-device", "connect", row.address])
+      return
+    }
+    // Unknown device -- arms the row instead of pairing immediately
+    // (see btPairArmedAddress above); confirmPairBtDevice below does
+    // the actual pairing once armed. Clicking the row that's already
+    // armed disarms it, same toggle-closed-on-second-click Wi-Fi's own
+    // password prompt uses.
+    root.btPairArmedAddress = (root.btPairArmedAddress === row.address) ? "" : row.address
+  }
+
+  function confirmPairBtDevice(row) {
+    if (!row || !row.address) return
+    root.btPairArmedAddress = ""
+    root.btBusyAddress = row.address
+    btBusyTimeout.restart()
+    Quickshell.execDetached(["omarchy-bluetooth-device", "pair", row.address])
+  }
+
+  // Excludes the connected device -- per direct follow-up: disconnect
+  // first, then forget, rather than offering a one-step forget that
+  // disconnects as a side effect. Omarchy's own real panel does allow
+  // forgetting a connected device directly (confirmed in their
+  // Panel.qml), but that's not the flow wanted here.
+  function forgetBtDevice(row) {
+    if (!row || !row.address || row.connected) return
+    Quickshell.execDetached(["omarchy-bluetooth-device", "forget", row.address])
   }
 
   // Display brightness -- per direct request ("can we do a display
@@ -1400,6 +1512,19 @@ Item {
                       color: wifiRow.modelData.connected ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
                       RowLayout {
+                        // z above wifiRowMouse below -- a z set on an
+                        // element nested INSIDE this RowLayout (like the
+                        // forget icon further down) only ranks it against
+                        // OTHER CHILDREN OF THIS ROWLAYOUT -- it has no
+                        // effect on wifiRowMouse, which is a sibling of
+                        // this RowLayout itself, not of anything inside
+                        // it. z comparisons only happen between items
+                        // that share the same immediate parent. Real
+                        // report this caused: forget's own z:1 (still
+                        // present below) looked like a fix but the click
+                        // still landed on wifiRowMouse regardless -- this
+                        // is the level that actually needed it.
+                        z: 1
                         anchors.fill: parent
                         anchors.leftMargin: 8
                         anchors.rightMargin: 8
@@ -1450,6 +1575,15 @@ Item {
                         }
 
                         Text {
+                          // The real fix for forget-clicks getting
+                          // swallowed by the row-wide click-to-connect
+                          // handler lives on the RowLayout itself above
+                          // (z: 1, see its comment) -- z only compares
+                          // siblings sharing the same immediate parent,
+                          // so a z set here would only rank this against
+                          // its OWN RowLayout siblings, never against
+                          // wifiRowMouse below (a sibling of the whole
+                          // RowLayout, not of this Text).
                           visible: wifiRowMouse.containsMouse && !wifiRow.modelData.connected
                           text: ""
                           font.family: root.fontFamily
@@ -1726,15 +1860,12 @@ Item {
                 }
               }
 
-              // Bluetooth -- real known/paired device list + connect/
-              // disconnect, per direct request ("bluetooth next, looks
-              // pretty simple to copy all?") and scope confirmation
-              // (adapter toggle + known devices only, same shape as
-              // Wi-Fi's own known-networks scope -- new-device
-              // discovery/pairing is real but genuinely more, not
-              // "simple to copy all": their own file is 1216 lines
-              // covering scanning, a PIN/passkey pairing sequence, and
-              // audio-output auto-switch on connect).
+              // Bluetooth -- known/paired devices with connect/disconnect/
+              // forget, plus an "Other Devices" accordion for pairing a
+              // brand-new one, same known/other split as Wi-Fi. Simpler
+              // than Wi-Fi's own version turned out to be: no inline
+              // password field needed at all -- see the pairing-
+              // mechanism comment above (btAdapter block) for why.
               ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -1742,11 +1873,11 @@ Item {
                 spacing: 12
 
                 Text {
-                  visible: root.btRows.length === 0
+                  visible: root.knownBtRows.length === 0 && root.otherBtRows.length === 0
                   Layout.alignment: Qt.AlignHCenter
                   Layout.fillHeight: true
                   verticalAlignment: Text.AlignVCenter
-                  text: !root.btEnabled ? "Turn on Bluetooth to see paired devices" : "No paired devices"
+                  text: !root.btEnabled ? "Turn on Bluetooth to see nearby devices" : "No devices found"
                   font.family: root.fontFamily
                   font.pixelSize: 12
                   color: root.muted
@@ -1758,7 +1889,7 @@ Item {
                 Flickable {
                   Layout.fillWidth: true
                   Layout.fillHeight: true
-                  visible: root.btRows.length > 0
+                  visible: root.knownBtRows.length > 0 || root.otherBtRows.length > 0
                   contentWidth: width
                   contentHeight: btList.implicitHeight
                   clip: true
@@ -1770,18 +1901,32 @@ Item {
                     spacing: 4
 
                     Repeater {
-                      model: root.btRows
+                      model: root.knownBtRows
 
                       Rectangle {
                         id: btRow
                         required property var modelData
+                        readonly property bool busy: root.btBusyAddress === btRow.modelData.address
 
                         Layout.fillWidth: true
                         Layout.preferredHeight: 32
                         radius: 8
-                        color: btRow.modelData.connected ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                        color: btRow.modelData.connected ? Qt.rgba(1, 1, 1, 0.08)
+                          : (btRowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
 
                         RowLayout {
+                        // z above btRowMouse below -- same mistake as
+                        // Wi-Fi's own row above: a z set on an element
+                        // nested INSIDE this RowLayout (the forget icon
+                        // further down) only ranks it against OTHER
+                        // CHILDREN OF THIS ROWLAYOUT -- it has no effect
+                        // on btRowMouse, which is a sibling of this
+                        // RowLayout itself, not of anything inside it.
+                        // Real report: "the trash button to forget
+                        // doesnt do anything, its trying to connect" --
+                        // the inner z:1 (still present below) never
+                        // reached the comparison that mattered.
+                        z: 1
                           anchors.fill: parent
                           anchors.leftMargin: 8
                           anchors.rightMargin: 8
@@ -1794,8 +1939,20 @@ Item {
                             color: btRow.modelData.connected ? root.accent : root.muted
                           }
 
+                          // Row-wide click still does connect/disconnect
+                          // (see btRowMouse below) -- but the "no label
+                          // at all, just click the row" version of this
+                          // left users with nothing to actually notice:
+                          // direct report was "i can only forget it?
+                          // theres no reconnect" once the hover-only
+                          // forget icon became the only visible thing on
+                          // the row. Brought back a real status/hint
+                          // label, just not sharing the forget icon's
+                          // slot this time (see below) so nothing swaps
+                          // away right as you aim a click.
                           Text {
                             text: btRow.modelData.name
+                              + (!btRow.modelData.connected && !btRow.modelData.pairedFormally ? "  (unpaired)" : "")
                             font.family: root.fontFamily
                             font.pixelSize: 12
                             font.weight: btRow.modelData.connected ? Font.DemiBold : Font.Normal
@@ -1804,17 +1961,19 @@ Item {
                             Layout.fillWidth: true
                           }
 
-                          // Red X icon for disconnect instead of a
-                          // text label -- per direct follow-up ("the
-                          // text disconnect is confusing, how about
-                          // like clicking on an X red icon to
-                          // disconnect then"). "Connect" (not yet
-                          // active) stays a plain text label -- that
-                          // half wasn't flagged as confusing, and
-                          // there's no single obvious icon for
-                          // "connect to this specific known device"
-                          // the way a plain X reads for "disconnect
-                          // this one".
+                          Text {
+                            visible: !btRow.modelData.connected
+                            text: btRow.busy ? "Connecting…" : "Connect"
+                            font.family: root.fontFamily
+                            font.pixelSize: 11
+                            color: root.muted
+                          }
+
+                          // Red X -- passive "you can click the row to
+                          // disconnect" indicator, not its own click
+                          // target (the row itself handles that, same
+                          // as Omarchy's own rowMouse.onClicked
+                          // branching on isConnected).
                           Text {
                             visible: btRow.modelData.connected
                             text: ""
@@ -1823,19 +1982,210 @@ Item {
                             color: "#e05252"
                           }
 
+                          // Forget -- its own dedicated slot, excluding
+                          // the connected device per direct follow-up
+                          // (disconnect first, then forget, rather than
+                          // a one-step forget that disconnects as a
+                          // side effect -- Omarchy's own panel allows
+                          // the one-step version, this one deliberately
+                          // doesn't). No longer hover-gated: it used to
+                          // swap in over the "Connect" label on hover,
+                          // meaning the exact thing you were aiming at
+                          // disappeared right as the cursor arrived.
+                          // Always shown now (dim by default, same as
+                          // Wi-Fi's known-network trash icon), just
+                          // brightens on its own hover.
                           Text {
+                            // The real fix for forget-clicks getting
+                            // swallowed by the row-wide click-to-connect
+                            // handler lives on the RowLayout itself above
+                            // (z: 1, see its comment) -- z only compares
+                            // siblings sharing the same immediate parent,
+                            // so a z set here would only rank this
+                            // against its OWN RowLayout siblings, never
+                            // against btRowMouse below (a sibling of the
+                            // whole RowLayout, not of this Text). Real
+                            // report this cost: "the trash button to
+                            // forget doesnt do anything, its trying to
+                            // connect" -- confirmed the CLI itself
+                            // (omarchy-bluetooth-device forget) works
+                            // fine when run directly, so this was purely
+                            // a UI hit-testing bug both times.
                             visible: !btRow.modelData.connected
-                            text: "Connect"
+                            text: ""
                             font.family: root.fontFamily
-                            font.pixelSize: 11
-                            color: root.muted
+                            font.pixelSize: 13
+                            color: btForgetMouse.containsMouse ? "#e05252" : root.muted
+
+                            MouseArea {
+                              id: btForgetMouse
+                              anchors.fill: parent
+                              anchors.margins: -4
+                              hoverEnabled: true
+                              cursorShape: Qt.PointingHandCursor
+                              onClicked: root.forgetBtDevice(btRow.modelData)
+                            }
                           }
                         }
 
                         MouseArea {
+                          id: btRowMouse
                           anchors.fill: parent
+                          hoverEnabled: true
                           cursorShape: Qt.PointingHandCursor
                           onClicked: root.toggleBtConnection(btRow.modelData)
+                        }
+                      }
+                    }
+
+                    // "Other Devices" -- accordion, open by default,
+                    // same shape as Wi-Fi's own "Other Networks". No
+                    // inline password field on click here (see the
+                    // pairing-mechanism comment above) -- a tap just
+                    // fires pair+trust+connect via
+                    // omarchy-bluetooth-device directly.
+                    Rectangle {
+                      id: otherBtHeader
+                      Layout.fillWidth: true
+                      Layout.preferredHeight: 24
+                      Layout.topMargin: 4
+                      radius: 6
+                      color: otherBtHeaderMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                      visible: root.otherBtRows.length > 0
+
+                      RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 6
+
+                        Text {
+                          text: "Other Devices"
+                          font.family: root.fontFamily
+                          font.pixelSize: 11
+                          color: root.muted
+                          Layout.fillWidth: true
+                        }
+
+                        Text {
+                          text: root.showOtherBtDevices ? "" : ""
+                          font.family: root.fontFamily
+                          font.pixelSize: 9
+                          color: root.muted
+                        }
+                      }
+
+                      MouseArea {
+                        id: otherBtHeaderMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.showOtherBtDevices = !root.showOtherBtDevices
+                      }
+                    }
+
+                    Repeater {
+                      model: root.showOtherBtDevices ? root.otherBtRows : []
+
+                      Rectangle {
+                        id: otherBtRow
+                        required property var modelData
+                        readonly property bool armed: root.btPairArmedAddress === otherBtRow.modelData.address
+
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: otherBtContent.implicitHeight + 16
+                        radius: 8
+                        color: otherBtRow.armed ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                        clip: true
+                        Behavior on Layout.preferredHeight { NumberAnimation { duration: 120 } }
+
+                        ColumnLayout {
+                          id: otherBtContent
+                          anchors.left: parent.left
+                          anchors.right: parent.right
+                          anchors.top: parent.top
+                          anchors.margins: 8
+                          spacing: 6
+
+                          RowLayout {
+                            id: otherBtHeaderRow
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 16
+                            spacing: 8
+
+                            Text {
+                              text: ""
+                              font.family: root.fontFamily
+                              font.pixelSize: 13
+                              color: root.muted
+                            }
+
+                            Text {
+                              text: otherBtRow.modelData.name
+                              font.family: root.fontFamily
+                              font.pixelSize: 12
+                              color: root.muted
+                              elide: Text.ElideRight
+                              Layout.fillWidth: true
+                            }
+
+                            Text {
+                              text: root.btBusyAddress === otherBtRow.modelData.address ? "Pairing…" : "Pair"
+                              font.family: root.fontFamily
+                              font.pixelSize: 11
+                              color: root.muted
+                            }
+                          }
+
+                          // Real confirmation step -- direct report: a
+                          // bare single click here used to pair
+                          // immediately, no confirmation, and unlike
+                          // Wi-Fi (picking a network you already
+                          // recognize as yours) a nearby Bluetooth
+                          // device can easily belong to someone else in
+                          // a shared space. First click arms the row
+                          // (see toggleBtConnection); only this explicit
+                          // second click actually pairs.
+                          Rectangle {
+                            visible: otherBtRow.armed
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 10
+                            color: confirmPairMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+
+                            Text {
+                              anchors.centerIn: parent
+                              text: "Confirm Pair"
+                              font.family: root.fontFamily
+                              font.pixelSize: 12
+                              font.weight: Font.DemiBold
+                              color: root.textColor
+                            }
+
+                            MouseArea {
+                              id: confirmPairMouse
+                              anchors.fill: parent
+                              hoverEnabled: true
+                              cursorShape: Qt.PointingHandCursor
+                              onClicked: root.confirmPairBtDevice(otherBtRow.modelData)
+                            }
+                          }
+                        }
+
+                        // Height arithmetic instead of anchoring into
+                        // otherBtHeaderRow directly -- same fix (and the
+                        // same reason) as Wi-Fi's own otherRow header
+                        // MouseArea: a cross-hierarchy anchors.bottom
+                        // binding into a ColumnLayout child stopped
+                        // clicks from registering entirely when tried
+                        // there.
+                        MouseArea {
+                          anchors.left: parent.left
+                          anchors.right: parent.right
+                          anchors.top: parent.top
+                          height: 8 + otherBtHeaderRow.height
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.toggleBtConnection(otherBtRow.modelData)
                         }
                       }
                     }

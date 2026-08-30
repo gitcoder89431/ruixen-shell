@@ -2874,37 +2874,17 @@ Item {
                 // Brightness -- own card, same treatment (radius: 10,
                 // color: "#000000") as every other section's groups
                 // (Output/Input, Known/Available Networks, Paired/
-                // Available Devices). Rebuilt from scratch to match
-                // Audio's own Output card structure exactly (which
-                // reliably works, unlike the version this replaces --
-                // multiple targeted fixes never resolved a persistent
-                // gap here, so this is a clean rebuild instead of
-                // another patch). Dropped the old "No controllable
-                // display found" empty state entirely per direct
-                // follow-up -- it was never a coherent thing to show
-                // in the first place: if there really were no display,
-                // there'd be no way to see this settings panel to read
-                // that message on.
+                // Available Devices), and the same content-driven
+                // height as Audio's own Output/Input cards. Dropped
+                // the old "No controllable display found" empty state
+                // entirely per direct follow-up -- it was never a
+                // coherent thing to show in the first place: if there
+                // really were no display, there'd be no way to see
+                // this settings panel to read that message on.
                 Rectangle {
-                  // Fixed height, not bound to brightnessCardContent.
-                  // implicitHeight -- direct follow-up after the
-                  // cross-binding pattern (used successfully elsewhere
-                  // in this file, e.g. Audio's own Output/Input cards)
-                  // produced a large, unexplained gap specifically here
-                  // that survived a full page rebuild matching Audio's
-                  // structure exactly, several rounds of targeted Qt
-                  // Quick Layouts fixes (fillHeight gating, maximumHeight
-                  // caps, explicit top alignment), and direct pixel
-                  // measurement narrowing it to right after this card
-                  // specifically. This card's content (one label, one
-                  // slider row) is static and fully known, so there's no
-                  // real reason to compute its height dynamically at
-                  // all -- 71 confirmed via the same debug measurement
-                  // that traced the bug, back when this binding was
-                  // still computing correctly.
                   visible: root.brightnessAvailable
                   Layout.fillWidth: true
-                  Layout.preferredHeight: 71
+                  Layout.preferredHeight: brightnessCardContent.implicitHeight + 24
                   radius: 10
                   color: "#000000"
 
@@ -2968,13 +2948,11 @@ Item {
                   }
                 }
 
-                // Display Scale -- own card, same fixed-height reasoning
-                // as Brightness above (79 confirmed via the same debug
-                // measurement).
+                // Display Scale -- own card.
                 Rectangle {
                   visible: root.brightnessAvailable
                   Layout.fillWidth: true
-                  Layout.preferredHeight: 79
+                  Layout.preferredHeight: scaleCardContent.implicitHeight + 24
                   radius: 10
                   color: "#000000"
 
@@ -3030,6 +3008,22 @@ Item {
                     }
                   }
                 }
+
+                // Absorbs all leftover vertical space, exactly like
+                // Audio's own trailing spacer (and like the fillHeight
+                // Flickable that Wi-Fi/Bluetooth/Plugins each have).
+                // This is what actually fixed the long-standing gap
+                // between the Brightness and Display Scale cards: this
+                // page column is fillHeight, so when active it's
+                // stretched to the full panel height, but neither card
+                // can grow (both fixed-size, fillHeight defaults false).
+                // Qt's layout engine does NOT leave that surplus at the
+                // bottom -- with nothing able to consume it, it spreads
+                // the children apart instead, which reads as a gap
+                // between the two cards. Audio never showed the same
+                // symptom because this spacer eats 100% of the surplus,
+                // not because its content happened to be taller.
+                Item { Layout.fillHeight: true }
               }
 
               // Plugins -- checklist of this repo's own ruixen.*

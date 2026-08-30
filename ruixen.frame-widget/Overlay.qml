@@ -51,7 +51,19 @@ Item {
         Canvas {
             id: canvas
             anchors.fill: parent
-            antialiasing: true
+            // False, not true: this hole-punch is a binary mask (fully
+            // opaque frame vs. fully transparent hole), and Canvas
+            // antialiasing leaves partial-alpha pixels along the hole's
+            // edge (fractional shape coverage -> fractional erase in the
+            // destination-out blend below). On an integer-scale display
+            // those partial pixels round away and the seam is invisible;
+            // on a fractional Hyprland monitor scale they can land wide
+            // enough to read as a visible sliver of whatever's behind the
+            // frame (the wallpaper) bleeding through -- reported as "white
+            // artifact/leak at the top of the screen" on a machine this
+            // repo couldn't reproduce on (fixed HDMI-A-1 @ scale 1). A hard
+            // edge has no fractional coverage to leak.
+            antialiasing: false
 
             onWidthChanged: requestPaint()
             onHeightChanged: requestPaint()

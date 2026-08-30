@@ -17,7 +17,7 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   Display) that can replace the default Omarchy settings panel entirely, or
   run on its own.
 - **`ruixen.workspaces`** — workspace indicator widget.
-- **Tray widgets** — `ruixen.tray`, `ruixen.stayawake`, `ruixen.dnd`,
+- **Tray widgets** — `ruixen.tray`, `ruixen.stayawake`,
   `ruixen.quickactions`, `ruixen.weather`, `ruixen.media`,
   `ruixen.applauncher`, `ruixen.settingsbutton`.
 

@@ -102,8 +102,26 @@ To bring Ruixen's own bar back afterward, just run `./install.sh` again.
 omarchy plugin remove ruixen.bar
 ```
 
-This is the only step that deletes anything — disable/enable and the bar
-reset just flip settings.
+Backs the plugin up rather than deleting it outright (to
+`~/.config/omarchy/plugins/.<id>.bak.<timestamp>`) — disable/enable and the
+bar reset just flip settings, this is the only step that touches files at
+all.
+
+**Uninstall everything in one shot:**
+
+```bash
+./uninstall.sh
+```
+
+Switches back to the built-in Omarchy bar, removes every Ruixen plugin's
+files for real (unlike a bare `omarchy plugin remove`, which just backs a
+plugin up instead of deleting it — see above; this deletes those backups
+too, so nothing lingers), restores your original Hyprland window look (or
+Omarchy's own default if you never had one), and restarts the shell. Only
+works from your existing cloned checkout, same as `update.sh` — the
+checkout itself is left alone, delete it yourself afterward if you don't
+want it around. Same in-app path also lives in Ruixen Settings' own
+Plugins page, behind a typed confirmation.
 
 ## Docked bar mode (experimental)
 

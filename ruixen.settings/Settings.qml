@@ -75,7 +75,8 @@ Item {
     { id: "audio", label: "Audio", glyph: "" },
     { id: "wifi", label: "Wi-Fi", glyph: "" },
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
-    { id: "display", label: "Display", glyph: "" }
+    { id: "display", label: "Display", glyph: "" },
+    { id: "plugins", label: "Plugins", glyph: "" }
   ]
   property int selectedSection: 0
 
@@ -94,7 +95,22 @@ Item {
   // toggle ruixen.settings '{"section":"bluetooth"}'` instead of
   // always landing on whatever was last selected.
   function open(payloadJson) {
-    root.opened = true
+    // Section applied BEFORE opened flips true -- direct bug hit live
+    // ("the display page now has a big gap between display header and
+    // the brightness card"): this used to set opened=true first, THEN
+    // update selectedSection a moment later as a second, separate
+    // reactive update. That let the panel briefly become visible still
+    // showing whichever section was selected before (e.g. Audio),
+    // before switching to the target section right after -- and that
+    // flash was enough for the previous section's own Layout.fillHeight
+    // ColumnLayout to compute and lock in a height that persisted even
+    // once switched away and invisible again (confirmed live: the gap
+    // matched a previously-visible section's own content height,
+    // showed up specifically after switching sections, and was traced
+    // to this exact ordering by reading open()'s own code, not
+    // guessed). Setting selectedSection first means the correct
+    // section is already active before the panel is ever shown, so
+    // there's no wrong section to flash.
     if (payloadJson) {
       try {
         var payload = JSON.parse(payloadJson)
@@ -102,6 +118,7 @@ Item {
           root.selectedSection = root.sectionIndexFor(payload.section)
       } catch (e) {}
     }
+    root.opened = true
   }
 
   function close() {
@@ -525,6 +542,10 @@ Item {
   onOpenedChanged: {
     root.setScannerEnabled(true)
     root.setBtScannerEnabled(true)
+    if (root.opened) {
+      root.refreshPlugins()
+      repoPathProc.running = true
+    }
   }
   onWifiDeviceChanged: root.setScannerEnabled(true)
   onBtAdapterChanged: root.setBtScannerEnabled(true)
@@ -777,7 +798,24 @@ Item {
       onStreamFinished: {
         var lines = String(text || "").split("\n")
         var b = String(lines[0] || "").trim()
-        root.brightnessAvailable = b !== "unavailable" && b !== ""
+        // An empty first line is NOT the same as a genuine "unavailable"
+        // response -- real bug hit live ("the display page now has a
+        // big gap between display header and the brightness card"),
+        // root-caused with direct measurements: ruixen-notch runs this
+        // exact same omarchy-monitor-state poll independently and
+        // continuously (it has its own real brightnessPercent/
+        // setBrightness mechanism this was ported from), so this
+        // settings page's own poll can land at the same moment and
+        // occasionally read back empty output from whatever race that
+        // causes. Treating an empty read as "brightness genuinely
+        // unavailable" flipped brightnessAvailable false for a frame,
+        // collapsing the Brightness/Display Scale cards and showing
+        // the fillHeight "No controllable display found" message in
+        // their place -- which is exactly the gap that was reported.
+        // A blank read now just gets ignored (keep the last known good
+        // state) instead of being treated as authoritative.
+        if (b === "") return
+        root.brightnessAvailable = b !== "unavailable"
         if (root.brightnessAvailable) root.brightnessPercent = Math.max(0, Math.min(100, parseInt(b, 10)))
         root.focusedMonitor = String(lines[5] || "").trim()
         // Same real omarchy-monitor-state output already being parsed
@@ -836,6 +874,192 @@ Item {
     root.displayScale = scale
     setScaleProc.command = ["bash", "-c", "omarchy-hyprland-monitor-scaling " + scale]
     setScaleProc.running = true
+  }
+
+  // Plugins -- checklist of this repo's own ruixen.* plugins (enable/
+  // disable/remove) plus a repo-wide update button, per direct request
+  // ("a plugins setting or like shell setting... checklist of plugsin
+  // that user can turn on and off and refresh the shell... possibly
+  // add a uninstall button too"). Deliberately curated to ids starting
+  // "ruixen." rather than every installed plugin -- confirmed direct
+  // agreement ("dont think we should show all user plugsin... keep it
+  // to manage the shell stuff and our own curated made plugsin"). This
+  // settings app has no business managing plugins it doesn't own.
+  //
+  // Real mechanism, confirmed by running each command directly rather
+  // than guessed: `omarchy plugin list --json` returns id/name/kinds/
+  // enabled/active/canDisable/firstParty/clonedFrom for every
+  // discovered plugin; `omarchy plugin enable/disable <id>` and
+  // `omarchy plugin remove <id> --yes` need no TTY (enable/disable
+  // call omarchy-shell's setPluginEnabled directly, live, no restart
+  // needed; remove's own script refuses to run without --yes when
+  // there's no interactive terminal to confirm in, which is always the
+  // case launched from here). `omarchy plugin update` also exists but
+  // only handles plugins that are THEMSELVES individual git checkouts
+  // (confirmed directly: it refused with "not a git checkout" against
+  // a real installed ruixen.* plugin) -- these are cp -r'd from one
+  // shared monorepo checkout instead, so this repo's own update.sh
+  // (git pull + reinstall) is the real update path, not that command.
+  property var pluginRows: []
+  property string pluginBusyId: ""
+  property string pluginRemoveArmedId: ""
+  property string pluginUpdateStatus: ""
+  property string pluginUpdateError: ""
+  property string ruixenRepoPath: ""
+
+  function parsePluginList(raw) {
+    var rows = []
+    try {
+      var data = JSON.parse(raw || "[]")
+      for (var i = 0; i < data.length; i++) {
+        var p = data[i]
+        if (String(p.id || "").indexOf("ruixen.") !== 0) continue
+        rows.push(p)
+      }
+      rows.sort(function(a, b) { return a.name.localeCompare(b.name) })
+    } catch (e) {}
+    return rows
+  }
+
+  Process {
+    id: pluginListProc
+    command: ["omarchy", "plugin", "list", "--json"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.pluginRows = root.parsePluginList(text)
+    }
+  }
+
+  function refreshPlugins() {
+    if (!pluginListProc.running) pluginListProc.running = true
+  }
+
+  // Self-lockout guard the CLI itself doesn't provide -- ruixen.bar
+  // reports canDisable: false (Omarchy's own protection, presumably
+  // since losing the bar with no keybind back is a real dead end), but
+  // ruixen.settings reports canDisable: true even though disabling or
+  // removing the very plugin rendering this settings app would unload
+  // it immediately, mid-session (confirmed: enable/disable apply live
+  // via setPluginEnabled, no restart needed), with no way back in
+  // short of a terminal. Blocked here on top of what the CLI allows.
+  function pluginIsProtected(row) {
+    return !row || row.id === "ruixen.settings" || !row.canDisable
+  }
+
+  Process {
+    id: pluginActionProc
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: {
+      root.pluginBusyId = ""
+      root.refreshPlugins()
+    }
+  }
+
+  function togglePluginEnabled(row) {
+    if (!row || !row.id || root.pluginIsProtected(row)) return
+    root.pluginBusyId = row.id
+    pluginActionProc.command = ["omarchy", "plugin", row.enabled ? "disable" : "enable", row.id]
+    pluginActionProc.running = true
+  }
+
+  // Arm-then-confirm, same shape as Bluetooth's own pairing flow --
+  // removing a plugin deletes its files with no undo (the README's own
+  // words: "the only step that deletes anything"), so a bare click
+  // next to an enable/disable toggle people will be flipping casually
+  // needed a real second step, not a one-shot trash icon.
+  function armRemovePlugin(row) {
+    if (!row || !row.id || root.pluginIsProtected(row)) return
+    root.pluginRemoveArmedId = (root.pluginRemoveArmedId === row.id) ? "" : row.id
+  }
+
+  function confirmRemovePlugin(row) {
+    if (!row || !row.id) return
+    root.pluginRemoveArmedId = ""
+    root.pluginBusyId = row.id
+    pluginActionProc.command = ["omarchy", "plugin", "remove", row.id, "--yes"]
+    pluginActionProc.running = true
+  }
+
+  // Repo path -- install.sh now writes its own checkout location to
+  // this state file on every install/update run (added alongside this
+  // feature, since nothing previously recorded it anywhere machine-
+  // readable). Read fresh via bash so a missing file just yields an
+  // empty string instead of a QML file-read error.
+  Process {
+    id: repoPathProc
+    command: ["bash", "-c", "cat \"$HOME/.local/state/ruixen/repo-path\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.ruixenRepoPath = text.trim()
+    }
+  }
+
+  Process {
+    id: updateProc
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        // A successful run never gets here to report success -- update.sh
+        // ends with `omarchy restart shell`, which tears down and
+        // reloads this very plugin instance before this handler would
+        // ever fire. Only a failure that happens BEFORE that point
+        // (network down, git pull conflict, etc.) leaves this instance
+        // alive long enough to actually show the error.
+        if (updateProc.exitCode !== 0) {
+          root.pluginUpdateStatus = "error"
+          var errLines = text.trim().split("\n")
+          root.pluginUpdateError = errLines.slice(Math.max(0, errLines.length - 3)).join("\n")
+        }
+      }
+    }
+  }
+
+  function updateRuixenShell() {
+    if (root.ruixenRepoPath === "" || root.pluginUpdateStatus === "updating") return
+    root.pluginUpdateStatus = "updating"
+    root.pluginUpdateError = ""
+    // Single-quoted, with any literal single-quote in the path escaped
+    // as '\'' -- the standard safe way to embed an arbitrary string as
+    // one bash argument, rather than the nested-double-quote version
+    // this first went out with (cd \"$(cat \\\"...\\\")\" -- readable
+    // on paper but actually wrong: escaping the inner quotes with \\\"
+    // stops them from acting as bash quoting at all inside $(...),
+    // which already gets a fresh quoting context of its own).
+    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
+    updateProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh"]
+    updateProc.running = true
+  }
+
+  // Full uninstall -- direct request, following a real Discord report
+  // ("its currently hard to uninstall cleanly even with cli"). Runs
+  // this repo's own new uninstall.sh, which reverses everything
+  // install.sh did: switches back to the built-in Omarchy bar, removes
+  // every ruixen.* plugin's files for real (omarchy-plugin-remove
+  // itself only backs a cp -r'd plugin up to a hidden .{id}.bak.
+  // <timestamp> folder rather than deleting it -- confirmed by reading
+  // it directly -- so uninstall.sh explicitly deletes those backups
+  // too afterward, per direct follow-up: "people want like a full
+  // uninstall"), restores the real pre-install looknfeel.lua (or
+  // Omarchy's own default if there was none), and restarts the shell.
+  // See uninstall.sh's own comments for the full research behind each
+  // step.
+  //
+  // Deliberately fired via Quickshell.execDetached, not a lifecycle-
+  // bound Process like updateProc above -- the script's own last real
+  // step disables/removes ruixen.settings itself, which would tear
+  // down this very QML instance (and, plausibly, any Process objects
+  // it owns) mid-script if that happened before the script finished.
+  // execDetached exists specifically to survive exactly that, the same
+  // reason Wi-Fi/Bluetooth's own actions already use it.
+  readonly property string uninstallConfirmPhrase: "CONFIRM UNINSTALL"
+  property string uninstallConfirmInput: ""
+
+  function confirmFullUninstall() {
+    if (root.ruixenRepoPath === "" || root.uninstallConfirmInput !== root.uninstallConfirmPhrase) return
+    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
+    Quickshell.execDetached(["bash", "-c", "cd '" + safePath + "' && ./uninstall.sh"])
   }
 
   PanelWindow {
@@ -1184,6 +1408,44 @@ Item {
                       onClicked: root.toggleBluetoothRadio()
                     }
                   }
+
+                  // Update -- header-row action for the Plugins
+                  // section, same slot Wi-Fi's own QR/speed-test icons
+                  // and every section's radio toggle live in. Runs this
+                  // repo's own update.sh (git pull + reinstall) -- see
+                  // its own comment below for why that's the durable
+                  // mechanism, not a stopgap ("its a good fallback to
+                  // update anyways").
+                  Text {
+                    visible: root.selectedSection === 4
+                    Layout.alignment: Qt.AlignVCenter
+                    text: root.pluginUpdateStatus === "updating" ? "" : ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 14
+                    color: root.ruixenRepoPath === "" ? Qt.rgba(1, 1, 1, 0.25) : root.muted
+                    // Same rotation-reset approach as Bluetooth's own
+                    // connect/pair icons (see their comment) -- rotation
+                    // is forced to 0 whenever not updating rather than
+                    // bound straight to a running animation.
+                    rotation: root.pluginUpdateStatus === "updating" ? spinAngle : 0
+                    property real spinAngle: 0
+
+                    NumberAnimation on spinAngle {
+                      running: root.pluginUpdateStatus === "updating"
+                      loops: Animation.Infinite
+                      from: 0
+                      to: 360
+                      duration: 900
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -6
+                      enabled: root.ruixenRepoPath !== "" && root.pluginUpdateStatus !== "updating"
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.updateRuixenShell()
+                    }
+                  }
                 }
               }
 
@@ -1198,6 +1460,14 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.selectedSection === 0
+                // Explicit height override, not left to Qt Quick Layouts'
+                // own (unreliable, confirmed live -- see open()'s own comment)
+                // exclusion of invisible items -- forces this page's own
+                // content to 0 height whenever it's not the active section,
+                // so a formerly-visible sibling can never leave a stale
+                // locked-in height behind for whichever section switches in
+                // next. -1 resets to normal implicit sizing when active.
+                Layout.preferredHeight: visible ? -1 : 0
                 spacing: 16
 
                 Rectangle {
@@ -1487,6 +1757,14 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.selectedSection === 1
+                // Explicit height override, not left to Qt Quick Layouts'
+                // own (unreliable, confirmed live -- see open()'s own comment)
+                // exclusion of invisible items -- forces this page's own
+                // content to 0 height whenever it's not the active section,
+                // so a formerly-visible sibling can never leave a stale
+                // locked-in height behind for whichever section switches in
+                // next. -1 resets to normal implicit sizing when active.
+                Layout.preferredHeight: visible ? -1 : 0
                 spacing: 12
 
                 // Status row removed -- its own job (icon + SSID/"Not
@@ -2031,6 +2309,14 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.selectedSection === 2
+                // Explicit height override, not left to Qt Quick Layouts'
+                // own (unreliable, confirmed live -- see open()'s own comment)
+                // exclusion of invisible items -- forces this page's own
+                // content to 0 height whenever it's not the active section,
+                // so a formerly-visible sibling can never leave a stale
+                // locked-in height behind for whichever section switches in
+                // next. -1 resets to normal implicit sizing when active.
+                Layout.preferredHeight: visible ? -1 : 0
                 spacing: 12
 
                 Text {
@@ -2532,13 +2818,33 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.selectedSection === 3
+                // Explicit height override, not left to Qt Quick Layouts'
+                // own (unreliable, confirmed live -- see open()'s own comment)
+                // exclusion of invisible items -- forces this page's own
+                // content to 0 height whenever it's not the active section,
+                // so a formerly-visible sibling can never leave a stale
+                // locked-in height behind for whichever section switches in
+                // next. -1 resets to normal implicit sizing when active.
+                Layout.preferredHeight: visible ? -1 : 0
                 spacing: 16
 
+                // No Layout.fillHeight here (there used to be one) --
+                // real bug hit live ("the display page now has a big
+                // gap between display header and the brightness
+                // card"): even once brightnessAvailable flips true and
+                // this Text goes invisible, a fillHeight item doesn't
+                // reliably get excluded from the ColumnLayout's own
+                // sizing after the fact -- same class of Qt Quick
+                // Layouts staleness this session already hit for the
+                // accordion collapses and the Plugins checklist card,
+                // just showing up on a visible-toggle this time instead
+                // of a Repeater model swap. Confirmed via direct
+                // measurement (still gapped 4+ seconds after the
+                // Brightness card was already showing correctly, ruling
+                // out a load-time transient) before touching this.
                 Text {
                   visible: !root.brightnessAvailable
                   Layout.alignment: Qt.AlignHCenter
-                  Layout.fillHeight: true
-                  verticalAlignment: Text.AlignVCenter
                   text: "No controllable display found"
                   font.family: root.fontFamily
                   font.pixelSize: 12
@@ -2678,9 +2984,395 @@ Item {
                       }
                   }
                 }
+              }
 
+              // Plugins -- checklist of this repo's own ruixen.*
+              // plugins (enable/disable/remove), same card treatment
+              // as every other section. See the property/function
+              // block above (root.pluginRows etc.) for the real
+              // mechanism and reasoning.
+              ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.selectedSection === 4
+                // Explicit height override, not left to Qt Quick Layouts'
+                // own (unreliable, confirmed live -- see open()'s own comment)
+                // exclusion of invisible items -- forces this page's own
+                // content to 0 height whenever it's not the active section,
+                // so a formerly-visible sibling can never leave a stale
+                // locked-in height behind for whichever section switches in
+                // next. -1 resets to normal implicit sizing when active.
+                Layout.preferredHeight: visible ? -1 : 0
+                spacing: 12
 
-                Item { Layout.fillHeight: true }
+                Text {
+                  visible: root.ruixenRepoPath === ""
+                  Layout.fillWidth: true
+                  text: "Update needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable it here."
+                  wrapMode: Text.WordWrap
+                  font.family: root.fontFamily
+                  font.pixelSize: 10
+                  color: root.muted
+                }
+
+                Text {
+                  visible: root.pluginUpdateStatus === "error" && root.pluginUpdateError !== ""
+                  Layout.fillWidth: true
+                  text: root.pluginUpdateError
+                  wrapMode: Text.WordWrap
+                  font.family: root.fontFamily
+                  font.pixelSize: 10
+                  color: "#e05252"
+                }
+
+                // Wraps the Flickable so a scroll indicator can sit
+                // beside it -- direct follow-up, root-caused with real
+                // measurements rather than guessed: the panel is a
+                // fixed 680x440 everywhere (see the "card" Rectangle
+                // this whole app lives in), so the Plugins page's own
+                // viewport ends up genuinely short (confirmed live:
+                // ~162px) against 13 rows + the uninstall card
+                // (confirmed live: 620px of real content, all present
+                // and correctly sized) -- scrolling was always required
+                // to reach the danger zone, it was never actually
+                // missing. The real problem was zero visual hint that
+                // scrolling was even possible, which reads exactly like
+                // "gone" from the outside.
+                Item {
+                  Layout.fillWidth: true
+                  Layout.fillHeight: true
+
+                  Flickable {
+                    id: pluginsFlickable
+                    anchors.fill: parent
+                    anchors.rightMargin: 6
+                    contentWidth: width
+                    // Same explicit-dependency defense as the card's own
+                    // height above -- keeps the scroll range correct too,
+                    // not just the card's visible size, in case there are
+                    // ever more rows than fit in the panel at once.
+                    contentHeight: (root.pluginRows.length >= 0 ? pluginsCardWrap.implicitHeight : 0)
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    ColumnLayout {
+                      id: pluginsCardWrap
+                      width: parent.width
+                      spacing: 12
+
+                      Rectangle {
+                        Layout.fillWidth: true
+                        // root.pluginRows.length read even though
+                      // it's not otherwise needed in this expression --
+                      // real bug hit live ("im only seeing 2 plugin app
+                      // launcher and bar now, the rest arent showing up
+                      // anymore"): unlike Wi-Fi/Bluetooth's own lists,
+                      // which come from already-live Quickshell modules
+                      // with data available on first paint, this list
+                      // starts empty and only populates ~100-500ms
+                      // later once the omarchy plugin list --json
+                      // subprocess actually finishes. This height
+                      // binding's real dependency (pluginsCardContent.
+                      // implicitHeight, several Repeater-populated
+                      // layout levels down) didn't reliably re-fire
+                      // when the Repeater's model went from empty to
+                      // populated after the fact -- same underlying
+                      // class of bug as the accordion collapse fix
+                      // above, just hitting on initial load instead of
+                      // a later toggle. Reading pluginRows.length here
+                      // directly forces this binding to re-evaluate the
+                      // moment the real data arrives, sidestepping
+                      // whatever the implicitHeight chain's own signal
+                      // timing issue is.
+                      Layout.preferredHeight: (root.pluginRows.length >= 0 ? pluginsCardContent.implicitHeight : 0) + 24
+                      radius: 10
+                      color: "#000000"
+
+                      ColumnLayout {
+                        id: pluginsCardContent
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 4
+
+                        Text {
+                          visible: root.pluginRows.length === 0
+                          text: "No plugins found"
+                          font.family: root.fontFamily
+                          font.pixelSize: 11
+                          color: root.muted
+                        }
+
+                        Repeater {
+                          model: root.pluginRows
+
+                          Rectangle {
+                            id: pluginRow
+                            required property var modelData
+                            readonly property bool isProtected: root.pluginIsProtected(pluginRow.modelData)
+                            readonly property bool busy: root.pluginBusyId === pluginRow.modelData.id
+                            readonly property bool armed: root.pluginRemoveArmedId === pluginRow.modelData.id
+
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: pluginRowContent.implicitHeight + 16
+                            radius: 8
+                            color: "transparent"
+                            clip: true
+                            Behavior on Layout.preferredHeight { NumberAnimation { duration: 120 } }
+
+                            ColumnLayout {
+                              id: pluginRowContent
+                              anchors.left: parent.left
+                              anchors.right: parent.right
+                              anchors.top: parent.top
+                              anchors.margins: 8
+                              spacing: 6
+
+                              RowLayout {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 16
+                                spacing: 8
+
+                                Text {
+                                  text: pluginRow.modelData.name
+                                  font.family: root.fontFamily
+                                  font.pixelSize: 12
+                                  color: pluginRow.isProtected ? root.muted : root.textColor
+                                  elide: Text.ElideRight
+                                  Layout.fillWidth: true
+                                }
+
+                                // Lock -- protected plugin (canDisable:
+                                // false from the CLI itself, e.g.
+                                // ruixen.bar, or ruixen.settings by this
+                                // UI's own added guard -- see
+                                // pluginIsProtected's comment).
+                                Text {
+                                  visible: pluginRow.isProtected
+                                  text: ""
+                                  font.family: root.fontFamily
+                                  font.pixelSize: 11
+                                  color: root.muted
+                                }
+
+                                // Enable/disable -- same pill-switch
+                                // shape as every radio toggle elsewhere
+                                // in this app, just smaller to fit a
+                                // dense checklist row.
+                                Rectangle {
+                                  visible: !pluginRow.isProtected
+                                  Layout.preferredWidth: 32
+                                  Layout.preferredHeight: 16
+                                  radius: 8
+                                  color: pluginRow.modelData.enabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+                                  opacity: pluginRow.busy ? 0.5 : 1
+                                  Behavior on color { ColorAnimation { duration: 120 } }
+
+                                  Rectangle {
+                                    width: 12
+                                    height: 12
+                                    radius: 6
+                                    color: "#ffffff"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: pluginRow.modelData.enabled ? parent.width - width - 2 : 2
+                                    Behavior on x { NumberAnimation { duration: 120 } }
+                                  }
+
+                                  MouseArea {
+                                    anchors.fill: parent
+                                    enabled: !pluginRow.busy
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.togglePluginEnabled(pluginRow.modelData)
+                                  }
+                                }
+
+                                // Remove -- always visible (dim), same
+                                // treatment as Wi-Fi/Bluetooth's own
+                                // known-row forget icon. Arms first,
+                                // same reasoning as Bluetooth pairing's
+                                // own confirm step (see armRemovePlugin).
+                                Text {
+                                  visible: !pluginRow.isProtected
+                                  text: ""
+                                  font.family: root.fontFamily
+                                  font.pixelSize: 13
+                                  color: pluginRemoveMouse.containsMouse ? "#e05252" : root.muted
+
+                                  MouseArea {
+                                    id: pluginRemoveMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -4
+                                    hoverEnabled: true
+                                    enabled: !pluginRow.busy
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.armRemovePlugin(pluginRow.modelData)
+                                  }
+                                }
+                              }
+
+                              Rectangle {
+                                visible: pluginRow.armed
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 32
+                                radius: 10
+                                color: confirmRemoveMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+
+                                Text {
+                                  anchors.centerIn: parent
+                                  text: "Confirm Remove"
+                                  font.family: root.fontFamily
+                                  font.pixelSize: 12
+                                  font.weight: Font.DemiBold
+                                  color: root.textColor
+                                }
+
+                                MouseArea {
+                                  id: confirmRemoveMouse
+                                  anchors.fill: parent
+                                  hoverEnabled: true
+                                  cursorShape: Qt.PointingHandCursor
+                                  onClicked: root.confirmRemovePlugin(pluginRow.modelData)
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  }
+
+                  // Scroll indicator -- a thin bar tracking position/
+                  // proportion, sibling of the Flickable so it doesn't
+                  // scroll away with the content. Direct follow-up
+                  // ("the uninstall is now hidden or gone"): it was
+                  // never actually gone (confirmed live: contentHeight
+                  // correctly reaches 620px, all of it real, including
+                  // the uninstall card), just silently below a ~162px
+                  // viewport with zero hint that scrolling would reveal
+                  // more -- which reads exactly like "gone" from the
+                  // outside. Only shown when there's actually more
+                  // than fits.
+                  Rectangle {
+                    visible: pluginsFlickable.contentHeight > pluginsFlickable.height
+                    anchors.right: parent.right
+                    y: pluginsFlickable.contentHeight > 0
+                      ? pluginsFlickable.contentY / pluginsFlickable.contentHeight * pluginsFlickable.height
+                      : 0
+                    width: 3
+                    radius: 1.5
+                    color: Qt.rgba(1, 1, 1, 0.25)
+                    height: pluginsFlickable.contentHeight > 0
+                      ? Math.max(24, pluginsFlickable.height / pluginsFlickable.contentHeight * pluginsFlickable.height)
+                      : 0
+                  }
+                }
+
+                // Danger zone -- full uninstall, direct request
+                // following a real Discord report ("its currently hard
+                // to uninstall cleanly even with cli"). Visually
+                // distinct from every other card here (red-tinted
+                // border, not the plain black cards) so it doesn't read
+                // as just another settings group. Gated behind typing
+                // an exact phrase, not just a click-through confirm --
+                // direct suggestion ("let the user type confirm
+                // uninstall in order to press the uninstall").
+                Rectangle {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: dangerZoneContent.implicitHeight + 24
+                  radius: 10
+                  color: Qt.rgba(0.878, 0.322, 0.322, 0.08)
+                  border.width: 1
+                  border.color: Qt.rgba(0.878, 0.322, 0.322, 0.35)
+
+                  ColumnLayout {
+                    id: dangerZoneContent
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 8
+
+                    Text {
+                      text: "Uninstall Ruixen Shell"
+                      font.family: root.fontFamily
+                      font.pixelSize: 12
+                      font.weight: Font.DemiBold
+                      color: root.textColor
+                    }
+
+                    Text {
+                      Layout.fillWidth: true
+                      text: "Removes every Ruixen plugin and restores Omarchy's defaults."
+                      wrapMode: Text.WordWrap
+                      font.family: root.fontFamily
+                      font.pixelSize: 10
+                      color: root.muted
+                    }
+
+                    RowLayout {
+                      Layout.fillWidth: true
+                      Layout.topMargin: 4
+                      spacing: 8
+
+                      Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 32
+                        radius: 10
+                        color: Qt.rgba(1, 1, 1, 0.06)
+
+                        TextInput {
+                          id: uninstallConfirmField
+                          anchors.fill: parent
+                          anchors.leftMargin: 10
+                          anchors.rightMargin: 10
+                          verticalAlignment: TextInput.AlignVCenter
+                          color: root.textColor
+                          font.family: root.fontFamily
+                          font.pixelSize: 12
+                          clip: true
+                          text: root.uninstallConfirmInput
+                          onTextChanged: root.uninstallConfirmInput = text
+
+                          Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Type " + root.uninstallConfirmPhrase + " to enable"
+                            color: root.muted
+                            font.family: root.fontFamily
+                            font.pixelSize: 12
+                            visible: uninstallConfirmField.text.length === 0
+                          }
+                        }
+                      }
+
+                      Rectangle {
+                        readonly property bool ready: root.ruixenRepoPath !== "" && root.uninstallConfirmInput === root.uninstallConfirmPhrase
+
+                        Layout.preferredWidth: 96
+                        Layout.preferredHeight: 32
+                        radius: 10
+                        color: !ready ? Qt.rgba(1, 1, 1, 0.06)
+                          : (uninstallMouse.containsMouse ? Qt.rgba(0.878, 0.322, 0.322, 0.55) : Qt.rgba(0.878, 0.322, 0.322, 0.4))
+                        opacity: ready ? 1 : 0.5
+
+                        Text {
+                          anchors.centerIn: parent
+                          text: "Uninstall"
+                          font.family: root.fontFamily
+                          font.pixelSize: 12
+                          font.weight: Font.DemiBold
+                          color: root.textColor
+                        }
+
+                        MouseArea {
+                          id: uninstallMouse
+                          anchors.fill: parent
+                          hoverEnabled: true
+                          enabled: parent.ready
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.confirmFullUninstall()
+                        }
+                      }
+                    }
+                  }
+                }
               }
 
 

@@ -15,6 +15,16 @@ command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarch
 
 mkdir -p "$plugins_dir"
 
+# Records where this checkout lives so the deployed ruixen.settings
+# plugin (running from $plugins_dir, a plain copy, not this git repo)
+# can find update.sh to run later -- otherwise the settings app's own
+# Update button would have no way to know this path on a machine where
+# Claude/the user hasn't told it directly. Rewritten on every install/
+# update run, so it always tracks the checkout actually in use.
+state_dir="$HOME/.local/state/ruixen"
+mkdir -p "$state_dir"
+printf '%s\n' "$script_dir" > "$state_dir/repo-path"
+
 printf '\n[1/4] Validating and installing plugins\n'
 for dir in "$script_dir"/ruixen.*/; do
   [[ -d "$dir" ]] || continue

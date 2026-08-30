@@ -977,7 +977,20 @@ Item {
     if (!row || !row.id) return
     root.pluginRemoveArmedId = ""
     root.pluginBusyId = row.id
-    pluginActionProc.command = ["omarchy", "plugin", "remove", row.id, "--yes"]
+    // Deletes the backup omarchy-plugin-remove itself leaves behind
+    // afterward -- same reasoning as uninstall.sh's own cleanup (see
+    // its comment): a ruixen.* plugin is always a plain copy straight
+    // from this git repo, never locally edited, so there's nothing in
+    // that backup a fresh ./install.sh wouldn't already recreate byte-
+    // for-byte. Direct follow-up: "there really shouldnt be anything
+    // to back up right? whats being backed up that cant be reinstalled
+    // fresh" -- correct, and this was the one remove path that still
+    // left an orphaned .{id}.bak.<timestamp> folder behind every time.
+    // row.id only ever contains [A-Za-z0-9._-] (sourced from omarchy
+    // plugin list --json's own ids, never typed input), safe to
+    // interpolate directly with no quoting needed.
+    pluginActionProc.command = ["bash", "-c",
+      "omarchy plugin remove " + row.id + " --yes && rm -rf \"$HOME/.config/omarchy/plugins\"/." + row.id + ".bak.*"]
     pluginActionProc.running = true
   }
 
@@ -1458,16 +1471,28 @@ Item {
               // placeholder below until their own real backends land.
               ColumnLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.fillHeight: visible
                 visible: root.selectedSection === 0
-                // Explicit height override, not left to Qt Quick Layouts'
-                // own (unreliable, confirmed live -- see open()'s own comment)
-                // exclusion of invisible items -- forces this page's own
-                // content to 0 height whenever it's not the active section,
-                // so a formerly-visible sibling can never leave a stale
-                // locked-in height behind for whichever section switches in
-                // next. -1 resets to normal implicit sizing when active.
+                // Both fillHeight and preferredHeight gated on visible --
+                // real bug hit live and finally properly measured ("the
+                // display page now has a big gap", confirmed via direct
+                // debug output: an INACTIVE page's own height was still
+                // reporting 336px, not 0, despite an earlier attempt at
+                // this same fix that only touched preferredHeight).
+                // Qt Quick Layouts does NOT exclude invisible items from
+                // sizing on its own (a wrong assumption this carried
+                // from earlier in the session) -- and Layout.fillHeight:
+                // true independently claims a share of any leftover
+                // space in the ColumnLayout regardless of what
+                // preferredHeight says, so setting preferredHeight to 0
+                // alone didn't stop an inactive page from still growing
+                // to fill space. Gating fillHeight on visible too is
+                // what actually stops that: an inactive page no longer
+                // participates in fill distribution at all, and -1
+                // resets preferredHeight to normal implicit sizing once
+                // it's active again.
                 Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
                 spacing: 16
 
                 Rectangle {
@@ -1755,16 +1780,28 @@ Item {
               // flow yet).
               ColumnLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.fillHeight: visible
                 visible: root.selectedSection === 1
-                // Explicit height override, not left to Qt Quick Layouts'
-                // own (unreliable, confirmed live -- see open()'s own comment)
-                // exclusion of invisible items -- forces this page's own
-                // content to 0 height whenever it's not the active section,
-                // so a formerly-visible sibling can never leave a stale
-                // locked-in height behind for whichever section switches in
-                // next. -1 resets to normal implicit sizing when active.
+                // Both fillHeight and preferredHeight gated on visible --
+                // real bug hit live and finally properly measured ("the
+                // display page now has a big gap", confirmed via direct
+                // debug output: an INACTIVE page's own height was still
+                // reporting 336px, not 0, despite an earlier attempt at
+                // this same fix that only touched preferredHeight).
+                // Qt Quick Layouts does NOT exclude invisible items from
+                // sizing on its own (a wrong assumption this carried
+                // from earlier in the session) -- and Layout.fillHeight:
+                // true independently claims a share of any leftover
+                // space in the ColumnLayout regardless of what
+                // preferredHeight says, so setting preferredHeight to 0
+                // alone didn't stop an inactive page from still growing
+                // to fill space. Gating fillHeight on visible too is
+                // what actually stops that: an inactive page no longer
+                // participates in fill distribution at all, and -1
+                // resets preferredHeight to normal implicit sizing once
+                // it's active again.
                 Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
                 spacing: 12
 
                 // Status row removed -- its own job (icon + SSID/"Not
@@ -2307,16 +2344,28 @@ Item {
               // mechanism comment above (btAdapter block) for why.
               ColumnLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.fillHeight: visible
                 visible: root.selectedSection === 2
-                // Explicit height override, not left to Qt Quick Layouts'
-                // own (unreliable, confirmed live -- see open()'s own comment)
-                // exclusion of invisible items -- forces this page's own
-                // content to 0 height whenever it's not the active section,
-                // so a formerly-visible sibling can never leave a stale
-                // locked-in height behind for whichever section switches in
-                // next. -1 resets to normal implicit sizing when active.
+                // Both fillHeight and preferredHeight gated on visible --
+                // real bug hit live and finally properly measured ("the
+                // display page now has a big gap", confirmed via direct
+                // debug output: an INACTIVE page's own height was still
+                // reporting 336px, not 0, despite an earlier attempt at
+                // this same fix that only touched preferredHeight).
+                // Qt Quick Layouts does NOT exclude invisible items from
+                // sizing on its own (a wrong assumption this carried
+                // from earlier in the session) -- and Layout.fillHeight:
+                // true independently claims a share of any leftover
+                // space in the ColumnLayout regardless of what
+                // preferredHeight says, so setting preferredHeight to 0
+                // alone didn't stop an inactive page from still growing
+                // to fill space. Gating fillHeight on visible too is
+                // what actually stops that: an inactive page no longer
+                // participates in fill distribution at all, and -1
+                // resets preferredHeight to normal implicit sizing once
+                // it's active again.
                 Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
                 spacing: 12
 
                 Text {
@@ -2816,49 +2865,46 @@ Item {
               // has it, looks pretty simple?").
               ColumnLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.fillHeight: visible
                 visible: root.selectedSection === 3
-                // Explicit height override, not left to Qt Quick Layouts'
-                // own (unreliable, confirmed live -- see open()'s own comment)
-                // exclusion of invisible items -- forces this page's own
-                // content to 0 height whenever it's not the active section,
-                // so a formerly-visible sibling can never leave a stale
-                // locked-in height behind for whichever section switches in
-                // next. -1 resets to normal implicit sizing when active.
                 Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
                 spacing: 16
 
-                // No Layout.fillHeight here (there used to be one) --
-                // real bug hit live ("the display page now has a big
-                // gap between display header and the brightness
-                // card"): even once brightnessAvailable flips true and
-                // this Text goes invisible, a fillHeight item doesn't
-                // reliably get excluded from the ColumnLayout's own
-                // sizing after the fact -- same class of Qt Quick
-                // Layouts staleness this session already hit for the
-                // accordion collapses and the Plugins checklist card,
-                // just showing up on a visible-toggle this time instead
-                // of a Repeater model swap. Confirmed via direct
-                // measurement (still gapped 4+ seconds after the
-                // Brightness card was already showing correctly, ruling
-                // out a load-time transient) before touching this.
-                Text {
-                  visible: !root.brightnessAvailable
-                  Layout.alignment: Qt.AlignHCenter
-                  text: "No controllable display found"
-                  font.family: root.fontFamily
-                  font.pixelSize: 12
-                  color: root.muted
-                }
-
-                // Brightness -- own card, same treatment (radius:
-                // 10, color: "#000000") as every other section's
-                // groups (Output/Input, Known/Available Networks,
-                // Paired/Available Devices).
+                // Brightness -- own card, same treatment (radius: 10,
+                // color: "#000000") as every other section's groups
+                // (Output/Input, Known/Available Networks, Paired/
+                // Available Devices). Rebuilt from scratch to match
+                // Audio's own Output card structure exactly (which
+                // reliably works, unlike the version this replaces --
+                // multiple targeted fixes never resolved a persistent
+                // gap here, so this is a clean rebuild instead of
+                // another patch). Dropped the old "No controllable
+                // display found" empty state entirely per direct
+                // follow-up -- it was never a coherent thing to show
+                // in the first place: if there really were no display,
+                // there'd be no way to see this settings panel to read
+                // that message on.
                 Rectangle {
+                  // Fixed height, not bound to brightnessCardContent.
+                  // implicitHeight -- direct follow-up after the
+                  // cross-binding pattern (used successfully elsewhere
+                  // in this file, e.g. Audio's own Output/Input cards)
+                  // produced a large, unexplained gap specifically here
+                  // that survived a full page rebuild matching Audio's
+                  // structure exactly, several rounds of targeted Qt
+                  // Quick Layouts fixes (fillHeight gating, maximumHeight
+                  // caps, explicit top alignment), and direct pixel
+                  // measurement narrowing it to right after this card
+                  // specifically. This card's content (one label, one
+                  // slider row) is static and fully known, so there's no
+                  // real reason to compute its height dynamically at
+                  // all -- 71 confirmed via the same debug measurement
+                  // that traced the bug, back when this binding was
+                  // still computing correctly.
                   visible: root.brightnessAvailable
                   Layout.fillWidth: true
-                  Layout.preferredHeight: brightnessCardContent.implicitHeight + 24
+                  Layout.preferredHeight: 71
                   radius: 10
                   color: "#000000"
 
@@ -2868,66 +2914,67 @@ Item {
                     anchors.margins: 12
                     spacing: 12
 
-                      Text {
-                        visible: root.brightnessAvailable
-                        text: "Brightness"
-                        font.family: root.fontFamily
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        color: root.muted
-                      }
-                      RowLayout {
-                        visible: root.brightnessAvailable
-                        Layout.fillWidth: true
-                        spacing: 10
+                    Text {
+                      text: "Brightness"
+                      font.family: root.fontFamily
+                      font.pixelSize: 11
+                      font.weight: Font.DemiBold
+                      color: root.muted
+                    }
 
-                        Text {
-                          text: ""
-                          font.family: root.fontFamily
-                          font.pixelSize: 15
-                          color: root.textColor
-                        }
+                    RowLayout {
+                      Layout.fillWidth: true
+                      spacing: 10
+
+                      Text {
+                        text: ""
+                        font.family: root.fontFamily
+                        font.pixelSize: 15
+                        color: root.textColor
+                      }
+
+                      Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 6
+                        radius: 3
+                        color: Qt.rgba(1, 1, 1, 0.1)
 
                         Rectangle {
-                          Layout.fillWidth: true
-                          Layout.preferredHeight: 6
+                          width: parent.width * Math.max(0, Math.min(1, root.brightnessPercent / 100))
+                          height: parent.height
                           radius: 3
-                          color: Qt.rgba(1, 1, 1, 0.1)
-
-                          Rectangle {
-                            width: parent.width * Math.max(0, Math.min(1, root.brightnessPercent / 100))
-                            height: parent.height
-                            radius: 3
-                            color: root.accent
-                            Behavior on width { NumberAnimation { duration: 120 } }
-                          }
-
-                          MouseArea {
-                            anchors.fill: parent
-                            anchors.topMargin: -8
-                            anchors.bottomMargin: -8
-                            onPressed: mouse => root.setBrightness(100 * mouse.x / width)
-                            onPositionChanged: mouse => { if (pressed) root.setBrightness(100 * mouse.x / width) }
-                          }
+                          color: root.accent
+                          Behavior on width { NumberAnimation { duration: 120 } }
                         }
 
-                        Text {
-                          text: Math.round(root.brightnessPercent) + "%"
-                          font.family: root.fontFamily
-                          font.pixelSize: 12
-                          color: root.muted
-                          Layout.preferredWidth: 32
-                          horizontalAlignment: Text.AlignRight
+                        MouseArea {
+                          anchors.fill: parent
+                          anchors.topMargin: -8
+                          anchors.bottomMargin: -8
+                          onPressed: mouse => root.setBrightness(100 * mouse.x / width)
+                          onPositionChanged: mouse => { if (pressed) root.setBrightness(100 * mouse.x / width) }
                         }
                       }
+
+                      Text {
+                        text: Math.round(root.brightnessPercent) + "%"
+                        font.family: root.fontFamily
+                        font.pixelSize: 12
+                        color: root.muted
+                        Layout.preferredWidth: 32
+                        horizontalAlignment: Text.AlignRight
+                      }
+                    }
                   }
                 }
 
-                // Display Scale -- own card, same treatment.
+                // Display Scale -- own card, same fixed-height reasoning
+                // as Brightness above (79 confirmed via the same debug
+                // measurement).
                 Rectangle {
                   visible: root.brightnessAvailable
                   Layout.fillWidth: true
-                  Layout.preferredHeight: scaleCardContent.implicitHeight + 24
+                  Layout.preferredHeight: 79
                   radius: 10
                   color: "#000000"
 
@@ -2937,51 +2984,50 @@ Item {
                     anchors.margins: 12
                     spacing: 12
 
-                      Text {
-                        visible: root.brightnessAvailable
-                        text: "Display Scale"
-                        font.family: root.fontFamily
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        color: root.muted
-                      }
-                      RowLayout {
-                        visible: root.brightnessAvailable
-                        Layout.fillWidth: true
-                        spacing: 6
+                    Text {
+                      text: "Display Scale"
+                      font.family: root.fontFamily
+                      font.pixelSize: 11
+                      font.weight: Font.DemiBold
+                      color: root.muted
+                    }
 
-                        Repeater {
-                          model: root.scalePresets
+                    RowLayout {
+                      Layout.fillWidth: true
+                      spacing: 6
 
-                          Rectangle {
-                            id: scaleBtn
-                            required property string modelData
-                            readonly property bool isCurrent: root.displayScale === scaleBtn.modelData
+                      Repeater {
+                        model: root.scalePresets
 
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 28
-                            radius: 6
-                            color: scaleBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-                            border.width: 1
-                            border.color: scaleBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+                        Rectangle {
+                          id: scaleBtn
+                          required property string modelData
+                          readonly property bool isCurrent: root.displayScale === scaleBtn.modelData
 
-                            Text {
-                              anchors.centerIn: parent
-                              text: scaleBtn.modelData + "x"
-                              font.family: root.fontFamily
-                              font.pixelSize: 11
-                              font.weight: scaleBtn.isCurrent ? Font.DemiBold : Font.Normal
-                              color: scaleBtn.isCurrent ? root.textColor : root.muted
-                            }
+                          Layout.fillWidth: true
+                          Layout.preferredHeight: 28
+                          radius: 6
+                          color: scaleBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                          border.width: 1
+                          border.color: scaleBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
 
-                            MouseArea {
-                              anchors.fill: parent
-                              cursorShape: Qt.PointingHandCursor
-                              onClicked: root.setDisplayScale(scaleBtn.modelData)
-                            }
+                          Text {
+                            anchors.centerIn: parent
+                            text: scaleBtn.modelData + "x"
+                            font.family: root.fontFamily
+                            font.pixelSize: 11
+                            font.weight: scaleBtn.isCurrent ? Font.DemiBold : Font.Normal
+                            color: scaleBtn.isCurrent ? root.textColor : root.muted
+                          }
+
+                          MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.setDisplayScale(scaleBtn.modelData)
                           }
                         }
                       }
+                    }
                   }
                 }
               }
@@ -2993,16 +3039,28 @@ Item {
               // mechanism and reasoning.
               ColumnLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.fillHeight: visible
                 visible: root.selectedSection === 4
-                // Explicit height override, not left to Qt Quick Layouts'
-                // own (unreliable, confirmed live -- see open()'s own comment)
-                // exclusion of invisible items -- forces this page's own
-                // content to 0 height whenever it's not the active section,
-                // so a formerly-visible sibling can never leave a stale
-                // locked-in height behind for whichever section switches in
-                // next. -1 resets to normal implicit sizing when active.
+                // Both fillHeight and preferredHeight gated on visible --
+                // real bug hit live and finally properly measured ("the
+                // display page now has a big gap", confirmed via direct
+                // debug output: an INACTIVE page's own height was still
+                // reporting 336px, not 0, despite an earlier attempt at
+                // this same fix that only touched preferredHeight).
+                // Qt Quick Layouts does NOT exclude invisible items from
+                // sizing on its own (a wrong assumption this carried
+                // from earlier in the session) -- and Layout.fillHeight:
+                // true independently claims a share of any leftover
+                // space in the ColumnLayout regardless of what
+                // preferredHeight says, so setting preferredHeight to 0
+                // alone didn't stop an inactive page from still growing
+                // to fill space. Gating fillHeight on visible too is
+                // what actually stops that: an inactive page no longer
+                // participates in fill distribution at all, and -1
+                // resets preferredHeight to normal implicit sizing once
+                // it's active again.
                 Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
                 spacing: 12
 
                 Text {

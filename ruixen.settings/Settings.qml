@@ -324,10 +324,17 @@ Item {
   // direct follow-up ("it showing all wifi spot available to join and
   // its overflowing... were we gonna show just the one[s] we already
   // connected to so they can switch") -- with new networks reachable via
-  // the always-visible "Other Networks" section below (see
-  // otherWifiRows) instead of mixed into this one.
+  // the "Other Networks" accordion below (see otherWifiRows and
+  // showOtherNetworks) instead of mixed into this one.
   readonly property var knownWifiRows: root.wifiRows.filter(function(r) { return r.known })
   readonly property var otherWifiRows: root.wifiRows.filter(function(r) { return !r.known })
+  // Accordion, open by default -- per direct follow-up. Was a plain
+  // always-visible section (no collapse at all); this brings the
+  // toggle back but flips the default from the original collapsed-by-
+  // default version (see git history) to open, so new networks are
+  // immediately visible without an extra click, while still being
+  // collapsible for anyone who wants the shorter view back.
+  property bool showOtherNetworks: true
 
   function isOpenNetwork(security) {
     return security === WifiSecurityType.Open
@@ -1472,29 +1479,55 @@ Item {
                     }
                   }
 
-                  // "Other Networks" -- always visible now (was a
-                  // collapse/expand toggle; dropped per direct
-                  // follow-up). The real bug that follow-up caught: the
-                  // old design put ONE shared passphrase prompt after
-                  // the whole list, so clicking a network near the top
-                  // of a long list opened a prompt scrolled off-screen
-                  // below the fold -- looked exactly like "clicking does
-                  // nothing". Fixed by making each row expand in place
-                  // instead (see otherRow below): the field appears
-                  // exactly where you clicked, so there's nothing to
-                  // scroll to find.
-                  Text {
-                    visible: root.otherWifiRows.length > 0
-                    text: "Other Networks"
-                    font.family: root.fontFamily
-                    font.pixelSize: 11
-                    color: root.muted
+                  // "Other Networks" -- accordion, open by default (see
+                  // showOtherNetworks above). Clicking the header toggles
+                  // it; chevron rotates to show state. Each row still
+                  // expands in place for its own password field (see
+                  // otherRow below) rather than a single shared prompt --
+                  // that part is unrelated to this collapse/expand and
+                  // stays exactly as it was.
+                  Rectangle {
+                    id: otherNetworksHeader
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 24
                     Layout.topMargin: 4
-                    Layout.leftMargin: 8
+                    radius: 6
+                    color: otherHeaderMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                    visible: root.otherWifiRows.length > 0
+
+                    RowLayout {
+                      anchors.fill: parent
+                      anchors.leftMargin: 8
+                      anchors.rightMargin: 8
+                      spacing: 6
+
+                      Text {
+                        text: "Other Networks"
+                        font.family: root.fontFamily
+                        font.pixelSize: 11
+                        color: root.muted
+                        Layout.fillWidth: true
+                      }
+
+                      Text {
+                        text: root.showOtherNetworks ? "" : ""
+                        font.family: root.fontFamily
+                        font.pixelSize: 9
+                        color: root.muted
+                      }
+                    }
+
+                    MouseArea {
+                      id: otherHeaderMouse
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.showOtherNetworks = !root.showOtherNetworks
+                    }
                   }
 
                   Repeater {
-                    model: root.otherWifiRows
+                    model: root.showOtherNetworks ? root.otherWifiRows : []
 
                     Rectangle {
                       id: otherRow
@@ -1648,16 +1681,31 @@ Item {
                         }
                       }
 
-                      // Only covers the header row's own height, not the
-                      // password field below it once expanded -- an
+                      // Stops at the header row's real bottom edge, not
+                      // the password field below it once expanded -- an
                       // anchors.fill MouseArea here would sit on top of
                       // (and swallow clicks meant for) the TextInput/
-                      // submit button once the row grows.
+                      // submit button once the row grows. Direct follow-
+                      // up fix: this used to be anchors.top: parent.top +
+                      // a fixed height approximating otherHeaderRow's
+                      // size, but otherContent (the header's real parent)
+                      // has its own 8px top margin the approximation
+                      // didn't account for -- the hit region sat 8px
+                      // above where the header actually rendered, so only
+                      // the text's own top edge was clickable. Tried
+                      // anchoring directly to otherHeaderRow.bottom next
+                      // (cross-hierarchy anchor into a ColumnLayout
+                      // child), but that made clicks stop registering
+                      // entirely -- reverted to plain height arithmetic
+                      // instead: otherContent's own top margin (8, see
+                      // its anchors.margins above) plus the header's live
+                      // height covers exactly the same region without
+                      // relying on anchoring into a Layout's internals.
                       MouseArea {
-                        anchors.top: parent.top
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        height: otherHeaderRow.height
+                        anchors.top: parent.top
+                        height: 8 + otherHeaderRow.height
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.connectToWifi(otherRow.modelData)
                       }

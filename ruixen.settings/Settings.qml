@@ -1387,21 +1387,34 @@ Item {
       // deliver plain Tab with the modifier bit set instead -- handling
       // only one would miss whichever convention this compositor
       // doesn't use.
+      // card.forceActiveFocus() on every row landing, not just
+      // sidebarSearchInput.focus = false on its own -- direct follow-up
+      // ("tab doesnt do anything [after clicking an item], and
+      // sometimes it gets stuck on System going back to the top").
+      // Clearing the TextInput's own local focus does NOT reliably
+      // hand real Qt activeFocus back up to card -- QML's focus-scope
+      // fallback for "the item that had focus just gave it up" isn't
+      // guaranteed to land back on any particular ancestor, so card's
+      // own Keys.onPressed could end up with no activeFocus at all
+      // after a row (or a click) took it. That silently broke every
+      // Tab/Return press after the first focus handoff. Explicitly
+      // forcing focus back onto card every time removes the ambiguity.
       Keys.onPressed: event => {
         if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)) {
           root.sidebarFocusIndex = root.sidebarFocusIndex >= root.filteredSections.length - 1
             ? -1 : root.sidebarFocusIndex + 1
           if (root.sidebarFocusIndex === -1) sidebarSearchInput.forceActiveFocus()
-          else sidebarSearchInput.focus = false
+          else card.forceActiveFocus()
           event.accepted = true
         } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
           root.sidebarFocusIndex = root.sidebarFocusIndex <= -1
             ? root.filteredSections.length - 1 : root.sidebarFocusIndex - 1
           if (root.sidebarFocusIndex === -1) sidebarSearchInput.forceActiveFocus()
-          else sidebarSearchInput.focus = false
+          else card.forceActiveFocus()
           event.accepted = true
         } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.sidebarFocusIndex >= 0 && root.sidebarFocusIndex < root.filteredSections.length) {
           root.selectedSection = root.filteredSections[root.sidebarFocusIndex].originalIndex
+          card.forceActiveFocus()
           event.accepted = true
         }
       }
@@ -1419,6 +1432,10 @@ Item {
         anchors.fill: parent
         onClicked: {
           sidebarSearchInput.focus = false
+          // card.forceActiveFocus() alongside dropping the TextInput's
+          // own focus -- see the Keys.onPressed comment above for why
+          // this needs to be explicit, not left to QML's own fallback.
+          card.forceActiveFocus()
           // No stale keyboard-focus ring after a plain mouse click.
           root.sidebarFocusIndex = -1
         }
@@ -1625,6 +1642,10 @@ Item {
                     // MouseArea consumes the click before it can ever
                     // reach that one).
                     sidebarSearchInput.focus = false
+                    // card.forceActiveFocus() -- see card's own
+                    // Keys.onPressed comment for why this needs to be
+                    // explicit, not left to QML's own focus fallback.
+                    card.forceActiveFocus()
                     // No stale keyboard-focus ring after a plain mouse
                     // click either.
                     root.sidebarFocusIndex = -1

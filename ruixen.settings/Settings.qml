@@ -1195,7 +1195,19 @@ Item {
         if (String(p.id || "").indexOf("ruixen.") !== 0) continue
         rows.push(p)
       }
-      rows.sort(function(a, b) { return a.name.localeCompare(b.name) })
+      // Locked (protected) plugins first, alphabetical within each
+      // group -- direct request ("the one that is locked like ruixen
+      // setting and ruixen bar, can you put them first of the list").
+      // pluginIsProtected is the exact same real check the lock glyph
+      // itself is gated on (PluginsContent.qml), not a separate
+      // "core" concept invented just for sorting -- whatever the lock
+      // icon shows on is what sorts first.
+      rows.sort(function(a, b) {
+        var aLocked = root.pluginIsProtected(a) ? 0 : 1
+        var bLocked = root.pluginIsProtected(b) ? 0 : 1
+        if (aLocked !== bLocked) return aLocked - bLocked
+        return a.name.localeCompare(b.name)
+      })
     } catch (e) {}
     return rows
   }

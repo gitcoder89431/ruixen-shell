@@ -57,18 +57,62 @@ ColumnLayout {
           color: settingsRoot.textColor
         }
 
+        // Same track/fill/tip language as ruixen.notch's own sliders
+        // (the dashboard's vertical brightness bar, the collapsed
+        // notch's horizontal wave slider) -- direct request ("can we
+        // use the same design as from the notch, no waves, but it can
+        // have a tip or head"). No WavyLine here (this isn't a media
+        // position, nothing to animate) -- just the plain solid fill
+        // half of that same design, ported from the vertical
+        // brightness bar's own gap+tip treatment since it already has
+        // no wave either, just flipped horizontal.
         Rectangle {
+          id: brightnessBarTrack
           Layout.fillWidth: true
           Layout.preferredHeight: 6
           radius: 3
-          color: Qt.rgba(1, 1, 1, 0.1)
+          color: "transparent"
+
+          readonly property real value: Math.max(0, Math.min(1, settingsRoot.brightnessPercent / 100))
+          // Point along the bar the tip sits centered on -- track and
+          // fill both stop short of it by gapPx, same split-point
+          // convention as the wave slider's splitX.
+          readonly property real valueX: width * value
+          // Half the bar's own thickness (3) + half the tip's own
+          // width (2) + 2px real clearance -- same derivation the wave
+          // slider's own gapPx used, not a flat guess.
+          readonly property real gapPx: 7
 
           Rectangle {
-            width: parent.width * Math.max(0, Math.min(1, settingsRoot.brightnessPercent / 100))
-            height: parent.height
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.max(0, parent.valueX - parent.gapPx)
             radius: 3
             color: settingsRoot.accent
             Behavior on width { NumberAnimation { duration: 120 } }
+          }
+
+          Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.max(0, parent.width - parent.valueX - parent.gapPx)
+            radius: 3
+            color: Qt.rgba(1, 1, 1, 0.1)
+          }
+
+          // Tip -- sticks out past the bar's own top/bottom edges,
+          // same "reads clearer than the bar alone" reasoning as the
+          // vertical brightness bar and wave slider's own playhead.
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            x: parent.valueX - width / 2
+            width: 4
+            height: parent.height + 8
+            radius: 2
+            color: "#ffffff"
+            Behavior on x { NumberAnimation { duration: 120 } }
           }
 
           MouseArea {

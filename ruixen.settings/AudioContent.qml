@@ -62,18 +62,50 @@ ColumnLayout {
           }
         }
 
+        // Same track/fill/tip language as ruixen.notch's own sliders
+        // -- direct request ("can we use the same design as from the
+        // notch, no waves, but it can have a tip or head"). Ported
+        // from DisplayContent.qml's own brightness bar (see its
+        // comment for the full reasoning); same gapPx derivation and
+        // tip proportions, just outputVolume/outputMuted here instead.
         Rectangle {
+          id: outputVolumeTrack
           Layout.fillWidth: true
           Layout.preferredHeight: 6
           radius: 3
-          color: Qt.rgba(1, 1, 1, 0.1)
+          color: "transparent"
+
+          readonly property real value: Math.max(0, Math.min(1, settingsRoot.outputVolume))
+          readonly property real valueX: width * value
+          readonly property real gapPx: 7
 
           Rectangle {
-            width: parent.width * Math.max(0, Math.min(1, settingsRoot.outputVolume))
-            height: parent.height
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.max(0, parent.valueX - parent.gapPx)
             radius: 3
             color: settingsRoot.outputMuted ? settingsRoot.muted : settingsRoot.accent
             Behavior on width { NumberAnimation { duration: 120 } }
+          }
+
+          Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.max(0, parent.width - parent.valueX - parent.gapPx)
+            radius: 3
+            color: Qt.rgba(1, 1, 1, 0.1)
+          }
+
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            x: parent.valueX - width / 2
+            width: 4
+            height: parent.height + 8
+            radius: 2
+            color: "#ffffff"
+            Behavior on x { NumberAnimation { duration: 120 } }
           }
 
           MouseArea {
@@ -201,18 +233,46 @@ ColumnLayout {
           }
         }
 
+        // Same track/fill/tip treatment as Output's own slider above
+        // -- see its comment for the full reasoning.
         Rectangle {
+          id: inputVolumeTrack
           Layout.fillWidth: true
           Layout.preferredHeight: 6
           radius: 3
-          color: Qt.rgba(1, 1, 1, 0.1)
+          color: "transparent"
+
+          readonly property real value: Math.max(0, Math.min(1, settingsRoot.inputVolume))
+          readonly property real valueX: width * value
+          readonly property real gapPx: 7
 
           Rectangle {
-            width: parent.width * Math.max(0, Math.min(1, settingsRoot.inputVolume))
-            height: parent.height
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.max(0, parent.valueX - parent.gapPx)
             radius: 3
             color: settingsRoot.inputMuted ? settingsRoot.muted : settingsRoot.accent
             Behavior on width { NumberAnimation { duration: 120 } }
+          }
+
+          Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Math.max(0, parent.width - parent.valueX - parent.gapPx)
+            radius: 3
+            color: Qt.rgba(1, 1, 1, 0.1)
+          }
+
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            x: parent.valueX - width / 2
+            width: 4
+            height: parent.height + 8
+            radius: 2
+            color: "#ffffff"
+            Behavior on x { NumberAnimation { duration: 120 } }
           }
 
           MouseArea {

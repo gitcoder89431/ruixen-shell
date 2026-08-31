@@ -356,17 +356,27 @@ Item {
       }
     }
 
-    // No circular treatment at all -- direct follow-up chain: first
-    // "why do we still hard cap a circle around it, doesnt dicebear
-    // take care of it" (tried DiceBear's own radius=50 param, which
-    // scales each style's content to fit a circle instead of the old
-    // MultiEffect mask's blind crop), then, after actually seeing it,
-    // "the circle is still there... the circle mask comes back" --
-    // radius=50 still produces a circle, just a better-behaved one,
-    // which wasn't the actual ask. Dropped radius=50 too (see
-    // ruixen.settings' selectAvatar), so this now just renders
-    // DiceBear's own natural square output directly, no masking or
-    // cropping from either side.
+    // No circular treatment -- direct follow-up chain: first "why do
+    // we still hard cap a circle around it, doesnt dicebear take care
+    // of it" (tried DiceBear's own radius=50 param, which scales each
+    // style's content to fit a circle instead of the old MultiEffect
+    // mask's blind crop), then, after actually seeing it, "the circle
+    // is still there... the circle mask comes back" -- radius=50 still
+    // produces a circle, just a better-behaved one, which wasn't the
+    // actual ask. Dropped radius=50 too (see ruixen.settings'
+    // selectAvatar).
+    //
+    // Rounded-square clip, not a hard rectangle though -- direct
+    // follow-up ("on the site it shows it has like a curved around the
+    // edge, its not suppose to be rectangular with hard edge"). That
+    // curve is DiceBear's own website preview-card CSS, not part of
+    // the fetched image -- confirmed by reading pixelbot's raw SVG
+    // directly, rx="0" regardless of style, same as every other style
+    // checked so far. So a real mask is what gets that look here, same
+    // MultiEffect technique the notch's own shape uses, just a small
+    // proportional radius instead of width/2 -- a rounded square, not
+    // a circle (the circle stays for the gradient placeholder only,
+    // per its own comment above).
     Image {
       id: avatarImage
       anchors.fill: parent
@@ -374,7 +384,25 @@ Item {
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       cache: false
-      visible: status === Image.Ready
+      visible: false
+    }
+
+    Rectangle {
+      id: avatarImageMask
+      anchors.fill: parent
+      radius: width * 0.2
+      color: "#ffffff"
+      visible: false
+      layer.enabled: true
+    }
+
+    MultiEffect {
+      anchors.fill: parent
+      source: avatarImage
+      maskEnabled: true
+      maskSource: avatarImageMask
+      maskThresholdMin: 0.5
+      maskThresholdMax: 1.0
     }
 
     // The click target for opening the dashboard now that hover-to-

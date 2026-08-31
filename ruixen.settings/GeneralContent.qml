@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 
 // General -- bar layout mode + avatar + about, first page in the
@@ -81,17 +82,27 @@ ColumnLayout {
         // source-string cache (needed since selecting a new avatar
         // overwrites the exact same path) without that risk.
         //
-        // No circular treatment at all -- direct follow-up chain: first
-        // "why do we still hard cap a circle around it, doesnt dicebear
+        // No circular treatment -- direct follow-up chain: first "why
+        // do we still hard cap a circle around it, doesnt dicebear
         // take care of it" (tried DiceBear's own radius=50 param,
         // which scales each style's content to fit a circle instead of
         // the old MultiEffect mask's blind crop), then, after actually
         // seeing it, "the circle is still there... the circle mask
         // comes back" -- radius=50 still produces a circle, just a
         // better-behaved one, which wasn't the actual ask. Dropped
-        // radius=50 too (see settingsRoot.selectAvatar), so this now
-        // just renders DiceBear's own natural square output directly,
-        // no masking or cropping from either side.
+        // radius=50 too (see settingsRoot.selectAvatar).
+        //
+        // Rounded-square clip, not a hard rectangle though -- direct
+        // follow-up ("on the site it shows it has like a curved around
+        // the edge, its not suppose to be rectangular with hard
+        // edge"). That curve is DiceBear's own website preview-card
+        // CSS, not part of the fetched image -- confirmed by reading
+        // pixelbot's raw SVG directly, rx="0" regardless of style. So
+        // a real mask is what gets that look here, same MultiEffect
+        // technique this used before, just a small proportional radius
+        // instead of width/2 -- a rounded square, not a circle (the
+        // circle stays for the gradient placeholder only, per its own
+        // comment above).
         Image {
           id: avatarPreviewImage
           anchors.fill: parent
@@ -99,7 +110,25 @@ ColumnLayout {
           fillMode: Image.PreserveAspectCrop
           asynchronous: true
           cache: false
-          visible: status === Image.Ready
+          visible: false
+        }
+
+        Rectangle {
+          id: avatarPreviewMask
+          anchors.fill: parent
+          radius: width * 0.2
+          color: "#ffffff"
+          visible: false
+          layer.enabled: true
+        }
+
+        MultiEffect {
+          anchors.fill: parent
+          source: avatarPreviewImage
+          maskEnabled: true
+          maskSource: avatarPreviewMask
+          maskThresholdMin: 0.5
+          maskThresholdMax: 1.0
         }
       }
 

@@ -37,7 +37,7 @@ ColumnLayout {
       spacing: 12
 
       Text {
-        text: "Avatar"
+        text: settingsRoot.username
         font.family: settingsRoot.fontFamily
         font.pixelSize: 11
         font.weight: Font.DemiBold

@@ -147,6 +147,36 @@ Item {
   // genuinely have to (those need a real git checkout; this doesn't).
   property string barMode: "floating"
 
+  // Machine name + username -- direct follow-up ("instead of the
+  // header being General, can you put the machine name... we can also
+  // use the username where the Avatar text is"), reusing the exact
+  // same sources ruixen.notch's own Metrics tab already shows (its own
+  // "identity rows"), not reinvented: fastfetch's Host module for the
+  // real hardware/PC name (not the network $HOSTNAME), $USER for the
+  // username. Plugins can't import each other's QML, so this is the
+  // same command/property shape ported here, not a shared import.
+  property string hardwareName: ""
+  readonly property string username: {
+    var u = Quickshell.env("USER") || "user"
+    return u.charAt(0).toUpperCase() + u.slice(1)
+  }
+
+  Process {
+    id: identityProc
+    command: ["fastfetch", "--format", "json", "-s", "Host"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var data = JSON.parse(text)
+          for (var i = 0; i < data.length; i++) {
+            if (data[i].type === "Host") root.hardwareName = data[i].result.name || ""
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
   Process {
     id: barModeReadProc
     command: ["bash", "-c", "python3 -c \"import json; d=json.load(open('" + Quickshell.env("HOME") + "/.config/omarchy/shell.json')); print('docked' if d.get('bar',{}).get('docked') is True else 'floating')\" 2>/dev/null || echo floating"]
@@ -628,6 +658,7 @@ Item {
       root.refreshPlugins()
       repoPathProc.running = true
       barModeReadProc.running = true
+      if (root.hardwareName === "") identityProc.running = true
     }
   }
   onWifiDeviceChanged: root.setScannerEnabled(true)
@@ -1327,9 +1358,11 @@ Item {
                     // single collapsed name would misrepresent the real
                     // state. Bluetooth keeps its plain label, same as
                     // Audio.
-                    text: root.selectedSection === 2
-                      ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
-                      : root.sections[root.selectedSection].label
+                    text: root.selectedSection === 0
+                      ? (root.hardwareName || "General")
+                      : root.selectedSection === 2
+                        ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
+                        : root.sections[root.selectedSection].label
                     font.family: root.fontFamily
                     font.pixelSize: 15
                     font.weight: Font.DemiBold

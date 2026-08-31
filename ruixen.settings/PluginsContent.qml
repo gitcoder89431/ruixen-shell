@@ -218,6 +218,40 @@ ColumnLayout {
     // direct request rather than kept as unused-but-harmless. The
     // Flickable itself is untouched, scrolling (wheel/trackpad) still
     // works exactly the same, just with no visible bar.
+
+    // Top/bottom fade instead -- direct follow-up ("theres an effect
+    // i want on things that can scroll, its a top and bottom fade...
+    // with good placement we dont need it to know the scroll, it just
+    // needs to fade the top and bottom, especially the top one").
+    // Deliberately not scroll-position-aware -- two plain gradient
+    // Rectangles, siblings of the Flickable declared after it so they
+    // paint on top of it, each fading to the plugin list card's own
+    // solid black (#000000) so content scrolling underneath reads as
+    // fading into the edge instead of hard-clipping at the viewport
+    // boundary. Non-interactive (no MouseArea on either), so clicks
+    // and scroll input still reach the Flickable underneath exactly
+    // as before.
+    Rectangle {
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 24
+      gradient: Gradient {
+        GradientStop { position: 0.0; color: "#000000" }
+        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+      }
+    }
+
+    Rectangle {
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 24
+      gradient: Gradient {
+        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+        GradientStop { position: 1.0; color: "#000000" }
+      }
+    }
   }
 
 }

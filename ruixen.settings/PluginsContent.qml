@@ -231,11 +231,21 @@ ColumnLayout {
     // boundary. Non-interactive (no MouseArea on either), so clicks
     // and scroll input still reach the Flickable underneath exactly
     // as before.
+    //
+    // radius: 10 on both -- direct report after first shipping these
+    // square-cornered ("the plug in list card no longer have round
+    // curves, its hard angles now"): a plain square Rectangle spanning
+    // the full width right at the card's own top/bottom edge paints
+    // straight over its radius: 10 rounded corners. Matching that same
+    // radius here fixes it; the corner on each fade's OWN transparent
+    // end (bottom corners on the top fade, top corners on the bottom
+    // fade) is irrelevant either way since that end is alpha 0.
     Rectangle {
       anchors.top: parent.top
       anchors.left: parent.left
       anchors.right: parent.right
       height: 24
+      radius: 10
       gradient: Gradient {
         GradientStop { position: 0.0; color: "#000000" }
         GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
@@ -247,6 +257,7 @@ ColumnLayout {
       anchors.left: parent.left
       anchors.right: parent.right
       height: 24
+      radius: 10
       gradient: Gradient {
         GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
         GradientStop { position: 1.0; color: "#000000" }

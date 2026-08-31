@@ -227,18 +227,18 @@ Item {
   // pseudo-collection, rather than all ~30 DiceBear ships -- a picker
   // that wide wouldn't fit this card. version/format default to
   // DiceBear's 9.x PNG endpoint (see selectAvatar below) when a
-  // collection doesn't specify its own -- Sprouts and Pixelbot are the
-  // two 10.x SVG entries so far. Sprouts: direct follow-up ("can we
-  // try the animated collections like this one... https://
-  // api.dicebear.com/10.x/sprouts/svg"). "Animated" turned out to mean
-  // DiceBear ships an opt-in CSS/SMIL animation feature for this style
-  // on their own site, not that the raw SVG fetch animates on its own
-  // -- confirmed by reading the actual returned markup (an inert
-  // <g id="animation-none-..."> placeholder, no <animate>/@keyframes
-  // present) -- and Qt's SVG renderer doesn't run CSS/SMIL regardless,
-  // so this renders as a nice static sprout-pot character, not a
-  // moving one. Confirmed live that Qt can load an SVG through this
-  // pipeline at all (~/.face.icon has no extension, was a real
+  // collection doesn't specify its own -- Sprouts, Pixelbot, and
+  // Bottts-neutral are the 10.x SVG entries so far. Sprouts: direct
+  // follow-up ("can we try the animated collections like this one...
+  // https://api.dicebear.com/10.x/sprouts/svg"). "Animated" turned out
+  // to mean DiceBear ships an opt-in CSS/SMIL animation feature for
+  // this style on their own site, not that the raw SVG fetch animates
+  // on its own -- confirmed by reading the actual returned markup (an
+  // inert <g id="animation-none-..."> placeholder, no <animate>/
+  // @keyframes present) -- and Qt's SVG renderer doesn't run CSS/SMIL
+  // regardless, so this renders as a nice static sprout-pot character,
+  // not a moving one. Confirmed live that Qt can load an SVG through
+  // this pipeline at all (~/.face.icon has no extension, was a real
   // unknown -- Qt does content sniffing, works fine) before adding
   // this rather than assuming. This slot has had two other occupants,
   // both swapped out on sight after actually being tried: Adventurer
@@ -247,10 +247,14 @@ Item {
   // Rings ("crap nvm it looks ugly static" -- a concentric pattern that
   // reads fine as a still image but apparently doesn't work as an
   // avatar). Pixelbot is a simple LED-face style, easy to tell apart at
-  // a glance.
+  // a glance. Bottts-neutral replaces the original 9.x Bottts entry
+  // (same label kept, still a robot family) per direct follow-up
+  // ("swapp the botts to neutral https://api.dicebear.com/10.x/
+  // bottts-neutral/svg") -- a monochrome/single-tone variant of the
+  // original multi-colored bottts style.
   readonly property var avatarCollections: [
     { id: "gradient", label: "Gradient" },
-    { id: "bottts", label: "Bottts" },
+    { id: "bottts-neutral", label: "Bottts", version: "10.x", format: "svg" },
     { id: "pixel-art", label: "Pixel Art" },
     { id: "pixelbot", label: "Pixelbot", version: "10.x", format: "svg" },
     { id: "identicon", label: "Identicon" },

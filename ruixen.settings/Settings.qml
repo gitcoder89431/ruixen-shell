@@ -1359,7 +1359,7 @@ Item {
                     // state. Bluetooth keeps its plain label, same as
                     // Audio.
                     text: root.selectedSection === 0
-                      ? (root.hardwareName || "General")
+                      ? (root.hardwareName ? Quickshell.env("USER") + "@" + root.hardwareName : "General")
                       : root.selectedSection === 2
                         ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
                         : root.sections[root.selectedSection].label

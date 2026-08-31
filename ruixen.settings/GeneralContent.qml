@@ -97,71 +97,57 @@ ColumnLayout {
           }
         }
 
-        ColumnLayout {
-          Layout.fillWidth: true
+        RowLayout {
+          Layout.alignment: Qt.AlignVCenter
           spacing: 8
 
-          Text {
-            Layout.fillWidth: true
-            text: settingsRoot.username
-            elide: Text.ElideRight
-            font.family: settingsRoot.fontFamily
-            font.pixelSize: 14
-            font.weight: Font.DemiBold
-            color: settingsRoot.textColor
-          }
+          Rectangle {
+            Layout.preferredWidth: 84
+            Layout.preferredHeight: 28
+            radius: 8
+            color: shuffleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.06)
+            opacity: settingsRoot.avatarBusy ? 0.5 : 1
 
-          RowLayout {
-            spacing: 8
-
-            Rectangle {
-              Layout.preferredWidth: 84
-              Layout.preferredHeight: 28
-              radius: 8
-              color: shuffleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.06)
-              opacity: settingsRoot.avatarBusy ? 0.5 : 1
-
-              Text {
-                anchors.centerIn: parent
-                text: settingsRoot.avatarBusy ? "..." : "Shuffle"
-                font.family: settingsRoot.fontFamily
-                font.pixelSize: 11
-                color: settingsRoot.textColor
-              }
-
-              MouseArea {
-                id: shuffleMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                enabled: !settingsRoot.avatarBusy
-                cursorShape: Qt.PointingHandCursor
-                onClicked: settingsRoot.shuffleAvatar()
-              }
+            Text {
+              anchors.centerIn: parent
+              text: settingsRoot.avatarBusy ? "..." : "Shuffle"
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 11
+              color: settingsRoot.textColor
             }
 
-            Rectangle {
-              Layout.preferredWidth: 72
-              Layout.preferredHeight: 28
-              radius: 8
-              color: resetMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.06)
-              opacity: settingsRoot.avatarBusy ? 0.5 : 1
+            MouseArea {
+              id: shuffleMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              enabled: !settingsRoot.avatarBusy
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.shuffleAvatar()
+            }
+          }
 
-              Text {
-                anchors.centerIn: parent
-                text: "Reset"
-                font.family: settingsRoot.fontFamily
-                font.pixelSize: 11
-                color: settingsRoot.muted
-              }
+          Rectangle {
+            Layout.preferredWidth: 72
+            Layout.preferredHeight: 28
+            radius: 8
+            color: resetMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.06)
+            opacity: settingsRoot.avatarBusy ? 0.5 : 1
 
-              MouseArea {
-                id: resetMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                enabled: !settingsRoot.avatarBusy
-                cursorShape: Qt.PointingHandCursor
-                onClicked: settingsRoot.resetAvatar()
-              }
+            Text {
+              anchors.centerIn: parent
+              text: "Reset"
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 11
+              color: settingsRoot.muted
+            }
+
+            MouseArea {
+              id: resetMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              enabled: !settingsRoot.avatarBusy
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.resetAvatar()
             }
           }
         }

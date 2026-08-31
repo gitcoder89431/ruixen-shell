@@ -612,7 +612,22 @@ Item {
             Layout.fillWidth: true
             spacing: 6
             Text {
-              text: ""
+              // Arch Linux logo (linux-archlinux, U+F303), not the
+              // generic fa-linux penguin it used to be -- direct
+              // follow-up ("switch the penguin on the health bar to
+              // the arch linux icon, i think the penguin is ubuntu
+              // right? so arch kinda makes more sense here? or
+              // actually, can you use the omarchy icon"). Checked for
+              // a real compact Omarchy icon asset first (not
+              // guessed): /usr/share/omarchy/logo.svg and the sddm/
+              // plymouth logo.png are both wide ~4:1 wordmark
+              // logotypes (1215x285 / 800x188), not a square mark that
+              // fits a small inline row icon -- so Arch (what Omarchy
+              // actually is, per this row's own real Omarchy-version
+              // text next to it) is the practical choice here, same
+              // glyph already used for the app launcher's own icon
+              // (ruixen.applauncher/AppLauncher.qml).
+              text: ""
               font.family: root.fontFamily
               font.pixelSize: 14
               color: root.accent

@@ -89,6 +89,27 @@ Item {
   ]
   property int selectedSection: 0
 
+  // Sidebar search -- direct request ("a lot of design has that...
+  // can we put a search input there and hook it up"). Filters the
+  // sidebar list by label only (7 entries total, so matching id/glyph
+  // too would just be extra work with nothing real to filter by).
+  // Keeps each row's real position in root.sections (originalIndex)
+  // rather than the filtered array's own position -- selectedSection
+  // is always an index into the full, unfiltered list, so a filtered-
+  // out selection stays correct underneath (just not visible in the
+  // sidebar) instead of pointing at the wrong section.
+  property string sidebarQuery: ""
+
+  readonly property var filteredSections: {
+    // Built by hand, not object-spread ({ ...s, ... }) -- QML's JS
+    // engine rejected that syntax outright ("Unexpected token '...'"),
+    // confirmed live via the journal, not assumed.
+    const withIndex = root.sections.map((s, i) => ({ id: s.id, label: s.label, glyph: s.glyph, originalIndex: i }))
+    const q = root.sidebarQuery.trim().toLowerCase()
+    if (q.length === 0) return withIndex
+    return withIndex.filter(s => s.label.toLowerCase().includes(q))
+  }
+
   function sectionIndexFor(id) {
     for (var i = 0; i < root.sections.length; i++)
       if (root.sections[i].id === id) return i
@@ -1365,14 +1386,49 @@ Item {
             Layout.alignment: Qt.AlignTop
             spacing: 4
 
+            // Search -- same plain Rectangle + TextInput + placeholder
+            // Text primitive already used for WallpapersContent's own
+            // search box and About's uninstall-confirm field, just
+            // sized to fit this 150px column (28px tall / radius 8,
+            // matching sectionRow's own row height and radius below,
+            // instead of Wallpapers' bigger 40px/radius 12 box).
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 28
+              radius: 8
+              color: Qt.rgba(1, 1, 1, 0.06)
+
+              TextInput {
+                id: sidebarSearchInput
+                anchors.fill: parent
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                verticalAlignment: TextInput.AlignVCenter
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                clip: true
+                text: root.sidebarQuery
+                onTextChanged: root.sidebarQuery = text
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Search"
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  visible: sidebarSearchInput.text.length === 0
+                }
+              }
+            }
+
             Repeater {
-              model: root.sections
+              model: root.filteredSections
 
               Rectangle {
                 id: sectionRow
                 required property var modelData
-                required property int index
-                readonly property bool selected: root.selectedSection === index
+                readonly property bool selected: root.selectedSection === sectionRow.modelData.originalIndex
 
                 Layout.fillWidth: true
                 Layout.preferredHeight: 32
@@ -1405,9 +1461,22 @@ Item {
                 MouseArea {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: root.selectedSection = sectionRow.index
+                  onClicked: root.selectedSection = sectionRow.modelData.originalIndex
                 }
               }
+            }
+
+            // Empty state -- rare with only 7 sections, but a typo'd
+            // query would otherwise leave a blank sidebar with no clue
+            // why nothing is showing.
+            Text {
+              visible: root.filteredSections.length === 0
+              Layout.fillWidth: true
+              text: "No matches"
+              wrapMode: Text.WordWrap
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              color: root.muted
             }
 
             Item { Layout.fillHeight: true }

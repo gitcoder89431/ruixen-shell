@@ -1435,7 +1435,13 @@ Item {
                 anchors.leftMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 text: sidebarSearchInput.text.length === 0 ? "" : ""
-                color: root.muted
+                // Red once it's a clear button, not muted like
+                // the plain search glyph -- direct follow-up
+                // ("maybe the X in red then so its more clear").
+                // Same danger red as the uninstall button
+                // (AboutContent.qml), the only other red accent
+                // already established in this file.
+                color: sidebarSearchInput.text.length === 0 ? root.muted : Qt.rgba(0.878, 0.322, 0.322, 1)
                 font.family: root.fontFamily
                 font.pixelSize: 11
 
@@ -1520,18 +1526,31 @@ Item {
 
             // Empty state -- rare with only 7 sections, but a typo'd
             // query would otherwise leave a blank sidebar with no clue
-            // why nothing is showing.
-            Text {
-              visible: root.filteredSections.length === 0
+            // why nothing is showing. Centered in the leftover space
+            // below the (now-empty) list, not just left-aligned right
+            // under the search box -- direct follow-up ("can we make
+            // it show up more center and middle"). Doubles as the
+            // same leftover-space sink every other list here needs
+            // (Layout.fillHeight, see the layout invariant), so there
+            // isn't a separate fillHeight Item below it any more --
+            // this Item's own remaining height IS what "No matches"
+            // centers inside of.
+            Item {
               Layout.fillWidth: true
-              text: "No matches"
-              wrapMode: Text.WordWrap
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              color: root.muted
-            }
+              Layout.fillHeight: true
 
-            Item { Layout.fillHeight: true }
+              Text {
+                anchors.centerIn: parent
+                visible: root.filteredSections.length === 0
+                width: parent.width - 16
+                horizontalAlignment: Text.AlignHCenter
+                text: "No matches"
+                wrapMode: Text.WordWrap
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                color: root.muted
+              }
+            }
           }
 
           Rectangle {

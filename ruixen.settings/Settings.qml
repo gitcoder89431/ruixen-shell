@@ -1393,8 +1393,15 @@ Item {
             // matching sectionRow's own row height and radius below,
             // instead of Wallpapers' bigger 40px/radius 12 box).
             Rectangle {
+              // Layout.bottomMargin (on top of the ColumnLayout's own
+              // 4px spacing) -- direct follow-up ("add a bit more gap
+              // between search input and the first item"). Only this
+              // one Rectangle needs it, not the ColumnLayout's own
+              // uniform spacing, since every sectionRow below should
+              // stay at the original tighter 4px from each other.
               Layout.fillWidth: true
               Layout.preferredHeight: 28
+              Layout.bottomMargin: 8
               radius: 8
               color: Qt.rgba(1, 1, 1, 0.06)
 
@@ -1413,7 +1420,13 @@ Item {
 
                 Text {
                   anchors.verticalCenter: parent.verticalCenter
-                  text: "Search"
+                  // fa-search (U+F002), same Nerd Font glyph family
+                  // (fa-*) as every other sidebar icon in root.sections
+                  // -- confirmed present in JetBrainsMonoNerdFont's own
+                  // cmap directly, not guessed. Direct follow-up ("in
+                  // the search input the placeholder text should say
+                  // Maginify glass icon Search Settings").
+                  text: "  Search Settings"
                   color: root.muted
                   font.family: root.fontFamily
                   font.pixelSize: 11

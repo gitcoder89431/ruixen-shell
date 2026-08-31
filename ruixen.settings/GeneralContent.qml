@@ -15,70 +15,6 @@ ColumnLayout {
 
   spacing: 16
 
-  // Bar Layout -- own card, same segmented-button treatment as
-  // Display's own Display Scale card (DisplayContent.qml).
-  Rectangle {
-    Layout.fillWidth: true
-    Layout.preferredHeight: barModeCardContent.implicitHeight + 24
-    radius: 10
-    color: "#000000"
-
-    ColumnLayout {
-      id: barModeCardContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Bar Layout"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        font.weight: Font.DemiBold
-        color: settingsRoot.muted
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 6
-
-        Repeater {
-          model: [
-            { id: "floating", label: "Floating" },
-            { id: "docked", label: "Docked" }
-          ]
-
-          Rectangle {
-            id: modeBtn
-            required property var modelData
-            readonly property bool isCurrent: settingsRoot.barMode === modeBtn.modelData.id
-
-            Layout.fillWidth: true
-            Layout.preferredHeight: 28
-            radius: 6
-            color: modeBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-            border.width: 1
-            border.color: modeBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              anchors.centerIn: parent
-              text: modeBtn.modelData.label
-              font.family: settingsRoot.fontFamily
-              font.pixelSize: 11
-              font.weight: modeBtn.isCurrent ? Font.DemiBold : Font.Normal
-              color: modeBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: settingsRoot.setBarMode(modeBtn.modelData.id)
-            }
-          }
-        }
-      }
-    }
-  }
-
   // Avatar -- shown on ruixen.notch's own collapsed row. Live preview
   // uses the exact same dual-layer technique as ruixen.notch's own
   // UserAvatar component (gradient Rectangle underneath, theme-aware
@@ -225,6 +161,69 @@ ColumnLayout {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: settingsRoot.resetAvatar()
               }
+            }
+          }
+        }
+      }
+    }
+  }
+  // Bar Layout -- own card, same segmented-button treatment as
+  // Display's own Display Scale card (DisplayContent.qml).
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: barModeCardContent.implicitHeight + 24
+    radius: 10
+    color: "#000000"
+
+    ColumnLayout {
+      id: barModeCardContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Bar Layout"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 11
+        font.weight: Font.DemiBold
+        color: settingsRoot.muted
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Repeater {
+          model: [
+            { id: "floating", label: "Floating" },
+            { id: "docked", label: "Docked" }
+          ]
+
+          Rectangle {
+            id: modeBtn
+            required property var modelData
+            readonly property bool isCurrent: settingsRoot.barMode === modeBtn.modelData.id
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            radius: 6
+            color: modeBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: modeBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: modeBtn.modelData.label
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 11
+              font.weight: modeBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: modeBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.setBarMode(modeBtn.modelData.id)
             }
           }
         }

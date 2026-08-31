@@ -1358,10 +1358,17 @@ Item {
       Keys.onEscapePressed: root.dismiss()
 
       // Swallow clicks so they don't fall through to the backdrop's own
-      // dismiss handler.
+      // dismiss handler. Also drops the search field's own focus --
+      // direct follow-up ("can i click away to get rid of the carat
+      // after im done searching, right now i gotta dismiss and open
+      // the settings again"): sidebarSearchInput.focus stayed true
+      // (and its cursor kept blinking) after typing, since nothing
+      // ever told it to give focus back up once the user was done
+      // with it -- clicking anywhere else in the card is the natural
+      // "done searching" signal.
       MouseArea {
         anchors.fill: parent
-        onClicked: {}
+        onClicked: sidebarSearchInput.focus = false
       }
 
       ColumnLayout {
@@ -1519,7 +1526,17 @@ Item {
                 MouseArea {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: root.selectedSection = sectionRow.modelData.originalIndex
+                  onClicked: {
+                    root.selectedSection = sectionRow.modelData.originalIndex
+                    // Same "click away" focus-drop as the card's own
+                    // swallow MouseArea -- picking a section is the
+                    // single most common way to click away from an
+                    // active search, so it needs the same handling,
+                    // not just true blank-space clicks (this
+                    // MouseArea consumes the click before it can ever
+                    // reach that one).
+                    sidebarSearchInput.focus = false
+                  }
                 }
               }
             }

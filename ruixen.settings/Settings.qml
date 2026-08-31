@@ -1414,6 +1414,7 @@ Item {
           }
 
           Rectangle {
+            id: detailPanel
             // Detail panel -- own faint card background, matching
             // ruixen.notch's own stat-tile fill (Qt.rgba(1, 1, 1, 0.05))
             // so it reads as a distinct surface from the sidebar instead
@@ -1442,6 +1443,7 @@ Item {
               // same title row, right-aligned, mirroring where Wi-Fi's
               // radio toggle sits relative to its own header.
               Rectangle {
+                id: headerPill
                 // Whole header row, rounded bar rather than a true
                 // stadium pill -- a full radius: height/2 pill and
                 // flush alignment with the plain body rows below it
@@ -1761,6 +1763,57 @@ Item {
               }
 
 
+            }
+
+            // Top/bottom fade -- direct follow-up chain: "theres an
+            // effect i want on things that can scroll, its a top and
+            // bottom fade... especially the top one", then, after a
+            // real geometric problem trying this per-card on the
+            // Plugins page ("on scroll i get a square edge then back
+            // to round" -- a fade radius can only ever match a
+            // scrolling card's own rounded corner at rest, not
+            // throughout the actual scroll range), the fix: "dont put
+            // the fade in the card, let the fade be the page itself".
+            // Anchored to this detail-panel Rectangle's own fixed
+            // edges instead of any specific page's own scrolling
+            // content -- this Rectangle never scrolls or resizes on
+            // its own, so radius: 10 here always matches its real
+            // rounded corners exactly, at any scroll position, on any
+            // page. Sits above every page's own content (siblings
+            // declared after paint on top) and is completely page-
+            // agnostic -- whichever section is showing gets the same
+            // fade for free, no per-page implementation needed.
+            Rectangle {
+              anchors.top: parent.top
+              // mapToItem(detailPanel, ...), not headerPill.y +
+              // headerPill.height alone -- headerPill.y is relative to
+              // ITS OWN parent (the margined ColumnLayout above), not
+              // detailPanel, so that alone would silently miss the
+              // ColumnLayout's own 16px anchors.margins and sit the
+              // fade 16px too high. mapToItem converts headerPill's
+              // bottom-left point into detailPanel's own coordinate
+              // space instead of hand-summing margins that could drift
+              // out of sync with the real layout later.
+              anchors.topMargin: headerPill.mapToItem(detailPanel, 0, headerPill.height).y
+              anchors.left: parent.left
+              anchors.right: parent.right
+              height: 24
+              gradient: Gradient {
+                GradientStop { position: 0.0; color: "#000000" }
+                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+              }
+            }
+
+            Rectangle {
+              anchors.bottom: parent.bottom
+              anchors.left: parent.left
+              anchors.right: parent.right
+              height: 24
+              radius: 10
+              gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+                GradientStop { position: 1.0; color: "#000000" }
+              }
             }
           }
         }

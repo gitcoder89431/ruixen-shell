@@ -206,63 +206,25 @@ ColumnLayout {
     }
     }
 
-    // No scroll indicator -- direct follow-up ("that scroll bar is it
-    // an os thing... i dont want it shown, it kinda messes with our
-    // design"). It was never an OS/native scrollbar -- a plain custom
-    // Rectangle we drew ourselves, originally added to fix a real
-    // addressability bug ("the uninstall is now hidden or gone": the
-    // danger zone lived inside this same Flickable back then, well
-    // below the visible viewport with no hint scrolling would reveal
-    // it). The danger zone has since moved to its own About page, so
-    // that specific symptom no longer applies here -- removed per
-    // direct request rather than kept as unused-but-harmless. The
-    // Flickable itself is untouched, scrolling (wheel/trackpad) still
-    // works exactly the same, just with no visible bar.
-
-    // Top/bottom fade instead -- direct follow-up ("theres an effect
-    // i want on things that can scroll, its a top and bottom fade...
-    // with good placement we dont need it to know the scroll, it just
-    // needs to fade the top and bottom, especially the top one").
-    // Deliberately not scroll-position-aware -- two plain gradient
-    // Rectangles, siblings of the Flickable declared after it so they
-    // paint on top of it, each fading to the plugin list card's own
-    // solid black (#000000) so content scrolling underneath reads as
-    // fading into the edge instead of hard-clipping at the viewport
-    // boundary. Non-interactive (no MouseArea on either), so clicks
-    // and scroll input still reach the Flickable underneath exactly
-    // as before.
-    //
-    // radius: 10 on both -- direct report after first shipping these
-    // square-cornered ("the plug in list card no longer have round
-    // curves, its hard angles now"): a plain square Rectangle spanning
-    // the full width right at the card's own top/bottom edge paints
-    // straight over its radius: 10 rounded corners. Matching that same
-    // radius here fixes it; the corner on each fade's OWN transparent
-    // end (bottom corners on the top fade, top corners on the bottom
-    // fade) is irrelevant either way since that end is alpha 0.
-    Rectangle {
-      anchors.top: parent.top
-      anchors.left: parent.left
-      anchors.right: parent.right
-      height: 24
-      radius: 10
-      gradient: Gradient {
-        GradientStop { position: 0.0; color: "#000000" }
-        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
-      }
-    }
-
-    Rectangle {
-      anchors.bottom: parent.bottom
-      anchors.left: parent.left
-      anchors.right: parent.right
-      height: 24
-      radius: 10
-      gradient: Gradient {
-        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
-        GradientStop { position: 1.0; color: "#000000" }
-      }
-    }
+    // No scroll indicator, no per-card fade either -- direct follow-up
+    // chain: first "that scroll bar is it an os thing... i dont want
+    // it shown" (removed the custom scroll-position Rectangle), then a
+    // top/bottom fade was tried here directly on this card, which hit
+    // a real geometric problem once actually scrolled: "on scroll i
+    // get a square edge then back to round" -- this card's rounded
+    // corner only really exists at scroll position 0 (or the bottom
+    // equivalent); a fade Rectangle with a matching fixed radius looks
+    // right at rest but mismatches the instant the card's real corner
+    // scrolls out of view, since what's actually underneath at that
+    // point is a plain straight edge, not a corner. Direct correction:
+    // "all our other stuff its not in scroll the cards themselves
+    // actually scroll, i think we should stick to one design" -- this
+    // page now matches Wi-Fi/Bluetooth's own Flickable/card shape
+    // exactly (see WifiContent.qml), and the fade moved to the shared
+    // panel chrome in Settings.qml instead, where it's anchored to
+    // fixed, never-scrolling panel edges instead of a scrolling card's
+    // own corner -- see its own comment there for why that sidesteps
+    // this problem entirely rather than just patching it again here.
   }
 
 }

@@ -636,19 +636,38 @@ Item {
       visible: grid.contentY > 0
       Layout.preferredWidth: 76
       Layout.alignment: Qt.AlignHCenter
-      Layout.preferredHeight: 36
+      // Same 64px height as the filter chips above, not a smaller
+      // 36px -- direct follow-up ("try and make it consistenly the
+      // same size stat card") -- and the same number-then-label
+      // two-line layout, with the arrow standing in for the number
+      // and TOP standing in for the kind label, rather than a single
+      // centered line.
+      Layout.preferredHeight: 64
       radius: 10
       color: backToTopArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
       border.width: 1
       border.color: Qt.rgba(1, 1, 1, 0.12)
 
-      Text {
+      ColumnLayout {
         anchors.centerIn: parent
-        text: "↑ TOP"
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        font.weight: Font.DemiBold
-        color: backToTopArea.containsMouse ? root.accent : root.muted
+        spacing: 2
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: "↑"
+          font.family: root.fontFamily
+          font.pixelSize: 18
+          font.weight: Font.DemiBold
+          color: backToTopArea.containsMouse ? root.accent : root.textColor
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: "TOP"
+          font.family: root.fontFamily
+          font.pixelSize: 9
+          color: root.muted
+        }
       }
 
       MouseArea {

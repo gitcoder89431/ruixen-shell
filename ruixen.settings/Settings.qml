@@ -227,7 +227,7 @@ Item {
   // pseudo-collection, rather than all ~30 DiceBear ships -- a picker
   // that wide wouldn't fit this card. version/format default to
   // DiceBear's 9.x PNG endpoint (see selectAvatar below) when a
-  // collection doesn't specify its own -- Sprouts and Rings are the
+  // collection doesn't specify its own -- Sprouts and Pixelbot are the
   // two 10.x SVG entries so far. Sprouts: direct follow-up ("can we
   // try the animated collections like this one... https://
   // api.dicebear.com/10.x/sprouts/svg"). "Animated" turned out to mean
@@ -240,17 +240,19 @@ Item {
   // moving one. Confirmed live that Qt can load an SVG through this
   // pipeline at all (~/.face.icon has no extension, was a real
   // unknown -- Qt does content sniffing, works fine) before adding
-  // this rather than assuming. Rings: swapped in for Adventurer per
-  // direct follow-up ("the adventuer one looks too small, swap it with
-  // https://api.dicebear.com/10.x/rings/svg") -- Adventurer's own
-  // character sits small in the middle of its canvas with a lot of
-  // empty space around it; Rings' concentric pattern fills the square
-  // edge to edge instead.
+  // this rather than assuming. This slot has had two other occupants,
+  // both swapped out on sight after actually being tried: Adventurer
+  // (its character sits small in the middle of the canvas, too much
+  // empty space around it -- "the adventuer one looks too small"), then
+  // Rings ("crap nvm it looks ugly static" -- a concentric pattern that
+  // reads fine as a still image but apparently doesn't work as an
+  // avatar). Pixelbot is a simple LED-face style, easy to tell apart at
+  // a glance.
   readonly property var avatarCollections: [
     { id: "gradient", label: "Gradient" },
     { id: "bottts", label: "Bottts" },
     { id: "pixel-art", label: "Pixel Art" },
-    { id: "rings", label: "Rings", version: "10.x", format: "svg" },
+    { id: "pixelbot", label: "Pixelbot", version: "10.x", format: "svg" },
     { id: "identicon", label: "Identicon" },
     { id: "thumbs", label: "Thumbs" },
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" }

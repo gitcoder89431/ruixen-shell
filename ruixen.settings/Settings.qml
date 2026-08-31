@@ -1837,19 +1837,34 @@ Item {
             // no overflow at all (nothing below to hide either). Sizing
             // tricks (reserve spacers, shrinking the gradient) could
             // never fix that because the actual bug was the fade not
-            // knowing the scroll state, not its geometry. canScrollUp/
-            // Down below mirror the standard "more content this way"
+            // knowing the scroll state, not its geometry. overflowAbove/
+            // Below below mirror the standard "more content this way"
             // scroll-shadow pattern: hidden at each natural rest edge,
             // visible only once there's real content past it.
+            // Opacity now ramps continuously over a short scroll
+            // distance instead of snapping between 0/1 at a threshold
+            // -- direct follow-up ("the fade looks jumpy when it comes
+            // in maybe lessen the fade distance"): a Behavior-animated
+            // binary switch has a fixed duration regardless of how
+            // fast the actual scroll is, so a quick flick could easily
+            // outrun (or look disconnected from) the 120ms opacity
+            // animation chasing it -- that mismatch was the real
+            // "jump". Binding opacity directly to how far past the
+            // edge the content has scrolled removes the animation
+            // entirely; it just tracks the drag 1:1, so it can never
+            // be ahead of or behind the real scroll position. fadeRun
+            // (16px) is the short distance that ramp happens over --
+            // shorter than before per the same follow-up, so it eases
+            // in fast without a visible pop.
             Rectangle {
-              readonly property bool canScrollUp: detailFlickable.contentY > 1
+              readonly property real fadeRun: 16
+              readonly property real overflowAbove: detailFlickable.contentY
               anchors.top: parent.top
               anchors.left: parent.left
               anchors.right: parent.right
               height: 24
               radius: 10
-              opacity: canScrollUp ? 1 : 0
-              Behavior on opacity { NumberAnimation { duration: 120 } }
+              opacity: Math.max(0, Math.min(1, overflowAbove / fadeRun))
               gradient: Gradient {
                 GradientStop { position: 0.0; color: "#000000" }
                 GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
@@ -1857,15 +1872,14 @@ Item {
             }
 
             Rectangle {
-              readonly property bool canScrollDown: detailFlickable.contentHeight > detailFlickable.height
-                && detailFlickable.contentY < detailFlickable.contentHeight - detailFlickable.height - 1
+              readonly property real fadeRun: 16
+              readonly property real overflowBelow: detailFlickable.contentHeight - detailFlickable.height - detailFlickable.contentY
               anchors.bottom: parent.bottom
               anchors.left: parent.left
               anchors.right: parent.right
               height: 24
               radius: 10
-              opacity: canScrollDown ? 1 : 0
-              Behavior on opacity { NumberAnimation { duration: 120 } }
+              opacity: Math.max(0, Math.min(1, overflowBelow / fadeRun))
               gradient: Gradient {
                 GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
                 GradientStop { position: 1.0; color: "#000000" }

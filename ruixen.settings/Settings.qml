@@ -251,7 +251,10 @@ Item {
   // (same label kept, still a robot family) per direct follow-up
   // ("swapp the botts to neutral https://api.dicebear.com/10.x/
   // bottts-neutral/svg") -- a monochrome/single-tone variant of the
-  // original multi-colored bottts style.
+  // original multi-colored bottts style. Critters and Moods added per
+  // direct follow-up ("that should probably be it so the second toggle
+  // row dont look so empty") -- 7 entries wrapped Sprouts alone onto a
+  // sparse-looking second Flow row; these two fill it out to three.
   readonly property var avatarCollections: [
     { id: "gradient", label: "Gradient" },
     { id: "bottts-neutral", label: "Bottts", version: "10.x", format: "svg" },
@@ -259,7 +262,9 @@ Item {
     { id: "pixelbot", label: "Pixelbot", version: "10.x", format: "svg" },
     { id: "identicon", label: "Identicon" },
     { id: "thumbs", label: "Thumbs" },
-    { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" }
+    { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
+    { id: "critters", label: "Critters", version: "10.x", format: "svg" },
+    { id: "moods", label: "Moods", version: "10.x", format: "svg" }
   ]
   // Starts on "gradient" -- matches the real state a fresh install
   // actually starts in (no ~/.face.icon yet), so the picker's own

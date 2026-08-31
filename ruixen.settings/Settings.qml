@@ -267,9 +267,52 @@ Item {
     { id: "moods", label: "Moods", version: "10.x", format: "svg" }
   ]
   // Starts on "gradient" -- matches the real state a fresh install
-  // actually starts in (no ~/.face.icon yet), so the picker's own
-  // selected-highlight is correct before anyone has clicked anything.
+  // actually starts in (no ~/.face.icon yet). Persisted separately
+  // from the file itself, direct follow-up ("the avatar set survives
+  // restart? we write it to json or somewhere?") -- ~/.face.icon is
+  // real state on disk, so the image itself already survived a
+  // restart, but this property is plain in-memory QML state that reset
+  // to "gradient" every restart regardless of what the file actually
+  // held, leaving the picker's own selected-highlight wrong (showing
+  // Gradient selected while a real avatar was visibly showing).
+  // Same FileView.setText() persistence pattern already used for
+  // ruixen.notch's own launcher-favorites.json (confirmed by reading
+  // that one directly) -- a real state file, not guessed at.
   property string avatarCollection: "gradient"
+  property bool avatarStateLoaded: false
+  readonly property string avatarStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.json"
+
+  function loadAvatarState(raw) {
+    if (root.avatarStateLoaded) return
+    try {
+      var parsed = JSON.parse(raw)
+      if (parsed && typeof parsed.collection === "string") {
+        var known = false
+        for (var i = 0; i < root.avatarCollections.length; i++) {
+          if (root.avatarCollections[i].id === parsed.collection) { known = true; break }
+        }
+        if (known) root.avatarCollection = parsed.collection
+      }
+    } catch (e) {}
+    root.avatarStateLoaded = true
+  }
+
+  Process {
+    id: ensureAvatarStateDirProc
+    command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
+  }
+
+  FileView {
+    id: avatarStateFile
+    path: root.avatarStatePath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadAvatarState(text())
+    onLoadFailed: root.loadAvatarState("")
+  }
+
+  Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   Process {
     id: avatarProc
@@ -277,6 +320,7 @@ Item {
     onExited: {
       root.avatarBusy = false
       root.avatarCacheBust = root.avatarCacheBust + 1
+      avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection }, null, 2) + "\n")
       // Tells ruixen.notch's own UserAvatar to re-read the file too --
       // it's a separate keepLoaded:true plugin process, so it has no
       // other way to know ~/.face.icon just changed.

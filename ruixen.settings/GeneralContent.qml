@@ -324,9 +324,13 @@ ColumnLayout {
         spacing: 6
 
         Repeater {
+          // Calm first (the new default), then Bubbly, then Snappy --
+          // direct request ("switch the order so we start with calm
+          // by default and then user can pick next toggle as Bubbly
+          // then Snappy last").
           model: [
-            { id: "bubbly", label: "Bubbly" },
             { id: "calm", label: "Calm" },
+            { id: "bubbly", label: "Bubbly" },
             { id: "snappy", label: "Snappy" }
           ]
 

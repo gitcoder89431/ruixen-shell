@@ -50,15 +50,18 @@ hl.config({
 -- other file-backed setting in this repo (see ruixen.settings/
 -- Settings.qml's own barModeReadProc for the same plain-text-file
 -- convention).
+-- Default is calm now, not bubbly -- direct request ("switch the
+-- order so we start with calm by default and then user can pick next
+-- toggle as Bubbly then Snappy last").
 local function readAnimationProfile()
   local path = (os.getenv("HOME") or "") .. "/.local/state/ruixen/animation-profile"
   local f = io.open(path, "r")
-  if not f then return "bubbly" end
-  local line = f:read("*l") or "bubbly"
+  if not f then return "calm" end
+  local line = f:read("*l") or "calm"
   f:close()
   line = line:gsub("%s+", "")
-  if line == "calm" or line == "snappy" then return line end
-  return "bubbly"
+  if line == "bubbly" or line == "snappy" then return line end
+  return "calm"
 end
 
 local ruixenAnimProfile = readAnimationProfile()
@@ -85,17 +88,20 @@ hl.config({
 -- edge instead of scaling from the middle -- swaps every profile onto
 -- it for a consistent, non-center motion; only the curve/speed/bounce
 -- differ between profiles now, not the fundamental motion shape.
-if ruixenAnimProfile == "calm" then
-  -- Slow, smooth, macOS-ish -- lofi cafe vibes. No overshoot anywhere
-  -- (easeOutCubic: cubic-bezier(0.33, 1, 0.68, 1)).
-  hl.curve("ruixenSmooth", { type = "bezier", points = { { 0.33, 1 }, { 0.68, 1 } } })
-  hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "windowsIn", enabled = true, speed = 5.0, bezier = "ruixenSmooth", style = "slide" })
-  hl.animation({ leaf = "windowsOut", enabled = true, speed = 3.5, bezier = "ruixenSmooth", style = "slide" })
-  hl.animation({ leaf = "border", enabled = true, speed = 4.0, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fade", enabled = true, speed = 3.0, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fadeIn", enabled = true, speed = 3.3, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.4, bezier = "ruixenSmooth" })
+if ruixenAnimProfile == "bubbly" then
+  -- Bubbly -- springy, bouncy, overshoots. Real overshoot via a
+  -- backOut-style curve (cubic-bezier(0.34, 1.35, 0.64, 1) -- the y >
+  -- 1 control point is what actually produces the overshoot/bounce,
+  -- not just a fast speed).
+  hl.curve("ruixenBounce", { type = "bezier", points = { { 0.34, 1.35 }, { 0.64, 1 } } })
+  hl.curve("ruixenFade", { type = "bezier", points = { { 0.4, 0 }, { 0.2, 1 } } })
+  hl.animation({ leaf = "windows", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 3.2, bezier = "ruixenBounce", style = "slide" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.2, bezier = "ruixenBounce", style = "slide" })
+  hl.animation({ leaf = "border", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 2.0, bezier = "ruixenFade" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 2.2, bezier = "ruixenFade" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.5, bezier = "ruixenFade" })
 elseif ruixenAnimProfile == "snappy" then
   -- Fast, tight, no bounce -- gets out of the way immediately.
   hl.curve("ruixenSnap", { type = "bezier", points = { { 0.4, 0 }, { 0.2, 1 } } })
@@ -107,19 +113,16 @@ elseif ruixenAnimProfile == "snappy" then
   hl.animation({ leaf = "fadeIn", enabled = true, speed = 1.6, bezier = "ruixenSnap" })
   hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.2, bezier = "ruixenSnap" })
 else
-  -- Bubbly -- springy, bouncy, overshoots. Default, fun. Real
-  -- overshoot via a backOut-style curve (cubic-bezier(0.34, 1.35,
-  -- 0.64, 1) -- the y > 1 control point is what actually produces the
-  -- overshoot/bounce, not just a fast speed).
-  hl.curve("ruixenBounce", { type = "bezier", points = { { 0.34, 1.35 }, { 0.64, 1 } } })
-  hl.curve("ruixenFade", { type = "bezier", points = { { 0.4, 0 }, { 0.2, 1 } } })
-  hl.animation({ leaf = "windows", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
-  hl.animation({ leaf = "windowsIn", enabled = true, speed = 3.2, bezier = "ruixenBounce", style = "slide" })
-  hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.2, bezier = "ruixenBounce", style = "slide" })
-  hl.animation({ leaf = "border", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
-  hl.animation({ leaf = "fade", enabled = true, speed = 2.0, bezier = "ruixenFade" })
-  hl.animation({ leaf = "fadeIn", enabled = true, speed = 2.2, bezier = "ruixenFade" })
-  hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.5, bezier = "ruixenFade" })
+  -- Calm (default) -- slow, smooth, macOS-ish, lofi cafe vibes. No
+  -- overshoot anywhere (easeOutCubic: cubic-bezier(0.33, 1, 0.68, 1)).
+  hl.curve("ruixenSmooth", { type = "bezier", points = { { 0.33, 1 }, { 0.68, 1 } } })
+  hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 5.0, bezier = "ruixenSmooth", style = "slide" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 3.5, bezier = "ruixenSmooth", style = "slide" })
+  hl.animation({ leaf = "border", enabled = true, speed = 4.0, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 3.0, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 3.3, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.4, bezier = "ruixenSmooth" })
 end
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#layout

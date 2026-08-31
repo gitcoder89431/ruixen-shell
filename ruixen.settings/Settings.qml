@@ -256,7 +256,10 @@ Item {
   // Hyprland to reload -- `hyprctl reload` re-executes looknfeel.lua
   // fresh, so the new profile takes effect immediately, no window
   // kill/restart involved.
-  property string animationProfile: "bubbly"
+  // Default is calm now, not bubbly -- direct request ("switch the
+  // order so we start with calm by default and then user can pick
+  // next toggle as Bubbly then Snappy last").
+  property string animationProfile: "calm"
   readonly property string animationProfilePath: Quickshell.env("HOME") + "/.local/state/ruixen/animation-profile"
 
   Process {
@@ -266,7 +269,7 @@ Item {
       waitForEnd: true
       onStreamFinished: {
         var v = String(text || "").trim()
-        root.animationProfile = (v === "calm" || v === "snappy") ? v : "bubbly"
+        root.animationProfile = (v === "bubbly" || v === "snappy") ? v : "calm"
       }
     }
   }

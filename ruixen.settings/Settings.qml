@@ -246,6 +246,44 @@ Item {
     barModeWriteProc.running = true
   }
 
+  // Animation Profiles -- direct request ("its the hyprland windows
+  // that needs it... bubbly, calm, snappy seems to be enough"). Same
+  // plain-text-file convention as barMode above, just a bare profile
+  // name instead of shell.json's own bar.docked flag -- the actual
+  // curve/speed values live entirely in hyprland/looknfeel.ruixen.lua
+  // (see its own comment), which reads this same file directly. This
+  // side's only job is writing the chosen profile and telling
+  // Hyprland to reload -- `hyprctl reload` re-executes looknfeel.lua
+  // fresh, so the new profile takes effect immediately, no window
+  // kill/restart involved.
+  property string animationProfile: "bubbly"
+  readonly property string animationProfilePath: Quickshell.env("HOME") + "/.local/state/ruixen/animation-profile"
+
+  Process {
+    id: animationProfileReadProc
+    command: ["bash", "-c", "cat \"" + root.animationProfilePath + "\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var v = String(text || "").trim()
+        root.animationProfile = (v === "calm" || v === "snappy") ? v : "bubbly"
+      }
+    }
+  }
+
+  Process {
+    id: animationProfileWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setAnimationProfile(profile) {
+    if (profile !== "bubbly" && profile !== "calm" && profile !== "snappy") return
+    root.animationProfile = profile
+    animationProfileWriteProc.command = ["bash", "-c",
+      "printf '%s' '" + profile + "' > \"" + root.animationProfilePath + "\" && hyprctl reload"]
+    animationProfileWriteProc.running = true
+  }
+
   // Avatar -- ~/.face.icon, same convention/gradient-fallback mechanism
   // ruixen.notch's own UserAvatar component already uses. "gradient" is
   // just another entry in avatarCollections, not a separate Reset
@@ -824,6 +862,7 @@ Item {
       root.refreshPlugins()
       repoPathProc.running = true
       barModeReadProc.running = true
+      animationProfileReadProc.running = true
       if (root.hardwareName === "") identityProc.running = true
     }
   }

@@ -32,12 +32,80 @@ hl.config({
 })
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#animations
--- hl.config({
---   animations = {
---     -- Disable all animations.
---     enabled = false,
---   },
--- })
+--
+-- Animation Profiles -- direct request ("its the hyprland windows
+-- that needs it... bubbly, calm, snappy seems to be enough").
+-- Investigated a MangoWM+Quickshell dotfiles repo's own "5 animation
+-- profiles" feature for the idea, but that repo's WM half is
+-- MangoWM-specific (sed-edits its own config.conf, reloads via `mmsg
+-- -d reload_config`) -- doesn't apply to Hyprland at all. This is a
+-- real Hyprland-native port instead: three named hl.curve()/
+-- hl.animation() sets (Omarchy's own default file, read directly, is
+-- what the leaf names/shape below are based on), chosen by a plain-
+-- text profile file ruixen.settings' System page writes to. Reading
+-- state from a file instead of this file being regenerated/templated
+-- means `hyprctl reload` alone re-executes this whole script fresh
+-- and picks up whatever profile was last chosen -- no separate IPC
+-- path needed, same "let the config read real state" spirit as every
+-- other file-backed setting in this repo (see ruixen.settings/
+-- Settings.qml's own barModeReadProc for the same plain-text-file
+-- convention).
+local function readAnimationProfile()
+  local path = (os.getenv("HOME") or "") .. "/.local/state/ruixen/animation-profile"
+  local f = io.open(path, "r")
+  if not f then return "bubbly" end
+  local line = f:read("*l") or "bubbly"
+  f:close()
+  line = line:gsub("%s+", "")
+  if line == "calm" or line == "snappy" then return line end
+  return "bubbly"
+end
+
+local ruixenAnimProfile = readAnimationProfile()
+
+hl.config({
+  animations = {
+    enabled = true,
+  },
+})
+
+if ruixenAnimProfile == "calm" then
+  -- Slow, smooth, macOS-ish -- lofi cafe vibes. No overshoot anywhere,
+  -- just a long, gentle deceleration (easeOutCubic: cubic-bezier(0.33,
+  -- 1, 0.68, 1)).
+  hl.curve("ruixenSmooth", { type = "bezier", points = { { 0.33, 1 }, { 0.68, 1 } } })
+  hl.animation({ leaf = "windows", enabled = true, speed = 7.5, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 8.0, bezier = "ruixenSmooth", style = "popin 95%" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 5.5, bezier = "ruixenSmooth", style = "popin 95%" })
+  hl.animation({ leaf = "border", enabled = true, speed = 7.0, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 5.5, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 6.0, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 4.5, bezier = "ruixenSmooth" })
+elseif ruixenAnimProfile == "snappy" then
+  -- Fast, tight, no bounce -- gets out of the way immediately.
+  hl.curve("ruixenSnap", { type = "bezier", points = { { 0.4, 0 }, { 0.2, 1 } } })
+  hl.animation({ leaf = "windows", enabled = true, speed = 2.0, bezier = "ruixenSnap" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 2.2, bezier = "ruixenSnap", style = "popin 92%" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.4, bezier = "ruixenSnap", style = "popin 92%" })
+  hl.animation({ leaf = "border", enabled = true, speed = 2.0, bezier = "ruixenSnap" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 1.5, bezier = "ruixenSnap" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 1.6, bezier = "ruixenSnap" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.2, bezier = "ruixenSnap" })
+else
+  -- Bubbly -- springy, bouncy, overshoots. Default, fun. Real
+  -- overshoot via a backOut-style curve (cubic-bezier(0.34, 1.56,
+  -- 0.64, 1) -- the y > 1 control point is what actually produces the
+  -- overshoot/bounce, not just a fast speed).
+  hl.curve("ruixenBounce", { type = "bezier", points = { { 0.34, 1.56 }, { 0.64, 1 } } })
+  hl.curve("ruixenFade", { type = "bezier", points = { { 0.4, 0 }, { 0.2, 1 } } })
+  hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "ruixenBounce" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 5.0, bezier = "ruixenBounce", style = "popin 80%" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 3.0, bezier = "ruixenBounce", style = "popin 80%" })
+  hl.animation({ leaf = "border", enabled = true, speed = 5.0, bezier = "ruixenBounce" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 3.0, bezier = "ruixenFade" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 3.5, bezier = "ruixenFade" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.0, bezier = "ruixenFade" })
+end
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#layout
 -- hl.config({

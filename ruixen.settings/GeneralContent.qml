@@ -289,6 +289,79 @@ ColumnLayout {
     }
   }
 
+  // Animation Style -- own card, same segmented-button treatment as
+  // Bar Layout right above it. Direct request ("its the hyprland
+  // windows that needs it... bubbly, calm, snappy seems to be
+  // enough") -- this only ever switches Hyprland's own window
+  // animations (see hyprland/looknfeel.ruixen.lua), nothing on the
+  // Quickshell/plugin side changes; deliberately not called "Window
+  // Animations" though, since "the plug ins dont need animations, its
+  // fine the way it is" was explicit -- this card's own placement on
+  // the same page as Bar Layout (a Hyprland-side setting too) is
+  // enough context for what it actually controls.
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: animationCardContent.implicitHeight + 24
+    radius: 10
+    color: "#000000"
+
+    ColumnLayout {
+      id: animationCardContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Animation Style"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 11
+        font.weight: Font.DemiBold
+        color: settingsRoot.muted
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Repeater {
+          model: [
+            { id: "bubbly", label: "Bubbly" },
+            { id: "calm", label: "Calm" },
+            { id: "snappy", label: "Snappy" }
+          ]
+
+          Rectangle {
+            id: animBtn
+            required property var modelData
+            readonly property bool isCurrent: settingsRoot.animationProfile === animBtn.modelData.id
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            radius: 6
+            color: animBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: animBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: animBtn.modelData.label
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 11
+              font.weight: animBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: animBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.setAnimationProfile(animBtn.modelData.id)
+            }
+          }
+        }
+      }
+    }
+  }
+
   // No more trailing fillHeight spacer -- direct follow-up ("nothing
   // is sticky... everything in the page scroll"): this page's own
   // ColumnLayout is naturally sized inside Settings.qml's shared

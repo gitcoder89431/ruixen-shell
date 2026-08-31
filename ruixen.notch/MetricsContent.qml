@@ -1072,18 +1072,52 @@ Item {
               visible: tile.tempC >= 0
               spacing: 6
 
+              // Same track/fill/tip design as ruixen.settings' own
+              // sliders -- direct request ("the gpu usage and cpu
+              // usage temperator progress bar, lets add the tip head
+              // design there to stay more consistence"). gapPx (7)
+              // and tip proportions (width 4, height +8 over the 6px
+              // bar) are the exact same values ported from Settings.
+              // qml's own Output/Input/Brightness sliders, not re-
+              // derived.
               Rectangle {
+                id: tempBarTrack
                 Layout.fillWidth: true
                 Layout.preferredHeight: 6
                 radius: 3
-                color: Qt.rgba(1, 1, 1, 0.08)
+                color: "transparent"
+
+                readonly property real value: Math.max(0, Math.min(1, tile.tempC / tile.tempMaxC))
+                readonly property real valueX: width * value
+                readonly property real gapPx: 7
 
                 Rectangle {
-                  width: parent.width * Math.max(0, Math.min(1, tile.tempC / tile.tempMaxC))
-                  height: parent.height
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  width: Math.max(0, parent.valueX - parent.gapPx)
                   radius: 3
                   color: root.accent
                   Behavior on width { NumberAnimation { duration: 200 } }
+                }
+
+                Rectangle {
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  width: Math.max(0, parent.width - parent.valueX - parent.gapPx)
+                  radius: 3
+                  color: Qt.rgba(1, 1, 1, 0.08)
+                }
+
+                Rectangle {
+                  anchors.verticalCenter: parent.verticalCenter
+                  x: parent.valueX - width / 2
+                  width: 4
+                  height: parent.height + 8
+                  radius: 2
+                  color: "#ffffff"
+                  Behavior on x { NumberAnimation { duration: 200 } }
                 }
               }
 

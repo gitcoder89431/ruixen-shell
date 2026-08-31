@@ -322,23 +322,24 @@ Item {
     implicitHeight: avatarSize
 
     // Placeholder shown until/unless ~/.face.icon exists -- a gradient
-    // circle instead of a shipped PNG asset, so there's no fixed
-    // resolution/ratio to pick and it scales cleanly at any avatarSize.
-    // Explicitly hidden once a real image is loaded, not just painted
-    // over by an assumed-opaque one -- direct follow-up ("why do we
-    // need to keep showing the fallback gradient, why cant gradient
-    // just be something on and then off between dicebear... why do we
-    // need both to appear and overlap"): the two layers overlapping
-    // regardless of load state is exactly what let any imperfection in
-    // the mask/image (a DiceBear character not filling its own square,
-    // or the mask's own antialiased edge) show up as the gradient
+    // square (see its own no-radius comment below) instead of a shipped
+    // PNG asset, so there's no fixed resolution/ratio to pick and it
+    // scales cleanly at any avatarSize. Explicitly hidden once a real
+    // image is loaded, not just painted over by an assumed-opaque one
+    // -- direct follow-up ("why do we need to keep showing the
+    // fallback gradient, why cant gradient just be something on and
+    // then off between dicebear... why do we need both to appear and
+    // overlap"): the two layers overlapping regardless of load state
+    // is exactly what let any imperfection show up as the gradient
     // visibly bleeding through, real bug hit live and fixed twice
     // before landing here. With this, the gradient is structurally
-    // absent whenever a real avatar is showing -- nothing left behind
-    // the circle for any mask edge case to ever reveal.
+    // absent whenever a real avatar is showing.
     Rectangle {
       anchors.fill: parent
-      radius: width / 2
+      // Plain square, not radius: width/2 -- matches the now-square
+      // DiceBear avatars (no radius param anymore, see selectAvatar's
+      // own comment) instead of mismatching them with a circular
+      // placeholder.
       visible: avatarImage.status !== Image.Ready
       // Theme-aware, not two hardcoded colors -- direct follow-up
       // ("install you get the fallback or default gradient, maybe
@@ -351,20 +352,17 @@ Item {
       }
     }
 
-    // No client-side circular mask -- direct follow-up ("why do we
-    // still hard cap a circle around it, doesnt dicebear take care of
-    // it"): it does, better than the MultiEffect mask this used to
-    // have did. That mask blindly cropped at the circle boundary,
-    // which lost real content on full-bleed styles like identicon
-    // (its checkered pattern touches every edge, unlike bottts/
-    // adventurer/thumbs which already have breathing room). DiceBear's
-    // own radius=50 param (see ruixen.settings' selectAvatar) scales
-    // each style's content to fit inside the circle instead, and
-    // leaves corner pixels genuinely transparent (confirmed via a raw
-    // pixel read) -- so a plain Image composites correctly with
-    // nothing extra needed here. One known gap: radius is silently
-    // ignored for SVG output, so the one SVG-format collection
-    // (Sprouts) renders as a plain square, not circular.
+    // No circular treatment at all -- direct follow-up chain: first
+    // "why do we still hard cap a circle around it, doesnt dicebear
+    // take care of it" (tried DiceBear's own radius=50 param, which
+    // scales each style's content to fit a circle instead of the old
+    // MultiEffect mask's blind crop), then, after actually seeing it,
+    // "the circle is still there... the circle mask comes back" --
+    // radius=50 still produces a circle, just a better-behaved one,
+    // which wasn't the actual ask. Dropped radius=50 too (see
+    // ruixen.settings' selectAvatar), so this now just renders
+    // DiceBear's own natural square output directly, no masking or
+    // cropping from either side.
     Image {
       id: avatarImage
       anchors.fill: parent

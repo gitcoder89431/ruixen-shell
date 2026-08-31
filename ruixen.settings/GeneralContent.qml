@@ -52,14 +52,15 @@ ColumnLayout {
         // ("why do we need to keep showing the fallback gradient...
         // why do we need both to appear and overlap"): the two
         // layers overlapping regardless of load state is exactly
-        // what let any imperfection in the mask/image (a DiceBear
-        // character not filling its own square, or the mask's own
-        // antialiased edge) show up as the gradient visibly bleeding
-        // through. With this, nothing is left behind the circle for
-        // any mask edge case to ever reveal.
+        // what let any imperfection show up as the gradient visibly
+        // bleeding through. With this, nothing is left behind the
+        // avatar for any edge case to ever reveal.
         Rectangle {
           anchors.fill: parent
-          radius: width / 2
+          // Plain square, not radius: width/2 -- matches the now-square
+          // DiceBear avatars (no radius param anymore, see
+          // settingsRoot.selectAvatar's own comment) instead of
+          // mismatching them with a circular placeholder.
           visible: avatarPreviewImage.status !== Image.Ready
           gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.lighter(settingsRoot.accent, 1.6) }
@@ -75,21 +76,17 @@ ColumnLayout {
         // source-string cache (needed since selecting a new avatar
         // overwrites the exact same path) without that risk.
         //
-        // No client-side circular mask -- direct follow-up ("why do we
-        // still hard cap a circle around it, doesnt dicebear take care
-        // of it"): it does, better than the MultiEffect mask this used
-        // to have did. That mask blindly cropped at the circle
-        // boundary, which lost real content on full-bleed styles like
-        // identicon (its checkered pattern touches every edge, unlike
-        // bottts/adventurer/thumbs which already have breathing room).
-        // DiceBear's own radius=50 param (see settingsRoot.
-        // selectAvatar) scales each style's content to fit inside the
-        // circle instead, and leaves corner pixels genuinely
-        // transparent (confirmed via a raw pixel read) -- so a plain
-        // Image composites correctly with nothing extra needed here.
-        // One known gap: radius is silently ignored for SVG output, so
-        // the one SVG-format collection (Sprouts) renders as a plain
-        // square, not circular.
+        // No circular treatment at all -- direct follow-up chain: first
+        // "why do we still hard cap a circle around it, doesnt dicebear
+        // take care of it" (tried DiceBear's own radius=50 param,
+        // which scales each style's content to fit a circle instead of
+        // the old MultiEffect mask's blind crop), then, after actually
+        // seeing it, "the circle is still there... the circle mask
+        // comes back" -- radius=50 still produces a circle, just a
+        // better-behaved one, which wasn't the actual ask. Dropped
+        // radius=50 too (see settingsRoot.selectAvatar), so this now
+        // just renders DiceBear's own natural square output directly,
+        // no masking or cropping from either side.
         Image {
           id: avatarPreviewImage
           anchors.fill: parent

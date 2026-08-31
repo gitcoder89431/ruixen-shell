@@ -30,18 +30,18 @@ ColumnLayout {
   // icon (wifiIconFor() in their Model.js), never a
   // number, so dropping it here actually matches their
   // real behavior, not a guess.
-  Flickable {
-    Layout.fillWidth: true
-    Layout.fillHeight: true
-    visible: Networking.wifiEnabled
-    contentWidth: width
-    contentHeight: wifiCards.implicitHeight
-    clip: true
-    boundsBehavior: Flickable.StopAtBounds
-
-    ColumnLayout {
+  // No inner Flickable of its own anymore -- direct follow-up
+  // ("should we just scroll with the header too, so put the fade on
+  // top and everything in the page scroll, nothing is sticky"): the
+  // whole detail panel scrolls as one unit now (see Settings.qml's own
+  // Flickable wrapping headerPill + the active page together), so a
+  // second, nested Flickable in here would just fight it over scroll
+  // gestures. These cards now render at their own natural height, same
+  // as every other page.
+  ColumnLayout {
       id: wifiCards
-      width: parent.width
+      Layout.fillWidth: true
+      visible: Networking.wifiEnabled
       spacing: 12
 
       // Known Networks -- direct follow-up ("do we need
@@ -533,13 +533,18 @@ ColumnLayout {
         }
       }
     }
-  }
 
+  // No more Layout.fillHeight: true here -- direct follow-up ("nothing
+  // is sticky... everything in the page scroll"): this page's own
+  // ColumnLayout is naturally sized inside Settings.qml's shared
+  // Flickable now, not a fixed-height container, so a lone fillHeight
+  // child has no real "available leftover space" to fill anymore.
+  // Layout.topMargin gives it simple breathing room instead of trying
+  // to vertically center it.
   Text {
     visible: !Networking.wifiEnabled
     Layout.alignment: Qt.AlignHCenter
-    Layout.fillHeight: true
-    verticalAlignment: Text.AlignVCenter
+    Layout.topMargin: 24
     text: "Turn on Wi-Fi to see nearby networks"
     font.family: settingsRoot.fontFamily
     font.pixelSize: 12

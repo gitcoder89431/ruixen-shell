@@ -155,5 +155,9 @@ ColumnLayout {
     }
   }
 
-  Item { Layout.fillHeight: true }
+  // No more trailing fillHeight spacer -- direct follow-up ("nothing
+  // is sticky... everything in the page scroll"): this page's own
+  // ColumnLayout is naturally sized inside Settings.qml's shared
+  // Flickable now, not a fixed-height container to absorb leftover
+  // space in, so this sink has nothing left to do.
 }

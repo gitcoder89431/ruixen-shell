@@ -15,32 +15,35 @@ ColumnLayout {
   spacing: 12
 
 
+  // No more Layout.fillHeight: true here -- direct follow-up ("nothing
+  // is sticky... everything in the page scroll"): this page's own
+  // ColumnLayout is naturally sized inside Settings.qml's shared
+  // Flickable now, not a fixed-height container, so a lone fillHeight
+  // child has no real "available leftover space" to fill anymore.
+  // Layout.topMargin gives it simple breathing room instead of trying
+  // to vertically center it.
   Text {
     visible: settingsRoot.knownBtRows.length === 0 && settingsRoot.otherBtRows.length === 0
     Layout.alignment: Qt.AlignHCenter
-    Layout.fillHeight: true
-    verticalAlignment: Text.AlignVCenter
+    Layout.topMargin: 24
     text: !settingsRoot.btEnabled ? "Turn on Bluetooth to see nearby devices" : "No devices found"
     font.family: settingsRoot.fontFamily
     font.pixelSize: 12
     color: settingsRoot.muted
   }
 
-  // Same scoped-Flickable safety net as Wi-Fi's own known-
-  // networks list -- bounded height, internal scroll,
-  // matching ruixen-notch's own storage-section pattern.
-  Flickable {
-    Layout.fillWidth: true
-    Layout.fillHeight: true
-    visible: settingsRoot.knownBtRows.length > 0 || settingsRoot.otherBtRows.length > 0
-    contentWidth: width
-    contentHeight: btCards.implicitHeight
-    clip: true
-    boundsBehavior: Flickable.StopAtBounds
-
-    ColumnLayout {
+  // No inner Flickable of its own anymore -- direct follow-up
+  // ("should we just scroll with the header too, so put the fade on
+  // top and everything in the page scroll, nothing is sticky"): the
+  // whole detail panel scrolls as one unit now (see Settings.qml's own
+  // Flickable wrapping headerPill + the active page together), so a
+  // second, nested Flickable in here would just fight it over scroll
+  // gestures. These cards now render at their own natural height, same
+  // as every other page.
+  ColumnLayout {
       id: btCards
-      width: parent.width
+      Layout.fillWidth: true
+      visible: settingsRoot.knownBtRows.length > 0 || settingsRoot.otherBtRows.length > 0
       spacing: 12
 
       // Paired Devices -- same card treatment as Wi-Fi's
@@ -501,5 +504,4 @@ ColumnLayout {
         }
       }
     }
-  }
 }

@@ -1424,9 +1424,36 @@ Item {
             radius: 10
             color: Qt.rgba(1, 1, 1, 0.05)
 
-            ColumnLayout {
+            // Whole detail panel scrolls as one unit now -- header
+            // included, nothing sticky -- direct follow-up ("the top
+            // fade sandwhcih between the header and body doesnt work,
+            // should we just scroll with the header too, so put the
+            // fade on top and everything in the page scroll, nothing
+            // is sticky, cause technically the header is already shown
+            // on the sidebar menu"). Previously headerPill was a fixed
+            // sibling of a plain ColumnLayout, with each page owning
+            // its own separate inner Flickable for whatever content of
+            // its own didn't fit below that fixed header -- real
+            // problem with that shape: the top fade had to be
+            // positioned in the narrow, awkward gap between two
+            // different scroll regions (the fixed header and whichever
+            // page's own inner Flickable), which is exactly what
+            // looked broken. One Flickable now wraps headerPill AND
+            // the active page's content together, so both fades can
+            // just anchor to this detailPanel Rectangle's own fixed
+            // top/bottom edges -- see below.
+            Flickable {
+              id: detailFlickable
               anchors.fill: parent
               anchors.margins: 16
+              contentWidth: width
+              contentHeight: pageScrollContent.implicitHeight
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+              id: pageScrollContent
+              width: parent.width
               spacing: 8
 
               // Page title -- per direct follow-up ("we dont need to
@@ -1701,7 +1728,6 @@ Item {
 
               GeneralContent {
                 Layout.fillWidth: true
-                Layout.fillHeight: visible
                 visible: root.selectedSection === 0
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
@@ -1710,7 +1736,6 @@ Item {
 
               AudioContent {
                 Layout.fillWidth: true
-                Layout.fillHeight: visible
                 visible: root.selectedSection === 1
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
@@ -1719,7 +1744,6 @@ Item {
 
               WifiContent {
                 Layout.fillWidth: true
-                Layout.fillHeight: visible
                 visible: root.selectedSection === 2
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
@@ -1728,7 +1752,6 @@ Item {
 
               BluetoothContent {
                 Layout.fillWidth: true
-                Layout.fillHeight: visible
                 visible: root.selectedSection === 3
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
@@ -1737,7 +1760,6 @@ Item {
 
               DisplayContent {
                 Layout.fillWidth: true
-                Layout.fillHeight: visible
                 visible: root.selectedSection === 4
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
@@ -1746,7 +1768,6 @@ Item {
 
               PluginsContent {
                 Layout.fillWidth: true
-                Layout.fillHeight: visible
                 visible: root.selectedSection === 5
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
@@ -1755,7 +1776,6 @@ Item {
 
               AboutContent {
                 Layout.fillWidth: true
-                Layout.fillHeight: visible
                 visible: root.selectedSection === 6
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
@@ -1764,40 +1784,40 @@ Item {
 
 
             }
+            }
 
             // Top/bottom fade -- direct follow-up chain: "theres an
             // effect i want on things that can scroll, its a top and
             // bottom fade... especially the top one", then, after a
             // real geometric problem trying this per-card on the
             // Plugins page ("on scroll i get a square edge then back
-            // to round" -- a fade radius can only ever match a
-            // scrolling card's own rounded corner at rest, not
-            // throughout the actual scroll range), the fix: "dont put
-            // the fade in the card, let the fade be the page itself".
-            // Anchored to this detail-panel Rectangle's own fixed
-            // edges instead of any specific page's own scrolling
-            // content -- this Rectangle never scrolls or resizes on
-            // its own, so radius: 10 here always matches its real
-            // rounded corners exactly, at any scroll position, on any
-            // page. Sits above every page's own content (siblings
-            // declared after paint on top) and is completely page-
-            // agnostic -- whichever section is showing gets the same
-            // fade for free, no per-page implementation needed.
+            // to round"), moved to this detail-panel Rectangle's own
+            // fixed edges instead of any specific card's scrolling
+            // content, then, after the header stayed a separate fixed
+            // sibling above a per-page inner Flickable, "the top fade
+            // sandwhcih between the header and body doesnt work" --
+            // squeezed into the narrow gap between two different
+            // scroll regions, which looked broken. headerPill is now
+            // just the first item inside the one Flickable above
+            // (nothing sticky, matching "everything in the page
+            // scroll... the header is already shown on the sidebar
+            // menu" -- the sidebar's own highlighted entry already
+            // carries that context, so a scrolled-away header loses
+            // nothing real), so both fades can now anchor to the exact
+            // same simple thing: this Rectangle's own fixed top/bottom
+            // edges, which never scroll or resize on their own --
+            // radius: 10 on both always matches its real rounded
+            // corners exactly, at any scroll position, on any page.
+            // Sits above the Flickable (siblings declared after paint
+            // on top) and is completely page-agnostic -- whichever
+            // section is showing gets the same fade for free, no per-
+            // page implementation needed.
             Rectangle {
               anchors.top: parent.top
-              // mapToItem(detailPanel, ...), not headerPill.y +
-              // headerPill.height alone -- headerPill.y is relative to
-              // ITS OWN parent (the margined ColumnLayout above), not
-              // detailPanel, so that alone would silently miss the
-              // ColumnLayout's own 16px anchors.margins and sit the
-              // fade 16px too high. mapToItem converts headerPill's
-              // bottom-left point into detailPanel's own coordinate
-              // space instead of hand-summing margins that could drift
-              // out of sync with the real layout later.
-              anchors.topMargin: headerPill.mapToItem(detailPanel, 0, headerPill.height).y
               anchors.left: parent.left
               anchors.right: parent.right
               height: 24
+              radius: 10
               gradient: Gradient {
                 GradientStop { position: 0.0; color: "#000000" }
                 GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }

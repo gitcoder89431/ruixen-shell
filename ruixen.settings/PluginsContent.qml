@@ -43,34 +43,18 @@ ColumnLayout {
     color: "#e05252"
   }
 
-  // Wraps the Flickable -- the panel is a fixed 680x440 everywhere
-  // (see the "card" Rectangle this whole app lives in), so the Plugins
-  // page's own viewport is genuinely short against a long enough
-  // plugin list, scrolling (wheel/trackpad) is needed to reach the
-  // bottom rows. No visible scroll indicator here on purpose -- direct
-  // follow-up ("that scroll bar is it an os thing... i dont want it
-  // shown, it kinda messes with our design"); see its own removal
-  // comment below the Flickable for the full story.
-  Item {
+  // No inner Flickable of its own anymore -- direct follow-up
+  // ("should we just scroll with the header too, so put the fade on
+  // top and everything in the page scroll, nothing is sticky"): the
+  // whole detail panel scrolls as one unit now (see Settings.qml's own
+  // Flickable wrapping headerPill + the active page together), so a
+  // second, nested Flickable in here would just fight it over scroll
+  // gestures. This card now renders at its own natural height, same as
+  // every other card on every other page.
+  ColumnLayout {
+    id: pluginsCardWrap
     Layout.fillWidth: true
-    Layout.fillHeight: true
-
-    Flickable {
-      id: pluginsFlickable
-      anchors.fill: parent
-      contentWidth: width
-      // Same explicit-dependency defense as the card's own
-      // height above -- keeps the scroll range correct too,
-      // not just the card's visible size, in case there are
-      // ever more rows than fit in the panel at once.
-      contentHeight: (settingsRoot.pluginRows.length >= 0 ? pluginsCardWrap.implicitHeight : 0)
-      clip: true
-      boundsBehavior: Flickable.StopAtBounds
-
-      ColumnLayout {
-        id: pluginsCardWrap
-        width: parent.width
-        spacing: 12
+    spacing: 12
 
         Rectangle {
           Layout.fillWidth: true
@@ -203,8 +187,7 @@ ColumnLayout {
           }
         }
       }
-    }
-    }
+  }
 
     // No scroll indicator, no per-card fade either -- direct follow-up
     // chain: first "that scroll bar is it an os thing... i dont want
@@ -225,6 +208,5 @@ ColumnLayout {
     // fixed, never-scrolling panel edges instead of a scrolling card's
     // own corner -- see its own comment there for why that sidesteps
     // this problem entirely rather than just patching it again here.
-  }
 
 }

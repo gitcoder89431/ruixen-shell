@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.wallpaper",
+  "name": "Ruixen Wallpaper",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Muted looping video wallpaper support, selected from ruixen.notch's own Wallpapers picker. Sits alongside Omarchy's own static background, not a replacement for it.",
+  "kinds": ["service"],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

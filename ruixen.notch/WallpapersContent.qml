@@ -484,15 +484,28 @@ Item {
     }
   }
 
-  // Right sidebar -- fills the leftover ~110px next to the grid's own
-  // 4 columns. IMAGE/VIDEO/GIF, each a real toggle (click again to
-  // clear back to "all", not a fixed always-one-active segmented
-  // group -- there's a genuine "show everything" state here that a
-  // plain radio-button set doesn't have). Centered number-then-label
-  // per direct request ("we can do like center kinda design so number
-  // of images and then label IMAGE etc").
+  // Right sidebar -- narrowed 92 -> 68, and Layout.fillWidth: false
+  // added explicitly -- direct follow-up ("can we make the right
+  // panel narrower? theres a gap of 1 column between right panel
+  // stats and wallpapaper"). Real cause of the gap, confirmed live
+  // via a debug width readout, not guessed: a ColumnLayout child
+  // defaults Layout.fillWidth to true even when never set (unlike a
+  // plain Item/Rectangle, which default it false -- the exact same
+  // gotcha this repo has hit before). So this sidebar was ALSO
+  // competing for the RowLayout's leftover space alongside the grid's
+  // own explicit fillWidth, not just taking its 92px preferredWidth
+  // and stopping -- it had actually grown to 189px, leaving the grid
+  // with only 591px (591/170 = 3 columns, not 4), which is exactly
+  // the "gap of 1 column" reported. IMAGE/VIDEO/GIF, each a real
+  // toggle (click again to clear back to "all", not a fixed always-
+  // one-active segmented group -- there's a genuine "show everything"
+  // state here that a plain radio-button set doesn't have). Centered
+  // number-then-label per direct request ("we can do like center
+  // kinda design so number of images and then label IMAGE etc").
   ColumnLayout {
-    Layout.preferredWidth: 92
+    id: sidebar
+    Layout.preferredWidth: 68
+    Layout.fillWidth: false
     Layout.fillHeight: true
     Layout.alignment: Qt.AlignTop
     spacing: 8

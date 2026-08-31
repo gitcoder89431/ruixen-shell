@@ -26,6 +26,19 @@ mkdir -p "$state_dir"
 printf '%s\n' "$script_dir" > "$state_dir/repo-path"
 
 printf '\n[1/4] Validating and installing plugins\n'
+# Backups go under $state_dir, never inside $plugins_dir -- real bug
+# hit live ("i did the update button on plugs in page, did that
+# messed it up lol"): the old `mv "$target" "${target}.bak.${stamp}"`
+# left the previous copy sitting right next to the fresh one, inside
+# the exact directory Omarchy's plugin loader scans. Its manifest.json
+# still declares the same id (e.g. "ruixen.settings"), so the loader
+# picked up two competing instances of the same plugin -- confirmed
+# live via the journal (a stale ruixen.settings.bak.<timestamp>/
+# BluetoothContent.qml throwing warnings, and this settings app's own
+# debug IPC target silently failing to resolve, most likely because a
+# second, older instance was also registered under the same id).
+plugin_backup_dir="$state_dir/backups/plugins"
+mkdir -p "$plugin_backup_dir"
 for dir in "$script_dir"/ruixen.*/; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
@@ -34,8 +47,8 @@ for dir in "$script_dir"/ruixen.*/; do
 
   target="$plugins_dir/$id"
   if [[ -e "$target" ]]; then
-    mv "$target" "${target}.bak.${stamp}"
-    printf '  backed up existing %s -> %s.bak.%s\n' "$id" "$id" "$stamp"
+    mv "$target" "$plugin_backup_dir/$id.bak.$stamp"
+    printf '  backed up existing %s -> %s/%s.bak.%s\n' "$id" "$plugin_backup_dir" "$id" "$stamp"
   fi
 
   cp -r "$dir" "$target"

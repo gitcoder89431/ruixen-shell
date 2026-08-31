@@ -72,14 +72,15 @@ Item {
   // JetBrainsMonoNerdFont's own cmap (fa-volume_up, fa-wifi,
   // fa-bluetooth), not guessed.
   readonly property var sections: [
-    // Sidebar label "Settings", not "General" -- direct follow-up
-    // ("is it better to just put settings here then general cause
-    // like its the main page?"): this is the landing page of an app
-    // that's itself already called Ruixen Settings, so it reads
-    // better than "Settings > General". id stays "general" internally
-    // (still matches the {"section":"general"} IPC payload
-    // convention).
-    { id: "general", label: "Settings", glyph: "" },
+    // Sidebar label "System", not "General"/"Settings" -- direct
+    // follow-up chain: first "is it better to just put settings here
+    // then general cause like its the main page?" (Settings > General
+    // -> just Settings), then, since the app itself is already called
+    // Ruixen Settings, "Settings" as a section label read as a
+    // confusing "Settings > Settings" -- renamed to System instead.
+    // id stays "general" internally (still matches the {"section":
+    // "general"} IPC payload convention).
+    { id: "general", label: "System", glyph: "" },
     { id: "audio", label: "Audio", glyph: "" },
     { id: "wifi", label: "Wi-Fi", glyph: "" },
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
@@ -1418,15 +1419,33 @@ Item {
               // stays put regardless of typing state, and both the
               // TextInput and its own (icon-free) placeholder start
               // after the icon's own width instead of underneath it.
+              // Doubles as a clear button once there's a query --
+              // direct follow-up ("when a user starts typing in the
+              // search, switch the magnify glass into a X so we can
+              // click it to clear the input"). fa-xmark (U+F00D), same
+              // fa-* glyph family as the search icon itself and every
+              // sidebar row icon -- confirmed present in
+              // JetBrainsMonoNerdFont's own cmap directly. MouseArea
+              // only enabled once there's something to clear, so it
+              // doesn't hint clickability (pointer cursor) when it's
+              // just the plain search icon with nothing to do.
               Text {
                 id: sidebarSearchIcon
                 anchors.left: parent.left
                 anchors.leftMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                text: ""
+                text: sidebarSearchInput.text.length === 0 ? "" : ""
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: 11
+
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  enabled: sidebarSearchInput.text.length > 0
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: sidebarSearchInput.text = ""
+                }
               }
 
               TextInput {

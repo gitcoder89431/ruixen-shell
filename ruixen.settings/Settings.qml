@@ -1665,9 +1665,23 @@ Item {
                 // gentle enough that an 8px inset (matching every other
                 // row in this file) both clears the corner AND stays
                 // flush with the body.
+                //
+                // Collapses entirely on the System page -- direct
+                // follow-up ("the header like Settings instead of
+                // floating it can go on the Avatar as the header for
+                // that card... audio and wifi has a toggle button so it
+                // can stay floating, not sure how to handle this"). Only
+                // System (selectedSection 0) has no inline control that
+                // needs this row's own consistently-positioned spot --
+                // Audio's mute switch and Wi-Fi's radio toggle both live
+                // here and need it to stay floating, so this only
+                // special-cases the one page that doesn't. GeneralContent.
+                // qml's own Avatar card carries the "System" title now
+                // instead (see its own comment).
+                visible: root.selectedSection !== 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: 32
-                Layout.maximumHeight: 32
+                Layout.preferredHeight: visible ? 32 : 0
+                Layout.maximumHeight: visible ? 32 : 0
                 radius: 10
                 color: "#000000"
 

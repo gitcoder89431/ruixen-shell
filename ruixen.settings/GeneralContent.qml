@@ -36,6 +36,28 @@ ColumnLayout {
       anchors.margins: 12
       spacing: 12
 
+      // Page title lives here now, not a separate floating headerPill
+      // above this card -- direct follow-up ("the header like Settings
+      // instead of floating it can go on the Avatar as the header for
+      // that card... audio and wifi has a toggle button so it can stay
+      // floating"). Settings.qml's own headerPill collapses to nothing
+      // for this page specifically (selectedSection === 0) since System
+      // has no inline control (mute/radio toggle) that needs a
+      // consistently-positioned floating row -- see its own comment.
+      // Same size/weight/color the floating pill's title used (15px
+      // DemiBold, root.textColor equivalent), so it still reads as the
+      // page header, just relocated. Distinct from the small muted
+      // section labels below it (Bar Layout, and the same "Output"/
+      // "Input" pattern elsewhere in this file) -- this is the page's
+      // own title, not a card-local one.
+      Text {
+        text: "System"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 15
+        font.weight: Font.DemiBold
+        color: settingsRoot.textColor
+      }
+
       // Centered preview + username@machine underneath, not a plain
       // "Avatar" header -- direct follow-up ("this card looks better
       // if the avatar is centered, and then instead of Avatar text in

@@ -84,7 +84,8 @@ Item {
     { id: "wifi", label: "Wi-Fi", glyph: "" },
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
     { id: "display", label: "Display", glyph: "" },
-    { id: "plugins", label: "Plugins", glyph: "" }
+    { id: "plugins", label: "Plugins", glyph: "" },
+    { id: "about", label: "About", glyph: "" }
   ]
   property int selectedSection: 0
 
@@ -1745,6 +1746,15 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: visible
                 visible: root.selectedSection === 5
+                Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
+                settingsRoot: root
+              }
+
+              AboutContent {
+                Layout.fillWidth: true
+                Layout.fillHeight: visible
+                visible: root.selectedSection === 6
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root

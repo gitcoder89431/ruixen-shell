@@ -267,38 +267,5 @@ ColumnLayout {
     }
   }
 
-  // About -- small and static for now. No real version tracking exists
-  // in this repo yet (confirmed: no VERSION file, no git tags), so this
-  // mirrors the one number that does exist -- this plugin's own
-  // manifest.json "version" field -- rather than inventing a fake one.
-  Rectangle {
-    Layout.fillWidth: true
-    Layout.preferredHeight: aboutCardContent.implicitHeight + 24
-    radius: 10
-    color: "#000000"
-
-    ColumnLayout {
-      id: aboutCardContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 4
-
-      Text {
-        text: "Ruixen Shell"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: settingsRoot.textColor
-      }
-
-      Text {
-        text: "v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 10
-        color: settingsRoot.muted
-      }
-    }
-  }
-
   Item { Layout.fillHeight: true }
 }

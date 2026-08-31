@@ -237,21 +237,15 @@ Item {
     }
   }
 
-  // Outer RowLayout, not the plain ColumnLayout this used to be
-  // directly -- direct request ("on the right side of the panel,
-  // theres some space left like a right panel, can we use these to
-  // toggle between IMAGE and VIDEO and then GIF too"). The grid's own
-  // 170px cells never evenly divide this panel's real content width
-  // (790px -> 4 full columns, 680px used, ~110px dead on the right no
-  // matter how many wallpapers exist) -- that's the "space left" this
-  // adds a real sidebar into instead of leaving it empty.
-  RowLayout {
-    anchors.fill: parent
-    spacing: 10
-
+  // Outer ColumnLayout -- direct follow-up ("put the right panel
+  // below the search bar so keep search like before full"): the
+  // search bar moved back out to span the FULL panel width again (it
+  // had shrunk to just the grid column's own width once the sidebar
+  // sat beside it at the same row), with a RowLayout now nested below
+  // it instead of wrapping the whole page -- grid on the left,
+  // sidebar on the right, only for the content BELOW the search bar.
   ColumnLayout {
-    Layout.fillWidth: true
-    Layout.fillHeight: true
+    anchors.fill: parent
     spacing: 10
 
     // Search row -- plain TextInput + placeholder overlay, matching
@@ -259,6 +253,9 @@ Item {
     // pulled in here, unlike ruixen.weather's location search -- that
     // one already has qs.Ui available; this plugin deliberately stays
     // on plain QML primitives throughout, see DashboardContent.qml).
+    // Full Layout.fillWidth here now spans the whole panel again,
+    // sidebar included -- it's a sibling of the RowLayout below, not
+    // inside it.
     Rectangle {
       Layout.fillWidth: true
       Layout.preferredHeight: 40
@@ -288,6 +285,25 @@ Item {
         }
       }
     }
+
+    // Grid (left) + filter sidebar (right) -- direct request ("on the
+    // right side of the panel, theres some space left like a right
+    // panel, can we use these to toggle between IMAGE and VIDEO and
+    // then GIF too"), then moved below the search bar per this same
+    // follow-up. The grid's own 170px cells never evenly divide this
+    // panel's real content width (790px -> 4 full columns, 680px
+    // used, ~110px dead on the right no matter how many wallpapers
+    // exist) -- that's the "space left" the sidebar fills instead of
+    // leaving it empty.
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      spacing: 10
+
+    ColumnLayout {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      spacing: 10
 
     Text {
       Layout.fillWidth: true
@@ -531,6 +547,7 @@ Item {
     }
 
     Item { Layout.fillHeight: true }
+  }
   }
   }
 }

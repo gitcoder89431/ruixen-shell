@@ -1456,20 +1456,6 @@ Item {
               width: parent.width
               spacing: 8
 
-              // Reserve space above headerPill -- direct follow-up
-              // ("the fade is too close to the card on load... we
-              // need some more reserve space on top and buttom too
-              // so it feels like the page has a beginning and
-              // ending"). The Flickable's own 16px anchors.margins
-              // wasn't enough clearance on its own: the fade below is
-              // 24px tall, so at rest (contentY: 0) it was already
-              // overlapping real content 8px in. This spacer plus the
-              // existing margin adds up to the fade's own height, so
-              // headerPill just clears the fade at rest instead of
-              // sitting flush under it -- same amount mirrored below
-              // the last page component for a matching bottom edge.
-              Item { Layout.preferredHeight: 8 }
-
               // Page title -- per direct follow-up ("we dont need to
               // mention its a setting. remove the header and then just
               // lead with the settings options page name like Bluetooth
@@ -1795,10 +1781,6 @@ Item {
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root
               }
-
-              // Mirrors the top spacer above headerPill -- same
-              // reasoning, matching bottom edge.
-              Item { Layout.preferredHeight: 8 }
 
             }
             }

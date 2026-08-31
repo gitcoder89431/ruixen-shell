@@ -303,29 +303,22 @@ Item {
       }
       var version = (entry && entry.version) || "9.x"
       var format = (entry && entry.format) || "png"
-      // backgroundType=solid&backgroundColor=000000 -- direct follow-up
-      // ("i still see the fall back gradient behind it, it needs to be
-      // hidden, the shapes of the dicebear isnt round"): DiceBear
-      // characters don't all fill their own square, and ship on a
-      // transparent background by default, so the circular mask let
-      // the gradient show through in every gap around the character
-      // instead of just being hidden behind an opaque image. Baking a
-      // solid black background into the fetched image itself (matches
-      // both places this avatar is shown -- the notch's own black
-      // pill and this card's own black background) means there's no
-      // transparency left for the gradient to leak through, at any
-      // DiceBear style or format.
-      //
-      // No radius param -- tried radius=50 first (DiceBear's own
-      // circular crop, scales content to fit instead of cutting it off
-      // the way our old MultiEffect mask did) per "why do we still
-      // hard cap a circle around it, doesnt dicebear take care of it".
-      // Direct correction after actually seeing it: "the circle is
-      // still there... the circle mask comes back" -- radius=50 still
-      // produces a circle, just a better-behaved one, which wasn't
-      // the actual ask. No circular treatment from anyone now --
-      // avatars render as DiceBear's own natural square shape.
-      var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
+      // No backgroundType/backgroundColor override anymore, no radius
+      // param either -- direct correction: "why are you removing the
+      // background it comes with, stop messing with it and just show
+      // the dicebear as is". backgroundColor=000000 was originally
+      // added to stop the fallback gradient from bleeding through a
+      // circular mask's transparent gaps, but that mask (and later
+      // radius=50, DiceBear's own circular crop) is gone entirely now
+      // -- the gradient and a real avatar are never visible at the
+      // same time (gradient's own visible is gated on the image NOT
+      // being ready), so there was nothing left for this override to
+      // actually protect against. Whatever background each DiceBear
+      // style ships by default (transparent for most styles, an
+      // automatic soft color for some like Thumbs -- confirmed by
+      // fetching a few styles with no params at all) is what renders
+      // now, unmodified.
+      var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed
       avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
     }
     avatarProc.running = true

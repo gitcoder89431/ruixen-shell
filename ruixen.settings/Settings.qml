@@ -234,7 +234,18 @@ Item {
     if (root.avatarBusy) return
     root.avatarBusy = true
     var seed = Math.random().toString(36).slice(2) + Date.now()
-    var url = "https://api.dicebear.com/9.x/bottts/png?seed=" + seed
+    // backgroundType=solid&backgroundColor=000000 -- direct follow-up
+    // ("i still see the fall back gradient behind it, it needs to be
+    // hidden, the shapes of the dicebear isnt round"): bottts
+    // characters don't fill their own square, DiceBear ships them on a
+    // transparent background by default, so the circular mask let the
+    // gradient show through in every gap around the character instead
+    // of just being hidden behind an opaque image. Baking a solid
+    // black background into the fetched PNG itself (matches both
+    // places this avatar is shown -- the notch's own black pill and
+    // this card's own black background) means there's no transparency
+    // left for the gradient to leak through, at any DiceBear style.
+    var url = "https://api.dicebear.com/9.x/bottts/png?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
     var target = Quickshell.env("HOME") + "/.face.icon"
     avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
     avatarProc.running = true

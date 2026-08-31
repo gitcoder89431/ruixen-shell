@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import Quickshell
 
 // General -- bar layout mode + avatar + about, first page in the
@@ -75,6 +74,22 @@ ColumnLayout {
         // stripped before path resolution, so it busts the Image's
         // source-string cache (needed since selecting a new avatar
         // overwrites the exact same path) without that risk.
+        //
+        // No client-side circular mask -- direct follow-up ("why do we
+        // still hard cap a circle around it, doesnt dicebear take care
+        // of it"): it does, better than the MultiEffect mask this used
+        // to have did. That mask blindly cropped at the circle
+        // boundary, which lost real content on full-bleed styles like
+        // identicon (its checkered pattern touches every edge, unlike
+        // bottts/adventurer/thumbs which already have breathing room).
+        // DiceBear's own radius=50 param (see settingsRoot.
+        // selectAvatar) scales each style's content to fit inside the
+        // circle instead, and leaves corner pixels genuinely
+        // transparent (confirmed via a raw pixel read) -- so a plain
+        // Image composites correctly with nothing extra needed here.
+        // One known gap: radius is silently ignored for SVG output, so
+        // the one SVG-format collection (Sprouts) renders as a plain
+        // square, not circular.
         Image {
           id: avatarPreviewImage
           anchors.fill: parent
@@ -82,25 +97,7 @@ ColumnLayout {
           fillMode: Image.PreserveAspectCrop
           asynchronous: true
           cache: false
-          visible: false
-        }
-
-        Rectangle {
-          id: avatarPreviewMask
-          anchors.fill: parent
-          radius: width / 2
-          color: "#ffffff"
-          visible: false
-          layer.enabled: true
-        }
-
-        MultiEffect {
-          anchors.fill: parent
-          source: avatarPreviewImage
-          maskEnabled: true
-          maskSource: avatarPreviewMask
-          maskThresholdMin: 0.5
-          maskThresholdMax: 1.0
+          visible: status === Image.Ready
         }
       }
 

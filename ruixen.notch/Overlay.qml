@@ -351,6 +351,20 @@ Item {
       }
     }
 
+    // No client-side circular mask -- direct follow-up ("why do we
+    // still hard cap a circle around it, doesnt dicebear take care of
+    // it"): it does, better than the MultiEffect mask this used to
+    // have did. That mask blindly cropped at the circle boundary,
+    // which lost real content on full-bleed styles like identicon
+    // (its checkered pattern touches every edge, unlike bottts/
+    // adventurer/thumbs which already have breathing room). DiceBear's
+    // own radius=50 param (see ruixen.settings' selectAvatar) scales
+    // each style's content to fit inside the circle instead, and
+    // leaves corner pixels genuinely transparent (confirmed via a raw
+    // pixel read) -- so a plain Image composites correctly with
+    // nothing extra needed here. One known gap: radius is silently
+    // ignored for SVG output, so the one SVG-format collection
+    // (Sprouts) renders as a plain square, not circular.
     Image {
       id: avatarImage
       anchors.fill: parent
@@ -358,27 +372,7 @@ Item {
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       cache: false
-      visible: false
-    }
-
-    // Item.clip is rectangular -- circular crop needs an actual mask,
-    // same MultiEffect technique as the notch shape itself.
-    Rectangle {
-      id: avatarMask
-      anchors.fill: parent
-      radius: width / 2
-      color: "#ffffff"
-      visible: false
-      layer.enabled: true
-    }
-
-    MultiEffect {
-      anchors.fill: parent
-      source: avatarImage
-      maskEnabled: true
-      maskSource: avatarMask
-      maskThresholdMin: 0.5
-      maskThresholdMax: 1.0
+      visible: status === Image.Ready
     }
 
     // The click target for opening the dashboard now that hover-to-

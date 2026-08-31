@@ -308,7 +308,26 @@ Item {
       // pill and this card's own black background) means there's no
       // transparency left for the gradient to leak through, at any
       // DiceBear style or format.
-      var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
+      //
+      // radius=50 -- direct follow-up ("the identicon one is still
+      // being clipped by a circle... why do we still hard cap a circle
+      // around it, doesnt dicebear take care of it"): yes, and better
+      // than our own crop was -- confirmed live, DiceBear scales/fits
+      // each style's content to stay inside the circle instead of
+      // blindly cutting off whatever lands outside it (identicon's own
+      // full-bleed checkered pattern was losing real content to our
+      // MultiEffect mask's hard edge). Corner pixels outside the
+      // circle come back fully transparent (confirmed via a raw pixel
+      // read), so this composites correctly with no masking needed on
+      // our end at all -- see UserAvatar/GeneralContent's own Image,
+      // which now renders this directly with no mask. One confirmed
+      // real gap: radius is silently ignored for SVG output (rx="0" in
+      // the returned markup regardless of this param) -- Sprouts, the
+      // one SVG-format entry, still renders as a plain square rather
+      // than circular. Not worth a per-format masking path for one
+      // style; if that ever needs fixing, that's the reason it's
+      // still square.
+      var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed + "&backgroundType=solid&backgroundColor=000000&radius=50"
       avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
     }
     avatarProc.running = true

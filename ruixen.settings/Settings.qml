@@ -1825,16 +1825,31 @@ Item {
             // edges, which never scroll or resize on their own --
             // radius: 10 on both always matches its real rounded
             // corners exactly, at any scroll position, on any page.
-            // Sits above the Flickable (siblings declared after paint
-            // on top) and is completely page-agnostic -- whichever
-            // section is showing gets the same fade for free, no per-
-            // page implementation needed.
+            //
+            // Opacity now tracks real overflow instead of being always
+            // on -- direct follow-up ("it still over the cards on
+            // load... the audio that has no scroll also shows the
+            // buttom fade so its wierd"): a static always-visible fade
+            // was never actually representing "there's more content
+            // this direction" -- it sat over the header at rest (no
+            // scroll has happened yet, nothing above to hide) and sat
+            // at the bottom of pages like Audio that fit the panel with
+            // no overflow at all (nothing below to hide either). Sizing
+            // tricks (reserve spacers, shrinking the gradient) could
+            // never fix that because the actual bug was the fade not
+            // knowing the scroll state, not its geometry. canScrollUp/
+            // Down below mirror the standard "more content this way"
+            // scroll-shadow pattern: hidden at each natural rest edge,
+            // visible only once there's real content past it.
             Rectangle {
+              readonly property bool canScrollUp: detailFlickable.contentY > 1
               anchors.top: parent.top
               anchors.left: parent.left
               anchors.right: parent.right
               height: 24
               radius: 10
+              opacity: canScrollUp ? 1 : 0
+              Behavior on opacity { NumberAnimation { duration: 120 } }
               gradient: Gradient {
                 GradientStop { position: 0.0; color: "#000000" }
                 GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
@@ -1842,11 +1857,15 @@ Item {
             }
 
             Rectangle {
+              readonly property bool canScrollDown: detailFlickable.contentHeight > detailFlickable.height
+                && detailFlickable.contentY < detailFlickable.contentHeight - detailFlickable.height - 1
               anchors.bottom: parent.bottom
               anchors.left: parent.left
               anchors.right: parent.right
               height: 24
               radius: 10
+              opacity: canScrollDown ? 1 : 0
+              Behavior on opacity { NumberAnimation { duration: 120 } }
               gradient: Gradient {
                 GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
                 GradientStop { position: 1.0; color: "#000000" }

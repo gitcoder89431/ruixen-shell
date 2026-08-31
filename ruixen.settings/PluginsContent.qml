@@ -7,10 +7,14 @@ import QtQuick.Layouts
 // proved out (Overlay.qml + DashboardContent.qml/MetricsContent.qml/
 // WallpapersContent.qml, same-directory QML types, no manifest change
 // needed). Checklist of this repo's own ruixen.* plugins (enable/disable)
-// plus the full-uninstall danger zone. All backend state/Processes stay on
+// and the repo-wide Update button. All backend state/Processes stay on
 // Settings.qml's own root -- this component is presentation only, reading
 // and writing through the single settingsRoot reference below, same
-// shape as DashboardContent's own `shell: root.shell` passthrough.
+// shape as DashboardContent's own `shell: root.shell` passthrough. The
+// full-uninstall danger zone that used to live here moved to its own
+// About page -- direct follow-up ("should we put the uninstall on the
+// about then? seems like we have more room there, the plugs in list is
+// kinda big") -- see AboutContent.qml.
 
 ColumnLayout {
   id: root
@@ -234,96 +238,4 @@ ColumnLayout {
     }
   }
 
-  // Danger zone -- full uninstall, direct request
-  // following a real Discord report ("its currently hard
-  // to uninstall cleanly even with cli"). Visually
-  // distinct from every other card here (red-tinted
-  // border, not the plain black cards) so it doesn't read
-  // as just another settings group. Gated behind typing
-  // an exact phrase, not just a click-through confirm --
-  // direct suggestion ("let the user type confirm
-  // uninstall in order to press the uninstall").
-  Rectangle {
-    Layout.fillWidth: true
-    Layout.preferredHeight: dangerZoneContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0.878, 0.322, 0.322, 0.08)
-    border.width: 1
-    border.color: Qt.rgba(0.878, 0.322, 0.322, 0.35)
-
-    ColumnLayout {
-      id: dangerZoneContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 8
-
-      // Just the one row now -- direct follow-up ("the
-      // uninstall is taking too much space, just keep it
-      // in one row"): dropped the title and description
-      // text, the input's own placeholder already says
-      // what to type.
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 32
-          radius: 10
-          color: Qt.rgba(1, 1, 1, 0.06)
-
-          TextInput {
-            id: uninstallConfirmField
-            anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
-            verticalAlignment: TextInput.AlignVCenter
-            color: settingsRoot.textColor
-            font.family: settingsRoot.fontFamily
-            font.pixelSize: 12
-            clip: true
-            text: settingsRoot.uninstallConfirmInput
-            onTextChanged: settingsRoot.uninstallConfirmInput = text
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: settingsRoot.uninstallConfirmPhrase
-              color: settingsRoot.muted
-              font.family: settingsRoot.fontFamily
-              font.pixelSize: 12
-              visible: uninstallConfirmField.text.length === 0
-            }
-          }
-        }
-
-        Rectangle {
-          readonly property bool ready: settingsRoot.ruixenRepoPath !== "" && settingsRoot.uninstallConfirmInput === settingsRoot.uninstallConfirmPhrase
-
-          Layout.preferredWidth: 96
-          Layout.preferredHeight: 32
-          radius: 10
-          color: !ready ? Qt.rgba(1, 1, 1, 0.06)
-            : (uninstallMouse.containsMouse ? Qt.rgba(0.878, 0.322, 0.322, 0.55) : Qt.rgba(0.878, 0.322, 0.322, 0.4))
-          opacity: ready ? 1 : 0.5
-
-          Text {
-            anchors.centerIn: parent
-            text: "Uninstall"
-            font.family: settingsRoot.fontFamily
-            font.pixelSize: 12
-            font.weight: Font.DemiBold
-            color: settingsRoot.textColor
-          }
-
-          MouseArea {
-            id: uninstallMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: parent.ready
-            cursorShape: Qt.PointingHandCursor
-            onClicked: settingsRoot.confirmFullUninstall()
-          }
-        }
-      }
-    }
-  }}
+}

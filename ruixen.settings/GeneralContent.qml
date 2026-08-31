@@ -57,10 +57,15 @@ ColumnLayout {
         // avatar for any edge case to ever reveal.
         Rectangle {
           anchors.fill: parent
-          // Plain square, not radius: width/2 -- matches the now-square
-          // DiceBear avatars (no radius param anymore, see
-          // settingsRoot.selectAvatar's own comment) instead of
-          // mismatching them with a circular placeholder.
+          // Circular, unlike the real DiceBear avatars this sits
+          // behind (deliberately plain square now, see settingsRoot.
+          // selectAvatar's own comment) -- direct follow-up ("keep it
+          // for the gradient though, the gradient default we load in
+          // is square now... why not just make the gradient a
+          // circle"). Never shown at the same time as a real avatar
+          // (visible below is gated on the image NOT being ready), so
+          // the two shapes never need to match.
+          radius: width / 2
           visible: avatarPreviewImage.status !== Image.Ready
           gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.lighter(settingsRoot.accent, 1.6) }

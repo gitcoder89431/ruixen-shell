@@ -36,82 +36,86 @@ ColumnLayout {
       anchors.margins: 12
       spacing: 12
 
-      Text {
-        text: "Avatar"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        font.weight: Font.DemiBold
-        color: settingsRoot.muted
-      }
+      // Centered preview + username@machine underneath, not a plain
+      // "Avatar" header -- direct follow-up ("this card looks better
+      // if the avatar is centered, and then instead of Avatar text in
+      // the card header, we can put username and machine under the
+      // avatar center then?"). No Shuffle/Reset buttons beside it
+      // either (see the collection picker Flow below) -- every action
+      // lives there instead.
+      Item {
+        Layout.preferredWidth: 64
+        Layout.preferredHeight: 64
+        Layout.alignment: Qt.AlignHCenter
 
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 16
-
-        // Just the preview now -- no Shuffle/Reset buttons beside it,
-        // direct follow-up ("we dont need the shuffle and reset
-        // button, just put the collection there and then instead of
-        // reset just call it the gradient collection"). Every action
-        // lives in the collection picker Flow below instead.
-        Item {
-          Layout.preferredWidth: 56
-          Layout.preferredHeight: 56
-
-          // Explicitly hidden once a real image is loaded, not just
-          // painted over by an assumed-opaque one -- direct follow-up
-          // ("why do we need to keep showing the fallback gradient...
-          // why do we need both to appear and overlap"): the two
-          // layers overlapping regardless of load state is exactly
-          // what let any imperfection in the mask/image (a DiceBear
-          // character not filling its own square, or the mask's own
-          // antialiased edge) show up as the gradient visibly bleeding
-          // through. With this, nothing is left behind the circle for
-          // any mask edge case to ever reveal.
-          Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            visible: avatarPreviewImage.status !== Image.Ready
-            gradient: Gradient {
-              GradientStop { position: 0.0; color: Qt.lighter(settingsRoot.accent, 1.6) }
-              GradientStop { position: 1.0; color: Qt.darker(settingsRoot.accent, 1.4) }
-            }
-          }
-
-          // "#" cache-bust fragment, not a "?" query string -- Qt's
-          // local file:// loader can try to resolve a "?"-suffixed
-          // string as a literal filename instead of stripping it the
-          // way an HTTP server would. A URL fragment is universally
-          // stripped before path resolution, so it busts the Image's
-          // source-string cache (needed since Shuffle/Reset overwrite
-          // the exact same path) without that risk.
-          Image {
-            id: avatarPreviewImage
-            anchors.fill: parent
-            source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            cache: false
-            visible: false
-          }
-
-          Rectangle {
-            id: avatarPreviewMask
-            anchors.fill: parent
-            radius: width / 2
-            color: "#ffffff"
-            visible: false
-            layer.enabled: true
-          }
-
-          MultiEffect {
-            anchors.fill: parent
-            source: avatarPreviewImage
-            maskEnabled: true
-            maskSource: avatarPreviewMask
-            maskThresholdMin: 0.5
-            maskThresholdMax: 1.0
+        // Explicitly hidden once a real image is loaded, not just
+        // painted over by an assumed-opaque one -- direct follow-up
+        // ("why do we need to keep showing the fallback gradient...
+        // why do we need both to appear and overlap"): the two
+        // layers overlapping regardless of load state is exactly
+        // what let any imperfection in the mask/image (a DiceBear
+        // character not filling its own square, or the mask's own
+        // antialiased edge) show up as the gradient visibly bleeding
+        // through. With this, nothing is left behind the circle for
+        // any mask edge case to ever reveal.
+        Rectangle {
+          anchors.fill: parent
+          radius: width / 2
+          visible: avatarPreviewImage.status !== Image.Ready
+          gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.lighter(settingsRoot.accent, 1.6) }
+            GradientStop { position: 1.0; color: Qt.darker(settingsRoot.accent, 1.4) }
           }
         }
+
+        // "#" cache-bust fragment, not a "?" query string -- Qt's
+        // local file:// loader can try to resolve a "?"-suffixed
+        // string as a literal filename instead of stripping it the
+        // way an HTTP server would. A URL fragment is universally
+        // stripped before path resolution, so it busts the Image's
+        // source-string cache (needed since selecting a new avatar
+        // overwrites the exact same path) without that risk.
+        Image {
+          id: avatarPreviewImage
+          anchors.fill: parent
+          source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          cache: false
+          visible: false
+        }
+
+        Rectangle {
+          id: avatarPreviewMask
+          anchors.fill: parent
+          radius: width / 2
+          color: "#ffffff"
+          visible: false
+          layer.enabled: true
+        }
+
+        MultiEffect {
+          anchors.fill: parent
+          source: avatarPreviewImage
+          maskEnabled: true
+          maskSource: avatarPreviewMask
+          maskThresholdMin: 0.5
+          maskThresholdMax: 1.0
+        }
+      }
+
+      Text {
+        Layout.alignment: Qt.AlignHCenter
+        // Raw Quickshell.env("USER"), not settingsRoot.username --
+        // matches the header's own "user@machine" string exactly (that
+        // one intentionally stays lowercase/unstyled, terminal-prompt
+        // convention) rather than settingsRoot.username's capitalized
+        // display form, which would read "Dev@NucBoxG5" here vs.
+        // "dev@NucBoxG5" up top.
+        text: Quickshell.env("USER") + "@" + settingsRoot.hardwareName
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 11
+        color: settingsRoot.muted
       }
 
       // Collection picker -- direct follow-up chain: first "this uses

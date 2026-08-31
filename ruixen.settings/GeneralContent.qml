@@ -6,7 +6,7 @@ import Quickshell
 // General -- bar layout mode + avatar + about, first page in the
 // sidebar. Per direct request ("i think we can just do General for
 // now"). See the property/function block in Settings.qml (root.
-// barMode, root.avatarCacheBust, root.shuffleAvatar() etc.) for the
+// barMode, root.avatarCacheBust, root.selectAvatar() etc.) for the
 // real mechanism and reasoning.
 ColumnLayout {
   id: root
@@ -48,6 +48,11 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 16
 
+        // Just the preview now -- no Shuffle/Reset buttons beside it,
+        // direct follow-up ("we dont need the shuffle and reset
+        // button, just put the collection there and then instead of
+        // reset just call it the gradient collection"). Every action
+        // lives in the collection picker Flow below instead.
         Item {
           Layout.preferredWidth: 56
           Layout.preferredHeight: 56
@@ -107,73 +112,24 @@ ColumnLayout {
             maskThresholdMax: 1.0
           }
         }
-
-        RowLayout {
-          Layout.alignment: Qt.AlignVCenter
-          spacing: 8
-
-          Rectangle {
-            Layout.preferredWidth: 84
-            Layout.preferredHeight: 28
-            radius: 8
-            color: shuffleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.06)
-            opacity: settingsRoot.avatarBusy ? 0.5 : 1
-
-            Text {
-              anchors.centerIn: parent
-              text: settingsRoot.avatarBusy ? "..." : "Shuffle"
-              font.family: settingsRoot.fontFamily
-              font.pixelSize: 11
-              color: settingsRoot.textColor
-            }
-
-            MouseArea {
-              id: shuffleMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              enabled: !settingsRoot.avatarBusy
-              cursorShape: Qt.PointingHandCursor
-              onClicked: settingsRoot.shuffleAvatar()
-            }
-          }
-
-          Rectangle {
-            Layout.preferredWidth: 72
-            Layout.preferredHeight: 28
-            radius: 8
-            color: resetMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.06)
-            opacity: settingsRoot.avatarBusy ? 0.5 : 1
-
-            Text {
-              anchors.centerIn: parent
-              text: "Reset"
-              font.family: settingsRoot.fontFamily
-              font.pixelSize: 11
-              color: settingsRoot.muted
-            }
-
-            MouseArea {
-              id: resetMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              enabled: !settingsRoot.avatarBusy
-              cursorShape: Qt.PointingHandCursor
-              onClicked: settingsRoot.resetAvatar()
-            }
-          }
-        }
       }
 
-      // Collection picker -- direct follow-up ("this uses only 1
-      // dicebear collections right, can we do buttons with the
+      // Collection picker -- direct follow-up chain: first "this uses
+      // only 1 dicebear collections right, can we do buttons with the
       // collection name and clicking on them just shuffle from within
-      // that collection?"). Clicking one both selects it (highlighted
-      // border, same selected-state treatment as Bar Layout's own
-      // segmented buttons below) AND immediately shuffles within it,
-      // per the request -- not a separate "pick then press Shuffle"
-      // step. Flow instead of a RowLayout since 5 labels don't
-      // reliably fit one row at this card's width; wraps to a second
-      // line instead of squeezing/eliding.
+      // that collection?", then "we dont need the shuffle and reset
+      // button, just put the collection there and then instead of
+      // reset just call it the gradient collection". "Gradient" is now
+      // just the first entry in settingsRoot.avatarCollections rather
+      // than a separate Reset button/concept -- every click here (this
+      // one included) goes through the same settingsRoot.selectAvatar()
+      // entry point. Selecting one both picks it (highlighted border,
+      // same selected-state treatment as Bar Layout's own segmented
+      // buttons below) AND immediately applies it, not a separate
+      // "pick then press an action button" step. Flow instead of a
+      // RowLayout since 6 labels don't reliably fit one row at this
+      // card's width; wraps to a second line instead of squeezing/
+      // eliding.
       Flow {
         Layout.fillWidth: true
         spacing: 6
@@ -208,7 +164,7 @@ ColumnLayout {
               anchors.fill: parent
               enabled: !settingsRoot.avatarBusy
               cursorShape: Qt.PointingHandCursor
-              onClicked: settingsRoot.shuffleAvatar(collectionBtn.modelData.id)
+              onClicked: settingsRoot.selectAvatar(collectionBtn.modelData.id)
             }
           }
         }

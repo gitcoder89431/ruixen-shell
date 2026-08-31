@@ -203,29 +203,34 @@ Item {
   }
 
   // Avatar -- ~/.face.icon, same convention/gradient-fallback mechanism
-  // ruixen.notch's own UserAvatar component already uses. Shuffle
-  // fetches a random DiceBear avatar (api.dicebear.com, free, no auth
-  // needed); Reset just deletes the file so the existing gradient
-  // fallback in ruixen.notch's UserAvatar takes back over on its own --
-  // no separate "gradient mode" flag needed, that component already
-  // treats a missing file as the gradient state.
+  // ruixen.notch's own UserAvatar component already uses. "gradient" is
+  // just another entry in avatarCollections, not a separate Reset
+  // button/concept -- direct follow-up ("we dont need the shuffle and
+  // reset button, just put the collection there and then instead of
+  // reset just call it the gradient collection"). Picking it deletes
+  // ~/.face.icon so the existing gradient fallback in ruixen.notch's
+  // UserAvatar takes back over on its own; picking any real DiceBear
+  // style fetches a random avatar from it (api.dicebear.com, free, no
+  // auth needed).
   property int avatarCacheBust: 0
   property bool avatarBusy: false
 
-  // Collection picker -- direct follow-up ("this uses only 1 dicebear
-  // collections right, can we do buttons with the collection name and
-  // clicking on them just shuffle from within that collection?").
   // Curated to 5 visually distinct DiceBear styles (confirmed real
-  // slugs by hitting each one directly, not guessed) rather than all
-  // ~30 DiceBear ships -- a picker that wide wouldn't fit this card.
+  // slugs by hitting each one directly, not guessed) plus the gradient
+  // pseudo-collection, rather than all ~30 DiceBear ships -- a picker
+  // that wide wouldn't fit this card.
   readonly property var avatarCollections: [
+    { id: "gradient", label: "Gradient" },
     { id: "bottts", label: "Bottts" },
     { id: "pixel-art", label: "Pixel Art" },
     { id: "adventurer", label: "Adventurer" },
     { id: "identicon", label: "Identicon" },
     { id: "thumbs", label: "Thumbs" }
   ]
-  property string avatarCollection: "bottts"
+  // Starts on "gradient" -- matches the real state a fresh install
+  // actually starts in (no ~/.face.icon yet), so the picker's own
+  // selected-highlight is correct before anyone has clicked anything.
+  property string avatarCollection: "gradient"
 
   Process {
     id: avatarProc
@@ -245,37 +250,35 @@ Item {
     id: avatarNotifyProc
   }
 
-  // Optional collection arg -- passed by each collection button (which
-  // also switches root.avatarCollection); the plain Shuffle button
-  // calls this with no arg, reshuffling within whichever collection is
-  // currently selected instead of always resetting back to bottts.
-  function shuffleAvatar(collection) {
+  // Single entry point for every avatar-picker button -- "gradient"
+  // deletes ~/.face.icon, any real DiceBear slug fetches a random
+  // avatar from that collection. Replaces the old separate shuffleAvatar()/
+  // resetAvatar() pair now that Gradient is just another button in the
+  // same row instead of a distinct Reset action.
+  function selectAvatar(collection) {
     if (root.avatarBusy) return
     root.avatarBusy = true
-    if (collection) root.avatarCollection = collection
-    var seed = Math.random().toString(36).slice(2) + Date.now()
-    // backgroundType=solid&backgroundColor=000000 -- direct follow-up
-    // ("i still see the fall back gradient behind it, it needs to be
-    // hidden, the shapes of the dicebear isnt round"): DiceBear
-    // characters don't all fill their own square, and ship on a
-    // transparent background by default, so the circular mask let the
-    // gradient show through in every gap around the character instead
-    // of just being hidden behind an opaque image. Baking a solid
-    // black background into the fetched PNG itself (matches both
-    // places this avatar is shown -- the notch's own black pill and
-    // this card's own black background) means there's no transparency
-    // left for the gradient to leak through, at any DiceBear style.
-    var url = "https://api.dicebear.com/9.x/" + root.avatarCollection + "/png?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
+    root.avatarCollection = collection
     var target = Quickshell.env("HOME") + "/.face.icon"
-    avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
-    avatarProc.running = true
-  }
-
-  function resetAvatar() {
-    if (root.avatarBusy) return
-    root.avatarBusy = true
-    var target = Quickshell.env("HOME") + "/.face.icon"
-    avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    if (collection === "gradient") {
+      avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    } else {
+      var seed = Math.random().toString(36).slice(2) + Date.now()
+      // backgroundType=solid&backgroundColor=000000 -- direct follow-up
+      // ("i still see the fall back gradient behind it, it needs to be
+      // hidden, the shapes of the dicebear isnt round"): DiceBear
+      // characters don't all fill their own square, and ship on a
+      // transparent background by default, so the circular mask let
+      // the gradient show through in every gap around the character
+      // instead of just being hidden behind an opaque image. Baking a
+      // solid black background into the fetched PNG itself (matches
+      // both places this avatar is shown -- the notch's own black
+      // pill and this card's own black background) means there's no
+      // transparency left for the gradient to leak through, at any
+      // DiceBear style.
+      var url = "https://api.dicebear.com/9.x/" + collection + "/png?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
+      avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
+    }
     avatarProc.running = true
   }
 

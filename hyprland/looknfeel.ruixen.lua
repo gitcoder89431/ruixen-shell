@@ -70,17 +70,25 @@ hl.config({
 })
 
 if ruixenAnimProfile == "calm" then
-  -- Slow, smooth, macOS-ish -- lofi cafe vibes. No overshoot anywhere,
-  -- just a long, gentle deceleration (easeOutCubic: cubic-bezier(0.33,
-  -- 1, 0.68, 1)).
+  -- Slow, smooth, macOS-ish -- lofi cafe vibes. No overshoot anywhere
+  -- (easeOutCubic: cubic-bezier(0.33, 1, 0.68, 1)) -- direct follow-up
+  -- ("the calm over laps or shoots too much"): the real cause wasn't
+  -- the curve itself (mathematically bounded at y=1, can't overshoot)
+  -- but the `popin NN%` style on windowsIn/Out -- a slow ~800ms scale-
+  -- from-95%-to-100% reads as the window visibly growing/"shooting"
+  -- into place, not a clean fade. Dropped the style entirely (falls
+  -- back to Hyprland's own plain size+alpha crossfade, no scale-pop
+  -- component to misread as overshoot) and cut every speed down --
+  -- still the slowest of the three profiles, just not so long that
+  -- overlapping window opens felt tangled.
   hl.curve("ruixenSmooth", { type = "bezier", points = { { 0.33, 1 }, { 0.68, 1 } } })
-  hl.animation({ leaf = "windows", enabled = true, speed = 7.5, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "windowsIn", enabled = true, speed = 8.0, bezier = "ruixenSmooth", style = "popin 95%" })
-  hl.animation({ leaf = "windowsOut", enabled = true, speed = 5.5, bezier = "ruixenSmooth", style = "popin 95%" })
-  hl.animation({ leaf = "border", enabled = true, speed = 7.0, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fade", enabled = true, speed = 5.5, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fadeIn", enabled = true, speed = 6.0, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fadeOut", enabled = true, speed = 4.5, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 5.0, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 3.5, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "border", enabled = true, speed = 4.0, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 3.0, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 3.3, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.4, bezier = "ruixenSmooth" })
 elseif ruixenAnimProfile == "snappy" then
   -- Fast, tight, no bounce -- gets out of the way immediately.
   hl.curve("ruixenSnap", { type = "bezier", points = { { 0.4, 0 }, { 0.2, 1 } } })
@@ -93,18 +101,24 @@ elseif ruixenAnimProfile == "snappy" then
   hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.2, bezier = "ruixenSnap" })
 else
   -- Bubbly -- springy, bouncy, overshoots. Default, fun. Real
-  -- overshoot via a backOut-style curve (cubic-bezier(0.34, 1.56,
+  -- overshoot via a backOut-style curve (cubic-bezier(0.34, 1.35,
   -- 0.64, 1) -- the y > 1 control point is what actually produces the
-  -- overshoot/bounce, not just a fast speed).
-  hl.curve("ruixenBounce", { type = "bezier", points = { { 0.34, 1.56 }, { 0.64, 1 } } })
+  -- overshoot/bounce, not just a fast speed). Direct follow-up ("the
+  -- bubbly is abit too slow"): a strong 1.56 overshoot at a slow speed
+  -- meant the window visibly wobbled and took a while to settle on
+  -- top of an already-slow base animation, compounding into
+  -- "sluggish" overall. Eased the overshoot back to 1.35 (still a
+  -- real, visible bounce) and cut every speed roughly 30-40% so the
+  -- whole motion reads quicker while keeping the springy character.
+  hl.curve("ruixenBounce", { type = "bezier", points = { { 0.34, 1.35 }, { 0.64, 1 } } })
   hl.curve("ruixenFade", { type = "bezier", points = { { 0.4, 0 }, { 0.2, 1 } } })
-  hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "ruixenBounce" })
-  hl.animation({ leaf = "windowsIn", enabled = true, speed = 5.0, bezier = "ruixenBounce", style = "popin 80%" })
-  hl.animation({ leaf = "windowsOut", enabled = true, speed = 3.0, bezier = "ruixenBounce", style = "popin 80%" })
-  hl.animation({ leaf = "border", enabled = true, speed = 5.0, bezier = "ruixenBounce" })
-  hl.animation({ leaf = "fade", enabled = true, speed = 3.0, bezier = "ruixenFade" })
-  hl.animation({ leaf = "fadeIn", enabled = true, speed = 3.5, bezier = "ruixenFade" })
-  hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.0, bezier = "ruixenFade" })
+  hl.animation({ leaf = "windows", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 3.2, bezier = "ruixenBounce", style = "popin 85%" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.2, bezier = "ruixenBounce", style = "popin 85%" })
+  hl.animation({ leaf = "border", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 2.0, bezier = "ruixenFade" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 2.2, bezier = "ruixenFade" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.5, bezier = "ruixenFade" })
 end
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#layout

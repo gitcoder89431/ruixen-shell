@@ -227,25 +227,30 @@ Item {
   // pseudo-collection, rather than all ~30 DiceBear ships -- a picker
   // that wide wouldn't fit this card. version/format default to
   // DiceBear's 9.x PNG endpoint (see selectAvatar below) when a
-  // collection doesn't specify its own -- Sprouts is the one entry so
-  // far that does, direct follow-up ("can we try the animated
-  // collections like this one... https://api.dicebear.com/10.x/
-  // sprouts/svg"). "Animated" turned out to mean DiceBear ships an
-  // opt-in CSS/SMIL animation feature for this style on their own
-  // site, not that the raw SVG fetch animates on its own -- confirmed
-  // by reading the actual returned markup (an inert
+  // collection doesn't specify its own -- Sprouts and Rings are the
+  // two 10.x SVG entries so far. Sprouts: direct follow-up ("can we
+  // try the animated collections like this one... https://
+  // api.dicebear.com/10.x/sprouts/svg"). "Animated" turned out to mean
+  // DiceBear ships an opt-in CSS/SMIL animation feature for this style
+  // on their own site, not that the raw SVG fetch animates on its own
+  // -- confirmed by reading the actual returned markup (an inert
   // <g id="animation-none-..."> placeholder, no <animate>/@keyframes
   // present) -- and Qt's SVG renderer doesn't run CSS/SMIL regardless,
   // so this renders as a nice static sprout-pot character, not a
   // moving one. Confirmed live that Qt can load an SVG through this
   // pipeline at all (~/.face.icon has no extension, was a real
   // unknown -- Qt does content sniffing, works fine) before adding
-  // this rather than assuming.
+  // this rather than assuming. Rings: swapped in for Adventurer per
+  // direct follow-up ("the adventuer one looks too small, swap it with
+  // https://api.dicebear.com/10.x/rings/svg") -- Adventurer's own
+  // character sits small in the middle of its canvas with a lot of
+  // empty space around it; Rings' concentric pattern fills the square
+  // edge to edge instead.
   readonly property var avatarCollections: [
     { id: "gradient", label: "Gradient" },
     { id: "bottts", label: "Bottts" },
     { id: "pixel-art", label: "Pixel Art" },
-    { id: "adventurer", label: "Adventurer" },
+    { id: "rings", label: "Rings", version: "10.x", format: "svg" },
     { id: "identicon", label: "Identicon" },
     { id: "thumbs", label: "Thumbs" },
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" }

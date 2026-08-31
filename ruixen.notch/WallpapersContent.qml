@@ -296,12 +296,34 @@ Item {
     // exist) -- that's the "space left" the sidebar fills instead of
     // leaving it empty.
     RowLayout {
+      // Layout.maximumWidth freed for the same reason as the sidebar's
+      // own comment below -- a nested RowLayout/ColumnLayout's
+      // maximumWidth defaults to its own implicitWidth (here, the
+      // wrapper's fixed 680 + the sidebar's natural content width +
+      // spacing), not unbounded, so without this the RowLayout itself
+      // never actually reached the outer ColumnLayout's real 790px and
+      // the sidebar had no genuine leftover space to grow into no
+      // matter what its own fillWidth/maximumWidth said.
       Layout.fillWidth: true
+      Layout.maximumWidth: Number.POSITIVE_INFINITY
       Layout.fillHeight: true
       spacing: 10
 
     ColumnLayout {
-      Layout.fillWidth: true
+      // Fixed width (matches the grid's own real 4-column content, see
+      // GridView's own comment), not fillWidth -- this wrapper needs
+      // to stop claiming the leftover space too, or the sidebar below
+      // still has nothing real to center within even after the
+      // GridView itself stopped stretching past its own content.
+      // Layout.fillWidth: false is NOT redundant with preferredWidth
+      // here -- a nested ColumnLayout/RowLayout child defaults
+      // Layout.fillWidth to true even when never set (the same gotcha
+      // already hit once on the sidebar itself, see its own comment
+      // below), so leaving this unset would silently keep it
+      // competing for the RowLayout's leftover space regardless of
+      // the preferredWidth given here.
+      Layout.preferredWidth: 680
+      Layout.fillWidth: false
       Layout.fillHeight: true
       spacing: 10
 
@@ -340,7 +362,20 @@ Item {
     // the library has 4 wallpapers or 4000.
     GridView {
       id: grid
-      Layout.fillWidth: true
+      // Fixed width (4 columns * 170 cellWidth), not fillWidth --
+      // direct follow-up ("theres still a bit of a gap between where
+      // the stats are and the last wallpaper column, i think try and
+      // center middle the three stats, so its not too leaning to the
+      // right edge"). fillWidth made the grid claim every pixel the
+      // RowLayout gave it, even the ~32px slack past its own real
+      // 4-column content (170 doesn't evenly divide the available
+      // width) -- that slack, plus the RowLayout's own spacing, is
+      // exactly what read as "a gap before the stats". Fixing the
+      // grid's own width to what it actually uses frees that leftover
+      // space for the sidebar to legitimately claim and center within
+      // instead, rather than the sidebar just sitting flush against
+      // the panel's own right edge past an unclaimed gap.
+      Layout.preferredWidth: 680
       Layout.fillHeight: true
       visible: root.filteredPaths.length > 0
       clip: true
@@ -502,10 +537,36 @@ Item {
   // state here that a plain radio-button set doesn't have). Centered
   // number-then-label per direct request ("we can do like center
   // kinda design so number of images and then label IMAGE etc").
+  //
+  // Follow-up fix ("theres still a bit of a gap between where the
+  // stats are and the last wallpaper column, i think try and center
+  // middle the three stats, so its not too leaning to the right edge
+  // of the notch"): narrowing this sidebar to a fixed 68px left the
+  // RowLayout's real leftover space (everything past the grid's own
+  // fixed 680px content, see the two ColumnLayout/GridView comments
+  // above) unclaimed by anyone -- it just sat as a gap in front of
+  // the sidebar, which was itself still pinned to the panel's right
+  // edge. Fixed at the source instead of by nudging this element:
+  // this sidebar goes back to fillWidth: true (now safe, since the
+  // grid's own wrapper no longer over-claims), so it legitimately
+  // spans the whole leftover region: and each chip below switches
+  // from fillWidth (which would stretch it edge-to-edge across that
+  // now-wider region) to a fixed width + Qt.AlignHCenter, so the chip
+  // stack renders as a centered column within the sidebar's real
+  // space instead of stretching or sitting flush right.
   ColumnLayout {
     id: sidebar
-    Layout.preferredWidth: 68
-    Layout.fillWidth: false
+    // Layout.maximumWidth explicitly freed -- a nested RowLayout/
+    // ColumnLayout child has its OWN Layout.maximumWidth implicitly
+    // bound to its implicitWidth by default (unlike a plain Item/
+    // Rectangle, whose maximumWidth defaults to unbounded), so
+    // fillWidth alone is a no-op here: without this, the sidebar
+    // stayed pinned to its content's own natural width (76px, the
+    // chip width below) instead of stretching into the real leftover
+    // RowLayout space, leaving the same unclaimed gap this whole fix
+    // is meant to close.
+    Layout.fillWidth: true
+    Layout.maximumWidth: Number.POSITIVE_INFINITY
     Layout.fillHeight: true
     Layout.alignment: Qt.AlignTop
     spacing: 8
@@ -522,7 +583,8 @@ Item {
         required property var modelData
         readonly property bool selected: root.kindFilter === modelData.kind
 
-        Layout.fillWidth: true
+        Layout.preferredWidth: 76
+        Layout.alignment: Qt.AlignHCenter
         Layout.preferredHeight: 64
         radius: 10
         color: filterChip.selected ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)

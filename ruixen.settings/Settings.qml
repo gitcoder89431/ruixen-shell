@@ -72,7 +72,14 @@ Item {
   // JetBrainsMonoNerdFont's own cmap (fa-volume_up, fa-wifi,
   // fa-bluetooth), not guessed.
   readonly property var sections: [
-    { id: "general", label: "General", glyph: "" },
+    // Sidebar label "Settings", not "General" -- direct follow-up
+    // ("is it better to just put settings here then general cause
+    // like its the main page?"): this is the landing page of an app
+    // that's itself already called Ruixen Settings, so it reads
+    // better than "Settings > General". id stays "general" internally
+    // (still matches the {"section":"general"} IPC payload
+    // convention).
+    { id: "general", label: "Settings", glyph: "" },
     { id: "audio", label: "Audio", glyph: "" },
     { id: "wifi", label: "Wi-Fi", glyph: "" },
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
@@ -1392,11 +1399,9 @@ Item {
                     // single collapsed name would misrepresent the real
                     // state. Bluetooth keeps its plain label, same as
                     // Audio.
-                    text: root.selectedSection === 0
-                      ? (root.hardwareName ? Quickshell.env("USER") + "@" + root.hardwareName : "General")
-                      : root.selectedSection === 2
-                        ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
-                        : root.sections[root.selectedSection].label
+                    text: root.selectedSection === 2
+                      ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
+                      : root.sections[root.selectedSection].label
                     font.family: root.fontFamily
                     font.pixelSize: 15
                     font.weight: Font.DemiBold

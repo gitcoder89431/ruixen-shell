@@ -324,11 +324,22 @@ Item {
     // Placeholder shown until/unless ~/.face.icon exists -- a gradient
     // circle instead of a shipped PNG asset, so there's no fixed
     // resolution/ratio to pick and it scales cleanly at any avatarSize.
-    // Sits underneath the real image below; once that loads it fully
-    // covers this (opaque), so no conditional visibility needed.
+    // Explicitly hidden once a real image is loaded, not just painted
+    // over by an assumed-opaque one -- direct follow-up ("why do we
+    // need to keep showing the fallback gradient, why cant gradient
+    // just be something on and then off between dicebear... why do we
+    // need both to appear and overlap"): the two layers overlapping
+    // regardless of load state is exactly what let any imperfection in
+    // the mask/image (a DiceBear character not filling its own square,
+    // or the mask's own antialiased edge) show up as the gradient
+    // visibly bleeding through, real bug hit live and fixed twice
+    // before landing here. With this, the gradient is structurally
+    // absent whenever a real avatar is showing -- nothing left behind
+    // the circle for any mask edge case to ever reveal.
     Rectangle {
       anchors.fill: parent
       radius: width / 2
+      visible: avatarImage.status !== Image.Ready
       // Theme-aware, not two hardcoded colors -- direct follow-up
       // ("install you get the fallback or default gradient, maybe
       // theme aware?"). root.accent is already Color.accent (see its

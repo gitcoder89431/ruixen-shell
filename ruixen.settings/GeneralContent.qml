@@ -52,9 +52,20 @@ ColumnLayout {
           Layout.preferredWidth: 56
           Layout.preferredHeight: 56
 
+          // Explicitly hidden once a real image is loaded, not just
+          // painted over by an assumed-opaque one -- direct follow-up
+          // ("why do we need to keep showing the fallback gradient...
+          // why do we need both to appear and overlap"): the two
+          // layers overlapping regardless of load state is exactly
+          // what let any imperfection in the mask/image (a DiceBear
+          // character not filling its own square, or the mask's own
+          // antialiased edge) show up as the gradient visibly bleeding
+          // through. With this, nothing is left behind the circle for
+          // any mask edge case to ever reveal.
           Rectangle {
             anchors.fill: parent
             radius: width / 2
+            visible: avatarPreviewImage.status !== Image.Ready
             gradient: Gradient {
               GradientStop { position: 0.0; color: Qt.lighter(settingsRoot.accent, 1.6) }
               GradientStop { position: 1.0; color: Qt.darker(settingsRoot.accent, 1.4) }

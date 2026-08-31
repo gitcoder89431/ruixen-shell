@@ -182,137 +182,151 @@ Item {
       font.pixelSize: 12
     }
 
-    Flickable {
+    // GridView, not Flow+Repeater -- direct follow-up ("theres no
+    // preview image, only the first one has preview image... it just
+    // shows up now, took sometime to load, do we do like lazy load or
+    // something?"). Flow+Repeater instantiated and started loading
+    // EVERY tile's Image the instant the tab opened, no matter how
+    // many wallpapers exist or how many are actually visible -- fine
+    // at the handful of theme wallpapers this was built against, but
+    // a real problem once ~/Pictures/ruixen-wallpapers had a real
+    // library dropped into it (330 files, several multi-megabyte
+    // PNGs, confirmed directly on this machine) -- all 330 Image
+    // decodes queued up at once, so only the first few finished fast
+    // and the rest visibly popped in one at a time as their turn in
+    // the decode queue came up. GridView is a real fix, not a tuning
+    // knob: it only ever creates delegates for the tiles actually in
+    // (or near) the viewport, and reuseItems: true recycles them
+    // during scroll (changes an existing Image's source instead of
+    // destroying/recreating it) -- so opening this tab now only ever
+    // starts as many decodes as fit on screen, regardless of whether
+    // the library has 4 wallpapers or 4000.
+    GridView {
+      id: grid
       Layout.fillWidth: true
       Layout.fillHeight: true
       visible: root.filteredPaths.length > 0
-      contentWidth: width
-      contentHeight: grid.implicitHeight
       clip: true
       boundsBehavior: Flickable.StopAtBounds
+      reuseItems: true
+      // 160x100 tile + 10px gap on the right/bottom of each cell --
+      // same visual spacing Flow's own `spacing: 10` produced.
+      cellWidth: 170
+      cellHeight: 110
+      model: root.filteredPaths
 
-      Flow {
-        id: grid
-        width: parent.width
-        spacing: 10
+      // Structural rewrite per direct correction: the previous pass
+      // copied ambxst's frame APPEARANCE without their actual
+      // rendering structure. Ambxst never animates a border on the
+      // image container itself -- the wallpaper image stays
+      // geometrically static, and a separate highlight overlay
+      // draws above it. Copying the frame onto the SAME
+      // ClippingRectangle that holds the image (animated
+      // border.width, a permanent Image margin, an idle
+      // Behavior-driven fill color) is what caused the reported
+      // zoom/flash/lingering-fade symptoms -- each one traced back
+      // to the image container's own geometry or render layer
+      // changing. Fixed by fully separating them: the image sits in
+      // its own static, never-animated container; the ring, inner
+      // line, and label are separate sibling overlays with fixed
+      // geometry, toggled by plain `visible: tile.hovered` and
+      // nothing else -- no Behaviors anywhere in this delegate, so
+      // there's no lingering fade after the pointer leaves either.
+      delegate: Item {
+        id: tile
+        required property string modelData
+        readonly property bool hovered: tileMouse.containsMouse
+        // Only read for the label's own text/color below -- the
+        // frame itself (ring/band) stays hover-only regardless,
+        // per direct request that active alone shouldn't keep it
+        // lit at rest.
+        readonly property bool active: tile.modelData === root.currentBackground
 
-        Repeater {
-          model: root.filteredPaths
+        width: 160
+        height: 100
 
-          // Structural rewrite per direct correction: the previous pass
-          // copied ambxst's frame APPEARANCE without their actual
-          // rendering structure. Ambxst never animates a border on the
-          // image container itself -- the wallpaper image stays
-          // geometrically static, and a separate highlight overlay
-          // draws above it. Copying the frame onto the SAME
-          // ClippingRectangle that holds the image (animated
-          // border.width, a permanent Image margin, an idle
-          // Behavior-driven fill color) is what caused the reported
-          // zoom/flash/lingering-fade symptoms -- each one traced back
-          // to the image container's own geometry or render layer
-          // changing. Fixed by fully separating them: the image sits in
-          // its own static, never-animated container; the ring, inner
-          // line, and label are separate sibling overlays with fixed
-          // geometry, toggled by plain `visible: tile.hovered` and
-          // nothing else -- no Behaviors anywhere in this delegate, so
-          // there's no lingering fade after the pointer leaves either.
-          Item {
-            id: tile
-            required property string modelData
-            readonly property bool hovered: tileMouse.containsMouse
-            // Only read for the label's own text/color below -- the
-            // frame itself (ring/band) stays hover-only regardless,
-            // per direct request that active alone shouldn't keep it
-            // lit at rest.
-            readonly property bool active: tile.modelData === root.currentBackground
+        // Image container -- always exactly `width`x`height`, no
+        // margins, no border, no animated properties at all. This
+        // is the ONLY thing visible at rest.
+        ClippingRectangle {
+          anchors.fill: parent
+          radius: 10
+          color: "transparent"
 
-            width: 160
-            height: 100
-
-            // Image container -- always exactly `width`x`height`, no
-            // margins, no border, no animated properties at all. This
-            // is the ONLY thing visible at rest.
-            ClippingRectangle {
-              anchors.fill: parent
-              radius: 10
-              color: "transparent"
-
-              Image {
-                anchors.fill: parent
-                source: "file://" + tile.modelData
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                sourceSize: Qt.size(160, 100)
-              }
-            }
-
-            // Hover decoration only -- a separate overlay sibling, not
-            // a property on the image's own container, so it can never
-            // affect the image's geometry or force a clip rebuild.
-            // Two directly-adjacent bands stacked outside-in: accent
-            // ring at the very edge, then the black band starting
-            // exactly where the ring ends (anchors.margins here MUST
-            // equal the ring's own border.width, 2 -- anything bigger
-            // leaves a transparent gap between them that the raw image
-            // shows through, reading as a separate floating ring
-            // instead of one continuous frame).
-            Rectangle {
-              anchors.fill: parent
-              radius: 10
-              color: "transparent"
-              border.width: 2
-              border.color: root.accent
-              visible: tile.hovered
-              z: 2
-
-              Rectangle {
-                anchors.fill: parent
-                anchors.margins: 2
-                radius: 8
-                color: "transparent"
-                border.width: 9
-                border.color: "#000000"
-              }
-            }
-
-            // Filename label -- also a separate overlay sibling, fixed
-            // geometry, plain visible toggle.
-            Rectangle {
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.bottom: parent.bottom
-              anchors.margins: 5
-              height: 26
-              color: Qt.rgba(0, 0, 0, 0.82)
-              visible: tile.hovered
-              z: 3
-
-              Text {
-                anchors.centerIn: parent
-                width: parent.width - 12
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
-                // "CURRENT" in the theme's own accent color for the
-                // actually-active wallpaper, matching ambxst's real
-                // treatment (their isCurrentWallpaper label swaps to
-                // Styling.srItem("overprimary") the same way) -- plain
-                // filename otherwise.
-                text: tile.active ? "CURRENT" : tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
-                color: tile.active ? root.accent : root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: 10
-              }
-            }
-
-            MouseArea {
-              id: tileMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.select(tile.modelData)
-              z: 4
-            }
+          Image {
+            anchors.fill: parent
+            source: "file://" + tile.modelData
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            sourceSize: Qt.size(160, 100)
           }
+        }
+
+        // Hover decoration only -- a separate overlay sibling, not
+        // a property on the image's own container, so it can never
+        // affect the image's geometry or force a clip rebuild.
+        // Two directly-adjacent bands stacked outside-in: accent
+        // ring at the very edge, then the black band starting
+        // exactly where the ring ends (anchors.margins here MUST
+        // equal the ring's own border.width, 2 -- anything bigger
+        // leaves a transparent gap between them that the raw image
+        // shows through, reading as a separate floating ring
+        // instead of one continuous frame).
+        Rectangle {
+          anchors.fill: parent
+          radius: 10
+          color: "transparent"
+          border.width: 2
+          border.color: root.accent
+          visible: tile.hovered
+          z: 2
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 2
+            radius: 8
+            color: "transparent"
+            border.width: 9
+            border.color: "#000000"
+          }
+        }
+
+        // Filename label -- also a separate overlay sibling, fixed
+        // geometry, plain visible toggle.
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.margins: 5
+          height: 26
+          color: Qt.rgba(0, 0, 0, 0.82)
+          visible: tile.hovered
+          z: 3
+
+          Text {
+            anchors.centerIn: parent
+            width: parent.width - 12
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            // "CURRENT" in the theme's own accent color for the
+            // actually-active wallpaper, matching ambxst's real
+            // treatment (their isCurrentWallpaper label swaps to
+            // Styling.srItem("overprimary") the same way) -- plain
+            // filename otherwise.
+            text: tile.active ? "CURRENT" : tile.modelData.substring(tile.modelData.lastIndexOf("/") + 1)
+            color: tile.active ? root.accent : root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 10
+          }
+        }
+
+        MouseArea {
+          id: tileMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.select(tile.modelData)
+          z: 4
         }
       }
     }

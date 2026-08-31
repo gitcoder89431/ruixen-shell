@@ -1506,11 +1506,32 @@ Item {
                   anchors.rightMargin: 8
                   spacing: 8
 
-                  Text {
-                    text: sectionRow.modelData.glyph
-                    font.family: root.fontFamily
-                    font.pixelSize: 13
-                    color: sectionRow.selected ? root.accent : root.muted
+                  // Fixed-width slot around the glyph, not the glyph
+                  // sized to its own natural width -- direct follow-up
+                  // ("it seems like the text isnt alligned cause of the
+                  // icon glphy size? are we usig propo font or should
+                  // we put a round pill around the icons?"). The font
+                  // itself is fine (JetBrainsMono Nerd Font throughout,
+                  // same as every other glyph in this file); the real
+                  // cause is that Nerd Font icon glyphs don't all carry
+                  // the same advance width -- fa-bluetooth/fa-puzzle_
+                  // piece render narrower than fa-volume_up/fa-desktop
+                  // at the same pixelSize, so each label previously sat
+                  // wherever its own icon's width happened to end. A
+                  // fixed 18px Item with the glyph centered inside it
+                  // gives every row the same icon-to-label gap
+                  // regardless of which glyph's own width varies.
+                  Item {
+                    Layout.preferredWidth: 18
+                    Layout.preferredHeight: 18
+
+                    Text {
+                      anchors.centerIn: parent
+                      text: sectionRow.modelData.glyph
+                      font.family: root.fontFamily
+                      font.pixelSize: 13
+                      color: sectionRow.selected ? root.accent : root.muted
+                    }
                   }
 
                   Text {

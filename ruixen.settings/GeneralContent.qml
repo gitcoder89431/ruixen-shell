@@ -163,6 +163,56 @@ ColumnLayout {
           }
         }
       }
+
+      // Collection picker -- direct follow-up ("this uses only 1
+      // dicebear collections right, can we do buttons with the
+      // collection name and clicking on them just shuffle from within
+      // that collection?"). Clicking one both selects it (highlighted
+      // border, same selected-state treatment as Bar Layout's own
+      // segmented buttons below) AND immediately shuffles within it,
+      // per the request -- not a separate "pick then press Shuffle"
+      // step. Flow instead of a RowLayout since 5 labels don't
+      // reliably fit one row at this card's width; wraps to a second
+      // line instead of squeezing/eliding.
+      Flow {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Repeater {
+          model: settingsRoot.avatarCollections
+
+          Rectangle {
+            id: collectionBtn
+            required property var modelData
+            readonly property bool isCurrent: settingsRoot.avatarCollection === collectionBtn.modelData.id
+
+            width: collectionLabel.implicitWidth + 16
+            height: 24
+            radius: 6
+            color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: collectionBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
+            opacity: settingsRoot.avatarBusy ? 0.5 : 1
+
+            Text {
+              id: collectionLabel
+              anchors.centerIn: parent
+              text: collectionBtn.modelData.label
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 10
+              font.weight: collectionBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: collectionBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: !settingsRoot.avatarBusy
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.shuffleAvatar(collectionBtn.modelData.id)
+            }
+          }
+        }
+      }
     }
   }
   // Bar Layout -- own card, same segmented-button treatment as

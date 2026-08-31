@@ -212,6 +212,21 @@ Item {
   property int avatarCacheBust: 0
   property bool avatarBusy: false
 
+  // Collection picker -- direct follow-up ("this uses only 1 dicebear
+  // collections right, can we do buttons with the collection name and
+  // clicking on them just shuffle from within that collection?").
+  // Curated to 5 visually distinct DiceBear styles (confirmed real
+  // slugs by hitting each one directly, not guessed) rather than all
+  // ~30 DiceBear ships -- a picker that wide wouldn't fit this card.
+  readonly property var avatarCollections: [
+    { id: "bottts", label: "Bottts" },
+    { id: "pixel-art", label: "Pixel Art" },
+    { id: "adventurer", label: "Adventurer" },
+    { id: "identicon", label: "Identicon" },
+    { id: "thumbs", label: "Thumbs" }
+  ]
+  property string avatarCollection: "bottts"
+
   Process {
     id: avatarProc
     stdout: StdioCollector { waitForEnd: true }
@@ -230,14 +245,19 @@ Item {
     id: avatarNotifyProc
   }
 
-  function shuffleAvatar() {
+  // Optional collection arg -- passed by each collection button (which
+  // also switches root.avatarCollection); the plain Shuffle button
+  // calls this with no arg, reshuffling within whichever collection is
+  // currently selected instead of always resetting back to bottts.
+  function shuffleAvatar(collection) {
     if (root.avatarBusy) return
     root.avatarBusy = true
+    if (collection) root.avatarCollection = collection
     var seed = Math.random().toString(36).slice(2) + Date.now()
     // backgroundType=solid&backgroundColor=000000 -- direct follow-up
     // ("i still see the fall back gradient behind it, it needs to be
-    // hidden, the shapes of the dicebear isnt round"): bottts
-    // characters don't fill their own square, DiceBear ships them on a
+    // hidden, the shapes of the dicebear isnt round"): DiceBear
+    // characters don't all fill their own square, and ship on a
     // transparent background by default, so the circular mask let the
     // gradient show through in every gap around the character instead
     // of just being hidden behind an opaque image. Baking a solid
@@ -245,7 +265,7 @@ Item {
     // places this avatar is shown -- the notch's own black pill and
     // this card's own black background) means there's no transparency
     // left for the gradient to leak through, at any DiceBear style.
-    var url = "https://api.dicebear.com/9.x/bottts/png?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
+    var url = "https://api.dicebear.com/9.x/" + root.avatarCollection + "/png?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
     var target = Quickshell.env("HOME") + "/.face.icon"
     avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
     avatarProc.running = true

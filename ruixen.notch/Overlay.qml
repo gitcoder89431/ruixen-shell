@@ -66,6 +66,14 @@ Item {
   readonly property color accent: Color.accent
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
 
+  // Bumped by the refreshAvatar IPC call below -- this plugin is
+  // keepLoaded:true, so UserAvatar's Image below would otherwise keep
+  // showing whatever it decoded at mount time even after ~/.face.icon's
+  // bytes change on disk (ruixen.settings' own General page is what
+  // actually writes that file). See UserAvatar's own Image.source for
+  // why this is a "#" fragment, not a "?" query string.
+  property int avatarCacheBust: 0
+
   readonly property var mediaService: shell ? shell.firstPartyServiceFor("ruixen.media") : null
 
   // Same first-party service ruixen.dnd reads -- the bell here just
@@ -321,18 +329,24 @@ Item {
     Rectangle {
       anchors.fill: parent
       radius: width / 2
+      // Theme-aware, not two hardcoded colors -- direct follow-up
+      // ("install you get the fallback or default gradient, maybe
+      // theme aware?"). root.accent is already Color.accent (see its
+      // own declaration above), so this now follows the active
+      // Omarchy theme instead of a fixed indigo/violet pair.
       gradient: Gradient {
-        GradientStop { position: 0.0; color: "#5b6ee8" }
-        GradientStop { position: 1.0; color: "#8a4fd6" }
+        GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
+        GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
       }
     }
 
     Image {
       id: avatarImage
       anchors.fill: parent
-      source: "file://" + Quickshell.env("HOME") + "/.face.icon"
+      source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
+      cache: false
       visible: false
     }
 
@@ -530,6 +544,11 @@ Item {
       function openLauncher(): void { panel.launcherOpen = true }
       function closeLauncher(): void { panel.launcherOpen = false }
       function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }
+      // Called by ruixen.settings' General page after Shuffle/Reset
+      // writes or removes ~/.face.icon -- this plugin is keepLoaded:
+      // true, so nothing else would tell UserAvatar's Image to re-read
+      // the file.
+      function refreshAvatar(): void { root.avatarCacheBust = root.avatarCacheBust + 1 }
     }
 
     // Fire-once, not auto-running -- triggered by the tab bar's bottom

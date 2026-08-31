@@ -72,6 +72,7 @@ Item {
   // JetBrainsMonoNerdFont's own cmap (fa-volume_up, fa-wifi,
   // fa-bluetooth), not guessed.
   readonly property var sections: [
+    { id: "general", label: "General", glyph: "" },
     { id: "audio", label: "Audio", glyph: "" },
     { id: "wifi", label: "Wi-Fi", glyph: "" },
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
@@ -134,6 +135,87 @@ Item {
   function toggle(payloadJson) {
     if (root.opened) root.dismiss()
     else root.open(payloadJson)
+  }
+
+  // General -- bar layout mode (docked/floating) + avatar, per direct
+  // request ("i think we can just do General for now"). Reads/writes
+  // ~/.config/omarchy/shell.json directly rather than shelling out to
+  // this repo's own ruixen-bar-mode.sh -- same mutation that script
+  // does (bar.docked flag + a live reloadConfig, confirmed by reading
+  // it directly), just inlined so this doesn't depend on
+  // root.ruixenRepoPath the way the Plugins page's update/uninstall
+  // genuinely have to (those need a real git checkout; this doesn't).
+  property string barMode: "floating"
+
+  Process {
+    id: barModeReadProc
+    command: ["bash", "-c", "python3 -c \"import json; d=json.load(open('" + Quickshell.env("HOME") + "/.config/omarchy/shell.json')); print('docked' if d.get('bar',{}).get('docked') is True else 'floating')\" 2>/dev/null || echo floating"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.barMode = String(text || "floating").trim() === "docked" ? "docked" : "floating"
+    }
+  }
+
+  Process {
+    id: barModeWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setBarMode(mode) {
+    if (mode !== "docked" && mode !== "floating") return
+    root.barMode = mode
+    var home = Quickshell.env("HOME")
+    var path = home + "/.config/omarchy/shell.json"
+    var value = mode === "docked" ? "True" : "False"
+    barModeWriteProc.command = ["bash", "-c",
+      "python3 -c \"import json; p='" + path + "'; d=json.load(open(p)); d.setdefault('bar', {})['docked'] = " + value + "; json.dump(d, open(p, 'w'), indent=2)\" && omarchy-shell shell reloadConfig"]
+    barModeWriteProc.running = true
+  }
+
+  // Avatar -- ~/.face.icon, same convention/gradient-fallback mechanism
+  // ruixen.notch's own UserAvatar component already uses. Shuffle
+  // fetches a random DiceBear avatar (api.dicebear.com, free, no auth
+  // needed); Reset just deletes the file so the existing gradient
+  // fallback in ruixen.notch's UserAvatar takes back over on its own --
+  // no separate "gradient mode" flag needed, that component already
+  // treats a missing file as the gradient state.
+  property int avatarCacheBust: 0
+  property bool avatarBusy: false
+
+  Process {
+    id: avatarProc
+    stdout: StdioCollector { waitForEnd: true }
+    onExited: {
+      root.avatarBusy = false
+      root.avatarCacheBust = root.avatarCacheBust + 1
+      // Tells ruixen.notch's own UserAvatar to re-read the file too --
+      // it's a separate keepLoaded:true plugin process, so it has no
+      // other way to know ~/.face.icon just changed.
+      avatarNotifyProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.notch", "refreshAvatar"]
+      avatarNotifyProc.running = true
+    }
+  }
+
+  Process {
+    id: avatarNotifyProc
+  }
+
+  function shuffleAvatar() {
+    if (root.avatarBusy) return
+    root.avatarBusy = true
+    var seed = Math.random().toString(36).slice(2) + Date.now()
+    var url = "https://api.dicebear.com/9.x/bottts/png?seed=" + seed
+    var target = Quickshell.env("HOME") + "/.face.icon"
+    avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
+    avatarProc.running = true
+  }
+
+  function resetAvatar() {
+    if (root.avatarBusy) return
+    root.avatarBusy = true
+    var target = Quickshell.env("HOME") + "/.face.icon"
+    avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    avatarProc.running = true
   }
 
   // Real Pipewire-backed audio state -- Quickshell.Services.Pipewire is
@@ -545,6 +627,7 @@ Item {
     if (root.opened) {
       root.refreshPlugins()
       repoPathProc.running = true
+      barModeReadProc.running = true
     }
   }
   onWifiDeviceChanged: root.setScannerEnabled(true)
@@ -1244,7 +1327,7 @@ Item {
                     // single collapsed name would misrepresent the real
                     // state. Bluetooth keeps its plain label, same as
                     // Audio.
-                    text: root.selectedSection === 1
+                    text: root.selectedSection === 2
                       ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
                       : root.sections[root.selectedSection].label
                     font.family: root.fontFamily
@@ -1263,7 +1346,7 @@ Item {
                   // exact same real property/function shape as their own
                   // hasOutput/hasInput/anyAudible/toggleAllMuted.
                   Rectangle {
-                    visible: root.selectedSection === 0
+                    visible: root.selectedSection === 1
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 18
@@ -1300,7 +1383,7 @@ Item {
                   // when a wifi connection is known, empty object
                   // otherwise (the QR panel self-detects then).
                   Text {
-                    visible: root.selectedSection === 1
+                    visible: root.selectedSection === 2
                     Layout.alignment: Qt.AlignVCenter
                     text: ""
                     font.family: root.fontFamily
@@ -1319,7 +1402,7 @@ Item {
                   // omarchy.speedtest panel plugin, same summon() API
                   // and payload shape (connection name) as their own.
                   Text {
-                    visible: root.selectedSection === 1
+                    visible: root.selectedSection === 2
                     Layout.alignment: Qt.AlignVCenter
                     text: ""
                     font.family: root.fontFamily
@@ -1339,7 +1422,7 @@ Item {
                   // doesnt have a toggle"), matching exactly where
                   // Audio's own master toggle sits on its header.
                   Rectangle {
-                    visible: root.selectedSection === 1
+                    visible: root.selectedSection === 2
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 18
@@ -1374,7 +1457,7 @@ Item {
                   // same real omarchy-bluetooth-power CLI their own
                   // toggleBluetooth() uses, not a direct property write.
                   Rectangle {
-                    visible: root.selectedSection === 2
+                    visible: root.selectedSection === 3
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 18
@@ -1408,7 +1491,7 @@ Item {
                   // mechanism, not a stopgap ("its a good fallback to
                   // update anyways").
                   Text {
-                    visible: root.selectedSection === 4
+                    visible: root.selectedSection === 5
                     Layout.alignment: Qt.AlignVCenter
                     // Refresh glyph at rest, same one Omarchy's own
                     // SystemUpdate.qml bar widget uses (confirmed by
@@ -1453,7 +1536,7 @@ Item {
               }
 
 
-              AudioContent {
+              GeneralContent {
                 Layout.fillWidth: true
                 Layout.fillHeight: visible
                 visible: root.selectedSection === 0
@@ -1462,7 +1545,7 @@ Item {
                 settingsRoot: root
               }
 
-              WifiContent {
+              AudioContent {
                 Layout.fillWidth: true
                 Layout.fillHeight: visible
                 visible: root.selectedSection === 1
@@ -1471,7 +1554,7 @@ Item {
                 settingsRoot: root
               }
 
-              BluetoothContent {
+              WifiContent {
                 Layout.fillWidth: true
                 Layout.fillHeight: visible
                 visible: root.selectedSection === 2
@@ -1480,7 +1563,7 @@ Item {
                 settingsRoot: root
               }
 
-              DisplayContent {
+              BluetoothContent {
                 Layout.fillWidth: true
                 Layout.fillHeight: visible
                 visible: root.selectedSection === 3
@@ -1489,10 +1572,19 @@ Item {
                 settingsRoot: root
               }
 
-              PluginsContent {
+              DisplayContent {
                 Layout.fillWidth: true
                 Layout.fillHeight: visible
                 visible: root.selectedSection === 4
+                Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
+                settingsRoot: root
+              }
+
+              PluginsContent {
+                Layout.fillWidth: true
+                Layout.fillHeight: visible
+                visible: root.selectedSection === 5
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root

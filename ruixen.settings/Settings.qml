@@ -90,6 +90,17 @@ Item {
   ]
   property int selectedSection: 0
 
+  // Keyboard focus cursor for the sidebar -- direct request ("we have
+  // esc to dismiss, can we do kbd for tab between search and the left
+  // menu items?"). -1 means the search box is the tab-focused element,
+  // 0..N-1 means that position in root.filteredSections (the CURRENT
+  // visible list, not root.sections -- Tab should only ever land on
+  // rows actually on screen). Purely a visual/logical cursor, not real
+  // Qt focus on each row -- Rectangles aren't natively focusable, and
+  // keeping real Qt focus on the search TextInput (or card, once it's
+  // dropped) throughout is what lets Tab keep bubbling up correctly.
+  property int sidebarFocusIndex: -1
+
   // Sidebar search -- direct request ("a lot of design has that...
   // can we put a search input there and hook it up"). Filters the
   // sidebar list by label only (7 entries total, so matching id/glyph
@@ -149,6 +160,9 @@ Item {
           root.selectedSection = root.sectionIndexFor(payload.section)
       } catch (e) {}
     }
+    // Fresh tab-focus state on every open -- no stale keyboard-focus
+    // ring left over from a previous session with the panel.
+    root.sidebarFocusIndex = -1
     root.opened = true
   }
 
@@ -1357,6 +1371,41 @@ Item {
 
       Keys.onEscapePressed: root.dismiss()
 
+      // Tab cycles the sidebar (search box <-> section rows), Return
+      // activates whichever row is currently tab-focused -- direct
+      // request ("we have esc to dismiss, can we do kbd for tab
+      // between search and the left menu items?"). Card, not the
+      // TextInput, owns this: TextInput doesn't consume Tab/Return
+      // itself (only inserts characters), so the event bubbles up to
+      // whichever ancestor Item still has real Qt focus -- which stays
+      // card (or the TextInput, when it's the one focused) throughout,
+      // confirmed by the same bubbling this file's existing Escape
+      // handler already relies on.
+      //
+      // Backtab covers Shift+Tab on compositors that deliver it as its
+      // own key; the explicit ShiftModifier check covers the ones that
+      // deliver plain Tab with the modifier bit set instead -- handling
+      // only one would miss whichever convention this compositor
+      // doesn't use.
+      Keys.onPressed: event => {
+        if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)) {
+          root.sidebarFocusIndex = root.sidebarFocusIndex >= root.filteredSections.length - 1
+            ? -1 : root.sidebarFocusIndex + 1
+          if (root.sidebarFocusIndex === -1) sidebarSearchInput.forceActiveFocus()
+          else sidebarSearchInput.focus = false
+          event.accepted = true
+        } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
+          root.sidebarFocusIndex = root.sidebarFocusIndex <= -1
+            ? root.filteredSections.length - 1 : root.sidebarFocusIndex - 1
+          if (root.sidebarFocusIndex === -1) sidebarSearchInput.forceActiveFocus()
+          else sidebarSearchInput.focus = false
+          event.accepted = true
+        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.sidebarFocusIndex >= 0 && root.sidebarFocusIndex < root.filteredSections.length) {
+          root.selectedSection = root.filteredSections[root.sidebarFocusIndex].originalIndex
+          event.accepted = true
+        }
+      }
+
       // Swallow clicks so they don't fall through to the backdrop's own
       // dismiss handler. Also drops the search field's own focus --
       // direct follow-up ("can i click away to get rid of the carat
@@ -1368,7 +1417,11 @@ Item {
       // "done searching" signal.
       MouseArea {
         anchors.fill: parent
-        onClicked: sidebarSearchInput.focus = false
+        onClicked: {
+          sidebarSearchInput.focus = false
+          // No stale keyboard-focus ring after a plain mouse click.
+          root.sidebarFocusIndex = -1
+        }
       }
 
       ColumnLayout {
@@ -1475,6 +1528,10 @@ Item {
                 clip: true
                 text: root.sidebarQuery
                 onTextChanged: root.sidebarQuery = text
+                // Clicking straight into the box (not via Tab) should
+                // still land the tab-focus cursor on it, so a Tab press
+                // right after starts from the right place.
+                onActiveFocusChanged: if (activeFocus) root.sidebarFocusIndex = -1
 
                 Text {
                   anchors.verticalCenter: parent.verticalCenter
@@ -1493,12 +1550,23 @@ Item {
               Rectangle {
                 id: sectionRow
                 required property var modelData
+                required property int index
                 readonly property bool selected: root.selectedSection === sectionRow.modelData.originalIndex
+                // Tab-focused, not mouse-selected -- direct request
+                // ("can we do kbd for tab between search and the left
+                // menu items?"). index here is this row's position in
+                // root.filteredSections (the Repeater's own model), the
+                // same list sidebarFocusIndex counts through -- not
+                // modelData.originalIndex, which points into the full
+                // unfiltered root.sections instead.
+                readonly property bool kbdFocused: root.sidebarFocusIndex === sectionRow.index
 
                 Layout.fillWidth: true
                 Layout.preferredHeight: 32
                 radius: 8
                 color: selected ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                border.width: kbdFocused ? 1 : 0
+                border.color: root.accent
 
                 RowLayout {
                   anchors.fill: parent
@@ -1557,6 +1625,9 @@ Item {
                     // MouseArea consumes the click before it can ever
                     // reach that one).
                     sidebarSearchInput.focus = false
+                    // No stale keyboard-focus ring after a plain mouse
+                    // click either.
+                    root.sidebarFocusIndex = -1
                   }
                 }
               }

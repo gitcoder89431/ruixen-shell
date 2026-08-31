@@ -1138,6 +1138,7 @@ Item {
                 muted: root.muted
                 accent: root.accent
                 fontFamily: root.fontFamily
+                avatarCacheBust: root.avatarCacheBust
               }
             }
           }

@@ -42,6 +42,16 @@ Item {
 
   property bool active: false
 
+  // Bumped by Overlay.qml's own refreshAvatar IPC handler -- direct
+  // follow-up ("on the expanded notch, health page, the avatar needs
+  // to be updated there too same way the notch is getting the
+  // updates"). This page's own avatar block was still the pre-fix
+  // version entirely (hardcoded gradient colors, no cache-bust at all
+  // -- its Image source string never changed, so it could never pick
+  // up a new ~/.face.icon without a full restart even though the
+  // collapsed row's own UserAvatar already could).
+  property int avatarCacheBust: 0
+
   // Real $USER, no process needed -- same source ambxst's own
   // username row reads (Quickshell.env("USER")).
   readonly property string username: {
@@ -503,10 +513,15 @@ Item {
         spacing: 14
 
         // Avatar -- same gradient-placeholder + ~/.face.icon +
-        // circular-mask pattern as the collapsed notch's own
+        // rounded-square-mask pattern as the collapsed notch's own
         // UserAvatar (Overlay.qml), just bigger and without that
         // one's click-to-open-dashboard handler (irrelevant here,
-        // already inside the open dashboard).
+        // already inside the open dashboard). Brought up to parity
+        // with UserAvatar's own fixes -- theme-aware gradient, hidden
+        // once a real image loads, cache-bust so a new avatar actually
+        // shows up live, rounded-square (not circular) real-avatar
+        // clip -- see UserAvatar's own comments for the full reasoning
+        // on each.
         Item {
           id: avatar
           Layout.preferredWidth: 64
@@ -515,25 +530,27 @@ Item {
           Rectangle {
             anchors.fill: parent
             radius: width / 2
+            visible: avatarImage.status !== Image.Ready
             gradient: Gradient {
-              GradientStop { position: 0.0; color: "#5b6ee8" }
-              GradientStop { position: 1.0; color: "#8a4fd6" }
+              GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
+              GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
             }
           }
 
           Image {
             id: avatarImage
             anchors.fill: parent
-            source: "file://" + Quickshell.env("HOME") + "/.face.icon"
+            source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
+            cache: false
             visible: false
           }
 
           Rectangle {
             id: avatarMask
             anchors.fill: parent
-            radius: width / 2
+            radius: width * 0.2
             color: "#ffffff"
             visible: false
             layer.enabled: true

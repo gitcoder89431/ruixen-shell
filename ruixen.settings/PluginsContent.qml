@@ -43,19 +43,14 @@ ColumnLayout {
     color: "#e05252"
   }
 
-  // Wraps the Flickable so a scroll indicator can sit
-  // beside it -- direct follow-up, root-caused with real
-  // measurements rather than guessed: the panel is a
-  // fixed 680x440 everywhere (see the "card" Rectangle
-  // this whole app lives in), so the Plugins page's own
-  // viewport ends up genuinely short (confirmed live:
-  // ~162px) against 13 rows + the uninstall card
-  // (confirmed live: 620px of real content, all present
-  // and correctly sized) -- scrolling was always required
-  // to reach the danger zone, it was never actually
-  // missing. The real problem was zero visual hint that
-  // scrolling was even possible, which reads exactly like
-  // "gone" from the outside.
+  // Wraps the Flickable -- the panel is a fixed 680x440 everywhere
+  // (see the "card" Rectangle this whole app lives in), so the Plugins
+  // page's own viewport is genuinely short against a long enough
+  // plugin list, scrolling (wheel/trackpad) is needed to reach the
+  // bottom rows. No visible scroll indicator here on purpose -- direct
+  // follow-up ("that scroll bar is it an os thing... i dont want it
+  // shown, it kinda messes with our design"); see its own removal
+  // comment below the Flickable for the full story.
   Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
@@ -63,7 +58,6 @@ ColumnLayout {
     Flickable {
       id: pluginsFlickable
       anchors.fill: parent
-      anchors.rightMargin: 6
       contentWidth: width
       // Same explicit-dependency defense as the card's own
       // height above -- keeps the scroll range correct too,
@@ -212,30 +206,18 @@ ColumnLayout {
     }
     }
 
-    // Scroll indicator -- a thin bar tracking position/
-    // proportion, sibling of the Flickable so it doesn't
-    // scroll away with the content. Direct follow-up
-    // ("the uninstall is now hidden or gone"): it was
-    // never actually gone (confirmed live: contentHeight
-    // correctly reaches 620px, all of it real, including
-    // the uninstall card), just silently below a ~162px
-    // viewport with zero hint that scrolling would reveal
-    // more -- which reads exactly like "gone" from the
-    // outside. Only shown when there's actually more
-    // than fits.
-    Rectangle {
-      visible: pluginsFlickable.contentHeight > pluginsFlickable.height
-      anchors.right: parent.right
-      y: pluginsFlickable.contentHeight > 0
-        ? pluginsFlickable.contentY / pluginsFlickable.contentHeight * pluginsFlickable.height
-        : 0
-      width: 3
-      radius: 1.5
-      color: Qt.rgba(1, 1, 1, 0.25)
-      height: pluginsFlickable.contentHeight > 0
-        ? Math.max(24, pluginsFlickable.height / pluginsFlickable.contentHeight * pluginsFlickable.height)
-        : 0
-    }
+    // No scroll indicator -- direct follow-up ("that scroll bar is it
+    // an os thing... i dont want it shown, it kinda messes with our
+    // design"). It was never an OS/native scrollbar -- a plain custom
+    // Rectangle we drew ourselves, originally added to fix a real
+    // addressability bug ("the uninstall is now hidden or gone": the
+    // danger zone lived inside this same Flickable back then, well
+    // below the visible viewport with no hint scrolling would reveal
+    // it). The danger zone has since moved to its own About page, so
+    // that specific symptom no longer applies here -- removed per
+    // direct request rather than kept as unused-but-harmless. The
+    // Flickable itself is untouched, scrolling (wheel/trackpad) still
+    // works exactly the same, just with no visible bar.
   }
 
 }

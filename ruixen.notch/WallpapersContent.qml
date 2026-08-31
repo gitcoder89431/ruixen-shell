@@ -621,6 +621,45 @@ Item {
       }
     }
 
+    // Back to top -- direct follow-up ("theres still some room left
+    // under the gif stat, you think we can do a back to top button, i
+    // feel like when im all the way scrolled down, theres no way back
+    // up to the top of the list"). Only shown once there's actually
+    // somewhere to go back to (grid.contentY > 0) -- GridView is
+    // itself a Flickable, so its own contentY is the real scroll
+    // position, no separate tracking needed. Plain contentY
+    // assignment on click, matching this repo's own existing
+    // scroll-to-top convention (ruixen.tray's trayMenuFlick.contentY
+    // = 0), not a new animated-scroll pattern.
+    Rectangle {
+      id: backToTopButton
+      visible: grid.contentY > 0
+      Layout.preferredWidth: 76
+      Layout.alignment: Qt.AlignHCenter
+      Layout.preferredHeight: 36
+      radius: 10
+      color: backToTopArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+      border.width: 1
+      border.color: Qt.rgba(1, 1, 1, 0.12)
+
+      Text {
+        anchors.centerIn: parent
+        text: "↑ TOP"
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        font.weight: Font.DemiBold
+        color: backToTopArea.containsMouse ? root.accent : root.muted
+      }
+
+      MouseArea {
+        id: backToTopArea
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: grid.contentY = 0
+      }
+    }
+
     Item { Layout.fillHeight: true }
   }
   }

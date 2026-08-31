@@ -222,17 +222,33 @@ Item {
   property int avatarCacheBust: 0
   property bool avatarBusy: false
 
-  // Curated to 5 visually distinct DiceBear styles (confirmed real
+  // Curated to visually distinct DiceBear styles (confirmed real
   // slugs by hitting each one directly, not guessed) plus the gradient
   // pseudo-collection, rather than all ~30 DiceBear ships -- a picker
-  // that wide wouldn't fit this card.
+  // that wide wouldn't fit this card. version/format default to
+  // DiceBear's 9.x PNG endpoint (see selectAvatar below) when a
+  // collection doesn't specify its own -- Sprouts is the one entry so
+  // far that does, direct follow-up ("can we try the animated
+  // collections like this one... https://api.dicebear.com/10.x/
+  // sprouts/svg"). "Animated" turned out to mean DiceBear ships an
+  // opt-in CSS/SMIL animation feature for this style on their own
+  // site, not that the raw SVG fetch animates on its own -- confirmed
+  // by reading the actual returned markup (an inert
+  // <g id="animation-none-..."> placeholder, no <animate>/@keyframes
+  // present) -- and Qt's SVG renderer doesn't run CSS/SMIL regardless,
+  // so this renders as a nice static sprout-pot character, not a
+  // moving one. Confirmed live that Qt can load an SVG through this
+  // pipeline at all (~/.face.icon has no extension, was a real
+  // unknown -- Qt does content sniffing, works fine) before adding
+  // this rather than assuming.
   readonly property var avatarCollections: [
     { id: "gradient", label: "Gradient" },
     { id: "bottts", label: "Bottts" },
     { id: "pixel-art", label: "Pixel Art" },
     { id: "adventurer", label: "Adventurer" },
     { id: "identicon", label: "Identicon" },
-    { id: "thumbs", label: "Thumbs" }
+    { id: "thumbs", label: "Thumbs" },
+    { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" }
   ]
   // Starts on "gradient" -- matches the real state a fresh install
   // actually starts in (no ~/.face.icon yet), so the picker's own
@@ -271,6 +287,15 @@ Item {
       avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
     } else {
       var seed = Math.random().toString(36).slice(2) + Date.now()
+      // Per-collection version/format, defaulting to DiceBear's 9.x
+      // PNG endpoint -- see avatarCollections above for why Sprouts is
+      // the one exception (10.x SVG) so far.
+      var entry = null
+      for (var i = 0; i < root.avatarCollections.length; i++) {
+        if (root.avatarCollections[i].id === collection) { entry = root.avatarCollections[i]; break }
+      }
+      var version = (entry && entry.version) || "9.x"
+      var format = (entry && entry.format) || "png"
       // backgroundType=solid&backgroundColor=000000 -- direct follow-up
       // ("i still see the fall back gradient behind it, it needs to be
       // hidden, the shapes of the dicebear isnt round"): DiceBear
@@ -278,12 +303,12 @@ Item {
       // transparent background by default, so the circular mask let
       // the gradient show through in every gap around the character
       // instead of just being hidden behind an opaque image. Baking a
-      // solid black background into the fetched PNG itself (matches
+      // solid black background into the fetched image itself (matches
       // both places this avatar is shown -- the notch's own black
       // pill and this card's own black background) means there's no
       // transparency left for the gradient to leak through, at any
-      // DiceBear style.
-      var url = "https://api.dicebear.com/9.x/" + collection + "/png?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
+      // DiceBear style or format.
+      var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed + "&backgroundType=solid&backgroundColor=000000"
       avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
     }
     avatarProc.running = true

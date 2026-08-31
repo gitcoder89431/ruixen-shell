@@ -16,7 +16,7 @@ import Quickshell.Widgets
 //   - ~/.config/omarchy/backgrounds/<theme-name>/ (Omarchy's existing
 //     per-theme user-additions folder -- already the real extension
 //     point, no custom watcher needed)
-//   - ~/Pictures/USER_wallpaper (this plugin's own persistent folder,
+//   - ~/Pictures/ruixen-wallpapers (this plugin's own persistent folder,
 //     shown after the two above -- never touched by Omarchy's theme
 //     switching, unlike the first two, so whatever's dropped in here
 //     survives every theme change untouched)
@@ -72,7 +72,7 @@ Item {
   // the two groups stay in that order in the output -- a single sort
   // across all three directories would interleave user wallpapers
   // alphabetically among the theme ones instead of keeping them
-  // after. ~/Pictures/USER_wallpaper is plain filesystem state (not
+  // after. ~/Pictures/ruixen-wallpapers is plain filesystem state (not
   // ~/.local/state/ruixen/ like this repo's other persisted settings)
   // on purpose -- Pictures is where a person would actually go drop
   // image files in with a file manager, and it's never touched by
@@ -91,11 +91,11 @@ Item {
     id: listProc
     command: ["bash", "-c",
       "theme=$(cat \"$HOME/.local/state/omarchy/current/theme.name\" 2>/dev/null); " +
-      "mkdir -p \"$HOME/Pictures/USER_wallpaper\"; " +
+      "mkdir -p \"$HOME/Pictures/ruixen-wallpapers\"; " +
       "find -L \"$HOME/.local/state/omarchy/current/theme/backgrounds\" \"$HOME/.config/omarchy/backgrounds/$theme\" " +
       "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" \\) " +
       "2>/dev/null | sort; " +
-      "find -L \"$HOME/Pictures/USER_wallpaper\" " +
+      "find -L \"$HOME/Pictures/ruixen-wallpapers\" " +
       "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" \\) " +
       "2>/dev/null | sort"]
     stdout: StdioCollector {
@@ -175,7 +175,7 @@ Item {
       horizontalAlignment: Text.AlignHCenter
       verticalAlignment: Text.AlignVCenter
       // Dropped "for this theme" -- no longer accurate on its own now
-      // that ~/Pictures/USER_wallpaper is a real second source.
+      // that ~/Pictures/ruixen-wallpapers is a real second source.
       text: root.wallpaperPaths.length === 0 ? "No wallpapers found" : "No wallpapers match “" + root.searchText + "”"
       color: root.muted
       font.family: root.fontFamily

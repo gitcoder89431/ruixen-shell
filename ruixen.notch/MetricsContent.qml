@@ -648,68 +648,113 @@ Item {
         Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; color: root.muted }
       }
 
-      Flickable {
+      // Item wrapper, not the Flickable directly in the layout slot --
+      // direct follow-up ("can we add the top and buttom here as well
+      // for people that have alot of cpus?"). Same scroll-aware fade
+      // design as ruixen.settings' own detail panel (Settings.qml):
+      // opacity bound directly to real scroll overflow (0 at rest,
+      // ramps in over a short 16px drag distance), not a static
+      // always-on overlay -- a machine with few cores (nothing to
+      // scroll) never shows a fade it has no business showing. The
+      // Flickable's own bounds don't move during scrolling (only its
+      // contentY does), so anchoring the fades to this wrapper Item's
+      // edges is safe and needs no extra margin/gap handling the way
+      // Settings.qml's shared-scroll header did.
+      Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        contentWidth: width
-        contentHeight: coreColumn.implicitHeight
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
 
-        Column {
-          id: coreColumn
-          width: parent.width
-          spacing: 8
+        Flickable {
+          id: cpuFlickable
+          anchors.fill: parent
+          contentWidth: width
+          contentHeight: coreColumn.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
 
-          Repeater {
-            model: root.coreUsages
+          Column {
+            id: coreColumn
+            width: parent.width
+            spacing: 8
 
-            // One row per core now, not two -- per direct feedback
-            // ("people dont really need individual cores, it all gets
-            // hot at similar rate") the details row (name + per-core
-            // temp) was dropped entirely. The icon column that used to
-            // hold just the CPU glyph now shows the glyph plus the
-            // core's own 1-indexed number ("CPU icon 1 for Core 1")
-            // instead of a separate "Core 0" text label.
-            RowLayout {
-              id: coreItem
-              required property int index
-              required property real modelData
-              width: coreColumn.width
-              spacing: 8
+            Repeater {
+              model: root.coreUsages
 
-              Text {
-                text: " " + (coreItem.index + 1)
-                font.family: root.fontFamily
-                font.pixelSize: 11
-                color: root.textColor
-                Layout.preferredWidth: 26
-              }
+              // One row per core now, not two -- per direct feedback
+              // ("people dont really need individual cores, it all gets
+              // hot at similar rate") the details row (name + per-core
+              // temp) was dropped entirely. The icon column that used to
+              // hold just the CPU glyph now shows the glyph plus the
+              // core's own 1-indexed number ("CPU icon 1 for Core 1")
+              // instead of a separate "Core 0" text label.
+              RowLayout {
+                id: coreItem
+                required property int index
+                required property real modelData
+                width: coreColumn.width
+                spacing: 8
 
-              Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 14
-                radius: 4
-                color: Qt.rgba(1, 1, 1, 0.08)
+                Text {
+                  text: " " + (coreItem.index + 1)
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  color: root.textColor
+                  Layout.preferredWidth: 26
+                }
 
                 Rectangle {
-                  width: parent.width * Math.max(0, Math.min(1, coreItem.modelData))
-                  height: parent.height
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 14
                   radius: 4
-                  color: root.accent
-                  Behavior on width { NumberAnimation { duration: 200 } }
+                  color: Qt.rgba(1, 1, 1, 0.08)
+
+                  Rectangle {
+                    width: parent.width * Math.max(0, Math.min(1, coreItem.modelData))
+                    height: parent.height
+                    radius: 4
+                    color: root.accent
+                    Behavior on width { NumberAnimation { duration: 200 } }
+                  }
+                }
+
+                Text {
+                  text: Math.round(coreItem.modelData * 100) + "%"
+                  font.family: root.fontFamily
+                  font.pixelSize: 11
+                  color: root.muted
+                  Layout.preferredWidth: 32
+                  horizontalAlignment: Text.AlignRight
                 }
               }
-
-              Text {
-                text: Math.round(coreItem.modelData * 100) + "%"
-                font.family: root.fontFamily
-                font.pixelSize: 11
-                color: root.muted
-                Layout.preferredWidth: 32
-                horizontalAlignment: Text.AlignRight
-              }
             }
+          }
+        }
+
+        Rectangle {
+          readonly property real fadeRun: 16
+          readonly property real overflowAbove: cpuFlickable.contentY
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          height: 20
+          opacity: Math.max(0, Math.min(1, overflowAbove / fadeRun))
+          gradient: Gradient {
+            GradientStop { position: 0.0; color: "#000000" }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+          }
+        }
+
+        Rectangle {
+          readonly property real fadeRun: 16
+          readonly property real overflowBelow: cpuFlickable.contentHeight - cpuFlickable.height - cpuFlickable.contentY
+          anchors.bottom: parent.bottom
+          anchors.left: parent.left
+          anchors.right: parent.right
+          height: 20
+          opacity: Math.max(0, Math.min(1, overflowBelow / fadeRun))
+          gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+            GradientStop { position: 1.0; color: "#000000" }
           }
         }
       }

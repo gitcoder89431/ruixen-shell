@@ -6,12 +6,20 @@ import Quickshell.Widgets
 // Real wallpaper picker for the notch dashboard's own "Wallpapers" tab,
 // replacing the "coming soon" stub. Reads from the exact same two
 // directories Omarchy's own omarchy-theme-bg-switcher does (confirmed
-// by reading that script directly, not guessed):
+// by reading that script directly, not guessed), plus one of this
+// plugin's own -- direct request ("each theme has unique wallpapers,
+// we can keep this and show them first... but can we also show from
+// the folder like in /Pictures/... this folder survives theme
+// changes"):
 //   - ~/.local/state/omarchy/current/theme/backgrounds (the active
 //     theme's own shipped wallpapers)
 //   - ~/.config/omarchy/backgrounds/<theme-name>/ (Omarchy's existing
 //     per-theme user-additions folder -- already the real extension
 //     point, no custom watcher needed)
+//   - ~/Pictures/USER_wallpaper (this plugin's own persistent folder,
+//     shown after the two above -- never touched by Omarchy's theme
+//     switching, unlike the first two, so whatever's dropped in here
+//     survives every theme change untouched)
 // Clicking a tile calls the same real omarchy-theme-bg-set the stock
 // picker uses, so it stays byte-for-byte consistent with Super+Ctrl+
 // Space's own picker (same symlink write, same live shell notify) --
@@ -53,17 +61,41 @@ Item {
 
   onActiveChanged: if (active) refresh()
 
-  // Same directories/extensions omarchy-theme-bg-switcher passes to the
-  // stock image-picker overlay -- verified by reading that script
-  // directly. Skips its thumbnail-cache indirection (list.sh) since a
-  // handful of wallpaper-sized images downscaled via Image.sourceSize
-  // is cheap enough on its own, same cost class as the blurred-art
-  // backgrounds already loaded elsewhere in this plugin.
+  // Theme wallpapers (the exact same two directories/extensions
+  // omarchy-theme-bg-switcher passes to the stock image-picker
+  // overlay -- verified by reading that script directly) THEN the
+  // user's own persistent folder, appended after -- direct request
+  // ("we can create /USER_wallpapper and then show the images from
+  // that folder after the theme, and then this folder survives theme
+  // changes"). Two separate `find | sort` calls run back to back in
+  // one script rather than one combined find+sort, specifically so
+  // the two groups stay in that order in the output -- a single sort
+  // across all three directories would interleave user wallpapers
+  // alphabetically among the theme ones instead of keeping them
+  // after. ~/Pictures/USER_wallpaper is plain filesystem state (not
+  // ~/.local/state/ruixen/ like this repo's other persisted settings)
+  // on purpose -- Pictures is where a person would actually go drop
+  // image files in with a file manager, and it's never touched by
+  // Omarchy's own theme switching (unlike the two directories above,
+  // which are theme-scoped and change contents whenever the active
+  // theme does), so it survives every theme change untouched. Created
+  // with mkdir -p on every refresh so it's there and ready even
+  // before the user has dropped anything into it.
+  //
+  // Skips the stock picker's thumbnail-cache indirection (list.sh)
+  // since a handful of wallpaper-sized images downscaled via
+  // Image.sourceSize is cheap enough on its own, same cost class as
+  // the blurred-art backgrounds already loaded elsewhere in this
+  // plugin.
   Process {
     id: listProc
     command: ["bash", "-c",
       "theme=$(cat \"$HOME/.local/state/omarchy/current/theme.name\" 2>/dev/null); " +
+      "mkdir -p \"$HOME/Pictures/USER_wallpaper\"; " +
       "find -L \"$HOME/.local/state/omarchy/current/theme/backgrounds\" \"$HOME/.config/omarchy/backgrounds/$theme\" " +
+      "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" \\) " +
+      "2>/dev/null | sort; " +
+      "find -L \"$HOME/Pictures/USER_wallpaper\" " +
       "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" \\) " +
       "2>/dev/null | sort"]
     stdout: StdioCollector {
@@ -142,7 +174,9 @@ Item {
       visible: root.filteredPaths.length === 0
       horizontalAlignment: Text.AlignHCenter
       verticalAlignment: Text.AlignVCenter
-      text: root.wallpaperPaths.length === 0 ? "No wallpapers found for this theme" : "No wallpapers match “" + root.searchText + "”"
+      // Dropped "for this theme" -- no longer accurate on its own now
+      // that ~/Pictures/USER_wallpaper is a real second source.
+      text: root.wallpaperPaths.length === 0 ? "No wallpapers found" : "No wallpapers match “" + root.searchText + "”"
       color: root.muted
       font.family: root.fontFamily
       font.pixelSize: 12

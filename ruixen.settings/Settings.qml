@@ -1410,15 +1410,19 @@ Item {
                   Text {
                     visible: root.selectedSection === 4
                     Layout.alignment: Qt.AlignVCenter
-                    // Download glyph at rest, not the sync/refresh glyph --
-                    // direct follow-up ("kinda looks more like a refresh
-                    // button"): refresh reads as "reload the list", update
-                    // reads as "fetch and install a new version", and
-                    // this repo has no separate icon for that distinction
-                    // yet. Swaps to the spin glyph while actually running,
-                    // same as before -- that one still reads correctly as
-                    // "in progress" regardless of the idle icon.
-                    text: root.pluginUpdateStatus === "updating" ? "" : ""
+                    // Refresh glyph at rest, same one Omarchy's own
+                    // SystemUpdate.qml bar widget uses (confirmed by
+                    // reading it directly) -- tried swapping to a download
+                    // glyph first per direct follow-up, but reverted:
+                    // "the previous update icon was atleast better, i
+                    // think thats what omarchy uses too". Also more
+                    // accurate than a download icon would be: this button
+                    // has no real "is a new version actually available"
+                    // check, it unconditionally runs update.sh (git pull +
+                    // reinstall) on click -- "re-sync now" is what refresh
+                    // signals, "you have N updates" is what download would
+                    // wrongly imply.
+                    text: root.pluginUpdateStatus === "updating" ? "" : ""
                     font.family: root.fontFamily
                     font.pixelSize: 14
                     color: root.ruixenRepoPath === "" ? Qt.rgba(1, 1, 1, 0.25) : root.muted

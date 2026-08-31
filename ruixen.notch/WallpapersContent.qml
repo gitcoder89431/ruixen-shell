@@ -72,15 +72,29 @@ Item {
   property string currentBackground: ""
   property string searchText: ""
 
+  // "all", "image", "video", or "gif" -- direct request ("on the
+  // right side of the panel, theres some space left like a right
+  // panel, can we use these to toggle between IMAGE and VIDEO and
+  // then GIF too"). Combines with searchText below rather than
+  // replacing it -- a kind filter plus a live text search is more
+  // useful than having to choose one or the other.
+  property string kindFilter: "all"
+
+  readonly property int imageCount: wallpaperPaths.filter(function(e) { return e.kind === "image" }).length
+  readonly property int videoCount: wallpaperPaths.filter(function(e) { return e.kind === "video" }).length
+  readonly property int gifCount: wallpaperPaths.filter(function(e) { return e.kind === "gif" }).length
+
   // Filename substring match against the REAL path (the video's own
   // filename, not its poster's hashed cache name) -- same logic as
   // ambxst's own WallpapersTab filteredWallpapers (ported the rule,
   // not the file -- their version is bound up with per-screen/OLED/
-  // tint/scheme state this notch doesn't have).
+  // tint/scheme state this notch doesn't have). kindFilter narrows
+  // first, search narrows further -- either or both can be active.
   readonly property var filteredPaths: {
-    if (searchText.length === 0) return wallpaperPaths
+    var result = kindFilter === "all" ? wallpaperPaths : wallpaperPaths.filter(function(e) { return e.kind === kindFilter })
+    if (searchText.length === 0) return result
     var needle = searchText.toLowerCase()
-    return wallpaperPaths.filter(function(entry) {
+    return result.filter(function(entry) {
       var fileName = entry.real.substring(entry.real.lastIndexOf("/") + 1).toLowerCase()
       return fileName.indexOf(needle) !== -1
     })
@@ -223,8 +237,21 @@ Item {
     }
   }
 
-  ColumnLayout {
+  // Outer RowLayout, not the plain ColumnLayout this used to be
+  // directly -- direct request ("on the right side of the panel,
+  // theres some space left like a right panel, can we use these to
+  // toggle between IMAGE and VIDEO and then GIF too"). The grid's own
+  // 170px cells never evenly divide this panel's real content width
+  // (790px -> 4 full columns, 680px used, ~110px dead on the right no
+  // matter how many wallpapers exist) -- that's the "space left" this
+  // adds a real sidebar into instead of leaving it empty.
+  RowLayout {
     anchors.fill: parent
+    spacing: 10
+
+  ColumnLayout {
+    Layout.fillWidth: true
+    Layout.fillHeight: true
     spacing: 10
 
     // Search row -- plain TextInput + placeholder overlay, matching
@@ -439,5 +466,71 @@ Item {
         }
       }
     }
+  }
+
+  // Right sidebar -- fills the leftover ~110px next to the grid's own
+  // 4 columns. IMAGE/VIDEO/GIF, each a real toggle (click again to
+  // clear back to "all", not a fixed always-one-active segmented
+  // group -- there's a genuine "show everything" state here that a
+  // plain radio-button set doesn't have). Centered number-then-label
+  // per direct request ("we can do like center kinda design so number
+  // of images and then label IMAGE etc").
+  ColumnLayout {
+    Layout.preferredWidth: 92
+    Layout.fillHeight: true
+    Layout.alignment: Qt.AlignTop
+    spacing: 8
+
+    Repeater {
+      model: [
+        { kind: "image", label: "IMAGE", count: root.imageCount },
+        { kind: "video", label: "VIDEO", count: root.videoCount },
+        { kind: "gif", label: "GIF", count: root.gifCount }
+      ]
+
+      Rectangle {
+        id: filterChip
+        required property var modelData
+        readonly property bool selected: root.kindFilter === modelData.kind
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 64
+        radius: 10
+        color: filterChip.selected ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+        border.width: 1
+        border.color: filterChip.selected ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+        ColumnLayout {
+          anchors.centerIn: parent
+          spacing: 2
+
+          Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: filterChip.modelData.count
+            font.family: root.fontFamily
+            font.pixelSize: 18
+            font.weight: Font.DemiBold
+            color: filterChip.selected ? root.accent : root.textColor
+          }
+
+          Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: filterChip.modelData.label
+            font.family: root.fontFamily
+            font.pixelSize: 9
+            color: root.muted
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.kindFilter = filterChip.selected ? "all" : filterChip.modelData.kind
+        }
+      }
+    }
+
+    Item { Layout.fillHeight: true }
+  }
   }
 }

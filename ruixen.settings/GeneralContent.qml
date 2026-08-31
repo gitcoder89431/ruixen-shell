@@ -37,7 +37,7 @@ ColumnLayout {
       spacing: 12
 
       Text {
-        text: settingsRoot.username
+        text: "Avatar"
         font.family: settingsRoot.fontFamily
         font.pixelSize: 11
         font.weight: Font.DemiBold
@@ -103,11 +103,12 @@ ColumnLayout {
 
           Text {
             Layout.fillWidth: true
-            text: "Shown on the notch's collapsed row. Shuffle picks a random generated avatar; Reset goes back to the plain gradient."
-            wrapMode: Text.WordWrap
+            text: settingsRoot.username
+            elide: Text.ElideRight
             font.family: settingsRoot.fontFamily
-            font.pixelSize: 10
-            color: settingsRoot.muted
+            font.pixelSize: 14
+            font.weight: Font.DemiBold
+            color: settingsRoot.textColor
           }
 
           RowLayout {

@@ -1405,11 +1405,37 @@ Item {
               radius: 8
               color: Qt.rgba(1, 1, 1, 0.06)
 
+              // Icon is its own fixed Text now, not glued onto the
+              // placeholder string -- direct follow-up ("can i not
+              // type over the maganify glass, so like the maga is
+              // there and then you type where Search Settings is").
+              // Previously the whole "  Search Settings" placeholder
+              // (icon included) lived inside the TextInput and vanished
+              // together the moment any text was typed, and typed text
+              // itself started at the same left inset the icon sat at
+              // -- so real input would render right under/over the
+              // icon's own position. Splitting them means the icon
+              // stays put regardless of typing state, and both the
+              // TextInput and its own (icon-free) placeholder start
+              // after the icon's own width instead of underneath it.
+              Text {
+                id: sidebarSearchIcon
+                anchors.left: parent.left
+                anchors.leftMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                text: ""
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 11
+              }
+
               TextInput {
                 id: sidebarSearchInput
-                anchors.fill: parent
-                anchors.leftMargin: 8
+                anchors.left: sidebarSearchIcon.right
+                anchors.leftMargin: 6
+                anchors.right: parent.right
                 anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
                 verticalAlignment: TextInput.AlignVCenter
                 color: root.textColor
                 font.family: root.fontFamily
@@ -1420,13 +1446,7 @@ Item {
 
                 Text {
                   anchors.verticalCenter: parent.verticalCenter
-                  // fa-search (U+F002), same Nerd Font glyph family
-                  // (fa-*) as every other sidebar icon in root.sections
-                  // -- confirmed present in JetBrainsMonoNerdFont's own
-                  // cmap directly, not guessed. Direct follow-up ("in
-                  // the search input the placeholder text should say
-                  // Maginify glass icon Search Settings").
-                  text: "  Search Settings"
+                  text: "Search Settings"
                   color: root.muted
                   font.family: root.fontFamily
                   font.pixelSize: 11

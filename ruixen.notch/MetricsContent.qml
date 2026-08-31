@@ -570,15 +570,33 @@ Item {
           Layout.fillWidth: true
           spacing: 4
 
+          // Fixed-width slot around each row's icon, not the glyph
+          // sized to its own natural width -- direct follow-up ("can
+          // you make the text line up better, kinda like the setting
+          // menu left side, the icons re making the text start at
+          // diffirent alignemnt"). Same fix as ruixen.settings' own
+          // sidebar (Settings.qml): fa-user, "@", and the Arch logo
+          // don't share a common advance width, so each label
+          // previously sat wherever its own icon's width happened to
+          // end. An 18px Item with the icon centered inside it gives
+          // all three rows the same icon-to-label gap.
           RowLayout {
             Layout.fillWidth: true
             spacing: 6
-            Text {
-              text: ""
-              font.family: root.fontFamily
-              font.pixelSize: 14
-              color: root.accent
+
+            Item {
+              Layout.preferredWidth: 18
+              Layout.preferredHeight: 18
+
+              Text {
+                anchors.centerIn: parent
+                text: ""
+                font.family: root.fontFamily
+                font.pixelSize: 14
+                color: root.accent
+              }
             }
+
             Text {
               Layout.fillWidth: true
               text: root.username
@@ -592,12 +610,20 @@ Item {
           RowLayout {
             Layout.fillWidth: true
             spacing: 6
-            Text {
-              text: "@"
-              font.family: root.fontFamily
-              font.pixelSize: 14
-              color: root.accent
+
+            Item {
+              Layout.preferredWidth: 18
+              Layout.preferredHeight: 18
+
+              Text {
+                anchors.centerIn: parent
+                text: "@"
+                font.family: root.fontFamily
+                font.pixelSize: 14
+                color: root.accent
+              }
             }
+
             Text {
               Layout.fillWidth: true
               text: root.hardwareName || "Hardware"
@@ -611,27 +637,35 @@ Item {
           RowLayout {
             Layout.fillWidth: true
             spacing: 6
-            Text {
-              // Arch Linux logo (linux-archlinux, U+F303), not the
-              // generic fa-linux penguin it used to be -- direct
-              // follow-up ("switch the penguin on the health bar to
-              // the arch linux icon, i think the penguin is ubuntu
-              // right? so arch kinda makes more sense here? or
-              // actually, can you use the omarchy icon"). Checked for
-              // a real compact Omarchy icon asset first (not
-              // guessed): /usr/share/omarchy/logo.svg and the sddm/
-              // plymouth logo.png are both wide ~4:1 wordmark
-              // logotypes (1215x285 / 800x188), not a square mark that
-              // fits a small inline row icon -- so Arch (what Omarchy
-              // actually is, per this row's own real Omarchy-version
-              // text next to it) is the practical choice here, same
-              // glyph already used for the app launcher's own icon
-              // (ruixen.applauncher/AppLauncher.qml).
-              text: ""
-              font.family: root.fontFamily
-              font.pixelSize: 14
-              color: root.accent
+
+            Item {
+              Layout.preferredWidth: 18
+              Layout.preferredHeight: 18
+
+              Text {
+                // Arch Linux logo (linux-archlinux, U+F303), not the
+                // generic fa-linux penguin it used to be -- direct
+                // follow-up ("switch the penguin on the health bar to
+                // the arch linux icon, i think the penguin is ubuntu
+                // right? so arch kinda makes more sense here? or
+                // actually, can you use the omarchy icon"). Checked for
+                // a real compact Omarchy icon asset first (not
+                // guessed): /usr/share/omarchy/logo.svg and the sddm/
+                // plymouth logo.png are both wide ~4:1 wordmark
+                // logotypes (1215x285 / 800x188), not a square mark that
+                // fits a small inline row icon -- so Arch (what Omarchy
+                // actually is, per this row's own real Omarchy-version
+                // text next to it) is the practical choice here, same
+                // glyph already used for the app launcher's own icon
+                // (ruixen.applauncher/AppLauncher.qml).
+                anchors.centerIn: parent
+                text: ""
+                font.family: root.fontFamily
+                font.pixelSize: 14
+                color: root.accent
+              }
             }
+
             Text {
               Layout.fillWidth: true
               text: root.omarchyVersion ? ("Omarchy " + root.omarchyVersion) : "Omarchy"

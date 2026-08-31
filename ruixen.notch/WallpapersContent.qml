@@ -26,18 +26,22 @@ import Quickshell.Widgets
 // notify) -- this is a second front door onto the same state, not a
 // parallel one.
 //
-// Video tiles (mp4/mkv/webm/mov/m4v) -- direct request ("can we remake
-// one in our shell like ruixen-wallpaper plugin that works with our
-// notch... it just needs to show up in the notch wallpaper picker").
-// Video support itself lives entirely in the separate ruixen.wallpaper
-// service plugin (see its own Service.qml for the real mechanism, a
-// from-scratch port of yesheytenzin/live-wallpaper's own design, used
-// only as a reference); this file's own job is just discovering video
-// files alongside images, generating/caching a poster frame for each
-// (Image can't decode video, so the tile itself always shows a real
-// image regardless of source type), and routing a click to the right
-// place -- ruixen.wallpaper's own playVideo IPC for video, the normal
-// omarchy-theme-bg-set flow for everything else.
+// Video and GIF tiles -- direct request ("can we remake one in our
+// shell like ruixen-wallpaper plugin that works with our notch... it
+// just needs to show up in the notch wallpaper picker"), GIF added as
+// the planned fast-follow ("yea lets do the gif next"). Video/GIF
+// playback itself lives entirely in the separate ruixen.wallpaper
+// service plugin (see its own Service.qml for the real mechanism --
+// video is a from-scratch port of yesheytenzin/live-wallpaper's own
+// design, used only as a reference; GIF has no reference, it's just
+// QML's own native AnimatedImage); this file's own job is discovering
+// video/gif files alongside plain images, generating/caching a poster
+// frame for video specifically (Image can't decode video, so the tile
+// itself always shows a real image regardless of source kind -- a gif
+// needs no such extraction, Image already renders its own first frame
+// directly), and routing a click to the right place -- ruixen.
+// wallpaper's own playVideo/playGif IPC for those two kinds, the
+// normal omarchy-theme-bg-set flow for everything else.
 Item {
   id: root
 
@@ -51,16 +55,19 @@ Item {
   // other tab is showing.
   property bool active: false
 
-  // Each entry: { display, real, isVideo }. display is always a real
-  // *image* path (the file itself for a plain wallpaper, a generated
-  // poster frame for a video) -- the tile's own Image element never
-  // needs to know or care which kind it's looking at, it just always
-  // renders display. real is what actually gets played -- passed to
-  // omarchy-theme-bg-set for images, or ruixen.wallpaper's playVideo
-  // for video. isVideo is derived, not tracked separately: display
-  // and real are only ever different for a video entry (an image's
-  // own display IS its real path), so `display !== real` already
-  // means "this is a video" with no separate flag to keep in sync.
+  // Each entry: { kind, display, real }. kind is "image", "gif", or
+  // "video" -- an explicit tag now, not derived from display/real
+  // differing the way it briefly was for video-only support: a gif
+  // entry has display === real (same as a plain image, no poster
+  // needed) but still needs routing to playGif, not the plain
+  // omarchy-theme-bg-set flow, so equality alone can't distinguish
+  // them anymore. display is always a real *image* path (the file
+  // itself for a plain wallpaper or gif, a generated poster frame for
+  // video) -- the tile's own Image element never needs to know or
+  // care which kind it's looking at, it just always renders display.
+  // real is what actually gets played -- passed to omarchy-theme-bg-
+  // set for images, or ruixen.wallpaper's playVideo/playGif for those
+  // two kinds.
   property var wallpaperPaths: []
   property string currentBackground: ""
   property string searchText: ""
@@ -108,13 +115,16 @@ Item {
   // before the user has dropped anything into it.
   //
   // The `process` shell function classifies each found file: a plain
-  // image prints `path|path` (display and real are the same thing);
-  // a video ensures its poster exists (same md5-of-real-path cache
-  // naming ruixen.wallpaper's own Service.qml uses for its own poster
-  // lookups, so both sides agree on the same cache file with neither
-  // one telling the other its path) then prints `poster|path` -- a
-  // video with no decodable first frame (corrupt file, unsupported
-  // codec) is silently skipped rather than showing a broken tile.
+  // image prints `image|path|path` (display and real are the same
+  // thing); a gif prints `gif|path|path` too (no poster needed --
+  // Image already renders a gif's own first frame directly, same as
+  // any other static image); a video ensures its poster exists (same
+  // md5-of-real-path cache naming ruixen.wallpaper's own Service.qml
+  // uses for its own poster lookups, so both sides agree on the same
+  // cache file with neither one telling the other its path) then
+  // prints `video|poster|path` -- a video with no decodable first
+  // frame (corrupt file, unsupported codec) is silently skipped
+  // rather than showing a broken tile.
   //
   // Skips the stock picker's thumbnail-cache indirection (list.sh)
   // since a handful of wallpaper-sized images downscaled via
@@ -122,7 +132,8 @@ Item {
   // the blurred-art backgrounds already loaded elsewhere in this
   // plugin. Poster generation is the one real added cost, but it's
   // cached after the first run (ffmpeg only runs for a file with no
-  // cached poster yet), so only ever paid once per video.
+  // cached poster yet), so only ever paid once per video -- and only
+  // video pays it at all, gif never does.
   Process {
     id: listProc
     command: ["bash", "-c",
@@ -134,8 +145,9 @@ Item {
       "hash=$(printf '%s' \"$f\" | md5sum | cut -d' ' -f1); " +
       "poster=\"$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg\"; " +
       "[[ -f \"$poster\" ]] || ffmpeg -y -loglevel quiet -i \"$f\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; " +
-      "[[ -f \"$poster\" ]] && printf '%s|%s\\n' \"$poster\" \"$f\" ;; " +
-      "*) printf '%s|%s\\n' \"$f\" \"$f\" ;; " +
+      "[[ -f \"$poster\" ]] && printf 'video|%s|%s\\n' \"$poster\" \"$f\" ;; " +
+      "*.gif) printf 'gif|%s|%s\\n' \"$f\" \"$f\" ;; " +
+      "*) printf 'image|%s|%s\\n' \"$f\" \"$f\" ;; " +
       "esac; done; }; " +
       "find -L \"$HOME/.local/state/omarchy/current/theme/backgrounds\" \"$HOME/.config/omarchy/backgrounds/$theme\" " +
       "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" " +
@@ -150,10 +162,8 @@ Item {
       onStreamFinished: {
         var lines = String(text || "").split("\n").filter(function(line) { return line.length > 0 })
         root.wallpaperPaths = lines.map(function(line) {
-          var idx = line.indexOf("|")
-          var display = idx >= 0 ? line.substring(0, idx) : line
-          var real = idx >= 0 ? line.substring(idx + 1) : line
-          return { display: display, real: real, isVideo: display !== real }
+          var parts = line.split("|")
+          return { kind: parts[0], display: parts[1], real: parts[2] }
         })
       }
     }
@@ -176,13 +186,13 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
   }
 
-  // Stops any playing video the instant a plain image is picked here
-  // -- ruixen.wallpaper's own 1s poll would eventually catch this too
-  // (comparing current/background against its last-set poster), but
-  // that poll is really a safety net for the STOCK Omarchy picker,
-  // which has no way to know this plugin exists at all. Our own
-  // picker can just say so directly and immediately. Harmless no-op
-  // if nothing was playing.
+  // Stops any playing video/gif the instant a plain image is picked
+  // here -- ruixen.wallpaper's own 1s poll would eventually catch
+  // this too (comparing current/background against its last-set
+  // posterPath), but that poll is really a safety net for the STOCK
+  // Omarchy picker, which has no way to know this plugin exists at
+  // all. Our own picker can just say so directly and immediately.
+  // Harmless no-op if nothing was playing.
   Process {
     id: stopVideoProc
     command: ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "stop"]
@@ -193,11 +203,19 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
   }
 
+  Process {
+    id: playGifProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
   function select(entry) {
     root.currentBackground = entry.display
-    if (entry.isVideo) {
+    if (entry.kind === "video") {
       playVideoProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playVideo", entry.real]
       playVideoProc.running = true
+    } else if (entry.kind === "gif") {
+      playGifProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playGif", entry.real]
+      playGifProc.running = true
     } else {
       if (!stopVideoProc.running) stopVideoProc.running = true
       setProc.command = ["omarchy-theme-bg-set", entry.real]
@@ -310,17 +328,17 @@ Item {
       // there's no lingering fade after the pointer leaves either.
       delegate: Item {
         id: tile
-        // { display, real, isVideo } now, not a bare path string --
-        // see root.wallpaperPaths' own comment for why.
+        // { kind, display, real } now, not a bare path string -- see
+        // root.wallpaperPaths' own comment for why.
         required property var modelData
         readonly property bool hovered: tileMouse.containsMouse
         // Compares against display, not real -- for a video entry,
         // ruixen.wallpaper's own Service.qml sets current/background
         // to the POSTER (display), not the original video file, so
         // display is what root.currentBackground will actually equal
-        // while that video is the active wallpaper. For a plain image
-        // display and real are the same path anyway, so this is
-        // correct for both without needing a branch.
+        // while that video is the active wallpaper. For an image or a
+        // gif, display and real are the same path anyway, so this is
+        // correct for all three kinds without needing a branch.
         //
         // Only read for the label's own text/color below -- the
         // frame itself (ring/band) stays hover-only regardless,

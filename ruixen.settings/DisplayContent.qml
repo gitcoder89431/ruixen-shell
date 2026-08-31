@@ -121,6 +121,11 @@ ColumnLayout {
             anchors.bottomMargin: -8
             onPressed: mouse => settingsRoot.setBrightness(100 * mouse.x / width)
             onPositionChanged: mouse => { if (pressed) settingsRoot.setBrightness(100 * mouse.x / width) }
+            // Scroll to adjust -- direct request ("add middle
+            // scroll to the display progress bar as well"), same
+            // 5%-per-notch step and clamp as Audio's own Output/
+            // Input sliders (AudioContent.qml).
+            onWheel: wheel => settingsRoot.setBrightness(Math.max(0, Math.min(100, settingsRoot.brightnessPercent + (wheel.angleDelta.y > 0 ? 5 : -5))))
           }
         }
 

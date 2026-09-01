@@ -27,6 +27,34 @@
 #     has one -- only Ruixen's own default applies when the key is
 #     missing.
 #   - any other top-level key: passed through verbatim.
+#
+# ruixen.workspaces appears in "left" only, not also in "center" the way
+# an earlier version of this canonical layout had it -- direct review
+# finding ("Resolve ruixen.workspaces allowMultiple mismatch with the
+# default bar layout"). No comments inside the BARJSON heredoc below:
+# it's parsed as strict JSON via jq --argjson, which does not accept
+# // comments -- an earlier attempt at documenting this inline broke
+# every install/update test until it was moved up here.
+#
+# Traced the actual mechanism in ruixen.bar/Bar.qml rather than assuming:
+# it's NOT a registry dedup keyed by plugin id (Loader.sourceComponent
+# happily creates one independent instance per Loader from a shared
+# Component -- confirmed via a temporary debug IpcHandler exposing
+# debugBarGeometry() on this real live machine, restarted, queried over
+# IPC, then removed). The real reason the old "center" duplicate never
+# rendered a second widget is simpler: the horizontal bar's center pill
+# (clockPill) only ever reads two hardcoded ids out of "center" --
+# "ruixen.weather" and "omarchy.clock" -- so a "ruixen.workspaces" entry
+# placed in "center" was just never read by anything in horizontal mode,
+# not deduplicated.
+#
+# That's NOT true for the vertical bar layout, though --
+# CenterModules/LeftModules (used when root.vertical) render an
+# UNFILTERED ModuleList over the raw region array, so the old duplicate
+# WOULD have created two real rendered instances there. So this was a
+# real latent bug for anyone running the bar docked to a side, not just
+# a harmless contradiction -- removing it is a correctness fix, not just
+# a cleanup.
 set -Eeuo pipefail
 
 ruixen_bar_json=$(cat <<'BARJSON'
@@ -41,7 +69,6 @@ ruixen_bar_json=$(cat <<'BARJSON'
             { "id": "ruixen.workspaces" }
         ],
         "center": [
-            { "id": "ruixen.workspaces" },
             { "id": "omarchy.menu" },
             { "id": "ruixen.media" },
             { "id": "ruixen.weather" },

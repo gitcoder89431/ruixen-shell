@@ -6,13 +6,20 @@ import qs.Commons
 // to Super+Space via the stock omarchy-menu CLI (can't be touched, see
 // ruixen-notch's README for why cloning it breaks that keybind). This is
 // its own icon that opens ruixen.notch's own launcher mode instead, via
-// Quickshell's native IPC (qs ipc call), not the omarchy-menu CLI.
+// omarchy-shell's IPC front door, not the omarchy-menu CLI.
 BarWidget {
   id: root
   moduleName: "ruixen.applauncher"
 
+  // omarchy-shell, not a raw `qs -p /usr/share/omarchy/shell ipc call`
+  // -- direct review finding ("Replace hardcoded /usr/share/omarchy/
+  // shell IPC calls with omarchy-shell", #24): see
+  // WallpapersContent.qml's own comment on the same fix for the full
+  // "why" (resolves $OMARCHY_PATH itself, real IPC timeout instead of
+  // none). No -q -- opening the launcher IS the whole point of this
+  // click, so a real failure should still be visible in the journal.
   function toggleLauncher() {
-    if (root.bar) root.bar.run("qs -p /usr/share/omarchy/shell ipc call ruixen.notch toggleLauncher")
+    if (root.bar) root.bar.run("omarchy-shell ruixen.notch toggleLauncher")
   }
 
   implicitWidth: button.implicitWidth

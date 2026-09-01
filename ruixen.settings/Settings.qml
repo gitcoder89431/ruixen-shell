@@ -402,7 +402,19 @@ Item {
       // Tells ruixen.notch's own UserAvatar to re-read the file too --
       // it's a separate keepLoaded:true plugin process, so it has no
       // other way to know ~/.face.icon just changed.
-      avatarNotifyProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.notch", "refreshAvatar"]
+      //
+      // omarchy-shell -q, not a raw `qs -p /usr/share/omarchy/shell ipc
+      // call` -- direct review finding ("Replace hardcoded /usr/share/
+      // omarchy/shell IPC calls with omarchy-shell", #24): see
+      // WallpapersContent.qml's own comment on the same fix for the
+      // full "why" behind omarchy-shell itself. -q here specifically
+      // (unlike the wallpaper playback calls) because this genuinely
+      // is fire-and-forget with nothing depending on the result --
+      // the avatar picker above has already saved and applied the new
+      // avatar regardless of whether this notification lands; the
+      // worst case if it fails is UserAvatar staying stale until its
+      // own next natural refresh, not silently broken functionality.
+      avatarNotifyProc.command = ["omarchy-shell", "-q", "ruixen.notch", "refreshAvatar"]
       avatarNotifyProc.running = true
     }
   }

@@ -23,6 +23,7 @@ suites=(
   "$script_dir/wallpaper-discovery-format.sh"
   "$script_dir/update-safety.sh"
   "$script_dir/gif-poster-fallback.sh"
+  "$script_dir/no-hardcoded-omarchy-shell-path.sh"
 )
 
 overall_status=0

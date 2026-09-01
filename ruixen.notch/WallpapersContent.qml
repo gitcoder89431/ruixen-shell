@@ -234,18 +234,33 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
   }
 
+  // omarchy-shell, not a raw `qs -p /usr/share/omarchy/shell ipc call`
+  // -- direct review finding ("Replace hardcoded /usr/share/omarchy/
+  // shell IPC calls with omarchy-shell", #24): the raw form hardcodes
+  // Omarchy's install path (breaks under a non-default OMARCHY_PATH)
+  // and has no timeout at all, so a hung/unresponsive shell would hang
+  // this Process indefinitely. omarchy-shell (confirmed by reading it
+  // directly) resolves $OMARCHY_PATH itself, recovers WAYLAND_DISPLAY
+  // for out-of-session callers, and wraps the call in a real timeout
+  // (OMARCHY_SHELL_IPC_TIMEOUT, default 2s) -- this repo already uses
+  // it elsewhere (ruixen.settingsbutton, ruixen-bar-mode.sh), this was
+  // just the operational calls that predated it still using the old
+  // form. No -q here: these are the actual functional action (playing
+  // the video/gif IS the point of the click), so a real failure should
+  // still show up in the journal even though nothing in this file
+  // currently branches on the exit code either way.
   function select(entry) {
     root.currentBackground = entry.display
     root.selectGeneration += 1
     var gen = String(root.selectGeneration)
     if (entry.kind === "video") {
-      playVideoProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playVideo", entry.real, gen]
+      playVideoProc.command = ["omarchy-shell", "ruixen.wallpaper", "playVideo", entry.real, gen]
       playVideoProc.running = true
     } else if (entry.kind === "gif") {
-      playGifProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playGif", entry.real, gen]
+      playGifProc.command = ["omarchy-shell", "ruixen.wallpaper", "playGif", entry.real, gen]
       playGifProc.running = true
     } else {
-      stopVideoProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "stop", gen]
+      stopVideoProc.command = ["omarchy-shell", "ruixen.wallpaper", "stop", gen]
       stopVideoProc.running = true
       setProc.command = ["omarchy-theme-bg-set", entry.real]
       setProc.running = true

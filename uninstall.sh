@@ -66,35 +66,63 @@ printf '\n[3/4] Restoring Hyprland window look\n'
 # only searches ~/.local/state, ~/.config, and $OMARCHY_PATH -- none of
 # which have a bare hypr/looknfeel.lua outside the user's own config), so
 # deleting it with nothing in its place would break every future Hyprland
-# reload. Restores whatever real file install.sh backed up when it first
-# ran, or falls back to Omarchy's own real default template if this is a
-# fresh install with no prior backup.
+# reload.
+#
+# Restores from lib/apply-looknfeel.sh's own pristine record (absent /
+# regular file / symlink + exact target) rather than guessing from the
+# newest looknfeel.lua.bak.* -- direct review finding ("uninstall
+# restores the exact original state... symlink target is restored as
+# a symlink, not copied as a regular file"): once install.sh has run
+# more than once, the "newest" .bak.* is Ruixen's OWN prior symlink,
+# not the user's real original, so picking it blindly would restore
+# the wrong thing. The old newest-.bak.* scan is kept as a fallback
+# ONLY for a machine whose Ruixen install predates this record.
 looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
-if [[ -L "$looknfeel_target" ]]; then
-  rm -f "$looknfeel_target"
-  latest_backup=""
-  for f in "$HOME"/.config/hypr/looknfeel.lua.bak.*; do
-    [[ -e "$f" ]] || continue
-    if [[ -z "$latest_backup" || "$f" -nt "$latest_backup" ]]; then
-      latest_backup="$f"
-    fi
-  done
-  if [[ -n "$latest_backup" ]]; then
-    mv "$latest_backup" "$looknfeel_target"
-    printf '  restored your own looknfeel.lua from %s\n' "$latest_backup"
-  else
-    omarchy_default="${OMARCHY_PATH:-/usr/share/omarchy}/default/hypr/looknfeel.lua"
-    if [[ -f "$omarchy_default" ]]; then
+looknfeel_pristine_dir="$HOME/.local/state/ruixen/looknfeel-pristine"
+omarchy_default="${OMARCHY_PATH:-/usr/share/omarchy}/default/hypr/looknfeel.lua"
+restore_result="$("$script_dir/lib/restore-looknfeel.sh" "$looknfeel_target" "$looknfeel_pristine_dir" "$omarchy_default")"
+case "$restore_result" in
+  symlink:*)
+    printf '  restored your own looknfeel.lua symlink -> %s\n' "${restore_result#symlink:}"
+    hyprctl reload >/dev/null 2>&1 || true
+    ;;
+  file)
+    printf '  restored your own looknfeel.lua\n'
+    hyprctl reload >/dev/null 2>&1 || true
+    ;;
+  omarchy-default)
+    printf "  restored Omarchy's own default looknfeel.lua (nothing existed before Ruixen)\n"
+    hyprctl reload >/dev/null 2>&1 || true
+    ;;
+  no-default-available)
+    printf '  WARNING: nothing existed before Ruixen, and no Omarchy default was found at %s -- leaving looknfeel.lua unset, Hyprland reload will error until you restore one manually\n' "$omarchy_default" >&2
+    ;;
+  no-pristine-record)
+    # Pre-dates this record -- fall back to the old newest-.bak.*
+    # heuristic rather than leaving looknfeel.lua gone with nothing in
+    # its place.
+    latest_backup=""
+    for f in "$HOME"/.config/hypr/looknfeel.lua.bak.*; do
+      [[ -e "$f" ]] || continue
+      if [[ -z "$latest_backup" || "$f" -nt "$latest_backup" ]]; then
+        latest_backup="$f"
+      fi
+    done
+    if [[ -n "$latest_backup" ]]; then
+      mv "$latest_backup" "$looknfeel_target"
+      printf '  restored looknfeel.lua from %s (no pristine record found -- best guess)\n' "$latest_backup"
+    elif [[ -f "$omarchy_default" ]]; then
       cp "$omarchy_default" "$looknfeel_target"
-      printf "  restored Omarchy's own default looknfeel.lua (no prior backup found)\n"
+      printf "  restored Omarchy's own default looknfeel.lua (no backup or pristine record found)\n"
     else
       printf '  WARNING: no backup and no Omarchy default found at %s -- leaving looknfeel.lua unset, Hyprland reload will error until you restore one manually\n' "$omarchy_default" >&2
     fi
-  fi
-  hyprctl reload >/dev/null 2>&1 || true
-else
-  printf '  looknfeel.lua is not a Ruixen symlink -- leaving it alone\n'
-fi
+    hyprctl reload >/dev/null 2>&1 || true
+    ;;
+  not-a-symlink)
+    printf '  looknfeel.lua is not a Ruixen symlink -- leaving it alone\n'
+    ;;
+esac
 
 printf '\n[4/4] Restarting Omarchy shell\n'
 omarchy restart shell

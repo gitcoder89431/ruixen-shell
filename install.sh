@@ -95,14 +95,18 @@ mv "$tmp_shell_json" "$shell_json"
 printf '  wrote %s (unrelated plugins/settings, if any, were preserved)\n' "$shell_json"
 
 printf '\n[3/4] Matching Hyprland window look to the frame/bar\n'
+# See lib/apply-looknfeel.sh's own comment for the full "why" -- in
+# short, a pre-existing looknfeel.lua SYMLINK (a dotfiles setup, say)
+# used to get silently overwritten with no backup at all, and a
+# reinstall/update had no way to tell "the real original" apart from
+# "Ruixen's own symlink from last time."
 looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
 looknfeel_src="$script_dir/hyprland/looknfeel.ruixen.lua"
-if [[ -e "$looknfeel_target" && ! -L "$looknfeel_target" ]]; then
-  mv "$looknfeel_target" "${looknfeel_target}.bak.${stamp}"
+looknfeel_pristine_dir="$state_dir/looknfeel-pristine"
+"$script_dir/lib/apply-looknfeel.sh" "$looknfeel_target" "$looknfeel_src" "$looknfeel_pristine_dir" "$stamp"
+if [[ -e "${looknfeel_target}.bak.${stamp}" ]]; then
   printf '  backed up existing looknfeel.lua -> looknfeel.lua.bak.%s\n' "$stamp"
 fi
-mkdir -p "$(dirname "$looknfeel_target")"
-ln -sf "$looknfeel_src" "$looknfeel_target"
 hyprctl reload >/dev/null 2>&1 || true
 printf '  applied rounded corners + blur matching the frame (24px)\n'
 printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"

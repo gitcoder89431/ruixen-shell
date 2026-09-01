@@ -72,6 +72,22 @@ Item {
   property string currentBackground: ""
   property string searchText: ""
 
+  // Direct follow-up ("we should lazyload it in from the other
+  // direction... it seems to be loading in 50, 49, 48, 47 etc so we
+  // see a huge blank space while waiting for the top ones to load
+  // in"). Real cause: Image's own asynchronous decode (below) hands
+  // every initially-visible tile's request to Qt's decode thread at
+  // once on first population, and that thread doesn't guarantee it
+  // finishes a whole burst in the order the requests were issued --
+  // empirically it was coming back closer to reverse order, so the
+  // bottom rows resolved first and the top stayed blank longest. This
+  // gate drip-feeds "permission to load" in strict ascending index
+  // order instead, a couple tiles at a time, so requests never arrive
+  // as one big simultaneous burst and the visible fill order matches
+  // the array order (theme wallpapers, top-left, first) regardless of
+  // whatever order the decode thread would otherwise finish in.
+  property int loadGate: 0
+
   // "all", "image", "video", or "gif" -- direct request ("on the
   // right side of the panel, theres some space left like a right
   // panel, can we use these to toggle between IMAGE and VIDEO and
@@ -106,6 +122,20 @@ Item {
   }
 
   onActiveChanged: if (active) refresh()
+
+  // Drives loadGate up a couple tiles at a time -- fast enough that
+  // the initial screenful fills in well under half a second, but
+  // spaced out enough that each request has time to actually reach
+  // Qt's decode thread before the next one arrives, which is what
+  // keeps them from bunching into the kind of simultaneous burst that
+  // was coming back out of order. Stops itself once the gate has
+  // caught up to however many entries exist.
+  Timer {
+    interval: 10
+    running: root.active && root.loadGate < root.wallpaperPaths.length
+    repeat: true
+    onTriggered: root.loadGate += 2
+  }
 
   // Theme wallpapers (the exact same two directories/extensions
   // omarchy-theme-bg-switcher passes to the stock image-picker
@@ -179,6 +209,7 @@ Item {
           var parts = line.split("|")
           return { kind: parts[0], display: parts[1], real: parts[2] }
         })
+        root.loadGate = 0
       }
     }
   }
@@ -387,6 +418,13 @@ Item {
       cellHeight: 110
       model: root.filteredPaths
 
+      // Any deliberate scroll means the user is actively looking for
+      // something further down -- bypass loadGate entirely rather
+      // than making a manually-scrolled-to tile wait its turn behind
+      // a drip-feed meant only to smooth out the passive initial
+      // fill.
+      onMovementStarted: root.loadGate = root.wallpaperPaths.length
+
       // Structural rewrite per direct correction: the previous pass
       // copied ambxst's frame APPEARANCE without their actual
       // rendering structure. Ambxst never animates a border on the
@@ -409,6 +447,9 @@ Item {
         // { kind, display, real } now, not a bare path string -- see
         // root.wallpaperPaths' own comment for why.
         required property var modelData
+        // Only used to gate the Image source below against
+        // root.loadGate -- see its own comment for why.
+        required property int index
         readonly property bool hovered: tileMouse.containsMouse
         // Compares against display, not real -- for a video entry,
         // ruixen.wallpaper's own Service.qml sets current/background
@@ -440,7 +481,14 @@ Item {
 
           Image {
             anchors.fill: parent
-            source: "file://" + tile.modelData.display
+            // Empty source until loadGate reaches this tile's index --
+            // see root.loadGate's own comment for why. Once a tile's
+            // source has been set it stays set even if the gate logic
+            // changes later (reuseItems recycles this same Image for a
+            // different index on scroll, which reassigns source to
+            // that new tile's own path directly, gate or not -- see
+            // GridView's onMovementStarted above).
+            source: tile.index <= root.loadGate ? ("file://" + tile.modelData.display) : ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             sourceSize: Qt.size(160, 100)

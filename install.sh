@@ -120,6 +120,14 @@ mkdir -p "$plugins_dir"
 plugin_backup_dir="$state_dir/backups/plugins"
 mkdir -p "$plugin_backup_dir"
 
+# Same reasoning as plugin_backup_dir above, for the stable deployed
+# looknfeel assets #20 adds rollback coverage for (see
+# rollback_looknfeel_data below) -- declared up here alongside the
+# other backup dirs, populated down in [5/6] where the deploy actually
+# happens.
+looknfeel_data_backup_dir="$state_dir/backups/looknfeel-data"
+mkdir -p "$looknfeel_data_backup_dir"
+
 # --------------------------------------------------------------------
 # Rollback -- direct review finding ("Make install/update transactional
 # with validation and rollback"): the old single-pass plugin loop
@@ -146,6 +154,21 @@ SHELL_JSON_TOUCHED=0
 SHELL_JSON_HAD_BACKUP=0
 LOOKNFEEL_TOUCHED=0
 LOOKNFEEL_HAD_BACKUP=0
+# Direct review finding ("Roll back deployed Hyprland assets when
+# install/update fails", #20): #15 moved looknfeel.ruixen.lua/
+# looknfeel.default.lua out to a stable deployed path
+# (~/.local/share/ruixen-shell/hyprland/), overwritten unconditionally
+# in [5/6] with no backup and nothing in rollback_all to undo it --  a
+# failure at the final restart step left the NEW checkout's assets
+# deployed even though plugins/shell.json/the looknfeel.lua symlink all
+# correctly rolled back to the previous working install. Same
+# bookkeeping shape as the plugin backups above: keyed by variant name
+# (only ever "looknfeel.ruixen.lua"/"looknfeel.default.lua" today, an
+# associative array rather than two near-duplicate flat vars since the
+# deploy loop already treats both variants identically).
+LOOKNFEEL_DATA_TOUCHED=0
+LOOKNFEEL_DATA_ROOT_PREEXISTED=0
+declare -A LOOKNFEEL_DATA_HAD_BACKUP
 
 rollback_plugins() {
   local idx id target backup
@@ -179,9 +202,29 @@ rollback_looknfeel() {
   fi
 }
 
+rollback_looknfeel_data() {
+  [[ "$LOOKNFEEL_DATA_TOUCHED" -eq 1 ]] || return 0
+  local variant
+  for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
+    rm -f "$looknfeel_data_dir/$variant"
+    if [[ "${LOOKNFEEL_DATA_HAD_BACKUP[$variant]:-0}" -eq 1 ]]; then
+      mv "$looknfeel_data_backup_dir/$variant.bak.$stamp" "$looknfeel_data_dir/$variant" \
+        || printf '  warning: could not restore %s from its backup\n' "$variant" >&2
+    fi
+  done
+  # A genuine first install leaves the whole ~/.local/share/ruixen-shell
+  # root gone again, not just its two files with an empty directory
+  # tree left behind -- rmdir only ever succeeds on an empty directory,
+  # so this is a no-op (silenced) if a reinstall's own pre-existing
+  # asset was restored into it above instead.
+  if [[ "$LOOKNFEEL_DATA_ROOT_PREEXISTED" -eq 0 ]]; then
+    rmdir "$looknfeel_data_dir" "$HOME/.local/share/ruixen-shell" 2>/dev/null || true
+  fi
+}
+
 rollback_all() {
   trap - ERR
-  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 ]]; then
+  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 ]]; then
     # Failed before anything was actually changed (e.g. plugin
     # validation) -- fail()'s own message already explained why,
     # nothing to undo.
@@ -189,6 +232,7 @@ rollback_all() {
   fi
   printf '\ninstall failed -- rolling back changes made this run...\n' >&2
   rollback_looknfeel
+  rollback_looknfeel_data
   rollback_shell_json
   rollback_plugins
   printf 'rollback complete -- your previous installation should be unchanged.\n' >&2
@@ -285,9 +329,31 @@ printf '\n[5/6] Matching Hyprland window look to the frame/bar\n'
 # current content, not a rollback baseline), written to a temp file in
 # the same directory first and renamed into place so a killed/failed
 # run can never leave a half-written asset behind.
+#
+# Direct review finding ("Roll back deployed Hyprland assets when
+# install/update fails", #20): that atomic-per-file write already
+# protected against a HALF-written asset, but not against a failure
+# LATER in this same run (the final restart, most likely) leaving a
+# fully-written NEW asset in place while everything else correctly
+# rolled back to the previous install. Backed up here, same
+# "tracked BEFORE the actual copy" ordering as the plugin loop above,
+# so a failure partway through this loop still gets whatever variant
+# DID get backed up restored, not just the ones that fully completed.
+LOOKNFEEL_DATA_TOUCHED=1
+# Checked BEFORE mkdir -p below creates it -- a genuine first install
+# (nothing under ~/.local/share/ruixen-shell/ yet) should leave that
+# whole directory gone again on rollback, not just its two files with
+# an empty shell left behind. A reinstall's already-existing directory
+# is left alone either way; rollback_looknfeel_data only ever touches
+# the files inside it.
+[[ -e "$HOME/.local/share/ruixen-shell" ]] && LOOKNFEEL_DATA_ROOT_PREEXISTED=1 || LOOKNFEEL_DATA_ROOT_PREEXISTED=0
 looknfeel_data_dir="$HOME/.local/share/ruixen-shell/hyprland"
 mkdir -p "$looknfeel_data_dir"
 for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
+  if [[ -e "$looknfeel_data_dir/$variant" ]]; then
+    cp "$looknfeel_data_dir/$variant" "$looknfeel_data_backup_dir/$variant.bak.$stamp"
+    LOOKNFEEL_DATA_HAD_BACKUP[$variant]=1
+  fi
   tmp_variant="$(mktemp "$looknfeel_data_dir/.${variant}.XXXXXX")"
   cp "$script_dir/hyprland/$variant" "$tmp_variant"
   mv "$tmp_variant" "$looknfeel_data_dir/$variant"
@@ -375,6 +441,13 @@ for dir in "$script_dir"/ruixen.*/; do
 done
 prune_backups "$backup_retain_count" "${shell_json}.bak.*"
 prune_backups "$backup_retain_count" "${looknfeel_target}.bak.*"
+# The new #20 backup location gets the same bounded retention as every
+# other backup here -- left unbounded, it would just reintroduce the
+# exact unbounded-accumulation problem #10 already fixed everywhere
+# else, for a location that happens to be new instead of old.
+for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
+  prune_backups "$backup_retain_count" "$looknfeel_data_backup_dir/$variant.bak.*"
+done
 
 cat <<EOF
 

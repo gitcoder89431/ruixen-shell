@@ -22,6 +22,16 @@
 # DIFFERENT checkout than the one currently installed must never move
 # repo-path onto the failed checkout, and a SUCCESSFUL install from a
 # different checkout must.
+#
+# Also covers "[P1] Roll back deployed Hyprland assets when install/
+# update fails" (#20), the same way -- reuses failure point 2's already-
+# working baseline + checkout_b failing run (checkout_b's own
+# looknfeel.*.lua content is mutated first, so a real content
+# difference proves rollback restored the OLD deployed asset rather
+# than coincidentally matching), plus a dedicated first-install-failure
+# case for #20's other acceptance criterion (nothing left behind when
+# there was no prior deployed asset to roll back to in the first
+# place).
 set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -119,6 +129,22 @@ else
 
   before_shell_json="$(jq -S . "$home2/.config/omarchy/shell.json")"
 
+  # Deployed stable looknfeel assets from the baseline install above --
+  # "asset A" (#20). Captured before checkout_b's content is mutated
+  # below, so the later assertion proves rollback restored THIS exact
+  # content, not just "some file exists there."
+  looknfeel_data_dir="$home2/.local/share/ruixen-shell/hyprland"
+  asset_a_ruixen="$(cat "$looknfeel_data_dir/looknfeel.ruixen.lua")"
+  asset_a_default="$(cat "$looknfeel_data_dir/looknfeel.default.lua")"
+
+  # checkout_b's own looknfeel files are mutated here ("asset B") --
+  # this is the throwaway copy, safe to change. A real content
+  # difference from asset A is what makes the rollback assertion below
+  # actually prove something, rather than passing coincidentally
+  # because both checkouts started out byte-identical.
+  printf '\n-- asset B marker, checkout_b only --\n' >> "$checkout_b/hyprland/looknfeel.ruixen.lua"
+  printf '\n-- asset B marker, checkout_b only --\n' >> "$checkout_b/hyprland/looknfeel.default.lua"
+
   # The failing second run comes from checkout_b, a DIFFERENT checkout
   # than the baseline install above (repo_dir) -- proves repo-path
   # isn't just coincidentally the same value before and after (#14).
@@ -146,7 +172,30 @@ else
     "$(find "$home2/.local/state/ruixen/backups/plugins" -maxdepth 1 -iname 'ruixen.notch.bak.*' 2>/dev/null | wc -l)" "0"
   check "rollback: repo-path still points at the working checkout (repo_dir), not the failed checkout_b (#14)" \
     "$(cat "$home2/.local/state/ruixen/repo-path")" "$repo_dir"
+  check "rollback: deployed looknfeel.ruixen.lua is asset A again, not checkout_b's asset B (#20)" \
+    "$(cat "$looknfeel_data_dir/looknfeel.ruixen.lua")" "$asset_a_ruixen"
+  check "rollback: deployed looknfeel.default.lua is asset A again, not checkout_b's asset B (#20)" \
+    "$(cat "$looknfeel_data_dir/looknfeel.default.lua")" "$asset_a_default"
+  check "rollback: this run's own looknfeel-data backup was consumed, not left behind" \
+    "$(find "$home2/.local/state/ruixen/backups/looknfeel-data" -maxdepth 1 -iname 'looknfeel.ruixen.lua.bak.*' 2>/dev/null | wc -l)" "0"
 fi
+
+# --- Case 2b: a first-install failure leaves NO stable looknfeel
+# assets behind (#20's other acceptance criterion -- nothing existed
+# before, so rollback must remove what THIS run created, not "restore"
+# something that never had a prior version). Fresh $HOME, no baseline,
+# forced failure at the same final step. -----------------------------
+home2b="$(mktemp -d)"
+homes+=("$home2b")
+if ( HOME="$home2b" PATH="$fake_bin:$PATH" FAKE_OMARCHY_FAIL_RESTART=1 "$repo_dir/install.sh" ) \
+  >"$home2b/install.out" 2>&1; then
+  status2b=0
+else
+  status2b=$?
+fi
+check "first-install failure: exits non-zero" "$([[ "$status2b" -ne 0 ]] && echo yes)" "yes"
+check "first-install failure: no stable looknfeel data dir left behind (#20)" \
+  "$([[ -e "$home2b/.local/share/ruixen-shell" ]] && echo present || echo absent)" "absent"
 
 # --- Case 3: a SUCCESSFUL install from a different checkout DOES
 # update repo-path -- the other half of #14's acceptance criteria, that
@@ -163,6 +212,15 @@ if [[ "$baseline_status" -eq 0 ]]; then
   check "successful install from a new checkout: exits 0" "$status3" "0"
   check "successful install from a new checkout: repo-path updates to checkout_b (#14)" \
     "$(cat "$home2/.local/state/ruixen/repo-path")" "$checkout_b"
+  # A successful install/update still refreshes both deployed assets
+  # (#20's other acceptance criterion) -- checkout_b's own files were
+  # mutated with an "asset B" marker earlier in this file, so this
+  # confirms the deployed copy now reflects that, not the stale asset A
+  # this same $HOME had from its earlier baseline install.
+  check "successful install from a new checkout: deployed looknfeel.ruixen.lua refreshed to checkout_b's content (#20)" \
+    "$(cat "$looknfeel_data_dir/looknfeel.ruixen.lua")" "$(cat "$checkout_b/hyprland/looknfeel.ruixen.lua")"
+  check "successful install from a new checkout: deployed looknfeel.default.lua refreshed to checkout_b's content (#20)" \
+    "$(cat "$looknfeel_data_dir/looknfeel.default.lua")" "$(cat "$checkout_b/hyprland/looknfeel.default.lua")"
 fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"

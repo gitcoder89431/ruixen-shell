@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 target="$HOME/.config/hypr/looknfeel.lua"
+# The stable path install.sh deploys both variants to, NOT this
+# checkout -- direct review finding ("Decouple deployed Hyprland
+# looknfeel from the git checkout path", #15): pointing at
+# $script_dir/looknfeel.*.lua directly meant toggling look'n'feel
+# (or just re-reading which one is active) stopped working the moment
+# the checkout that ran install.sh was moved or deleted, same failure
+# this issue fixed for the actual post-install symlink target.
+looknfeel_data_dir="$HOME/.local/share/ruixen-shell/hyprland"
 
 fail() {
   printf 'ruixen-lookfeel: %s\n' "$*" >&2
@@ -45,10 +52,10 @@ apply() {
 command="${1:-}"
 case "$command" in
   on)
-    apply "on (rounded + blur)" "$script_dir/looknfeel.ruixen.lua"
+    apply "on (rounded + blur)" "$looknfeel_data_dir/looknfeel.ruixen.lua"
     ;;
   off)
-    apply "off (stock Omarchy)" "$script_dir/looknfeel.default.lua"
+    apply "off (stock Omarchy)" "$looknfeel_data_dir/looknfeel.default.lua"
     ;;
   status)
     current

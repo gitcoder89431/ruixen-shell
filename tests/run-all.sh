@@ -13,6 +13,7 @@ suites=(
   "$script_dir/js-model-tests.sh"
   "$script_dir/shell-json-merge.sh"
   "$script_dir/looknfeel-preserve.sh"
+  "$script_dir/looknfeel-stable-path.sh"
   "$script_dir/uninstall-bar-restore.sh"
   "$script_dir/uninstall-pristine-reset.sh"
   "$script_dir/install-lifecycle.sh"

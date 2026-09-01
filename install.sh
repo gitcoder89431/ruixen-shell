@@ -233,8 +233,31 @@ printf '\n[5/6] Matching Hyprland window look to the frame/bar\n'
 # used to get silently overwritten with no backup at all, and a
 # reinstall/update had no way to tell "the real original" apart from
 # "Ruixen's own symlink from last time."
+#
+# Direct review finding ("Decouple deployed Hyprland looknfeel from the
+# git checkout path", #15): ~/.config/hypr/looknfeel.lua used to be
+# symlinked straight into THIS checkout ($script_dir/hyprland/...) --
+# moving or deleting the clone after a successful install broke every
+# future Hyprland reload, since Lua's own require() has no fallback for
+# a target whose symlink now points at nothing. Both looknfeel variants
+# are copied to a stable data path first, and the symlink points there
+# instead -- deploy-then-link, the same shape install.sh already uses
+# for plugins, just with one file instead of a directory. Copied fresh
+# on every install/update run (not write-once like the pristine
+# snapshots -- this is a deployed ASSET meant to track the checkout's
+# current content, not a rollback baseline), written to a temp file in
+# the same directory first and renamed into place so a killed/failed
+# run can never leave a half-written asset behind.
+looknfeel_data_dir="$HOME/.local/share/ruixen-shell/hyprland"
+mkdir -p "$looknfeel_data_dir"
+for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
+  tmp_variant="$(mktemp "$looknfeel_data_dir/.${variant}.XXXXXX")"
+  cp "$script_dir/hyprland/$variant" "$tmp_variant"
+  mv "$tmp_variant" "$looknfeel_data_dir/$variant"
+done
+
 looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
-looknfeel_src="$script_dir/hyprland/looknfeel.ruixen.lua"
+looknfeel_src="$looknfeel_data_dir/looknfeel.ruixen.lua"
 looknfeel_pristine_dir="$state_dir/looknfeel-pristine"
 LOOKNFEEL_TOUCHED=1
 "$script_dir/lib/apply-looknfeel.sh" "$looknfeel_target" "$looknfeel_src" "$looknfeel_pristine_dir" "$stamp"
@@ -341,7 +364,11 @@ Pulling new changes later? Run:
 
   $script_dir/update.sh
 
-All three only work from this checkout -- keep it around after
-installing (don't delete the cloned folder), or note its path above.
+ruixen-bar-mode.sh and update.sh only work from this checkout -- keep it
+around after installing (don't delete the cloned folder), or note its
+path above. ruixen-lookfeel.sh itself is also run from here, but the
+actual Hyprland look it applies is copied to a stable path first, so
+moving or deleting this checkout later won't break your active
+Hyprland config.
 
 EOF

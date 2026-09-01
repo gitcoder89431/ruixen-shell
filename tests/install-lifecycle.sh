@@ -59,8 +59,10 @@ if [[ "$status1" -eq 0 ]]; then
   check "clean install: all 4 canonical ruixen plugin ids present" \
     "$(jq -c '[.plugins[].id] | sort' "$home1/.config/omarchy/shell.json")" \
     '["ruixen.frame-widget","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
-  check "clean install: looknfeel.lua points at ruixen's own file" \
-    "$(readlink "$home1/.config/hypr/looknfeel.lua")" "$repo_dir/hyprland/looknfeel.ruixen.lua"
+  check "clean install: looknfeel.lua points at the stable deployed path, not the checkout (#15)" \
+    "$(readlink "$home1/.config/hypr/looknfeel.lua")" "$home1/.local/share/ruixen-shell/hyprland/looknfeel.ruixen.lua"
+  check "clean install: deployed looknfeel asset matches this checkout's content" \
+    "$(diff -q "$home1/.local/share/ruixen-shell/hyprland/looknfeel.ruixen.lua" "$repo_dir/hyprland/looknfeel.ruixen.lua" >/dev/null 2>&1 && echo same)" "same"
   check "clean install: a real plugin directory was actually copied" \
     "$([[ -f "$home1/.config/omarchy/plugins/ruixen.notch/manifest.json" ]] && echo yes)" "yes"
   check "clean install: repo-path state file points at this checkout" \

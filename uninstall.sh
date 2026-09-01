@@ -164,6 +164,16 @@ case "$restore_result" in
     ;;
 esac
 
+# Direct review finding ("Decouple deployed Hyprland looknfeel from the
+# git checkout path", #15): install.sh deploys both looknfeel variants
+# to this Ruixen-owned data dir, used for nothing else -- by the time
+# the case above has run, whatever looknfeel.lua now points at (the
+# restored original, or left alone entirely for the not-a-symlink
+# case) no longer depends on it, so a full uninstall removing it too is
+# the same "don't leave Ruixen's own files behind" cleanup [2/4] above
+# already does for plugin backups, just for this data dir instead.
+rm -rf "$HOME/.local/share/ruixen-shell"
+
 printf '\n[4/4] Restarting Omarchy shell\n'
 omarchy restart shell
 

@@ -43,4 +43,14 @@ else
 fi
 
 printf '\n[2/2] Reinstalling\n'
+# Deliberately no lock taken in THIS script -- install.sh below is what
+# actually mutates anything, and it takes its own lock (see its own
+# comment, "Add an install/update/uninstall lock and collision-safe run
+# identifiers", #16). Locking only there, not also here, is exactly
+# what avoids a parent/child self-deadlock: update.sh never holds the
+# lock, so install.sh always gets a genuinely fresh one, whether it was
+# invoked from here or run directly. A second update.sh (or a manual
+# install.sh) started while this one is mid-pull still can't race this
+# run's own install.sh -- its child will contend for the same lock and
+# fail with a clear message instead of interleaving.
 "$script_dir/install.sh"

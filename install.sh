@@ -4,7 +4,16 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 plugins_dir="$HOME/.config/omarchy/plugins"
 shell_json="$HOME/.config/omarchy/shell.json"
-stamp="$(date +%s)"
+# Nanosecond, not `date +%s` -- direct review finding ("Add an
+# install/update/uninstall lock and collision-safe run identifiers",
+# #16): plain epoch-seconds backup/run names could collide between two
+# installs started in the same second (the UI's Update button and a
+# manually-run install.sh, say). The lock acquired below already makes
+# that specific race impossible in practice (only one lifecycle op can
+# be mutating state at a time), but a collision-safe identity is cheap
+# and correct on its own regardless of the lock, so both fixes land
+# together as the issue asks.
+stamp="$(date +%s%N)"
 
 fail() {
   printf 'ruixen-shell install: %s\n' "$*" >&2
@@ -13,6 +22,41 @@ fail() {
 
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
+
+# $state_dir itself is needed early (the lock file below lives under
+# it, same as the pristine snapshots and plugin backups further down)
+# -- but NOT the repo-path file, see the [6/6] success block at the end
+# of this script for where and why that gets written instead.
+state_dir="$HOME/.local/state/ruixen"
+mkdir -p "$state_dir"
+
+# Direct review finding ("Add an install/update/uninstall lock and
+# collision-safe run identifiers", #16): install.sh/update.sh/
+# uninstall.sh all make coordinated changes across plugin directories,
+# shell.json, rollback backups, and looknfeel with no process-level
+# lock -- two lifecycle operations racing (the Settings UI's Update
+# button while a user also runs install.sh by hand, say) could
+# interleave their filesystem mutations.
+#
+# `exec {lock_fd}>"$lock_file"` opens (creating if needed) a fresh file
+# descriptor bash allocates and remembers under $lock_fd, kept open for
+# this script's entire lifetime -- flock's lock is tied to that fd, and
+# the kernel releases it automatically the instant this process exits
+# for ANY reason (normal exit, `fail` above, an uncaught error under
+# set -e, or a signal), so there's no separate unlock/trap needed for
+# "release on exit" to hold.
+#
+# update.sh deliberately does NOT take this lock itself -- it just
+# calls this script as its last step, and THIS script is what actually
+# mutates anything. Only locking here (not also in update.sh) is what
+# the issue's own note about avoiding a parent/child self-deadlock
+# asks for: update.sh never holds the lock, so its child install.sh
+# taking a fresh one of its own can never contend with a lock its own
+# parent is already holding.
+lock_file="$state_dir/install.lock"
+exec {lock_fd}>"$lock_file"
+flock -n "$lock_fd" \
+  || fail "another Ruixen install/update/uninstall appears to be running (lock: $lock_file) -- wait for it to finish and try again"
 
 # Direct review finding ("Add runtime dependency/version preflight and
 # safer release update behavior"): the README stated broad Omarchy
@@ -61,13 +105,6 @@ elif [[ ! "$omarchy_major" =~ ^[0-9]+$ || "$omarchy_major" -ne 4 ]]; then
 fi
 
 mkdir -p "$plugins_dir"
-
-# $state_dir itself is needed early (pristine snapshots, plugin backups
-# below all live under it) -- but NOT the repo-path file, see the
-# [6/6] success block at the end of this script for where and why that
-# gets written instead.
-state_dir="$HOME/.local/state/ruixen"
-mkdir -p "$state_dir"
 
 # Backups go under $state_dir, never inside $plugins_dir -- real bug
 # hit live ("i did the update button on plugs in page, did that

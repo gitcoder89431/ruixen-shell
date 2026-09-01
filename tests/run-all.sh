@@ -19,6 +19,7 @@ suites=(
   "$script_dir/uninstall-failure-aggregation.sh"
   "$script_dir/install-lifecycle.sh"
   "$script_dir/install-rollback.sh"
+  "$script_dir/lifecycle-lock.sh"
   "$script_dir/wallpaper-discovery-format.sh"
   "$script_dir/update-safety.sh"
   "$script_dir/gif-poster-fallback.sh"

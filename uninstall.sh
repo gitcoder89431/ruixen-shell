@@ -13,6 +13,22 @@ fail() {
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
+# Same lock install.sh takes, and for the same reason ("Add an
+# install/update/uninstall lock and collision-safe run identifiers",
+# #16) -- an uninstall racing a concurrent install/update could
+# interleave with it (remove a plugin install.sh is mid-writing, race
+# the bar restore against a live shell.json rewrite, etc). One shared
+# lock file means install and uninstall can never run at the same time
+# either, not just two installs. Released automatically the instant
+# this process exits, same as install.sh's own copy of this comment
+# explains in full.
+state_dir="$HOME/.local/state/ruixen"
+mkdir -p "$state_dir"
+lock_file="$state_dir/install.lock"
+exec {lock_fd}>"$lock_file"
+flock -n "$lock_fd" \
+  || fail "another Ruixen install/update/uninstall appears to be running (lock: $lock_file) -- wait for it to finish and try again"
+
 # Direct review finding ("Make full uninstall best-effort and report
 # partial cleanup failures", #19): every step below used to be a bare
 # statement under set -Eeuo pipefail -- one failed plugin removal, or a

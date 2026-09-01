@@ -167,6 +167,19 @@ esac
 printf '\n[4/4] Restarting Omarchy shell\n'
 omarchy restart shell
 
+# Only reached once every restoration step above has actually succeeded
+# (set -Eeuo pipefail aborts the whole script on any earlier failure) --
+# direct review finding ("Reset pristine install snapshots after a
+# successful full uninstall", #13): the pristine baseline install.sh
+# records on first install is never refreshed on a later reinstall, so
+# without this, a second install->uninstall cycle on the same machine
+# would silently restore THIS uninstall's pre-Ruixen state again next
+# time, even after the user changed their setup in between. See
+# lib/reset-pristine-baseline.sh's own comment for exactly what this
+# does and does not remove -- launcher favorites and other real state
+# under ~/.local/state/ruixen/ are left alone.
+"$script_dir/lib/reset-pristine-baseline.sh" "$HOME/.local/state/ruixen"
+
 cat <<EOF
 
 Ruixen Shell has been uninstalled -- back to the built-in Omarchy bar and
@@ -174,8 +187,10 @@ look, every plugin's files actually removed (not left behind as a hidden
 backup folder).
 
 This checkout ($script_dir) is untouched -- delete it yourself if you don't
-want it around anymore. State files under ~/.local/state/ruixen/ (like
+want it around anymore. Most state files under ~/.local/state/ruixen/ (like
 launcher favorites) are also left in place in case you reinstall later; the
-repo path marker there just won't resolve to anything until you do.
+repo path marker there just won't resolve to anything until you do. The
+pre-Ruixen baseline snapshot has been cleared, though, so a future
+reinstall captures a fresh one instead of reusing this one.
 
 EOF

@@ -14,6 +14,7 @@ suites=(
   "$script_dir/shell-json-merge.sh"
   "$script_dir/looknfeel-preserve.sh"
   "$script_dir/uninstall-bar-restore.sh"
+  "$script_dir/uninstall-pristine-reset.sh"
   "$script_dir/install-lifecycle.sh"
   "$script_dir/install-rollback.sh"
   "$script_dir/wallpaper-discovery-format.sh"

@@ -44,7 +44,16 @@ if command -v shellcheck >/dev/null 2>&1; then
   for f in "${targets[@]}"; do
     [[ -f "$f" ]] || continue
     name="${f#"$repo_dir"/}"
-    if shellcheck "$f"; then
+    # -x: follow `source`/`.` targets whose path shellcheck can't
+    # statically determine on its own (e.g. "$script_dir/lib/foo.sh")
+    # but that a `# shellcheck source=lib/foo.sh` directive right above
+    # the source line already names explicitly -- without -x, even a
+    # fully-specified directive still only silences the "can't
+    # determine" warning down to SC1091 (info), not zero findings, so
+    # this suite's own no-warnings-at-all bar was never actually
+    # reachable for uninstall.sh's real (not external, unlike
+    # omarchy-shell-config) lib/uninstall-failures.sh source until now.
+    if shellcheck -x "$f"; then
       printf 'ok   - %s: shellcheck\n' "$name"
       pass=$((pass + 1))
     else

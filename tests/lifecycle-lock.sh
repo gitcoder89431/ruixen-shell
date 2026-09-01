@@ -64,7 +64,11 @@ holder_pids+=("$holder_pid")
 # it), not a substitute for flock's own non-blocking semantics, which
 # is what's actually under test below via `timeout`.
 for _ in $(seq 1 50); do
-  flock -n "$lock_file" -c true 2>/dev/null && sleep 0.1 || break
+  if flock -n "$lock_file" -c true 2>/dev/null; then
+    sleep 0.1
+  else
+    break
+  fi
 done
 
 # --- Case 1: install.sh fails immediately (not a hang) while the lock
@@ -144,7 +148,11 @@ lock_file2="$fake_home2/.local/state/ruixen/install.lock"
 holder_pid2=$!
 holder_pids+=("$holder_pid2")
 for _ in $(seq 1 50); do
-  flock -n "$lock_file2" -c true 2>/dev/null && sleep 0.1 || break
+  if flock -n "$lock_file2" -c true 2>/dev/null; then
+    sleep 0.1
+  else
+    break
+  fi
 done
 
 if out4="$(timeout 10 env HOME="$fake_home2" PATH="$fake_bin:$PATH" "$checkout/update.sh" 2>&1)"; then

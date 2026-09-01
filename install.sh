@@ -55,7 +55,7 @@ fi
 omarchy_version="$(omarchy version 2>/dev/null || true)"
 omarchy_major="${omarchy_version%%.*}"
 if [[ -z "$omarchy_version" ]]; then
-  printf '  NOTE: could not determine Omarchy version (`omarchy version` produced no output) -- proceeding anyway\n' >&2
+  printf '  NOTE: could not determine Omarchy version (omarchy version produced no output) -- proceeding anyway\n' >&2
 elif [[ ! "$omarchy_major" =~ ^[0-9]+$ || "$omarchy_major" -ne 4 ]]; then
   printf '  WARNING: this checkout is developed against Omarchy 4.x; detected %s -- things may not work as expected\n' "$omarchy_version" >&2
 fi
@@ -277,8 +277,16 @@ prune_backups() {
     local matches=()
     # Oldest-first: our timestamps are unix epoch seconds baked
     # straight into the filename, so a plain lexical sort is already
-    # chronological order.
-    while IFS= read -r -d '' f; do matches+=("$f"); done < <(find $pattern -maxdepth 0 -print0 2>/dev/null | sort -z)
+    # chronological order. compgen -G takes the pattern as a normal
+    # quoted argument -- no unquoted shell-level glob expansion needed
+    # the way `find $pattern` required, which is what CI's ShellCheck
+    # (never available on the dev machine this was first written and
+    # tested on, confirmed only after the fact) correctly flagged as
+    # SC2086. Plain newline-delimited reading is fine here, not NUL-
+    # delimited like the wallpaper discovery script needed: every name
+    # matching these patterns is one this script generated itself
+    # (<plugin-id>.bak.<epoch>), never arbitrary user input.
+    while IFS= read -r f; do [[ -n "$f" ]] && matches+=("$f"); done < <(compgen -G "$pattern" | sort)
     local total=${#matches[@]}
     if (( total > keep )); then
       local i

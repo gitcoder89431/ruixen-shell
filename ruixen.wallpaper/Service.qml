@@ -159,14 +159,34 @@ Item {
   }
 
   // GIF's own play -- direct request ("yea lets do the gif next").
-  // No poster/ffmpeg step needed at all: unlike video, Omarchy's own
-  // background Image can already render a gif directly (its own
-  // first frame, same as any other static image -- confirmed earlier
-  // when gifs first started showing up correctly as plain picker
-  // thumbnails), so the gif file itself doubles as its own real
-  // fallback background. root.posterPath still gets set to it (same
-  // "whatever we expect current/background to be" role posterPath
-  // already has for video), just without a separate cache file.
+  // Used to set the raw gif file itself as current/background (Image
+  // can render a gif's own first frame directly, same as any other
+  // static image -- true, and still how the picker's own thumbnails
+  // work), but that meant current/background could point at a real
+  // multi-frame animated file. Direct review finding ("Use a static
+  // fallback poster for GIF wallpapers to avoid Omarchy ImageMagick
+  // memory blowups"): Omarchy's own omarchy-bar-text-color passes
+  // whatever current/background is into `magick` with no frame
+  // limit, and on a genuinely multi-frame source that decodes EVERY
+  // frame -- hit 8GB+ RSS twice live this session, once causing a
+  // real OOM cascade that took down the whole Hyprland session. Same
+  // fix as video's own poster generation below, now applied to GIF
+  // too: extract a single static frame via ffmpeg (GIF is a real
+  // ffmpeg input format, no different from a video source here) into
+  // the exact same md5-of-path poster cache video already uses, and
+  // set THAT as current/background -- never the raw animated file.
+  // The actual animated rendering is entirely unaffected: that's
+  // AnimatedImage on this service's own separate WlrLayer.Background
+  // surface, which never reads current/background at all.
+  //
+  // If ffmpeg is missing or extraction fails (a genuinely corrupt
+  // gif, say), current/background is deliberately left UNCHANGED
+  // rather than falling back to the raw gif -- that fallback would
+  // silently reopen the exact hole this fix exists to close. The gif
+  // still plays correctly either way (again, that part never depended
+  // on current/background), it just means lock screen/other external
+  // consumers keep showing whatever was there before until a real
+  // poster can be produced.
   function playGif(path) {
     path = String(path || "").trim()
     if (path === "") return
@@ -177,7 +197,13 @@ Item {
 
     root.posterExpectedFor = path
     posterAndSetProc.command = ["bash", "-c",
-      "omarchy-theme-bg-set \"$1\"; printf '%s' \"$1\"", "_", path]
+      "hash=$(printf '%s' \"$1\" | md5sum | cut -d' ' -f1); " +
+      "poster=\"$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg\"; " +
+      "if command -v ffmpeg >/dev/null 2>&1; then " +
+      "if [[ ! -f \"$poster\" ]] || [[ \"$1\" -nt \"$poster\" ]]; then " +
+      "ffmpeg -y -loglevel quiet -i \"$1\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; fi; fi; " +
+      "if [[ -f \"$poster\" ]]; then omarchy-theme-bg-set \"$poster\"; printf '%s' \"$poster\"; fi",
+      "_", path]
     posterAndSetProc.running = true
 
     stateWriteProc.command = ["bash", "-c", "printf 'gif\\n%s' \"$1\" > \"$HOME/.local/state/ruixen/wallpaper-media\"", "_", path]

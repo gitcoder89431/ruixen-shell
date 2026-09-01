@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Minimal test stub, NOT a real implementation -- records the argument
+# it was called with rather than actually touching this machine's real
+# background, so tests/gif-poster-fallback.sh can confirm what path
+# Service.qml's own playGif() would have set as current/background
+# without needing a real Omarchy install to verify that against. A
+# test-only marker location (ruixen-test, not ruixen) so it's never
+# confused with anything this repo's own real state uses.
+set -Eeuo pipefail
+
+mkdir -p "$HOME/.local/state/ruixen-test"
+printf '%s' "${1:-}" > "$HOME/.local/state/ruixen-test/bg-set-arg"

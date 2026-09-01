@@ -18,6 +18,7 @@ suites=(
   "$script_dir/install-rollback.sh"
   "$script_dir/wallpaper-discovery-format.sh"
   "$script_dir/update-safety.sh"
+  "$script_dir/gif-poster-fallback.sh"
 )
 
 overall_status=0

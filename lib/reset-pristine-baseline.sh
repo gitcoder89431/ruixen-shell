@@ -23,9 +23,31 @@
 # marker, plugin install backups) -- those are normal Ruixen state or
 # user preferences, not rollback metadata, and this issue's own
 # non-goal is not wiping them just to solve the staleness bug.
+#
+# $2 (optional, default "both") -- "bar", "looknfeel", or "both". Added
+# for "[P2] Make full uninstall best-effort and report partial cleanup
+# failures" (#19): uninstall.sh's bar restore and looknfeel restore are
+# now independently recoverable steps that can each fail on their own,
+# so each piece of baseline metadata may only be safe to consume if ITS
+# OWN restoration actually succeeded -- not "delete both, or neither."
 set -Eeuo pipefail
 
 state_dir="$1"
+what="${2:-both}"
 
-rm -f "$state_dir/shell.json.pre-ruixen"
-rm -rf "$state_dir/looknfeel-pristine"
+case "$what" in
+  both)
+    rm -f "$state_dir/shell.json.pre-ruixen"
+    rm -rf "$state_dir/looknfeel-pristine"
+    ;;
+  bar)
+    rm -f "$state_dir/shell.json.pre-ruixen"
+    ;;
+  looknfeel)
+    rm -rf "$state_dir/looknfeel-pristine"
+    ;;
+  *)
+    printf 'reset-pristine-baseline: unknown selector: %s (expected bar, looknfeel, or both)\n' "$what" >&2
+    exit 1
+    ;;
+esac

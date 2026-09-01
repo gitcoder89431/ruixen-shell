@@ -7,6 +7,12 @@
 # stubbed to a trivial no-op script in the fake checkout, since this
 # suite only cares about update.sh's own git-safety logic (already
 # covered separately by install-lifecycle.sh / install-rollback.sh).
+#
+# Every update.sh invocation below runs under an isolated $HOME
+# ($fake_home) -- since #21, update.sh acquires its own lifecycle lock
+# under $HOME/.local/state/ruixen/ before pulling, so without this it
+# would touch this dev machine's OWN real lock file/state dir on every
+# test run, not just a throwaway sandbox.
 set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,6 +34,9 @@ check() {
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+fake_home="$work/fake-home"
+mkdir -p "$fake_home"
+
 git config --global user.email >/dev/null 2>&1 || git config --global user.email "test@example.invalid"
 git config --global user.name >/dev/null 2>&1 || git config --global user.name "Test"
 
@@ -45,9 +54,19 @@ setup_upstream_and_checkout() {
   chmod +x "$checkout/install.sh"
   cp "$repo_dir/update.sh" "$checkout/update.sh"
   chmod +x "$checkout/update.sh"
+  # update.sh sources this directly (#21) -- the real file, not another
+  # stub, since acquire_lifecycle_lock's own idempotent-hand-off
+  # behavior is exactly what lets update.sh safely call the stubbed
+  # install.sh above without either of them contending for the lock.
+  mkdir -p "$checkout/lib"
+  cp "$repo_dir/lib/acquire-lifecycle-lock.sh" "$checkout/lib/acquire-lifecycle-lock.sh"
   git -C "$checkout" add -A
   git -C "$checkout" commit -q -m "initial"
   git -C "$checkout" push -q origin master 2>/dev/null || git -C "$checkout" push -q origin HEAD:master
+}
+
+run_update() {
+  ( HOME="$fake_home" "$1/update.sh" )
 }
 
 # --- Case 1: a real, clean fast-forward update succeeds -------------
@@ -63,7 +82,7 @@ git -C "$other_clone" commit -q -am "v2"
 git -C "$other_clone" push -q origin master
 
 before_sha="$(git -C "$c1" rev-parse --short HEAD)"
-output1="$("$c1/update.sh" 2>&1)"
+output1="$(run_update "$c1" 2>&1)"
 status1=$?
 check "clean fast-forward: exits 0" "$status1" "0"
 check "clean fast-forward: pulled the new content" "$(cat "$c1/VERSION")" "v2"
@@ -72,7 +91,7 @@ check "clean fast-forward: reported the before sha" \
 check "clean fast-forward: delegated to install.sh" "$(printf '%s' "$output1" | grep -c "install.sh ran")" "1"
 
 # --- Case 2: already up to date is a harmless no-op ------------------
-output1b="$("$c1/update.sh" 2>&1)"
+output1b="$(run_update "$c1" 2>&1)"
 status1b=$?
 check "already up to date: exits 0" "$status1b" "0"
 check "already up to date: says so explicitly" "$(printf '%s' "$output1b" | grep -c "already up to date")" "1"
@@ -82,7 +101,7 @@ u3="$work/case3-upstream.git"
 c3="$work/case3-checkout"
 setup_upstream_and_checkout "$u3" "$c3"
 printf 'local edit\n' >> "$c3/VERSION"
-if "$c3/update.sh" >"$work/case3.out" 2>&1; then
+if run_update "$c3" >"$work/case3.out" 2>&1; then
   status3=0
 else
   status3=$?
@@ -109,7 +128,7 @@ printf 'local-only change\n' >> "$c4/VERSION"
 git -C "$c4" commit -q -am "local-only commit"
 
 before_c4="$(git -C "$c4" rev-parse --short HEAD)"
-if "$c4/update.sh" >"$work/case4.out" 2>&1; then
+if run_update "$c4" >"$work/case4.out" 2>&1; then
   status4=0
 else
   status4=$?

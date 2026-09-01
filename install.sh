@@ -36,27 +36,32 @@ mkdir -p "$state_dir"
 # shell.json, rollback backups, and looknfeel with no process-level
 # lock -- two lifecycle operations racing (the Settings UI's Update
 # button while a user also runs install.sh by hand, say) could
-# interleave their filesystem mutations.
+# interleave their filesystem mutations. Released automatically the
+# instant this process exits for any reason (success, `fail`, an
+# uncaught error under set -e, or a signal) -- see
+# lib/acquire-lifecycle-lock.sh's own comment for exactly why and how.
 #
-# `exec {lock_fd}>"$lock_file"` opens (creating if needed) a fresh file
-# descriptor bash allocates and remembers under $lock_fd, kept open for
-# this script's entire lifetime -- flock's lock is tied to that fd, and
-# the kernel releases it automatically the instant this process exits
-# for ANY reason (normal exit, `fail` above, an uncaught error under
-# set -e, or a signal), so there's no separate unlock/trap needed for
-# "release on exit" to hold.
-#
-# update.sh deliberately does NOT take this lock itself -- it just
-# calls this script as its last step, and THIS script is what actually
-# mutates anything. Only locking here (not also in update.sh) is what
-# the issue's own note about avoiding a parent/child self-deadlock
-# asks for: update.sh never holds the lock, so its child install.sh
-# taking a fresh one of its own can never contend with a lock its own
-# parent is already holding.
-lock_file="$state_dir/install.lock"
-exec {lock_fd}>"$lock_file"
-flock -n "$lock_fd" \
-  || fail "another Ruixen install/update/uninstall appears to be running (lock: $lock_file) -- wait for it to finish and try again"
+# Direct follow-up review finding ("Hold the lifecycle lock while
+# update.sh changes the source checkout", #21): update.sh used to
+# deliberately take no lock of its own so its child install.sh call
+# could never self-deadlock against a lock its own parent already
+# held -- but that also meant update.sh's own `git pull --ff-only`,
+# which rewrites the SOURCE checkout this install.sh reads plugins
+# from, ran completely unprotected. A manual install.sh could read a
+# torn mix of pre-pull/post-pull files from that same checkout mid-
+# pull. acquire_lifecycle_lock is idempotent: it acquires for real on a
+# standalone run, or trusts an already-locked caller (update.sh, now)
+# without re-locking and self-contending -- same lock, same
+# guarantee, no parent/child deadlock either way.
+# shellcheck source=lib/acquire-lifecycle-lock.sh
+source "$script_dir/lib/acquire-lifecycle-lock.sh"
+# Not routed through fail() -- acquire_lifecycle_lock already prints
+# its own clear message to stderr. Calling it any other way (e.g.
+# capturing its output via `$(...)` to hand to fail()) would run it in
+# a SUBSHELL, where the exec/export inside it would be lost the instant
+# that subshell exits -- the lock would appear to succeed but never
+# actually stay held for the rest of this script.
+acquire_lifecycle_lock "$state_dir" || exit 1
 
 # Direct review finding ("Add runtime dependency/version preflight and
 # safer release update behavior"): the README stated broad Omarchy

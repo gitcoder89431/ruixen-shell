@@ -109,12 +109,13 @@ else
 fi
 check "after the lock is released: a normal install.sh succeeds" "$status3" "0"
 
-# --- Case 4: update.sh -> install.sh does not self-deadlock. A fake
-# checkout with the REAL install.sh (not a stub, unlike update-safety.sh
-# -- this test needs the real lock-taking code to prove the point),
-# run while a lock is held elsewhere: the child install.sh must fail
-# fast with the lock message, not hang waiting on a lock update.sh
-# itself never takes. -------------------------------------------------
+# --- Case 4 (#21): update.sh -> install.sh does not self-deadlock, AND
+# update.sh's own lock acquisition (before git pull, since #21) means a
+# locked run never touches the checkout AT ALL -- not just "install.sh
+# eventually fails," but the pull itself is provably never reached. A
+# fake checkout with the REAL install.sh/update.sh (not stubs, unlike
+# update-safety.sh -- this test needs the real lock-taking code to
+# prove the point), run while a lock is held elsewhere. -------------
 git config --global user.email >/dev/null 2>&1 || git config --global user.email "test@example.invalid"
 git config --global user.name >/dev/null 2>&1 || git config --global user.name "Test"
 
@@ -134,6 +135,19 @@ git -C "$checkout" remote add origin "$upstream"
 git -C "$checkout" add -A
 git -C "$checkout" commit -q -m "initial"
 git -C "$checkout" push -q -u origin master
+
+# Upstream moves on with a REAL changed tracked file -- #21's own
+# acceptance criterion ("upstream contains a real changed tracked
+# file... the local checkout file/HEAD does NOT change while the lock
+# is unavailable"), not just an empty no-op commit.
+other_clone="$fake_home/other-clone"
+git clone -q "$upstream" "$other_clone"
+printf '\n-- upstream moved on while the lock was held --\n' >> "$other_clone/README.md"
+git -C "$other_clone" commit -q -am "upstream moves on"
+git -C "$other_clone" push -q origin master
+
+before_head="$(git -C "$checkout" rev-parse HEAD)"
+before_readme="$(cat "$checkout/README.md")"
 
 fake_home2="$(mktemp -d)"
 cleanup_paths+=("$fake_home2")
@@ -163,12 +177,37 @@ fi
 kill "$holder_pid2" 2>/dev/null || true
 wait "$holder_pid2" 2>/dev/null || true
 
-check "update.sh -> install.sh while locked: exits non-zero (child hit the lock)" \
+check "update.sh while locked: exits non-zero (own lock acquisition failed, before any pull)" \
   "$([[ "$status4" -ne 0 ]] && echo yes)" "yes"
-check "update.sh -> install.sh while locked: did not time out (no self-deadlock)" \
+check "update.sh while locked: did not time out (no self-deadlock)" \
   "$([[ "$status4" -ne 124 ]] && echo yes)" "yes"
-check "update.sh -> install.sh while locked: child install.sh's own lock message surfaced" \
+check "update.sh while locked: its own lock message surfaced" \
   "$(grep -c "install.lock" <<<"$out4")" "1"
+check "update.sh while locked: local checkout HEAD did not change (#21)" \
+  "$(git -C "$checkout" rev-parse HEAD)" "$before_head"
+check "update.sh while locked: local tracked file did not change (#21)" \
+  "$(cat "$checkout/README.md")" "$before_readme"
+
+# --- Case 4b (#21): the happy path still works end-to-end with NO lock
+# held -- update.sh acquires the lock itself, pulls the real upstream
+# change from case 4's setup, and its child install.sh must inherit the
+# hand-off and complete successfully rather than either re-locking (and
+# incorrectly failing on a lock it doesn't need to take) or silently
+# skipping the install. Reuses the same real checkout/upstream from
+# case 4, this time genuinely unlocked. ------------------------------
+fake_home3="$(mktemp -d)"
+cleanup_paths+=("$fake_home3")
+if out4b="$(timeout 30 env HOME="$fake_home3" PATH="$fake_bin:$PATH" "$checkout/update.sh" 2>&1)"; then
+  status4b=0
+else
+  status4b=$?
+  printf '%s\n' "$out4b" >&2
+fi
+check "update.sh unlocked: exits 0" "$status4b" "0"
+check "update.sh unlocked: actually pulled upstream's real change" \
+  "$(cat "$checkout/README.md")" "$(cat "$other_clone/README.md")"
+check "update.sh unlocked: its own install.sh actually ran to completion (shell.json written)" \
+  "$([[ -e "$fake_home3/.config/omarchy/shell.json" ]] && echo yes)" "yes"
 
 # --- Case 5: run identifiers are collision-safe (nanosecond, not
 # epoch-seconds) -- a direct check independent of the lock itself, per

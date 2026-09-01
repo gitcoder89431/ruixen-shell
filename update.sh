@@ -23,6 +23,25 @@ if [[ -n "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]]; then
   fail "this checkout has local changes (git status) -- commit, stash, or discard them before updating, so it's clear what's actually being installed"
 fi
 
+# Direct review finding ("Hold the lifecycle lock while update.sh
+# changes the source checkout", #21): the dirty-checkout check above is
+# read-only (a concurrent reader isn't dangerous on its own), but
+# `git pull` below rewrites this checkout's actual files -- a manual
+# install.sh running at the same time could previously read a torn mix
+# of pre-pull and post-pull files from the very tree it's copying
+# plugins out of. Acquired here, BEFORE the pull, and held all the way
+# through install.sh below (acquire_lifecycle_lock exports a flag that
+# script inherits and trusts, rather than re-locking and self-
+# contending against its own parent) -- see
+# lib/acquire-lifecycle-lock.sh's own comment for the full "why" and
+# how this avoids the exact parent/child self-deadlock #16 originally
+# sidestepped by having update.sh hold no lock at all.
+state_dir="$HOME/.local/state/ruixen"
+mkdir -p "$state_dir"
+# shellcheck source=lib/acquire-lifecycle-lock.sh
+source "$script_dir/lib/acquire-lifecycle-lock.sh"
+acquire_lifecycle_lock "$state_dir" || exit 1
+
 before_sha="$(git -C "$script_dir" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 before_version="$(git -C "$script_dir" log -1 --format=%cd --date=short 2>/dev/null || echo unknown)"
 
@@ -43,14 +62,13 @@ else
 fi
 
 printf '\n[2/2] Reinstalling\n'
-# Deliberately no lock taken in THIS script -- install.sh below is what
-# actually mutates anything, and it takes its own lock (see its own
-# comment, "Add an install/update/uninstall lock and collision-safe run
-# identifiers", #16). Locking only there, not also here, is exactly
-# what avoids a parent/child self-deadlock: update.sh never holds the
-# lock, so install.sh always gets a genuinely fresh one, whether it was
-# invoked from here or run directly. A second update.sh (or a manual
-# install.sh) started while this one is mid-pull still can't race this
-# run's own install.sh -- its child will contend for the same lock and
-# fail with a clear message instead of interleaving.
+# The lock acquired above is still held here (released automatically
+# only when THIS process eventually exits) -- install.sh inherits the
+# RUIXEN_LIFECYCLE_LOCK_HELD flag acquire_lifecycle_lock exported and
+# trusts it instead of trying to acquire a second, separate lock on the
+# same file (which would otherwise self-contend against the one this
+# script already holds). A second update.sh, or a manual install.sh,
+# started while this one is running still can't race it -- its own
+# fresh acquire_lifecycle_lock call finds the lock genuinely held and
+# fails with a clear message instead of interleaving.
 "$script_dir/install.sh"

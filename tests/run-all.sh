@@ -15,6 +15,7 @@ suites=(
   "$script_dir/looknfeel-preserve.sh"
   "$script_dir/uninstall-bar-restore.sh"
   "$script_dir/install-lifecycle.sh"
+  "$script_dir/install-rollback.sh"
 )
 
 overall_status=0

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Minimal test stub, NOT a real implementation -- just enough surface
 # for install.sh to run to completion in a sandboxed test $HOME (see
-# tests/install-lifecycle.sh). Real Omarchy plugin/manifest validation
-# is covered separately and portably by tests/validate-manifests.sh.
+# tests/install-lifecycle.sh, tests/install-rollback.sh). Real Omarchy
+# plugin/manifest validation is covered separately and portably by
+# tests/validate-manifests.sh.
 set -Eeuo pipefail
 
 case "${1:-} ${2:-}" in
@@ -15,6 +16,10 @@ case "${1:-} ${2:-}" in
     exit 0
     ;;
   "restart shell")
+    if [[ -n "${FAKE_OMARCHY_FAIL_RESTART:-}" ]]; then
+      echo "fake omarchy: forced restart failure" >&2
+      exit 1
+    fi
     exit 0
     ;;
   *)

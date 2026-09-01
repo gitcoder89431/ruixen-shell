@@ -1224,6 +1224,22 @@ Item {
   // (git pull + reinstall) is the real update path, not that command.
   property var pluginRows: []
   property string pluginBusyId: ""
+  // Direct review finding ("Make rapid asynchronous Process actions
+  // last-action-wins"): pluginActionProc below is ONE shared Process
+  // across every row's own toggle, and reassigning a Quickshell
+  // Process's command while it's already running does NOT cancel the
+  // in-flight run -- confirmed directly -- it finishes, THEN the
+  // reassigned command auto-fires. So toggling row A then quickly row
+  // B doesn't lose either toggle (both really do run, in order), but
+  // without this, pluginActionProc's own onExited had no way to tell
+  // "did the run that just exited belong to the row currently marked
+  // busy, or a stale run for a row that's since been superseded" --
+  // it would clear pluginBusyId the moment ANY run exited, even A's,
+  // while B's own toggle was still only QUEUED, not yet actually
+  // running. Tracks the one genuinely-queued toggle (at most one can
+  // ever be pending, matching Quickshell's own Process semantics) so
+  // onExited only clears busy state once nothing is left queued.
+  property string pluginActionPendingId: ""
   property string pluginUpdateStatus: ""
   property string pluginUpdateError: ""
   property string ruixenRepoPath: ""
@@ -1284,13 +1300,23 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
     stderr: StdioCollector { waitForEnd: true }
     onExited: {
-      root.pluginBusyId = ""
+      // A newer toggle is genuinely queued behind this one (Quickshell
+      // will auto-fire it now that this run has exited) -- leave
+      // pluginBusyId showing that row rather than clearing it, which
+      // would flash "nothing busy" for a moment right before the
+      // queued toggle actually starts.
+      if (root.pluginActionPendingId !== "") {
+        root.pluginActionPendingId = ""
+      } else {
+        root.pluginBusyId = ""
+      }
       root.refreshPlugins()
     }
   }
 
   function togglePluginEnabled(row) {
     if (!row || !row.id || root.pluginIsProtected(row)) return
+    root.pluginActionPendingId = pluginActionProc.running ? row.id : ""
     root.pluginBusyId = row.id
     pluginActionProc.command = ["omarchy", "plugin", row.enabled ? "disable" : "enable", row.id]
     pluginActionProc.running = true

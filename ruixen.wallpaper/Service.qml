@@ -57,6 +57,42 @@ Item {
   property string posterPath: ""
   property int playGeneration: 0
 
+  // Cross-IPC generation guard -- direct review finding ("Make rapid
+  // asynchronous Process actions last-action-wins"). WallpapersContent
+  // .qml's own select() dispatches playVideo/playGif/stop through
+  // THREE SEPARATE Process objects (one per kind), each an
+  // independent OS subprocess spawn (`qs ipc call ...`). Confirmed
+  // directly, not assumed: reassigning a Quickshell Process's own
+  // command while it's already running does NOT cancel the in-flight
+  // run -- it finishes, THEN the reassigned command fires -- so
+  // reusing ONE process per kind already gives "last click for that
+  // SAME kind wins" for free. What that doesn't cover is rapid
+  // switches ACROSS kinds (video -> gif -> image): nothing guarantees
+  // three independent subprocesses deliver their IPC calls in the
+  // same order they were dispatched, especially under real scheduling
+  // pressure, so a later click's call could in principle be processed
+  // before an earlier click's own call finishes. selectGeneration
+  // tracks the highest generation number this service has accepted
+  // across ALL THREE of those entry points; acceptsGeneration() below
+  // rejects anything older, so an out-of-order arrival can no longer
+  // win over the user's actual latest choice. Same principle
+  // posterAndSetProc's own onStreamFinished below already applies to
+  // its own stale-result check, just extended to the IPC boundary
+  // itself instead of only after the fact.
+  property int selectGeneration: -1
+
+  // Only enforced when a caller actually provides a generation --
+  // resumeProc's own play()/playGif() calls below bypass the
+  // IpcHandler entirely (they call these functions directly), so
+  // there's nothing external to race against on that path.
+  function acceptsGeneration(generationText) {
+    var gen = parseInt(generationText, 10)
+    if (isNaN(gen)) return true
+    if (gen < root.selectGeneration) return false
+    root.selectGeneration = gen
+    return true
+  }
+
   // Ensures the poster exists (same md5-of-real-path naming
   // WallpapersContent.qml's own listProc already uses when building
   // the picker, so this is very likely already cached from just
@@ -222,9 +258,18 @@ Item {
 
   IpcHandler {
     target: "ruixen.wallpaper"
-    function playVideo(path: string): void { root.play(path) }
-    function playGif(path: string): void { root.playGif(path) }
-    function stop(): void { root.stop() }
+    function playVideo(path: string, generation: string): void {
+      if (!root.acceptsGeneration(generation)) return
+      root.play(path)
+    }
+    function playGif(path: string, generation: string): void {
+      if (!root.acceptsGeneration(generation)) return
+      root.playGif(path)
+    }
+    function stop(generation: string): void {
+      if (!root.acceptsGeneration(generation)) return
+      root.stop()
+    }
     function status(): string {
       return JSON.stringify({
         active: root.videoPath !== "" || root.gifPath !== "",

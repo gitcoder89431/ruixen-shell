@@ -72,6 +72,16 @@ Item {
   property string currentBackground: ""
   property string searchText: ""
 
+  // Bumped on every select() call, passed to ruixen.wallpaper's own
+  // playVideo/playGif/stop IPC calls so it can reject an out-of-order
+  // arrival -- see that service's own selectGeneration/
+  // acceptsGeneration comment for the full "why". Each of the three
+  // kinds dispatches through its OWN Process (below), so nothing on
+  // this side alone guarantees their independent `qs ipc call`
+  // subprocesses arrive in click order when kinds are switched
+  // rapidly; this is what actually closes that gap.
+  property int selectGeneration: 0
+
   // Direct follow-up ("we should lazyload it in from the other
   // direction... it seems to be loading in 50, 49, 48, 47 etc so we
   // see a huge blank space while waiting for the top ones to load
@@ -267,10 +277,16 @@ Item {
   // posterPath), but that poll is really a safety net for the STOCK
   // Omarchy picker, which has no way to know this plugin exists at
   // all. Our own picker can just say so directly and immediately.
-  // Harmless no-op if nothing was playing.
+  // Harmless no-op if nothing was playing. No longer guarded by
+  // `if (!stopVideoProc.running)` -- confirmed directly that
+  // reassigning a Process's command while it's already running is
+  // safe (the in-flight run finishes, then the reassigned command
+  // fires), so skipping the reassignment here just meant a rapid
+  // second stop could go out with a stale generation number instead
+  // of the current one.
   Process {
     id: stopVideoProc
-    command: ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "stop"]
+    stdout: StdioCollector { waitForEnd: true }
   }
 
   Process {
@@ -285,14 +301,17 @@ Item {
 
   function select(entry) {
     root.currentBackground = entry.display
+    root.selectGeneration += 1
+    var gen = String(root.selectGeneration)
     if (entry.kind === "video") {
-      playVideoProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playVideo", entry.real]
+      playVideoProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playVideo", entry.real, gen]
       playVideoProc.running = true
     } else if (entry.kind === "gif") {
-      playGifProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playGif", entry.real]
+      playGifProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "playGif", entry.real, gen]
       playGifProc.running = true
     } else {
-      if (!stopVideoProc.running) stopVideoProc.running = true
+      stopVideoProc.command = ["qs", "-p", "/usr/share/omarchy/shell", "ipc", "call", "ruixen.wallpaper", "stop", gen]
+      stopVideoProc.running = true
       setProc.command = ["omarchy-theme-bg-set", entry.real]
       setProc.running = true
     }

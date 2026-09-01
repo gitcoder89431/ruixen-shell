@@ -11,14 +11,54 @@ fail() {
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
-printf '\n[1/4] Switching back to the built-in Omarchy bar\n'
+printf '\n[1/4] Restoring your pre-Ruixen shell configuration\n'
 # ruixen.bar reports canDisable: false while it's the ACTIVE bar (confirmed
 # via `omarchy plugin list --json`) -- it can't be removed until something
-# else is active. `reset` switches to omarchy.bar under the hood (confirmed
-# by reading omarchy-bar directly: reset == `cmd_use omarchy.bar`);
-# `defaults` then restores the default widget layout on top of it.
-omarchy bar reset
-omarchy bar defaults
+# else is active, so something has to take over the bar slot before step
+# [2/4] can remove it either way.
+#
+# Direct review finding ("Make full uninstall restore the user's
+# pre-Ruixen shell configuration"): unconditional `omarchy bar reset` +
+# `omarchy bar defaults` always landed on Omarchy's own stock default
+# bar, discarding whatever the user had actually customized -- their
+# own bar choice, widget layout, position, transparency -- if any of
+# that existed before Ruixen was ever installed. Now restores from
+# install.sh's own pristine snapshot instead
+# (~/.local/state/ruixen/shell.json.pre-ruixen, #1) when a usable one
+# exists: the EXACT bar object recorded the first time Ruixen ever
+# touched shell.json.
+#
+# Written via `commit`, the exact same atomic-write-then-live-reload
+# primitive Omarchy's own bar reset/defaults/use commands use
+# internally (confirmed by reading omarchy-bar + omarchy-shell-config
+# directly) -- not a second, competing way of mutating shell.json.
+# That's what actually resolves the original concern this script used
+# to have about hand-editing the file racing the shell's own in-memory
+# state: `commit` IS the safe, first-party way to do that edit, we
+# were just avoiding it out of caution before knowing it existed.
+pristine_shell_json="$HOME/.local/state/ruixen/shell.json.pre-ruixen"
+if pristine_bar="$("$script_dir/lib/pick-pristine-bar.sh" "$pristine_shell_json")"; then
+  # shellcheck disable=SC1091
+  source omarchy-shell-config
+  # $NORMALIZE (bash variable, unescaped) is interpolated into the jq
+  # program text itself; \$pristineBar (escaped) stays a literal jq
+  # variable reference for --argjson to fill in -- same convention
+  # omarchy-bar's own cmd_* functions use. Caught live, not assumed: a
+  # single-quoted version of this line left $NORMALIZE un-interpolated
+  # by bash, so jq saw the literal text "$NORMALIZE" and failed with
+  # "$NORMALIZE is not defined."
+  commit "$NORMALIZE | .bar = \$pristineBar" --argjson pristineBar "$pristine_bar"
+  printf '  restored your pre-Ruixen bar (%s)\n' "$(jq -r '.id' <<<"$pristine_bar")"
+else
+  # No usable pristine bar -- a fresh install with nothing before
+  # Ruixen, a missing/corrupt snapshot (this install predates #1's
+  # fix, say), or the recorded bar was somehow already ruixen.bar.
+  # Falls back to Omarchy's own real stock default exactly like
+  # before, rather than failing the whole uninstall over it.
+  omarchy bar reset
+  omarchy bar defaults
+  printf '  no usable pre-Ruixen bar found -- restored the built-in Omarchy bar instead\n'
+fi
 
 printf '\n[2/4] Removing Ruixen Shell plugins\n'
 # Curated to "ruixen." ids only, same scoping the Plugins settings page

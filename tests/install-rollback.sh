@@ -15,6 +15,13 @@
 #      shell.json, AND looknfeel.lua have all genuinely been touched,
 #      so this is the real end-to-end proof that rollback_all() puts
 #      all three back exactly as they were.
+#
+# Also covers "[P1] Make repo-path state part of the successful install
+# transaction" (#14), reusing these exact same two failure points plus
+# a genuine second-checkout success case: a failed install run from a
+# DIFFERENT checkout than the one currently installed must never move
+# repo-path onto the failed checkout, and a SUCCESSFUL install from a
+# different checkout must.
 set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,12 +47,25 @@ check() {
 }
 
 homes=()
-cleanup() { rm -rf "${homes[@]}"; }
+cleanup() { rm -rf "${homes[@]}" "${checkout_b:-}"; }
 trap cleanup EXIT
+
+# A second, distinct checkout -- a plain copy of this repo at a
+# different path -- so repo-path tests can tell "still pointing at the
+# checkout that was actually installed" apart from "happens to be the
+# same path either way" (#14).
+checkout_b="$(mktemp -d)"
+cp -r "$repo_dir"/. "$checkout_b"/
 
 # --- Failure point 1: validation failure touches nothing at all ----
 home1="$(mktemp -d)"
 homes+=("$home1")
+
+# A prior working install's repo-path, from a checkout other than
+# repo_dir -- this run's failure must leave it exactly as-is (#14).
+mkdir -p "$home1/.local/state/ruixen"
+printf '%s\n' "/prior/working/checkout" > "$home1/.local/state/ruixen/repo-path"
+
 if ( HOME="$home1" PATH="$fake_bin:$PATH" FAKE_OMARCHY_FAIL_VALIDATE_FOR="ruixen.weather" "$repo_dir/install.sh" ) \
   >"$home1/install.out" 2>&1; then
   status1=0
@@ -65,6 +85,8 @@ check "validation failure: no plugin directory was created at all" \
   "$([[ -d "$home1/.config/omarchy/plugins" ]] && find "$home1/.config/omarchy/plugins" -mindepth 1 -maxdepth 1 | wc -l || echo 0)" "0"
 check "validation failure: looknfeel.lua was never touched" \
   "$([[ -e "$home1/.config/hypr/looknfeel.lua" ]] && echo exists || echo absent)" "absent"
+check "validation failure: repo-path still points at the previously working checkout (#14)" \
+  "$(cat "$home1/.local/state/ruixen/repo-path")" "/prior/working/checkout"
 
 # --- Failure point 2: a later-step failure rolls back everything ---
 # already touched this run -- plugins, shell.json, AND looknfeel.
@@ -97,7 +119,10 @@ else
 
   before_shell_json="$(jq -S . "$home2/.config/omarchy/shell.json")"
 
-  if ( HOME="$home2" PATH="$fake_bin:$PATH" FAKE_OMARCHY_FAIL_RESTART=1 "$repo_dir/install.sh" ) \
+  # The failing second run comes from checkout_b, a DIFFERENT checkout
+  # than the baseline install above (repo_dir) -- proves repo-path
+  # isn't just coincidentally the same value before and after (#14).
+  if ( HOME="$home2" PATH="$fake_bin:$PATH" FAKE_OMARCHY_FAIL_RESTART=1 "$checkout_b/install.sh" ) \
     >"$home2/install-2.out" 2>&1; then
     status2=0
   else
@@ -119,6 +144,25 @@ else
     "$(jq -S . "$home2/.config/omarchy/shell.json")" "$before_shell_json"
   check "rollback: this run's own plugin backup was consumed, not left behind" \
     "$(find "$home2/.local/state/ruixen/backups/plugins" -maxdepth 1 -iname 'ruixen.notch.bak.*' 2>/dev/null | wc -l)" "0"
+  check "rollback: repo-path still points at the working checkout (repo_dir), not the failed checkout_b (#14)" \
+    "$(cat "$home2/.local/state/ruixen/repo-path")" "$repo_dir"
+fi
+
+# --- Case 3: a SUCCESSFUL install from a different checkout DOES
+# update repo-path -- the other half of #14's acceptance criteria, that
+# this isn't just "repo-path never changes again after the first
+# install." Reuses home2's already-working baseline (repo_dir) from
+# above; this run succeeds normally (no FAKE_OMARCHY_FAIL_* set).
+if [[ "$baseline_status" -eq 0 ]]; then
+  if ( HOME="$home2" PATH="$fake_bin:$PATH" "$checkout_b/install.sh" ) >"$home2/install-3.out" 2>&1; then
+    status3=0
+  else
+    status3=$?
+    cat "$home2/install-3.out" >&2
+  fi
+  check "successful install from a new checkout: exits 0" "$status3" "0"
+  check "successful install from a new checkout: repo-path updates to checkout_b (#14)" \
+    "$(cat "$home2/.local/state/ruixen/repo-path")" "$checkout_b"
 fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"

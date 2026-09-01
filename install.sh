@@ -62,15 +62,12 @@ fi
 
 mkdir -p "$plugins_dir"
 
-# Records where this checkout lives so the deployed ruixen.settings
-# plugin (running from $plugins_dir, a plain copy, not this git repo)
-# can find update.sh to run later -- otherwise the settings app's own
-# Update button would have no way to know this path on a machine where
-# Claude/the user hasn't told it directly. Rewritten on every install/
-# update run, so it always tracks the checkout actually in use.
+# $state_dir itself is needed early (pristine snapshots, plugin backups
+# below all live under it) -- but NOT the repo-path file, see the
+# [6/6] success block at the end of this script for where and why that
+# gets written instead.
 state_dir="$HOME/.local/state/ruixen"
 mkdir -p "$state_dir"
-printf '%s\n' "$script_dir" > "$state_dir/repo-path"
 
 # Backups go under $state_dir, never inside $plugins_dir -- real bug
 # hit live ("i did the update button on plugs in page, did that
@@ -251,6 +248,21 @@ printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_d
 
 printf '\n[6/6] Restarting Omarchy shell\n'
 omarchy restart shell
+
+# Direct review finding ("Make repo-path state part of the successful
+# install transaction", #14): this used to be written right at the top
+# of the script, before plugin validation/deployment even started -- so
+# a failed install from a checkout B, run on top of a working install
+# from checkout A, left repo-path pointing at B (the failed one) even
+# though every other piece of state correctly rolled back to A.
+# Settings' own Update button would then be running update.sh out of a
+# checkout that was never actually the one currently installed.
+#
+# Written here instead -- after the restart above, the last step that
+# can still fail -- so repo-path only ever identifies the checkout that
+# actually produced the currently installed state, matching every other
+# piece of this install's rollback coverage.
+printf '%s\n' "$script_dir" > "$state_dir/repo-path"
 
 # Success -- disarm the rollback trap before the summary below, so a
 # cosmetic failure in the `cat` heredoc itself (there isn't one, but in

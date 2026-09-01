@@ -423,6 +423,7 @@ ColumnLayout {
                     // Icon instead of text, same treatment as
                     // the known-row connect icon above.
                     Text {
+                      id: otherBtBusyIcon
                       readonly property bool busy: settingsRoot.btBusyAddress === otherBtRow.modelData.address
                       // Link icon, not the same plug used for
                       // Connect above -- direct follow-up:
@@ -438,8 +439,26 @@ ColumnLayout {
                       rotation: busy ? spinAngle : 0
                       property real spinAngle: 0
 
+                      // otherBtBusyIcon.busy, not parent.busy -- real
+                      // warning hit live: "Unable to assign [undefined]
+                      // to bool". Copy-paste slip from the known-row
+                      // version above, which correctly uses its own
+                      // delegate id (btRow.busy) for this same reason:
+                      // NumberAnimation isn't a QQuickItem, so it never
+                      // gets an implicit `parent` reference to its
+                      // enclosing Text the way a visual child would --
+                      // `parent` resolved to undefined here. Bare
+                      // `busy` (no qualifier at all) does NOT work
+                      // either -- confirmed directly, not assumed, via
+                      // an isolated quickshell instance: unqualified
+                      // property lookup from inside a nested non-Item
+                      // child object throws "ReferenceError: busy is
+                      // not defined" rather than finding the enclosing
+                      // Text's own property the way a same-object
+                      // binding (text/rotation above) does. Needs this
+                      // Text's own explicit id, added above.
                       NumberAnimation on spinAngle {
-                        running: parent.busy
+                        running: otherBtBusyIcon.busy
                         loops: Animation.Infinite
                         from: 0
                         to: 360

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Minimal test stub, NOT a real implementation -- just enough surface
+# for install.sh to run to completion in a sandboxed test $HOME (see
+# tests/install-lifecycle.sh). Real Omarchy plugin/manifest validation
+# is covered separately and portably by tests/validate-manifests.sh.
+set -Eeuo pipefail
+
+case "${1:-} ${2:-}" in
+  "plugin validate")
+    dir="${3:-}"
+    if [[ -n "${FAKE_OMARCHY_FAIL_VALIDATE_FOR:-}" && "$dir" == *"$FAKE_OMARCHY_FAIL_VALIDATE_FOR"* ]]; then
+      echo "fake omarchy: forced validation failure for $dir" >&2
+      exit 1
+    fi
+    exit 0
+    ;;
+  "restart shell")
+    exit 0
+    ;;
+  *)
+    echo "fake omarchy stub: unhandled command: $*" >&2
+    exit 1
+    ;;
+esac

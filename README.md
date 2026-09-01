@@ -157,6 +157,25 @@ hyprland/ruixen-lookfeel.sh status  # show which one is active
 - Omarchy `4.0.0-1` (or a nearby build of the same shell generation)
 - Quickshell, as provided by Omarchy
 
+## Running tests
+
+```bash
+./tests/run-all.sh
+```
+
+Runs everything CI runs (`.github/workflows/ci.yml`) in one go: shell
+script lint (`bash -n` + ShellCheck, when installed), plugin manifest
+validation, the JS model tests, and the installer lifecycle/config/
+uninstall-restore tests. Each suite can also be run on its own --
+see `tests/*.sh`, every file has its own header comment explaining
+what it covers.
+
+The installer tests (`tests/install-lifecycle.sh`, `tests/shell-json-
+merge.sh`, `tests/looknfeel-preserve.sh`, `tests/uninstall-bar-
+restore.sh`) run against a throwaway fake `$HOME`/directory tree, never
+your real config, so they're safe to run anywhere including this repo's
+own checkout.
+
 ## License
 
 Released under the [MIT License](LICENSE).

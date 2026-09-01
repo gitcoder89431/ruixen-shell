@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Minimal test stub -- install.sh only ever calls `hyprctl reload`
+# with its result discarded (`|| true`), so this just needs to exist
+# and exit cleanly. See tests/install-lifecycle.sh.
+exit 0

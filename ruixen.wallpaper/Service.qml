@@ -3,6 +3,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import QtMultimedia
+import "GenerationGuard.js" as GenerationGuard
 
 // Muted, looping video wallpaper support, plus animated GIF wallpaper
 // support -- direct request ("can we remake one in our shell like
@@ -79,17 +80,34 @@ Item {
   // posterAndSetProc's own onStreamFinished below already applies to
   // its own stale-result check, just extended to the IPC boundary
   // itself instead of only after the fact.
-  property int selectGeneration: -1
+  //
+  // real, not int (#22) -- WallpapersContent.qml now seeds its own
+  // counter from Date.now() (milliseconds since epoch, ~13 digits) at
+  // creation rather than 0, so a freshly (re)created client instance
+  // can never look older than whatever this long-lived service already
+  // saw from a PREVIOUS client's lifetime -- see that file's own
+  // comment for the full "why". A 13-digit value silently overflows
+  // QML's 32-bit `int` (confirmed empirically, not assumed, via an
+  // isolated Quickshell test: Date.now() assigned to a property int
+  // truncated to a completely different, smaller number). `real` (a
+  // JS double/QML's floating-point type) safely holds integers up to
+  // 2^53, comfortably covering millisecond timestamps for millennia.
+  property real selectGeneration: -1
 
   // Only enforced when a caller actually provides a generation --
   // resumeProc's own play()/playGif() calls below bypass the
   // IpcHandler entirely (they call these functions directly), so
   // there's nothing external to race against on that path.
+  //
+  // The actual accept/reject decision is GenerationGuard.acceptGeneration
+  // (#22) -- extracted to its own file so it's unit-testable
+  // (tests/js/GenerationGuard.test.js) rather than only reachable
+  // through a live IPC round-trip. This function's own job is just
+  // applying that decision to root.selectGeneration.
   function acceptsGeneration(generationText) {
-    var gen = parseInt(generationText, 10)
-    if (isNaN(gen)) return true
-    if (gen < root.selectGeneration) return false
-    root.selectGeneration = gen
+    var next = GenerationGuard.acceptGeneration(root.selectGeneration, generationText)
+    if (next === null) return false
+    root.selectGeneration = next
     return true
   }
 

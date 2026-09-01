@@ -81,7 +81,34 @@ Item {
   // this side alone guarantees their independent `qs ipc call`
   // subprocesses arrive in click order when kinds are switched
   // rapidly; this is what actually closes that gap.
-  property int selectGeneration: 0
+  //
+  // Seeded from Date.now() (real, not int -- see below), not a plain
+  // 0 -- direct review finding ("Make wallpaper selection generations
+  // survive Notch reloads", #22): ruixen.wallpaper stays loaded and
+  // keeps its OWN selectGeneration for its entire process lifetime,
+  // but this WallpapersContent instance can be destroyed and recreated
+  // independently of it -- ruixen.notch disabled/re-enabled, a plugin
+  // reload. A freshly created instance restarting from 0 would send
+  // generation 1 on its very first real click while the service might
+  // already be sitting on, say, 15 from the PREVIOUS instance's
+  // lifetime -- rejected as stale, and every click after it too, until
+  // this counter climbed back past 15. Seeding from a wall-clock
+  // timestamp instead means a brand-new instance's very first
+  // generation is already astronomically larger than any plain
+  // incrementing counter the old instance could plausibly have
+  // reached, so it can never look older to the service. Still just a
+  // plain +1 per click after that (see select() below), not a fresh
+  // Date.now() read every time -- that keeps two clicks landing in the
+  // same millisecond strictly ordered too, which re-reading the clock
+  // on every click would not.
+  //
+  // `real`, not `int` -- confirmed empirically (isolated Quickshell
+  // test), not assumed: Date.now()'s ~13-digit millisecond value
+  // silently overflows QML's 32-bit `int` type. `real` (a JS double)
+  // safely holds integers up to 2^53, comfortably covering millisecond
+  // timestamps for millennia. ruixen.wallpaper/Service.qml's own
+  // selectGeneration was widened to match -- see its own comment.
+  property real selectGeneration: Date.now()
 
   // Direct follow-up ("we should lazyload it in from the other
   // direction... it seems to be loading in 50, 49, 48, 47 etc so we

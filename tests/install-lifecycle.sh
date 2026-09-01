@@ -116,7 +116,7 @@ else
   printf 'ok   - failing plugin validation aborts install.sh (exit non-zero)\n'
   pass=$((pass + 1))
 fi
-check "validation failure: shell.json was never written (aborted before step [3/5])" \
+check "validation failure: shell.json was never written (aborted before step [4/6])" \
   "$([[ -e "$home3/.config/omarchy/shell.json" ]] && echo exists || echo absent)" "absent"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"

@@ -154,8 +154,23 @@ hyprland/ruixen-lookfeel.sh status  # show which one is active
 
 ## Requirements
 
-- Omarchy `4.0.0-1` (or a nearby build of the same shell generation)
+- Omarchy `4.0.0-1` (or a nearby build of the same shell generation) --
+  `install.sh` checks this and warns (doesn't block) if it detects
+  something outside that range
 - Quickshell, as provided by Omarchy
+- `jq` -- the installer itself needs it to merge into your existing
+  `shell.json` rather than overwrite it
+
+`install.sh` also checks a few optional, feature-specific dependencies
+and warns (without failing) if any are missing, so you know up front
+rather than discovering it later when a feature quietly doesn't work:
+
+| Missing | What's unavailable |
+|---|---|
+| `ffmpeg` | Video wallpaper support (posters/playback) |
+| `curl` | Weather data, avatar image download in Settings |
+| `python3` | The bar's docked-mode toggle |
+| `fastfetch` | Less detail on the health page's system-info panel |
 
 ## Running tests
 

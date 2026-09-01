@@ -17,6 +17,7 @@ suites=(
   "$script_dir/install-lifecycle.sh"
   "$script_dir/install-rollback.sh"
   "$script_dir/wallpaper-discovery-format.sh"
+  "$script_dir/update-safety.sh"
 )
 
 overall_status=0

@@ -14,6 +14,52 @@ fail() {
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
+# Direct review finding ("Add runtime dependency/version preflight and
+# safer release update behavior"): the README stated broad Omarchy
+# requirements but nothing here ever told a user WHICH specific
+# feature would be unavailable if an optional dependency was missing
+# -- they'd only find out later, by a feature silently not working
+# with no explanation (see WallpapersContent.qml's own comment for
+# exactly this happening with ffmpeg). Required deps (omarchy, jq,
+# above) still fail the install outright, before anything is touched
+# -- these aren't optional, most of install.sh cannot function without
+# them. Everything below is a real feature dependency, not a hard
+# requirement, so a warning here plus the install continuing is the
+# correct behavior, not a failure.
+printf '\n[1/6] Checking optional dependencies\n'
+optional_dep_warned=0
+warn_optional_dep() {
+  local cmd="$1" feature="$2"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    printf '  NOTE: %s not found -- %s\n' "$cmd" "$feature" >&2
+    optional_dep_warned=1
+  fi
+}
+warn_optional_dep ffmpeg "video wallpaper support (posters/playback) will be unavailable"
+warn_optional_dep curl "weather data and avatar image download in Settings will be unavailable"
+warn_optional_dep python3 "the bar's docked-mode toggle will silently no-op"
+warn_optional_dep fastfetch "the health page's system-info panel will show less detail"
+if [[ "$optional_dep_warned" -eq 0 ]]; then
+  printf '  all optional dependencies present\n'
+fi
+
+# Warns, doesn't fail -- can't be CERTAIN a version outside this range
+# won't work, only that it's untested. `omarchy version` prints a bare
+# "X.Y.Z-rel" (confirmed by running it directly), so a simple major-
+# version compare against what the README documents ("4.0.0-1 or a
+# nearby build of the same shell generation") is enough to catch the
+# real case this guards against: a much older or much newer Omarchy
+# whose shell internals may have moved out from under this repo's own
+# assumptions (the reload-path bugs and IPC conventions this repo
+# already depends on directly, for instance).
+omarchy_version="$(omarchy version 2>/dev/null || true)"
+omarchy_major="${omarchy_version%%.*}"
+if [[ -z "$omarchy_version" ]]; then
+  printf '  NOTE: could not determine Omarchy version (`omarchy version` produced no output) -- proceeding anyway\n' >&2
+elif [[ ! "$omarchy_major" =~ ^[0-9]+$ || "$omarchy_major" -ne 4 ]]; then
+  printf '  WARNING: this checkout is developed against Omarchy 4.x; detected %s -- things may not work as expected\n' "$omarchy_version" >&2
+fi
+
 mkdir -p "$plugins_dir"
 
 # Records where this checkout lives so the deployed ruixen.settings
@@ -115,7 +161,7 @@ rollback_all() {
 }
 trap rollback_all ERR
 
-printf '\n[1/5] Validating plugins\n'
+printf '\n[2/6] Validating plugins\n'
 # Every manifest is checked before ANYTHING is deployed -- a failure
 # here never touches a single already-installed plugin.
 for dir in "$script_dir"/ruixen.*/; do
@@ -125,7 +171,7 @@ for dir in "$script_dir"/ruixen.*/; do
 done
 printf '  all plugins passed validation\n'
 
-printf '\n[2/5] Installing plugins\n'
+printf '\n[3/6] Installing plugins\n'
 for dir in "$script_dir"/ruixen.*/; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
@@ -145,7 +191,7 @@ for dir in "$script_dir"/ruixen.*/; do
   printf '  installed %s\n' "$id"
 done
 
-printf '\n[3/5] Applying shell layout\n'
+printf '\n[4/6] Applying shell layout\n'
 # Merged into whatever shell.json already exists (via lib/build-shell-
 # json.sh), not a wholesale `cat > shell.json` overwrite -- direct
 # review finding ("Preserve existing shell.json instead of replacing
@@ -184,7 +230,7 @@ tmp_shell_json="$(mktemp "${shell_json}.XXXXXX")"
 mv "$tmp_shell_json" "$shell_json"
 printf '  wrote %s (unrelated plugins/settings, if any, were preserved)\n' "$shell_json"
 
-printf '\n[4/5] Matching Hyprland window look to the frame/bar\n'
+printf '\n[5/6] Matching Hyprland window look to the frame/bar\n'
 # See lib/apply-looknfeel.sh's own comment for the full "why" -- in
 # short, a pre-existing looknfeel.lua SYMLINK (a dotfiles setup, say)
 # used to get silently overwritten with no backup at all, and a
@@ -203,7 +249,7 @@ hyprctl reload >/dev/null 2>&1 || true
 printf '  applied rounded corners + blur matching the frame (24px)\n'
 printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"
 
-printf '\n[5/5] Restarting Omarchy shell\n'
+printf '\n[6/6] Restarting Omarchy shell\n'
 omarchy restart shell
 
 # Success -- disarm the rollback trap before the summary below, so a
@@ -211,6 +257,44 @@ omarchy restart shell
 # principle) could never be mistaken for an install failure and trigger
 # an unnecessary rollback of a genuinely successful install.
 trap - ERR
+
+# Backup retention -- direct review finding ("Backup retention is
+# bounded or cleaned so repeated updates do not accumulate unlimited
+# plugin snapshots"). Every install/update run leaves a fresh
+# timestamped backup behind for each of the plugins/shell.json/
+# looknfeel.lua (real, useful recovery copies -- not staging files, so
+# not something rollback_all above cleans up, and not touched at all
+# unless we get here, past every earlier failure point). Left
+# unbounded, a machine that updates daily accumulates one of these per
+# plugin per day forever. Runs only after a fully successful install,
+# never mid-run: this run's own backups (the ones rollback_all might
+# still need) are always exempt just by virtue of being the newest.
+prune_backups() {
+  local keep="$1"
+  shift
+  local pattern
+  for pattern in "$@"; do
+    local matches=()
+    # Oldest-first: our timestamps are unix epoch seconds baked
+    # straight into the filename, so a plain lexical sort is already
+    # chronological order.
+    while IFS= read -r -d '' f; do matches+=("$f"); done < <(find $pattern -maxdepth 0 -print0 2>/dev/null | sort -z)
+    local total=${#matches[@]}
+    if (( total > keep )); then
+      local i
+      for (( i = 0; i < total - keep; i++ )); do
+        rm -rf "${matches[$i]}"
+      done
+    fi
+  done
+}
+backup_retain_count=5
+for dir in "$script_dir"/ruixen.*/; do
+  [[ -d "$dir" ]] || continue
+  prune_backups "$backup_retain_count" "$plugin_backup_dir/$(basename "$dir").bak.*"
+done
+prune_backups "$backup_retain_count" "${shell_json}.bak.*"
+prune_backups "$backup_retain_count" "${looknfeel_target}.bak.*"
 
 cat <<EOF
 

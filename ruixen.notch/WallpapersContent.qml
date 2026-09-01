@@ -159,16 +159,43 @@ Item {
   // before the user has dropped anything into it.
   //
   // The `process` shell function classifies each found file: a plain
-  // image prints `image|path|path` (display and real are the same
-  // thing); a gif prints `gif|path|path` too (no poster needed --
-  // Image already renders a gif's own first frame directly, same as
-  // any other static image); a video ensures its poster exists (same
-  // md5-of-real-path cache naming ruixen.wallpaper's own Service.qml
-  // uses for its own poster lookups, so both sides agree on the same
-  // cache file with neither one telling the other its path) then
-  // prints `video|poster|path` -- a video with no decodable first
-  // frame (corrupt file, unsupported codec) is silently skipped
-  // rather than showing a broken tile.
+  // image prints `image<US>path<US>path` (display and real are the
+  // same thing); a gif prints `gif<US>path<US>path` too (no poster
+  // needed -- Image already renders a gif's own first frame directly,
+  // same as any other static image); a video ensures its poster
+  // exists (same md5-of-real-path cache naming ruixen.wallpaper's own
+  // Service.qml uses for its own poster lookups, so both sides agree
+  // on the same cache file with neither one telling the other its
+  // path) then prints `video<US>poster<US>path` -- a video with no
+  // decodable first frame (corrupt file, unsupported codec) is
+  // silently skipped rather than showing a broken tile.
+  //
+  // <US> is ASCII Unit Separator (0x1F), not "|" -- direct review
+  // finding ("Harden wallpaper discovery/state serialization... a
+  // legal Linux filename containing | breaks that record"). 0x1F is
+  // the standard non-printable field-separator control character
+  // (same family as CSV/TSV alternatives use for exactly this
+  // reason), so a real filename would have to go out of its way to
+  // contain it -- unlike "|", which plenty of real files legitimately
+  // do. Records themselves stay newline-separated; find/sort/read all
+  // moved to NUL-delimited (-print0/-z/-d '') so a filename is never
+  // split on its own bytes during DISCOVERY either, only the (already
+  // extremely unlikely) case of a literal embedded newline WITHIN a
+  // filename can still misalign the record framing -- not attempted
+  // here, no acceptance criterion asked for it and NUL can never
+  // legally appear in a Linux path at all, so it was the one truly
+  // safe choice for the parts of the pipeline that still needed one.
+  //
+  // Poster staleness: the ffmpeg extraction now also re-runs when the
+  // source video is newer than its cached poster (`-nt`, bash's
+  // built-in mtime comparison), not just when the poster is entirely
+  // missing -- direct review finding ("replacing a video with new
+  // content at the same path can keep the old cached poster
+  // indefinitely"). Deliberately compares mtimes rather than baking
+  // mtime into the cache filename itself: a changed filename would
+  // orphan the old poster file forever with nothing to ever clean it
+  // up, where overwriting the same filename in place needs no
+  // separate pruning step at all.
   //
   // Skips the stock picker's thumbnail-cache indirection (list.sh)
   // since a handful of wallpaper-sized images downscaled via
@@ -176,37 +203,40 @@ Item {
   // the blurred-art backgrounds already loaded elsewhere in this
   // plugin. Poster generation is the one real added cost, but it's
   // cached after the first run (ffmpeg only runs for a file with no
-  // cached poster yet), so only ever paid once per video -- and only
-  // video pays it at all, gif never does.
+  // cached poster yet, or a stale one), so only ever paid once per
+  // video (twice if the video's ever replaced) -- and only video pays
+  // it at all, gif never does.
   Process {
     id: listProc
     command: ["bash", "-c",
       "theme=$(cat \"$HOME/.local/state/omarchy/current/theme.name\" 2>/dev/null); " +
       "mkdir -p \"$HOME/Pictures/ruixen-wallpapers\" \"$HOME/.cache/ruixen/wallpaper-posters\"; " +
-      "process() { while IFS= read -r f; do " +
+      "US=$'\\x1f'; " +
+      "process() { while IFS= read -r -d '' f; do " +
       "case \"${f,,}\" in " +
       "*.mp4|*.mkv|*.webm|*.mov|*.m4v) " +
       "hash=$(printf '%s' \"$f\" | md5sum | cut -d' ' -f1); " +
       "poster=\"$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg\"; " +
-      "[[ -f \"$poster\" ]] || ffmpeg -y -loglevel quiet -i \"$f\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; " +
-      "[[ -f \"$poster\" ]] && printf 'video|%s|%s\\n' \"$poster\" \"$f\" ;; " +
-      "*.gif) printf 'gif|%s|%s\\n' \"$f\" \"$f\" ;; " +
-      "*) printf 'image|%s|%s\\n' \"$f\" \"$f\" ;; " +
+      "if [[ ! -f \"$poster\" ]] || [[ \"$f\" -nt \"$poster\" ]]; then " +
+      "ffmpeg -y -loglevel quiet -i \"$f\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; fi; " +
+      "[[ -f \"$poster\" ]] && printf 'video%s%s%s%s\\n' \"$US\" \"$poster\" \"$US\" \"$f\" ;; " +
+      "*.gif) printf 'gif%s%s%s%s\\n' \"$US\" \"$f\" \"$US\" \"$f\" ;; " +
+      "*) printf 'image%s%s%s%s\\n' \"$US\" \"$f\" \"$US\" \"$f\" ;; " +
       "esac; done; }; " +
       "find -L \"$HOME/.local/state/omarchy/current/theme/backgrounds\" \"$HOME/.config/omarchy/backgrounds/$theme\" " +
       "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" " +
       "-o -iname \"*.mp4\" -o -iname \"*.mkv\" -o -iname \"*.webm\" -o -iname \"*.mov\" -o -iname \"*.m4v\" \\) " +
-      "2>/dev/null | sort | process; " +
+      "-print0 2>/dev/null | sort -z | process; " +
       "find -L \"$HOME/Pictures/ruixen-wallpapers\" " +
       "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" " +
       "-o -iname \"*.mp4\" -o -iname \"*.mkv\" -o -iname \"*.webm\" -o -iname \"*.mov\" -o -iname \"*.m4v\" \\) " +
-      "2>/dev/null | sort | process"]
+      "-print0 2>/dev/null | sort -z | process"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
         var lines = String(text || "").split("\n").filter(function(line) { return line.length > 0 })
         root.wallpaperPaths = lines.map(function(line) {
-          var parts = line.split("|")
+          var parts = line.split("\u001f")
           return { kind: parts[0], display: parts[1], real: parts[2] }
         })
         root.loadGate = 0

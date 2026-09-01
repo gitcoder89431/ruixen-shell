@@ -102,10 +102,18 @@ Item {
     root.playGeneration += 1
 
     root.posterExpectedFor = path
+    // Regenerates when the source video is newer than its cached
+    // poster (-nt), not just when the poster is entirely missing --
+    // same fix, same reasoning, as WallpapersContent.qml's own
+    // discovery script (both sides share this exact cache naming
+    // convention, see that file's own comment): otherwise replacing
+    // a video's content at the same path kept showing the OLD poster
+    // indefinitely.
     posterAndSetProc.command = ["bash", "-c",
       "hash=$(printf '%s' \"$1\" | md5sum | cut -d' ' -f1); " +
       "poster=\"$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg\"; " +
-      "[[ -f \"$poster\" ]] || ffmpeg -y -loglevel quiet -i \"$1\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; " +
+      "if [[ ! -f \"$poster\" ]] || [[ \"$1\" -nt \"$poster\" ]]; then " +
+      "ffmpeg -y -loglevel quiet -i \"$1\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; fi; " +
       "if [[ -f \"$poster\" ]]; then omarchy-theme-bg-set \"$poster\"; printf '%s' \"$poster\"; fi",
       "_", path]
     posterAndSetProc.running = true

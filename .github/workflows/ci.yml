@@ -12,8 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ShellCheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install ShellCheck and ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y shellcheck ffmpeg
 
       - name: Run all test suites
         run: ./tests/run-all.sh

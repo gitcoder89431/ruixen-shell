@@ -39,10 +39,12 @@ An AUR package is planned but not yet published — cloning from source is the
 only install path right now.
 
 The installer copies each plugin into `~/.config/omarchy/plugins/`, backs up
-anything it would overwrite, applies a known-good `shell.json` layout,
-applies a matching Hyprland window look (rounded corners + blur, see
-below — also backed up if you already have a `looknfeel.lua`), and restarts
-the Omarchy shell.
+anything it would overwrite, merges Ruixen's bar/plugin config into your
+existing `shell.json` rather than replacing it outright (any unrelated bar
+widgets, plugins, or idle settings you already had survive), applies a
+matching Hyprland window look (rounded corners + blur, see below — also
+backed up if you already have a `looknfeel.lua`), and restarts the Omarchy
+shell.
 
 After installing, add a keybind of your own for opening Ruixen Settings —
 the installer deliberately doesn't touch your Hyprland config:
@@ -60,7 +62,7 @@ Pick any other unbound key if you'd rather — `omarchy menu keybindings --print
 ./update.sh
 ```
 
-Pulls the latest changes and reinstalls — same backup-then-overwrite
+Pulls the latest changes and reinstalls — same backup-then-merge
 behavior as `install.sh` itself, so it's always safe to re-run. Only
 works from your existing cloned checkout (it just wraps `git pull` +
 `./install.sh`), so don't delete the folder after installing.

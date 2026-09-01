@@ -12,6 +12,7 @@ fail() {
 }
 
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
+command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
 mkdir -p "$plugins_dir"
 
@@ -56,60 +57,42 @@ for dir in "$script_dir"/ruixen.*/; do
 done
 
 printf '\n[2/4] Applying shell layout\n'
+# Merged into whatever shell.json already exists (via lib/build-shell-
+# json.sh), not a wholesale `cat > shell.json` overwrite -- direct
+# review finding ("Preserve existing shell.json instead of replacing
+# the entire user config": a user with their own bar widgets, plugin
+# entries, or idle settings shouldn't lose them just because Ruixen
+# installed). See that script's own comment for exactly what survives
+# a merge and what Ruixen always owns.
 if [[ -e "$shell_json" ]]; then
+  jq empty "$shell_json" >/dev/null 2>&1 \
+    || fail "existing $shell_json isn't valid JSON -- fix or remove it by hand and run install.sh again (nothing has been changed)"
   cp "$shell_json" "${shell_json}.bak.${stamp}"
   printf '  backed up existing shell.json -> shell.json.bak.%s\n' "$stamp"
+
+  # Stable "what shell.json looked like the first time Ruixen ever
+  # touched this machine" snapshot -- distinct from the timestamped
+  # .bak.* above, which piles up across every reinstall/update and
+  # stops being reliably "the pre-Ruixen state" after the first one.
+  # Only written once; a real uninstall restore is a separate issue,
+  # this just makes sure the one true reference still exists by then.
+  pristine_snapshot="$state_dir/shell.json.pre-ruixen"
+  [[ -e "$pristine_snapshot" ]] || cp "$shell_json" "$pristine_snapshot"
+  shell_json_input="$shell_json"
+else
+  shell_json_input=/dev/null
 fi
 
-cat > "$shell_json" <<'EOF'
-{
-    "version": 1,
-    "bar": {
-        "id": "ruixen.bar",
-        "position": "top",
-        "transparent": true,
-        "centerAnchor": "omarchy.clock",
-        "layout": {
-            "left": [
-                { "id": "ruixen.applauncher" },
-                { "id": "ruixen.workspaces" }
-            ],
-            "center": [
-                { "id": "ruixen.workspaces" },
-                { "id": "omarchy.menu" },
-                { "id": "ruixen.media" },
-                { "id": "ruixen.weather" },
-                {
-                    "id": "omarchy.clock",
-                    "format": "HH:mm",
-                    "formatAlt": "d MMMM 'W'ww yyyy",
-                    "verticalFormat": "HH\n—\nmm"
-                }
-            ],
-            "right": [
-                { "id": "omarchy.keyboard-layout" },
-                { "id": "omarchy.system-update" },
-                { "id": "ruixen.tray", "hidden": [] },
-                { "id": "ruixen.stayawake" },
-                { "id": "ruixen.quickactions" },
-                { "id": "omarchy.agents" },
-                { "id": "omarchy.power" },
-                { "id": "ruixen.settingsbutton" }
-            ]
-        }
-    },
-    "plugins": [
-        { "id": "ruixen.frame-widget" },
-        { "id": "ruixen.notch" },
-        { "id": "ruixen.settings" }
-    ],
-    "idle": {
-        "lock": 300,
-        "screensaver": 150
-    }
-}
-EOF
-printf '  wrote %s\n' "$shell_json"
+# Written to a temp file in the same directory first, then renamed into
+# place -- an atomic swap, not an in-place overwrite, so a killed/failed
+# build can never leave shell.json half-written.
+tmp_shell_json="$(mktemp "${shell_json}.XXXXXX")"
+{ [[ "$shell_json_input" == /dev/null ]] && printf '{}' || cat "$shell_json_input"; } \
+  | "$script_dir/lib/build-shell-json.sh" > "$tmp_shell_json" \
+  || { rm -f "$tmp_shell_json"; fail "failed to build shell.json -- nothing has been changed"; }
+
+mv "$tmp_shell_json" "$shell_json"
+printf '  wrote %s (unrelated plugins/settings, if any, were preserved)\n' "$shell_json"
 
 printf '\n[3/4] Matching Hyprland window look to the frame/bar\n'
 looknfeel_target="$HOME/.config/hypr/looknfeel.lua"

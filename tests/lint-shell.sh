@@ -17,6 +17,7 @@ targets=(
   "$repo_dir/uninstall.sh"
   "$repo_dir/ruixen-bar-mode.sh"
   "$repo_dir/hyprland/ruixen-lookfeel.sh"
+  "$repo_dir/ruixen.notch/list-wallpapers.sh"
 )
 targets+=("$repo_dir"/lib/*.sh)
 targets+=("$repo_dir"/tests/*.sh)

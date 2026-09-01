@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 # Covers "[P2] Harden wallpaper discovery/state serialization and poster
-# cache invalidation": exercises the SAME discovery logic
-# ruixen.notch/WallpapersContent.qml's own listProc runs, against a
-# throwaway directory tree with real, exotic-named files.
+# cache invalidation", and now "[P2] Extract wallpaper discovery into
+# shared production code so tests cannot drift" (#17): runs the REAL
+# ruixen.notch/list-wallpapers.sh -- the exact script
+# WallpapersContent.qml's own listProc invokes -- against a throwaway
+# directory tree with real, exotic-named files.
 #
-# The discovery logic lives only as an inline bash -c string inside
-# that QML file (no plugin in this repo ships a separate .sh helper --
-# every other ruixen.* plugin keeps its shell/python snippets inline
-# too, so this follows the same established convention rather than
-# introducing a new one). That means the `process()` function below is
-# a literal, faithful COPY of the one in WallpapersContent.qml's own
-# listProc command, not a shared file -- if that script's discovery
-# logic ever changes, this copy needs updating too. Kept intentionally
-# small and directly comparable line-for-line to make that easy to
-# notice in review.
+# This used to keep its own hand-copied "faithful reproduction" of the
+# discovery logic, with a comment warning that a production change
+# would need the copy updated too -- a real risk: a bug landing in
+# production while this copy stayed old-and-passing. Now there is only
+# one implementation, and this file just exercises it.
 set -Eeuo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$script_dir/.." && pwd)"
+list_wallpapers="$repo_dir/ruixen.notch/list-wallpapers.sh"
 
 command -v ffmpeg >/dev/null 2>&1 || {
   printf 'wallpaper-discovery-format: ffmpeg is required (command "ffmpeg" not found)\n' >&2
@@ -39,27 +40,14 @@ trap 'rm -rf "$work"' EXIT
 export HOME="$work"
 mkdir -p "$HOME/Pictures/ruixen-wallpapers" "$HOME/.cache/ruixen/wallpaper-posters"
 
-# --- Discovery, faithfully copied from WallpapersContent.qml's listProc
+# The real script also scans $HOME/.local/state/omarchy/current/theme/
+# backgrounds and $HOME/.config/omarchy/backgrounds/<theme> -- neither
+# exists under this throwaway $HOME, so `find -L ... 2>/dev/null` on
+# them silently contributes nothing, same as the old Pictures-only
+# test double did. Every case below is scoped to
+# ~/Pictures/ruixen-wallpapers on purpose, exactly like before.
 run_discovery() {
-  US=$'\x1f'
-  process() { while IFS= read -r -d '' f; do
-    case "${f,,}" in
-      *.mp4|*.mkv|*.webm|*.mov|*.m4v)
-        hash=$(printf '%s' "$f" | md5sum | cut -d' ' -f1)
-        poster="$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg"
-        if [[ ! -f "$poster" ]] || [[ "$f" -nt "$poster" ]]; then
-          ffmpeg -y -loglevel quiet -i "$f" -vframes 1 -q:v 3 "$poster" 2>/dev/null
-        fi
-        [[ -f "$poster" ]] && printf 'video%s%s%s%s\n' "$US" "$poster" "$US" "$f"
-        ;;
-      *.gif) printf 'gif%s%s%s%s\n' "$US" "$f" "$US" "$f" ;;
-      *) printf 'image%s%s%s%s\n' "$US" "$f" "$US" "$f" ;;
-    esac
-  done; }
-  find -L "$HOME/Pictures/ruixen-wallpapers" \
-    -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.webp" \
-    -o -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.mov" -o -iname "*.m4v" \) \
-    -print0 2>/dev/null | sort -z | process
+  "$list_wallpapers"
 }
 
 # --- Case 1: exotic filenames survive discovery intact --------------

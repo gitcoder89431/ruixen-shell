@@ -2,11 +2,14 @@
 # Covers "[P0/P1] Use a static fallback poster for GIF wallpapers to
 # avoid Omarchy ImageMagick memory blowups": exercises the exact
 # poster-extraction + background-set logic from
-# ruixen.wallpaper/Service.qml's own playGif() -- a faithful copy, for
-# the same reason tests/wallpaper-discovery-format.sh already
-# documents (this repo keeps plugin shell snippets inline in QML
-# rather than as separate shipped files, so there's no single script
-# both production and this test could import instead).
+# ruixen.wallpaper/Service.qml's own playGif() -- a faithful copy, not
+# a shared script, since that logic stays inline in Service.qml as a
+# Process.command string (this repo's usual convention for plugin shell
+# snippets). tests/wallpaper-discovery-format.sh no longer works this
+# way -- ruixen.notch/list-wallpapers.sh was extracted to a real shared
+# script specifically because that one genuinely needed to run
+# identically from two places (#17); playGif()'s logic has no second
+# caller, so there's nothing here that same extraction would buy.
 #
 # `omarchy-theme-bg-set` is stubbed (fixtures/fake-bin/omarchy-theme-
 # bg-set) to record its argument to a file rather than actually

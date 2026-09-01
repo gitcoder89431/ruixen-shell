@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
 
@@ -150,97 +151,31 @@ Item {
   // Theme wallpapers (the exact same two directories/extensions
   // omarchy-theme-bg-switcher passes to the stock image-picker
   // overlay -- verified by reading that script directly) THEN the
-  // user's own persistent folder, appended after -- direct request
-  // ("we can create /USER_wallpapper and then show the images from
-  // that folder after the theme, and then this folder survives theme
-  // changes"). Two `find ... | sort | process` pipelines run back to
-  // back in one script rather than one combined find+sort, specifically
-  // so the two groups stay in that order in the output -- a single
-  // sort across all three directories would interleave user wallpapers
-  // alphabetically among the theme ones instead of keeping them after.
-  // ~/Pictures/ruixen-wallpapers is plain filesystem state (not
-  // ~/.local/state/ruixen/ like this repo's other persisted settings)
-  // on purpose -- Pictures is where a person would actually go drop
-  // image files in with a file manager, and it's never touched by
-  // Omarchy's own theme switching (unlike the two directories above,
-  // which are theme-scoped and change contents whenever the active
-  // theme does), so it survives every theme change untouched. Created
-  // with mkdir -p on every refresh so it's there and ready even
-  // before the user has dropped anything into it.
+  // user's own persistent folder (~/Pictures/ruixen-wallpapers),
+  // appended after -- direct request ("we can create /USER_wallpapper
+  // and then show the images from that folder after the theme, and
+  // then this folder survives theme changes").
   //
-  // The `process` shell function classifies each found file: a plain
-  // image prints `image<US>path<US>path` (display and real are the
-  // same thing); a gif prints `gif<US>path<US>path` too (no poster
-  // needed -- Image already renders a gif's own first frame directly,
-  // same as any other static image); a video ensures its poster
-  // exists (same md5-of-real-path cache naming ruixen.wallpaper's own
-  // Service.qml uses for its own poster lookups, so both sides agree
-  // on the same cache file with neither one telling the other its
-  // path) then prints `video<US>poster<US>path` -- a video with no
-  // decodable first frame (corrupt file, unsupported codec) is
-  // silently skipped rather than showing a broken tile.
-  //
-  // <US> is ASCII Unit Separator (0x1F), not "|" -- direct review
-  // finding ("Harden wallpaper discovery/state serialization... a
-  // legal Linux filename containing | breaks that record"). 0x1F is
-  // the standard non-printable field-separator control character
-  // (same family as CSV/TSV alternatives use for exactly this
-  // reason), so a real filename would have to go out of its way to
-  // contain it -- unlike "|", which plenty of real files legitimately
-  // do. Records themselves stay newline-separated; find/sort/read all
-  // moved to NUL-delimited (-print0/-z/-d '') so a filename is never
-  // split on its own bytes during DISCOVERY either, only the (already
-  // extremely unlikely) case of a literal embedded newline WITHIN a
-  // filename can still misalign the record framing -- not attempted
-  // here, no acceptance criterion asked for it and NUL can never
-  // legally appear in a Linux path at all, so it was the one truly
-  // safe choice for the parts of the pipeline that still needed one.
-  //
-  // Poster staleness: the ffmpeg extraction now also re-runs when the
-  // source video is newer than its cached poster (`-nt`, bash's
-  // built-in mtime comparison), not just when the poster is entirely
-  // missing -- direct review finding ("replacing a video with new
-  // content at the same path can keep the old cached poster
-  // indefinitely"). Deliberately compares mtimes rather than baking
-  // mtime into the cache filename itself: a changed filename would
-  // orphan the old poster file forever with nothing to ever clean it
-  // up, where overwriting the same filename in place needs no
-  // separate pruning step at all.
-  //
-  // Skips the stock picker's thumbnail-cache indirection (list.sh)
-  // since a handful of wallpaper-sized images downscaled via
-  // Image.sourceSize is cheap enough on its own, same cost class as
-  // the blurred-art backgrounds already loaded elsewhere in this
-  // plugin. Poster generation is the one real added cost, but it's
-  // cached after the first run (ffmpeg only runs for a file with no
-  // cached poster yet, or a stale one), so only ever paid once per
-  // video (twice if the video's ever replaced) -- and only video pays
-  // it at all, gif never does.
+  // The actual discovery/classification/poster-caching pipeline lives
+  // in list-wallpapers.sh, a sibling file in this same plugin
+  // directory, not inline here -- direct review finding ("Extract
+  // wallpaper discovery into shared production code so tests cannot
+  // drift", #17): this used to be a raw inline Process.command string
+  // with tests/wallpaper-discovery-format.sh keeping its own "faithful
+  // copy" that had to be hand-kept in sync, a real risk of the test
+  // silently drifting from what actually ships. That test now runs
+  // this exact same script file, so there is only one implementation
+  // to keep correct. See list-wallpapers.sh's own comment for the full
+  // "why" behind the US-delimited record format, NUL-safe traversal,
+  // and poster mtime-staleness logic -- unchanged from before, just
+  // relocated. $HOME/.config/omarchy/plugins/ruixen.notch is where
+  // install.sh's own `cp -r` always deploys this plugin (a fixed,
+  // well-known location, unlike install.sh's own git checkout path,
+  // which can live anywhere) -- same absolute-path-via-$HOME
+  // convention this file already uses for favoritesPath below.
   Process {
     id: listProc
-    command: ["bash", "-c",
-      "theme=$(cat \"$HOME/.local/state/omarchy/current/theme.name\" 2>/dev/null); " +
-      "mkdir -p \"$HOME/Pictures/ruixen-wallpapers\" \"$HOME/.cache/ruixen/wallpaper-posters\"; " +
-      "US=$'\\x1f'; " +
-      "process() { while IFS= read -r -d '' f; do " +
-      "case \"${f,,}\" in " +
-      "*.mp4|*.mkv|*.webm|*.mov|*.m4v) " +
-      "hash=$(printf '%s' \"$f\" | md5sum | cut -d' ' -f1); " +
-      "poster=\"$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg\"; " +
-      "if [[ ! -f \"$poster\" ]] || [[ \"$f\" -nt \"$poster\" ]]; then " +
-      "ffmpeg -y -loglevel quiet -i \"$f\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; fi; " +
-      "[[ -f \"$poster\" ]] && printf 'video%s%s%s%s\\n' \"$US\" \"$poster\" \"$US\" \"$f\" ;; " +
-      "*.gif) printf 'gif%s%s%s%s\\n' \"$US\" \"$f\" \"$US\" \"$f\" ;; " +
-      "*) printf 'image%s%s%s%s\\n' \"$US\" \"$f\" \"$US\" \"$f\" ;; " +
-      "esac; done; }; " +
-      "find -L \"$HOME/.local/state/omarchy/current/theme/backgrounds\" \"$HOME/.config/omarchy/backgrounds/$theme\" " +
-      "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" " +
-      "-o -iname \"*.mp4\" -o -iname \"*.mkv\" -o -iname \"*.webm\" -o -iname \"*.mov\" -o -iname \"*.m4v\" \\) " +
-      "-print0 2>/dev/null | sort -z | process; " +
-      "find -L \"$HOME/Pictures/ruixen-wallpapers\" " +
-      "-maxdepth 1 -type f \\( -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.png\" -o -iname \"*.gif\" -o -iname \"*.bmp\" -o -iname \"*.webp\" " +
-      "-o -iname \"*.mp4\" -o -iname \"*.mkv\" -o -iname \"*.webm\" -o -iname \"*.mov\" -o -iname \"*.m4v\" \\) " +
-      "-print0 2>/dev/null | sort -z | process"]
+    command: [Quickshell.env("HOME") + "/.config/omarchy/plugins/ruixen.notch/list-wallpapers.sh"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {

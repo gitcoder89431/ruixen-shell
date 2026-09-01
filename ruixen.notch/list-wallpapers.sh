@@ -24,10 +24,13 @@
 #
 # No arguments; reads $HOME directly, exactly like the Process it
 # replaces did. Prints one newline-separated record per wallpaper found:
-#   kind<US>display<US>real
-# where kind is image / gif / video, display and real are the same path
-# for image/gif, and display is the cached poster JPEG for video (real
-# stays the actual video file, used for playback).
+#   kind<US>display<US>real<US>identity
+# where kind is image / gif / video, display is what the tile thumbnail
+# renders, real is what gets passed to playback/set calls, and identity
+# is what the picker compares against current/background to decide
+# whether a tile is the currently active one (#23) -- see process()'s
+# own comment below for exactly why identity needs to be a separate
+# field from display for GIF specifically, and how it's computed.
 #
 # <US> is ASCII Unit Separator (0x1F), not "|" -- a legal Linux filename
 # containing | would otherwise break this record, and 0x1F is the
@@ -68,6 +71,26 @@ US=$'\x1f'
 # would orphan the old poster file forever with nothing to ever clean
 # it up, where overwriting the same filename in place needs no separate
 # pruning step at all.
+# Each record is kind<US>display<US>real<US>identity -- the 4th field
+# added for "[P2] Keep GIF wallpaper CURRENT state in sync with its
+# static poster fallback" (#23). display is what the tile thumbnail
+# renders (Image source); real is what gets passed to playback/set
+# calls; identity is what the picker should compare against
+# $HOME/.local/state/omarchy/current/background to decide whether a
+# tile is the currently active one. For image and video, identity is
+# always the same value as display already -- video's display already
+# IS the poster #12 made canonical, and current/background for a plain
+# image is just the image itself. GIF is the one case where those
+# diverge: display/real stay the raw .gif (Image already renders a
+# gif's own first frame directly, no poster file needed for the
+# thumbnail), but current/background for an active GIF is the cached
+# poster JPG (#12, to avoid the ImageMagick memory blowup a raw
+# multi-frame GIF caused there) -- so identity is computed with the
+# EXACT same hash formula ruixen.wallpaper/Service.qml's own playGif()
+# uses, WITHOUT actually generating the poster file here (nothing reads
+# it as an image for a gif tile, only compares its path), so a GIF
+# that's never been selected yet still gets a correct identity value
+# with no extra ffmpeg cost paid at discovery time.
 process() {
   while IFS= read -r -d '' f; do
     case "${f,,}" in
@@ -77,13 +100,15 @@ process() {
         if [[ ! -f "$poster" ]] || [[ "$f" -nt "$poster" ]]; then
           ffmpeg -y -loglevel quiet -i "$f" -vframes 1 -q:v 3 "$poster" 2>/dev/null
         fi
-        [[ -f "$poster" ]] && printf 'video%s%s%s%s\n' "$US" "$poster" "$US" "$f"
+        [[ -f "$poster" ]] && printf 'video%s%s%s%s%s%s\n' "$US" "$poster" "$US" "$f" "$US" "$poster"
         ;;
       *.gif)
-        printf 'gif%s%s%s%s\n' "$US" "$f" "$US" "$f"
+        gif_hash=$(printf '%s' "$f" | md5sum | cut -d' ' -f1)
+        gif_identity="$HOME/.cache/ruixen/wallpaper-posters/$gif_hash.jpg"
+        printf 'gif%s%s%s%s%s%s\n' "$US" "$f" "$US" "$f" "$US" "$gif_identity"
         ;;
       *)
-        printf 'image%s%s%s%s\n' "$US" "$f" "$US" "$f"
+        printf 'image%s%s%s%s%s%s\n' "$US" "$f" "$US" "$f" "$US" "$f"
         ;;
     esac
   done

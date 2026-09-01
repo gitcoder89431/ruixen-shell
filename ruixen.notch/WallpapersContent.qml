@@ -182,7 +182,15 @@ Item {
         var lines = String(text || "").split("\n").filter(function(line) { return line.length > 0 })
         root.wallpaperPaths = lines.map(function(line) {
           var parts = line.split("\u001f")
-          return { kind: parts[0], display: parts[1], real: parts[2] }
+          // identity (#23): what to compare against currentBackground,
+          // NOT necessarily what the tile renders (display) -- see
+          // list-wallpapers.sh's own comment for why those diverge for
+          // GIF specifically. Falls back to display if a 4th field is
+          // ever missing (shouldn't happen -- this Process always runs
+          // fresh -- but a silently-undefined identity would break
+          // every GIF's CURRENT state instead of degrading gracefully
+          // to the old, still-correct-for-image/video behavior).
+          return { kind: parts[0], display: parts[1], real: parts[2], identity: parts[3] !== undefined ? parts[3] : parts[1] }
         })
         root.loadGate = 0
       }
@@ -250,7 +258,16 @@ Item {
   // still show up in the journal even though nothing in this file
   // currently branches on the exit code either way.
   function select(entry) {
-    root.currentBackground = entry.display
+    // identity, not display (#23) -- optimistic immediate CURRENT
+    // highlight the instant a tile is clicked, before the async IPC
+    // call below even lands. For gif specifically, display is the raw
+    // .gif (what the tile renders); identity is the cached poster path
+    // Service.qml's own playGif() is about to actually write to
+    // current/background, matching what a later refresh would read
+    // back. Using display here for gif would highlight nothing at all
+    // until the next refresh, since currentBackground would hold a
+    // value (the raw gif) that no tile's own identity ever equals.
+    root.currentBackground = entry.identity
     root.selectGeneration += 1
     var gen = String(root.selectGeneration)
     if (entry.kind === "video") {
@@ -450,19 +467,29 @@ Item {
         // root.loadGate -- see its own comment for why.
         required property int index
         readonly property bool hovered: tileMouse.containsMouse
-        // Compares against display, not real -- for a video entry,
-        // ruixen.wallpaper's own Service.qml sets current/background
-        // to the POSTER (display), not the original video file, so
-        // display is what root.currentBackground will actually equal
-        // while that video is the active wallpaper. For an image or a
-        // gif, display and real are the same path anyway, so this is
-        // correct for all three kinds without needing a branch.
+        // Compares against identity, not display (#23) -- for a video
+        // entry, ruixen.wallpaper's own Service.qml sets
+        // current/background to the POSTER, which for video already
+        // equals display, so this used to just compare against display
+        // directly. That broke for GIF specifically: Service.qml's
+        // playGif() ALSO sets current/background to a cached poster
+        // (#12, to avoid the ImageMagick memory blowup a raw
+        // multi-frame GIF caused there), but a gif's display/real stay
+        // the raw .gif (the tile thumbnail still renders the gif
+        // directly, no poster file needed for that) -- so display could
+        // never equal currentBackground for an active GIF, and it lost
+        // its CURRENT state on every refresh/reopen. identity is
+        // list-wallpapers.sh's own dedicated field for exactly this
+        // comparison, computed with the same poster-hash formula
+        // Service.qml uses, so it matches for all three kinds without a
+        // branch here -- see that script's own comment for the full
+        // "why" and how identity differs from display for GIF.
         //
         // Only read for the label's own text/color below -- the
         // frame itself (ring/band) stays hover-only regardless,
         // per direct request that active alone shouldn't keep it
         // lit at rest.
-        readonly property bool active: tile.modelData.display === root.currentBackground
+        readonly property bool active: tile.modelData.identity === root.currentBackground
 
         width: 160
         height: 100

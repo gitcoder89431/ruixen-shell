@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Covers "[P2] Harden wallpaper discovery/state serialization and poster
-# cache invalidation", and now "[P2] Extract wallpaper discovery into
-# shared production code so tests cannot drift" (#17): runs the REAL
-# ruixen.notch/list-wallpapers.sh -- the exact script
-# WallpapersContent.qml's own listProc invokes -- against a throwaway
-# directory tree with real, exotic-named files.
+# cache invalidation", "[P2] Extract wallpaper discovery into shared
+# production code so tests cannot drift" (#17), and now "[P2] Keep GIF
+# wallpaper CURRENT state in sync with its static poster fallback"
+# (#23): runs the REAL ruixen.notch/list-wallpapers.sh -- the exact
+# script WallpapersContent.qml's own listProc invokes -- against a
+# throwaway directory tree with real, exotic-named files.
 #
 # This used to keep its own hand-copied "faithful reproduction" of the
 # discovery logic, with a comment warning that a production change
@@ -102,6 +103,30 @@ corrupt_line=$(printf '%s\n' "$output2" | grep -F "$corrupt" || true)
 check "corrupt video: silently produces no record (no crash, no broken line)" "$corrupt_line" ""
 still_there=$(printf '%s\n' "$output2" | grep -c "normal.png" || true)
 check "corrupt video: the rest of the library is still discovered" "$still_there" "1"
+
+# --- Case 4 (#23): a GIF's identity field (the one root.currentBackground
+# gets compared against, not display) is the same poster-hash path
+# ruixen.wallpaper/Service.qml's own playGif() independently computes
+# for that exact gif path -- verified against the SAME hash formula
+# lifted directly from Service.qml's own source, not just "matches
+# itself." Also confirms discovery never generates the poster file for
+# a gif that's never been selected (no ffmpeg cost paid just for
+# browsing the picker), unlike video's eager poster generation.
+gif="$HOME/Pictures/ruixen-wallpapers/test-anim.gif"
+ffmpeg -y -loglevel quiet -f lavfi -i color=c=red:size=8x8:duration=1 -r 1 "$gif" 2>/dev/null
+gif_hash=$(printf '%s' "$gif" | md5sum | cut -d' ' -f1)
+expected_identity="$HOME/.cache/ruixen/wallpaper-posters/$gif_hash.jpg"
+
+output3="$(run_discovery)"
+gif_line=$(printf '%s\n' "$output3" | grep -F "$gif" | head -1)
+check "gif: display is the raw .gif (tile still renders it directly)" \
+  "$(awk -F'\x1f' '{print $2}' <<<"$gif_line")" "$gif"
+check "gif: real is the raw .gif (playback target unchanged)" \
+  "$(awk -F'\x1f' '{print $3}' <<<"$gif_line")" "$gif"
+check "gif: identity matches Service.qml's own playGif() poster-hash formula (#23)" \
+  "$(awk -F'\x1f' '{print $4}' <<<"$gif_line")" "$expected_identity"
+check "gif: no poster file was generated just for discovery (no ffmpeg cost until actually selected)" \
+  "$([[ -f "$expected_identity" ]] && echo present || echo absent)" "absent"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

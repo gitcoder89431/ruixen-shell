@@ -1,0 +1,33 @@
+{
+    "id": "ruixen.bar",
+    "position": "top",
+    "transparent": true,
+    "centerAnchor": "omarchy.clock",
+    "layout": {
+        "left": [
+            { "id": "ruixen.applauncher" },
+            { "id": "ruixen.workspaces" }
+        ],
+        "center": [
+            { "id": "omarchy.menu" },
+            { "id": "ruixen.media" },
+            { "id": "ruixen.weather" },
+            {
+                "id": "omarchy.clock",
+                "format": "HH:mm",
+                "formatAlt": "d MMMM 'W'ww yyyy",
+                "verticalFormat": "HH\n—\nmm"
+            }
+        ],
+        "right": [
+            { "id": "omarchy.keyboard-layout" },
+            { "id": "omarchy.system-update" },
+            { "id": "ruixen.tray", "hidden": [] },
+            { "id": "ruixen.stayawake" },
+            { "id": "ruixen.quickactions" },
+            { "id": "omarchy.agents" },
+            { "id": "omarchy.power" },
+            { "id": "ruixen.settingsbutton" }
+        ]
+    }
+}

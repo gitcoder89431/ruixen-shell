@@ -31,10 +31,7 @@
 # ruixen.workspaces appears in "left" only, not also in "center" the way
 # an earlier version of this canonical layout had it -- direct review
 # finding ("Resolve ruixen.workspaces allowMultiple mismatch with the
-# default bar layout"). No comments inside the BARJSON heredoc below:
-# it's parsed as strict JSON via jq --argjson, which does not accept
-# // comments -- an earlier attempt at documenting this inline broke
-# every install/update test until it was moved up here.
+# default bar layout").
 #
 # Traced the actual mechanism in ruixen.bar/Bar.qml rather than assuming:
 # it's NOT a registry dedup keyed by plugin id (Loader.sourceComponent
@@ -57,42 +54,20 @@
 # a cleanup.
 set -Eeuo pipefail
 
-ruixen_bar_json=$(cat <<'BARJSON'
-{
-    "id": "ruixen.bar",
-    "position": "top",
-    "transparent": true,
-    "centerAnchor": "omarchy.clock",
-    "layout": {
-        "left": [
-            { "id": "ruixen.applauncher" },
-            { "id": "ruixen.workspaces" }
-        ],
-        "center": [
-            { "id": "omarchy.menu" },
-            { "id": "ruixen.media" },
-            { "id": "ruixen.weather" },
-            {
-                "id": "omarchy.clock",
-                "format": "HH:mm",
-                "formatAlt": "d MMMM 'W'ww yyyy",
-                "verticalFormat": "HH\n—\nmm"
-            }
-        ],
-        "right": [
-            { "id": "omarchy.keyboard-layout" },
-            { "id": "omarchy.system-update" },
-            { "id": "ruixen.tray", "hidden": [] },
-            { "id": "ruixen.stayawake" },
-            { "id": "ruixen.quickactions" },
-            { "id": "omarchy.agents" },
-            { "id": "omarchy.power" },
-            { "id": "ruixen.settingsbutton" }
-        ]
-    }
-}
-BARJSON
-)
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# Lives in its own file, not an inline heredoc, as of "Preserve third-
+# party bar widgets added while Ruixen is installed during uninstall"
+# (#26): lib/merge-uninstall-bar.sh needs the exact same "what does
+# Ruixen own" canonical layout this script does, to tell a foreign bar
+# widget a user added while Ruixen was installed apart from one Ruixen
+# itself injected -- reading the same file is what keeps those two
+# scripts' idea of "Ruixen-owned" from ever drifting apart. No comments
+# inside the file itself: it's parsed as strict JSON via jq --argjson,
+# which does not accept // comments -- an earlier attempt at
+# documenting this inline broke every install/update test until the
+# explanation was moved up here instead.
+ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 # Every ruixen.* id that has no OTHER way to get enabled -- a
 # bar-widget-kind plugin (applauncher, media, tray, ...) is enabled by
 # simply appearing anywhere in ruixenBar's own layout above, so it

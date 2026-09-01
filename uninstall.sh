@@ -73,10 +73,29 @@ printf '\n[1/4] Restoring your pre-Ruixen shell configuration\n'
 # were just avoiding it out of caution before knowing it existed.
 pristine_shell_json="$HOME/.local/state/ruixen/shell.json.pre-ruixen"
 if pristine_bar="$("$script_dir/lib/pick-pristine-bar.sh" "$pristine_shell_json")"; then
+  # Direct review finding ("Preserve third-party bar widgets added
+  # while Ruixen is installed during uninstall", #26): restoring
+  # $pristine_bar verbatim (the old behavior) is a full replace -- any
+  # widget a user added, or moved to a different region, while Ruixen
+  # owned the bar slot vanished from the layout the instant they
+  # uninstalled, even though that plugin's own files were untouched.
+  # Read here, BEFORE commit below overwrites it, so it reflects
+  # exactly what the desktop looks like right now -- see
+  # lib/merge-uninstall-bar.sh's own comment for the full merge
+  # algorithm and how it avoids mistaking a Ruixen-injected omarchy.*
+  # entry for a foreign one.
+  current_bar="$(jq -c '.bar // {}' "$HOME/.config/omarchy/shell.json" 2>/dev/null || echo '{}')"
+  if restored_bar="$("$script_dir/lib/merge-uninstall-bar.sh" "$pristine_bar" "$current_bar" \
+      "$(cat "$script_dir/lib/ruixen-bar-canonical.json")" 2>/dev/null)"; then
+    :
+  else
+    record_failure "merging third-party bar widgets into the restored bar failed -- falling back to your exact pre-Ruixen bar without them"
+    restored_bar="$pristine_bar"
+  fi
   # shellcheck disable=SC1091
   if source omarchy-shell-config \
-    && commit "$NORMALIZE | .bar = \$pristineBar" --argjson pristineBar "$pristine_bar"; then
-    printf '  restored your pre-Ruixen bar (%s)\n' "$(jq -r '.id' <<<"$pristine_bar")"
+    && commit "$NORMALIZE | .bar = \$pristineBar" --argjson pristineBar "$restored_bar"; then
+    printf '  restored your pre-Ruixen bar (%s)\n' "$(jq -r '.id' <<<"$restored_bar")"
     bar_restored=1
   else
     record_failure "restoring your pre-Ruixen bar failed -- shell.json's bar may still be ruixen.bar"

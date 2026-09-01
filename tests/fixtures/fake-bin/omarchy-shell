@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Minimal test stub, NOT a real implementation -- exists specifically
+# so tests that source the REAL /usr/bin/omarchy-shell-config (see
+# tests/uninstall-preserve-thirdparty.sh) never reach the actual
+# omarchy-shell IPC binary. Without this, omarchy-shell-config's own
+# refresh_shell_config() would call the REAL omarchy-shell, which could
+# reach a genuinely running Quickshell process on the machine running
+# these tests and tell it to reload -- a real, unwanted side effect on
+# whatever desktop happens to be running the test suite, not something
+# any test here should ever risk. fake_bin is always placed first in
+# PATH, so this shadows the real binary for the duration of the test.
+exit 0

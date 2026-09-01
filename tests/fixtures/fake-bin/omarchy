@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Minimal test stub, NOT a real implementation -- just enough surface
-# for install.sh to run to completion in a sandboxed test $HOME (see
-# tests/install-lifecycle.sh, tests/install-rollback.sh). Real Omarchy
-# plugin/manifest validation is covered separately and portably by
+# for install.sh/uninstall.sh to run to completion in a sandboxed test
+# $HOME (see tests/install-lifecycle.sh, tests/install-rollback.sh,
+# tests/uninstall-preserve-thirdparty.sh). Real Omarchy plugin/manifest
+# validation is covered separately and portably by
 # tests/validate-manifests.sh.
 set -Eeuo pipefail
 
@@ -20,6 +21,36 @@ case "${1:-} ${2:-}" in
       echo "fake omarchy: forced restart failure" >&2
       exit 1
     fi
+    exit 0
+    ;;
+  # Added for uninstall.sh's own test coverage (#26) -- lists whatever
+  # plugin directories are actually present under $HOME's own plugins
+  # dir, real and dynamic per test fixture state rather than a fixed
+  # canned response, so a test that installs specific plugins first
+  # sees exactly those reflected here.
+  "plugin list")
+    dir="$HOME/.config/omarchy/plugins"
+    if [[ -d "$dir" ]]; then
+      for d in "$dir"/*/; do
+        [[ -d "$d" ]] || continue
+        id="$(basename "$d")"
+        [[ "$id" == .* ]] && continue
+        printf '%s\n' "$id"
+      done | jq -R -s 'split("\n") | map(select(length > 0)) | map({id: .})'
+    else
+      echo '[]'
+    fi
+    ;;
+  "plugin remove")
+    id="${3:-}"
+    if [[ -n "${FAKE_OMARCHY_FAIL_REMOVE_FOR:-}" && "$id" == "$FAKE_OMARCHY_FAIL_REMOVE_FOR" ]]; then
+      echo "fake omarchy: forced remove failure for $id" >&2
+      exit 1
+    fi
+    rm -rf "$HOME/.config/omarchy/plugins/$id"
+    exit 0
+    ;;
+  "bar reset" | "bar defaults")
     exit 0
     ;;
   *)

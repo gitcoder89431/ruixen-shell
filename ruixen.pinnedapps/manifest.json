@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.pinnedapps",
+  "name": "Pinned Apps",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Quick-launch row for apps pinned as favorites in the notch's own app launcher -- click an icon to open that app.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Pinned Apps",
+    "description": "Quick-launch icons for your pinned favorite apps.",
+    "category": "Apps",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

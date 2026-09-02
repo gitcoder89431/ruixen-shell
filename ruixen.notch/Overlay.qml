@@ -739,6 +739,26 @@ Item {
           maskSpreadAtMin: 1.0
         }
 
+        // Tried, reverted: adding shadowEnabled/shadowColor/shadowBlur/
+        // etc. to this same MultiEffect instance ("start with notch
+        // then", trying the settings card's own shadow effect here
+        // too). Direct live report at the pinned/dashboard size (900x400):
+        // "the shape is completely broken, it has almost square edges
+        // now, the curves are gone" -- this is exactly the documented,
+        // non-deterministic masking bug this same effect has hit
+        // before (see this file's own launcher-history comments),
+        // reproduced live, not just a theoretical risk. Confirmed at
+        // the collapsed and launcher (420x190) sizes without visible
+        // breakage first, but the bug didn't show until the larger
+        // pinned size -- matches its own documented non-determinism,
+        // not a case of skipping the stress test. Reverted immediately
+        // per this file's own standing rule: "if the masking bug
+        // reproduces despite the size-avoidance, stop and report it
+        // rather than pushing through." Do not re-add shadow
+        // properties to this MultiEffect instance without solving the
+        // underlying masking fragility first -- a real fix, not
+        // another attempt at the same combination.
+
         // No blurred album-art here anymore -- was previously applied
         // across the WHOLE collapsed notch (matching CompactPlayer.qml's
         // backgroundArt treatment), but per direct feedback that "doesn't

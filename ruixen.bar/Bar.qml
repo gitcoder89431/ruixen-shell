@@ -3,6 +3,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import qs.Commons
 import qs.Ui
@@ -1231,6 +1232,30 @@ Item {
     // smooth curve — much more visible than on a stadium shape (most of
     // that outline is straight, only the two end-caps curve).
     antialiasing: true
+
+    // Direct follow-up after the settings card's own shadow ("try the
+    // pill next then") -- every floating pill in the bar shares this
+    // one component, so adding it here covers all of them uniformly.
+    // Lower risk than ruixen.notch's own attempt (reverted, see that
+    // file's own comment): GroupPill is a plain Rectangle with no
+    // existing mask/effect stacking to interact with, unlike notchBg's
+    // own MultiEffect which was already doing custom silhouette
+    // masking before shadow properties were added to it.
+    //
+    // Tighter and darker than the first pass -- direct correction ("the
+    // draw is too far, it looks like faded, gotta closer and darker"):
+    // blur 0.3 -> 0.15 and offset 3 -> 1 pull the shadow in close to
+    // the pill's own edge instead of spreading/softening it into a
+    // faded halo; opacity 0.6 -> 0.8 makes it read as a real shadow
+    // rather than a faint tint.
+    layer.enabled: true
+    layer.effect: MultiEffect {
+      shadowEnabled: true
+      shadowColor: "#000000"
+      shadowOpacity: 0.8
+      shadowBlur: 0.15
+      shadowVerticalOffset: 1
+    }
   }
 
   // Ported from ambxst's own modules/corners/RoundCorner.qml -- the small

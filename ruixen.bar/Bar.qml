@@ -1918,15 +1918,44 @@ Item {
           ModuleList {
             id: workspacesContent
             anchors.centerIn: parent
-            // Excludes ruixen.settingsbutton too now -- adding that id to
-            // shell.json's left array landed it in here by default (this
-            // filter used to just be "not applauncher"), squeezing into
-            // the same pill and shifting the workspace icons. Per direct
-            // correction ("that broke the windows pill... just make a
-            // pill for setting right after the window group"), it gets
-            // its own dedicated pill below instead.
+            // Excludes ruixen.settingsbutton and ruixen.pinnedapps too now
+            // -- same reasoning as the settingsbutton exclusion below:
+            // each gets its own dedicated pill instead of squeezing into
+            // this one and shifting the workspace icons.
             entries: root.layoutEntries("left").filter(function(e) {
-              return root.entryId(e) !== "ruixen.applauncher" && root.entryId(e) !== "ruixen.settingsbutton"
+              return root.entryId(e) !== "ruixen.applauncher" && root.entryId(e) !== "ruixen.settingsbutton" && root.entryId(e) !== "ruixen.pinnedapps"
+            })
+            region: "left"
+          }
+        }
+
+        // Pinned-apps quick-launch row -- moved here from the right side
+        // (direct request: "move it to the left side... right next after
+        // the window switcher"). Zero-collapse pattern, not just fade
+        // (see thirdPartyPill's own comment on the same choice): this
+        // pill is legitimately, routinely empty until the user has
+        // pinned something in the launcher, so it must not hold open a
+        // dead gap between the workspace icons and settings the rest of
+        // the time.
+        Item {
+          id: pinnedappsPill
+          anchors.left: workspacesPill.right
+          anchors.leftMargin: pinnedappsContent.width > 0 ? 6 : 0
+          anchors.verticalCenter: parent.verticalCenter
+          width: pinnedappsContent.width > 0 ? pinnedappsContent.width + 8 * 2 : 0
+          height: root.barSize - Style.space(2)
+
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
+
+          ModuleList {
+            id: pinnedappsContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("left").filter(function(e) {
+              return root.entryId(e) === "ruixen.pinnedapps"
             })
             region: "left"
           }
@@ -1940,7 +1969,7 @@ Item {
           // around a pill that comes and goes, and nothing else anchors
           // off settingsPill's own edges.
           opacity: settingsContent.width > 0 ? 1 : 0
-          anchors.left: workspacesPill.right
+          anchors.left: pinnedappsPill.right
           anchors.leftMargin: 6
           anchors.verticalCenter: parent.verticalCenter
           width: settingsContent.implicitWidth + 8 * 2

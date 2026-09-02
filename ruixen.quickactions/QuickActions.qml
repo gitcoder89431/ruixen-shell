@@ -163,6 +163,15 @@ BarWidget {
     owner: root
     bar: root.bar
     open: root.popupOpen
+    // Matches weather/clock's own horizontal position (screen-centered,
+    // not anchored under this widget's own icon) -- direct request for
+    // visual consistency across every bar popup. Vertical position was
+    // already consistent with theirs regardless of this flag: PopupCard's
+    // own "top" position math computes y as anchorWindow.height + margin
+    // in BOTH its centerOnBar and default branches, the same shared value
+    // KeyboardPanel-based popups (weather, clock, agents) already read.
+    // This only changes x.
+    centerOnBar: true
     contentWidth: popup.fittedContentWidth(Style.space(200))
     contentHeight: popup.fittedContentHeight(column.implicitHeight)
 

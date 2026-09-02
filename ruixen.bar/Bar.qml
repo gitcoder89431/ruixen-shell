@@ -681,10 +681,10 @@ Item {
   // layout (its toggle now lives in ruixen.notch's own bell + as a row in
   // ruixen.quickactions' popup instead of a standalone pill).
   //
-  // Right-side reorg (direct request): stayawake ("the coffee cup") stays
-  // on its own, alone -- it's now the boundary/anchor a new third-party
-  // widget lands to the LEFT of by default. That's not a coincidence:
-  // Omarchy's own bar-widget placement (PluginRegistry.qml's
+  // Right-side reorg (direct request): stayawake ("the coffee cup")
+  // anchors a small group of its own -- it's the boundary a new
+  // third-party widget lands to the LEFT of by default. That's not a
+  // coincidence: Omarchy's own bar-widget placement (PluginRegistry.qml's
   // defaultBarWidgetSection/barTarget, what `omarchy plugin enable <id>`
   // with no explicit --section runs) inserts a widget with no placement
   // right after the section's own anchor id, which for "right" is
@@ -692,24 +692,27 @@ Item {
   // entry after tray in shell.json's own layout array (unchanged here),
   // a newly-enabled widget's default insertion point lands BETWEEN them
   // -- exactly "left of the coffee" -- with zero extra wiring on our
-  // side. curatedRightIds is the OTHER direct request: system-update,
-  // agents, quickactions, and settingsbutton merged into one group, in
-  // that explicit order ("Update when available, AI, more options,
-  // setting"), freeing up the space those took up individually.
-  // omarchy.power folded in too (not explicitly requested, but grouping
-  // it with the third-party catch-all instead read as a miscategorization
-  // -- it's a curated, stock action, not an unknown plugin) -- flagged,
-  // easy to pull back out if that's wrong.
-  readonly property var stayawakePillIds: ["ruixen.stayawake"]
-  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.agents", "ruixen.quickactions", "omarchy.power", "ruixen.settingsbutton"]
-  readonly property var sideRightIds: stayawakePillIds.concat(curatedRightIds).concat(["ruixen.tray"])
+  // side. omarchy.agents joined this group in a follow-up request
+  // ("move the AI so it goes where the coffee group is too") -- stayawake
+  // stays first (still the actual anchor id tray is adjacent to), agents
+  // right after it. curatedRightIds is the remaining group: system-
+  // update, power, quickactions, and settingsbutton, in that order
+  // ("power more actions and settings" plus update, which stays here
+  // rather than moving to the coffee/AI group per direct follow-up).
+  // omarchy.power folded in on the FIRST pass through this reorg (not
+  // explicitly requested then, but grouping it with the third-party
+  // catch-all read as a miscategorization for a curated stock action) --
+  // flagged both times, easy to pull back out if it's still wrong.
+  readonly property var stayawakeGroupIds: ["ruixen.stayawake", "omarchy.agents"]
+  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton"]
+  readonly property var sideRightIds: stayawakeGroupIds.concat(curatedRightIds).concat(["ruixen.tray"])
   // The two ids clockPill gives its own special pill+divider treatment
   // (see clockPill's own comment) -- direct review finding ("Support
   // arbitrary third-party widgets in the horizontal center region",
   // #27): everything else ever placed in shell.json's "center" region
   // was silently dropped by the horizontal bar, since clockPill was
   // the ONLY thing that ever read from "center" there. Same shape as
-  // stayawakePillIds/curatedRightIds/sideRightIds above -- the ids with
+  // stayawakeGroupIds/curatedRightIds/sideRightIds above -- the ids with
   // their own dedicated pill, so a generic catch-all elsewhere can
   // exclude them and host everything remaining.
   readonly property var centerSpecialIds: ["ruixen.weather", "omarchy.clock"]
@@ -1522,8 +1525,8 @@ Item {
 
         // Docked mode: the left group (menuPill/workspacesPill/
         // settingsPill) and right group (trayPill/thirdPartyPill/
-        // stayawakePill/curatedPill/clockPill) merge into one continuous
-        // shape each, flush with
+        // stayawakeGroupPill/curatedPill/clockPill) merge into one
+        // continuous shape each, flush with
         // ruixen.frame-widget's own rounded corner instead of floating
         // inset from it -- "growing out of the frame" the same way
         // ruixen.notch grows out of the top edge, just one shoulder per
@@ -1754,8 +1757,8 @@ Item {
         // real, visible, clickable part of the bar.
         //
         // Left/right pill groups (menuPill/workspacesPill/... and
-        // trayPill/thirdPartyPill/stayawakePill/curatedPill/clockPill)
-        // are NOT similarly
+        // trayPill/thirdPartyPill/stayawakeGroupPill/curatedPill/
+        // clockPill) are NOT similarly
         // constrained yet -- a genuinely busy bar with enough widgets
         // on either side could still grow into this same reserved
         // zone. Deliberately left as a named follow-up rather than
@@ -1943,18 +1946,20 @@ Item {
           }
         }
 
-        // Stay-awake ("the coffee cup") alone now -- the reorg above
-        // pulled system-update/quickactions out into curatedPill, so this
-        // is no longer a multi-toggle cluster. Kept as its own pill
-        // deliberately, not folded into curatedPill: it's the anchor a
-        // newly-enabled third-party widget lands to the LEFT of by
-        // default (see stayawakePillIds' own comment) -- staying a
+        // Stay-awake ("the coffee cup") + AI now -- follow-up request
+        // ("move the AI so it goes where the coffee group is too") after
+        // the first pass through this reorg left stayawake alone. Still
+        // its own pill, not folded into curatedPill: stayawake is the
+        // anchor a newly-enabled third-party widget lands to the LEFT of
+        // by default (see stayawakeGroupIds' own comment) -- staying a
         // separate pill keeps that boundary visually obvious, not just a
-        // data-model detail. Anchored off curatedPill's left edge (not
+        // data-model detail. stayawake stays first in the id list (it's
+        // the actual anchor tray is adjacent to; agents joining after it
+        // doesn't change that). Anchored off curatedPill's left edge (not
         // parent.right), so this stays put regardless of what clockPill
         // is doing.
         Item {
-          id: stayawakePill
+          id: stayawakeGroupPill
           anchors.right: curatedPill.left
           // Flat px, not Style.space() -- see clockPill's comment.
           anchors.rightMargin: 6
@@ -1962,7 +1967,7 @@ Item {
           // .width, not .implicitWidth -- ModuleList (a Loader) only
           // computes the former explicitly; see trayPill/ruixen-tray-
           // widgets README for the bug this caused there.
-          width: stayawakeContent.width + 8 * 2
+          width: stayawakeGroupContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged
@@ -1972,10 +1977,10 @@ Item {
           GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
-            id: stayawakeContent
+            id: stayawakeGroupContent
             anchors.centerIn: parent
             entries: root.layoutEntries("right").filter(function(e) {
-              return root.stayawakePillIds.indexOf(root.entryId(e)) !== -1
+              return root.stayawakeGroupIds.indexOf(root.entryId(e)) !== -1
             })
             region: "right"
           }
@@ -1984,7 +1989,7 @@ Item {
         // Catch-all for anything in "right" not in a named group above --
         // genuinely unknown third-party widgets land here (and, today,
         // nothing else: keyboard-layout is hidden, everything else has
-        // its own pill). Positioned between trayPill and stayawakePill
+        // its own pill). Positioned between trayPill and stayawakeGroupPill
         // now (used to sit at the far right, next to clockPill) so a
         // newly-enabled widget actually renders where Omarchy's own
         // default placement already puts its DATA -- right after
@@ -1997,7 +2002,7 @@ Item {
         Item {
           id: thirdPartyPill
           opacity: thirdPartyContent.width > 0 ? 1 : 0
-          anchors.right: stayawakePill.left
+          anchors.right: stayawakeGroupPill.left
           // Flat px, not Style.space() -- see clockPill's comment.
           anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter

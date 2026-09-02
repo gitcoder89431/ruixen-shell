@@ -27,6 +27,7 @@ suites=(
   "$script_dir/gif-poster-fallback.sh"
   "$script_dir/no-hardcoded-omarchy-shell-path.sh"
   "$script_dir/bar-popup-clearance.sh"
+  "$script_dir/bar-right-side-groups.sh"
 )
 
 overall_status=0

@@ -71,8 +71,8 @@ BarWidget {
     text: panelLoader.item ? panelLoader.item.label : ""
     // Stock used statusSlot (narrower, meant for the denser center
     // cluster next to the clock/indicators). Matched to iconSlot here so
-    // it doesn't look undersized next to the icon-style widgets sharing
-    // togglesPill (stay-awake, dnd, quick actions).
+    // it doesn't look undersized next to the other icon-style widgets
+    // in the bar (stay-awake, quick actions, etc).
     slotSize: Style.bar.iconSlot
     // Matching the slot wasn't enough on its own -- the weather glyph set
     // (Model.js's iconForCode) has noticeably less ink within its

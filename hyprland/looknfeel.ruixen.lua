@@ -98,6 +98,17 @@ if ruixenAnimProfile == "bubbly" then
   hl.animation({ leaf = "windows", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
   hl.animation({ leaf = "windowsIn", enabled = true, speed = 3.2, bezier = "ruixenBounce", style = "slide" })
   hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.2, bezier = "ruixenBounce", style = "slide" })
+  -- Direct follow-up ("can we animate the effect moving between
+  -- window so its sliding as well to fit with the design") -- Omarchy's
+  -- own default explicitly disables this leaf (`workspaces, enabled =
+  -- false`, see /usr/share/omarchy/default/hypr/looknfeel.lua), and
+  -- this file never overrode it, so switching workspaces cut instantly
+  -- with none of the slide motion windowsIn/windowsOut already have.
+  -- Same style = "slide", same bezier/speed as this profile's own
+  -- "windows" leaf above -- workspace-switch is a movement, not an
+  -- appear/disappear, so it reuses that leaf's tuning rather than a
+  -- new hand-picked number.
+  hl.animation({ leaf = "workspaces", enabled = true, speed = 3.0, bezier = "ruixenBounce", style = "slide" })
   hl.animation({ leaf = "border", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
   hl.animation({ leaf = "fade", enabled = true, speed = 2.0, bezier = "ruixenFade" })
   hl.animation({ leaf = "fadeIn", enabled = true, speed = 2.2, bezier = "ruixenFade" })
@@ -108,6 +119,9 @@ elseif ruixenAnimProfile == "snappy" then
   hl.animation({ leaf = "windows", enabled = true, speed = 2.0, bezier = "ruixenSnap" })
   hl.animation({ leaf = "windowsIn", enabled = true, speed = 2.2, bezier = "ruixenSnap", style = "slide" })
   hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.4, bezier = "ruixenSnap", style = "slide" })
+  -- See the bubbly profile's own comment above for why this leaf is
+  -- here now and why it reuses "windows" own speed/bezier.
+  hl.animation({ leaf = "workspaces", enabled = true, speed = 2.0, bezier = "ruixenSnap", style = "slide" })
   hl.animation({ leaf = "border", enabled = true, speed = 2.0, bezier = "ruixenSnap" })
   hl.animation({ leaf = "fade", enabled = true, speed = 1.5, bezier = "ruixenSnap" })
   hl.animation({ leaf = "fadeIn", enabled = true, speed = 1.6, bezier = "ruixenSnap" })
@@ -119,6 +133,9 @@ else
   hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "ruixenSmooth" })
   hl.animation({ leaf = "windowsIn", enabled = true, speed = 5.0, bezier = "ruixenSmooth", style = "slide" })
   hl.animation({ leaf = "windowsOut", enabled = true, speed = 3.5, bezier = "ruixenSmooth", style = "slide" })
+  -- See the bubbly profile's own comment above for why this leaf is
+  -- here now and why it reuses "windows" own speed/bezier.
+  hl.animation({ leaf = "workspaces", enabled = true, speed = 4.5, bezier = "ruixenSmooth", style = "slide" })
   hl.animation({ leaf = "border", enabled = true, speed = 4.0, bezier = "ruixenSmooth" })
   hl.animation({ leaf = "fade", enabled = true, speed = 3.0, bezier = "ruixenSmooth" })
   hl.animation({ leaf = "fadeIn", enabled = true, speed = 3.3, bezier = "ruixenSmooth" })

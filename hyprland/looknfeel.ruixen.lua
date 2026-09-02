@@ -104,11 +104,19 @@ if ruixenAnimProfile == "bubbly" then
   -- false`, see /usr/share/omarchy/default/hypr/looknfeel.lua), and
   -- this file never overrode it, so switching workspaces cut instantly
   -- with none of the slide motion windowsIn/windowsOut already have.
-  -- Same style = "slide", same bezier/speed as this profile's own
-  -- "windows" leaf above -- workspace-switch is a movement, not an
-  -- appear/disappear, so it reuses that leaf's tuning rather than a
-  -- new hand-picked number.
-  hl.animation({ leaf = "workspaces", enabled = true, speed = 3.0, bezier = "ruixenBounce", style = "slide" })
+  --
+  -- Own toned-down curve, not the shared ruixenBounce above -- direct
+  -- follow-up ("bubbly dont make it over scroll as much") after trying
+  -- the full window-open bounce on a workspace slide: the same 1.35
+  -- overshoot that reads as a nice springy pop for a window appearing
+  -- read as the whole workspace overshooting past its target and
+  -- sliding back, which is a much larger, more noticeable motion over
+  -- a full-screen slide than over one window. Same curve shape (same x
+  -- control points), just a shallower overshoot (1.12, not 1.35) --
+  -- windows/windowsIn/windowsOut above are untouched, no complaint
+  -- there.
+  hl.curve("ruixenBounceSoft", { type = "bezier", points = { { 0.34, 1.12 }, { 0.64, 1 } } })
+  hl.animation({ leaf = "workspaces", enabled = true, speed = 3.0, bezier = "ruixenBounceSoft", style = "slide" })
   hl.animation({ leaf = "border", enabled = true, speed = 3.0, bezier = "ruixenBounce" })
   hl.animation({ leaf = "fade", enabled = true, speed = 2.0, bezier = "ruixenFade" })
   hl.animation({ leaf = "fadeIn", enabled = true, speed = 2.2, bezier = "ruixenFade" })

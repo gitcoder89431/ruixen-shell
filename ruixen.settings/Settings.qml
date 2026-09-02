@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
@@ -72,15 +73,16 @@ Item {
   // JetBrainsMonoNerdFont's own cmap (fa-volume_up, fa-wifi,
   // fa-bluetooth), not guessed.
   readonly property var sections: [
-    // Sidebar label "System", not "General"/"Settings" -- direct
-    // follow-up chain: first "is it better to just put settings here
-    // then general cause like its the main page?" (Settings > General
-    // -> just Settings), then, since the app itself is already called
-    // Ruixen Settings, "Settings" as a section label read as a
-    // confusing "Settings > Settings" -- renamed to System instead.
-    // id stays "general" internally (still matches the {"section":
-    // "general"} IPC payload convention).
-    { id: "general", label: "System", glyph: "" },
+    // Sidebar label "Profile", not "General"/"Settings"/"System" --
+    // direct follow-up chain: first "is it better to just put settings
+    // here then general cause like its the main page?" (Settings >
+    // General -> just Settings), then, since the app itself is already
+    // called Ruixen Settings, "Settings" as a section label read as a
+    // confusing "Settings > Settings" -- renamed to System. Renamed
+    // again to Profile ("i feel like Profile sounds better here") --
+    // id stays "general" internally throughout all of this (still
+    // matches the {"section": "general"} IPC payload convention).
+    { id: "general", label: "Profile", glyph: "" },
     { id: "audio", label: "Audio", glyph: "" },
     { id: "wifi", label: "Wi-Fi", glyph: "" },
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
@@ -1461,6 +1463,28 @@ Item {
       color: root.panelBackground
       focus: root.opened
 
+      // Direct request, trying it out to see if it reads against the
+      // scrim behind this card ("i feel like this would be a good case
+      // for the drop shadow... not sure if we can see the dropshaddow
+      // cause the overlay is dimmed already") -- root.scrim is
+      // root.background at 50% alpha (Color.qml's own
+      // menu.scrim/menu.scrim-alpha composite), not pure black, so
+      // there's real contrast room for a dark shadow to still show
+      // against it. Per-surface QML effect (MultiEffect), not
+      // Hyprland's own decoration.shadow -- this card is a Quickshell
+      // layer-shell surface, entirely outside that global window
+      // setting. Same tight/dark character as the window shadow this
+      // session already landed on, not a from-scratch guess.
+      layer.enabled: true
+      layer.effect: MultiEffect {
+        shadowEnabled: true
+        shadowColor: "#000000"
+        shadowOpacity: 0.7
+        shadowBlur: 0.4
+        shadowHorizontalOffset: 0
+        shadowVerticalOffset: 6
+      }
+
       Keys.onEscapePressed: root.dismiss()
 
       // Tab cycles the sidebar (search box <-> section rows), Return
@@ -1850,17 +1874,17 @@ Item {
                 // row in this file) both clears the corner AND stays
                 // flush with the body.
                 //
-                // Collapses entirely on the System page -- direct
+                // Collapses entirely on the Profile page -- direct
                 // follow-up ("the header like Settings instead of
                 // floating it can go on the Avatar as the header for
                 // that card... audio and wifi has a toggle button so it
                 // can stay floating, not sure how to handle this"). Only
-                // System (selectedSection 0) has no inline control that
+                // Profile (selectedSection 0) has no inline control that
                 // needs this row's own consistently-positioned spot --
                 // Audio's mute switch and Wi-Fi's radio toggle both live
                 // here and need it to stay floating, so this only
                 // special-cases the one page that doesn't. GeneralContent.
-                // qml's own Avatar card carries the "System" title now
+                // qml's own Avatar card carries the "Profile" title now
                 // instead (see its own comment).
                 visible: root.selectedSection !== 0
                 Layout.fillWidth: true

@@ -41,17 +41,19 @@ ColumnLayout {
       // instead of floating it can go on the Avatar as the header for
       // that card... audio and wifi has a toggle button so it can stay
       // floating"). Settings.qml's own headerPill collapses to nothing
-      // for this page specifically (selectedSection === 0) since System
-      // has no inline control (mute/radio toggle) that needs a
+      // for this page specifically (selectedSection === 0) since
+      // Profile has no inline control (mute/radio toggle) that needs a
       // consistently-positioned floating row -- see its own comment.
       // Same size/weight/color the floating pill's title used (15px
       // DemiBold, root.textColor equivalent), so it still reads as the
       // page header, just relocated. Distinct from the small muted
       // section labels below it (Bar Layout, and the same "Output"/
       // "Input" pattern elsewhere in this file) -- this is the page's
-      // own title, not a card-local one.
+      // own title, not a card-local one. Text renamed from "System" to
+      // "Profile" per direct request ("i feel like Profile sounds
+      // better here"), same rename as the sidebar's own label.
       Text {
-        text: "System"
+        text: "Profile"
         font.family: settingsRoot.fontFamily
         font.pixelSize: 15
         font.weight: Font.DemiBold

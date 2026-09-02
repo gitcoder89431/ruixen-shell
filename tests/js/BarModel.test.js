@@ -46,4 +46,36 @@ check(
   [{ id: "a" }, { id: "b" }]
 );
 
+// --- reservedCenterRect (#28) ----------------------------------------
+check(
+  "reservedCenterRect: centered on a 1920px screen matches the real notch reservation live-verified on a real machine",
+  M.reservedCenterRect(340, 1920, 34),
+  { x: 790, y: 0, width: 340, height: 34 }
+);
+check(
+  "reservedCenterRect: centered on an odd-width container rounds down, never off-screen",
+  M.reservedCenterRect(340, 1921, 34),
+  { x: 790.5, y: 0, width: 340, height: 34 }
+);
+check(
+  "reservedCenterRect: a container narrower than the reserved width clamps to the full container, not negative x",
+  M.reservedCenterRect(340, 200, 34),
+  { x: 0, y: 0, width: 200, height: 34 }
+);
+check(
+  "reservedCenterRect: zero-width container never throws, returns a zero rect",
+  M.reservedCenterRect(340, 0, 34),
+  { x: 0, y: 0, width: 0, height: 34 }
+);
+check(
+  "reservedCenterRect: negative/garbage reservedWidth is clamped to zero, not subtracted",
+  M.reservedCenterRect(-50, 1920, 34),
+  { x: 960, y: 0, width: 0, height: 34 }
+);
+check(
+  "reservedCenterRect: non-numeric inputs degrade to zero rather than NaN propagating",
+  M.reservedCenterRect(undefined, undefined, undefined),
+  { x: 0, y: 0, width: 0, height: 0 }
+);
+
 summary();

@@ -208,6 +208,26 @@ function nearestDropTarget(candidates, point, vertical) {
   return best
 }
 
+// Screen-space rect the Notch's reserved footprint occupies, centered
+// in a container of the given width -- the pure math half of
+// Bar.qml's own reservedCenterRect(), pulled out here so it's unit-
+// testable via node (tests/js/BarModel.test.js) instead of only
+// reachable through a live Quickshell instance. Direct review finding
+// ("Reserve horizontal space for the Notch so bar widgets cannot
+// render underneath it", #28).
+//
+// reservedWidth is clamped to containerWidth (never wider than the
+// space it's centering in) and never negative, so a pathological
+// input (a screen narrower than the Notch's own reserved width, or a
+// negative/garbage size) still returns a sane, in-bounds rect rather
+// than one with a negative x or a width exceeding its own container.
+function reservedCenterRect(reservedWidth, containerWidth, barSize) {
+  var cw = Math.max(0, Number(containerWidth) || 0)
+  var rw = Math.max(0, Math.min(Number(reservedWidth) || 0, cw))
+  var x = Math.max(0, (cw - rw) / 2)
+  return { x: x, y: 0, width: rw, height: Math.max(0, Number(barSize) || 0) }
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     isDrawnSlot: isDrawnSlot,
@@ -226,6 +246,7 @@ if (typeof module !== "undefined") {
     expandPath: expandPath,
     customModuleSafeName: customModuleSafeName,
     customModuleType: customModuleType,
-    customModulePath: customModulePath
+    customModulePath: customModulePath,
+    reservedCenterRect: reservedCenterRect
   }
 }

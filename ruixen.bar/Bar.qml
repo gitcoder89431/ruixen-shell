@@ -654,6 +654,53 @@ Item {
   // and host everything remaining.
   readonly property var centerSpecialIds: ["ruixen.weather", "omarchy.clock"]
 
+  // Direct review finding ("Reserve horizontal space for the Notch so
+  // bar widgets cannot render underneath it", #28): ruixen.notch's own
+  // overlay window sits on WlrLayer.Overlay, a compositor layer ABOVE
+  // this bar's own -- confirmed live during #27's own work (a
+  // hardcoded, unconditional, opaque, z:999 test rectangle placed
+  // dead-center still never appeared on screen, until ruixen.notch was
+  // disabled). That already means anything the bar draws underneath
+  // the Notch is invisible for free, with no masking needed here --
+  // but a bar widget positioned there is also UNCLICKABLE and
+  // functionally useless sitting in a spot the user can never
+  // interact with, which is the real problem this issue is about:
+  // not visual bleed-through, but wasted layout space a widget could
+  // otherwise occupy somewhere actually visible.
+  //
+  // notchGeometryService is Omarchy's own real first-party service
+  // registry (shell.firstPartyServiceFor), the same established
+  // mechanism ruixen.media's own BarWidget.qml already uses to reach
+  // its sibling Service.qml -- reused here for a genuinely NEW thing,
+  // one Ruixen plugin (ruixen.bar) reading a constant a DIFFERENT
+  // Ruixen plugin (ruixen.notch) owns, so the two can never drift out
+  // of sync with each other's real numbers. See
+  // ruixen.notch/NotchGeometry.qml's own comment for exactly what this
+  // does and doesn't cover (the Notch's COLLAPSED footprint only, not
+  // its full live launcher/pinned-expanded width -- a deliberate,
+  // named scope limit, not an oversight).
+  readonly property var notchGeometryService: root.shell ? root.shell.firstPartyServiceFor("ruixen.notch") : null
+  // 340 matches NotchGeometry.qml's own current collapsedBodyWidth (284)
+  // + cornerSize (28) * 2 -- only ever used if the service itself is
+  // somehow unavailable (ruixen.notch disabled, or not yet loaded),
+  // so the bar still reserves a sane default rather than assuming zero.
+  readonly property int notchReservedWidth: notchGeometryService && notchGeometryService.reservedWidth ? notchGeometryService.reservedWidth : 340
+
+  // Screen-space rect the Notch's collapsed footprint occupies, centered
+  // in a region of the given width -- per-output correct for free
+  // (called with THIS bar surface's own dockedRow.width, which is
+  // already sized to whichever screen that surface belongs to, same as
+  // every other per-monitor bar geometry in this file). y/height cover
+  // this bar's own row specifically, not the Notch's real screen
+  // position -- the only thing that matters for keeping bar CONTENT
+  // out of the way is the horizontal span, since this bar and the
+  // Notch already occupy the same horizontal band by construction (both
+  // live at the top of the screen, centered).
+  function reservedCenterRect(containerWidth) {
+    var r = BarModel.reservedCenterRect(root.notchReservedWidth, containerWidth, root.barSize)
+    return Qt.rect(r.x, r.y, r.width, r.height)
+  }
+
   function moduleString(entry, key, fallback) {
     return BarModel.moduleString(entry, key, fallback)
   }
@@ -1579,16 +1626,38 @@ Item {
         // plugin identity, the same generic registry/ModuleSlot path
         // every other hosted widget already goes through.
         //
-        // Centered in the bar, not anchored off clockPill -- "center"
-        // means the screen's own center, matching centerAnchor's own
-        // intent, not "whatever's left over next to the clock pill."
-        // Left/right pill groups can still grow inward underneath this
-        // on a busy bar -- that's #28's own scope (reserving space
-        // around the Notch), not solved here.
+        // Adjacent to the Notch's reserved zone, not dead-center on it
+        // (#28) -- direct review finding ("Reserve horizontal space
+        // for the Notch so bar widgets cannot render underneath it"):
+        // "center" here originally meant the screen's own true center,
+        // matching centerAnchor's own intent, but that's exactly where
+        // ruixen.notch's own always-on-top overlay sits. A widget
+        // positioned there isn't just visually hidden (the compositor
+        // already does that for free, confirmed live during #27's own
+        // work) -- it's UNCLICKABLE and functionally useless sitting
+        // somewhere the user can never interact with, which is the
+        // real problem worth fixing: wasted layout space, not visual
+        // bleed-through. Anchored to the right edge of
+        // root.reservedCenterRect instead, so this content sits in the
+        // real, visible, clickable part of the bar.
+        //
+        // Left/right pill groups (menuPill/workspacesPill/... and
+        // togglesPill/trayPill/rightPill/clockPill) are NOT similarly
+        // constrained yet -- a genuinely busy bar with enough widgets
+        // on either side could still grow into this same reserved
+        // zone. Deliberately left as a named follow-up rather than
+        // restructuring their existing, working anchor chains in this
+        // same pass -- matches the issue's own explicit allowance
+        // ("if full overflow UX is out of scope, at minimum clip/
+        // constrain at the reserved boundary and leave a follow-up
+        // hook for a future collapse/overflow treatment"). Nothing in
+        // this repo's own shipped default layout comes remotely close
+        // to that many widgets today.
         Item {
           id: centerGenericPill
+          readonly property rect reservedRect: root.reservedCenterRect(parent ? parent.width : 0)
           opacity: centerGenericContent.width > 0 ? 1 : 0
-          anchors.horizontalCenter: parent.horizontalCenter
+          x: reservedRect.x + reservedRect.width + 12
           anchors.verticalCenter: parent.verticalCenter
           width: centerGenericContent.width + 8 * 2
           height: root.barSize - Style.space(2)

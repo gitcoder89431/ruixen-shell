@@ -658,6 +658,11 @@ Item {
       // frame/Hyprland rounding is 24, not 16 -- same formula, our own
       // rounding: cornerSize=28, collapsed radius=28 (see centerMask
       // below), expanded radius=44.
+      //
+      // Mirrored in this same plugin's own NotchGeometry.qml service
+      // (#28, ruixen.bar's own reserved-space calculation) -- change
+      // this value, change that one too. See that file's own comment
+      // for why it can't just read this property live instead.
       readonly property int cornerSize: 28
       // Collapsed width trimmed from ambxst's own 290 (matched to their
       // actual DefaultView.qml row) -- our actual content (avatar +
@@ -692,6 +697,12 @@ Item {
       // and bell icon is too close to the notch edge now"), bumped by
       // roughly that same ~20-24px to restore real margin on both
       // sides again.
+      //
+      // The collapsed case (284, both launcherOpen/pinnedOpen false) is
+      // mirrored in this same plugin's own NotchGeometry.qml service
+      // (#28) as collapsedBodyWidth -- change this default, change
+      // that one too. The 420/900 expanded cases are deliberately NOT
+      // reflected there -- see that file's own comment for why.
       readonly property int bodyWidth: panel.launcherOpen ? 420 : (panel.pinnedOpen ? 900 : 284)
       width: bodyWidth + cornerSize * 2
       // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved

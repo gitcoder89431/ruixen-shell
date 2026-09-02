@@ -23,7 +23,12 @@ BarWidget {
   // doesn't do anything until you hover it right", so it's gone; the manage
   // popup went with it since hiding was its only other purpose.
   readonly property var allItems: bucket()
-  readonly property int trayItemExtent: Style.bar.iconSlot
+  // Style.space(20), not the full Style.bar.iconSlot (27) -- same fix
+  // ruixen.pinnedapps got ("the icons are too far apart"): the 27px slot
+  // reads fine with 1 item, but stacks into a visibly loose row with 2+
+  // tray icons. Tray icons' own pixel size is untouched, only the slot
+  // each one centers in shrinks.
+  readonly property int trayItemExtent: Style.space(20)
   readonly property int trayItemGap: 0
 
   // Submenu drill-down state. QsMenuEntry.display() renders a *platform* menu,

@@ -31,6 +31,17 @@ hl.config({
     -- Matches the frame/bar's cornerRadius (24) for a consistent look.
     rounding = 24,
 
+    -- Ported from the user's own past cachyos-dotfiles config
+    -- (0.98/0.94, unchanged from that source -- direct request: "yea
+    -- both the color inactive and opacity split"). Focused windows
+    -- read as slightly more solid, unfocused ones fade back a touch --
+    -- same depth-hierarchy idea as shadow's own color_inactive below,
+    -- a different lever. Belongs under decoration, not general --
+    -- confirmed directly (`hyprctl getoption general:active_opacity`
+    -- returned "no such option") after an initial wrong placement.
+    active_opacity = 0.98,
+    inactive_opacity = 0.94,
+
     -- Window blur -- lets transparent surfaces (e.g. Kitty's
     -- background_opacity, see ../kitty.conf) show a blurred desktop
     -- behind them instead of plain see-through.
@@ -60,6 +71,13 @@ hl.config({
       range = 12,
       render_power = 3,
       color = "rgba(00000090)",
+      -- Dimmer than the active color above (~56% -> ~28% alpha, same
+      -- roughly-half ratio the user's own past cachyos-dotfiles config
+      -- used for this exact pair) -- direct request: "yea both the
+      -- color inactive and opacity split". Focused window's shadow
+      -- reads darker/closer, unfocused ones recede -- same depth-
+      -- hierarchy idea as active_opacity/inactive_opacity above.
+      color_inactive = "rgba(00000048)",
       offset = { 0, 3 },
     },
   },

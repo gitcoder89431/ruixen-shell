@@ -163,26 +163,19 @@ BarWidget {
     owner: root
     bar: root.bar
     open: root.popupOpen
-    // Matches weather/clock's own horizontal position (screen-centered,
-    // not anchored under this widget's own icon) -- direct request for
-    // visual consistency across every bar popup.
-    centerOnBar: true
-    // Compensates for a real difference between this and weather/clock's
-    // own popup that centerOnBar alone doesn't fix (direct follow-up
-    // report: "our more actions seems to be low now"). PopupCard is a
-    // real xdg-popup anchored to THIS plugin's own bar surface, so its
-    // "top" position math (window.height + margin) is relative to that
-    // surface's own origin -- which itself sits at root.bar.screenMarginTop
-    // on screen (13px in floating mode on the machine this was measured
-    // on), not at screen y=0. Weather/clock/agents (qs.Ui's KeyboardPanel)
-    // don't have this offset: each is its own separate, always-at-origin
-    // full-screen window, not attached to the bar's surface at all.
-    // Confirmed live (a temporary debug read of the real xdg-popup anchor
-    // window's height) that the extra gap was exactly root.bar's own
-    // screenMarginTop. Backing it out of margin here lands this popup's
-    // absolute screen Y on the exact same line as theirs:
-    // screenMarginTop + (windowHeight + margin) == windowHeight + gapsOut.
-    margin: Style.gapsOut - (root.bar ? root.bar.screenMarginTop : 0)
+    // Back to anchored under this widget's own icon (PopupCard's own
+    // default: centerOnBar false, margin unoverridden) -- direct
+    // request to revert the screen-centered match with weather/clock
+    // from e0429b7/61ef0bd: "it doesn't need to be center anymore, it
+    // can go back to being below the icon". That earlier change was
+    // purely a visual-consistency choice, not a fix for anything broken
+    // here -- this popup's own icon-relative position was never
+    // reported as a problem (unlike weather/clock's, which genuinely
+    // did overlap the Notch). The margin compensation from 61ef0bd
+    // (backing root.bar.screenMarginTop out of margin) existed only to
+    // match weather/clock's screen-centered Y exactly; reverting to
+    // plain icon-relative positioning drops the need for it too, so
+    // both are removed together rather than leaving one half-applied.
     contentWidth: popup.fittedContentWidth(Style.space(200))
     contentHeight: popup.fittedContentHeight(column.implicitHeight)
 

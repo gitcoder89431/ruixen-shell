@@ -130,30 +130,37 @@ margins_top_line="$(grep -m1 'position === "top".*root.screenMarginTop' "$bar_qm
 check "margins.top still resolves per-mode via root.screenMarginTop" \
   "$(printf '%s' "$margins_top_line" | grep -c 'root\.screenMarginTop' || true)" "1"
 
-# --- screenMarginTop / ruixen.quickactions' own popup Y (direct live
-# report: "our more actions seems to be low now") -------------------
+# --- root.screenMarginTop (bar hosting infra, kept even though its one
+# consumer was reverted) -----------------------------------------------
 #
-# PopupCard (ruixen.quickactions' own popup component) is a real
-# xdg-popup anchored to ruixen.bar's own surface, so its "top" position
-# math is relative to that surface's own origin -- which sits at
-# root.screenMarginTop on screen, not at screen y=0. KeyboardPanel-based
-# popups (weather/clock/agents) are each their own separate, always-at-
-# origin full-screen window, with no such offset. Confirmed live: after
-# switching quickactions to centerOnBar, its popup opened noticeably
-# lower than weather/clock's, by exactly this machine's own
-# screenMarginTop value.
-check "root.screenMarginTop exists, exactly once (the value quickactions compensates for)" \
+# The bar WINDOW's own current absolute screen-Y offset. Originally
+# added so ruixen.quickactions' own popup (PopupCard, a real xdg-popup
+# anchored to ruixen.bar's own surface -- its "top" position math is
+# relative to that surface's own origin, not screen y=0, unlike
+# KeyboardPanel-based popups which are each their own separate, always-
+# at-origin full-screen window) could match weather/clock's exact
+# screen-centered Y. Direct follow-up request retired that visual-
+# consistency choice ("it doesn't need to be center anymore, it can go
+# back to being below the icon") -- quickactions' own icon-relative
+# position was never actually broken, unlike weather/clock's real
+# Notch overlap, so both centerOnBar and the screenMarginTop
+# compensation were reverted together in QuickActions.qml. The
+# property itself stays on root: real, reusable bar-hosting
+# infrastructure, not dead code -- just currently unconsumed.
+check "root.screenMarginTop exists, exactly once (bar-hosting infra, kept for future consumers)" \
   "$(grep -c 'readonly property int screenMarginTop:' "$bar_qml" || true)" "1"
 screen_margin_top_line="$(grep -m1 'readonly property int screenMarginTop:' "$bar_qml")"
 check "screenMarginTop is docked ? frameInset : topInset (mirrors margins.top's own per-mode split)" \
   "$screen_margin_top_line" "  readonly property int screenMarginTop: docked ? frameInset : topInset"
 
+# ruixen.quickactions' own popup is back to PopupCard's plain defaults
+# -- no centerOnBar, no margin override -- matching "below the icon"
+# again, same as before e0429b7/61ef0bd ever touched it.
 qa_qml="$repo_dir/ruixen.quickactions/QuickActions.qml"
-qa_margin_line="$(grep -m1 'margin: Style.gapsOut' "$qa_qml")"
-check "ruixen.quickactions' own popup backs screenMarginTop out of its margin, not a hardcoded offset" \
-  "$qa_margin_line" "    margin: Style.gapsOut - (root.bar ? root.bar.screenMarginTop : 0)"
-check "ruixen.quickactions' own popup is still centerOnBar (the earlier fix this one builds on)" \
-  "$(grep -c 'centerOnBar: true' "$qa_qml" || true)" "1"
+check "ruixen.quickactions' own popup no longer overrides centerOnBar" \
+  "$(grep -c 'centerOnBar:' "$qa_qml" || true)" "0"
+check "ruixen.quickactions' own popup no longer overrides margin" \
+  "$(grep -c '    margin: Style.gapsOut' "$qa_qml" || true)" "0"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

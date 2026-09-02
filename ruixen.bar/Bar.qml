@@ -384,12 +384,10 @@ Item {
   // so growing iconSlot/iconFont doesn't force a taller pill; 34 has
   // plenty of headroom for an 18px glyph.
   //
-  // NOT paired 1:1 with topInset anymore (was topInset(10) + barSize(34)
-  // = 44 == notchClearance's own target, a coincidence of both being 34,
-  // not a real requirement). The actual invariant that matters is
-  // topInset + notchClearance = 44 (see notchClearance below) -- barSize
-  // itself is just this pill's own visual height, unrelated to where
-  // Hyprland's reservation ends.
+  // Not paired 1:1 with the window's own top margin -- see notchClearance
+  // below for the invariant that actually matters. barSize itself is just
+  // this pill's own visual height, unrelated to where Hyprland's
+  // reservation ends.
   readonly property int barSize: 34
 
   // Docked mode's open-facing shoulder: shared between the docked pill's
@@ -404,24 +402,34 @@ Item {
   // bottom edge sitting flush against tiled windows.
   //
   // ExclusionMode.Normal's exclusiveZone turned out additive to
-  // BarPanel's own top margin (topInset -- see BarPanel), not a full
+  // BarPanel's own top margin (frameInset -- see BarPanel), not a full
   // replacement -- this value has that margin already backed out,
   // targeting an actual reserved zone matching the notch's own 44px
-  // height. Keep this in sync if topInset ever changes again -- it must
-  // always equal 44 - topInset.
+  // height. Keep this in sync if frameInset ever changes -- it must
+  // always equal 44 - frameInset. Used for BOTH modes now (#29): docked
+  // and floating share the same top margin (see BarPanel), so there's
+  // only one exclusiveZone value left to derive, not a per-mode split.
   //
-  // 34 -> 31 alongside topInset 10 -> 13 (see BarPanel) -- per direct
-  // report of unequal top/bottom spacing around the pills (measured:
-  // ~5.5px above vs ~11.5px below, a real 6px imbalance, not a
-  // perception issue -- confirmed against this machine's actual live
-  // config: frame border thickness 6, Style.space(2) == 3 at this
-  // machine's [font] base-size 17, Hyprland gaps_out 10). Moving
-  // topInset down 3px and notchClearance down 3px in lockstep keeps
-  // topInset + notchClearance = 44 (the reservation itself, and
-  // therefore the tiled-window gap, is unchanged) while shifting the
-  // pills themselves down 3px, splitting the old 6px imbalance evenly:
-  // new spacing is ~8.5px on both sides instead of 5.5/11.5.
-  readonly property int notchClearance: 31
+  // Floating used to carry its own, bigger top margin (13, vs docked's
+  // 6) specifically for extra breathing room above the pills -- kept in
+  // lockstep with this value the same way (34 -> 31 alongside 10 -> 13)
+  // so the reservation total stayed 44. #29 (direct review finding:
+  // "floating-mode bar widgets don't align to the docked vertical
+  // baseline, testers report them sitting too high and overlapping the
+  // Notch") retired that split margin: floating's widget content is
+  // hosted through the exact same dockedRow Item as docked's, so any
+  // difference between the two modes' top margins was a direct,
+  // uncompensated offset between where docked and floating widgets sit
+  // on screen -- confirmed live via a temporary debug IPC dump
+  // (ModuleSlot.mapToItem(null,...) is identical in both modes; only
+  // the window's own margin.top differed, by exactly 13 - 6 = 7px).
+  // Reusing docked's own already-tuned frameInset for floating too (per
+  // direct instruction: "derive the floating host position from the
+  // existing docked content band/baseline rather than introducing a
+  // second hand-tuned magic Y value") makes the two baselines identical
+  // by construction, at the cost of shrinking floating's own breathing
+  // room back down -- an accepted, explicit trade-off, not an oversight.
+  readonly property int notchClearance: 38
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
@@ -1244,11 +1252,10 @@ Item {
     // own implicitHeight + margins (26 + 6 frameInset = 32), which is
     // shorter than the notch's own collapsed height.
     exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    // Docked mode's own top margin is frameInset (6), not topInset (13) --
-    // see margins below -- so the total reservation (margin.top +
-    // exclusiveZone) needs frameInset backed out here instead of
-    // topInset, or it quietly shrinks from 44 to 37 and tiled windows
-    // creep 7px higher than intended, into the notch's own space.
+    // Both modes share the same top margin now (frameInset -- see margins
+    // below, #29), so there's one exclusiveZone target for both: the
+    // reservation total (margin.top + exclusiveZone) always lands on 44,
+    // matching the notch's own collapsed height, regardless of docked.
     //
     // Deliberately NOT also adding root.shoulderWingSize here, even
     // though implicitHeight below grows by that much when docked (for
@@ -1260,7 +1267,7 @@ Item {
     // ruixen.notch/ruixen.frame-widget already do (ExclusionMode.Ignore,
     // reserve nothing) -- fine here too since that extra room is almost
     // entirely transparent.
-    exclusiveZone: root.docked ? (44 - frameInset) : root.notchClearance
+    exclusiveZone: root.notchClearance
 
     ScreenMoveRemap {
       id: remapGuard
@@ -1271,33 +1278,26 @@ Item {
     // inside the frame's rounded-rect hole instead of flush against the
     // screen edge. Only handles position === "top" — the only position in
     // use here; left/right/bottom bar positions fall back to no inset.
-    readonly property int frameInset: 6
-    // Top-only, bigger than frameInset on purpose: more breathing room
-    // between the pills' top edge and the frame's own bottom edge than
-    // left/right get. Kept in sync with root.notchClearance -- that one
-    // is defined as 44 - topInset, so the actual Hyprland reservation
-    // (topInset + notchClearance) always lands on the same 44px bottom
-    // edge the notch itself uses, no matter what this is set to. (An
-    // earlier attempt bumped this without recomputing notchClearance,
-    // which broke that shared bottom edge -- see ruixen-bar's README.)
     //
-    // 10 -> 13, per direct report of unequal top/bottom pill spacing
-    // (measured against this machine's real config: frame border 6px,
-    // Style.space(2) == 3px at base-size 17, Hyprland gaps_out 10px --
-    // worked out to a genuine 6px imbalance, ~5.5px above the pills vs
-    // ~11.5px below). Shifts the pills down 3px without moving the
-    // Hyprland reservation itself (notchClearance dropped 34 -> 31 in
-    // lockstep, keeping the sum at 44) -- splits the old imbalance
-    // evenly to ~8.5px on both sides.
-    readonly property int topInset: 13
+    // Used for top in BOTH modes now, not just docked (#29, direct review
+    // finding: floating widgets sit ~7px lower than docked's, since this
+    // window's own top margin was the only thing that actually differed
+    // between the two -- everything hosting the widgets themselves
+    // (dockedRow and below) is identical, mode-independent QML). Floating
+    // used to carry its own bigger top margin (13, see notchClearance's
+    // own comment for that history and the trade-off retiring it here);
+    // reusing this already-tuned value instead of introducing a new one
+    // is a direct instruction, not a simplification of convenience.
+    readonly property int frameInset: 6
 
     margins {
-      // Docked mode uses frameInset here too, not topInset -- the merged
-      // corner (leftDockedBg/rightDockedBg below) needs to land on
-      // exactly the same point ruixen.frame-widget's own rounded corner
-      // starts (thickness, thickness), same on all three sides, or its
-      // topLeftRadius/topRightRadius arc won't line up with the frame's.
-      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? (root.docked ? frameInset : topInset) : 0)
+      // Single frameInset for top in both modes now (#29) -- the merged
+      // docked corner (leftDockedBg/rightDockedBg below) still needs it
+      // to land on exactly the same point ruixen.frame-widget's own
+      // rounded corner starts (thickness, thickness) on all three sides,
+      // and floating's own widget content now needs that same point too,
+      // to match docked's baseline.
+      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? frameInset : 0)
       bottom: root.barHidden && root.position === "bottom" ? -root.barSize : 0
       left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? frameInset : 0)
       right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? frameInset : 0)
@@ -1442,8 +1442,7 @@ Item {
           // Matches ruixen.frame-widget's own cornerRadius (24) exactly --
           // this corner sits at the same point the frame's rounded-rect
           // hole starts (see BarPanel's margins above: frameInset used for
-          // top too when docked, not topInset, specifically so this lines
-          // up).
+          // top in both modes now, #29, specifically so this lines up).
           topLeftRadius: 24
           topRightRadius: 0
           // Square, not a plain recede curve -- the actual concave wrap

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "test.thirdparty.tall",
+  "name": "Test Third-Party (tall)",
+  "version": "1.0.0",
+  "author": "test-fixture",
+  "license": "MIT",
+  "description": "Fake third-party bar-widget test fixture with a deliberately tall implicit height -- see tests/fixtures/plugins/README.md. Exists for #29 (floating-mode vertical baseline alignment); the other fixtures are all a uniform 24px tall, which can't expose a centering bug.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Test Third-Party (tall)",
+    "description": "Fake third-party bar-widget test fixture, deliberately taller than barSize.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

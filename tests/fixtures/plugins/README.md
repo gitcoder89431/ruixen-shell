@@ -21,6 +21,11 @@ throwaway fixtures each issue reinvents.
   assume a uniform widget size anywhere.
 - `test.thirdparty.right` -- fixed 40px width, plain box, for the
   right region.
+- `test.thirdparty.tall` -- 40x48px, deliberately TALLER than
+  `ruixen.bar`'s own `barSize` (34). Added for #29: every other fixture
+  here is a uniform 24px tall, which centers inside a 34px row with no
+  slack either way and can't expose a vertical-centering bug on its
+  own.
 
 Never deployed by `install.sh` (its own plugin-copy glob is
 `ruixen.*/`, these deliberately fall outside it) and never referenced

@@ -46,19 +46,21 @@ hl.config({
     -- own decoration.shadow applies to every real window uniformly,
     -- there's no per-app override), unlike a per-surface Quickshell
     -- effect. Started deliberately small/soft (range 12, 25% alpha,
-    -- offset 3) once border_size dropped to 1 (see general above) --
-    -- direct follow-up ("1 is not bad... for the drop shadow, i guess
-    -- we can do more now") to make it more noticeable now that the
-    -- thinner border isn't competing with it as much. Range up to 20
-    -- (still well short of anything that would blur into a glow),
-    -- alpha up to ~38%, offset up to 6 for a more pronounced "lifted"
-    -- feel -- a real step up, not a token bump.
+    -- offset 3). A follow-up widened range to 20 and offset to 6 to
+    -- make it more noticeable -- overshot: direct correction ("too
+    -- much fadded now, distance is too much, like before but more
+    -- intense") wanted the ORIGINAL tight distance back (range/offset
+    -- are what push the shadow further out and soften/fade it), with
+    -- only the color intensity (alpha) pushed higher instead. Range
+    -- and offset back to 12/3, alpha up further to ~56%
+    -- (rgba(00000090), well past the ~38% the widen attempt used) --
+    -- close and dark, not far and soft.
     shadow = {
       enabled = true,
-      range = 20,
+      range = 12,
       render_power = 3,
-      color = "rgba(00000060)",
-      offset = { 0, 6 },
+      color = "rgba(00000090)",
+      offset = { 0, 3 },
     },
   },
 })

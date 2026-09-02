@@ -28,6 +28,27 @@ hl.config({
       passes = 3,
       noise = 0.08,
     },
+
+    -- Direct request ("i feel like this design could do drop shadow
+    -- for depth... i want it to feel premium") -- global (Hyprland's
+    -- own decoration.shadow applies to every real window uniformly,
+    -- there's no per-app override), unlike a per-surface Quickshell
+    -- effect. Deliberately small/soft, not a heavy drop shadow: a
+    -- small range (12, vs Hyprland's own default 4 -- big enough to
+    -- read at rounding 24, still tight) with a low-opacity, near-black
+    -- color (25% alpha) and a small downward offset (a subtle "lifted"
+    -- feel, not a flat glow centered under the window) -- direct
+    -- concern going in ("i feel like itll be hard to see cause our
+    -- border might be too thick") turned out unfounded once checked
+    -- (general.border_size is 2, thin, not thick), but kept the ask
+    -- for something subtle regardless.
+    shadow = {
+      enabled = true,
+      range = 12,
+      render_power = 3,
+      color = "rgba(00000040)",
+      offset = { 0, 3 },
+    },
   },
 })
 

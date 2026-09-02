@@ -431,6 +431,37 @@ Item {
   // unbalanced for no real benefit. Back to the split tuned here.
   readonly property int notchClearance: 31
 
+  // Inset to match ruixen.frame-widget's thickness (6px), so the bar sits
+  // inside the frame's rounded-rect hole instead of flush against the
+  // screen edge when docked -- see BarPanel's own margins for the real
+  // consumer. Lives on root (not just inside BarPanel) so widgets can
+  // read the bar's own current screen offset too -- see screenMarginTop
+  // below for why that matters.
+  readonly property int frameInset: 6
+  // Floating's own, bigger top margin -- see BarPanel's own margins
+  // comment for the full history/tuning. Lives on root for the same
+  // reason frameInset does.
+  readonly property int topInset: 13
+  // The bar WINDOW's own current absolute screen-Y offset (BarPanel's
+  // own margins.top, mirrored here) -- NOT the same thing as where bar
+  // CONTENT sits (dockedRow's own y is always 0 regardless of mode, see
+  // its own anchors). Exists for widgets hosting their own popup via
+  // qs.Ui's PopupCard (ruixen.quickactions does): PopupCard is a real
+  // xdg-popup anchored to THIS plugin's own bar surface, so its anchor
+  // coordinates are relative to that surface's origin -- which itself
+  // sits at screenMarginTop on screen, not at screen y=0. KeyboardPanel-
+  // based popups (weather/clock/agents) don't have this offset, because
+  // they're each a SEPARATE, always-at-origin full-screen window, not
+  // attached to the bar's own surface. Direct live report: quickactions'
+  // own popup sat noticeably lower than weather/clock's after switching
+  // it to centerOnBar -- confirmed live (a temporary debug read of the
+  // real window height) that the gap was exactly this value (13 in
+  // floating mode on this machine) -- PopupCard's own margin property
+  // needs this backed out to land on the same absolute screen Y as a
+  // KeyboardPanel-based popup, see ruixen.quickactions/QuickActions.qml's
+  // own popup.margin for where that actually happens.
+  readonly property int screenMarginTop: docked ? frameInset : topInset
+
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
   }
@@ -1260,11 +1291,12 @@ Item {
     // own implicitHeight + margins (26 + 6 frameInset = 32), which is
     // shorter than the notch's own collapsed height.
     exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    // Docked mode's own top margin is frameInset (6), not topInset (13) --
-    // see margins below -- so the total reservation (margin.top +
-    // exclusiveZone) needs frameInset backed out here instead of
-    // topInset, or it quietly shrinks from 44 to 37 and tiled windows
-    // creep 7px higher than intended, into the notch's own space.
+    // Docked mode's own top margin is root.frameInset (6), not
+    // root.topInset (13) -- see margins below -- so the total
+    // reservation (margin.top + exclusiveZone) needs frameInset backed
+    // out here instead of topInset, or it quietly shrinks from 44 to 37
+    // and tiled windows creep 7px higher than intended, into the notch's
+    // own space.
     //
     // Deliberately NOT also adding root.shoulderWingSize here, even
     // though implicitHeight below grows by that much in both modes now
@@ -1277,40 +1309,18 @@ Item {
     // a result, same as ruixen.notch/ruixen.frame-widget already do
     // (ExclusionMode.Ignore, reserve nothing) -- fine here too since
     // that extra room is almost entirely transparent.
-    exclusiveZone: root.docked ? (44 - frameInset) : root.notchClearance
+    exclusiveZone: root.docked ? (44 - root.frameInset) : root.notchClearance
 
     ScreenMoveRemap {
       id: remapGuard
       window: barWindow
     }
 
-    // Inset to match ruixen.frame-widget's thickness (6px), so the bar sits
-    // inside the frame's rounded-rect hole instead of flush against the
-    // screen edge. Only handles position === "top" — the only position in
-    // use here; left/right/bottom bar positions fall back to no inset.
-    readonly property int frameInset: 6
-    // Top-only, bigger than frameInset on purpose: more breathing room
-    // between the pills' top edge and the frame's own bottom edge than
-    // left/right get. Kept in sync with root.notchClearance -- that one
-    // is defined as 44 - topInset, so the actual Hyprland reservation
-    // (topInset + notchClearance) always lands on the same 44px bottom
-    // edge the notch itself uses, no matter what this is set to. (An
-    // earlier attempt bumped this without recomputing notchClearance,
-    // which broke that shared bottom edge -- see ruixen-bar's README.)
-    //
-    // 10 -> 13, per direct report of unequal top/bottom pill spacing
-    // (measured against this machine's real config: frame border 6px,
-    // Style.space(2) == 3px at base-size 17, Hyprland gaps_out 10px --
-    // worked out to a genuine 6px imbalance, ~5.5px above the pills vs
-    // ~11.5px below). Shifts the pills down 3px without moving the
-    // Hyprland reservation itself (notchClearance dropped 34 -> 31 in
-    // lockstep, keeping the sum at 44) -- splits the old imbalance
-    // evenly to ~8.5px on both sides.
-    //
-    // #29 briefly unified this onto frameInset for both modes -- see
-    // notchClearance's own comment for why that was reverted. This own
-    // value (and the split it restores) is the real, current one again.
-    readonly property int topInset: 13
+    // frameInset/topInset live on root now, not here -- ruixen.quickactions'
+    // own popup (a real xdg-popup anchored to this window's surface,
+    // unlike weather/clock/agents' own separate full-screen popup windows)
+    // needs to read the CURRENT one of these two to compensate for this
+    // surface's own screen offset, see root.screenMarginTop's own comment.
 
     margins {
       // Docked mode uses frameInset here too, not topInset -- the merged
@@ -1318,10 +1328,10 @@ Item {
       // exactly the same point ruixen.frame-widget's own rounded corner
       // starts (thickness, thickness), same on all three sides, or its
       // topLeftRadius/topRightRadius arc won't line up with the frame's.
-      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? (root.docked ? frameInset : topInset) : 0)
+      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? root.screenMarginTop : 0)
       bottom: root.barHidden && root.position === "bottom" ? -root.barSize : 0
-      left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? frameInset : 0)
-      right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? frameInset : 0)
+      left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
+      right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
     }
 
     anchors {

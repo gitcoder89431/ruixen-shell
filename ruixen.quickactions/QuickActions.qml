@@ -165,13 +165,24 @@ BarWidget {
     open: root.popupOpen
     // Matches weather/clock's own horizontal position (screen-centered,
     // not anchored under this widget's own icon) -- direct request for
-    // visual consistency across every bar popup. Vertical position was
-    // already consistent with theirs regardless of this flag: PopupCard's
-    // own "top" position math computes y as anchorWindow.height + margin
-    // in BOTH its centerOnBar and default branches, the same shared value
-    // KeyboardPanel-based popups (weather, clock, agents) already read.
-    // This only changes x.
+    // visual consistency across every bar popup.
     centerOnBar: true
+    // Compensates for a real difference between this and weather/clock's
+    // own popup that centerOnBar alone doesn't fix (direct follow-up
+    // report: "our more actions seems to be low now"). PopupCard is a
+    // real xdg-popup anchored to THIS plugin's own bar surface, so its
+    // "top" position math (window.height + margin) is relative to that
+    // surface's own origin -- which itself sits at root.bar.screenMarginTop
+    // on screen (13px in floating mode on the machine this was measured
+    // on), not at screen y=0. Weather/clock/agents (qs.Ui's KeyboardPanel)
+    // don't have this offset: each is its own separate, always-at-origin
+    // full-screen window, not attached to the bar's surface at all.
+    // Confirmed live (a temporary debug read of the real xdg-popup anchor
+    // window's height) that the extra gap was exactly root.bar's own
+    // screenMarginTop. Backing it out of margin here lands this popup's
+    // absolute screen Y on the exact same line as theirs:
+    // screenMarginTop + (windowHeight + margin) == windowHeight + gapsOut.
+    margin: Style.gapsOut - (root.bar ? root.bar.screenMarginTop : 0)
     contentWidth: popup.fittedContentWidth(Style.space(200))
     contentHeight: popup.fittedContentHeight(column.implicitHeight)
 

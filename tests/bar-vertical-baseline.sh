@@ -92,5 +92,31 @@ dockedrow_height="$(grep -A4 'id: dockedRow' "$bar_qml" | grep 'height:')"
 check "dockedRow's height is root.barSize (bar_size=$bar_size), not a docked-conditional value" \
   "$dockedrow_height" "          height: root.barSize"
 
+# --- floating-mode popups colliding with the Notch (direct live report) --
+#
+# Separate from #29's own centerline bug, found right after: weather's own
+# popup and stock Omarchy's clock calendar popup (qs.Ui KeyboardPanel,
+# centerOnBar: true) open at `anchorWindow.height + gap` -- that's this
+# window's own `height` (== implicitHeight, since it's never set
+# explicitly), read directly by a file we don't own
+# (/usr/share/omarchy/shell/Ui/KeyboardPanel.qml) and can't patch. It has
+# no notion of ruixen.notch at all.
+#
+# Docked already cleared the Notch's collapsed footprint by accident --
+# its implicitHeight already carried +shoulderWingSize (24) for an
+# unrelated reason (room for the frame-hem corner wing graphic), and that
+# was enough slack. Floating had none, so popups opened inside the
+# Notch's own [4, 48] band and visibly cut through it (confirmed live,
+# screenshotted, before this fix).
+shoulder_wing_size="$(grep -oP 'readonly property int shoulderWingSize:\s*\K[0-9]+' "$bar_qml")"
+check "shoulderWingSize is a single, real value (not empty/multiple matches)" \
+  "$(printf '%s' "$shoulder_wing_size" | wc -l | tr -d ' ')" "0"
+
+implicit_height_line="$(grep -m1 'implicitHeight: root.vertical ? 0' "$bar_qml")"
+check "BarPanel's implicitHeight no longer branches on root.docked (both modes get the same popup-clearing height)" \
+  "$(printf '%s' "$implicit_height_line" | grep -c 'root\.docked ?' || true)" "0"
+check "BarPanel's implicitHeight is barSize + shoulderWingSize in both modes (bar_size=$bar_size, shoulder_wing_size=$shoulder_wing_size)" \
+  "$implicit_height_line" "    implicitHeight: root.vertical ? 0 : root.barSize + root.shoulderWingSize"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

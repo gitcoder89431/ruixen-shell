@@ -1258,9 +1258,11 @@ Item {
     // matching the notch's own collapsed height, regardless of docked.
     //
     // Deliberately NOT also adding root.shoulderWingSize here, even
-    // though implicitHeight below grows by that much when docked (for
-    // the frame-hem wing's own room) -- reserving the wing's FULL box
-    // left a huge gap between the dock and tiled windows, since the
+    // though implicitHeight below grows by that much in both modes now
+    // (docked: room for the frame-hem wing graphic; floating: popup
+    // clearance below the Notch, see implicitHeight's own comment) --
+    // reserving the wing's FULL box left a huge gap between the dock
+    // and tiled windows, since the
     // wing's actual painted material is a small curved sliver, not a
     // solid block (per direct report). This window's own bottom edge
     // extends slightly past the reservation as a result, same as
@@ -1311,12 +1313,40 @@ Item {
     }
 
     implicitWidth: root.vertical ? root.barSize : 0
-    // Taller when docked -- the frame-hem corner's own wing (see
-    // leftFrameHemWing below) needs room below the pill row itself,
-    // there's none within barSize alone. The pill row's own content
-    // stays pinned to the original barSize band regardless (see
-    // dockedRow below), so this never affects floating-mode pills.
-    implicitHeight: root.vertical ? 0 : (root.docked ? root.barSize + root.shoulderWingSize : root.barSize)
+    // Same taller height in both modes now -- direct live report: any
+    // popup panel anchored off this window (weather's own, and stock
+    // Omarchy's clock calendar popup -- both use qs.Ui's KeyboardPanel
+    // with centerOnBar: true) opens at `anchorWindow.height + gap`
+    // (KeyboardPanel.qml's own cardOrigin, not editable -- it's a stock
+    // /usr/share/omarchy file). That calculation has no notion of
+    // ruixen.notch at all, so nothing about it "reserves" the Notch's
+    // own screen space the way #28 does for the bar's own widgets.
+    //
+    // Docked already avoided this by accident: its implicitHeight was
+    // bumped by shoulderWingSize (24) for a completely unrelated reason
+    // (room for the frame-hem corner wing graphic below the pill row --
+    // see leftFrameHemWing), and that extra height happened to also be
+    // enough for popups to clear the Notch's own collapsed footprint
+    // (margin.top 4 + height 44 = 48 on this machine's real config).
+    // Floating had none of that slack (barH stayed 34, popup opened at
+    // 34 + gap(5) = 39 -- inside the Notch's own [4,48] band, cutting
+    // straight through it -- confirmed live, both by the exact numbers
+    // and by an actual screenshot of the weather popup's top edge
+    // overlapping the Notch's icons).
+    //
+    // Reusing docked's own already-proven-safe value for floating too,
+    // rather than deriving a new minimum from the Notch's own collapsed
+    // height -- same "derive from an existing tuned value, don't invent
+    // a new magic number" reasoning #29 used for frameInset. The extra
+    // room below the pill row is empty and transparent in floating mode
+    // (no wing graphic there, only docked draws one), same as docked's
+    // own unused extra space already is.
+    //
+    // Scoped to the Notch's COLLAPSED footprint only, same as #28 --
+    // opening weather/clock while the Notch is expanded (launcher 190px
+    // or pinned/dashboard 400px tall) can still collide. Follow-up, not
+    // solved here.
+    implicitHeight: root.vertical ? 0 : root.barSize + root.shoulderWingSize
     // Always transparent, not root.transparent-gated — the bar-wide solid
     // background is gone entirely now that each module group draws its own
     // floating pill background (see horizontalBar below).

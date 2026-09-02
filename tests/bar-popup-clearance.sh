@@ -38,6 +38,18 @@
 # on-screen position (the docked/floating split top margin from before
 # #29 was reverted is untouched by this file).
 #
+# A follow-up attempt (see git history) tried pushing this shared value
+# further down toward true screen-center, matching ruixen.settings' own
+# dead-center dialog look. Reverted: the same shared `anchorWindow.height`
+# every popup reads doesn't scale to every popup's own, wildly different
+# content height -- a target tuned for weather's own ~228px popup pushed
+# omarchy.agents' own popup (up to 640px, a scrollable dashboard) toward
+# the bottom of the screen instead, via KeyboardPanel's own on-screen
+# clamp. Confirmed live ("the ai agent popup... showing up at the bottom
+# now"). Back to visibleBarHeight only (clears the Notch, no reach for
+# center) -- this file's own checks guard THAT reverted state, not the
+# center attempt.
+#
 # Can't drive a real Quickshell instance here (no compositor in CI), so
 # this is a static invariant check against the actual QML source instead
 # -- same style as tests/lint-shell.sh's own pattern-based guards.
@@ -88,13 +100,22 @@ check "ruixen.bar's own notchCollapsedBottomEdge fallback matches NotchGeometry'
 # never get clipped -- this must stay a real per-mode branch, unlike
 # margins.top/exclusiveZone (which are deliberately NOT branched, see
 # Bar.qml's own notchClearance comment for that separate history).
-implicit_height_line="$(grep -m1 'implicitHeight: root.vertical ? 0 : (root.docked' "$bar_qml")"
-check "BarPanel's implicitHeight still branches on root.docked (docked keeps its own wing-graphic floor)" \
-  "$(printf '%s' "$implicit_height_line" | grep -c 'root\.docked ?' || true)" "1"
-check "BarPanel's implicitHeight derives from notchCollapsedBottomEdge in both branches, not a flat reused constant" \
-  "$(printf '%s' "$implicit_height_line" | grep -o 'root\.notchCollapsedBottomEdge' | wc -l | tr -d ' ')" "2"
-check "BarPanel's docked branch still floors at barSize + shoulderWingSize (the wing-graphic minimum)" \
-  "$(printf '%s' "$implicit_height_line" | grep -c 'Math\.max(root\.barSize + root\.shoulderWingSize, root\.notchCollapsedBottomEdge)' || true)" "1"
+visible_bar_height_line="$(grep -m1 'readonly property int visibleBarHeight:' "$bar_qml")"
+check "visibleBarHeight still branches on root.docked (docked keeps its own wing-graphic floor)" \
+  "$(printf '%s' "$visible_bar_height_line" | grep -c 'root\.docked ?' || true)" "1"
+check "visibleBarHeight derives from notchCollapsedBottomEdge in both branches, not a flat reused constant" \
+  "$(printf '%s' "$visible_bar_height_line" | grep -o 'root\.notchCollapsedBottomEdge' | wc -l | tr -d ' ')" "2"
+check "visibleBarHeight's docked branch still floors at barSize + shoulderWingSize (the wing-graphic minimum)" \
+  "$(printf '%s' "$visible_bar_height_line" | grep -c 'Math\.max(root\.barSize + root\.shoulderWingSize, root\.notchCollapsedBottomEdge)' || true)" "1"
+
+# implicitHeight itself must stay exactly visibleBarHeight (no reach for
+# center, see this file's own header for why that was reverted) -- a
+# future edit growing this again needs to bring the input mask back with
+# it (see the reverted attempt's own comment in git history), not just
+# quietly resurface the agents-popup-at-the-bottom bug.
+implicit_height_line="$(grep -m1 'implicitHeight: root.vertical ? 0 : ' "$bar_qml")"
+check "implicitHeight is exactly visibleBarHeight, not a further-grown value" \
+  "$implicit_height_line" "    implicitHeight: root.vertical ? 0 : visibleBarHeight"
 
 # The docked/floating split top margin (reverted from #29's own attempt
 # to unify it) is unrelated to this fix and must stay untouched by it.

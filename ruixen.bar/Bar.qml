@@ -694,6 +694,14 @@ Item {
   // so the bar still reserves a sane default rather than assuming zero.
   readonly property int notchReservedWidth: notchGeometryService && notchGeometryService.reservedWidth ? notchGeometryService.reservedWidth : 340
 
+  // Absolute screen Y of the Notch's own collapsed bottom edge -- see
+  // implicitHeight's own comment below for what this is for (giving
+  // weather/clock's popup enough window height to clear the Notch
+  // without opening underneath it). 48 mirrors NotchGeometry.qml's own
+  // current collapsedTopMargin (4) + collapsedHeight (44), same
+  // service-unavailable fallback pattern as notchReservedWidth above.
+  readonly property int notchCollapsedBottomEdge: notchGeometryService && notchGeometryService.collapsedBottomEdge ? notchGeometryService.collapsedBottomEdge : 48
+
   // Screen-space rect the Notch's collapsed footprint occupies, centered
   // in a region of the given width -- per-output correct for free
   // (called with THIS bar surface's own dockedRow.width, which is
@@ -1324,42 +1332,62 @@ Item {
     }
 
     implicitWidth: root.vertical ? root.barSize : 0
-    // Same taller height in both modes now -- direct live report: any
-    // popup panel anchored off this window (weather's own, and stock
-    // Omarchy's clock calendar popup -- both use qs.Ui's KeyboardPanel
-    // with centerOnBar: true) opens at `anchorWindow.height + gap`
-    // (KeyboardPanel.qml's own cardOrigin, not editable -- it's a stock
-    // /usr/share/omarchy file). That calculation has no notion of
-    // ruixen.notch at all, so nothing about it "reserves" the Notch's
-    // own screen space the way #28 does for the bar's own widgets.
+    // Tall enough in both modes to clear the Notch's own collapsed
+    // bottom edge -- direct live report: any popup panel anchored off
+    // this window (weather's own, and stock Omarchy's clock calendar
+    // popup -- both use qs.Ui's KeyboardPanel with centerOnBar: true)
+    // opens at `anchorWindow.height + gap` (KeyboardPanel.qml's own
+    // cardOrigin, not editable -- it's a stock /usr/share/omarchy
+    // file). That calculation has no notion of ruixen.notch at all, so
+    // nothing about it "reserves" the Notch's own screen space the way
+    // #28 does for the bar's own widgets. This value IS that window's
+    // own `height`, so it's the one thing on our side that calculation
+    // actually reads.
     //
-    // Docked already avoided this by accident: its implicitHeight was
-    // bumped by shoulderWingSize (24) for a completely unrelated reason
-    // (room for the frame-hem corner wing graphic below the pill row --
-    // see leftFrameHemWing), and that extra height happened to also be
-    // enough for popups to clear the Notch's own collapsed footprint
-    // (margin.top 4 + height 44 = 48 on this machine's real config).
-    // Floating had none of that slack (barH stayed 34, popup opened at
-    // 34 + gap(5) = 39 -- inside the Notch's own [4,48] band, cutting
-    // straight through it -- confirmed live, both by the exact numbers
-    // and by an actual screenshot of the weather popup's top edge
-    // overlapping the Notch's icons).
+    // First attempt reused shoulderWingSize (docked's own existing
+    // +24, tuned for an unrelated reason -- room for the frame-hem
+    // corner wing graphic below the pill row) for both modes. That
+    // cleared the Notch but overshot: popups opened noticeably lower
+    // than ruixen.quickactions' own "More Actions" popup (a DIFFERENT
+    // popup component, PopupCard, anchored off its own icon rather
+    // than this window's height -- unaffected by this property, and
+    // already sitting right at the reserved zone's own edge). Direct
+    // follow-up report: "can it go a bit higher... the border matches
+    // the top of our hyprland window" pointing at that popup as the
+    // reference.
     //
-    // Reusing docked's own already-proven-safe value for floating too,
-    // rather than deriving a new minimum from the Notch's own collapsed
-    // height -- an existing, already-tuned value, not a new magic
-    // number. The extra room below the pill row is empty and
-    // transparent in floating mode (no wing graphic there, only docked
-    // draws one), same as docked's own unused extra space already is.
-    // Purely a window-height change -- unlike the reverted #29 attempt,
-    // this doesn't touch margins.top/frameInset/topInset at all, so it
-    // doesn't move any pill's own on-screen position.
+    // Derived from the Notch's own real collapsed geometry instead
+    // (notchCollapsedBottomEdge, from ruixen.notch's own service --
+    // see that property's own comment) rather than reusing an
+    // unrelated tuned value or a second hand-picked one: the smallest
+    // height that puts a popup's own top edge (barH + the popup
+    // component's own gap) right past the Notch's real bottom edge,
+    // with the popup's own gap constant supplying the small buffer
+    // instead of an extra hardcoded one. Max() against barSize is just
+    // the floor -- never shrink the window below its normal pill-row
+    // height even if the Notch's own numbers ever came back smaller.
+    //
+    // Purely a window-height change -- doesn't touch
+    // margins.top/frameInset/topInset at all, so it doesn't move any
+    // pill's own on-screen position.
+    //
+    // Docked still needs its own floor at barSize + shoulderWingSize
+    // regardless of the Notch's own numbers -- leftFrameHemWing/
+    // rightFrameHemWing (the frame-hem corner wing graphics, docked
+    // only) are positioned at y: barSize with their own height
+    // shoulderWingSize, i.e. they occupy this window's own [34, 58]
+    // band; sizing the window any shorter than 58 when docked would
+    // clip their bottom edge against the window's own Wayland surface
+    // bounds (a real, silent clip -- not a QML clip -- confirmed
+    // finding from #29's own investigation). 58 already comfortably
+    // exceeds notchCollapsedBottomEdge (48), so docked's own height is
+    // unchanged from before this fix existed.
     //
     // Scoped to the Notch's COLLAPSED footprint only, same as #28 --
     // opening weather/clock while the Notch is expanded (launcher 190px
     // or pinned/dashboard 400px tall) can still collide. Follow-up, not
     // solved here.
-    implicitHeight: root.vertical ? 0 : root.barSize + root.shoulderWingSize
+    implicitHeight: root.vertical ? 0 : (root.docked ? Math.max(root.barSize + root.shoulderWingSize, root.notchCollapsedBottomEdge) : Math.max(root.barSize, root.notchCollapsedBottomEdge))
     // Always transparent, not root.transparent-gated — the bar-wide solid
     // background is gone entirely now that each module group draws its own
     // floating pill background (see horizontalBar below).

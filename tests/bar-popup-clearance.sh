@@ -11,23 +11,32 @@
 # Hyprland gaps_out config). That calculation has zero awareness of
 # ruixen.notch.
 #
-# The exact numbers, confirmed live: Notch's own collapsed bottom edge is
-# margin.top(4) + height(44) = 48. Docked's own window height already
-# carried +shoulderWingSize(24) for an unrelated reason (room for the
-# frame-hem corner wing graphic below the pill row), which put its popups
-# at 34 + 24 + gap(5) = 63 -- clear of 48 by accident. Floating had none
-# of that slack: popups opened at 34 + gap(5) = 39, inside the Notch's own
-# [4, 48] band -- a direct, screenshotted overlap.
+# First attempt (see git history) reused shoulderWingSize (docked's own
+# existing +24, tuned for an unrelated reason -- room for the frame-hem
+# corner wing graphic below the pill row) as the popup-clearing height in
+# both modes. That cleared the Notch but overshot: popups opened
+# noticeably lower than ruixen.quickactions' own "More Actions" popup (a
+# DIFFERENT popup component, PopupCard, anchored off its own icon rather
+# than this window's height, and already sitting right at the reserved
+# zone's own edge). Direct follow-up report: "can it go a bit higher...
+# the border matches the top of our hyprland window" pointing at that
+# popup as the reference.
 #
-# Fix: floating's BarPanel now carries the same +shoulderWingSize height
-# docked already had, purely a window-height change -- it does NOT touch
+# Fixed by deriving the minimum height from the Notch's own real collapsed
+# geometry instead (notchCollapsedBottomEdge, sourced from ruixen.notch's
+# own NotchGeometry.qml service, not a second hardcoded number) --
+# max(barSize, notchCollapsedBottomEdge) in floating mode. Docked keeps
+# its own higher floor (barSize + shoulderWingSize) regardless of the
+# Notch's numbers: leftFrameHemWing/rightFrameHemWing (the frame-hem
+# corner wing graphics, docked only) occupy this window's own
+# [barSize, barSize + shoulderWingSize] band, and sizing the window any
+# shorter when docked would clip their bottom edge against the window's
+# own Wayland surface bounds.
+#
+# Purely a window-height change -- does NOT touch
 # margins.top/frameInset/topInset, so it doesn't move any pill's own
-# on-screen position. (A separate, broader attempt to also unify
-# margins.top between docked/floating -- filed as #29 -- was tried and
-# reverted: the actual complaint was always this popup overlap, never the
-# icons' own padding, and unifying the margin made floating's spacing
-# look unbalanced for no real benefit. See Bar.qml's own notchClearance/
-# topInset comments for that history.)
+# on-screen position (the docked/floating split top margin from before
+# #29 was reverted is untouched by this file).
 #
 # Can't drive a real Quickshell instance here (no compositor in CI), so
 # this is a static invariant check against the actual QML source instead
@@ -37,6 +46,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/ruixen.bar/Bar.qml"
+notch_geometry_qml="$repo_dir/ruixen.notch/NotchGeometry.qml"
 
 pass=0
 fail_count=0
@@ -53,22 +63,41 @@ check() {
 
 bar_size="$(grep -oP 'readonly property int barSize:\s*\K[0-9]+' "$bar_qml")"
 shoulder_wing_size="$(grep -oP 'readonly property int shoulderWingSize:\s*\K[0-9]+' "$bar_qml")"
+notch_top_margin="$(grep -oP 'readonly property int collapsedTopMargin:\s*\K[0-9]+' "$notch_geometry_qml")"
+notch_collapsed_height="$(grep -oP 'readonly property int collapsedHeight:\s*\K[0-9]+' "$notch_geometry_qml")"
 
 check "barSize is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$bar_size" | wc -l | tr -d ' ')" "0"
 check "shoulderWingSize is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$shoulder_wing_size" | wc -l | tr -d ' ')" "0"
+check "NotchGeometry's collapsedTopMargin is a single, real value (not empty/multiple matches)" \
+  "$(printf '%s' "$notch_top_margin" | wc -l | tr -d ' ')" "0"
+check "NotchGeometry's collapsedHeight is a single, real value (not empty/multiple matches)" \
+  "$(printf '%s' "$notch_collapsed_height" | wc -l | tr -d ' ')" "0"
 
-implicit_height_line="$(grep -m1 'implicitHeight: root.vertical ? 0' "$bar_qml")"
-check "BarPanel's implicitHeight no longer branches on root.docked (both modes get the same popup-clearing height)" \
-  "$(printf '%s' "$implicit_height_line" | grep -c 'root\.docked ?' || true)" "0"
-check "BarPanel's implicitHeight is barSize + shoulderWingSize in both modes (bar_size=$bar_size, shoulder_wing_size=$shoulder_wing_size)" \
-  "$implicit_height_line" "    implicitHeight: root.vertical ? 0 : root.barSize + root.shoulderWingSize"
+# ruixen.bar's own fallback constant (used only if the notch service is
+# unavailable) has to track NotchGeometry's real numbers, or a future
+# change to either file silently drifts the fallback out of sync with the
+# thing it's supposed to approximate.
+notch_bottom_edge_fallback="$(grep -oP 'notchGeometryService && notchGeometryService\.collapsedBottomEdge \? notchGeometryService\.collapsedBottomEdge : \K[0-9]+' "$bar_qml")"
+check "ruixen.bar's own notchCollapsedBottomEdge fallback matches NotchGeometry's real collapsedTopMargin + collapsedHeight" \
+  "$notch_bottom_edge_fallback" "$((notch_top_margin + notch_collapsed_height))"
 
-# The docked/floating split top margin is intentional again (see this
-# file's own header) -- guard that a future edit doesn't silently
-# re-unify it while "fixing" something else. Both topInset and the
-# docked ternary must still be present.
+# Docked still needs the taller floor (barSize + shoulderWingSize) no
+# matter what the Notch's own numbers are, so the frame-hem wing graphics
+# never get clipped -- this must stay a real per-mode branch, unlike
+# margins.top/exclusiveZone (which are deliberately NOT branched, see
+# Bar.qml's own notchClearance comment for that separate history).
+implicit_height_line="$(grep -m1 'implicitHeight: root.vertical ? 0 : (root.docked' "$bar_qml")"
+check "BarPanel's implicitHeight still branches on root.docked (docked keeps its own wing-graphic floor)" \
+  "$(printf '%s' "$implicit_height_line" | grep -c 'root\.docked ?' || true)" "1"
+check "BarPanel's implicitHeight derives from notchCollapsedBottomEdge in both branches, not a flat reused constant" \
+  "$(printf '%s' "$implicit_height_line" | grep -o 'root\.notchCollapsedBottomEdge' | wc -l | tr -d ' ')" "2"
+check "BarPanel's docked branch still floors at barSize + shoulderWingSize (the wing-graphic minimum)" \
+  "$(printf '%s' "$implicit_height_line" | grep -c 'Math\.max(root\.barSize + root\.shoulderWingSize, root\.notchCollapsedBottomEdge)' || true)" "1"
+
+# The docked/floating split top margin (reverted from #29's own attempt
+# to unify it) is unrelated to this fix and must stay untouched by it.
 check "topInset (floating's own, separately-tuned top margin) still exists" \
   "$(grep -c 'readonly property int topInset:' "$bar_qml" || true)" "1"
 margins_top_line="$(grep -m1 'position === "top".*root.docked ? frameInset : topInset' "$bar_qml")"

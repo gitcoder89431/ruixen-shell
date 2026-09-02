@@ -51,4 +51,20 @@ Item {
   // The actual number ruixen.bar consumes: the Notch's full collapsed
   // footprint, corner shoulders included on both sides.
   readonly property int reservedWidth: collapsedBodyWidth + cornerSize * 2
+
+  // Mirrors Overlay.qml's own PanelWindow margins.top (4) and its
+  // notchOuter's own COLLAPSED height (44, panel.launcherOpen/
+  // pinnedOpen both false) -- see this file's own top comment for why
+  // only the collapsed case is reflected here. Same manual-sync
+  // convention as cornerSize/collapsedBodyWidth above.
+  readonly property int collapsedTopMargin: 4
+  readonly property int collapsedHeight: 44
+
+  // Absolute screen Y of the Notch's own collapsed bottom edge --
+  // ruixen.bar's own popup-clearance fix (a direct live report:
+  // weather/clock's popup opened underneath the Notch in floating
+  // mode) needs this to size its own window tall enough that popups
+  // anchored off it clear the Notch, without hardcoding this same
+  // arithmetic a second time where it could drift out of sync.
+  readonly property int collapsedBottomEdge: collapsedTopMargin + collapsedHeight
 }

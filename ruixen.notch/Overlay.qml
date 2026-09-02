@@ -478,6 +478,8 @@ Item {
     // implicitHeight; exclusionMode stays Ignore so this never reserves
     // screen space the way ruixen.bar's own window does.
     anchors { top: true; left: true; right: true; bottom: true }
+    // Mirrored in this same plugin's own NotchGeometry.qml service as
+    // collapsedTopMargin -- change this value, change that one too.
     margins.top: 4
     implicitHeight: 220
     exclusionMode: ExclusionMode.Ignore
@@ -712,8 +714,10 @@ Item {
       // barSize-sized. Dashboard height bumped past ambxst's own 344 to
       // 400 per direct feedback ("a bit too short") -- past the
       // previously-tested-safe value, so stress-tested 3x (open/close
-      // cycles, checking the bottom-corner mask each time) against the
-      // masking bug documented below before keeping it.
+      // cycles, checking the bottom-corner mask each time) before
+      // keeping it. Collapsed case (44) mirrored in this same plugin's
+      // own NotchGeometry.qml service as collapsedHeight -- change this
+      // value, change that one too.
       height: panel.launcherOpen ? 190 : (panel.pinnedOpen ? 400 : 44)
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }

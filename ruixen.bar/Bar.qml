@@ -1837,12 +1837,22 @@ Item {
           // Extra space on top of the usual 8px so content clears
           // ruixen.frame-widget's rounded corner (cornerRadius: 24)
           // instead of starting right at the edge. Smaller than the +20
-          // this started at — the pill's own background now provides
-          // visual separation from the curve on its own, bare icons
-          // needed more raw clearance than a pill shape does. Flat px,
-          // not Style.space() -- see clockPill's comment on why. Trimmed
-          // from 16, same reasoning as clockPill's rightMargin.
-          anchors.leftMargin: 12
+          // this started at when floating — the pill's own background
+          // provides visual separation from the curve on its own there,
+          // bare icons needed more raw clearance than a pill shape does.
+          // Flat px, not Style.space() -- see clockPill's comment on why.
+          //
+          // Docked mode doesn't get that cushion, though: its own
+          // GroupPill is hidden (visible: !root.docked below) and
+          // replaced by one continuous leftDockedBg shape flush with the
+          // frame's corner, so the reasoning that justified trimming
+          // this down from 20 doesn't hold there -- direct live report
+          // ("the app icons group... too close to the edge... needs to
+          // be relaxed") confirmed 12 alone reads as cramped without a
+          // pill boundary to lean on. Reverting to the original,
+          // already-tuned 20 specifically for docked rather than
+          // guessing a new number.
+          anchors.leftMargin: root.docked ? 20 : 12
           anchors.verticalCenter: parent.verticalCenter
           width: menuContent.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)

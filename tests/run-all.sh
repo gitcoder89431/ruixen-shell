@@ -28,6 +28,7 @@ suites=(
   "$script_dir/no-hardcoded-omarchy-shell-path.sh"
   "$script_dir/bar-popup-clearance.sh"
   "$script_dir/bar-right-side-groups.sh"
+  "$script_dir/bar-docked-left-inset.sh"
 )
 
 overall_status=0

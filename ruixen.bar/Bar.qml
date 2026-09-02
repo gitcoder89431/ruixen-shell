@@ -2137,7 +2137,18 @@ Item {
           // Flat px, not Style.space() -- see clockPill's comment.
           anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          width: trayContent.width + 8 * 2
+          // Left padding alone is mode-aware -- direct report after the
+          // itemExtent tightening above: docked mode has no per-pill
+          // GroupPill of its own (hidden below) to cushion the icon from
+          // rightShoulderWing's curve, since rightDockedBg.x/the wing's
+          // own x both derive directly from THIS pill's own left edge
+          // (see rightDockedBg's comment) -- same "no cushion in docked
+          // mode" reasoning as menuPill's own left inset fix, mirrored
+          // for this side's open-facing edge instead of the screen edge.
+          // Right padding (trayContent's own anchors.rightMargin below)
+          // stays flat 8 in both modes -- unaffected either way.
+          readonly property int leftPad: root.docked ? 20 : 8
+          width: trayContent.width + 8 + leftPad
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged
@@ -2148,7 +2159,9 @@ Item {
 
           ModuleList {
             id: trayContent
-            anchors.centerIn: parent
+            anchors.right: parent.right
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
             entries: root.layoutEntries("right").filter(function(e) { return root.entryId(e) === "ruixen.tray" })
             region: "right"
             // ModuleList's own visible/active binding (entries.length > 0)

@@ -94,6 +94,20 @@ check "stayawakeGroupPill anchors off curatedPill (sits just left of the curated
   "$(grep -A2 'id: stayawakeGroupPill$' "$bar_qml" | grep -c 'anchors.right: curatedPill.left' || true)" "1"
 check "thirdPartyPill anchors off stayawakeGroupPill (sits just left of the coffee)" \
   "$(grep -A2 'id: thirdPartyPill$' "$bar_qml" | grep -c 'anchors.right: stayawakeGroupPill.left' || true)" "1"
+
+# Direct live report: with a flat width/margin reserved even while
+# empty (opacity 0), thirdPartyPill still pushed tray's own icons a
+# real ~28px from the coffee/AI group whenever there was no actual
+# third-party widget to show -- the common case on most systems, not
+# an edge case, unlike trayPill's own "no apps in the tray" empty
+# state. Both the padding and the margin have to actually collapse to
+# zero, not just fade opacity, or the same gap resurfaces.
+third_party_width_line="$(grep -m1 'width: thirdPartyContent.width' "$bar_qml")"
+check "thirdPartyPill's own width collapses to 0 when empty, not a flat 8*2 padding" \
+  "$third_party_width_line" '          width: thirdPartyContent.width > 0 ? thirdPartyContent.width + 8 * 2 : 0'
+third_party_margin_line="$(grep -m1 'anchors.rightMargin: thirdPartyContent.width' "$bar_qml")"
+check "thirdPartyPill's own rightMargin collapses to 0 when empty, not a flat 6px" \
+  "$third_party_margin_line" '          anchors.rightMargin: thirdPartyContent.width > 0 ? 6 : 0'
 check "trayPill anchors off thirdPartyPill (leftmost of this cluster)" \
   "$(grep -A2 'id: trayPill$' "$bar_qml" | grep -c 'anchors.right: thirdPartyPill.left' || true)" "1"
 

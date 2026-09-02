@@ -2003,10 +2003,26 @@ Item {
           id: thirdPartyPill
           opacity: thirdPartyContent.width > 0 ? 1 : 0
           anchors.right: stayawakeGroupPill.left
-          // Flat px, not Style.space() -- see clockPill's comment.
-          anchors.rightMargin: 6
+          // Zero, not a flat 6px, when empty -- direct live report: with
+          // this always reserving its own padding (8 * 2 below) AND this
+          // margin even while faded to opacity 0, tray's own icons ended
+          // up sitting a full ~28px from the coffee/AI group whenever
+          // there was no actual third-party widget to show (today's
+          // normal state) -- a real, visible gap that didn't exist
+          // before this pill was inserted into the chain. Every other
+          // pill here reserves a flat margin unconditionally because
+          // they're either always meant to be present (curatedPill,
+          // stayawakeGroupPill) or the ONE thing in this chain that's
+          // allowed to be legitimately, routinely empty on a quiet
+          // system (trayPill, no apps in the tray) -- this pill's own
+          // "empty" state is instead the COMMON case (most systems won't
+          // have a random extra third-party widget installed), so it
+          // needs to actually collapse, not just fade.
+          anchors.rightMargin: thirdPartyContent.width > 0 ? 6 : 0
           anchors.verticalCenter: parent.verticalCenter
-          width: thirdPartyContent.width + 8 * 2
+          // Same reasoning as the margin above -- the flat 8 * 2 padding
+          // must not survive when there's nothing to pad.
+          width: thirdPartyContent.width > 0 ? thirdPartyContent.width + 8 * 2 : 0
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged

@@ -124,12 +124,17 @@ BarWidget {
     implicitWidth: root.itemExtent
     implicitHeight: root.itemExtent
 
+    // Style.space(12), not (16) -- direct correction: this originally
+    // matched (16) and read visibly larger than ruixen.tray's own icons
+    // (TrayItem's own TrayIcon, Style.space(12)) sitting right next to
+    // it in the same bar. Matched to that proven size instead of a
+    // fresh guess.
     Image {
       id: appIcon
       visible: status === Image.Ready
       anchors.centerIn: parent
-      width: Style.space(16)
-      height: Style.space(16)
+      width: Style.space(12)
+      height: Style.space(12)
       sourceSize.width: Math.round(width * Screen.devicePixelRatio)
       sourceSize.height: Math.round(height * Screen.devicePixelRatio)
       asynchronous: true
@@ -145,7 +150,10 @@ BarWidget {
       anchors.centerIn: parent
       text: ""
       font.family: root.fontFamily
-      font.pixelSize: 14
+      // Scaled down proportionally with the icon size above (14 -> 11),
+      // so a broken-icon fallback doesn't read larger than a real icon
+      // sitting right next to it.
+      font.pixelSize: 11
       color: root.foreground
     }
 

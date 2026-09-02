@@ -137,17 +137,26 @@ elseif ruixenAnimProfile == "snappy" then
 else
   -- Calm (default) -- slow, smooth, macOS-ish, lofi cafe vibes. No
   -- overshoot anywhere (easeOutCubic: cubic-bezier(0.33, 1, 0.68, 1)).
+  --
+  -- Every speed here is ~20% faster than the original tuning (4.5 ->
+  -- 3.6, 5.0 -> 4.0, etc.) -- direct follow-up ("make calm abit more
+  -- snappy"). Same curve (ruixenSmooth, no overshoot) and the same
+  -- relative pacing between leaves as before, just the whole profile
+  -- nudged toward bubbly's own pace (windows: bubbly 3.0, calm now
+  -- 3.6) without losing its identity as the slowest, calmest of the
+  -- three -- still meaningfully slower than snappy's 2.0 or bubbly's
+  -- 3.0.
   hl.curve("ruixenSmooth", { type = "bezier", points = { { 0.33, 1 }, { 0.68, 1 } } })
-  hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "windowsIn", enabled = true, speed = 5.0, bezier = "ruixenSmooth", style = "slide" })
-  hl.animation({ leaf = "windowsOut", enabled = true, speed = 3.5, bezier = "ruixenSmooth", style = "slide" })
+  hl.animation({ leaf = "windows", enabled = true, speed = 3.6, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 4.0, bezier = "ruixenSmooth", style = "slide" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.8, bezier = "ruixenSmooth", style = "slide" })
   -- See the bubbly profile's own comment above for why this leaf is
   -- here now and why it reuses "windows" own speed/bezier.
-  hl.animation({ leaf = "workspaces", enabled = true, speed = 4.5, bezier = "ruixenSmooth", style = "slide" })
-  hl.animation({ leaf = "border", enabled = true, speed = 4.0, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fade", enabled = true, speed = 3.0, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fadeIn", enabled = true, speed = 3.3, bezier = "ruixenSmooth" })
-  hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.4, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "workspaces", enabled = true, speed = 3.6, bezier = "ruixenSmooth", style = "slide" })
+  hl.animation({ leaf = "border", enabled = true, speed = 3.2, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fade", enabled = true, speed = 2.4, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeIn", enabled = true, speed = 2.6, bezier = "ruixenSmooth" })
+  hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.9, bezier = "ruixenSmooth" })
 end
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#layout

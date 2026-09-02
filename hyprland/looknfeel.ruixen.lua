@@ -13,6 +13,18 @@
 --   },
 -- })
 
+-- Direct request ("for the border thickness, is there abit more
+-- thinner?") -- Omarchy's own default is 2 (confirmed live via
+-- `hyprctl getoption general:border_size`, not assumed), never
+-- overridden by this file until now. 1 is the thinnest non-zero
+-- border Hyprland supports; going to 0 would remove the border
+-- entirely, which isn't what was asked for here.
+hl.config({
+  general = {
+    border_size = 1,
+  },
+})
+
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#decoration
 hl.config({
   decoration = {

@@ -1631,13 +1631,28 @@ Item {
         }
 
         // Mirrors leftShoulderWing -- see its comment.
+        //
+        // x is 1px INTO rightDockedBg's own territory (- size + 1, not
+        // - size), not flush against it -- direct live report of a thin
+        // vertical seam right at this exact boundary in docked mode,
+        // more visible after ruixen.stayawake/omarchy.agents' own icons
+        // moved closer to it in a recent reorg. Both this Canvas
+        // (antialiasing: true) and rightDockedBg (also antialiasing:
+        // true) independently soften their own edge where they meet,
+        // and two separately-antialiased shapes landing on the exact
+        // same coordinate can each erode inward by a sub-pixel amount,
+        // leaving a hairline of whatever's behind them (the wallpaper)
+        // showing through. A deliberate 1px overlap guarantees full
+        // coverage from at least one shape regardless of which side
+        // eroded more -- both are the same solid black, so the extra
+        // shared pixel is invisible either way.
         RoundCorner {
           id: rightShoulderWing
           visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
           color: "#000000"
-          x: rightDockedBg.x - size
+          x: rightDockedBg.x - size + 1
           y: 0
         }
 

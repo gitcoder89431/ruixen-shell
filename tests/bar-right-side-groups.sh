@@ -111,6 +111,20 @@ check "thirdPartyPill's own rightMargin collapses to 0 when empty, not a flat 6p
 check "trayPill anchors off thirdPartyPill (leftmost of this cluster)" \
   "$(grep -A2 'id: trayPill$' "$bar_qml" | grep -c 'anchors.right: thirdPartyPill.left' || true)" "1"
 
+# --- docked-mode rendering: rightShoulderWing/rightDockedBg seam -------
+#
+# Direct live report: a thin vertical seam visible in docked mode right
+# where the curved shoulder wing meets the flat merged pill background
+# -- two independently-antialiased shapes meeting at the exact same X
+# coordinate can each erode their own edge by a sub-pixel amount,
+# letting the wallpaper show through as a hairline. Only rightShoulderWing
+# was confirmed broken and fixed (a 1px deliberate overlap into
+# rightDockedBg's own territory) -- leftShoulderWing was checked live and
+# looked clean, so it's deliberately left untouched here, not an
+# oversight.
+check "rightShoulderWing overlaps rightDockedBg by 1px, not flush against it" \
+  "$(grep -m1 'x: rightDockedBg.x - size' "$bar_qml")" '          x: rightDockedBg.x - size + 1'
+
 # --- each pill's own ModuleList filters on the right id list -----------
 check "curatedContent filters on curatedRightIds" \
   "$(grep -A3 'id: curatedContent$' "$bar_qml" | grep -c 'root\.curatedRightIds\.indexOf' || true)" "1"

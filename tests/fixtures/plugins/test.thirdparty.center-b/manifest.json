@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "test.thirdparty.center-b",
+  "name": "Test Third-Party (center-b)",
+  "version": "1.0.0",
+  "author": "test-fixture",
+  "license": "MIT",
+  "description": "Fake third-party bar-widget test fixture with a deliberately different implicit size -- see tests/fixtures/plugins/README.md.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Test Third-Party (center-b)",
+    "description": "Fake third-party bar-widget test fixture with a different implicit size.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

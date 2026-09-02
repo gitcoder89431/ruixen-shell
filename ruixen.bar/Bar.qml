@@ -643,6 +643,16 @@ Item {
   // ruixen.quickactions' popup instead of a standalone pill).
   readonly property var togglesPillIds: ["omarchy.keyboard-layout", "omarchy.system-update", "ruixen.stayawake", "ruixen.quickactions"]
   readonly property var sideRightIds: togglesPillIds.concat(["ruixen.tray"])
+  // The two ids clockPill gives its own special pill+divider treatment
+  // (see clockPill's own comment) -- direct review finding ("Support
+  // arbitrary third-party widgets in the horizontal center region",
+  // #27): everything else ever placed in shell.json's "center" region
+  // was silently dropped by the horizontal bar, since clockPill was
+  // the ONLY thing that ever read from "center" there. Same shape as
+  // togglesPillIds/sideRightIds above -- the ids with their own
+  // dedicated pill, so a generic catch-all elsewhere can exclude them
+  // and host everything remaining.
+  readonly property var centerSpecialIds: ["ruixen.weather", "omarchy.clock"]
 
   function moduleString(entry, key, fallback) {
     return BarModel.moduleString(entry, key, fallback)
@@ -1552,6 +1562,63 @@ Item {
               entry: root.layoutEntries("center").filter(function(e) { return root.entryId(e) === "omarchy.clock" })[0] || null
               region: "center"
             }
+          }
+        }
+
+        // Generic catch-all for everything else in "center" -- direct
+        // review finding ("Support arbitrary third-party widgets in
+        // the horizontal center region", #27): clockPill above is the
+        // only thing that ever read from "center" here, so any OTHER
+        // entry placed there (a third-party bar-widget, or even one of
+        // Ruixen's own -- ruixen.media had this exact problem) was
+        // silently dropped in horizontal mode. Same "special pill(s)
+        // for a few ids, generic ModuleList for the rest" shape
+        // workspacesPill/rightPill already use for left/right -- no
+        // allowlist of known third-party ids, anything not in
+        // centerSpecialIds just flows through here regardless of
+        // plugin identity, the same generic registry/ModuleSlot path
+        // every other hosted widget already goes through.
+        //
+        // Centered in the bar, not anchored off clockPill -- "center"
+        // means the screen's own center, matching centerAnchor's own
+        // intent, not "whatever's left over next to the clock pill."
+        // Left/right pill groups can still grow inward underneath this
+        // on a busy bar -- that's #28's own scope (reserving space
+        // around the Notch), not solved here.
+        Item {
+          id: centerGenericPill
+          opacity: centerGenericContent.width > 0 ? 1 : 0
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          width: centerGenericContent.width + 8 * 2
+          height: root.barSize - Style.space(2)
+
+          // Hidden (not just repositioned) when docked -- the merged
+          // leftDockedBg/rightDockedBg below take over the background for
+          // every pill in their group, this pill's own icons just sit on
+          // top of that shared shape instead of their own floating pill.
+          GroupPill { anchors.fill: parent; visible: !root.docked }
+
+          ModuleList {
+            id: centerGenericContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("center").filter(function(e) {
+              return root.centerSpecialIds.indexOf(root.entryId(e)) === -1
+            })
+            region: "center"
+            // ModuleList's own default `active: visible && entries.length
+            // > 0` never fired for this specific late-filled entries
+            // value -- same exact bug trayContent's own comment already
+            // documents and works around further down this file (see
+            // trayPill). Confirmed live, not assumed: debugBarGeometry()
+            // reported correct, non-zero widths/positions for real
+            // third-party fixture widgets placed here, yet nothing
+            // actually painted on screen -- the geometry math runs off
+            // the raw entries data regardless of active, only the
+            // Loader's actual visual content depends on it. This region
+            // always has exactly this one layout slot structurally, so
+            // there's nothing meaningful to gate active on anyway.
+            active: true
           }
         }
 

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "test.thirdparty.left",
+  "name": "Test Third-Party (left)",
+  "version": "1.0.0",
+  "author": "test-fixture",
+  "license": "MIT",
+  "description": "Fake third-party bar-widget test fixture -- see tests/fixtures/plugins/README.md.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Test Third-Party (left)",
+    "description": "Fake third-party bar-widget test fixture.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

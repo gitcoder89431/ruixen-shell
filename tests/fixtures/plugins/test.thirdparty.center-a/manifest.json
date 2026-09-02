@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "test.thirdparty.center-a",
+  "name": "Test Third-Party (center-a)",
+  "version": "1.0.0",
+  "author": "test-fixture",
+  "license": "MIT",
+  "description": "Fake third-party bar-widget test fixture with an inline setting -- see tests/fixtures/plugins/README.md.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Test Third-Party (center-a)",
+    "description": "Fake third-party bar-widget test fixture with an inline setting.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

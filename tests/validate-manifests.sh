@@ -4,7 +4,11 @@
 # every ruixen.*/manifest.json, checks valid JSON, required fields
 # present, id matches its own directory name, ids are unique across
 # the whole plugin set, and every declared entry point file actually
-# exists.
+# exists. Also covers the fake third-party fixtures under
+# tests/fixtures/plugins/ (#27's own "permanent fake compatibility
+# fixtures" -- see that directory's README) with the exact same
+# checks, so a malformed fixture manifest is caught the same way a
+# malformed real one would be.
 #
 # Deliberately does NOT shell out to `omarchy plugin validate` --
 # that's the real, stronger, install-time check install.sh already
@@ -33,7 +37,9 @@ required_fields=(author description entryPoints id kinds name schemaVersion vers
 
 declare -A seen_ids
 
-for dir in "$repo_dir"/ruixen.*/; do
+plugin_dirs=("$repo_dir"/ruixen.*/ "$repo_dir"/tests/fixtures/plugins/test.thirdparty.*/)
+
+for dir in "${plugin_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   plugin_dir_name="$(basename "$dir")"
   manifest="$dir/manifest.json"

@@ -7,6 +7,29 @@ BarWidget {
   id: root
   moduleName: "ruixen.media"
 
+  // Direct review finding ("Support arbitrary third-party widgets in
+  // the horizontal center region", #27): this widget's own bindings
+  // used to read root.bar.foreground/fontFamily/barForeground/vertical
+  // directly, unguarded, everywhere below -- harmless in vertical
+  // mode (where it was already generically hosted), but this was the
+  // FIRST time it ever actually got instantiated in horizontal mode
+  // (center previously silently dropped it entirely), and that
+  // exposed a real, pre-existing bug: `bar` is still null for these
+  // properties' very first binding evaluation, before the host's own
+  // injectProps() runs, so every one of them threw a "Cannot read
+  // property ... of null" warning on load -- confirmed live, not
+  // assumed, by actually turning this widget on in horizontal mode
+  // for the first time and watching the journal. Same local-safe-
+  // property pattern ruixen.tray/Tray.qml's own foreground/fontFamily
+  // already use (and the base BarWidget's own already-guarded
+  // `vertical`, used directly below instead of root.bar.vertical) --
+  // one guarded
+  // fallback declared once, instead of an `!root.bar ||` guard
+  // repeated at every one of the many call sites below.
+  readonly property color foreground: bar ? bar.foreground : Color.foreground
+  readonly property color barForeground: bar ? bar.barForeground : Color.foreground
+  readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+
   readonly property var mediaService: bar?.shell?.firstPartyServiceFor("ruixen.media")
   readonly property var activePlayer: mediaService ? mediaService.activePlayer : null
   readonly property var sourcePlayers: mediaService ? mediaService.sourcePlayers : []
@@ -111,7 +134,7 @@ BarWidget {
         anchors.centerIn: parent
         text: root.playIcon
         color: "#000000"
-        font.family: root.bar.fontFamily
+        font.family: root.fontFamily
         font.pixelSize: Style.font.caption
       }
 
@@ -129,18 +152,18 @@ BarWidget {
 
     Rectangle {
       id: miniProgressTrack
-      visible: !root.bar.vertical && root.trackLength > 0
+      visible: !root.vertical && root.trackLength > 0
       width: Style.space(36)
       height: Style.space(3)
       radius: height / 2
       anchors.verticalCenter: parent.verticalCenter
-      color: Qt.rgba(root.bar.barForeground.r, root.bar.barForeground.g, root.bar.barForeground.b, 0.25)
+      color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, 0.25)
 
       Rectangle {
         height: parent.height
         width: parent.width * Math.min(1, root.trackPosition / Math.max(1, root.trackLength))
         radius: height / 2
-        color: root.bar.barForeground
+        color: root.barForeground
         Behavior on width { NumberAnimation { duration: 450 } }
       }
     }
@@ -168,8 +191,8 @@ BarWidget {
           width: Style.space(64)
           height: Style.space(64)
           radius: Style.spacing.labelGap
-          color: Style.normalFillFor(root.bar.foreground, Color.accent)
-          borderSpec: Border.controlSpec("normal", root.bar.foreground, Color.accent)
+          color: Style.normalFillFor(root.foreground, Color.accent)
+          borderSpec: Border.controlSpec("normal", root.foreground, Color.accent)
 
           Image {
             anchors.fill: parent
@@ -190,8 +213,8 @@ BarWidget {
             anchors.centerIn: parent
             visible: !root.hasMedia || !root.activePlayer || !root.activePlayer.trackArtUrl
             text: "󰝚"
-            color: root.bar.foreground
-            font.family: root.bar.fontFamily
+            color: root.foreground
+            font.family: root.fontFamily
             font.pixelSize: Style.font.displayLarge
           }
         }
@@ -202,8 +225,8 @@ BarWidget {
 
           Text {
             text: root.title || "Nothing playing"
-            color: root.bar.foreground
-            font.family: root.bar.fontFamily
+            color: root.foreground
+            font.family: root.fontFamily
             font.pixelSize: Style.font.subtitle
             font.bold: true
             elide: Text.ElideRight
@@ -212,8 +235,8 @@ BarWidget {
 
           Text {
             text: root.artist
-            color: Qt.darker(root.bar.foreground, 1.3)
-            font.family: root.bar.fontFamily
+            color: Qt.darker(root.foreground, 1.3)
+            font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
             elide: Text.ElideRight
             width: parent.width
@@ -222,8 +245,8 @@ BarWidget {
 
           Text {
             text: root.activePlayer && root.activePlayer.trackAlbum ? root.activePlayer.trackAlbum : ""
-            color: Qt.darker(root.bar.foreground, 1.6)
-            font.family: root.bar.fontFamily
+            color: Qt.darker(root.foreground, 1.6)
+            font.family: root.fontFamily
             font.pixelSize: Style.font.caption
             elide: Text.ElideRight
             width: parent.width
@@ -244,7 +267,7 @@ BarWidget {
           anchors.top: parent.top
           height: Style.space(4)
           radius: height / 2
-          color: Qt.rgba(root.bar.foreground.r, root.bar.foreground.g, root.bar.foreground.b, 0.12)
+          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.12)
 
           Rectangle {
             height: parent.height
@@ -260,8 +283,8 @@ BarWidget {
           anchors.top: progressTrack.bottom
           anchors.topMargin: 2
           text: root.formatTime(root.trackPosition)
-          color: Qt.rgba(root.bar.foreground.r, root.bar.foreground.g, root.bar.foreground.b, 0.58)
-          font.family: root.bar.fontFamily
+          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.58)
+          font.family: root.fontFamily
           font.pixelSize: Style.font.caption
         }
 
@@ -270,8 +293,8 @@ BarWidget {
           anchors.top: progressTrack.bottom
           anchors.topMargin: 2
           text: root.formatTime(root.trackLength)
-          color: Qt.rgba(root.bar.foreground.r, root.bar.foreground.g, root.bar.foreground.b, 0.58)
-          font.family: root.bar.fontFamily
+          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.58)
+          font.family: root.fontFamily
           font.pixelSize: Style.font.caption
         }
       }
@@ -282,7 +305,7 @@ BarWidget {
 
         Button {
           iconText: "󰒮"
-          foreground: root.bar.foreground
+          foreground: root.foreground
           horizontalPadding: Style.spacing.controlPaddingX
           verticalPadding: Style.spacing.controlPaddingY
           enabled: root.activePlayer && root.activePlayer.canGoPrevious
@@ -292,7 +315,7 @@ BarWidget {
 
         Button {
           iconText: root.activePlayer && root.activePlayer.isPlaying ? "󰏤" : "󰐊"
-          foreground: root.bar.foreground
+          foreground: root.foreground
           horizontalPadding: Style.spacing.panelGap
           verticalPadding: Style.spacing.controlPaddingY
           iconSize: Style.font.iconLarge
@@ -303,7 +326,7 @@ BarWidget {
 
         Button {
           iconText: "󰒭"
-          foreground: root.bar.foreground
+          foreground: root.foreground
           horizontalPadding: Style.spacing.controlPaddingX
           verticalPadding: Style.spacing.controlPaddingY
           enabled: root.activePlayer && root.activePlayer.canGoNext

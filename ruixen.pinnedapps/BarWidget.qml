@@ -65,7 +65,14 @@ BarWidget {
     onLoadFailed: root.loadFavorites("")
   }
 
-  readonly property int itemExtent: Style.bar.iconSlot
+  // Style.space(20), not the full Style.bar.iconSlot (27) that
+  // ruixen.tray uses -- direct correction: "the icons... too far apart".
+  // Same 27px slot math tray uses reads fine there since tray usually
+  // shows only 1-2 icons, but this row is normally 3+ pinned apps, so
+  // the same per-icon padding stacks up into a visibly loose row. The
+  // icon itself (Style.space(12), see PinnedAppItem below) is untouched
+  // -- only the slot each one centers in shrinks, tightening the gap.
+  readonly property int itemExtent: Style.space(20)
   readonly property int itemGap: 0
 
   visible: favoriteEntries.length > 0

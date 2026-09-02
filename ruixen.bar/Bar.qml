@@ -1756,14 +1756,11 @@ Item {
               height: Style.space(14)
               radius: width / 2
               anchors.verticalCenter: parent.verticalCenter
-              // Color.muted, not a manual alpha cut on barForeground --
-              // same real-token fix already applied to
-              // ruixen.workspaces' own empty dots (see that file's own
-              // comment): the design system's dedicated "present but
-              // de-emphasized" token, tuned per-theme, instead of an
-              // arbitrary opacity that varies with each theme's own
-              // foreground hue/lightness.
-              color: Color.muted
+              // Color.accent -- direct correction: Color.muted read as
+              // flat grey, not the theme's actual color. Color.accent is
+              // the theme's primary/focus token (same one
+              // ruixen.workspaces uses for its own focused dot).
+              color: Color.accent
             }
 
             ModuleSlot {

@@ -80,8 +80,11 @@ BarWidget {
     // (coffee, bell), so it read as smaller even at the same font size.
     // Bumped to compensate.
     fontSize: Style.bar.iconFont + 4
-    // Tooltip suppressed because the panel is the detail view.
-    tooltipText: ""
+    // Was suppressed ("the panel is the detail view") -- direct request
+    // for consistency with the other bar groups (app launcher, settings/
+    // more actions), which all show a hover label despite also opening a
+    // panel on click.
+    tooltipText: "Weather"
 
     onPressed: function(b) {
       if (!root.bar) return

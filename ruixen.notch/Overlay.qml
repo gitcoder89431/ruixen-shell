@@ -957,17 +957,17 @@ Item {
               // (a flat copied constant doesn't clear a custom-sized
               // tip): half the wave's own line width + half the
               // playhead's own width + the desired real clearance.
-              // wave lineWidth 3 (half 1.5) + playhead width 3 (half
-              // 1.5) + 2px desired = 5px, applied as the FULL trim on
-              // EACH side independently (not split further) -- matches
-              // how the ring's own gapPx already works, not a fresh
-              // guess.
-              readonly property real gapPx: 5
+              // wave lineWidth 4 (half 2) + playhead width 4 (half 2)
+              // + 2px desired = 6px, applied as the FULL trim on EACH
+              // side independently (not split further) -- matches how
+              // the ring's own gapPx already works, not a fresh guess.
+              readonly property real gapPx: 6
 
-              // Track/wave/playhead thickened 2px -> 4px together, per
-              // direct feedback. Follow-up: the track was fine at 4
-              // but the wave/playhead read as a bit too thick next to
-              // it -- toned those two back down to 3, track left at 4.
+              // Track/wave/playhead thickened 2px -> 4px together, then
+              // wave/playhead alone toned back to 3 (read too thick next
+              // to the track). Direct follow-up while music was actually
+              // playing: "the wave thickness... kinda too thin now" --
+              // back to 4, matching the track again.
               Rectangle {
                 // Unplayed remainder, trimmed short of the playhead by
                 // gapPx on this side -- starts past the split point,
@@ -992,7 +992,7 @@ Item {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 lineColor: root.hasMedia ? root.accent : root.muted
-                lineWidth: 3
+                lineWidth: 4
                 frequency: 6
                 amplitudeMultiplier: root.isPlaying ? 1.4 : 0.15
                 fullLength: 140
@@ -1003,7 +1003,7 @@ Item {
               // point, unchanged -- only the wave/track on either side
               // of it pull back now.
               Rectangle {
-                width: 3
+                width: 4
                 height: parent.height
                 radius: width / 2
                 anchors.verticalCenter: parent.verticalCenter

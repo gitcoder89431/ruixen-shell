@@ -121,8 +121,14 @@ BarWidget {
     Rectangle {
       id: playBadge
       anchors.verticalCenter: parent.verticalCenter
-      width: Style.space(20)
-      height: Style.space(20)
+      // Style.space(16), not (20) -- direct correction: "the play pause
+      // button is in a round pill that is way too big, needs to be more
+      // around the icon". The glyph itself is Style.font.caption
+      // (~10px); 20 left it sitting at roughly half the badge's own
+      // diameter, same "slot way bigger than its icon" issue already
+      // fixed for pinnedapps/tray. 16 hugs it closer without clipping.
+      width: Style.space(16)
+      height: Style.space(16)
       radius: width / 2
       color: activePlayer && activePlayer.isPlaying ? "#f5c518" : "#3ecf5b"
       Behavior on color {

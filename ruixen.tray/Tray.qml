@@ -537,10 +537,8 @@ BarWidget {
           mouse.accepted = true
         } else if (mouse.button === Qt.MiddleButton) {
           trayItemRoot.modelData.secondaryActivate()
-        } else if (trayItemRoot.modelData.onlyMenu) {
-          trayItemRoot.displayMenu(mouse)
         } else {
-          trayItemRoot.modelData.activate()
+          trayItemRoot.triggerPress(mouse.button)
         }
       }
       onWheel: function(wheel) {
@@ -549,5 +547,35 @@ BarWidget {
     }
 
     readonly property bool tooltipHovered: visible && opacity > 0 && mouseArea.containsMouse
+
+    // Self-registers with the bar's shared click-target registry so its
+    // outer pointer layer (Bar.qml's modulePointer) shows a pointing-hand
+    // cursor and forwards left-clicks here -- direct report ("1password
+    // in tray shows the helper with no finger still"). Same gap
+    // BarIconButton-rooted widgets don't have (WidgetButton's own
+    // syncClickRegistration does this automatically); this is a plain
+    // custom Item, so it never registered. Right/middle-click are
+    // unaffected -- modulePointer only ever accepts Qt.LeftButton, so
+    // those already reached this MouseArea directly.
+    // Imperative (Component.onCompleted + a signal handler), not a
+    // property binding -- see ruixen.pinnedapps' own PinnedAppItem
+    // comment for the exact "Binding loop detected" this avoids.
+    Component.onCompleted: if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(trayItemRoot)
+    Component.onDestruction: if (root.bar && root.bar.unregisterClickTarget) root.bar.unregisterClickTarget(trayItemRoot)
+    Connections {
+      target: root
+      function onBarChanged() {
+        if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(trayItemRoot)
+      }
+    }
+
+    // Left-click only -- modulePointer (Bar.qml) only ever forwards
+    // Qt.LeftButton here; right/middle stay on the MouseArea's own
+    // onClicked/onPressed above, untouched.
+    function triggerPress(button) {
+      if (button !== Qt.LeftButton) return
+      if (trayItemRoot.modelData.onlyMenu) trayItemRoot.displayMenu({ x: trayItemRoot.width / 2, y: trayItemRoot.height / 2 })
+      else trayItemRoot.modelData.activate()
+    }
   }
 }

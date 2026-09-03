@@ -2627,6 +2627,11 @@ Item {
       root.unregisterModuleSlot(slot)
     }
 
+    // Passive/non-exclusive -- tracks live hover position (point.position)
+    // and the plain hovered flag below, without claiming/blocking hover
+    // from any MouseArea underneath it (unlike a MouseArea with
+    // hoverEnabled: true would). modulePointer's own cursorShape binding
+    // below reads point.position from here for exactly that reason.
     HoverHandler { id: moduleHover }
 
     BorderSurface {
@@ -2717,7 +2722,20 @@ Item {
       acceptedButtons: Qt.LeftButton
       enabled: slot.visible && slot.width > 0 && slot.height > 0
       propagateComposedEvents: true
-      cursorShape: root.moduleClickTargetAt(slot, mouseX, mouseY) ? Qt.PointingHandCursor : Qt.ArrowCursor
+      // Coordinates come from moduleHover (the HoverHandler below), not
+      // this MouseArea's own mouseX/mouseY -- those only update live
+      // while a button is pressed, or hoverEnabled is true (Qt's own
+      // docs), and this MouseArea deliberately does NOT set hoverEnabled
+      // (see the comment on moduleHover for why: it would steal
+      // entered/exited from every widget's own inner MouseArea sitting
+      // underneath it, breaking every hover tooltip in the bar --
+      // confirmed live, not assumed, the exact regression "we lost all
+      // helpers" after a first attempt set hoverEnabled here directly).
+      // moduleHover is a passive, non-exclusive HoverHandler -- it
+      // tracks live position without ever claiming/blocking hover from
+      // items below it, so it's the one safe source of a genuinely live
+      // coordinate for this binding.
+      cursorShape: root.moduleClickTargetAt(slot, moduleHover.point.position.x, moduleHover.point.position.y) ? Qt.PointingHandCursor : Qt.ArrowCursor
       // Do not assign drag.target here: ModuleSlot is owned by Row/Column
       // positioners, and mutating slot.x/slot.y can leave stale offsets that
       // make neighboring modules overlap after a small aborted drag.

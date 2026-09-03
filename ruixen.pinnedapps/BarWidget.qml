@@ -165,12 +165,47 @@ BarWidget {
     }
 
     MouseArea {
+      id: mouseArea
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onEntered: if (root.bar) root.bar.showTooltip(itemRoot, root.appLibrary ? root.appLibrary.entryName(itemRoot.modelData) : "")
       onExited: if (root.bar) root.bar.hideTooltip(itemRoot)
-      onClicked: if (root.appLibrary) root.appLibrary.launch(itemRoot.modelData.id, root.appLibrary.entryName(itemRoot.modelData))
+      onClicked: itemRoot.triggerPress(Qt.LeftButton)
+    }
+
+    // Bar.showTooltip() requires this exact property on its target (see
+    // Bar.qml's own targetTooltipHovered) -- direct report ("our pin app
+    // doesnt have finger cursor or helper"), traced to this being simply
+    // missing here. ruixen.tray's own TrayItem already has the identical
+    // property for the identical reason; this mirrors it.
+    readonly property bool tooltipHovered: visible && opacity > 0 && mouseArea.containsMouse
+
+    // Self-registers with the bar's shared click-target registry so its
+    // outer pointer layer (Bar.qml's modulePointer) shows a pointing-hand
+    // cursor and forwards left-clicks here -- BarIconButton-rooted widgets
+    // (app launcher, settings, quickactions) get this for free from
+    // WidgetButton's own syncClickRegistration(); this is a plain custom
+    // Item, so it was never registered, meaning modulePointer never found
+    // a click target here and always fell back to the arrow cursor.
+    // Imperative (Component.onCompleted + a signal handler), not a
+    // property binding -- a first attempt using a readonly property whose
+    // body called registerClickTarget as a side effect triggered a real
+    // "Binding loop detected" warning (registerClickTarget mutates
+    // root.bar's own clickTargets, which is exactly the anti-pattern QML
+    // is warning about). Matches WidgetButton's own proven
+    // onBarChanged-based pattern instead.
+    Component.onCompleted: if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(itemRoot)
+    Component.onDestruction: if (root.bar && root.bar.unregisterClickTarget) root.bar.unregisterClickTarget(itemRoot)
+    Connections {
+      target: root
+      function onBarChanged() {
+        if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(itemRoot)
+      }
+    }
+
+    function triggerPress(button) {
+      if (button === Qt.LeftButton && root.appLibrary) root.appLibrary.launch(itemRoot.modelData.id, root.appLibrary.entryName(itemRoot.modelData))
     }
   }
 }

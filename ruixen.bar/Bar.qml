@@ -1400,30 +1400,33 @@ Item {
     // no matter how much taller implicitHeight grows for popup-
     // positioning purposes.
     //
-    // Clears the Notch's own collapsed bottom edge in floating mode too
-    // (notchCollapsedBottomEdge, from ruixen.notch's own service) --
-    // direct live report: any popup panel anchored off this window
-    // (weather's own, and stock Omarchy's clock calendar popup -- both
-    // use qs.Ui's KeyboardPanel with centerOnBar: true) opens at
-    // `anchorWindow.height + gap` (KeyboardPanel.qml's own cardOrigin,
-    // not editable -- it's a stock /usr/share/omarchy file), which had
-    // no notion of ruixen.notch and let floating's popups open right
-    // underneath it. Docked already cleared it by accident (its own
-    // +shoulderWingSize headroom, tuned for an unrelated reason -- see
-    // below); floating gets the same clearance here, derived from the
-    // Notch's own real numbers rather than a second hand-picked one.
+    // Clears the Notch's own collapsed bottom edge (notchCollapsedBottomEdge,
+    // from ruixen.notch's own service) -- direct live report: any popup
+    // panel anchored off this window (weather's own, and stock Omarchy's
+    // clock/agents popups -- all use qs.Ui's KeyboardPanel) opens at
+    // `anchorWindow.height + gap` (KeyboardPanel.qml's own cardOrigin, not
+    // editable -- it's a stock /usr/share/omarchy file), which had no
+    // notion of ruixen.notch and let a popup open right underneath it.
     //
-    // Docked's own floor stays barSize + shoulderWingSize regardless of
-    // the Notch's numbers: leftFrameHemWing/rightFrameHemWing (the
-    // frame-hem corner wing graphics, docked only) are positioned at
-    // y: barSize with their own height shoulderWingSize, i.e. they
-    // occupy this window's own [34, 58] band; sizing the window any
-    // shorter than 58 when docked would clip their bottom edge against
-    // the window's own Wayland surface bounds (a real, silent clip --
-    // not a QML clip -- confirmed finding from #29's own
-    // investigation). 58 already comfortably exceeds
-    // notchCollapsedBottomEdge (48), so docked is unaffected by this.
-    readonly property int visibleBarHeight: root.vertical ? root.barSize : (root.docked ? Math.max(root.barSize + root.shoulderWingSize, root.notchCollapsedBottomEdge) : Math.max(root.barSize, root.notchCollapsedBottomEdge))
+    // Same floor in BOTH modes now, not a per-mode split. Docked needs
+    // barSize + shoulderWingSize regardless of the Notch's own numbers:
+    // leftFrameHemWing/rightFrameHemWing (the frame-hem corner wing
+    // graphics, docked only) are positioned at y: barSize with their own
+    // height shoulderWingSize, i.e. they occupy this window's own [34, 58]
+    // band; sizing the window any shorter than 58 when docked would clip
+    // their bottom edge against the window's own Wayland surface bounds (a
+    // real, silent clip -- not a QML clip -- confirmed finding from #29's
+    // own investigation). Floating has no such constraint of its own (48,
+    // barSize/notchCollapsedBottomEdge's own max, would still clear the
+    // Notch on its own) -- but a direct follow-up report pointed out that
+    // popups then open at two visibly different heights depending on
+    // mode ("it looks kinda sloppy... i think its better they either
+    // lower or higher rather than having its own thing"). Docked's own
+    // 58 can't safely come down (the wing-clip constraint above), so
+    // floating goes up to match instead -- consistent behavior across
+    // both modes wins over exactly hugging the window-tiling boundary in
+    // floating alone.
+    readonly property int visibleBarHeight: root.vertical ? root.barSize : Math.max(root.barSize + root.shoulderWingSize, root.notchCollapsedBottomEdge)
 
     // Attempted, reverted: growing implicitHeight further so popups
     // anchored off this window (weather, clock, agents, quickactions --

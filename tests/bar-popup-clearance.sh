@@ -25,13 +25,25 @@
 # Fixed by deriving the minimum height from the Notch's own real collapsed
 # geometry instead (notchCollapsedBottomEdge, sourced from ruixen.notch's
 # own NotchGeometry.qml service, not a second hardcoded number) --
-# max(barSize, notchCollapsedBottomEdge) in floating mode. Docked keeps
-# its own higher floor (barSize + shoulderWingSize) regardless of the
-# Notch's numbers: leftFrameHemWing/rightFrameHemWing (the frame-hem
-# corner wing graphics, docked only) occupy this window's own
-# [barSize, barSize + shoulderWingSize] band, and sizing the window any
-# shorter when docked would clip their bottom edge against the window's
-# own Wayland surface bounds.
+# max(barSize, notchCollapsedBottomEdge). Docked keeps a higher floor
+# (barSize + shoulderWingSize) regardless of the Notch's numbers:
+# leftFrameHemWing/rightFrameHemWing (the frame-hem corner wing graphics,
+# docked only) occupy this window's own [barSize, barSize +
+# shoulderWingSize] band, and sizing the window any shorter when docked
+# would clip their bottom edge against the window's own Wayland surface
+# bounds.
+#
+# Originally a per-mode split (docked used the taller floor, floating used
+# the shorter one -- both cleared the Notch either way). Unified to the
+# SAME floor in both modes after a direct follow-up report: floating's
+# shorter height happened to line up with where Hyprland windows actually
+# tile, but docked's couldn't safely come down to match (the wing-clip
+# constraint above), so the two modes opened popups at two different
+# heights -- "it looks kinda sloppy... i think its better they either
+# lower or higher rather than having its own thing". Docked's floor can't
+# move, so floating moved up to match it instead: consistent behavior
+# across both modes over exactly hugging the window-tiling boundary in
+# floating alone.
 #
 # Purely a window-height change -- does NOT touch
 # margins.top/frameInset/topInset, so it doesn't move any pill's own
@@ -95,17 +107,13 @@ notch_bottom_edge_fallback="$(grep -oP 'notchGeometryService && notchGeometrySer
 check "ruixen.bar's own notchCollapsedBottomEdge fallback matches NotchGeometry's real collapsedTopMargin + collapsedHeight" \
   "$notch_bottom_edge_fallback" "$((notch_top_margin + notch_collapsed_height))"
 
-# Docked still needs the taller floor (barSize + shoulderWingSize) no
-# matter what the Notch's own numbers are, so the frame-hem wing graphics
-# never get clipped -- this must stay a real per-mode branch, unlike
-# margins.top/exclusiveZone (which are deliberately NOT branched, see
-# Bar.qml's own notchClearance comment for that separate history).
+# Same floor in BOTH modes now (see this file's own header for why the
+# per-mode split was unified) -- docked's own wing-clip constraint sets
+# the shared value, since it's the one that can't come down.
 visible_bar_height_line="$(grep -m1 'readonly property int visibleBarHeight:' "$bar_qml")"
-check "visibleBarHeight still branches on root.docked (docked keeps its own wing-graphic floor)" \
-  "$(printf '%s' "$visible_bar_height_line" | grep -c 'root\.docked ?' || true)" "1"
-check "visibleBarHeight derives from notchCollapsedBottomEdge in both branches, not a flat reused constant" \
-  "$(printf '%s' "$visible_bar_height_line" | grep -o 'root\.notchCollapsedBottomEdge' | wc -l | tr -d ' ')" "2"
-check "visibleBarHeight's docked branch still floors at barSize + shoulderWingSize (the wing-graphic minimum)" \
+check "visibleBarHeight no longer branches on root.docked (both modes share one floor)" \
+  "$(printf '%s' "$visible_bar_height_line" | grep -c 'root\.docked ?' || true)" "0"
+check "visibleBarHeight still floors at barSize + shoulderWingSize (the wing-graphic minimum, now shared)" \
   "$(printf '%s' "$visible_bar_height_line" | grep -c 'Math\.max(root\.barSize + root\.shoulderWingSize, root\.notchCollapsedBottomEdge)' || true)" "1"
 
 # implicitHeight itself must stay exactly visibleBarHeight (no reach for

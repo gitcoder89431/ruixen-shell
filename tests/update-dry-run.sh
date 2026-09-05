@@ -4,6 +4,7 @@
 # already established to simulate "someone else pushed new commits"
 # without touching the real network.
 set -Eeuo pipefail
+trap 'printf "DIAG: failed at line %s: %s\n" "$LINENO" "$BASH_COMMAND" >&2' ERR
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"

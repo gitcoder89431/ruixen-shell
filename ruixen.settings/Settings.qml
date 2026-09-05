@@ -1306,7 +1306,16 @@ Item {
   // via setPluginEnabled, no restart needed), with no way back in
   // short of a terminal. Blocked here on top of what the CLI allows.
   function pluginIsProtected(row) {
-    return !row || row.id === "ruixen.settings" || !row.canDisable
+    // ruixen.media is enabled service-only (its own oversized bar badge
+    // stays deliberately out of every layout -- see ruixen-bar-
+    // canonical.json's own comment) purely to back the notch's music
+    // control. The CLI itself reports canDisable: true for it (nothing
+    // else structurally depends on it staying enabled the way the bar
+    // does), but disabling it here would silently kill the notch's
+    // media widget with no toggle-back-on path visible anywhere in the
+    // bar -- it never had one to begin with. Locked the same way
+    // ruixen.settings locks itself, not via the CLI's own flag.
+    return !row || row.id === "ruixen.settings" || row.id === "ruixen.media" || !row.canDisable
   }
 
   Process {

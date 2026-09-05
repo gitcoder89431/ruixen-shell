@@ -26,6 +26,18 @@ BarWidget {
 
   property bool popupOpen: false
 
+  // Required -- PopupCard's own close() (fired by its outside-click
+  // HyprlandFocusGrab) does `if (owner && "close" in owner)
+  // owner.close(); else root.open = false`. Without this, it takes the
+  // else branch and assigns directly to ITS OWN open property, which
+  // permanently breaks the one-way `open: root.popupOpen` binding below
+  // -- popupOpen keeps toggling normally on further clicks, but the
+  // popup's own open property is now a dead static false, disconnected
+  // from it. Confirmed live: "it worked once but i dismissed it and
+  // then clicking on it again doesnt do anything anymore". Matches
+  // ruixen.media's own identical close() for the identical reason.
+  function close() { popupOpen = false }
+
   readonly property var pluginRegistry: bar && bar.shell ? bar.shell.pluginRegistry : null
 
   // Ids structural to THIS bar's own curated layout, not "optional

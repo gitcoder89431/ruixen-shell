@@ -40,6 +40,29 @@ Item {
   readonly property bool fullscreenActive: ToplevelManager.activeToplevel
     ? ToplevelManager.activeToplevel.fullscreen : false
 
+  // Super+Shift+Space (stock Omarchy bind_toggle "bar") only ever told
+  // ruixen.bar to hide -- this is a completely separate PanelWindow, so
+  // it never heard about it at all. Direct report: "super shift space
+  // hides the float and docked icons on left and right, but the notch
+  // is different". Same flag-file mechanism ruixen.bar's own
+  // barHiddenProbe uses (see Bar.qml), so both surfaces read the exact
+  // same on-disk state `omarchy-toggle-bar` already flips -- not a
+  // second, competing toggle.
+  property bool barHidden: false
+
+  Process {
+    id: barHiddenProbe
+    running: true
+    command: ["bash", "-c", "[[ -f $HOME/.local/state/omarchy/toggles/bar-off ]] && echo yes || echo no"]
+    stdout: SplitParser { onRead: function(line) { root.barHidden = String(line).trim() === "yes" } }
+  }
+  FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/toggles"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: barHiddenProbe.running = true
+  }
+
   readonly property color notchColor: "#000000"
   // Same theme-aware-with-safety-net treatment as ruixen.bar's
   // pillForeground (see Bar.qml for the full reasoning): this notch is
@@ -469,7 +492,7 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: !root.fullscreenActive
+    visible: !root.fullscreenActive && !root.barHidden
     // bottom:true too, not just top/left/right -- the click-away-to-
     // dismiss MouseArea (see below) needs the panel's own surface to
     // actually reach the full screen height for its widened mask to

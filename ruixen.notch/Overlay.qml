@@ -167,6 +167,16 @@ Item {
   readonly property bool hasMedia: activePlayer !== null && (activePlayer.trackTitle || activePlayer.trackArtist)
   readonly property bool isPlaying: activePlayer ? activePlayer.isPlaying === true : false
   readonly property string playIcon: isPlaying ? "󰏤" : "󰐊"
+
+  // The collapsed pill's own "no media" fallback content -- direct
+  // request: "when theres no music it just shows active window". Same
+  // real Wayland foreign-toplevel data fullscreenActive above already
+  // reads, and the exact title/appId fallback omarchy.active-window's
+  // own BarWidget.qml uses (confirmed by reading it directly) -- no
+  // new dependency on that plugin being installed or pinned at all.
+  readonly property var activeToplevel: ToplevelManager.activeToplevel
+  readonly property string activeWindowTitle: activeToplevel
+    ? (activeToplevel.title || activeToplevel.appId || "") : ""
   readonly property string title: activePlayer ? (activePlayer.trackTitle || "") : ""
   readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
   readonly property string album: activePlayer ? (activePlayer.trackAlbum || "") : ""
@@ -958,6 +968,13 @@ Item {
               Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: 140
+                // Direct follow-up: "when theres no music it just shows
+                // active window? that might be kinda cool" -- this whole
+                // wave/track/playhead group is the "there is media"
+                // half; ActiveWindowLabel (below, same 140x20 slot) is
+                // the "there is not" half. Same fixed slot either way so
+                // the pill's own width never jumps between the two.
+                visible: root.hasMedia
               // Grown 12 -> 20 alongside the thickness bump below --
               // WavyLine is a Canvas, and Canvas content outside its
               // own item bounds is simply never drawn (an implicit
@@ -1036,6 +1053,34 @@ Item {
 
                 Behavior on x { NumberAnimation { duration: 450 } }
               }
+              }
+
+              // The "no media" half of this same 140x20 slot -- direct
+              // request: "when theres no music it just shows active
+              // window". Reads Quickshell.Wayland's own ToplevelManager
+              // directly (already imported, already used for
+              // fullscreenActive above) rather than depending on the
+              // separate omarchy.active-window plugin being installed
+              // or pinned at all. Centered + elided, not a marquee --
+              // direct follow-up ("is there an effect where it scrolls
+              // horizontally, or i guess truncate is fine tbh? center
+              // and truncate?") -- simpler, and matches ActiveWindow.qml's
+              // own elide: Text.ElideRight treatment of the same title
+              // string. "~" is the empty-state fallback for the rare
+              // moment nothing is focused at all (just closed
+              // everything, say), rather than leaving the pill blank.
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 140
+                height: 20
+                visible: !root.hasMedia
+                text: root.activeWindowTitle !== "" ? root.activeWindowTitle : "~"
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
               }
             }
           }

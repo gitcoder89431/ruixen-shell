@@ -340,7 +340,7 @@ Item {
         id: searchInput
         anchors.fill: parent
         anchors.leftMargin: 12
-        anchors.rightMargin: 12
+        anchors.rightMargin: 28
         verticalAlignment: TextInput.AlignVCenter
         color: root.textColor
         font.family: root.fontFamily
@@ -356,6 +356,38 @@ Item {
           font.family: root.fontFamily
           font.pixelSize: 12
           visible: searchInput.text.length === 0
+        }
+      }
+
+      // Clear button -- direct request ("i type space then select the
+      // wallpaper i like then press the x to clear in the input field
+      // right side to clear it"). Sits in the rightMargin space
+      // reserved above so it never overlaps typed text. Same "✕"
+      // glyph/placement LauncherContent.qml's own app search already
+      // uses, but red per this request rather than muted/textColor --
+      // #e05252 is this plugin's own established red (DashboardContent.qml/
+      // MetricsContent.qml/Overlay.qml all use it for the same
+      // warning-ish/critical-toggle meaning).
+      Text {
+        visible: searchInput.text.length > 0
+        anchors.right: parent.right
+        anchors.rightMargin: 10
+        anchors.verticalCenter: parent.verticalCenter
+        text: "✕"
+        font.pixelSize: 11
+        color: clearSearchMouse.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+
+        MouseArea {
+          id: clearSearchMouse
+          anchors.centerIn: parent
+          width: 20
+          height: 20
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            searchInput.text = ""
+            searchInput.forceActiveFocus()
+          }
         }
       }
     }

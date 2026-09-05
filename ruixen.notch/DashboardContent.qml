@@ -1104,10 +1104,18 @@ Item {
           // Fills the remaining width instead of hugging the text --
           // matches ambxst's own titleRect (Layout.fillWidth: true
           // inside the same header RowLayout), not a snug-fit pill.
+          // radius: 10, not height/2 -- these 3 header pills were still
+          // full capsules from the earlier "pill" pass even after the
+          // rows below were changed to a regular rounded rect; that
+          // shape mismatch (a full 16px-radius arc receding into the
+          // header vs. the rows' flatter 10px corners) is almost
+          // certainly what read as "the top row is closer to the edge"
+          // even with the margin now genuinely even on all sides --
+          // matching the shape removes the illusion.
           Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: height / 2
+            radius: 10
             color: "#000000"
 
             Text {
@@ -1133,7 +1141,7 @@ Item {
           Rectangle {
             Layout.preferredWidth: 32
             Layout.fillHeight: true
-            radius: height / 2
+            radius: 10
             color: "#000000"
 
             Text {
@@ -1156,7 +1164,7 @@ Item {
           Rectangle {
             Layout.preferredWidth: 32
             Layout.fillHeight: true
-            radius: height / 2
+            radius: 10
             color: "#000000"
 
             Text {

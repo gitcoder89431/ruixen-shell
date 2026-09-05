@@ -277,6 +277,17 @@ if restore_result="$("$script_dir/lib/restore-looknfeel.sh" "$looknfeel_target" 
       hyprctl reload >/dev/null 2>&1 \
         || record_failure "hyprctl reload after restoring looknfeel.lua failed -- reload manually to pick it up"
       ;;
+    self-referential-record)
+      # Real bug, found live: this machine's own recorded "pristine"
+      # target pointed at a Ruixen-managed path itself (the checkout,
+      # or the stable deployed copy) -- not a real pre-Ruixen state,
+      # so restoring it would just put Ruixen's own rounded-corners/
+      # blur look right back instead of actually reverting anything.
+      printf "  the recorded pre-Ruixen looknfeel pointed at Ruixen's own file (stale from an earlier install on this machine) -- restored Omarchy's own default instead, since that record could not be trusted\n"
+      looknfeel_restored=1
+      hyprctl reload >/dev/null 2>&1 \
+        || record_failure "hyprctl reload after restoring looknfeel.lua failed -- reload manually to pick it up"
+      ;;
     no-default-available)
       record_failure "nothing existed before Ruixen, and no Omarchy default was found at $omarchy_default -- looknfeel.lua left unset, Hyprland reload will error until you restore one manually"
       ;;

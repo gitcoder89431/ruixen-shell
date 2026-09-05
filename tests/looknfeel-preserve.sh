@@ -113,5 +113,62 @@ restore_d="$("$restore" "$d_target" "$d_pristine" "$omarchy_default")"
 check "no pristine record: reports that plainly rather than guessing" \
   "$restore_d" "no-pristine-record"
 
+# --- Case E: target is ALREADY a Ruixen-managed symlink the very
+# first time apply-looknfeel.sh ever runs (an earlier, unofficial
+# setup, or a prior uninstall/reinstall cycle outside these scripts on
+# the same machine). A real bug found live: recording this as
+# "pristine" would capture Ruixen's own look as if it were the user's
+# real original -- restore-looknfeel.sh would then "restore" it right
+# back on uninstall instead of actually reverting anything.
+e_target="$work/e/looknfeel.lua"
+e_pristine="$work/e/pristine"
+mkdir -p "$(dirname "$e_target")"
+e_stale_ruixen_target="$work/somewhere/ruixen-shell/hyprland/looknfeel.ruixen.lua"
+mkdir -p "$(dirname "$e_stale_ruixen_target")"
+printf 'a stale ruixen look\n' > "$e_stale_ruixen_target"
+ln -s "$e_stale_ruixen_target" "$e_target"
+"$apply" "$e_target" "$src" "$e_pristine" "111"
+check "self-referential capture: pristine record says absent, not the stale ruixen target" \
+  "$([[ -e "$e_pristine/absent" ]] && echo yes)" "yes"
+check "self-referential capture: no target file was written at all" \
+  "$([[ -e "$e_pristine/target" ]] && echo found || echo none)" "none"
+check "self-referential capture: target still becomes ruixen's own symlink" \
+  "$(readlink "$e_target")" "$src"
+
+restore_e="$("$restore" "$e_target" "$e_pristine" "$omarchy_default")"
+check "self-referential capture: restore falls back to Omarchy's own default" \
+  "$restore_e" "omarchy-default"
+check "self-referential capture: restored content matches Omarchy's default" \
+  "$(cat "$e_target")" "omarchy default"
+
+# --- Case F: the STORED pristine record itself is self-referential
+# (defense in depth on the restore side -- covers a record written by
+# an older, buggy version of apply-looknfeel.sh before this fix
+# existed, not just a fresh capture).
+f_target="$work/f/looknfeel.lua"
+f_pristine="$work/f/pristine"
+mkdir -p "$f_pristine"
+f_bad_record_target="$HOME/.local/share/ruixen-shell/hyprland/looknfeel.ruixen.lua"
+printf '%s\n' "$f_bad_record_target" > "$f_pristine/target"
+ln -s "$src" "$f_target"
+restore_f="$("$restore" "$f_target" "$f_pristine" "$omarchy_default")"
+check "self-referential stored record: reports self-referential-record, not the bad symlink" \
+  "$restore_f" "self-referential-record"
+check "self-referential stored record: restored as a real file, not a symlink" \
+  "$([[ -L "$f_target" ]] && echo symlink || echo regular)" "regular"
+check "self-referential stored record: falls back to Omarchy's own default content" \
+  "$(cat "$f_target")" "omarchy default"
+
+# --- Case G: self-referential stored record but no Omarchy default
+# template available either -- must say so plainly, not fail silently.
+g_target="$work/g/looknfeel.lua"
+g_pristine="$work/g/pristine"
+mkdir -p "$g_pristine"
+printf '%s\n' "$f_bad_record_target" > "$g_pristine/target"
+ln -s "$src" "$g_target"
+restore_g="$("$restore" "$g_target" "$g_pristine" "$work/no-such-omarchy-default.lua")"
+check "self-referential stored record, no default available: reports that plainly" \
+  "$restore_g" "no-default-available"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

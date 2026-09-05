@@ -40,7 +40,22 @@ if [[ -e "$target" || -L "$target" ]]; then
   if [[ "$pristine_recorded" -eq 0 ]]; then
     mkdir -p "$pristine_dir"
     if [[ -L "$target" ]]; then
-      readlink "$target" > "$pristine_dir/target"
+      existing_link_target="$(readlink "$target")"
+      case "$existing_link_target" in
+        # Real bug, found live: if $target is ALREADY a Ruixen-managed
+        # symlink the very first time this ever runs (an earlier,
+        # unofficial setup, or a prior uninstall/reinstall cycle
+        # outside these scripts), recording it as "pristine" captures
+        # Ruixen's own look as if it were the user's real original --
+        # restore-looknfeel.sh would then "restore" it right back on
+        # uninstall instead of actually reverting anything. Recorded
+        # as absent instead -- the honest answer here is "no real
+        # pre-Ruixen state is known", and restore-looknfeel.sh's own
+        # omarchy-default fallback for that case is a genuinely safe
+        # one, unlike trusting this record would be.
+        */ruixen-shell/*) : > "$pristine_dir/absent" ;;
+        *) printf '%s\n' "$existing_link_target" > "$pristine_dir/target" ;;
+      esac
     else
       cp -a "$target" "$pristine_dir/looknfeel.lua"
     fi

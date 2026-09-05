@@ -2066,6 +2066,41 @@ Item {
           }
         }
 
+        // Left-side twin of pluginPinsPill (right side) -- direct
+        // request: "the plugs in can rearrange within group or create
+        // one more group on the left side after the pin apps group".
+        // No toggle icon of its own: ruixen.pluginpins' own dropdown
+        // stays the single control surface for browsing/pinning every
+        // installed widget (always defaults new pins to "right", via
+        // togglePin -- unchanged); this pill only ever gains an entry
+        // when someone drags an already-pinned widget over from the
+        // right pluginPinsPill, using the bar's existing generic
+        // drag-to-reorder (dropBarModule already moves an entry
+        // between regions, no region-specific change needed there).
+        // Zero-collapse pattern, same as pinnedappsPill -- empty for
+        // every user who never drags anything here.
+        Item {
+          id: leftPluginPinsPill
+          anchors.left: pinnedappsPill.right
+          anchors.leftMargin: leftPluginPinsContent.width > 0 ? 6 : 0
+          anchors.verticalCenter: parent.verticalCenter
+          width: leftPluginPinsContent.width > 0 ? leftPluginPinsContent.width + 8 * 2 : 0
+          height: root.barSize - Style.space(2)
+
+          GroupPill { anchors.fill: parent; visible: !root.docked }
+
+          ModuleList {
+            id: leftPluginPinsContent
+            anchors.centerIn: parent
+            entries: root.layoutEntries("left").filter(function(e) {
+              var id = root.entryId(e)
+              return id !== "ruixen.applauncher" && id !== "ruixen.workspaces"
+                && id !== "ruixen.pinnedapps" && id !== "ruixen.settingsbutton"
+            })
+            region: "left"
+          }
+        }
+
         Item {
           id: settingsPill
           // Fades out instead of collapsing width/anchors when
@@ -2074,7 +2109,7 @@ Item {
           // around a pill that comes and goes, and nothing else anchors
           // off settingsPill's own edges.
           opacity: settingsContent.width > 0 ? 1 : 0
-          anchors.left: pinnedappsPill.right
+          anchors.left: leftPluginPinsPill.right
           anchors.leftMargin: 6
           anchors.verticalCenter: parent.verticalCenter
           width: settingsContent.width + 8 * 2

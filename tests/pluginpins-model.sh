@@ -91,26 +91,45 @@ check "candidates excludes excludedIds" \
   "$(grep -c 'excludedIds\.indexOf(id)' "$widget_qml")" "1"
 check "candidates re-evaluates on registry changes (registryRevision read for its binding dependency)" \
   "$(grep -c 'reg\.registryRevision' "$widget_qml")" "1"
-check "pinned state reads the registry's own inBar(), not a hand-rolled layout scan" \
-  "$(grep -c 'reg\.inBar(id)' "$widget_qml")" "1"
+# Direct follow-up: dragging turned out to have no way to populate an
+# initially-empty left-side group at all (ModuleList only registers a
+# real drop-target slot for entries that already exist), so pin/unpin
+# moved to left/right click here instead of drag-and-drop -- "can we
+# do right click and left click to send it to the new group on the
+# left or right depending on the click". currentSide reads the
+# registry's own findBarLocation()/shellConfigProvider(), not a
+# hand-rolled layout scan, matching the same real mechanism
+# PluginRegistry.qml's own isEnabled/inBar already use internally.
+check "currentSide reads the registry's own findBarLocation(), not a hand-rolled layout scan" \
+  "$(grep -c 'reg\.findBarLocation(config, id)' "$widget_qml")" "1"
+check "currentSide reads the registry's own live shellConfigProvider(), not a stale snapshot" \
+  "$(grep -c 'reg\.shellConfigProvider()' "$widget_qml")" "1"
 
-# Unpin has to search every section, not just "right" -- a plugin someone
-# dragged elsewhere (the bar's own drag-to-reorder feature) must still be
-# removable from here.
-togglepin_block="$(grep -A20 'function togglePin' "$widget_qml")"
-check "togglePin sweeps all three sections (left/center/right), not just right" \
-  "$(grep -c '\["left", "center", "right"\]' <<<"$togglepin_block")" "1"
-check "togglePin uses mutateShellConfig, the same primitive the bar's own drag-reorder already uses" \
+# Unpin has to search every section, not just the clicked one -- a
+# plugin someone dragged elsewhere (the bar's own drag-to-reorder
+# feature) must still be removable from here.
+setpinside_block="$(grep -A20 'function setPinSide' "$widget_qml")"
+check "setPinSide sweeps all three sections (left/center/right), not just the clicked side" \
+  "$(grep -c '\["left", "center", "right"\]' <<<"$setpinside_block")" "1"
+check "setPinSide uses mutateShellConfig, the same primitive the bar's own drag-reorder already uses" \
   "$(grep -c 'bar\.shell\.mutateShellConfig(function' "$widget_qml")" "1"
 
-# The trigger/checkmark glyphs must be QML \u escapes, not pasted Nerd
-# Font characters -- direct precedent for why: a hidden/corrupted glyph
-# byte has broken this exact thing twice already elsewhere in this repo
-# (ruixen.pinnedapps' own fallback glyph, Bar.qml's sidebar label).
+check "the row's own MouseArea accepts both left and right click" \
+  "$(grep -c 'acceptedButtons: Qt\.LeftButton | Qt\.RightButton' "$widget_qml")" "1"
+check "left-click pins right, right-click pins left (Qt.RightButton ternary)" \
+  "$(grep -c 'button === Qt\.RightButton ? "left" : "right"' "$widget_qml")" "1"
+
+# The trigger/checkmark/left-arrow glyphs must be QML \u escapes, not
+# pasted Nerd Font characters -- direct precedent for why: a hidden/
+# corrupted glyph byte has broken this exact thing twice already
+# elsewhere in this repo (ruixen.pinnedapps' own fallback glyph,
+# Bar.qml's sidebar label).
 check "trigger glyph is a \\u escape, not a raw pasted character" \
   "$(grep -c 'text: "\\uf00a"' "$widget_qml")" "1"
-check "checkmark glyph is a \\u escape, not a raw pasted character" \
-  "$(grep -c 'text: "\\uf00c"' "$widget_qml")" "1"
+check "right-pinned glyph (check, U+F00C) is a \\u escape, not a raw pasted character" \
+  "$(grep -c '"\\uf00c"' "$widget_qml")" "1"
+check "left-pinned glyph (long-arrow-left, U+F177) is a \\u escape, not a raw pasted character" \
+  "$(grep -c '"\\uf177"' "$widget_qml")" "1"
 
 # No debug scaffolding left behind from live verification.
 check "no leftover console.log debug statements" \

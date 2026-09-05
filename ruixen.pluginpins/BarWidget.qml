@@ -55,8 +55,8 @@ BarWidget {
   // shares clockPill with ruixen.weather (a divider between the two,
   // plus clock's own format/formatAlt/verticalFormat settings baked
   // into its shell.json entry -- see Bar.qml's centerSpecialIds). This
-  // widget's own togglePin() only knows how to append a bare {id} to
-  // the generic "right" section, so unpinning clock through here and
+  // widget's own setPinSide() only knows how to append a bare {id} to
+  // whichever section was clicked, so unpinning clock through here and
   // re-pinning it landed it as a brand new plain icon on the right,
   // stripped of its settings, instead of back in clockPill next to
   // weather. Direct live report: "it hid the clock from our designed
@@ -126,6 +126,19 @@ BarWidget {
   // enabled/disabled, or moved) -- registryRevision is read here purely
   // to create that binding dependency, same pattern shell.qml's own
   // selectedBarAvailable/activeBarManifest already use.
+  // Real per-side lookup, not a hand-rolled region scan -- findBarLocation
+  // is the same stock function PluginRegistry.qml's own isEnabled/inBar
+  // use internally, called here with shellConfigProvider's own live
+  // config so "which side is this id currently on" never drifts from
+  // what the registry itself considers true.
+  function currentSide(reg, id) {
+    if (!reg || typeof reg.shellConfigProvider !== "function" || typeof reg.findBarLocation !== "function") return null
+    var config = reg.shellConfigProvider()
+    if (!config) return null
+    var location = reg.findBarLocation(config, id)
+    return location && location.found ? location.section : null
+  }
+
   readonly property var candidates: {
     var reg = pluginRegistry
     if (!reg) return []
@@ -137,25 +150,32 @@ BarWidget {
       var kinds = manifest && manifest.kinds ? manifest.kinds : []
       if (kinds.indexOf("bar-widget") === -1) continue
       if (excludedIds.indexOf(id) !== -1) continue
-      out.push({ id: id, name: manifest.name || id, pinned: reg.inBar(id) === true })
+      out.push({ id: id, name: manifest.name || id, side: root.currentSide(reg, id) })
     }
     out.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)) })
     return out
   }
 
-  // Pin = append a plain {id} entry to the "right" section (thirdPartyPill
-  // picks it up automatically); unpin = strip that id out of every
-  // section, not just "right" -- a plugin someone dragged elsewhere
-  // should still be removable from here. mutateShellConfig is the same
-  // read-modify-persist primitive the bar's own drag-to-reorder feature
-  // already uses (see Bar.qml's modulePointer/canReorder), not a fresh
-  // mechanism.
-  function togglePin(id, pinned) {
+  // Direct request, after drag-and-drop turned out to have no way to
+  // populate an initially-empty left-side group ("can we do right
+  // click and left click to send it to the new group on the left or
+  // right depending on the click"): left-click pins to "right" (the
+  // original, unchanged default surface -- pluginPinsPill), right-
+  // click pins to "left" (leftPluginPinsPill, Bar.qml). Clicking the
+  // side something is ALREADY on unpins it (strips every section,
+  // same as the old togglePin's own unpin path); clicking the OTHER
+  // side just moves it there directly, no separate unpin-then-repin
+  // step needed. mutateShellConfig is the same read-modify-persist
+  // primitive the bar's own drag-to-reorder feature already uses (see
+  // Bar.qml's modulePointer/canReorder), not a fresh mechanism.
+  function setPinSide(id, side) {
     if (!bar || !bar.shell || typeof bar.shell.mutateShellConfig !== "function") return
     bar.shell.mutateShellConfig(function(config) {
       if (!config.bar) config.bar = {}
       if (!config.bar.layout) config.bar.layout = {}
       var sections = ["left", "center", "right"]
+      var wasOnClickedSide = Array.isArray(config.bar.layout[side])
+        && config.bar.layout[side].some(function(e) { return e && e.id === id })
       for (var i = 0; i < sections.length; i++) {
         var name = sections[i]
         if (!Array.isArray(config.bar.layout[name])) continue
@@ -163,9 +183,9 @@ BarWidget {
           return !e || e.id !== id
         })
       }
-      if (!pinned) {
-        if (!Array.isArray(config.bar.layout.right)) config.bar.layout.right = []
-        config.bar.layout.right.push({ id: id })
+      if (!wasOnClickedSide) {
+        if (!Array.isArray(config.bar.layout[side])) config.bar.layout[side] = []
+        config.bar.layout[side].push({ id: id })
       }
     })
   }
@@ -191,8 +211,10 @@ BarWidget {
     id: rowRoot
     required property string pluginId
     required property string pluginName
-    required property bool pinned
-    signal triggered()
+    // "left" | "right" | "" (center never happens here -- this widget
+    // only ever writes left/right, see setPinSide) -- "" means unpinned.
+    required property string side
+    signal triggered(int button)
 
     implicitHeight: Style.space(32)
 
@@ -215,17 +237,20 @@ BarWidget {
       font.pixelSize: Style.font.bodySmall
     }
 
-    // Check ("check"), Font Awesome U+F00C -- same \u-escape reasoning
-    // as the trigger glyph above.
+    // Check ("check", U+F00C) when pinned right -- the original,
+    // unchanged glyph/position for the common case. Long-arrow-left
+    // (U+F177) when pinned left instead, same slot -- the glyph itself
+    // says which side without needing a separate label. Same \u-escape
+    // reasoning as the trigger glyph above.
     Text {
       id: checkGlyph
-      visible: rowRoot.pinned
+      visible: rowRoot.side !== ""
       anchors.verticalCenter: parent.verticalCenter
       anchors.right: parent.right
       anchors.rightMargin: Style.space(10)
       width: Style.space(16)
       horizontalAlignment: Text.AlignHCenter
-      text: "\uf00c"
+      text: rowRoot.side === "left" ? "\uf177" : "\uf00c"
       color: Color.accent
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
@@ -234,9 +259,10 @@ BarWidget {
     MouseArea {
       id: mouse
       anchors.fill: parent
+      acceptedButtons: Qt.LeftButton | Qt.RightButton
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: rowRoot.triggered()
+      onClicked: function(mouse) { rowRoot.triggered(mouse.button) }
     }
   }
 
@@ -287,8 +313,10 @@ BarWidget {
             width: column.width
             pluginId: modelData.id
             pluginName: modelData.name
-            pinned: modelData.pinned
-            onTriggered: root.togglePin(modelData.id, modelData.pinned)
+            side: modelData.side || ""
+            onTriggered: function(button) {
+              root.setPinSide(modelData.id, button === Qt.RightButton ? "left" : "right")
+            }
           }
         }
       }

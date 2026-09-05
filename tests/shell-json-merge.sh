@@ -132,20 +132,25 @@ check "existing install with stale ruixen.media in layout: still gets the plugin
   '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
 
 # --- Case 7 (issue #36): legacy foreign/optional bar-widgets stuck in
-# left/center from before ruixen.pluginpins existed get migrated into
+# "center" from before ruixen.pluginpins existed get migrated into
 # "right", where pluginPinsPill actually knows how to present them --
-# not left to render inside workspacesPill (now a strict single-id
-# match in Bar.qml, so they would not even be VISIBLE there anymore,
-# just silently dropped from the screen) or any other structural pill.
-# Preserves the full entry object (inline settings survive); a
-# duplicate of an id already correctly on the right is dropped, not
-# doubled. omarchy.menu is DELIBERATELY EXCLUDED from this fixture's
-# "migrates to right" expectation -- direct follow-up after reviewing
-# #36's first pass: Ruixen replaced that bar icon with
-# ruixen.applauncher on purpose, so unlike a genuine third-party
-# widget, omarchy.menu must never render on the bar at all, not even
-# via Plugin Pins. It gets the same unconditional strip as
-# ruixen.media instead (see Case 10 below), not this migration.
+# center has no legitimate catch-all of its own (only weather/clock
+# have a dedicated home there). Preserves the full entry object
+# (inline settings survive); a duplicate of an id already correctly on
+# the right is dropped, not doubled. omarchy.menu is DELIBERATELY
+# EXCLUDED from this fixture's "migrates to right" expectation --
+# direct follow-up after reviewing #36's first pass: Ruixen replaced
+# that bar icon with ruixen.applauncher on purpose, so unlike a genuine
+# third-party widget, omarchy.menu must never render on the bar at
+# all, not even via Plugin Pins. It gets the same unconditional strip
+# as ruixen.media instead (see Case 10 below), not this migration.
+#
+# "left" is DELIBERATELY left untouched by this fixture's own
+# expectations -- direct follow-up after ruixen.pluginpins gained a
+# real left-side twin (Bar.qml's leftPluginPinsPill): a non-protected
+# id in "left" is no longer automatically a mistake, so this migration
+# no longer sweeps that section at all (see Case 7b below for the
+# fixture proving that directly).
 legacy_foreign='{
   "version": 1,
   "bar": {
@@ -154,50 +159,78 @@ legacy_foreign='{
       "left": [
         { "id": "ruixen.applauncher" },
         { "id": "ruixen.workspaces" },
-        { "id": "thirdparty.foo", "opacity": 0.5 },
         { "id": "ruixen.pinnedapps" },
         { "id": "ruixen.settingsbutton" }
       ],
-      "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.weather" }, { "id": "omarchy.clock" }],
+      "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.weather" }, { "id": "omarchy.clock" }, { "id": "thirdparty.foo", "opacity": 0.5 }],
       "right": [{ "id": "ruixen.tray" }, { "id": "already.pinned" }]
     }
   },
   "plugins": []
 }'
 out7="$(printf '%s' "$legacy_foreign" | "$build")"
-check "issue #36: workspacesPill's own left region keeps only the protected structural ids" \
+check "issue #36: left region is untouched (nothing to migrate here anymore)" \
   "$(jq -c '.bar.layout.left' <<<"$out7")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"},{"id":"ruixen.settingsbutton"}]'
-check "issue #36: center keeps only the protected weather/clock, omarchy.menu stripped (not migrated)" \
+check "issue #36: center keeps only the protected weather/clock, omarchy.menu stripped (not migrated), thirdparty.foo migrates out" \
   "$(jq -c '.bar.layout.center' <<<"$out7")" \
   '[{"id":"ruixen.weather"},{"id":"omarchy.clock"}]'
 check "issue #36: real foreign entries land on the right, inline settings preserved, already-pinned ids untouched, omarchy.menu absent" \
   "$(jq -c '.bar.layout.right' <<<"$out7")" \
   '[{"id":"ruixen.tray"},{"id":"already.pinned"},{"id":"thirdparty.foo","opacity":0.5}]'
 
-# --- Case 8 (issue #36): a foreign id stuck in left AND already
+# --- Case 7b (issue #36 follow-up): a non-protected id deliberately
+# pinned to "left" via ruixen.pluginpins' own left/right click (see
+# ruixen.pluginpins/BarWidget.qml's setPinSide) must survive an update
+# untouched -- it is a real, intentional placement now, not legacy
+# debris. Direct scenario this guards: someone right-clicks a pin to
+# send it to the new left-side group, then updates -- their choice
+# must not silently get moved back to "right".
+left_pinned='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "deliberately.left", "opacity": 0.7 }],
+      "center": [],
+      "right": [{ "id": "ruixen.tray" }]
+    }
+  },
+  "plugins": []
+}'
+out7b_deliberate="$(printf '%s' "$left_pinned" | "$build")"
+check "issue #36 follow-up: a deliberately left-pinned foreign widget survives an update untouched, settings intact" \
+  "$(jq -c '.bar.layout.left' <<<"$out7b_deliberate")" \
+  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"deliberately.left","opacity":0.7}]'
+check "issue #36 follow-up: it does not also get duplicated onto the right" \
+  "$(jq -c '.bar.layout.right' <<<"$out7b_deliberate")" \
+  '[{"id":"ruixen.tray"}]'
+
+# --- Case 8 (issue #36): a foreign id stuck in "center" AND already
 # correctly pinned on the right must not end up duplicated -- the
-# stale left-side copy is dropped, the right-side copy (already in its
-# intended home) wins.
+# stale center-side copy is dropped, the right-side copy (already in
+# its intended home) wins. "left" is a separate, real placement now
+# (Case 7b above), so this dedup case is scoped to center, the only
+# section the migration still sweeps.
 dup_foreign='{
   "version": 1,
   "bar": {
     "id": "ruixen.bar",
     "layout": {
-      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "already.pinned" }],
-      "center": [],
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }],
+      "center": [{ "id": "already.pinned" }],
       "right": [{ "id": "ruixen.tray" }, { "id": "already.pinned", "extra": "settings-that-should-win" }]
     }
   },
   "plugins": []
 }'
 out8="$(printf '%s' "$dup_foreign" | "$build")"
-check "issue #36: a foreign id already pinned on the right is not duplicated when also stuck in left" \
+check "issue #36: a foreign id already pinned on the right is not duplicated when also stuck in center" \
   "$(jq -c '.bar.layout.right' <<<"$out8")" \
   '[{"id":"ruixen.tray"},{"id":"already.pinned","extra":"settings-that-should-win"}]'
-check "issue #36: the stale left-side copy of an already-pinned id is dropped, not left behind" \
-  "$(jq -c '.bar.layout.left' <<<"$out8")" \
-  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"}]'
+check "issue #36: the stale center-side copy of an already-pinned id is dropped, not left behind" \
+  "$(jq -c '.bar.layout.center' <<<"$out8")" \
+  '[]'
 
 # --- Case 9 (issue #36): running the merge again on its own migrated
 # output must be a no-op -- nothing left in left/center to migrate a

@@ -165,28 +165,36 @@ jq -n \
   # this is the matching migration so an EXISTING install (whose bar
   # object is otherwise preserved verbatim above) does not keep
   # rendering broken forever -- moves anything not in this protected
-  # set out of left/center and into "right", where ruixen.pluginpins
-  # own pill already knows how to present arbitrary bar-widgets.
-  # Preserves the full entry object (inline settings survive); drops
-  # -- does not duplicate -- a stale copy whose id already exists
-  # somewhere in "right", since that copy is already correctly placed.
-  # Naturally idempotent: once migrated, an id is no longer in
-  # left/center for a second run to find.
+  # set out of "center" and into "right", where ruixen.pluginpins own
+  # pill already knows how to present arbitrary bar-widgets. Preserves
+  # the full entry object (inline settings survive); drops -- does not
+  # duplicate -- a stale copy whose id already exists somewhere in
+  # "right", since that copy is already correctly placed. Naturally
+  # idempotent: once migrated, an id is no longer in "center" for a
+  # second run to find.
+  #
+  # "left" is deliberately NOT swept here anymore, direct follow-up:
+  # ruixen.pluginpins gained a real left-side twin of this same pill
+  # (Bar.qml own leftPluginPinsPill, reachable via right-click in the
+  # dropdown), so a non-protected id sitting in "left" is no longer
+  # automatically a mistake -- it may be exactly where someone
+  # deliberately put it. Sweeping "left" here would silently move that
+  # choice back to "right" on every future update. Any left-side
+  # straggler that genuinely predates BOTH this feature and issue #36
+  # own migration already got cleaned up the first time an existing
+  # install passed through that original fix; from here on, an id left
+  # in "left" just renders correctly in its own pill instead of
+  # needing rescue.
   | (if ($strippedBar.layout | type) == "object" then
        ($strippedBar.layout.right // []) as $rightNow
        | ($rightNow | map(.id)) as $rightIds
-       | (["left", "center"]
-          | map(. as $section | ($strippedBar.layout[$section] // [])
-              | map(select((.id as $id | $protectedBarIds | index($id)) == null))
-              | map(select((.id as $id | $rightIds | index($id)) == null)))
-          | add) as $migratedEntries
-       | (["left", "center"]
-          | map({key: ., value: ($strippedBar.layout[.] // []
-              | map(select((.id as $id | $protectedBarIds | index($id)) != null)))})
-          | from_entries) as $prunedLeftCenter
+       | (($strippedBar.layout.center // [])
+          | map(select((.id as $id | $protectedBarIds | index($id)) == null))
+          | map(select((.id as $id | $rightIds | index($id)) == null))) as $migratedEntries
+       | (($strippedBar.layout.center // [])
+          | map(select((.id as $id | $protectedBarIds | index($id)) != null))) as $prunedCenter
        | ($strippedBar
-          | .layout.left = $prunedLeftCenter.left
-          | .layout.center = $prunedLeftCenter.center
+          | .layout.center = $prunedCenter
           | .layout.right = ($rightNow + $migratedEntries))
      else $strippedBar end) as $mergedBar
 

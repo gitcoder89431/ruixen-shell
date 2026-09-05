@@ -689,48 +689,52 @@ Item {
   // popup plugin widget pin icon. then the next group is more actions
   // and setting. then the last pill group is weather and time"):
   //
-  //   1. trayPill -- tray (1Password, etc.) merged with the generic
-  //      catch-all (whatever else is pinned and has no dedicated pill:
-  //      stayawake, agents, or any third-party widget someone pins via
-  //      ruixen.pluginpins). Two pills used to sit here (trayPill,
-  //      thirdPartyPill) -- merged into one, since visually they were
-  //      never anything but adjacent anyway.
-  //   2. pluginPinsPill -- ruixen.pluginpins alone.
-  //   3. curatedPill -- quickactions + settingsbutton only now
-  //      ("more actions and setting"). system-update/power/stayawake/
-  //      agents used to live here too; all four are legitimately
-  //      optional now that ruixen.pluginpins exists to pin/unpin them
-  //      (see its own excludedIds comment), so they fall into trayPill's
-  //      catch-all like any other optional widget instead of getting a
-  //      permanent seat in the curated group.
+  //   1. trayPill -- ruixen.tray ONLY. Literal open apps (1Password,
+  //      etc.), nothing else -- not a catch-all. Direct correction,
+  //      three times over: first attempts routed stayawake/agents,
+  //      then system-update/power, then microphone/network here too;
+  //      final answer is "OPEN APPS GROUP" means exactly that, tray and
+  //      only tray.
+  //   2. pluginPinsPill -- ruixen.pluginpins itself PLUS everything
+  //      pinned through it (stayawake, agents, microphone, network, any
+  //      third-party widget someone pins) -- direct correction: "the
+  //      plugs in toggle inside the pill it toggles... microphone
+  //      network cofee ai [are] toggleable from the plugins pin so they
+  //      stay pinnable or not in the plugin group". The toggle icon
+  //      lives together with whatever it toggles, not off on its own.
+  //   3. curatedPill ("SYSTEM") -- an exact, fixed four: system-update,
+  //      power, quickactions, settingsbutton ("system is POWER UPDATE
+  //      MORE ACTIONS AND SETTING"). Never a catch-all -- nothing else
+  //      ever joins this pill, by design.
   //   4. clockPill -- weather + clock, unchanged.
   //
-  // curatedRightIds is now just the "more actions and setting" pair.
-  // sideRightIds is every id with its OWN dedicated pill (curatedRightIds
-  // + pluginpins) -- deliberately does NOT include ruixen.tray anymore,
-  // so tray falls into the SAME catch-all filter as everything else
-  // instead of needing its own separate exact-id match.
+  // curatedRightIds is that exact fixed four. pluginPinsGroupIds is
+  // everything that lands in pill 2 -- ruixen.pluginpins itself plus
+  // every id NOT in curatedRightIds and NOT ruixen.tray. There's
+  // deliberately no third named list: pill 2 is defined as "whatever
+  // isn't tray and isn't the fixed system four", so a newly-pinned
+  // third-party widget lands there automatically without needing its
+  // id added anywhere.
   //
   // Omarchy's own bar-widget placement (PluginRegistry.qml's
   // defaultBarWidgetSection/barTarget, what `omarchy plugin enable <id>`
   // with no explicit --section runs) inserts a widget with no placement
   // right after the section's own anchor id, hardcoded to ruixen.tray
   // for "right" -- landing a newly-enabled widget's default insertion
-  // point right after tray in shell.json's own array. That's a data-
-  // order contract, not a pill-boundary one: it still lands in trayPill's
-  // own catch-all filter regardless of which pill tray's own icon
-  // renders in, so this redraw doesn't disturb it.
-  readonly property var curatedRightIds: ["ruixen.quickactions", "ruixen.settingsbutton"]
-  readonly property var sideRightIds: curatedRightIds.concat(["ruixen.pluginpins"])
+  // point right after tray in shell.json's own array. That still lands
+  // it in pill 2 (not curated, not tray itself), matching "third-party
+  // lands left of the coffee" from the original design intent -- the
+  // coffee (stayawake) itself lives in pill 2 now too.
+  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton"]
   // The two ids clockPill gives its own special pill+divider treatment
   // (see clockPill's own comment) -- direct review finding ("Support
   // arbitrary third-party widgets in the horizontal center region",
   // #27): everything else ever placed in shell.json's "center" region
   // was silently dropped by the horizontal bar, since clockPill was
   // the ONLY thing that ever read from "center" there. Same shape as
-  // curatedRightIds/sideRightIds above -- the ids with their own
-  // dedicated pill (or membership in one), so a generic catch-all
-  // elsewhere can exclude them and host everything remaining.
+  // curatedRightIds above -- the ids with their own dedicated pill, so a
+  // generic catch-all elsewhere can exclude them and host everything
+  // remaining.
   readonly property var centerSpecialIds: ["ruixen.weather", "omarchy.clock"]
 
   // Direct review finding ("Reserve horizontal space for the Notch so
@@ -2012,17 +2016,13 @@ Item {
           }
         }
 
-        // Right-side reorg (direct request): stayawake, agents,
-        // system-update, power, quickactions, pluginpins, and
-        // settingsbutton merged into one curated group -- "Update when
-        // available, AI, more options, setting" (power folded in too,
-        // see curatedRightIds' own comment). Anchored off clockPill,
-        // taking over the screen position the old catch-all rightPill
-        // used to occupy.
-        //
-        // "More actions and setting" -- quickactions + settingsbutton
-        // only now (system-update/power/stayawake/agents moved out, see
-        // curatedRightIds' own comment for the four-group redraw).
+        // "SYSTEM" -- an exact, fixed four (system-update, power,
+        // quickactions, settingsbutton), never a catch-all. See
+        // curatedRightIds' own comment for the full history of what's
+        // moved in and out of this pill tonight; this is the final
+        // answer ("system is POWER UPDATE MORE ACTIONS AND SETTING").
+        // Anchored off clockPill, taking over the screen position the
+        // old catch-all rightPill used to occupy.
         Item {
           id: curatedPill
           anchors.right: clockPill.left
@@ -2051,11 +2051,17 @@ Item {
           }
         }
 
-        // ruixen.pluginpins alone, its own group -- direct request
-        // ("next pill group is the PLUGSINSPIN"), not folded into
-        // curatedPill: it's a browse/pin tool for every OTHER optional
-        // widget, conceptually its own thing rather than one more
-        // action alongside quickactions/settings.
+        // ruixen.pluginpins itself PLUS everything pinned through it
+        // (stayawake, agents, microphone, network, any third-party
+        // widget) -- direct correction: "the plugs in toggle inside the
+        // pill it toggles... microphone network cofee ai [are]
+        // toggleable from the plugins pin so they stay pinnable or not
+        // in the plugin group". The toggle lives together with whatever
+        // it toggles, not off on its own -- this is the catch-all pill
+        // now (everything in "right" that's neither tray nor the fixed
+        // system four), which is also what makes a newly-enabled
+        // third-party widget land here automatically with no id list to
+        // maintain.
         Item {
           id: pluginPinsPill
           anchors.right: curatedPill.left
@@ -2070,30 +2076,23 @@ Item {
             id: pluginPinsContent
             anchors.centerIn: parent
             entries: root.layoutEntries("right").filter(function(e) {
-              return root.entryId(e) === "ruixen.pluginpins"
+              var id = root.entryId(e)
+              return id !== "ruixen.tray" && root.curatedRightIds.indexOf(id) === -1
             })
             region: "right"
           }
         }
 
-        // Tray merged with the generic catch-all -- direct request
-        // ("the onepassword and open app pill group" as one group, not
-        // two adjacent pills). Used to be trayPill (tray only) +
-        // thirdPartyPill (everything else in "right" not in a named
-        // group -- genuinely unknown third-party widgets, plus now
-        // stayawake/agents/system-update/power since they moved out of
-        // curatedPill). Keeps the id trayPill even though its scope
-        // widened -- rightDockedBg/rightShoulderWing's own x formulas
-        // (below) anchor half the docked-mode frame to THIS pill's own
-        // left edge, and renaming would touch that geometry for no
-        // functional benefit.
-        //
-        // Opacity-fades rather than collapsing width/margin to zero --
-        // unlike the old thirdPartyPill, this group is routinely
-        // non-empty now (tray itself, plus stayawake/agents pinned by
-        // default), so the "must actually collapse, not just fade"
-        // reasoning that justified thirdPartyPill's own zero-collapse
-        // doesn't apply here anymore.
+        // Tray ONLY -- direct correction, after three earlier attempts
+        // widened this pill's own filter to also catch stayawake/agents,
+        // then system-update/power, then microphone/network: "OPEN APPS
+        // GROUP" means exactly tray, nothing else. Used to also host a
+        // separate thirdPartyPill/catch-all filter of its own (both the
+        // catch-all role and the id thirdPartyPill are gone now --
+        // pluginPinsPill owns the catch-all instead). Keeps the id
+        // trayPill regardless -- rightDockedBg/rightShoulderWing's own x
+        // formulas (below) anchor half the docked-mode frame to THIS
+        // pill's own left edge.
         Item {
           id: trayPill
           opacity: trayContent.width > 0 ? 1 : 0
@@ -2126,9 +2125,7 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
-            entries: root.layoutEntries("right").filter(function(e) {
-              return root.sideRightIds.indexOf(root.entryId(e)) === -1
-            })
+            entries: root.layoutEntries("right").filter(function(e) { return root.entryId(e) === "ruixen.tray" })
             region: "right"
             // ModuleList's own visible/active binding (entries.length > 0)
             // never fired for this specific late-filled entries value --

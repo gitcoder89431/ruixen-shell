@@ -44,6 +44,7 @@ required_exclusions=(
   "ruixen.applauncher" "ruixen.workspaces" "ruixen.pinnedapps" "ruixen.tray"
   "ruixen.quickactions" "ruixen.settingsbutton"
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
+  "omarchy.system-update" "omarchy.power"
   "omarchy.keyboard-layout" "omarchy.indicators" "omarchy.network"
 )
 excluded_block="$(grep -A20 'readonly property var excludedIds:' "$widget_qml")"
@@ -55,29 +56,30 @@ for id in "${required_exclusions[@]}"; do
   fi
 done
 if [[ "$missing" -eq 0 ]]; then
-  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), keyboard-layout (self-hides on a single layout), indicators (redundant + a real IPC collision), and network (a real, ongoing IPC collision)\n'
+  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), system-update/power (curatedPill'"'"'s exact fixed four), keyboard-layout (self-hides on a single layout), indicators (redundant + a real IPC collision), and network (a real, ongoing IPC collision)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))
 fi
 
-# Deliberately NOT excluded, following the right-side four-group redraw
-# (Bar.qml's own curatedRightIds comment): stayawake/system-update/power
-# lost their own dedicated pill and are now just optional widgets in
-# trayPill's own catch-all, same as anything else -- unpinning them
-# through this dropdown no longer breaks a special pill the way it once
-# would have. A future change accidentally re-adding one of these here
-# should fail loudly, not silently make them unpinnable again.
-must_not_exclude=("ruixen.stayawake" "omarchy.system-update" "omarchy.power")
+# Deliberately NOT excluded: ruixen.stayawake and omarchy.agents both
+# render in ruixen.pluginpins' OWN pill now (the toggle icon lives
+# together with whatever it toggles -- "microphone network cofee ai
+# [are] toggleable from the plugins pin so they stay pinnable or not in
+# the plugin group"), so pinning/unpinning them through this dropdown is
+# the intended interaction, not something to guard against. A future
+# change accidentally excluding either here should fail loudly, not
+# silently make them unpinnable again.
+must_not_exclude=("ruixen.stayawake" "omarchy.agents")
 wrongly_excluded=0
 for id in "${must_not_exclude[@]}"; do
   if grep -qF "\"$id\"" <<<"$excluded_block"; then
-    printf 'FAIL - excludedIds should NOT contain: %s (it has no dedicated pill left to break)\n' "$id"
+    printf 'FAIL - excludedIds should NOT contain: %s (meant to stay toggle-able for discoverability)\n' "$id"
     wrongly_excluded=$((wrongly_excluded + 1))
   fi
 done
 if [[ "$wrongly_excluded" -eq 0 ]]; then
-  printf 'ok   - stayawake/system-update/power are NOT excluded (no dedicated pill left to break by unpinning them)\n'
+  printf 'ok   - stayawake/agents are NOT excluded (they render in this widget'"'"'s own pill, toggling them through it is the intended interaction)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))

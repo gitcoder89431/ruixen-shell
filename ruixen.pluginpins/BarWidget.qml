@@ -98,21 +98,26 @@ BarWidget {
   // it: "Handler was registered but will not be used because another
   // handler is registered for target omarchy.indicators". It also
   // duplicates dictation/screen-recording/reminders/night-light/DND,
-  // which ruixen.quickactions already reimplements. Stay-awake and its
-  // own DND-adjacent functionality overlap less directly now that
-  // ruixen.stayawake no longer has a dedicated pill of its own (see the
-  // right-side four-group redraw, Bar.qml's own curatedRightIds
-  // comment) -- ruixen.stayawake, omarchy.system-update, and
-  // omarchy.power all moved out of that reasoning and are no longer
-  // excluded here: none of the three has a special pill left to break
-  // by unpinning, they're just optional widgets in trayPill's own
-  // catch-all now, same as anything else this dropdown manages.
+  // which ruixen.quickactions already reimplements.
+  //
+  // omarchy.system-update and omarchy.power ARE excluded -- both live in
+  // curatedPill's own fixed, exact four (Bar.qml's own curatedRightIds:
+  // "system is POWER UPDATE MORE ACTIONS AND SETTING", never a
+  // catch-all), so unpinning either through here would break that fixed
+  // set. ruixen.stayawake and omarchy.agents both stay un-excluded on
+  // purpose, though -- final answer, after a few false starts: they
+  // render in ruixen.pluginpins' OWN pill now (the toggle icon lives
+  // together with whatever it toggles -- "microphone network cofee ai
+  // [are] toggleable from the plugins pin so they stay pinnable or not
+  // in the plugin group"), so pinning/unpinning them through this
+  // dropdown is exactly the intended interaction, not something to
+  // guard against.
   readonly property var excludedIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
     "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
-    "omarchy.clock", "omarchy.keyboard-layout", "omarchy.indicators",
-    "omarchy.network",
+    "omarchy.clock", "omarchy.system-update", "omarchy.power",
+    "omarchy.keyboard-layout", "omarchy.indicators", "omarchy.network",
     "omarchy.bar", "omarchy.menu", "omarchy.spacer",
     "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media"
   ]

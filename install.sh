@@ -23,6 +23,126 @@ fail() {
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
+# Issue #31: a completely separate, early code path -- not a
+# conditional threaded through the real mutation logic below, for the
+# same reason uninstall.sh's own --dry-run branch gives (see its own
+# comment): the safety guarantee is simple to verify (exits before the
+# lifecycle lock is even acquired, let alone any mutating command)
+# rather than trusting every future edit to the real path also
+# remembers to check a flag. Reuses lib/build-shell-json.sh completely
+# as-is -- the exact same pure function [4/6] below calls -- so the
+# shell.json preview and the real merge cannot drift on what would
+# actually change. Plugin manifest validation is run for REAL here
+# (omarchy plugin validate never mutates anything), not simulated, so
+# "invalid configs/manifests still fail validation in dry-run" is
+# literally true rather than approximated.
+if [[ "${1:-}" == "--dry-run" ]]; then
+  printf '=== Ruixen Install -- dry run, nothing will be changed ===\n\n'
+
+  omarchy_version="$(omarchy version 2>/dev/null || true)"
+  omarchy_major="${omarchy_version%%.*}"
+  if [[ -z "$omarchy_version" ]]; then
+    printf 'Omarchy version: could not determine\n'
+  else
+    printf 'Omarchy version: %s' "$omarchy_version"
+    [[ ! "$omarchy_major" =~ ^[0-9]+$ || "$omarchy_major" -ne 4 ]] \
+      && printf ' (developed against 4.x -- things may not work as expected)'
+    printf '\n'
+  fi
+
+  printf '\nOptional dependencies:\n'
+  for pair in "ffmpeg:video wallpaper support" "curl:weather data and avatar download" \
+    "python3:the bar's docked-mode toggle" "fastfetch:extra system-info detail"; do
+    cmd="${pair%%:*}"; feature="${pair#*:}"
+    if command -v "$cmd" >/dev/null 2>&1; then
+      printf '  %-10s present\n' "$cmd"
+    else
+      printf '  %-10s MISSING -- %s will be unavailable\n' "$cmd" "$feature"
+    fi
+  done
+
+  printf '\nPlugin validation (run for real -- read-only):\n'
+  validation_failed=0
+  for dir in "$script_dir"/ruixen.*/; do
+    [[ -d "$dir" ]] || continue
+    id="$(basename "$dir")"
+    if omarchy plugin validate "$dir" >/dev/null 2>&1; then
+      printf '  %-24s OK\n' "$id"
+    else
+      printf '  %-24s FAILS VALIDATION -- a real install would abort here, nothing else would be touched\n' "$id"
+      validation_failed=1
+    fi
+  done
+
+  printf '\nPlugins that would be installed/replaced:\n'
+  for dir in "$script_dir"/ruixen.*/; do
+    [[ -d "$dir" ]] || continue
+    id="$(basename "$dir")"
+    if [[ -e "$plugins_dir/$id" ]]; then
+      printf '  %-24s replace existing (backed up first)\n' "$id"
+    else
+      printf '  %-24s install fresh\n' "$id"
+    fi
+  done
+
+  printf '\nshell.json:\n'
+  if [[ -e "$shell_json" ]]; then
+    if ! jq empty "$shell_json" >/dev/null 2>&1; then
+      printf '  existing shell.json is not valid JSON -- a real install would abort here, nothing would be touched\n'
+    else
+      merged="$("$script_dir/lib/build-shell-json.sh" <"$shell_json" 2>/dev/null || echo '')"
+      if [[ -z "$merged" ]]; then
+        printf '  could not compute the merge preview (build-shell-json.sh failed)\n'
+      elif [[ "$(jq -S . <"$shell_json")" == "$(jq -S . <<<"$merged")" ]]; then
+        printf '  would merge into the existing file -- no actual changes (already up to date)\n'
+      else
+        current_bar_id="$(jq -r '.bar.id // "(none)"' "$shell_json")"
+        new_bar_id="$(jq -r '.bar.id' <<<"$merged")"
+        if [[ "$current_bar_id" != "ruixen.bar" ]]; then
+          printf '  bar host: %s -> ruixen.bar (some other bar is currently active)\n' "$current_bar_id"
+        else
+          printf '  bar host: ruixen.bar (already owns the bar slot -- your own layout/docked/settings are preserved, not replaced)\n'
+        fi
+        added_plugins="$(jq -r --slurpfile a <(jq -c '[.plugins[]?.id]' <<<"$merged") --slurpfile b <(jq -c '[.plugins[]?.id]' "$shell_json") -n '$a[0] - $b[0] | .[]' 2>/dev/null || true)"
+        if [[ -n "$added_plugins" ]]; then
+          printf '  plugins[] entries that would be added:\n'
+          while IFS= read -r id; do [[ -n "$id" ]] && printf '    %s\n' "$id"; done <<<"$added_plugins"
+        fi
+      fi
+    fi
+  else
+    printf '  would be created fresh from this checkout own canonical layout\n'
+  fi
+
+  printf '\nHyprland window look:\n'
+  looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
+  looknfeel_src="$script_dir/hyprland/looknfeel.ruixen.lua"
+  if [[ -L "$looknfeel_target" ]]; then
+    link_target="$(readlink -f "$looknfeel_target" 2>/dev/null || true)"
+    if [[ -n "$link_target" ]] && cmp -s "$link_target" "$looknfeel_src" 2>/dev/null; then
+      printf '  already Ruixen own symlink, matches this checkout -- no change\n'
+    else
+      printf '  would back up the current looknfeel.lua and point it at this checkout own version\n'
+    fi
+  elif [[ -e "$looknfeel_target" ]]; then
+    printf '  a real file (not a symlink) exists -- would be backed up, then replaced with a Ruixen-managed symlink\n'
+  else
+    printf '  nothing exists yet -- would be created fresh\n'
+  fi
+
+  printf '\nState files:\n'
+  [[ -e "$HOME/.local/state/ruixen/shell.json.pre-ruixen" ]] \
+    && printf '  pre-Ruixen bar snapshot: already recorded, left untouched\n' \
+    || printf '  pre-Ruixen bar snapshot: would be recorded (first time Ruixen takes the bar slot)\n'
+  [[ -e "$HOME/.local/state/ruixen/repo-path" ]] \
+    && printf '  repo-path: already recorded, would be updated to this checkout\n' \
+    || printf '  repo-path: would be recorded, pointing at this checkout\n'
+
+  printf '\nNo files changed.\n'
+  [[ "$validation_failed" -eq 1 ]] && exit 1
+  exit 0
+fi
+
 # $state_dir itself is needed early (the lock file below lives under
 # it, same as the pristine snapshots and plugin backups further down)
 # -- but NOT the repo-path file, see the [6/6] success block at the end

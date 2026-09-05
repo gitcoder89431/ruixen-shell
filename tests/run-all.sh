@@ -36,6 +36,7 @@ suites=(
   "$script_dir/bar-left-pluginpins-pill.sh"
   "$script_dir/repair-drift-detection.sh"
   "$script_dir/uninstall-dry-run.sh"
+  "$script_dir/install-dry-run.sh"
 )
 
 overall_status=0

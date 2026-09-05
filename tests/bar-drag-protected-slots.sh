@@ -50,21 +50,41 @@ check "protectedModuleIds folds in curatedRightIds (the System pill's own fixed 
 check "moduleDropAtScene computes whether the dragged source is itself protected" \
   "$(grep -c 'var sourceIsProtected = sourceSlot && root.protectedModuleIds.indexOf(sourceSlot.moduleName)' "$bar_qml" || true)" "1"
 
-check "moduleDropAtScene's candidate loop skips protected slots for a non-protected drag source" \
-  "$(grep -Fc 'if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) continue' "$bar_qml" || true)" "1"
+check "moduleDropAtScene also computes whether the source is one of curatedRightIds specifically" \
+  "$(grep -Fc 'var sourceIsCurated = sourceSlot && root.curatedRightIds.indexOf(sourceSlot.moduleName) !== -1' "$bar_qml" || true)" "1"
+
+# Direct correction: curatedRightIds (the "settings and more options
+# and power" group) is NOT allowed the same "any protected slot"
+# latitude as the rest of protectedModuleIds -- it may only reorder
+# among its own four, never pop out via drag onto another protected
+# slot (ruixen.settingsbutton's own left-side settingsPill fallback
+# included). "no i dont want the settings and more options and power
+# etc to have that option, keep that pill rearrange within its group
+# only".
+check "a curated source's candidate loop only accepts other curatedRightIds slots" \
+  "$(grep -Fc 'if (root.curatedRightIds.indexOf(slot.moduleName) === -1) continue' "$bar_qml" || true)" "1"
+
+check "a non-curated, non-protected drag source still skips every protected slot (the plain foreign-widget case)" \
+  "$(grep -Fc '} else if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) {' "$bar_qml" || true)" "1"
 
 # Direct follow-up: solo pills (workspace, app launcher, pinned apps,
 # tray, the pluginpins toggle itself) cannot be dragged AT ALL, in
 # either direction -- protectedModuleIds alone only stopped a FOREIGN
 # id from landing there; a protected source (ruixen.tray, say) could
 # still be dropped onto another solo pill's own slot and vanish the
-# same way. ruixen.settingsbutton is deliberately NOT in this list --
-# its own ability to pop between curatedPill and its left-side
-# settingsPill fallback is a real, wanted feature, not a bug.
+# same way.
 check "immovableModuleIds exists, exactly once" \
   "$(grep -c 'readonly property var immovableModuleIds:' "$bar_qml" || true)" "1"
 
-check "immovableModuleIds does NOT include ruixen.settingsbutton (its dual-home pop-out stays a feature)" \
+# ruixen.settingsbutton is deliberately NOT in immovableModuleIds --
+# unlike the solo pills, it still needs to reorder freely among the
+# other three curatedRightIds items. It is kept from popping out to
+# its own left-side settingsPill fallback by the SEPARATE
+# sourceIsCurated scoping above instead (direct correction: an earlier
+# pass treated that pop-out as a keeper feature; "no i dont want the
+# settings and more options and power etc to have that option, keep
+# that pill rearrange within its group only").
+check "immovableModuleIds does NOT include ruixen.settingsbutton (it still reorders within curatedPill)" \
   "$(grep -A6 'readonly property var immovableModuleIds:' "$bar_qml" | grep -c '"ruixen.settingsbutton"' || true)" "0"
 
 check "canReorder is false for an immovable id, so its drag never even starts" \

@@ -759,22 +759,27 @@ Item {
   ])
 
   // Solo pills -- each renders exactly one fixed id, with no second
-  // legitimate home anywhere else on the bar (unlike ruixen.settingsbutton,
-  // which can genuinely live in either curatedPill or its own left-side
-  // settingsPill fallback -- kept working on purpose, a direct follow-up
-  // called it out as a nice, keeper behavior, not something to lock
-  // down the same way). Direct follow-up after the broader
-  // protectedModuleIds fix ("we either want to move the whole
-  // workspace or app launcher as a plugin by itself, dont allow stuff
-  // in there... on other pills that are solo buttons dont allow move
-  // out of the pill or other stuff into the pill"): these ids cannot
-  // be dragged AT ALL, in either direction -- protectedModuleIds alone
-  // only blocked foreign ids from landing here, a drag whose SOURCE is
-  // itself protected (ruixen.tray dragged near workspacesPill, say)
-  // could still land on another solo pill's slot and vanish just the
-  // same way. Blocking the drag from ever starting for these ids is
-  // simpler and more complete than trying to validate every possible
-  // destination.
+  // legitimate home anywhere else on the bar. ruixen.settingsbutton is
+  // NOT in this list -- it still needs to reorder among the other
+  // three curatedRightIds items -- but it no longer gets a second home
+  // either; moduleDropAtScene's own sourceIsCurated scoping keeps it
+  // (and the rest of curatedRightIds) confined to curatedPill only, a
+  // direct correction after an earlier pass let it pop out to its own
+  // left-side settingsPill fallback ("no i dont want the settings and
+  // more options and power etc to have that option, keep that pill
+  // rearrange within its group only").
+  //
+  // Direct follow-up after the broader protectedModuleIds fix ("we
+  // either want to move the whole workspace or app launcher as a
+  // plugin by itself, dont allow stuff in there... on other pills that
+  // are solo buttons dont allow move out of the pill or other stuff
+  // into the pill"): these ids cannot be dragged AT ALL, in either
+  // direction -- protectedModuleIds alone only blocked foreign ids
+  // from landing here, a drag whose SOURCE is itself protected
+  // (ruixen.tray dragged near workspacesPill, say) could still land on
+  // another solo pill's slot and vanish just the same way. Blocking
+  // the drag from ever starting for these ids is simpler and more
+  // complete than trying to validate every possible destination.
   readonly property var immovableModuleIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.pluginpins"
@@ -986,18 +991,29 @@ Item {
     // system four, ...) only ever renders its own exact id -- dropping
     // some OTHER, non-protected widget there does not reorder anything
     // visible, it just makes that widget stop rendering anywhere on
-    // the bar at all. Ruixen's own protected ids can still freely
-    // reorder among each other (e.g. the System pill's own four items),
-    // since each of those already has a pill willing to render it --
-    // only a genuinely foreign/arbitrary id gets steered away from
-    // these slots as a drop target.
+    // the bar at all, so a non-protected source can only ever target a
+    // non-protected slot (pluginPinsPill's own catch-all).
+    //
+    // curatedRightIds (the "settings and more options and power"
+    // group) is a SEPARATE case from the rest of protectedModuleIds --
+    // direct correction after an earlier pass wrongly let it reorder
+    // onto ANY protected slot, including ruixen.settingsbutton's own
+    // left-side settingsPill fallback ("no i dont want the settings
+    // and more options and power etc to have that option, keep that
+    // pill rearrange within its group only"): these four may only
+    // reorder among each other, never leave curatedPill via drag.
+    var sourceIsCurated = sourceSlot && root.curatedRightIds.indexOf(sourceSlot.moduleName) !== -1
     var sourceIsProtected = sourceSlot && root.protectedModuleIds.indexOf(sourceSlot.moduleName) !== -1
 
     var candidates = []
     for (var i = 0; i < moduleSlots.length; i++) {
       var slot = moduleSlots[i]
       if (!slot || slot === sourceSlot || !slot.visible || slot.width <= 0 || slot.height <= 0) continue
-      if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) continue
+      if (sourceIsCurated) {
+        if (root.curatedRightIds.indexOf(slot.moduleName) === -1) continue
+      } else if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) {
+        continue
+      }
       if (sourceWindow && !root.sameWindow(root.slotWindow(slot), sourceWindow)) continue
 
       var slotPoint = { x: slot.x, y: slot.y }

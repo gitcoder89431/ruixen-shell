@@ -1082,10 +1082,14 @@ Item {
 
       ColumnLayout {
         anchors.fill: parent
+        // Even 10px on all sides now -- the topMargin used to be
+        // trimmed to 6 because the header row sat too far from the
+        // card's top edge with the old placeholder content below it;
+        // direct follow-up once real notification rows were in
+        // ("the title top row is so close to the card edge, the
+        // buttom one has better padding, its not balanced") found the
+        // opposite now true, so back to matching the other 3 sides.
         anchors.margins: 10
-        // Trimmed independently of the other 3 sides -- the header row
-        // (title/bell/broom) sat too far from the card's own top edge.
-        anchors.topMargin: 6
         spacing: 8
 
         RowLayout {

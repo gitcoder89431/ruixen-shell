@@ -108,17 +108,16 @@ check "already ruixen.bar: missing ruixen ids (frame-widget, wallpaper, media) s
 # will make sure ruixen media is hidden right... these NEVER SHOW UP"):
 # an existing owner's bar is otherwise preserved completely untouched
 # (Case 4 above), so without this explicit strip the stale entry would
-# survive every future update forever. omarchy.menu is a real, freely
-# toggleable widget nobody's locked out of -- it must survive
-# untouched, proving this is a targeted single-id strip, not a general
-# layout migration.
+# survive every future update forever. omarchy.clock is protected (see
+# Case 7 below) and must survive untouched here regardless, proving
+# this is a targeted single-id strip, not the separate migration.
 stale_media='{
   "version": 1,
   "bar": {
     "id": "ruixen.bar",
     "layout": {
       "left": [{ "id": "ruixen.applauncher" }],
-      "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.media" }, { "id": "ruixen.weather" }],
+      "center": [{ "id": "omarchy.clock" }, { "id": "ruixen.media" }, { "id": "ruixen.weather" }],
       "right": [{ "id": "ruixen.media", "hidden": [] }]
     }
   },
@@ -127,10 +126,82 @@ stale_media='{
 out6="$(printf '%s' "$stale_media" | "$build")"
 check "existing install with stale ruixen.media in layout: stripped from every section" \
   "$(jq -c '.bar.layout' <<<"$out6")" \
-  '{"left":[{"id":"ruixen.applauncher"}],"center":[{"id":"omarchy.menu"},{"id":"ruixen.weather"}],"right":[]}'
+  '{"left":[{"id":"ruixen.applauncher"}],"center":[{"id":"omarchy.clock"},{"id":"ruixen.weather"}],"right":[]}'
 check "existing install with stale ruixen.media in layout: still gets the plugins[] entry" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out6")" \
   '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
+
+# --- Case 7 (issue #36): legacy foreign/optional bar-widgets stuck in
+# left/center from before ruixen.pluginpins existed get migrated into
+# "right", where pluginPinsPill actually knows how to present them --
+# not left to render inside workspacesPill (now a strict single-id
+# match in Bar.qml, so they would not even be VISIBLE there anymore,
+# just silently dropped from the screen) or any other structural pill.
+# Preserves the full entry object (inline settings survive); a
+# duplicate of an id already correctly on the right is dropped, not
+# doubled. omarchy.menu is deliberately NOT in the protected set (it
+# is a real, freely toggleable widget, not one of Ruixen's own
+# dedicated pills) -- exactly the "optional" bucket this migration
+# exists for, matching the issue's own left/right diagram.
+legacy_foreign='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [
+        { "id": "ruixen.applauncher" },
+        { "id": "ruixen.workspaces" },
+        { "id": "thirdparty.foo", "opacity": 0.5 },
+        { "id": "ruixen.pinnedapps" },
+        { "id": "ruixen.settingsbutton" }
+      ],
+      "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.weather" }, { "id": "omarchy.clock" }],
+      "right": [{ "id": "ruixen.tray" }, { "id": "already.pinned" }]
+    }
+  },
+  "plugins": []
+}'
+out7="$(printf '%s' "$legacy_foreign" | "$build")"
+check "issue #36: workspacesPill's own left region keeps only the protected structural ids" \
+  "$(jq -c '.bar.layout.left' <<<"$out7")" \
+  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"},{"id":"ruixen.settingsbutton"}]'
+check "issue #36: center keeps only the protected weather/clock, omarchy.menu migrates out" \
+  "$(jq -c '.bar.layout.center' <<<"$out7")" \
+  '[{"id":"ruixen.weather"},{"id":"omarchy.clock"}]'
+check "issue #36: foreign entries land on the right, inline settings preserved, already-pinned ids untouched" \
+  "$(jq -c '.bar.layout.right' <<<"$out7")" \
+  '[{"id":"ruixen.tray"},{"id":"already.pinned"},{"id":"thirdparty.foo","opacity":0.5},{"id":"omarchy.menu"}]'
+
+# --- Case 8 (issue #36): a foreign id stuck in left AND already
+# correctly pinned on the right must not end up duplicated -- the
+# stale left-side copy is dropped, the right-side copy (already in its
+# intended home) wins.
+dup_foreign='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "already.pinned" }],
+      "center": [],
+      "right": [{ "id": "ruixen.tray" }, { "id": "already.pinned", "extra": "settings-that-should-win" }]
+    }
+  },
+  "plugins": []
+}'
+out8="$(printf '%s' "$dup_foreign" | "$build")"
+check "issue #36: a foreign id already pinned on the right is not duplicated when also stuck in left" \
+  "$(jq -c '.bar.layout.right' <<<"$out8")" \
+  '[{"id":"ruixen.tray"},{"id":"already.pinned","extra":"settings-that-should-win"}]'
+check "issue #36: the stale left-side copy of an already-pinned id is dropped, not left behind" \
+  "$(jq -c '.bar.layout.left' <<<"$out8")" \
+  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"}]'
+
+# --- Case 9 (issue #36): running the merge again on its own migrated
+# output must be a no-op -- nothing left in left/center to migrate a
+# second time.
+out7b="$(printf '%s' "$out7" | "$build")"
+check "issue #36: re-running the migration on its own output changes nothing (idempotent)" \
+  "$out7b" "$out7"
 
 # --- Case 5: invalid JSON input is rejected, not silently swallowed
 if printf 'not json at all' | "$build" >/dev/null 2>&1; then

@@ -89,12 +89,27 @@ ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 ruixen_plugin_ids='["ruixen.frame-widget", "ruixen.notch", "ruixen.settings", "ruixen.wallpaper", "ruixen.media"]'
 default_idle_json='{"lock": 300, "screensaver": 150}'
 
+# Issue #36: bar.layout ids with a dedicated, intentional pill of their
+# own -- never migrated out of left/center by the foreign-widget
+# cleanup below, no matter how old or malformed an existing install
+# own layout is. Mirrors Bar.qml own curatedRightIds plus every
+# left/center id that ModuleList filter checks by exact match
+# (settingsPill own left-side fallback slot included) -- keep both in
+# sync if either changes.
+protected_bar_ids='[
+  "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
+  "ruixen.settingsbutton", "ruixen.weather", "omarchy.clock",
+  "ruixen.tray", "ruixen.pluginpins",
+  "omarchy.system-update", "omarchy.power", "ruixen.quickactions"
+]'
+
 existing_json="$(cat)"
 
 jq -n \
   --argjson existing "$existing_json" \
   --argjson ruixenBar "$ruixen_bar_json" \
   --argjson ruixenPluginIds "$ruixen_plugin_ids" \
+  --argjson protectedBarIds "$protected_bar_ids" \
   --argjson defaultIdle "$default_idle_json" \
   '
   # bar: only installed fresh the first time ruixen.bar takes over the
@@ -125,7 +140,42 @@ jq -n \
        $ownedBar | .layout |= with_entries(
          .value |= (if type == "array" then map(select(.id != "ruixen.media")) else . end)
        )
-     else $ownedBar end) as $mergedBar
+     else $ownedBar end) as $mediaStrippedBar
+
+  # Issue #36: workspacesPill (Bar.qml) used to render anything in
+  # "left" except a short exclusion list, an accidental catch-all --
+  # any bar-widget entry left over in "left"/"center" from before
+  # ruixen.pluginpins existed (or dragged there by hand) rendered
+  # sharing that Row with the tiny workspace dots, which a direct
+  # report described as the dots looking "floating/misaligned" inside
+  # the pill. Bar.qml itself was fixed to a strict single-id filter;
+  # this is the matching migration so an EXISTING install (whose bar
+  # object is otherwise preserved verbatim above) does not keep
+  # rendering broken forever -- moves anything not in this protected
+  # set out of left/center and into "right", where ruixen.pluginpins
+  # own pill already knows how to present arbitrary bar-widgets.
+  # Preserves the full entry object (inline settings survive); drops
+  # -- does not duplicate -- a stale copy whose id already exists
+  # somewhere in "right", since that copy is already correctly placed.
+  # Naturally idempotent: once migrated, an id is no longer in
+  # left/center for a second run to find.
+  | (if ($mediaStrippedBar.layout | type) == "object" then
+       ($mediaStrippedBar.layout.right // []) as $rightNow
+       | ($rightNow | map(.id)) as $rightIds
+       | (["left", "center"]
+          | map(. as $section | ($mediaStrippedBar.layout[$section] // [])
+              | map(select((.id as $id | $protectedBarIds | index($id)) == null))
+              | map(select((.id as $id | $rightIds | index($id)) == null)))
+          | add) as $migratedEntries
+       | (["left", "center"]
+          | map({key: ., value: ($mediaStrippedBar.layout[.] // []
+              | map(select((.id as $id | $protectedBarIds | index($id)) != null)))})
+          | from_entries) as $prunedLeftCenter
+       | ($mediaStrippedBar
+          | .layout.left = $prunedLeftCenter.left
+          | .layout.center = $prunedLeftCenter.center
+          | .layout.right = ($rightNow + $migratedEntries))
+     else $mediaStrippedBar end) as $mergedBar
 
   # plugins: existing entries (ruixen-owned or not) are left completely
   # untouched -- only ids from ruixenPluginIds that are not present AT

@@ -1944,12 +1944,21 @@ Item {
           ModuleList {
             id: workspacesContent
             anchors.centerIn: parent
-            // Excludes ruixen.settingsbutton and ruixen.pinnedapps too now
-            // -- same reasoning as the settingsbutton exclusion below:
-            // each gets its own dedicated pill instead of squeezing into
-            // this one and shifting the workspace icons.
+            // Strict single-id match, not an exclusion list (issue #36):
+            // an exclusion filter is an accidental catch-all for
+            // anything else in "left" -- a stale/foreign entry left
+            // over from before ruixen.pluginpins existed (or dragged
+            // there by hand) would render sharing this Row with the
+            // workspace dots, which is exactly what a direct report
+            // described as the dots looking "floating/misaligned"
+            // inside the pill: a real ~11px-tall dot next to a much
+            // taller foreign widget in the same Row. The real fix is
+            // this pill staying workspace-only; migrating any such
+            // stale entry into ruixen.pluginpins' own group instead
+            // lives in lib/build-shell-json.sh (runs on every
+            // install/update, not just fresh installs).
             entries: root.layoutEntries("left").filter(function(e) {
-              return root.entryId(e) !== "ruixen.applauncher" && root.entryId(e) !== "ruixen.settingsbutton" && root.entryId(e) !== "ruixen.pinnedapps"
+              return root.entryId(e) === "ruixen.workspaces"
             })
             region: "left"
           }

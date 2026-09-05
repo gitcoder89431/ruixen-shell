@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ruixen.settings",
   "name": "Ruixen Settings",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "ruixen",
   "license": "MIT",
   "description": "Center-panel settings app for Omarchy, sharing ruixen's dark card/dial design language. Works standalone -- no other ruixen plugin required.",

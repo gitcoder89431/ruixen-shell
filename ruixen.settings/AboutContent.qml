@@ -42,7 +42,7 @@ ColumnLayout {
       }
 
       Text {
-        text: "v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
+        text: "v0.1.1 -- github.com/gitcoder89431/ruixen-shell"
         font.family: settingsRoot.fontFamily
         font.pixelSize: 10
         color: settingsRoot.muted

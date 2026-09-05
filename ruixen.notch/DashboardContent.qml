@@ -1229,7 +1229,16 @@ Item {
             id: notificationRow
             required property var modelData
             width: notificationList.width
-            height: 56
+            // 56 -> 70: with the 8px top/bottom margins added since,
+            // the body Text's own fillHeight allocation (56 - 16
+            // margins - ~16 header row - 2 spacing = ~22px) fell just
+            // short of two real 10px-font lines (~24-28px) -- it was
+            // eliding to a single line after the first word wrap
+            // regardless of maximumLineCount: 2, not actually showing
+            // a second line at all. Confirmed live via a genuinely
+            // long test notification before changing this, not
+            // assumed.
+            height: 70
             // Direct follow-up: "the text re clipping under the card
             // pills now, dont use that much curve on this pill make it
             // like regular curve like the calendar" -- radius: height/2

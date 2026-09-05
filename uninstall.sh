@@ -13,6 +13,76 @@ fail() {
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
+# Issue #31: a completely separate, early code path -- not a
+# conditional threaded through the real mutation logic below. That
+# keeps the safety guarantee simple to verify (dry-run exits before
+# ever reaching a single mutating command, including the lock/backup
+# machinery: this is read-only, nothing here needs to block a
+# concurrent operation) rather than trusting that every future edit to
+# the real path also remembers to check a flag. Reuses
+# lib/merge-uninstall-bar.sh AS-IS, the exact same pure function the
+# real run below calls -- the preview and the real operation cannot
+# drift apart on what counts as "Ruixen-owned" vs "foreign", since
+# they are calling the identical code with the identical inputs.
+if [[ "${1:-}" == "--dry-run" ]]; then
+  pristine_shell_json="$HOME/.local/state/ruixen/shell.json.pre-ruixen"
+  shell_json="$HOME/.config/omarchy/shell.json"
+  canon="$(cat "$script_dir/lib/ruixen-bar-canonical.json")"
+
+  printf '=== Ruixen Uninstall -- dry run, nothing will be changed ===\n\n'
+
+  if pristine_bar="$("$script_dir/lib/pick-pristine-bar.sh" "$pristine_shell_json" 2>/dev/null)"; then
+    current_bar="$(jq -c '.bar // {}' "$shell_json" 2>/dev/null || echo '{}')"
+    if restored_bar="$("$script_dir/lib/merge-uninstall-bar.sh" "$pristine_bar" "$current_bar" "$canon" 2>/dev/null)"; then
+      printf 'Restore bar: %s\n\n' "$(jq -r '.id' <<<"$restored_bar")"
+      foreign_ids="$(jq -r --argjson canon "$canon" '
+        [($canon.layout.left // []) + ($canon.layout.center // []) + ($canon.layout.right // []) | .[].id] as $owned
+        | [(.layout.left // []) + (.layout.center // []) + (.layout.right // []) | .[].id]
+        | map(select((. as $id | $owned | index($id)) == null)) | .[]
+      ' <<<"$restored_bar")"
+      if [[ -n "$foreign_ids" ]]; then
+        printf 'Preserve user/third-party widgets:\n'
+        while IFS= read -r id; do [[ -n "$id" ]] && printf '  %s\n' "$id"; done <<<"$foreign_ids"
+      else
+        printf 'Preserve user/third-party widgets:\n  (none found)\n'
+      fi
+    else
+      printf 'Restore bar: could not compute (merge-uninstall-bar.sh failed) -- would fall back to your exact pre-Ruixen bar without foreign-widget preservation\n'
+    fi
+  else
+    printf 'Restore bar: no usable pre-Ruixen snapshot found -- would fall back to the built-in Omarchy default bar\n'
+  fi
+
+  printf '\nRemove Ruixen-managed entries (plugin files):\n'
+  if plugin_list_json="$(omarchy plugin list --json 2>/dev/null)"; then
+    ruixen_ids="$(jq -r '.[] | select(.id | startswith("ruixen.")) | .id' <<<"$plugin_list_json")"
+    if [[ -n "$ruixen_ids" ]]; then
+      while IFS= read -r id; do [[ -n "$id" ]] && printf '  %s\n' "$id"; done <<<"$ruixen_ids"
+    else
+      printf '  (none installed)\n'
+    fi
+  else
+    printf '  (could not list installed plugins -- omarchy plugin list --json failed)\n'
+  fi
+
+  printf '\nRestore Hyprland window look:\n'
+  looknfeel_pristine_dir="$HOME/.local/state/ruixen/looknfeel-pristine"
+  if [[ -e "$looknfeel_pristine_dir/target" ]]; then
+    printf '  restore your own looknfeel.lua symlink -> %s\n' "$(cat "$looknfeel_pristine_dir/target")"
+  elif [[ -e "$looknfeel_pristine_dir/looknfeel.lua" ]]; then
+    printf '  restore your own looknfeel.lua (a real file, not a symlink)\n'
+  elif [[ -e "$looknfeel_pristine_dir/absent" ]]; then
+    printf "  nothing existed before Ruixen -- would install Omarchy's own default looknfeel.lua\n"
+  else
+    printf '  no pristine record found -- would fall back to the newest looknfeel.lua.bak.* (best guess), or leave it alone if not a Ruixen-managed symlink\n'
+  fi
+
+  printf '\nState retained: most of ~/.local/state/ruixen/ (launcher favorites, etc) -- only the pristine-baseline snapshot is cleared, so a future reinstall captures a fresh one.\n'
+  printf 'This checkout: left untouched either way -- delete it yourself afterward if you do not want it around.\n'
+  printf '\nNo files changed.\n'
+  exit 0
+fi
+
 # Same lock install.sh takes, and for the same reason ("Add an
 # install/update/uninstall lock and collision-safe run identifiers",
 # #16) -- an uninstall racing a concurrent install/update could

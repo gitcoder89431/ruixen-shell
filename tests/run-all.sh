@@ -32,6 +32,7 @@ suites=(
   "$script_dir/pluginpins-model.sh"
   "$script_dir/notch-bar-hidden-sync.sh"
   "$script_dir/workspaces-pill-strict.sh"
+  "$script_dir/bar-drag-protected-slots.sh"
 )
 
 overall_status=0

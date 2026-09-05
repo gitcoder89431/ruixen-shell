@@ -737,6 +737,27 @@ Item {
   // remaining.
   readonly property var centerSpecialIds: ["ruixen.weather", "omarchy.clock"]
 
+  // Every id with its own dedicated, exact-match pill (curatedRightIds
+  // and centerSpecialIds above, plus the left-side ones: menuPill/
+  // workspacesPill/pinnedappsPill/settingsPill each render exactly one
+  // named id, never a catch-all) and ruixen.tray/ruixen.pluginpins
+  // themselves. Mirrors lib/build-shell-json.sh's own protected_bar_ids
+  // -- keep both in sync if either changes.
+  //
+  // Direct follow-up after #36 ("can you make sure we just disable
+  // people from dragging icons into the workspace group blowing it up
+  // again"): dropping any OTHER id onto one of these pills does not
+  // just fail to look reordered -- the pill's own filter is an exact
+  // id match, not a catch-all, so the dropped widget stops rendering
+  // anywhere on the bar at all, silently, with no feedback. Used below
+  // to keep these slots out of the drop-target search entirely, not
+  // just workspacesPill -- every exact-match pill has the identical
+  // failure mode.
+  readonly property var protectedModuleIds: root.curatedRightIds.concat(root.centerSpecialIds).concat([
+    "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
+    "ruixen.tray", "ruixen.pluginpins"
+  ])
+
   // Direct review finding ("Reserve horizontal space for the Notch so
   // bar widgets cannot render underneath it", #28): ruixen.notch's own
   // overlay window sits on WlrLayer.Overlay, a compositor layer ABOVE
@@ -939,10 +960,22 @@ Item {
         return null
     }
 
+    // A protected slot (workspacesPill, applauncher, tray, the curated
+    // system four, ...) only ever renders its own exact id -- dropping
+    // some OTHER, non-protected widget there does not reorder anything
+    // visible, it just makes that widget stop rendering anywhere on
+    // the bar at all. Ruixen's own protected ids can still freely
+    // reorder among each other (e.g. the System pill's own four items),
+    // since each of those already has a pill willing to render it --
+    // only a genuinely foreign/arbitrary id gets steered away from
+    // these slots as a drop target.
+    var sourceIsProtected = sourceSlot && root.protectedModuleIds.indexOf(sourceSlot.moduleName) !== -1
+
     var candidates = []
     for (var i = 0; i < moduleSlots.length; i++) {
       var slot = moduleSlots[i]
       if (!slot || slot === sourceSlot || !slot.visible || slot.width <= 0 || slot.height <= 0) continue
+      if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) continue
       if (sourceWindow && !root.sameWindow(root.slotWindow(slot), sourceWindow)) continue
 
       var slotPoint = { x: slot.x, y: slot.y }

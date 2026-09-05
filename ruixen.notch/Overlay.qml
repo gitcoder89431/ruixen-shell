@@ -940,8 +940,13 @@ Item {
               Text {
                 id: collapsedPlayGlyph
                 anchors.verticalCenter: parent.verticalCenter
+                // Direct follow-up: "we dont need the inactive play
+                // button to show then" -- showing a play/pause glyph
+                // next to the active-window title (not a track) never
+                // made sense once that title took over this slot.
+                visible: root.hasMedia
                 text: root.playIcon
-                color: root.hasMedia ? root.textColor : root.muted
+                color: root.textColor
                 font.family: root.fontFamily
                 // Matches the bar's new icon standard (18px, tuned to
                 // ambxst's own bar-icon size) -- was 11, visibly undersized

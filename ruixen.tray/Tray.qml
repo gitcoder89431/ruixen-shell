@@ -560,12 +560,18 @@ BarWidget {
     // Imperative (Component.onCompleted + a signal handler), not a
     // property binding -- see ruixen.pinnedapps' own PinnedAppItem
     // comment for the exact "Binding loop detected" this avoids.
-    Component.onCompleted: if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(trayItemRoot)
-    Component.onDestruction: if (root.bar && root.bar.unregisterClickTarget) root.bar.unregisterClickTarget(trayItemRoot)
+    //
+    // root itself (not just root.bar) is guarded in every branch here --
+    // see ruixen.pinnedapps' own identical comment: confirmed live,
+    // recurring "TypeError: Cannot read property 'bar' of null" at
+    // Component.onDestruction during a plugin reload cycle, where
+    // destruction order isn't guaranteed child-before-parent.
+    Component.onCompleted: if (root && root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(trayItemRoot)
+    Component.onDestruction: if (root && root.bar && root.bar.unregisterClickTarget) root.bar.unregisterClickTarget(trayItemRoot)
     Connections {
       target: root
       function onBarChanged() {
-        if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(trayItemRoot)
+        if (root && root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(trayItemRoot)
       }
     }
 

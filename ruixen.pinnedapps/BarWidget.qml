@@ -195,12 +195,22 @@ BarWidget {
     // root.bar's own clickTargets, which is exactly the anti-pattern QML
     // is warning about). Matches WidgetButton's own proven
     // onBarChanged-based pattern instead.
-    Component.onCompleted: if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(itemRoot)
-    Component.onDestruction: if (root.bar && root.bar.unregisterClickTarget) root.bar.unregisterClickTarget(itemRoot)
+    //
+    // root itself (not just root.bar) is guarded in every branch here --
+    // confirmed live, recurring: "TypeError: Cannot read property 'bar'
+    // of null" at Component.onDestruction, during a plugin reload cycle
+    // that tears down and recreates this Repeater's delegates. Destruction
+    // order isn't guaranteed child-before-parent in that case, so root
+    // (the outer BarWidget) can already be gone by the time a delegate's
+    // own onDestruction runs. Harmless to skip the unregister in that
+    // exact case -- the whole subtree (and bar.clickTargets along with
+    // it) is being torn down regardless.
+    Component.onCompleted: if (root && root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(itemRoot)
+    Component.onDestruction: if (root && root.bar && root.bar.unregisterClickTarget) root.bar.unregisterClickTarget(itemRoot)
     Connections {
       target: root
       function onBarChanged() {
-        if (root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(itemRoot)
+        if (root && root.bar && root.bar.registerClickTarget) root.bar.registerClickTarget(itemRoot)
       }
     }
 

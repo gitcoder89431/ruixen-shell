@@ -13,6 +13,6 @@
     "description": "Quick-launch icons for your pinned favorite apps.",
     "category": "Apps",
     "allowMultiple": false,
-    "defaultSection": "right"
+    "defaultSection": "left"
   }
 }

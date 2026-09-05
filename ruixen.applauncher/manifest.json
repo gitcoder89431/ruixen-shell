@@ -16,6 +16,7 @@
     "displayName": "Ruixen App Launcher",
     "description": "Toggle the notch's app launcher.",
     "category": "Compositor",
-    "allowMultiple": false
+    "allowMultiple": false,
+    "defaultSection": "left"
   }
 }

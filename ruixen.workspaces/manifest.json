@@ -16,6 +16,7 @@
     "displayName": "Ruixen Workspaces",
     "description": "GNOME-style dots + pill workspace switcher.",
     "category": "Status",
-    "allowMultiple": false
+    "allowMultiple": false,
+    "defaultSection": "left"
   }
 }

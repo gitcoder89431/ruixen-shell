@@ -1905,7 +1905,7 @@ Item {
           // guessing a new number.
           anchors.leftMargin: root.docked ? 20 : 12
           anchors.verticalCenter: parent.verticalCenter
-          width: menuContent.implicitWidth + 8 * 2
+          width: menuContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged
@@ -1932,7 +1932,7 @@ Item {
           // fix, since omarchy.workspaces also has its own
           // horizontalMargin: 6 baked in) -- looked worse for this one,
           // user preferred the original +8 each side.
-          width: workspacesContent.implicitWidth + 8 * 2
+          width: workspacesContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged
@@ -1997,7 +1997,7 @@ Item {
           anchors.left: pinnedappsPill.right
           anchors.leftMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          width: settingsContent.implicitWidth + 8 * 2
+          width: settingsContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged
@@ -2032,7 +2032,7 @@ Item {
           // that the icons themselves already read bigger/bolder (18px).
           anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          width: curatedContent.implicitWidth + 8 * 2
+          width: curatedContent.width + 8 * 2
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged

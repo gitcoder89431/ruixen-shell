@@ -50,6 +50,11 @@ check("normalize: capped at limit",
   M.normalize([{ key: "a", timestamp: 1 }, { key: "b", timestamp: 2 }, { key: "c", timestamp: 3 }], 2).length, 2);
 check("normalize: a non-array input yields an empty list, not a crash", M.normalize(null, 10), []);
 
+check("pruneForgottenKeys: deduped, order preserved", M.pruneForgottenKeys(["a", "b", "a", "c"], 10), ["a", "b", "c"]);
+check("pruneForgottenKeys: oldest (front) trimmed first once past limit", M.pruneForgottenKeys(["a", "b", "c", "d"], 2), ["c", "d"]);
+check("pruneForgottenKeys: a non-array input yields an empty list, not a crash", M.pruneForgottenKeys(null, 10), []);
+check("pruneForgottenKeys: empty/blank entries are dropped", M.pruneForgottenKeys(["a", "", "b"], 10), ["a", "b"]);
+
 // ---- activation ---------------------------------------------------------
 
 check("parseExecArgv: a real argv round-trips", M.parseExecArgv(JSON.stringify(["firefox", "https://x"])), ["firefox", "https://x"]);

@@ -1200,18 +1200,31 @@ Item {
             onTriggered: notificationList.now = Date.now()
           }
 
+          // Direct follow-up: a solid OLED-black pill per row instead of
+          // transparent-until-hovered ("so we can see each notification
+          // clearer") -- radius: height/2 is a real stadium/pill shape,
+          // same definition this file's own header row already uses for
+          // "Notifications"/the bell/the broom above. The old hover
+          // treatment (a translucent white tint snapping on/off the
+          // whole row -- "this flashing animation") is gone entirely;
+          // hover now only reveals the per-row dismiss "x" below.
           delegate: Rectangle {
             id: notificationRow
             required property var modelData
             width: notificationList.width
             height: 38
-            radius: 8
-            color: notificationRowArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            radius: height / 2
+            color: "#000000"
 
             ColumnLayout {
               anchors.fill: parent
-              anchors.leftMargin: 8
-              anchors.rightMargin: 8
+              anchors.leftMargin: 12
+              // Space for the dismiss "x" is reserved unconditionally,
+              // not just while visible -- toggling the margin itself on
+              // hover would reflow/elide the text underneath it on
+              // every hover in/out, same reasoning as the wallpaper
+              // search box's own clear button.
+              anchors.rightMargin: 24
               spacing: 1
 
               RowLayout {
@@ -1264,6 +1277,31 @@ Item {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: if (root.notificationHistory) root.notificationHistory.activate(notificationRow.modelData.key)
+            }
+
+            // Per-row dismiss, only while hovering this row -- declared
+            // after (so on top of/above in hit-testing) the full-row
+            // MouseArea above, so a click landing in its own small
+            // bounds is handled here instead of falling through to
+            // activate() on the row underneath it.
+            Text {
+              visible: notificationRowArea.containsMouse
+              anchors.right: parent.right
+              anchors.rightMargin: 10
+              anchors.verticalCenter: parent.verticalCenter
+              text: "✕"
+              font.pixelSize: 11
+              color: dismissNotificationArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+
+              MouseArea {
+                id: dismissNotificationArea
+                anchors.centerIn: parent
+                width: 20
+                height: 20
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (root.notificationHistory) root.notificationHistory.forgetOne(notificationRow.modelData.key)
+              }
             }
           }
         }

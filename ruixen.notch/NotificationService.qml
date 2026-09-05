@@ -75,6 +75,15 @@ Item {
   // straight back in.
   property double clearedBefore: 0
 
+  // Keys dismissed one at a time via the card's own per-row "x"
+  // (forgetOne below) -- clearedBefore's single watermark only covers
+  // "everything older than X" (clearAll), not "this one specific
+  // entry while its neighbors stay", so a dismissed key needs its own
+  // record. Without this, a do-not-disturb history sweep re-reads the
+  // exact same on-disk file every 5 seconds and would otherwise
+  // silently bring a dismissed row right back.
+  property var forgottenKeys: []
+
   function entryFor(key) {
     var k = String(key || "")
     for (var i = 0; i < entries.length; i++) if (entries[i].key === k) return entries[i]
@@ -93,11 +102,14 @@ Item {
     var next = entries.slice()
     var index = ({})
     for (var i = 0; i < next.length; i++) index[next[i].key] = i
+    var forgotten = ({})
+    for (var f = 0; f < service.forgottenKeys.length; f++) forgotten[service.forgottenKeys[f]] = true
 
     var changed = false
     for (var j = 0; j < incoming.length; j++) {
       var entry = incoming[j]
       if (!entry || entry.timestamp <= service.clearedBefore) continue
+      if (forgotten[entry.key]) continue
 
       var at = index[entry.key]
       if (at === undefined) {
@@ -236,6 +248,19 @@ Item {
     ingestPopups()
   }
 
+  // Dismisses one specific row -- the card's own per-row "x" -- rather
+  // than everything. Recorded in forgottenKeys, not folded into
+  // clearedBefore: that single watermark can only say "everything up
+  // to here", which would also hide every OTHER entry still sitting
+  // between here and the last real clearAll().
+  function forgetOne(key) {
+    var k = String(key || "")
+    if (!k) return
+    entries = entries.filter(function(entry) { return entry.key !== k })
+    forgottenKeys = NotificationModel.pruneForgottenKeys(forgottenKeys.concat([k]), retention)
+    scheduleSave()
+  }
+
   // ------------------------------------------------------------- activation
 
   // A row click, without the toast-outliving retention this service
@@ -305,6 +330,7 @@ Item {
 
     var loaded = []
     var watermark = 0
+    var forgotten = []
     try {
       var parsed = JSON.parse(String(raw || "").trim() || "{}")
       if (parsed && Array.isArray(parsed.entries)) {
@@ -319,11 +345,13 @@ Item {
         }
       }
       watermark = Number(parsed && parsed.clearedBefore) || 0
+      if (parsed && Array.isArray(parsed.forgottenKeys)) forgotten = parsed.forgottenKeys
     } catch (e) {
       console.warn("ruixen.notch: notification store parse failed:", e)
     }
 
     service.clearedBefore = watermark
+    service.forgottenKeys = NotificationModel.pruneForgottenKeys(forgotten, service.retention)
     // A notification can land in the tick between startup and this
     // read finishing; folding what is already in memory in keeps it.
     service.entries = NotificationModel.normalize(loaded.concat(service.entries), service.retention)
@@ -339,6 +367,7 @@ Item {
     storeFile.setText(JSON.stringify({
       version: 1,
       clearedBefore: service.clearedBefore,
+      forgottenKeys: service.forgottenKeys,
       entries: service.entries
     }) + "\n")
   }

@@ -105,6 +105,27 @@ function normalize(entries, limit) {
   return max > 0 ? out.slice(0, max) : out
 }
 
+// Keys the user dismissed one at a time (the card's own per-row "x" --
+// see NotificationService.qml's forgetOne), kept so a do-not-disturb
+// history sweep or a stray live update doesn't quietly resurrect one
+// of them. Deduped, oldest trimmed first once past `limit` -- these
+// arrive in dismissal order, not sorted by the notification's own
+// timestamp, so this is a plain cap rather than normalize()'s own
+// newest-first sort.
+function pruneForgottenKeys(keys, limit) {
+  var seen = {}
+  var out = []
+  var list = Array.isArray(keys) ? keys : []
+  for (var i = 0; i < list.length; i++) {
+    var key = String(list[i] || "")
+    if (!key || seen[key]) continue
+    seen[key] = true
+    out.push(key)
+  }
+  var max = Number(limit) || 0
+  return max > 0 && out.length > max ? out.slice(out.length - max) : out
+}
+
 // ---------------------------------------------------------------- activation
 
 // Validate a persisted omarchy-exec-argv hint (an action toast's own

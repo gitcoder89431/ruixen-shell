@@ -340,7 +340,7 @@ Item {
         id: searchInput
         anchors.fill: parent
         anchors.leftMargin: 12
-        anchors.rightMargin: 28
+        anchors.rightMargin: 34
         verticalAlignment: TextInput.AlignVCenter
         color: root.textColor
         font.family: root.fontFamily
@@ -371,10 +371,10 @@ Item {
       Text {
         visible: searchInput.text.length > 0
         anchors.right: parent.right
-        anchors.rightMargin: 10
+        anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
         text: "✕"
-        font.pixelSize: 11
+        font.pixelSize: 13
         color: clearSearchMouse.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
 
         MouseArea {

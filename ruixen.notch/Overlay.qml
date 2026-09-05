@@ -1080,7 +1080,11 @@ Item {
                 height: 20
                 visible: !root.hasMedia
                 text: root.activeWindowTitle !== "" ? root.activeWindowTitle : "~"
-                color: root.muted
+                // Direct follow-up ("are the text a bit muted") -- this
+                // is the primary content of the slot now, not a
+                // secondary status readout, so it gets the same full
+                // textColor a real track title would use, not muted.
+                color: root.textColor
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
                 horizontalAlignment: Text.AlignHCenter

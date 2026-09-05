@@ -139,10 +139,13 @@ check "existing install with stale ruixen.media in layout: still gets the plugin
 # just silently dropped from the screen) or any other structural pill.
 # Preserves the full entry object (inline settings survive); a
 # duplicate of an id already correctly on the right is dropped, not
-# doubled. omarchy.menu is deliberately NOT in the protected set (it
-# is a real, freely toggleable widget, not one of Ruixen's own
-# dedicated pills) -- exactly the "optional" bucket this migration
-# exists for, matching the issue's own left/right diagram.
+# doubled. omarchy.menu is DELIBERATELY EXCLUDED from this fixture's
+# "migrates to right" expectation -- direct follow-up after reviewing
+# #36's first pass: Ruixen replaced that bar icon with
+# ruixen.applauncher on purpose, so unlike a genuine third-party
+# widget, omarchy.menu must never render on the bar at all, not even
+# via Plugin Pins. It gets the same unconditional strip as
+# ruixen.media instead (see Case 10 below), not this migration.
 legacy_foreign='{
   "version": 1,
   "bar": {
@@ -165,12 +168,12 @@ out7="$(printf '%s' "$legacy_foreign" | "$build")"
 check "issue #36: workspacesPill's own left region keeps only the protected structural ids" \
   "$(jq -c '.bar.layout.left' <<<"$out7")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"},{"id":"ruixen.settingsbutton"}]'
-check "issue #36: center keeps only the protected weather/clock, omarchy.menu migrates out" \
+check "issue #36: center keeps only the protected weather/clock, omarchy.menu stripped (not migrated)" \
   "$(jq -c '.bar.layout.center' <<<"$out7")" \
   '[{"id":"ruixen.weather"},{"id":"omarchy.clock"}]'
-check "issue #36: foreign entries land on the right, inline settings preserved, already-pinned ids untouched" \
+check "issue #36: real foreign entries land on the right, inline settings preserved, already-pinned ids untouched, omarchy.menu absent" \
   "$(jq -c '.bar.layout.right' <<<"$out7")" \
-  '[{"id":"ruixen.tray"},{"id":"already.pinned"},{"id":"thirdparty.foo","opacity":0.5},{"id":"omarchy.menu"}]'
+  '[{"id":"ruixen.tray"},{"id":"already.pinned"},{"id":"thirdparty.foo","opacity":0.5}]'
 
 # --- Case 8 (issue #36): a foreign id stuck in left AND already
 # correctly pinned on the right must not end up duplicated -- the
@@ -202,6 +205,37 @@ check "issue #36: the stale left-side copy of an already-pinned id is dropped, n
 out7b="$(printf '%s' "$out7" | "$build")"
 check "issue #36: re-running the migration on its own output changes nothing (idempotent)" \
   "$out7b" "$out7"
+
+# --- Case 10 (issue #36 follow-up): omarchy.menu must never render on
+# the bar at all, regardless of which section a stale copy starts in
+# -- Ruixen deliberately replaced that bar icon with
+# ruixen.applauncher, so unlike an ordinary foreign widget it is
+# stripped outright (same treatment as ruixen.media), never migrated
+# to "right" through Plugin Pins. The underlying omarchy.menu
+# functionality itself (Super+Space, stock menu IPC) is untouched by
+# this -- only its own bar.layout entry is ever in scope here.
+stale_menu='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "omarchy.menu" }],
+      "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.weather" }],
+      "right": [{ "id": "ruixen.tray" }, { "id": "omarchy.menu" }]
+    }
+  },
+  "plugins": []
+}'
+out10="$(printf '%s' "$stale_menu" | "$build")"
+check "issue #36 follow-up: omarchy.menu stripped from left" \
+  "$(jq -c '.bar.layout.left' <<<"$out10")" '[{"id":"ruixen.applauncher"}]'
+check "issue #36 follow-up: omarchy.menu stripped from center" \
+  "$(jq -c '.bar.layout.center' <<<"$out10")" '[{"id":"ruixen.weather"}]'
+check "issue #36 follow-up: omarchy.menu stripped from right too, not just left/center" \
+  "$(jq -c '.bar.layout.right' <<<"$out10")" '[{"id":"ruixen.tray"}]'
+out10b="$(printf '%s' "$out10" | "$build")"
+check "issue #36 follow-up: re-running the strip on its own output is idempotent" \
+  "$out10b" "$out10"
 
 # --- Case 5: invalid JSON input is rejected, not silently swallowed
 if printf 'not json at all' | "$build" >/dev/null 2>&1; then

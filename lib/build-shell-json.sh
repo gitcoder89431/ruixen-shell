@@ -133,14 +133,27 @@ jq -n \
   # before that fix -- an existing owner bar is otherwise left
   # completely untouched above (see that comment), which would
   # otherwise let this one stale, now-unremovable entry survive every
-  # future update forever. This is an unconditional strip of that one
-  # specific id, not a general layout migration -- omarchy.menu and
-  # anything else a user actually chose to keep is left alone.
+  # future update forever.
+  #
+  # omarchy.menu gets the exact same treatment, per direct follow-up
+  # on #36 after reviewing its first pass: Ruixen deliberately replaced
+  # that bar icon with ruixen.applauncher, so the underlying
+  # omarchy.menu functionality (Super+Space, stock menu IPC) staying
+  # available is correct, but its own bar.layout entry must never
+  # render -- not even via ruixen.pluginpins, which the FIRST version
+  # of the #36 migration below got wrong by treating it as an ordinary
+  # unprotected/optional widget and moving it to "right" instead of
+  # removing it outright. This is an unconditional strip of these two
+  # specific ids only, not a general layout migration -- anything else
+  # a user actually chose to keep in left/center is left alone here
+  # (see the separate foreign-widget migration below for those).
   | (if ($ownedBar.layout | type) == "object" then
        $ownedBar | .layout |= with_entries(
-         .value |= (if type == "array" then map(select(.id != "ruixen.media")) else . end)
+         .value |= (if type == "array" then
+           map(select(.id != "ruixen.media" and .id != "omarchy.menu"))
+         else . end)
        )
-     else $ownedBar end) as $mediaStrippedBar
+     else $ownedBar end) as $strippedBar
 
   # Issue #36: workspacesPill (Bar.qml) used to render anything in
   # "left" except a short exclusion list, an accidental catch-all --
@@ -159,23 +172,23 @@ jq -n \
   # somewhere in "right", since that copy is already correctly placed.
   # Naturally idempotent: once migrated, an id is no longer in
   # left/center for a second run to find.
-  | (if ($mediaStrippedBar.layout | type) == "object" then
-       ($mediaStrippedBar.layout.right // []) as $rightNow
+  | (if ($strippedBar.layout | type) == "object" then
+       ($strippedBar.layout.right // []) as $rightNow
        | ($rightNow | map(.id)) as $rightIds
        | (["left", "center"]
-          | map(. as $section | ($mediaStrippedBar.layout[$section] // [])
+          | map(. as $section | ($strippedBar.layout[$section] // [])
               | map(select((.id as $id | $protectedBarIds | index($id)) == null))
               | map(select((.id as $id | $rightIds | index($id)) == null)))
           | add) as $migratedEntries
        | (["left", "center"]
-          | map({key: ., value: ($mediaStrippedBar.layout[.] // []
+          | map({key: ., value: ($strippedBar.layout[.] // []
               | map(select((.id as $id | $protectedBarIds | index($id)) != null)))})
           | from_entries) as $prunedLeftCenter
-       | ($mediaStrippedBar
+       | ($strippedBar
           | .layout.left = $prunedLeftCenter.left
           | .layout.center = $prunedLeftCenter.center
           | .layout.right = ($rightNow + $migratedEntries))
-     else $mediaStrippedBar end) as $mergedBar
+     else $strippedBar end) as $mergedBar
 
   # plugins: existing entries (ruixen-owned or not) are left completely
   # untouched -- only ids from ruixenPluginIds that are not present AT

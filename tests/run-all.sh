@@ -37,6 +37,7 @@ suites=(
   "$script_dir/repair-drift-detection.sh"
   "$script_dir/uninstall-dry-run.sh"
   "$script_dir/install-dry-run.sh"
+  "$script_dir/update-dry-run.sh"
 )
 
 overall_status=0

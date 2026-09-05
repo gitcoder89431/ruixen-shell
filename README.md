@@ -68,11 +68,28 @@ o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settin
 
 Pick any other unbound key if you'd rather — `omarchy menu keybindings --print` lists what's already taken.
 
+Want to see exactly what it would do first, without changing anything?
+
+```bash
+./install.sh --dry-run
+```
+
+Reports Omarchy version/dependency status, plugin manifest validation
+(run for real, read-only), which plugins would install fresh vs. replace
+an existing copy, whether `shell.json` would be created or merged (and
+what would actually change), and the Hyprland look'n'feel plan — then
+exits having touched nothing.
+
 ## Updating
 
 ```bash
 ./update.sh
 ```
+
+`./update.sh --dry-run` previews it first: current vs. candidate revision,
+then the same install plan above for whatever is currently on disk
+(pulling itself is skipped, so it can't preview code not yet checked out —
+noted explicitly in its own output).
 
 Pulls the latest changes and reinstalls — same backup-then-merge
 behavior as `install.sh` itself, so it's always safe to re-run. Only
@@ -164,6 +181,11 @@ works from your existing cloned checkout, same as `update.sh` — the
 checkout itself is left alone, delete it yourself afterward if you don't
 want it around. Same in-app path also lives in Ruixen Settings' own
 Plugins page, behind a typed confirmation.
+
+`./uninstall.sh --dry-run` previews exactly what would happen first: the
+bar host it would restore, which of your own widgets it would preserve,
+which Ruixen plugin files it would remove, and the look'n'feel restore
+plan — nothing is changed.
 
 ## Docked bar mode (experimental)
 

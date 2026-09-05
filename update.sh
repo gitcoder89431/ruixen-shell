@@ -12,6 +12,48 @@ fail() {
 
 command -v git >/dev/null 2>&1 || fail "git is required (command 'git' not found)"
 
+# Issue #31: a completely separate, early code path, same shape as
+# install.sh/uninstall.sh's own --dry-run branches -- exits before the
+# lifecycle lock is acquired or git pull ever runs. The one git
+# operation here (fetch) only updates the local origin/<branch>
+# remote-tracking ref, never the working tree, so "no checkout/
+# worktree mutation" holds even though this isn't purely offline --
+# the same reasoning ruixen-doctor.sh's own real-fetch fix already
+# established (a --dry-run fetch never actually refreshes that ref,
+# which would make this report stale/wrong the moment it mattered).
+if [[ "${1:-}" == "--dry-run" ]]; then
+  printf '=== Ruixen Update -- dry run, nothing will be changed ===\n\n'
+
+  current_sha="$(git -C "$script_dir" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  branch="$(git -C "$script_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+  printf 'Current revision: %s (branch %s)\n' "$current_sha" "$branch"
+
+  if [[ -n "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]]; then
+    printf 'Local changes: yes -- a real update would refuse to run until this checkout is clean\n\nNo files changed.\n'
+    exit 0
+  fi
+  printf 'Local changes: none\n'
+
+  if ! git -C "$script_dir" fetch --quiet origin "$branch" >/dev/null 2>&1; then
+    printf 'Candidate revision: could not reach the remote (offline?) -- nothing else can be previewed\n\nNo files changed.\n'
+    exit 0
+  fi
+
+  candidate_sha="$(git -C "$script_dir" rev-parse --short "origin/$branch" 2>/dev/null || echo unknown)"
+  behind="$(git -C "$script_dir" rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo '?')"
+  if [[ "$current_sha" == "$candidate_sha" ]]; then
+    printf 'Candidate revision: %s -- already up to date, nothing would be pulled\n\n' "$candidate_sha"
+  else
+    printf 'Candidate revision: %s (%s commit(s) ahead of current)\n\n' "$candidate_sha" "$behind"
+    printf 'Note: the plugin/config preview below reflects the CURRENTLY checked-out\n'
+    printf 'code, not the %s commit(s) that would actually be pulled first -- an exact\n' "$behind"
+    printf 'preview of code not yet on disk is not possible without pulling it.\n\n'
+  fi
+
+  printf -- '--- What a real reinstall (install.sh) would then do, against the code currently on disk ---\n\n'
+  exec "$script_dir/install.sh" --dry-run
+fi
+
 # Direct review finding ("safer release update behavior"): a bare
 # `git pull` merges by default, which for a checkout with local commits
 # (a user's own experiment, or a dev workflow) silently creates a merge

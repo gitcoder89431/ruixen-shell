@@ -346,6 +346,7 @@ if [[ ${#ruixen_clone_sources[@]} -gt 0 ]]; then
   )"
 fi
 
+# shellcheck disable=SC1091
 if source omarchy-shell-config \
   && commit "$NORMALIZE
     | .plugins |= map(select((.id // \"\") | startswith(\"ruixen.\") | not))

@@ -61,7 +61,6 @@ for dir in "$script_dir"/ruixen.*/; do
 done
 
 looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
-looknfeel_data_dir="$HOME/.local/share/ruixen-shell/hyprland"
 looknfeel_broken=0
 if [[ -L "$looknfeel_target" ]]; then
   link_target="$(readlink -f "$looknfeel_target" 2>/dev/null || true)"

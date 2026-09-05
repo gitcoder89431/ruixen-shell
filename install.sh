@@ -97,7 +97,6 @@ if [[ "${1:-}" == "--dry-run" ]]; then
         printf '  would merge into the existing file -- no actual changes (already up to date)\n'
       else
         current_bar_id="$(jq -r '.bar.id // "(none)"' "$shell_json")"
-        new_bar_id="$(jq -r '.bar.id' <<<"$merged")"
         if [[ "$current_bar_id" != "ruixen.bar" ]]; then
           printf '  bar host: %s -> ruixen.bar (some other bar is currently active)\n' "$current_bar_id"
         else
@@ -237,6 +236,9 @@ fi
 # COMPATIBILITY.md is a ledger of what has actually been checked, not
 # a claim that every unreviewed nearby build is broken, so an exact
 # match beyond major.minor is not required to proceed quietly.
+# shellcheck disable=SC2016 # the backticks here are literal markdown
+# code-span markers being matched in COMPATIBILITY.md's own text, not
+# an accidental unexpanded command substitution.
 reviewed_omarchy="$(grep -m1 -oE '`[0-9]+\.[0-9]+\.[0-9]+-[0-9]+`' "$script_dir/COMPATIBILITY.md" 2>/dev/null | head -1 | tr -d '`')"
 if [[ -n "$omarchy_version" && -n "$reviewed_omarchy" && "$omarchy_version" != "$reviewed_omarchy" ]]; then
   printf '  NOTE: last reviewed against Omarchy %s (see COMPATIBILITY.md), detected %s -- likely fine, just not specifically reviewed yet\n' "$reviewed_omarchy" "$omarchy_version" >&2

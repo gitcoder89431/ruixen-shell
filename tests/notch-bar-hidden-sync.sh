@@ -37,6 +37,9 @@ check() {
   fi
 }
 
+# shellcheck disable=SC2016 # deliberately literal: this is the exact,
+# unexpanded $HOME-prefixed string grepped for inside the QML source
+# below, not a path meant to expand in this test script itself.
 bar_flag_path='$HOME/.local/state/omarchy/toggles/bar-off'
 
 check "ruixen.bar itself still watches the real bar-off flag (the source of truth this test pins against)" \

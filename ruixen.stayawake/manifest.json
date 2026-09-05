@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "ruixen.stayawake",
-  "name": "Ruixen Stay Awake",
+  "name": "Stay Awake",
   "version": "1.0.0",
   "author": "ruixen",
   "license": "MIT",
@@ -13,7 +13,7 @@
     "barWidget": "StayAwake.qml"
   },
   "barWidget": {
-    "displayName": "Ruixen Stay Awake",
+    "displayName": "Stay Awake",
     "description": "Toggle idle lock/screensaver on or off.",
     "category": "Status",
     "allowMultiple": false

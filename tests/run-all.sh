@@ -17,6 +17,7 @@ suites=(
   "$script_dir/uninstall-bar-restore.sh"
   "$script_dir/merge-uninstall-bar.sh"
   "$script_dir/uninstall-preserve-thirdparty.sh"
+  "$script_dir/uninstall-plugin-sweep.sh"
   "$script_dir/uninstall-pristine-reset.sh"
   "$script_dir/uninstall-failure-aggregation.sh"
   "$script_dir/install-lifecycle.sh"

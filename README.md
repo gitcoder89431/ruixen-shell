@@ -184,8 +184,9 @@ Plugins page, behind a typed confirmation.
 
 `./uninstall.sh --dry-run` previews exactly what would happen first: the
 bar host it would restore, which of your own widgets it would preserve,
-which Ruixen plugin files it would remove, and the look'n'feel restore
-plan — nothing is changed.
+which Ruixen plugin files it would remove, any leftover Ruixen entry it
+would sweep out of `shell.json`'s `plugins[]` array, and the look'n'feel
+restore plan — nothing is changed.
 
 ## Docked bar mode (experimental)
 

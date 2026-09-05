@@ -65,6 +65,19 @@ if [[ "${1:-}" == "--dry-run" ]]; then
     printf '  (could not list installed plugins -- omarchy plugin list --json failed)\n'
   fi
 
+  # A plugin removal can leave its id sitting in shell.json's top-level
+  # plugins[] array even after the real removal above (confirmed live:
+  # a clone-flagged plugin like ruixen.media routes through
+  # PluginRegistry's own clone-restore path instead of a plain splice)
+  # -- the real run also sweeps plugins[] directly as a defensive
+  # second step, so preview that here too rather than only the
+  # plugin-manager's own view of things.
+  stale_plugin_ids="$(jq -r '(.plugins // []) | .[] | select(.id | startswith("ruixen.")) | .id' "$shell_json" 2>/dev/null)"
+  if [[ -n "$stale_plugin_ids" ]]; then
+    printf '\nSweep leftover entries from shell.json plugins[]:\n'
+    while IFS= read -r id; do [[ -n "$id" ]] && printf '  %s\n' "$id"; done <<<"$stale_plugin_ids"
+  fi
+
   printf '\nRestore Hyprland window look:\n'
   looknfeel_pristine_dir="$HOME/.local/state/ruixen/looknfeel-pristine"
   if [[ -e "$looknfeel_pristine_dir/target" ]]; then
@@ -235,6 +248,28 @@ for backup in "$plugins_dir"/.ruixen.*.bak.*; do
     record_failure "deleting plugin backup $(basename "$backup") failed"
   fi
 done
+
+# Defensive cleanup, found live on this dev machine: `omarchy plugin
+# remove <id>` above disables a plugin via PluginRegistry's own
+# setPluginEnabled(id, false) first. Reading that function directly
+# confirms it should also splice the id out of shell.json's top-level
+# plugins[] array -- but ruixen.media declares `omarchy.clonedFrom:
+# "omarchy.media"` (so Settings can offer it as a drop-in replacement
+# for the stock widget), which routes setPluginEnabled through
+# PluginRegistry's separate clone-restore code path instead of the
+# plain removal path. That path is supposed to cover this case too,
+# yet the entry was still found sitting in plugins[] after a
+# "successful" uninstall right here. Rather than trust that internal
+# behavior further, sweep any surviving ruixen.* id out directly --
+# cheap, idempotent (a no-op if the loop above already handled it),
+# and doesn't depend on a first-party registry's own edge cases around
+# cloned plugins.
+if source omarchy-shell-config \
+  && commit "$NORMALIZE | .plugins |= map(select((.id // \"\") | startswith(\"ruixen.\") | not))"; then
+  :
+else
+  record_failure "sweeping any leftover ruixen.* entries out of shell.json's plugins[] failed -- a removed plugin may still be listed there"
+fi
 
 printf '\n[3/4] Restoring Hyprland window look\n'
 # Not a bare `rm -f` on the symlink -- confirmed by reading hyprland.lua

@@ -46,6 +46,7 @@ required_exclusions=(
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
   "omarchy.system-update" "omarchy.power"
   "omarchy.keyboard-layout" "omarchy.indicators" "omarchy.network"
+  "omarchy.active-window"
 )
 excluded_block="$(grep -A20 'readonly property var excludedIds:' "$widget_qml")"
 missing=0
@@ -56,7 +57,7 @@ for id in "${required_exclusions[@]}"; do
   fi
 done
 if [[ "$missing" -eq 0 ]]; then
-  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), system-update/power (curatedPill'"'"'s exact fixed four), keyboard-layout (self-hides on a single layout), indicators (redundant + a real IPC collision), and network (a real, ongoing IPC collision)\n'
+  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), system-update/power (curatedPill'"'"'s exact fixed four), keyboard-layout (self-hides on a single layout), indicators (redundant + a real IPC collision), network (a real, ongoing IPC collision), and active-window (ruixen.notch'"'"'s own collapsed player pill already shows it)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))

@@ -112,13 +112,18 @@ BarWidget {
   // in the plugin group"), so pinning/unpinning them through this
   // dropdown is exactly the intended interaction, not something to
   // guard against.
+  // omarchy.active-window is also excluded -- ruixen.notch's own
+  // collapsed player pill already shows the active window's title when
+  // nothing is playing, so offering it here as a separate pinnable bar
+  // widget would just be a second, redundant place to turn on the same
+  // information.
   readonly property var excludedIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
     "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
     "omarchy.clock", "omarchy.system-update", "omarchy.power",
     "omarchy.keyboard-layout", "omarchy.indicators", "omarchy.network",
-    "omarchy.bar", "omarchy.menu", "omarchy.spacer",
+    "omarchy.bar", "omarchy.menu", "omarchy.spacer", "omarchy.active-window",
     "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media"
   ]
 

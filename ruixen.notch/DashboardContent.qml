@@ -1200,6 +1200,10 @@ Item {
           spacing: 4
           model: root.notificationHistory ? root.notificationHistory.entries : []
           visible: count > 0
+          // Direct follow-up: "theres like an overscroll effect on it
+          // when scroll up or down can we disable that" -- same fix
+          // ruixen.settings' own detail panel Flickable already uses.
+          boundsBehavior: Flickable.StopAtBounds
 
           // Drives each row's own "2m" / "3h" label. One timer for the
           // whole list is plenty -- these are coarse, scanned ages, not
@@ -1387,6 +1391,43 @@ Item {
             font.family: root.fontFamily
             font.pixelSize: 10
           }
+        }
+      }
+
+      // Top/bottom fade on the list specifically (not this whole
+      // card) -- unlike ruixen.settings' own detail panel, the header
+      // above notificationList does not scroll with it, so the fade
+      // anchors to the list's own edges rather than the card's.
+      // Same "opacity tracks real overflow" pattern as that settings
+      // fade (see its own long comment chain): hidden at rest, ramping
+      // in over a short 16px scroll distance once there's genuinely
+      // more content that direction, rather than a static always-on
+      // fade sitting over content that never actually overflows.
+      Rectangle {
+        readonly property real fadeRun: 16
+        readonly property real overflowAbove: notificationList.contentY
+        anchors.top: notificationList.top
+        anchors.left: notificationList.left
+        anchors.right: notificationList.right
+        height: 16
+        opacity: Math.max(0, Math.min(1, overflowAbove / fadeRun))
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: "#000000" }
+          GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+        }
+      }
+
+      Rectangle {
+        readonly property real fadeRun: 16
+        readonly property real overflowBelow: notificationList.contentHeight - notificationList.height - notificationList.contentY
+        anchors.bottom: notificationList.bottom
+        anchors.left: notificationList.left
+        anchors.right: notificationList.right
+        height: 16
+        opacity: Math.max(0, Math.min(1, overflowBelow / fadeRun))
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+          GradientStop { position: 1.0; color: "#000000" }
         }
       }
     }

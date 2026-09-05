@@ -79,6 +79,20 @@ behavior as `install.sh` itself, so it's always safe to re-run. Only
 works from your existing cloned checkout (it just wraps `git pull` +
 `./install.sh`), so don't delete the folder after installing.
 
+If something looks like it didn't update, or a plugin looks out of
+date:
+
+```bash
+./ruixen-doctor.sh
+```
+
+A read-only diagnostic report — checks nothing changes. Prints your
+git status vs the remote, whether each deployed plugin's version
+actually matches this checkout's own source (catches an update that
+silently didn't finish), backup history, the current bar layout (ids
+only), and basic runtime health. Safe to paste the output anywhere —
+no paths, hostnames, or personal config values are ever printed.
+
 ## Disabling / going back to Omarchy defaults
 
 Nothing here is a one-way door.

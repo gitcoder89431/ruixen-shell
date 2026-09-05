@@ -27,6 +27,7 @@ command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 if [[ "${1:-}" == "--dry-run" ]]; then
   pristine_shell_json="$HOME/.local/state/ruixen/shell.json.pre-ruixen"
   shell_json="$HOME/.config/omarchy/shell.json"
+  plugins_dir="$HOME/.config/omarchy/plugins"
   canon="$(cat "$script_dir/lib/ruixen-bar-canonical.json")"
 
   printf '=== Ruixen Uninstall -- dry run, nothing will be changed ===\n\n'
@@ -76,6 +77,22 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   if [[ -n "$stale_plugin_ids" ]]; then
     printf '\nSweep leftover entries from shell.json plugins[]:\n'
     while IFS= read -r id; do [[ -n "$id" ]] && printf '  %s\n' "$id"; done <<<"$stale_plugin_ids"
+  fi
+
+  # A clone-flagged plugin (ruixen.bar/media/tray/weather, each
+  # declaring omarchy.clonedFrom) also leaves entries in
+  # cloneSourceRestores/disabledPlugins that a plain removal doesn't
+  # clean up -- see the real run's own comment on this step for the
+  # full story (found live: omarchy.media stuck disabled forever with
+  # nothing left to re-enable it).
+  clone_restore_ids="$(jq -r '(.cloneSourceRestores // []) | .[] | select(startswith("ruixen."))' "$shell_json" 2>/dev/null)"
+  if [[ -n "$clone_restore_ids" ]]; then
+    printf '\nRestore stock originals disabled for a now-removed clone:\n'
+    while IFS= read -r id; do
+      [[ -n "$id" ]] || continue
+      cf="$(jq -r --arg id "$id" '(.omarchy.clonedFrom // empty)' "$plugins_dir/$id/manifest.json" 2>/dev/null)"
+      [[ -n "$cf" ]] && printf '  %s (currently disabled for %s)\n' "$cf" "$id"
+    done <<<"$clone_restore_ids"
   fi
 
   # install.sh's own rollback-safety backups (issue #20/#10) and the
@@ -248,6 +265,13 @@ printf '\n[2/4] Removing Ruixen Shell plugins\n'
 # unless you already know the naming scheme, isn't a real uninstall.
 # Deleted explicitly below once every plugin's own remove has run.
 plugins_dir="$HOME/.config/omarchy/plugins"
+# id -> omarchy.clonedFrom, captured from each manifest.json BEFORE
+# removal -- ruixen.bar/media/tray/weather all declare this (so
+# Settings can offer them as drop-in replacements for the stock
+# widget). Feeds the cloneSourceRestores/disabledPlugins cleanup below
+# once the loop is done; read here since the manifest is gone once
+# `omarchy plugin remove` has moved/deleted the folder.
+declare -A ruixen_clone_sources=()
 if plugin_list_json="$(omarchy plugin list --json 2>&1)"; then
   plugin_ids="$(jq -r '.[] | select(.id | startswith("ruixen.")) | .id' <<<"$plugin_list_json")"
   if [[ -z "$plugin_ids" ]]; then
@@ -258,6 +282,8 @@ if plugin_list_json="$(omarchy plugin list --json 2>&1)"; then
     # whatever) must not stop the rest from being attempted (#19).
     while IFS= read -r id; do
       [[ -n "$id" ]] || continue
+      cloned_from="$(jq -r '.omarchy.clonedFrom // empty' "$plugins_dir/$id/manifest.json" 2>/dev/null)"
+      [[ -n "$cloned_from" ]] && ruixen_clone_sources["$id"]="$cloned_from"
       if omarchy plugin remove "$id" --yes; then
         printf '  removed %s\n' "$id"
       else
@@ -293,11 +319,46 @@ done
 # cheap, idempotent (a no-op if the loop above already handled it),
 # and doesn't depend on a first-party registry's own edge cases around
 # cloned plugins.
+# PluginRegistry also tracks two bookkeeping arrays alongside plugins[]
+# for any clone-flagged plugin (ruixen.bar/media/tray/weather, each
+# declaring omarchy.clonedFrom): cloneSourceRestores (which clone owes
+# its stock original a re-enable once removed) and disabledPlugins
+# (the stock original itself, disabled while the clone stood in for
+# it). Found live, alongside the plugins[] leak above: after a
+# "successful" uninstall, shell.json still had cloneSourceRestores:
+# ["ruixen.media"] and disabledPlugins: ["omarchy.media"] -- meaning
+# Omarchy's own stock media widget was left permanently disabled with
+# nothing left that would ever re-enable it, since the clone that
+# would have triggered that (per PluginRegistry's own
+# restoreCloneSource, called only through setEnabled/setPluginEnabled)
+# was already gone. clone_map_json (id -> clonedFrom, captured above
+# from each manifest.json before removal) makes the same "only
+# un-disable a source if its clone was the one that put it in
+# cloneSourceRestores" check restoreCloneSource itself makes, so an
+# unrelated widget the user disabled on their own for their own
+# reasons is never touched.
+clone_map_json="{}"
+if [[ ${#ruixen_clone_sources[@]} -gt 0 ]]; then
+  clone_map_json="$(
+    for id in "${!ruixen_clone_sources[@]}"; do
+      printf '%s\t%s\n' "$id" "${ruixen_clone_sources[$id]}"
+    done | jq -R -s 'split("\n") | map(select(length > 0) | split("\t") | {(.[0]): .[1]}) | add // {}'
+  )"
+fi
+
 if source omarchy-shell-config \
-  && commit "$NORMALIZE | .plugins |= map(select((.id // \"\") | startswith(\"ruixen.\") | not))"; then
+  && commit "$NORMALIZE
+    | .plugins |= map(select((.id // \"\") | startswith(\"ruixen.\") | not))
+    | ((.cloneSourceRestores // []) | array_or_empty) as \$restores
+    | (\$cloneMap | with_entries(select(.key as \$k | \$restores | index(\$k) != null)) | [.[]] | unique) as \$undisable
+    | .cloneSourceRestores = (\$restores | map(select(startswith(\"ruixen.\") | not)))
+    | (if (.cloneSourceRestores | length) == 0 then del(.cloneSourceRestores) else . end)
+    | .disabledPlugins = ((.disabledPlugins // []) | array_or_empty | map(select((. as \$x | \$undisable | index(\$x)) == null)))
+    | (if (.disabledPlugins | length) == 0 then del(.disabledPlugins) else . end)
+  " --argjson cloneMap "$clone_map_json"; then
   :
 else
-  record_failure "sweeping any leftover ruixen.* entries out of shell.json's plugins[] failed -- a removed plugin may still be listed there"
+  record_failure "sweeping leftover ruixen.* entries out of shell.json (plugins[]/cloneSourceRestores/disabledPlugins) failed -- a removed plugin, or its stock original's disabled state, may still be listed there"
 fi
 
 # Direct real-world finding, asked about live: "can you check the file

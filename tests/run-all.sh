@@ -19,6 +19,7 @@ suites=(
   "$script_dir/uninstall-preserve-thirdparty.sh"
   "$script_dir/uninstall-plugin-sweep.sh"
   "$script_dir/uninstall-backup-cleanup.sh"
+  "$script_dir/uninstall-clone-restore-sweep.sh"
   "$script_dir/uninstall-pristine-reset.sh"
   "$script_dir/uninstall-failure-aggregation.sh"
   "$script_dir/install-lifecycle.sh"

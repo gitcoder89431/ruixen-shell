@@ -2062,23 +2062,61 @@ Item {
         // system four), which is also what makes a newly-enabled
         // third-party widget land here automatically with no id list to
         // maintain.
+        //
+        // The toggle icon itself (ruixen.pluginpins) is pulled out of
+        // that catch-all ModuleList and anchored to this pill's own
+        // right edge directly, via its own ModuleSlot -- direct request:
+        // "can you make it right of the pill group, so its like thing
+        // that stays fix at the first right position of the pill
+        // group". A ModuleList's render order otherwise just follows
+        // shell.json's own array order, which drifts every time
+        // something gets pinned/unpinned through it (see togglePin,
+        // ruixen.pluginpins/BarWidget.qml) -- pulling it out is what
+        // makes its own position a real, structural guarantee instead
+        // of a data-order coincidence.
         Item {
           id: pluginPinsPill
           anchors.right: curatedPill.left
           anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          width: pluginPinsContent.implicitWidth + 8 * 2
+          // pluginPinsContent.width, not .implicitWidth -- ModuleList (a
+          // Loader) only computes the former explicitly for a
+          // late-filled entries value; see stayawakeGroupPill's own old
+          // comment (git history) for the identical bug this caused
+          // there. Confirmed live: "it doesnt shrink or expand anymore"
+          // and a lopsided pill the moment this pill's content stopped
+          // being empty -- both symptoms of this exact stale-width bug.
+          width: pluginPinsContent.width + pluginPinsToggle.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent; visible: !root.docked }
 
           ModuleList {
             id: pluginPinsContent
-            anchors.centerIn: parent
+            anchors.right: pluginPinsToggle.left
+            anchors.verticalCenter: parent.verticalCenter
             entries: root.layoutEntries("right").filter(function(e) {
               var id = root.entryId(e)
-              return id !== "ruixen.tray" && root.curatedRightIds.indexOf(id) === -1
+              return id !== "ruixen.tray" && id !== "ruixen.pluginpins" && root.curatedRightIds.indexOf(id) === -1
             })
+            region: "right"
+          }
+
+          ModuleSlot {
+            id: pluginPinsToggle
+            anchors.right: parent.right
+            // Was missing entirely -- with pluginPinsContent sitting
+            // flush against this slot's own left edge (0 margin, same
+            // 0-gap convention every other multi-icon pill already
+            // uses), the pill's own width formula (content.width +
+            // toggle.implicitWidth + 8*2) only reads as a symmetric 8px
+            // each side if THIS edge also reserves its own 8px. Without
+            // it, the missing 8 silently doubled onto the LEFT side
+            // instead (content's own left edge floated out to 16px, not
+            // 8) -- confirmed live: "the pill is lop sided now".
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            entry: root.layoutEntries("right").filter(function(e) { return root.entryId(e) === "ruixen.pluginpins" })[0] || null
             region: "right"
           }
         }

@@ -130,6 +130,35 @@ check "trayContent is tray ONLY (exact id match, not a catch-all)" \
   "$(grep -A5 'id: trayContent$' "$bar_qml" | grep -c 'root\.entryId(e) === "ruixen.tray"' || true)" "1"
 check "pluginPinsContent is the catch-all now: not tray, not in curatedRightIds" \
   "$(grep -A5 'id: pluginPinsContent$' "$bar_qml" | grep -c 'curatedRightIds\.indexOf(id) === -1' || true)" "1"
+check "pluginPinsContent also excludes ruixen.pluginpins itself (rendered separately, see pluginPinsToggle)" \
+  "$(grep -A5 'id: pluginPinsContent$' "$bar_qml" | grep -c 'id !== "ruixen.pluginpins"' || true)" "1"
+
+# --- pluginpins toggle icon: fixed at this pill's own right edge -------
+#
+# Direct request: "can you make it right of the pill group, so its like
+# thing that stays fix at the first right position of the pill group".
+# A ModuleList's own render order otherwise just follows shell.json's
+# array order, which drifts every time something is pinned/unpinned
+# through ruixen.pluginpins itself -- pulling the toggle out into its
+# own ModuleSlot, anchored directly to this pill's own right edge, is
+# what makes its position a real structural guarantee instead of a
+# data-order coincidence.
+check "pluginPinsToggle (the toggle icon's own slot) exists, exactly once" \
+  "$(grep -c 'id: pluginPinsToggle$' "$bar_qml" || true)" "1"
+check "pluginPinsToggle anchors to this pill's own right edge" \
+  "$(grep -A2 'id: pluginPinsToggle$' "$bar_qml" | grep -c 'anchors.right: parent.right' || true)" "1"
+check "pluginPinsToggle reserves its own 8px right margin (not flush against the pill's own edge)" \
+  "$(grep -A12 'id: pluginPinsToggle$' "$bar_qml" | grep -c 'anchors.rightMargin: 8' || true)" "1"
+
+# Direct live report after the toggle was first pulled into its own
+# slot: "it doesnt shrink or expand anymore" and "the pill is lop
+# sided now" -- both traced to the exact same stale-.implicitWidth bug
+# curatedContent/trayContent already learned from (a ModuleList's own
+# .implicitWidth, inherited from Loader, doesn't reliably update for a
+# late-filled entries value; .width does -- see stayawakeGroupPill's
+# own old comment, git history, for the original instance of this).
+check "pluginPinsPill's own width reads pluginPinsContent.width, not .implicitWidth" \
+  "$(grep -c 'width: pluginPinsContent\.width + pluginPinsToggle\.implicitWidth' "$bar_qml" || true)" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

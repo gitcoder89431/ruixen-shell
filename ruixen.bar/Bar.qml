@@ -2081,66 +2081,23 @@ Item {
         // every user who never drags anything here.
         Item {
           id: leftPluginPinsPill
-          // Caps how many pins show at once instead of growing forever
-          // -- direct request: "limit 4 to show and then the 5th one
-          // requires a scroll... so only a certain cap of plugin icons
-          // can show, then you would scroll it to spin a carousel of
-          // plugins". averageItemWidth (not a hardcoded guess) is
-          // real icon width regardless of what a given widget's own
-          // implicitWidth happens to be -- times min(count, cap) is
-          // the capped viewport width; uncapped (full width, no
-          // scrolling) whenever there are cap or fewer pins.
-          readonly property int visibleCap: 4
-          readonly property int pinCount: leftPluginPinsContent.entries ? leftPluginPinsContent.entries.length : 0
-          readonly property real averageItemWidth: pinCount > 0 ? leftPluginPinsContent.width / pinCount : 0
-          readonly property real cappedContentWidth: pinCount > visibleCap
-            ? averageItemWidth * visibleCap : leftPluginPinsContent.width
-
           anchors.left: pinnedappsPill.right
-          anchors.leftMargin: cappedContentWidth > 0 ? 6 : 0
+          anchors.leftMargin: leftPluginPinsContent.width > 0 ? 6 : 0
           anchors.verticalCenter: parent.verticalCenter
-          width: cappedContentWidth > 0 ? cappedContentWidth + 8 * 2 : 0
+          width: leftPluginPinsContent.width > 0 ? leftPluginPinsContent.width + 8 * 2 : 0
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent; visible: !root.docked }
 
-          Flickable {
-            id: leftPluginPinsViewport
+          ModuleList {
+            id: leftPluginPinsContent
             anchors.centerIn: parent
-            width: leftPluginPinsPill.cappedContentWidth
-            height: parent.height
-            contentWidth: leftPluginPinsContent.width
-            contentHeight: height
-            // Scrolling is wheel/trackpad-driven only (WheelHandler
-            // below) -- interactive stays false so this Flickable
-            // never grabs a click-drag for its own panning, which
-            // would otherwise fight with each icon's own drag-to-
-            // reorder MouseArea (modulePointer, Bar.qml).
-            interactive: false
-            clip: true
-
-            ModuleList {
-              id: leftPluginPinsContent
-              anchors.verticalCenter: parent.verticalCenter
-              entries: root.layoutEntries("left").filter(function(e) {
-                var id = root.entryId(e)
-                return id !== "ruixen.applauncher" && id !== "ruixen.workspaces"
-                  && id !== "ruixen.pinnedapps" && id !== "ruixen.settingsbutton"
-              })
-              region: "left"
-            }
-
-            WheelHandler {
-              onWheel: function(event) {
-                // Prefer a horizontal delta (trackpad side-scroll);
-                // fall back to vertical (a plain mouse wheel) since
-                // this is a horizontal row -- scrolling either way
-                // over it should feel natural, not just one axis.
-                var delta = event.angleDelta.x !== 0 ? event.angleDelta.x : event.angleDelta.y
-                var maxX = Math.max(0, leftPluginPinsViewport.contentWidth - leftPluginPinsViewport.width)
-                leftPluginPinsViewport.contentX = Math.max(0, Math.min(maxX, leftPluginPinsViewport.contentX - delta))
-              }
-            }
+            entries: root.layoutEntries("left").filter(function(e) {
+              var id = root.entryId(e)
+              return id !== "ruixen.applauncher" && id !== "ruixen.workspaces"
+                && id !== "ruixen.pinnedapps" && id !== "ruixen.settingsbutton"
+            })
+            region: "left"
           }
         }
 
@@ -2234,72 +2191,30 @@ Item {
         // of a data-order coincidence.
         Item {
           id: pluginPinsPill
-          // Caps how many pins show at once instead of growing forever
-          // -- direct request: "limit 4 to show and then the 5th one
-          // requires a scroll... so only a certain cap of plugin icons
-          // can show, then you would scroll it to spin a carousel of
-          // plugins". Same treatment as leftPluginPinsPill's own
-          // comment -- averageItemWidth is real icon width, not a
-          // hardcoded guess, times min(count, cap) for the capped
-          // viewport width; uncapped whenever there are cap or fewer.
-          readonly property int visibleCap: 4
-          readonly property int pinCount: pluginPinsContent.entries ? pluginPinsContent.entries.length : 0
-          readonly property real averageItemWidth: pinCount > 0 ? pluginPinsContent.width / pinCount : 0
-          readonly property real cappedContentWidth: pinCount > visibleCap
-            ? averageItemWidth * visibleCap : pluginPinsContent.width
-
           anchors.right: curatedPill.left
           anchors.rightMargin: 6
           anchors.verticalCenter: parent.verticalCenter
-          // cappedContentWidth, not pluginPinsContent.width/.implicitWidth
-          // -- ModuleList (a Loader) only computes the latter explicitly
-          // for a late-filled entries value; see stayawakeGroupPill's own
-          // old comment (git history) for the identical bug this caused
+          // pluginPinsContent.width, not .implicitWidth -- ModuleList (a
+          // Loader) only computes the former explicitly for a
+          // late-filled entries value; see stayawakeGroupPill's own old
+          // comment (git history) for the identical bug this caused
           // there. Confirmed live: "it doesnt shrink or expand anymore"
           // and a lopsided pill the moment this pill's content stopped
           // being empty -- both symptoms of this exact stale-width bug.
-          width: cappedContentWidth + pluginPinsToggle.implicitWidth + 8 * 2
+          width: pluginPinsContent.width + pluginPinsToggle.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
           GroupPill { anchors.fill: parent; visible: !root.docked }
 
-          Flickable {
-            id: pluginPinsViewport
+          ModuleList {
+            id: pluginPinsContent
             anchors.right: pluginPinsToggle.left
             anchors.verticalCenter: parent.verticalCenter
-            width: pluginPinsPill.cappedContentWidth
-            height: parent.height
-            contentWidth: pluginPinsContent.width
-            contentHeight: height
-            // Scrolling is wheel/trackpad-driven only (WheelHandler
-            // below) -- interactive stays false so this Flickable
-            // never grabs a click-drag for its own panning, which
-            // would otherwise fight with each icon's own drag-to-
-            // reorder MouseArea (modulePointer, Bar.qml).
-            interactive: false
-            clip: true
-
-            ModuleList {
-              id: pluginPinsContent
-              anchors.verticalCenter: parent.verticalCenter
-              entries: root.layoutEntries("right").filter(function(e) {
-                var id = root.entryId(e)
-                return id !== "ruixen.tray" && id !== "ruixen.pluginpins" && root.curatedRightIds.indexOf(id) === -1
-              })
-              region: "right"
-            }
-
-            WheelHandler {
-              onWheel: function(event) {
-                // Prefer a horizontal delta (trackpad side-scroll);
-                // fall back to vertical (a plain mouse wheel) since
-                // this is a horizontal row -- scrolling either way
-                // over it should feel natural, not just one axis.
-                var delta = event.angleDelta.x !== 0 ? event.angleDelta.x : event.angleDelta.y
-                var maxX = Math.max(0, pluginPinsViewport.contentWidth - pluginPinsViewport.width)
-                pluginPinsViewport.contentX = Math.max(0, Math.min(maxX, pluginPinsViewport.contentX - delta))
-              }
-            }
+            entries: root.layoutEntries("right").filter(function(e) {
+              var id = root.entryId(e)
+              return id !== "ruixen.tray" && id !== "ruixen.pluginpins" && root.curatedRightIds.indexOf(id) === -1
+            })
+            region: "right"
           }
 
           ModuleSlot {

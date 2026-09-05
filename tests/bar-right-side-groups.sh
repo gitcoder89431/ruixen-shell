@@ -103,7 +103,7 @@ done
 check "curatedPill anchors off clockPill (rightmost of this cluster)" \
   "$(grep -A2 'id: curatedPill$' "$bar_qml" | grep -c 'anchors.right: clockPill.left' || true)" "1"
 check "pluginPinsPill anchors off curatedPill (sits just left of SYSTEM)" \
-  "$(grep -A15 'id: pluginPinsPill$' "$bar_qml" | grep -c 'anchors.right: curatedPill.left' || true)" "1"
+  "$(grep -A2 'id: pluginPinsPill$' "$bar_qml" | grep -c 'anchors.right: curatedPill.left' || true)" "1"
 check "trayPill anchors off pluginPinsPill (leftmost of this cluster)" \
   "$(grep -A2 'id: trayPill$' "$bar_qml" | grep -c 'anchors.right: pluginPinsPill.left' || true)" "1"
 
@@ -157,24 +157,8 @@ check "pluginPinsToggle reserves its own 8px right margin (not flush against the
 # .implicitWidth, inherited from Loader, doesn't reliably update for a
 # late-filled entries value; .width does -- see stayawakeGroupPill's
 # own old comment, git history, for the original instance of this).
-# The pill's own width formula now reads cappedContentWidth (see the
-# scroll-cap checks below), which is itself built from
-# pluginPinsContent.width, so the same fix still applies one level in.
-check "pluginPinsPill's own width reads cappedContentWidth (built from .width, never .implicitWidth)" \
-  "$(grep -c 'width: cappedContentWidth + pluginPinsToggle\.implicitWidth' "$bar_qml" || true)" "1"
-
-# --- scroll cap: direct request ("limit 4 to show and then the 5th one
-# requires a scroll... scroll it to spin a carousel of plugins") --------
-check "pluginPinsPill caps visible pins at 4 before scrolling is needed" \
-  "$(grep -A10 'id: pluginPinsPill$' "$bar_qml" | grep -c 'readonly property int visibleCap: 4' || true)" "1"
-check "pluginPinsPill's cap is computed from real average icon width, not a hardcoded pixel guess" \
-  "$(grep -A15 'id: pluginPinsPill$' "$bar_qml" | grep -c 'pluginPinsContent\.width / pinCount' || true)" "1"
-check "pluginPinsViewport (the scrollable Flickable) exists, exactly once" \
-  "$(grep -c 'id: pluginPinsViewport$' "$bar_qml" || true)" "1"
-check "pluginPinsViewport is not interactive (drag-to-reorder must not fight with Flickable panning)" \
-  "$(grep -A15 'id: pluginPinsViewport$' "$bar_qml" | grep -c 'interactive: false' || true)" "1"
-check "pluginPinsViewport scrolls via WheelHandler, accepting either horizontal or vertical delta" \
-  "$(grep -A35 'id: pluginPinsViewport$' "$bar_qml" | grep -c 'event\.angleDelta\.x !== 0 ? event\.angleDelta\.x : event\.angleDelta\.y' || true)" "1"
+check "pluginPinsPill's own width reads pluginPinsContent.width, not .implicitWidth" \
+  "$(grep -c 'width: pluginPinsContent\.width + pluginPinsToggle\.implicitWidth' "$bar_qml" || true)" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

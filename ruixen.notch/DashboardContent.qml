@@ -1403,7 +1403,20 @@ Item {
       // in over a short 16px scroll distance once there's genuinely
       // more content that direction, rather than a static always-on
       // fade sitting over content that never actually overflows.
+      //
+      // Real bug, found live ("i dont see the fade over the rows,
+      // seems to be on a wrong layer"): each row delegate paints its
+      // own fully opaque #000000 background, and ListView's delegates
+      // are realized in their own internal item layer -- a plain
+      // sibling declared after the ColumnLayout wasn't reliably
+      // painting above that layer despite normal declaration-order
+      // stacking working for ordinary sibling Items elsewhere in this
+      // file. An explicit z (higher than the ListView's own implicit
+      // 0) is the standard, unambiguous way to force stacking order in
+      // Qt Quick regardless of any such internal batching -- both
+      // fades now set it well above anything in the card.
       Rectangle {
+        z: 10
         readonly property real fadeRun: 16
         readonly property real overflowAbove: notificationList.contentY
         anchors.top: notificationList.top
@@ -1418,6 +1431,7 @@ Item {
       }
 
       Rectangle {
+        z: 10
         readonly property real fadeRun: 16
         readonly property real overflowBelow: notificationList.contentHeight - notificationList.height - notificationList.contentY
         anchors.bottom: notificationList.bottom

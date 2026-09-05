@@ -1324,12 +1324,27 @@ Item {
               }
             }
 
+            // Direct follow-up: "in addition to x to delete then i
+            // guess right click to clear as well" -- right-click
+            // anywhere on the row is a second, faster way to reach the
+            // same forgetOne() the hover "x" already calls, same
+            // acceptedButtons/mouse.button branch this plugin's own
+            // pluginpins widget already uses for its own left/right
+            // click split.
             MouseArea {
               id: notificationRowArea
               anchors.fill: parent
               hoverEnabled: true
+              acceptedButtons: Qt.LeftButton | Qt.RightButton
               cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.notificationHistory) root.notificationHistory.activate(notificationRow.modelData.key)
+              onClicked: function(mouse) {
+                if (!root.notificationHistory) return
+                if (mouse.button === Qt.RightButton) {
+                  root.notificationHistory.forgetOne(notificationRow.modelData.key)
+                } else {
+                  root.notificationHistory.activate(notificationRow.modelData.key)
+                }
+              }
             }
 
             // The actual dismiss hit target -- declared after (so on

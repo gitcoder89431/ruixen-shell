@@ -49,7 +49,7 @@ check "no-layout pristine bar: returned byte-for-byte unchanged" \
 # --- Case: third-party added after install -------------------------
 out="$(run_merge \
   '{"id":"local.old-bar","layout":{"left":[{"id":"local.launcher"}],"center":[],"right":[]}}' \
-  '{"layout":{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"test.thirdparty.left"}],"center":[{"id":"omarchy.menu"},{"id":"ruixen.media"},{"id":"ruixen.weather"},{"id":"omarchy.clock"}],"right":[{"id":"omarchy.keyboard-layout"},{"id":"omarchy.system-update"},{"id":"ruixen.tray"},{"id":"ruixen.stayawake"},{"id":"ruixen.quickactions"},{"id":"omarchy.agents"},{"id":"omarchy.power"},{"id":"ruixen.settingsbutton"}]}}')"
+  '{"layout":{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"test.thirdparty.left"}],"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.stayawake"},{"id":"omarchy.agents"},{"id":"ruixen.pluginpins"},{"id":"omarchy.system-update"},{"id":"omarchy.power"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]}}')"
 check "third-party added after install: appended after the baseline entry" \
   "$(jq -c '.layout.left' <<<"$out")" '[{"id":"local.launcher"},{"id":"test.thirdparty.left"}]'
 check "third-party added after install: every Ruixen-owned entry is gone (center)" \
@@ -72,7 +72,7 @@ check "third-party pre-existing before install: appears exactly once" \
 # wired into uninstall.sh). ------------------------------------------
 out="$(run_merge \
   '{"id":"local.old-bar","layout":{"left":[{"id":"test.thirdparty.left"}],"center":[],"right":[]}}' \
-  '{"layout":{"left":[{"id":"ruixen.applauncher"}],"center":[{"id":"omarchy.menu"},{"id":"test.thirdparty.left"}],"right":[]}}')"
+  '{"layout":{"left":[{"id":"ruixen.applauncher"}],"center":[{"id":"ruixen.weather"},{"id":"test.thirdparty.left"}],"right":[]}}')"
 check "moved third-party widget: gone from its old region" \
   "$(jq -c '.layout.left' <<<"$out")" '[]'
 check "moved third-party widget: present in its new region, not duplicated" \
@@ -96,9 +96,9 @@ out="$(run_merge \
   "$(jq -c -n --argjson c "$canon" '{layout: $c.layout}')")"
 check "current bar is EXACTLY Ruixen's own canonical layout: nothing survives (left)" \
   "$(jq -c '.layout.left' <<<"$out")" '[]'
-check "current bar is EXACTLY Ruixen's own canonical layout: nothing survives (center, incl. omarchy.menu/omarchy.clock)" \
+check "current bar is EXACTLY Ruixen's own canonical layout: nothing survives (center, incl. ruixen.weather/omarchy.clock)" \
   "$(jq -c '.layout.center' <<<"$out")" '[]'
-check "current bar is EXACTLY Ruixen's own canonical layout: nothing survives (right, incl. omarchy.keyboard-layout etc.)" \
+check "current bar is EXACTLY Ruixen's own canonical layout: nothing survives (right, incl. ruixen.pluginpins etc.)" \
   "$(jq -c '.layout.right' <<<"$out")" '[]'
 
 # --- Case: duplicate ids within the same live region are collapsed to

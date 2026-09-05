@@ -69,17 +69,24 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # explanation was moved up here instead.
 ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 # Every ruixen.* id that has no OTHER way to get enabled -- a
-# bar-widget-kind plugin (applauncher, media, tray, ...) is enabled by
-# simply appearing anywhere in ruixenBar's own layout above, so it
-# doesn't need to be listed here too. These four are the ones with no
-# bar-widget presence at all (overlay or pure-service kind), so this
-# top-level plugins array is their only home. ruixen.wallpaper was
-# missing from this list entirely until a direct review caught it
-# ("Explicitly enable ruixen.wallpaper on a clean install") -- it only
-# ever worked on this dev machine because it had been enabled by hand
-# while it was being built, never actually reachable on a real clean
-# install.
-ruixen_plugin_ids='["ruixen.frame-widget", "ruixen.notch", "ruixen.settings", "ruixen.wallpaper"]'
+# bar-widget-kind plugin (applauncher, tray, ...) is enabled by simply
+# appearing anywhere in ruixenBar's own layout above, so it doesn't
+# need to be listed here too. These are the ones with no bar-widget
+# presence in the canonical layout, so this top-level plugins array is
+# their only home. ruixen.wallpaper was missing from this list
+# entirely until a direct review caught it ("Explicitly enable
+# ruixen.wallpaper on a clean install") -- it only ever worked on this
+# dev machine because it had been enabled by hand while it was being
+# built, never actually reachable on a real clean install.
+#
+# ruixen.media is a dual bar-widget/service plugin, deliberately kept
+# OUT of ruixenBar's layout (its own oversized play/pause badge -- see
+# its commit history) but still needed here so its service half (the
+# notch's own music control) is enabled. Enabling a bar-widget-kind
+# plugin this way, instead of through the layout, does not place it on
+# the bar -- placement is layout-driven only -- confirmed live on this
+# dev machine's own shell.json.
+ruixen_plugin_ids='["ruixen.frame-widget", "ruixen.notch", "ruixen.settings", "ruixen.wallpaper", "ruixen.media"]'
 default_idle_json='{"lock": 300, "screensaver": 150}'
 
 existing_json="$(cat)"

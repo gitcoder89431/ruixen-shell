@@ -56,9 +56,9 @@ check "clean install: exits 0" "$status1" "0"
 if [[ "$status1" -eq 0 ]]; then
   check "clean install: bar.id is ruixen.bar" \
     "$(jq -r '.bar.id' "$home1/.config/omarchy/shell.json")" "ruixen.bar"
-  check "clean install: all 4 canonical ruixen plugin ids present" \
+  check "clean install: all 5 canonical ruixen plugin ids present" \
     "$(jq -c '[.plugins[].id] | sort' "$home1/.config/omarchy/shell.json")" \
-    '["ruixen.frame-widget","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
+    '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
   check "clean install: looknfeel.lua points at the stable deployed path, not the checkout (#15)" \
     "$(readlink "$home1/.config/hypr/looknfeel.lua")" "$home1/.local/share/ruixen-shell/hyprland/looknfeel.ruixen.lua"
   check "clean install: deployed looknfeel asset matches this checkout's content" \

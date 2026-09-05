@@ -6,11 +6,10 @@
     "layout": {
         "left": [
             { "id": "ruixen.applauncher" },
-            { "id": "ruixen.workspaces" }
+            { "id": "ruixen.workspaces" },
+            { "id": "ruixen.pinnedapps" }
         ],
         "center": [
-            { "id": "omarchy.menu" },
-            { "id": "ruixen.media" },
             { "id": "ruixen.weather" },
             {
                 "id": "omarchy.clock",
@@ -20,13 +19,13 @@
             }
         ],
         "right": [
-            { "id": "omarchy.keyboard-layout" },
-            { "id": "omarchy.system-update" },
             { "id": "ruixen.tray", "hidden": [] },
             { "id": "ruixen.stayawake" },
-            { "id": "ruixen.quickactions" },
             { "id": "omarchy.agents" },
+            { "id": "ruixen.pluginpins" },
+            { "id": "omarchy.system-update" },
             { "id": "omarchy.power" },
+            { "id": "ruixen.quickactions" },
             { "id": "ruixen.settingsbutton" }
         ]
     }

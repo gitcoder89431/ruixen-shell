@@ -274,6 +274,33 @@ for dir in "$script_dir"/ruixen.*/; do
   printf '  installed %s\n' "$id"
 done
 
+# Direct real-world report (issue #32's exact scenario): a hard
+# interruption mid-run -- a closed terminal, a crash, "the screen cut
+# off" -- can leave a mixed old/new plugin set with no ERR trap ever
+# firing to catch it, since kill -9/power-loss/a closed window skips
+# trap handling entirely. A LATER, fully-completed install run always
+# fixes this on its own (the loop above unconditionally replaces every
+# plugin from scratch, every time) -- the actual gap was that nothing
+# ever confirmed a run genuinely finished clean, so a tester could
+# reasonably re-run this several times and still not know whether it
+# had ever actually succeeded. Verifying the copy immediately, not in
+# a separate later diagnostic, catches a bad run at the moment it
+# happens instead of leaving it to be rediscovered by chance. Content
+# hash, not a version-string comparison -- see ruixen-doctor.sh's own
+# comment for why that check is the one that actually matters (most
+# plugin edits never bump their own manifest version at all).
+verify_dir_hash() {
+  local dir="$1"
+  (cd "$dir" && find . -type f -print0 | sort -z | xargs -0 sha256sum 2>/dev/null) | sha256sum | awk '{print $1}'
+}
+for id in "${DEPLOYED_PLUGIN_IDS[@]}"; do
+  source_hash="$(verify_dir_hash "$script_dir/$id")"
+  deployed_hash="$(verify_dir_hash "$plugins_dir/$id")"
+  [[ "$source_hash" == "$deployed_hash" ]] \
+    || fail "$id was deployed but does not match this checkout's own source -- the copy did not complete cleanly (nothing else has been changed; safe to just run this again)"
+done
+printf '  verified: every deployed plugin exactly matches this checkout\n'
+
 printf '\n[4/6] Applying shell layout\n'
 # Merged into whatever shell.json already exists (via lib/build-shell-
 # json.sh), not a wholesale `cat > shell.json` overwrite -- direct

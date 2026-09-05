@@ -52,18 +52,25 @@ if [[ -d "$script_dir/.git" ]]; then
     printf 'local changes: none\n'
   fi
 
-  if git -C "$script_dir" fetch --dry-run >/dev/null 2>&1; then
+  # A REAL fetch, not --dry-run -- direct correction after --dry-run
+  # was found to never refresh the local origin/<branch> tracking ref
+  # at all, so this comparison could silently run against whatever
+  # that ref last happened to be (potentially from days ago), reporting
+  # "up to date" based on stale information rather than the actual
+  # current state of the remote. This is the one check in the whole
+  # report that reaches the network -- everything else is local-only.
+  if git -C "$script_dir" fetch --quiet origin "$branch" >/dev/null 2>&1; then
     ahead_behind="$(git -C "$script_dir" rev-list --left-right --count HEAD...origin/"$branch" 2>/dev/null || echo "? ?")"
     ahead="$(awk '{print $1}' <<<"$ahead_behind")"
     behind="$(awk '{print $2}' <<<"$ahead_behind")"
     if [[ "$behind" == "0" ]]; then
-      printf 'vs origin/%s: up to date\n' "$branch"
+      printf 'vs origin/%s: up to date (just fetched)\n' "$branch"
     else
       printf 'vs origin/%s: %s commit(s) behind -- run git pull, or ./update.sh\n' "$branch" "$behind"
     fi
     [[ "$ahead" != "0" ]] && printf 'vs origin/%s: %s local commit(s) not on origin\n' "$branch" "$ahead"
   else
-    printf 'vs origin: could not reach remote (offline?)\n'
+    printf 'vs origin: could not reach remote (offline?) -- this check needs real network access, everything else in this report is local-only\n'
   fi
 else
   printf 'not a git checkout -- update.sh and this doctor script both need one\n'
@@ -79,35 +86,51 @@ else
 fi
 printf '\n'
 
-# --- Deployed plugin versions vs this checkout own source ------------
-printf -- '-- Plugin versions (source in this checkout vs deployed) --\n'
+# --- Deployed plugin FILES vs this checkout own source ---------------
+# Direct correction after a real report proved this wrong: comparing
+# manifest.json "version" strings looked reassuring ("all OK") while
+# the actual deployed Bar.qml was hours of commits behind, because
+# most plugin edits that whole night never bumped that version field
+# at all -- a version match said nothing real about whether the file
+# CONTENT matched. This hashes every real file in each plugin
+# directory instead (recursive, sorted so enumeration order never
+# matters, manifest.json included) -- a single changed byte anywhere,
+# bumped version or not, shows up here.
+dir_hash() {
+  local dir="$1"
+  [[ -d "$dir" ]] || { echo "(missing)"; return; }
+  # cd into the directory first, not `find "$dir"` -- sha256sum's own
+  # output includes the path it hashed, and source/deployed live at
+  # two different absolute locations by design. Hashing absolute paths
+  # would make every single plugin report a false mismatch regardless
+  # of content (caught live: it did, for all fifteen, before this fix).
+  # Relative paths from inside each tree are identical when the
+  # content and structure actually match.
+  (cd "$dir" && find . -type f -print0 | sort -z | xargs -0 sha256sum 2>/dev/null) | sha256sum | awk '{print $1}'
+}
+printf -- '-- Plugin files (source in this checkout vs deployed, by content hash) --\n'
 mismatch_count=0
 for dir in "$script_dir"/ruixen.*/; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
-  source_manifest="$dir/manifest.json"
-  deployed_manifest="$plugins_dir/$id/manifest.json"
-
-  source_version="$(jq -r '.version // "?"' "$source_manifest" 2>/dev/null || echo "?")"
+  source_version="$(jq -r '.version // "?"' "$dir/manifest.json" 2>/dev/null || echo "?")"
 
   if [[ ! -e "$plugins_dir/$id" ]]; then
-    printf '%-24s source %-10s deployed MISSING (never installed here)\n' "$id" "$source_version"
-    mismatch_count=$((mismatch_count + 1))
-  elif [[ ! -f "$deployed_manifest" ]]; then
-    printf '%-24s source %-10s deployed present but unreadable manifest\n' "$id" "$source_version"
+    printf '%-24s v%-8s deployed MISSING (never installed here)\n' "$id" "$source_version"
     mismatch_count=$((mismatch_count + 1))
   else
-    deployed_version="$(jq -r '.version // "?"' "$deployed_manifest" 2>/dev/null || echo "?")"
-    if [[ "$source_version" == "$deployed_version" ]]; then
-      printf '%-24s %s -- OK\n' "$id" "$source_version"
+    source_hash="$(dir_hash "$dir")"
+    deployed_hash="$(dir_hash "$plugins_dir/$id")"
+    if [[ "$source_hash" == "$deployed_hash" ]]; then
+      printf '%-24s v%-8s -- OK, file contents match exactly\n' "$id" "$source_version"
     else
-      printf '%-24s source %-10s deployed %-10s -- MISMATCH (install.sh did not update this one)\n' "$id" "$source_version" "$deployed_version"
+      printf '%-24s v%-8s -- CONTENT MISMATCH (deployed files differ from this checkout, regardless of version number -- install.sh did not update this one)\n' "$id" "$source_version"
       mismatch_count=$((mismatch_count + 1))
     fi
   fi
 done
 if [[ "$mismatch_count" -eq 0 ]]; then
-  printf '(all plugins match this checkout own source)\n'
+  printf '(every plugin file exactly matches this checkout own source)\n'
 fi
 printf '\n'
 

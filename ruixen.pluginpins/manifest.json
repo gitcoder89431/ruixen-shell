@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.pluginpins",
+  "name": "Plugin Pins",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Browse every installed bar-widget plugin and pin the ones you want visible, instead of them needing to live in the bar permanently.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Plugin Pins",
+    "description": "Pin/unpin installed bar-widget plugins from a dropdown.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

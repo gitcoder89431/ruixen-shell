@@ -32,6 +32,12 @@
 #   remaining curatedRightIds order is system-update, power,
 #   quickactions, settingsbutton.
 #
+# Pass 3: ruixen.pluginpins (the pin/unpin dropdown for every other
+#   installed bar-widget) joined the curated group after quickactions,
+#   before settingsbutton -- a core ruixen utility, not a random
+#   third-party thing, so it doesn't belong in thirdPartyPill's own
+#   generic catch-all.
+#
 # Can't drive a real Quickshell instance here (no compositor in CI), so
 # this is a static invariant check against the actual QML source instead
 # -- same style as tests/lint-shell.sh's own pattern-based guards.
@@ -60,8 +66,8 @@ check "stayawakeGroupIds is stayawake then AI, in that order (stayawake stays th
   "$stayawake_ids_line" '  readonly property var stayawakeGroupIds: ["ruixen.stayawake", "omarchy.agents"]'
 
 curated_ids_line="$(grep -m1 'readonly property var curatedRightIds:' "$bar_qml")"
-check "curatedRightIds is update, power, more-actions, settings in that exact order" \
-  "$curated_ids_line" '  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton"]'
+check "curatedRightIds is update, power, more-actions, plugin-pins, settings in that exact order" \
+  "$curated_ids_line" '  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.pluginpins", "ruixen.settingsbutton"]'
 
 side_right_line="$(grep -m1 'readonly property var sideRightIds:' "$bar_qml")"
 check "sideRightIds is built from stayawakeGroupIds + curatedRightIds + tray, not a separate hand-picked list" \

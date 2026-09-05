@@ -705,7 +705,12 @@ Item {
   // catch-all read as a miscategorization for a curated stock action) --
   // flagged both times, easy to pull back out if it's still wrong.
   readonly property var stayawakeGroupIds: ["ruixen.stayawake", "omarchy.agents"]
-  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton"]
+  // ruixen.pluginpins joined after quickactions, before settingsbutton --
+  // it's a core ruixen utility (the pin/unpin dropdown for every other
+  // installed bar-widget), not a random third-party thing, so it belongs
+  // in the curated group rather than falling into thirdPartyPill's own
+  // generic catch-all.
+  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.pluginpins", "ruixen.settingsbutton"]
   readonly property var sideRightIds: stayawakeGroupIds.concat(curatedRightIds).concat(["ruixen.tray"])
   // The two ids clockPill gives its own special pill+divider treatment
   // (see clockPill's own comment) -- direct review finding ("Support

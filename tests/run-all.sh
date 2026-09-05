@@ -29,6 +29,7 @@ suites=(
   "$script_dir/bar-popup-clearance.sh"
   "$script_dir/bar-right-side-groups.sh"
   "$script_dir/bar-docked-left-inset.sh"
+  "$script_dir/pluginpins-model.sh"
 )
 
 overall_status=0

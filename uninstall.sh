@@ -78,6 +78,35 @@ if [[ "${1:-}" == "--dry-run" ]]; then
     while IFS= read -r id; do [[ -n "$id" ]] && printf '  %s\n' "$id"; done <<<"$stale_plugin_ids"
   fi
 
+  # install.sh's own rollback-safety backups (issue #20/#10) and the
+  # stray timestamped .bak.* files it leaves in the user's real config
+  # dirs have no reason to survive once nothing is installed -- see the
+  # real run's own comment on this exact step for the full story.
+  state_backups_dir="$HOME/.local/state/ruixen/backups"
+  stray_backup_count=0
+  if [[ -d "$state_backups_dir" ]]; then
+    stray_backup_count=$(find "$state_backups_dir" -mindepth 1 -maxdepth 2 2>/dev/null | wc -l)
+  fi
+  for stray_backup_pattern in \
+    "$HOME/.config/hypr/looknfeel.lua.bak."'*' \
+    "$HOME/.config/omarchy/shell.json.bak."'*'
+  do
+    for stray_backup in $stray_backup_pattern; do
+      # A backup of a looknfeel.lua that was itself a symlink is a
+      # symlink too (apply-looknfeel.sh moves the symlink, doesn't
+      # follow it) -- `-e` alone is false for one whose target has
+      # since been removed (e.g. the stable-deployed-assets dir this
+      # same uninstall also cleans up), silently hiding it from this
+      # count. `-L` catches it regardless of whether the target is
+      # still there.
+      [[ -e "$stray_backup" || -L "$stray_backup" ]] && stray_backup_count=$((stray_backup_count + 1))
+    done
+  done
+  if [[ "$stray_backup_count" -gt 0 ]]; then
+    printf '\nDelete leftover install/update backups: %s items under %s and stray looknfeel.lua.bak.*/shell.json.bak.* files\n' \
+      "$stray_backup_count" "$state_backups_dir"
+  fi
+
   printf '\nRestore Hyprland window look:\n'
   looknfeel_pristine_dir="$HOME/.local/state/ruixen/looknfeel-pristine"
   if [[ -e "$looknfeel_pristine_dir/target" ]]; then
@@ -270,6 +299,51 @@ if source omarchy-shell-config \
 else
   record_failure "sweeping any leftover ruixen.* entries out of shell.json's plugins[] failed -- a removed plugin may still be listed there"
 fi
+
+# Direct real-world finding, asked about live: "can you check the file
+# system to see if any trace or spam or leftover?" -- install.sh's own
+# rollback-safety backups (issue #20/#10: bounded to the last 5 runs,
+# kept so a FAILED install/update can undo itself) have no reason to
+# exist once nothing is installed at all, and until now nothing ever
+# deleted them. Found live: five install cycles left ~75 backup
+# folders sitting under $state_dir/backups/ alone, invisible unless you
+# already knew that path existed, plus timestamped
+# looknfeel.lua.bak.*/shell.json.bak.* files sitting directly in the
+# user's REAL config directories (~/.config/hypr, ~/.config/omarchy) --
+# arguably worse clutter than a hidden state dir, since it shows up in
+# a plain `ls` of config the user actually looks at. Same philosophy
+# already applied to the plugin-directory backups above ("an 'uninstall
+# everything' action leaving a dozen hidden ... backup folders behind
+# forever ... isn't a real uninstall") -- applied consistently here
+# too, now that nothing remains for any of these to roll back to.
+state_backups_dir="$state_dir/backups"
+if [[ -d "$state_backups_dir" ]]; then
+  if rm -rf "$state_backups_dir"; then
+    printf '  deleted install/update rollback backups (%s)\n' "$state_backups_dir"
+  else
+    record_failure "deleting $state_backups_dir failed -- old plugin/looknfeel rollback backups may still be present"
+  fi
+fi
+
+for stray_backup_pattern in \
+  "$HOME/.config/hypr/looknfeel.lua.bak."'*' \
+  "$HOME/.config/omarchy/shell.json.bak."'*'
+do
+  for stray_backup in $stray_backup_pattern; do
+    # Real bug, found live: `-e` alone is false for a dangling symlink
+    # (a backed-up looknfeel.lua.bak.* that was itself a symlink,
+    # pointing at the stable-deployed-assets path this same uninstall
+    # removes) -- silently skipped 4 of 5 real leftover backups on this
+    # dev machine before this fix. `-L` catches it either way, same
+    # guard apply-looknfeel.sh already uses for the live target.
+    [[ -e "$stray_backup" || -L "$stray_backup" ]] || continue
+    if rm -f "$stray_backup"; then
+      printf '  deleted stray backup %s\n' "$stray_backup"
+    else
+      record_failure "deleting stray backup $stray_backup failed"
+    fi
+  done
+done
 
 printf '\n[3/4] Restoring Hyprland window look\n'
 # Not a bare `rm -f` on the symlink -- confirmed by reading hyprland.lua

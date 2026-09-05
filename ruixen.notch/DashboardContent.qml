@@ -1208,26 +1208,28 @@ Item {
           // treatment (a translucent white tint snapping on/off the
           // whole row -- "this flashing animation") is gone entirely;
           // hover now only reveals the per-row dismiss "x" below.
+          // Direct follow-up: one more line for the body ("looks too
+          // compact"), and the dismiss "x" moved into the relative-time
+          // label's own slot on hover ("put the X like on 27m time
+          // instead on hover so its not a new alignment on its own") --
+          // rather than a separately right-anchored overlay floating on
+          // top of the whole (now taller) row.
           delegate: Rectangle {
             id: notificationRow
             required property var modelData
             width: notificationList.width
-            height: 38
+            height: 56
             radius: height / 2
             color: "#000000"
 
             ColumnLayout {
               anchors.fill: parent
               anchors.leftMargin: 12
-              // Space for the dismiss "x" is reserved unconditionally,
-              // not just while visible -- toggling the margin itself on
-              // hover would reflow/elide the text underneath it on
-              // every hover in/out, same reasoning as the wallpaper
-              // search box's own clear button.
-              anchors.rightMargin: 24
-              spacing: 1
+              anchors.rightMargin: 12
+              spacing: 2
 
               RowLayout {
+                id: notificationHeaderRow
                 Layout.fillWidth: true
                 spacing: 6
 
@@ -1253,20 +1255,32 @@ Item {
                   elide: Text.ElideRight
                 }
 
+                // The relative-age label, swapped for a dismiss "x" on
+                // hover -- same slot, same line, no separate alignment
+                // of its own. dismissNotificationArea (below, a sibling
+                // of this RowLayout so it z-orders above
+                // notificationRowArea) is what's actually clickable;
+                // this is the visual half of that pair.
                 Text {
-                  text: NotificationModel.relativeTime(notificationRow.modelData.timestamp, notificationList.now)
-                  color: root.muted
+                  text: notificationRowArea.containsMouse ? "✕" : NotificationModel.relativeTime(notificationRow.modelData.timestamp, notificationList.now)
+                  color: notificationRowArea.containsMouse
+                    ? (dismissNotificationArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252")
+                    : root.muted
                   font.family: root.fontFamily
-                  font.pixelSize: 9
+                  font.pixelSize: 10
                 }
               }
 
               Text {
                 Layout.fillWidth: true
+                Layout.fillHeight: true
+                verticalAlignment: Text.AlignTop
                 text: NotificationModel.bodyText(notificationRow.modelData) || notificationRow.modelData.summary
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: 10
+                wrapMode: Text.WordWrap
+                maximumLineCount: 2
                 elide: Text.ElideRight
               }
             }
@@ -1279,29 +1293,22 @@ Item {
               onClicked: if (root.notificationHistory) root.notificationHistory.activate(notificationRow.modelData.key)
             }
 
-            // Per-row dismiss, only while hovering this row -- declared
-            // after (so on top of/above in hit-testing) the full-row
-            // MouseArea above, so a click landing in its own small
-            // bounds is handled here instead of falling through to
-            // activate() on the row underneath it.
-            Text {
+            // The actual dismiss hit target -- declared after (so on
+            // top of/above in hit-testing) the full-row MouseArea
+            // above, positioned over the header row's own right end
+            // (where the "x" renders once hovering) rather than
+            // centered on this whole, now-taller row.
+            MouseArea {
+              id: dismissNotificationArea
               visible: notificationRowArea.containsMouse
+              enabled: notificationRowArea.containsMouse
               anchors.right: parent.right
-              anchors.rightMargin: 10
-              anchors.verticalCenter: parent.verticalCenter
-              text: "✕"
-              font.pixelSize: 11
-              color: dismissNotificationArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
-
-              MouseArea {
-                id: dismissNotificationArea
-                anchors.centerIn: parent
-                width: 20
-                height: 20
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (root.notificationHistory) root.notificationHistory.forgetOne(notificationRow.modelData.key)
-              }
+              anchors.verticalCenter: notificationHeaderRow.verticalCenter
+              width: 24
+              height: 20
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.notificationHistory) root.notificationHistory.forgetOne(notificationRow.modelData.key)
             }
           }
         }

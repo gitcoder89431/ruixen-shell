@@ -1192,10 +1192,27 @@ Item {
         // in-place ListModel.syncRows optimization the reference
         // project uses for its own much longer flyout list isn't
         // needed here.
-        ListView {
-          id: notificationList
+        // Wraps the list, its empty-state placeholder, and the fade
+        // overlays together -- direct follow-up ("i dont think your
+        // putting it on the right place"): the fades were previously
+        // siblings of the OUTER ColumnLayout (two levels up from the
+        // list itself), anchored across that gap to
+        // notificationList.top/bottom. Cross-branch anchors like that
+        // are valid QML, but z-ordering a sibling THAT far from the
+        // list against the list's own internal delegate layer turned
+        // out not to reliably win (see the z: 10 comment below, kept
+        // as defense in depth). Wrapping everything in one local Item
+        // means the fades are now direct siblings of notificationList
+        // itself, anchored to their own immediate parent -- nothing
+        // to reach across, nothing left to guess about.
+        Item {
+          id: notificationListArea
           Layout.fillWidth: true
           Layout.fillHeight: true
+
+        ListView {
+          id: notificationList
+          anchors.fill: parent
           clip: true
           spacing: 4
           model: root.notificationHistory ? root.notificationHistory.entries : []
@@ -1380,8 +1397,7 @@ Item {
         }
 
         Item {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
+          anchors.fill: parent
           visible: notificationList.count === 0
 
           Text {
@@ -1392,56 +1408,49 @@ Item {
             font.pixelSize: 10
           }
         }
-      }
 
-      // Top/bottom fade on the list specifically (not this whole
-      // card) -- unlike ruixen.settings' own detail panel, the header
-      // above notificationList does not scroll with it, so the fade
-      // anchors to the list's own edges rather than the card's.
-      // Same "opacity tracks real overflow" pattern as that settings
-      // fade (see its own long comment chain): hidden at rest, ramping
-      // in over a short 16px scroll distance once there's genuinely
-      // more content that direction, rather than a static always-on
-      // fade sitting over content that never actually overflows.
-      //
-      // Real bug, found live ("i dont see the fade over the rows,
-      // seems to be on a wrong layer"): each row delegate paints its
-      // own fully opaque #000000 background, and ListView's delegates
-      // are realized in their own internal item layer -- a plain
-      // sibling declared after the ColumnLayout wasn't reliably
-      // painting above that layer despite normal declaration-order
-      // stacking working for ordinary sibling Items elsewhere in this
-      // file. An explicit z (higher than the ListView's own implicit
-      // 0) is the standard, unambiguous way to force stacking order in
-      // Qt Quick regardless of any such internal batching -- both
-      // fades now set it well above anything in the card.
-      Rectangle {
-        z: 10
-        readonly property real fadeRun: 16
-        readonly property real overflowAbove: notificationList.contentY
-        anchors.top: notificationList.top
-        anchors.left: notificationList.left
-        anchors.right: notificationList.right
-        height: 16
-        opacity: Math.max(0, Math.min(1, overflowAbove / fadeRun))
-        gradient: Gradient {
-          GradientStop { position: 0.0; color: "#000000" }
-          GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+        // Top/bottom fade -- direct siblings of notificationList
+        // within this same wrapping Item now, anchored to their own
+        // immediate parent (see notificationListArea's own comment
+        // above for why this replaced the earlier cross-branch
+        // version). Same "opacity tracks real overflow" pattern as
+        // ruixen.settings' own detail-panel fade (see its long comment
+        // chain there): hidden at rest, ramping in over a short 16px
+        // scroll distance once there's genuinely more content that
+        // direction, rather than a static always-on fade sitting over
+        // content that never actually overflows. z: 10 kept as defense
+        // in depth against the ListView's own internal delegate layer,
+        // even though it's no longer the only thing standing between
+        // the fade and the rows.
+        Rectangle {
+          z: 10
+          readonly property real fadeRun: 16
+          readonly property real overflowAbove: notificationList.contentY
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          height: 16
+          opacity: Math.max(0, Math.min(1, overflowAbove / fadeRun))
+          gradient: Gradient {
+            GradientStop { position: 0.0; color: "#000000" }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+          }
         }
-      }
 
-      Rectangle {
-        z: 10
-        readonly property real fadeRun: 16
-        readonly property real overflowBelow: notificationList.contentHeight - notificationList.height - notificationList.contentY
-        anchors.bottom: notificationList.bottom
-        anchors.left: notificationList.left
-        anchors.right: notificationList.right
-        height: 16
-        opacity: Math.max(0, Math.min(1, overflowBelow / fadeRun))
-        gradient: Gradient {
-          GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
-          GradientStop { position: 1.0; color: "#000000" }
+        Rectangle {
+          z: 10
+          readonly property real fadeRun: 16
+          readonly property real overflowBelow: notificationList.contentHeight - notificationList.height - notificationList.contentY
+          anchors.bottom: parent.bottom
+          anchors.left: parent.left
+          anchors.right: parent.right
+          height: 16
+          opacity: Math.max(0, Math.min(1, overflowBelow / fadeRun))
+          gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+            GradientStop { position: 1.0; color: "#000000" }
+          }
+        }
         }
       }
     }

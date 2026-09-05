@@ -1265,6 +1265,18 @@ Item {
       for (var i = 0; i < data.length; i++) {
         var p = data[i]
         if (String(p.id || "").indexOf("ruixen.") !== 0) continue
+        // ruixen.stayawake is a plain bar-widget with no other kind, so
+        // "enabled" is purely "present in bar.layout somewhere" (real
+        // registry semantics, confirmed by reading PluginRegistry.qml
+        // directly -- no separate disabled flag for a non-first-party
+        // widget). ruixen.pluginpins' own pin/unpin dropdown toggles
+        // that exact same state, so this row and that one aren't two
+        // independent controls -- they're two doors onto the same
+        // switch. Direct follow-up after that caused real confusion
+        // ("i have it disabled in settings but i can pin it and use
+        // it?"): dropped here entirely rather than keep a second,
+        // redundant door to the same toggle.
+        if (p.id === "ruixen.stayawake") continue
         rows.push(p)
       }
       // Locked (protected) plugins first, alphabetical within each

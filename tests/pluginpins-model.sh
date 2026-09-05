@@ -43,9 +43,9 @@ check "manifest defaults to the right section (curatedRightIds places it explici
 required_exclusions=(
   "ruixen.applauncher" "ruixen.workspaces" "ruixen.pinnedapps" "ruixen.tray"
   "ruixen.quickactions" "ruixen.settingsbutton" "ruixen.stayawake"
-  "ruixen.weather" "ruixen.media" "ruixen.pluginpins"
+  "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
 )
-excluded_block="$(grep -A6 'readonly property var excludedIds:' "$widget_qml")"
+excluded_block="$(grep -A12 'readonly property var excludedIds:' "$widget_qml")"
 missing=0
 for id in "${required_exclusions[@]}"; do
   if ! grep -qF "\"$id\"" <<<"$excluded_block"; then
@@ -54,7 +54,7 @@ for id in "${required_exclusions[@]}"; do
   fi
 done
 if [[ "$missing" -eq 0 ]]; then
-  printf 'ok   - excludedIds covers every structural ruixen id (app launcher, workspaces, tray, pinnedapps, quickactions, settingsbutton, stayawake, weather, media, itself)\n'
+  printf 'ok   - excludedIds covers every structural ruixen id (app launcher, workspaces, tray, pinnedapps, quickactions, settingsbutton, stayawake, weather, media, itself) plus omarchy.clock (shares clockPill with weather, has its own baked-in format settings)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))

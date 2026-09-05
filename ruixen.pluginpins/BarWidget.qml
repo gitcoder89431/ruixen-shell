@@ -50,10 +50,25 @@ BarWidget {
   // inviting someone to re-pin its oversized badge. The stock omarchy.*
   // counterparts already superseded by one of our own clones are
   // excluded so the list doesn't offer a redundant, worse duplicate.
+  //
+  // omarchy.clock excluded for a different reason, found live: it
+  // shares clockPill with ruixen.weather (a divider between the two,
+  // plus clock's own format/formatAlt/verticalFormat settings baked
+  // into its shell.json entry -- see Bar.qml's centerSpecialIds). This
+  // widget's own togglePin() only knows how to append a bare {id} to
+  // the generic "right" section, so unpinning clock through here and
+  // re-pinning it landed it as a brand new plain icon on the right,
+  // stripped of its settings, instead of back in clockPill next to
+  // weather. Direct live report: "it hid the clock from our designed
+  // pill... when i click to show the clock again its a new one in the
+  // new group". Excluded rather than taught this one widget's own
+  // special-cased home -- same treatment ruixen.weather already gets
+  // for the identical reason.
   readonly property var excludedIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
     "ruixen.stayawake", "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
+    "omarchy.clock",
     "omarchy.bar", "omarchy.menu", "omarchy.spacer",
     "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media"
   ]

@@ -1217,13 +1217,14 @@ Item {
           // notification clearer") -- a regular rounded rectangle (see
           // the row Rectangle's own radius comment below), not the
           // stadium/pill shape first tried here, and a real 2-line body
-          // instead of eliding to one. Hover swaps the relative-time
-          // label into a dismiss "x" in that same slot (see
-          // notificationHeaderRow below) rather than a separately
-          // right-anchored overlay, and no longer tints the row itself
-          // on hover at all -- both direct follow-ups after the first
-          // pass looked "too compact" and had "a new alignment on its
-          // own" for the dismiss control.
+          // instead of eliding to one. Hover swaps the unread dot into a
+          // dismiss "x" in that same slot (notificationIndicatorSlot
+          // below) -- tried in the relative-time label's own slot
+          // first, moved here per direct follow-up so the age stays
+          // always readable and the already-secondary/glanceable dot is
+          // the one that gives way. No longer tints the row itself on
+          // hover at all -- an earlier pass looked "too compact" and
+          // had "a new alignment on its own" for the dismiss control.
           delegate: Rectangle {
             id: notificationRow
             required property var modelData
@@ -1245,6 +1246,15 @@ Item {
               anchors.fill: parent
               anchors.leftMargin: 12
               anchors.rightMargin: 12
+              // Real bug, found only after measuring the OUTER card's
+              // own margin numerically and confirming it was already
+              // correct (10px on all 4 sides) -- the actual complaint
+              // was this INNER content, one level down: it had left/
+              // right margins but no top/bottom at all, so the header
+              // row sat flush against each individual row pill's own
+              // top edge.
+              anchors.topMargin: 8
+              anchors.bottomMargin: 8
               spacing: 2
 
               RowLayout {
@@ -1252,16 +1262,34 @@ Item {
                 Layout.fillWidth: true
                 spacing: 6
 
-                // Unread dot -- the one glance-able signal this compact
-                // card needs; a full unread/all tab split (like the
-                // reference project's own flyout) is more than a
-                // 4-column dashboard card has room for.
-                Rectangle {
-                  Layout.preferredWidth: 6
-                  Layout.preferredHeight: 6
-                  radius: 3
-                  color: root.accent
-                  visible: notificationRow.modelData.unread === true
+                // Unread dot, replaced by a dismiss "x" on hover --
+                // direct follow-up: keeping the relative-age label
+                // ("27m") always readable and swapping the secondary,
+                // already-glanceable dot instead. dismissNotificationArea
+                // (below, a sibling of this RowLayout so it z-orders
+                // above notificationRowArea) is what's actually
+                // clickable; this slot is the visual half of that pair.
+                Item {
+                  id: notificationIndicatorSlot
+                  Layout.preferredWidth: 10
+                  Layout.preferredHeight: 10
+
+                  Rectangle {
+                    anchors.centerIn: parent
+                    width: 6
+                    height: 6
+                    radius: 3
+                    color: root.accent
+                    visible: !notificationRowArea.containsMouse && notificationRow.modelData.unread === true
+                  }
+
+                  Text {
+                    anchors.centerIn: parent
+                    visible: notificationRowArea.containsMouse
+                    text: "✕"
+                    font.pixelSize: 10
+                    color: dismissNotificationArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+                  }
                 }
 
                 Text {
@@ -1274,17 +1302,9 @@ Item {
                   elide: Text.ElideRight
                 }
 
-                // The relative-age label, swapped for a dismiss "x" on
-                // hover -- same slot, same line, no separate alignment
-                // of its own. dismissNotificationArea (below, a sibling
-                // of this RowLayout so it z-orders above
-                // notificationRowArea) is what's actually clickable;
-                // this is the visual half of that pair.
                 Text {
-                  text: notificationRowArea.containsMouse ? "✕" : NotificationModel.relativeTime(notificationRow.modelData.timestamp, notificationList.now)
-                  color: notificationRowArea.containsMouse
-                    ? (dismissNotificationArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252")
-                    : root.muted
+                  text: NotificationModel.relativeTime(notificationRow.modelData.timestamp, notificationList.now)
+                  color: root.muted
                   font.family: root.fontFamily
                   font.pixelSize: 10
                 }
@@ -1314,16 +1334,15 @@ Item {
 
             // The actual dismiss hit target -- declared after (so on
             // top of/above in hit-testing) the full-row MouseArea
-            // above, positioned over the header row's own right end
-            // (where the "x" renders once hovering) rather than
-            // centered on this whole, now-taller row.
+            // above, centered on notificationIndicatorSlot (the unread
+            // dot's own position) rather than the row's right end.
             MouseArea {
               id: dismissNotificationArea
               visible: notificationRowArea.containsMouse
               enabled: notificationRowArea.containsMouse
-              anchors.right: parent.right
+              anchors.horizontalCenter: notificationIndicatorSlot.horizontalCenter
               anchors.verticalCenter: notificationHeaderRow.verticalCenter
-              width: 24
+              width: 20
               height: 20
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor

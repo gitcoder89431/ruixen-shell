@@ -91,9 +91,9 @@ already_ruixen='{
 out5="$(printf '%s' "$already_ruixen" | "$build")"
 check "already ruixen.bar: docked toggle survives a reinstall" \
   "$(jq -r '.bar.docked' <<<"$out5")" "true"
-check "already ruixen.bar: reordered/hidden layout survives a reinstall" \
+check "already ruixen.bar: reordered/hidden layout survives a reinstall (pinnedapps/pluginpins inserted alongside, not replacing anything)" \
   "$(jq -c '.bar.layout' <<<"$out5")" \
-  '{"left":[{"id":"ruixen.workspaces"}],"center":[],"right":[{"id":"ruixen.tray","hidden":["some.app"]}]}'
+  '{"left":[{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[],"right":[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"}]}'
 check "already ruixen.bar: existing ruixen plugin entry's extra field survives" \
   "$(jq -c '.plugins[] | select(.id == "ruixen.notch")' <<<"$out5")" \
   '{"id":"ruixen.notch","someFutureField":true}'
@@ -116,9 +116,9 @@ stale_media='{
   "bar": {
     "id": "ruixen.bar",
     "layout": {
-      "left": [{ "id": "ruixen.applauncher" }],
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "ruixen.pinnedapps" }],
       "center": [{ "id": "omarchy.clock" }, { "id": "ruixen.media" }, { "id": "ruixen.weather" }],
-      "right": [{ "id": "ruixen.media", "hidden": [] }]
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "ruixen.media", "hidden": [] }]
     }
   },
   "plugins": []
@@ -126,7 +126,7 @@ stale_media='{
 out6="$(printf '%s' "$stale_media" | "$build")"
 check "existing install with stale ruixen.media in layout: stripped from every section" \
   "$(jq -c '.bar.layout' <<<"$out6")" \
-  '{"left":[{"id":"ruixen.applauncher"}],"center":[{"id":"omarchy.clock"},{"id":"ruixen.weather"}],"right":[]}'
+  '{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[{"id":"omarchy.clock"},{"id":"ruixen.weather"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]}'
 check "existing install with stale ruixen.media in layout: still gets the plugins[] entry" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out6")" \
   '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
@@ -163,7 +163,7 @@ legacy_foreign='{
         { "id": "ruixen.settingsbutton" }
       ],
       "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.weather" }, { "id": "omarchy.clock" }, { "id": "thirdparty.foo", "opacity": 0.5 }],
-      "right": [{ "id": "ruixen.tray" }, { "id": "already.pinned" }]
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "already.pinned" }]
     }
   },
   "plugins": []
@@ -177,7 +177,7 @@ check "issue #36: center keeps only the protected weather/clock, omarchy.menu st
   '[{"id":"ruixen.weather"},{"id":"omarchy.clock"}]'
 check "issue #36: real foreign entries land on the right, inline settings preserved, already-pinned ids untouched, omarchy.menu absent" \
   "$(jq -c '.bar.layout.right' <<<"$out7")" \
-  '[{"id":"ruixen.tray"},{"id":"already.pinned"},{"id":"thirdparty.foo","opacity":0.5}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned"},{"id":"thirdparty.foo","opacity":0.5}]'
 
 # --- Case 7b (issue #36 follow-up): a non-protected id deliberately
 # pinned to "left" via ruixen.pluginpins' own left/right click (see
@@ -191,9 +191,9 @@ left_pinned='{
   "bar": {
     "id": "ruixen.bar",
     "layout": {
-      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "deliberately.left", "opacity": 0.7 }],
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "ruixen.pinnedapps" }, { "id": "deliberately.left", "opacity": 0.7 }],
       "center": [],
-      "right": [{ "id": "ruixen.tray" }]
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }]
     }
   },
   "plugins": []
@@ -201,10 +201,10 @@ left_pinned='{
 out7b_deliberate="$(printf '%s' "$left_pinned" | "$build")"
 check "issue #36 follow-up: a deliberately left-pinned foreign widget survives an update untouched, settings intact" \
   "$(jq -c '.bar.layout.left' <<<"$out7b_deliberate")" \
-  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"deliberately.left","opacity":0.7}]'
+  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"},{"id":"deliberately.left","opacity":0.7}]'
 check "issue #36 follow-up: it does not also get duplicated onto the right" \
   "$(jq -c '.bar.layout.right' <<<"$out7b_deliberate")" \
-  '[{"id":"ruixen.tray"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
 
 # --- Case 8 (issue #36): a foreign id stuck in "center" AND already
 # correctly pinned on the right must not end up duplicated -- the
@@ -217,9 +217,9 @@ dup_foreign='{
   "bar": {
     "id": "ruixen.bar",
     "layout": {
-      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }],
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "ruixen.pinnedapps" }],
       "center": [{ "id": "already.pinned" }],
-      "right": [{ "id": "ruixen.tray" }, { "id": "already.pinned", "extra": "settings-that-should-win" }]
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "already.pinned", "extra": "settings-that-should-win" }]
     }
   },
   "plugins": []
@@ -227,7 +227,7 @@ dup_foreign='{
 out8="$(printf '%s' "$dup_foreign" | "$build")"
 check "issue #36: a foreign id already pinned on the right is not duplicated when also stuck in center" \
   "$(jq -c '.bar.layout.right' <<<"$out8")" \
-  '[{"id":"ruixen.tray"},{"id":"already.pinned","extra":"settings-that-should-win"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned","extra":"settings-that-should-win"}]'
 check "issue #36: the stale center-side copy of an already-pinned id is dropped, not left behind" \
   "$(jq -c '.bar.layout.center' <<<"$out8")" \
   '[]'
@@ -252,23 +252,60 @@ stale_menu='{
   "bar": {
     "id": "ruixen.bar",
     "layout": {
-      "left": [{ "id": "ruixen.applauncher" }, { "id": "omarchy.menu" }],
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "ruixen.pinnedapps" }, { "id": "omarchy.menu" }],
       "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.weather" }],
-      "right": [{ "id": "ruixen.tray" }, { "id": "omarchy.menu" }]
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "omarchy.menu" }]
     }
   },
   "plugins": []
 }'
 out10="$(printf '%s' "$stale_menu" | "$build")"
 check "issue #36 follow-up: omarchy.menu stripped from left" \
-  "$(jq -c '.bar.layout.left' <<<"$out10")" '[{"id":"ruixen.applauncher"}]'
+  "$(jq -c '.bar.layout.left' <<<"$out10")" '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'
 check "issue #36 follow-up: omarchy.menu stripped from center" \
   "$(jq -c '.bar.layout.center' <<<"$out10")" '[{"id":"ruixen.weather"}]'
 check "issue #36 follow-up: omarchy.menu stripped from right too, not just left/center" \
-  "$(jq -c '.bar.layout.right' <<<"$out10")" '[{"id":"ruixen.tray"}]'
+  "$(jq -c '.bar.layout.right' <<<"$out10")" '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
 out10b="$(printf '%s' "$out10" | "$build")"
 check "issue #36 follow-up: re-running the strip on its own output is idempotent" \
   "$out10b" "$out10"
+
+# --- Case 11: real tester gap, found via ruixen-doctor.sh -- a
+# genuinely old install (predates ruixen.pinnedapps/ruixen.pluginpins
+# entirely) stays missing both forever otherwise, even once every
+# plugin file is current: git already up to date, every deployed
+# plugin already matching source, yet bar.layout.left still read just
+# [applauncher, workspaces]. Neither id has any way to be
+# intentionally removed once present, so "missing entirely" can only
+# mean "predates this feature". Inserted at a deterministic canonical
+# neighbor (right after the anchor id) rather than rebuilding the
+# region array -- unrelated entries, order, and settings elsewhere
+# must survive untouched.
+old_pre_pluginpins='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "docked": true,
+    "layout": {
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }],
+      "center": [{ "id": "ruixen.weather" }, { "id": "omarchy.clock", "format": "HH:mm" }],
+      "right": [{ "id": "ruixen.tray", "hidden": ["some.app"] }, { "id": "ruixen.stayawake" }, { "id": "ruixen.settingsbutton" }]
+    }
+  },
+  "plugins": [{ "id": "ruixen.notch" }]
+}'
+out11="$(printf '%s' "$old_pre_pluginpins" | "$build")"
+check "structural gap: ruixen.pinnedapps inserted right after ruixen.workspaces on the left" \
+  "$(jq -c '.bar.layout.left' <<<"$out11")" \
+  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'
+check "structural gap: ruixen.pluginpins inserted right after ruixen.tray on the right" \
+  "$(jq -c '.bar.layout.right' <<<"$out11")" \
+  '[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"},{"id":"ruixen.stayawake"},{"id":"ruixen.settingsbutton"}]'
+check "structural gap: unrelated entries/settings/order elsewhere survive untouched (docked, center, plugins)" \
+  "$(jq -c '{docked: .bar.docked, center: .bar.layout.center, plugins: [.plugins[].id]}' <<<"$out11")" \
+  '{"docked":true,"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock","format":"HH:mm"}],"plugins":["ruixen.notch","ruixen.frame-widget","ruixen.settings","ruixen.wallpaper","ruixen.media"]}'
+check "structural gap: re-running on its own output is idempotent (already present, not inserted twice)" \
+  "$(printf '%s' "$out11" | "$build")" "$out11"
 
 # --- Case 5: invalid JSON input is rejected, not silently swallowed
 if printf 'not json at all' | "$build" >/dev/null 2>&1; then

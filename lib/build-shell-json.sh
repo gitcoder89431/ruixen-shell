@@ -196,7 +196,50 @@ jq -n \
        | ($strippedBar
           | .layout.center = $prunedCenter
           | .layout.right = ($rightNow + $migratedEntries))
-     else $strippedBar end) as $mergedBar
+     else $strippedBar end) as $migratedBar
+
+  # Real tester gap, found via ruixen-doctor.sh: an install from before
+  # ruixen.pinnedapps/ruixen.pluginpins existed stays missing both
+  # forever -- an existing owner bar is otherwise preserved verbatim
+  # (see $ownedBar above), and nothing before this point ever ADDS a
+  # newly-introduced structural widget, only removes/migrates existing
+  # ones. Doctor output confirmed this directly on a real machine: git
+  # already up to date, every plugin file already matching source, yet
+  # bar.layout.left still read just [applauncher, workspaces] -- the
+  # actual files were current, the CONFIG just never caught up.
+  #
+  # Scoped to exactly these two ids on purpose, not a general
+  # "structural widget" concept -- both are brand new (this same
+  # session) and neither has any way to be intentionally removed once
+  # present (pluginpins IS the removal mechanism for everything else;
+  # pinnedapps is not offered in its own dropdown), so "missing
+  # entirely" can only mean "predates this feature", never "the user
+  # chose to unpin it". Inserted at a deterministic canonical neighbor
+  # (right after the anchor id, same section) rather than rebuilding
+  # the region array, so existing order/settings for everything else
+  # are untouched. A user who later actually unpins one of these two
+  # through means that do not yet exist is a future problem, not this
+  # one -- today, "absent" and "predates this feature" are the same
+  # fact for both ids.
+  | ([
+       { id: "ruixen.pinnedapps", section: "left", after: "ruixen.workspaces" },
+       { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" }
+     ]) as $requiredStructural
+  | (if ($migratedBar.layout | type) == "object" then
+       reduce $requiredStructural[] as $req
+         ($migratedBar;
+           . as $bar
+           | ([$bar.layout.left[]?, $bar.layout.center[]?, $bar.layout.right[]?]
+              | map(.id) | index($req.id)) as $alreadyPresent
+           | if $alreadyPresent != null then $bar
+             else
+               ($bar.layout[$req.section] // []) as $sectionEntries
+               | ($sectionEntries | map(.id) | index($req.after)) as $anchorIndex
+               | (if $anchorIndex != null then $anchorIndex + 1 else ($sectionEntries | length) end) as $insertAt
+               | ($sectionEntries[0:$insertAt] + [{id: $req.id}] + $sectionEntries[$insertAt:]) as $newSection
+               | $bar | .layout[$req.section] = $newSection
+             end)
+     else $migratedBar end) as $mergedBar
 
   # plugins: existing entries (ruixen-owned or not) are left completely
   # untouched -- only ids from ruixenPluginIds that are not present AT

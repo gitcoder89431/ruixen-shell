@@ -1292,13 +1292,24 @@ Item {
                 Layout.fillWidth: true
                 spacing: 6
 
-                // Unread dot, replaced by a dismiss "x" on hover --
+                // Unread/read dot, replaced by a dismiss "x" on hover --
                 // direct follow-up: keeping the relative-age label
                 // ("27m") always readable and swapping the secondary,
                 // already-glanceable dot instead. dismissNotificationArea
                 // (below, a sibling of this RowLayout so it z-orders
                 // above notificationRowArea) is what's actually
                 // clickable; this slot is the visual half of that pair.
+                //
+                // Direct follow-up: "clicking on a notification, it
+                // goes into like a muted mode? can you still show the
+                // color dot on the row title like secondary token or
+                // something so its not just a huge emprty space" --
+                // the dot used to disappear entirely once read (visible
+                // only for unread), leaving this slot blank. Now always
+                // shown (still hidden by the "x" on hover, same as
+                // before) -- accent while unread, root.muted once read,
+                // so a read row keeps the same anchor point instead of
+                // a gap.
                 Item {
                   id: notificationIndicatorSlot
                   Layout.preferredWidth: 10
@@ -1309,8 +1320,8 @@ Item {
                     width: 6
                     height: 6
                     radius: 3
-                    color: root.accent
-                    visible: !notificationRowArea.containsMouse && notificationRow.modelData.unread === true
+                    color: notificationRow.modelData.unread === true ? root.accent : root.muted
+                    visible: !notificationRowArea.containsMouse
                   }
 
                   Text {

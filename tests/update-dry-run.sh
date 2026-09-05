@@ -56,7 +56,12 @@ git -C "$checkout" push -q origin master
 before_head="$(git -C "$checkout" rev-parse HEAD)"
 
 # --- Case 1: already up to date ---------------------------------------
-out1="$(HOME="$fake_home" "$checkout/update.sh" --dry-run 2>&1)"
+if out1="$(HOME="$fake_home" "$checkout/update.sh" --dry-run 2>&1)"; then
+  diag_status1=0
+else
+  diag_status1=$?
+fi
+printf 'DIAG: case1 exit=%s output:\n%s\nDIAG: case1 end\n' "$diag_status1" "$out1" >&2
 check "up to date: reports already up to date" "$(grep -c 'already up to date, nothing would be pulled' <<<"$out1")" "1"
 check "up to date: HEAD is unchanged (no pull happened)" "$(git -C "$checkout" rev-parse HEAD)" "$before_head"
 

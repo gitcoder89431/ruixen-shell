@@ -7,19 +7,31 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
 
 ## What's included
 
-- **`ruixen.bar`** — the top bar itself: workspaces, app launcher, media,
-  weather, clock, and a settings shortcut, all in one connected pill layout.
-- **`ruixen.notch`** — a center-notch dashboard with metrics, wallpapers, and
-  storage, expanding from the bar.
+- **`ruixen.bar`** — the top bar itself: app launcher, GNOME-style dot
+  workspace indicator, pinned quick-launch apps, weather, clock, and a
+  settings shortcut, all in one connected pill layout.
+- **`ruixen.notch`** — a center-notch dashboard with metrics, wallpapers,
+  storage, and music control, expanding from the bar.
 - **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
   and notch together visually.
 - **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,
-  Display) that can replace the default Omarchy settings panel entirely, or
-  run on its own.
-- **`ruixen.workspaces`** — workspace indicator widget.
+  Display, Plugins) that can replace the default Omarchy settings panel
+  entirely, or run on its own.
+- **`ruixen.pinnedapps`** — quick-launch row for apps pinned in the notch's
+  own app launcher.
+- **`ruixen.pluginpins`** — a pin/unpin dropdown on the bar for any other
+  installed bar-widget plugin (yours or a third party's) — install
+  something new, pin it from here, no shell.json editing required.
 - **Tray widgets** — `ruixen.tray`, `ruixen.stayawake`,
-  `ruixen.quickactions`, `ruixen.weather`, `ruixen.media`,
-  `ruixen.applauncher`, `ruixen.settingsbutton`.
+  `ruixen.quickactions`, `ruixen.weather`, `ruixen.applauncher`,
+  `ruixen.settingsbutton`. `ruixen.stayawake` (and any stock Omarchy widget
+  it sits next to, like the AI usage indicator) is pinned on or off through
+  `ruixen.pluginpins` above, not a separate settings toggle.
+
+`ruixen.media` backs `ruixen.notch`'s own music control as a background
+service — it never shows a bar icon of its own by design (an earlier,
+oversized play/pause badge was retired), so it's locked in Settings' Plugins
+list with no toggle.
 
 Every plugin shares the same OLED-black background, corner radii, and motion
 language, so they read as one shell instead of a pile of separate widgets.

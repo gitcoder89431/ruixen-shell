@@ -1200,26 +1200,33 @@ Item {
             onTriggered: notificationList.now = Date.now()
           }
 
-          // Direct follow-up: a solid OLED-black pill per row instead of
-          // transparent-until-hovered ("so we can see each notification
-          // clearer") -- radius: height/2 is a real stadium/pill shape,
-          // same definition this file's own header row already uses for
-          // "Notifications"/the bell/the broom above. The old hover
-          // treatment (a translucent white tint snapping on/off the
-          // whole row -- "this flashing animation") is gone entirely;
-          // hover now only reveals the per-row dismiss "x" below.
-          // Direct follow-up: one more line for the body ("looks too
-          // compact"), and the dismiss "x" moved into the relative-time
-          // label's own slot on hover ("put the X like on 27m time
-          // instead on hover so its not a new alignment on its own") --
-          // rather than a separately right-anchored overlay floating on
-          // top of the whole (now taller) row.
+          // Each row is a solid OLED-black card, always visible rather
+          // than transparent-until-hovered ("so we can see each
+          // notification clearer") -- a regular rounded rectangle (see
+          // the row Rectangle's own radius comment below), not the
+          // stadium/pill shape first tried here, and a real 2-line body
+          // instead of eliding to one. Hover swaps the relative-time
+          // label into a dismiss "x" in that same slot (see
+          // notificationHeaderRow below) rather than a separately
+          // right-anchored overlay, and no longer tints the row itself
+          // on hover at all -- both direct follow-ups after the first
+          // pass looked "too compact" and had "a new alignment on its
+          // own" for the dismiss control.
           delegate: Rectangle {
             id: notificationRow
             required property var modelData
             width: notificationList.width
             height: 56
-            radius: height / 2
+            // Direct follow-up: "the text re clipping under the card
+            // pills now, dont use that much curve on this pill make it
+            // like regular curve like the calendar" -- radius: height/2
+            // on a 56px-tall row made the two end-caps full semicircles
+            // (28px each), eating into the 12px text margins near the
+            // left/right edges. A regular rounded-rectangle radius,
+            // matching calendarPane's own (10, a few hundred lines up
+            // in this same file) rather than a literal stadium/pill,
+            // leaves the text margins genuinely clear.
+            radius: 10
             color: "#000000"
 
             ColumnLayout {

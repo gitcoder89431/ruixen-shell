@@ -108,7 +108,24 @@ jq -n \
   # reinstall would silently revert both back to the hardcoded default
   # every time, which is exactly the kind of data loss this issue
   # exists to prevent, just one level deeper than a first pass assumed.
-  (if ($existing.bar.id // "") == "ruixen.bar" then $existing.bar else $ruixenBar end) as $mergedBar
+  (if ($existing.bar.id // "") == "ruixen.bar" then $existing.bar else $ruixenBar end) as $ownedBar
+
+  # ruixen.media is deliberately never a real bar-widget entry (its own
+  # oversized play/pause badge -- see ruixen-bar-canonical.json own
+  # comment) and is now locked in ruixen.settings plugin list with no
+  # toggle at all, so there is no user-facing way left to remove it if
+  # it is already sitting in an EXISTING install own bar.layout from
+  # before that fix -- an existing owner bar is otherwise left
+  # completely untouched above (see that comment), which would
+  # otherwise let this one stale, now-unremovable entry survive every
+  # future update forever. This is an unconditional strip of that one
+  # specific id, not a general layout migration -- omarchy.menu and
+  # anything else a user actually chose to keep is left alone.
+  | (if ($ownedBar.layout | type) == "object" then
+       $ownedBar | .layout |= with_entries(
+         .value |= (if type == "array" then map(select(.id != "ruixen.media")) else . end)
+       )
+     else $ownedBar end) as $mergedBar
 
   # plugins: existing entries (ruixen-owned or not) are left completely
   # untouched -- only ids from ruixenPluginIds that are not present AT

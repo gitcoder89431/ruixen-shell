@@ -101,6 +101,37 @@ check "already ruixen.bar: missing ruixen ids (frame-widget, wallpaper, media) s
   "$(jq -c '[.plugins[].id] | sort' <<<"$out5")" \
   '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
 
+# --- Case 6: real regression -- an existing install (bar.id already
+# "ruixen.bar") with a stale ruixen.media entry in its own bar.layout
+# from before it was locked in ruixen.settings with no toggle left to
+# remove it by hand. Direct follow-up ("the installer and update, it
+# will make sure ruixen media is hidden right... these NEVER SHOW UP"):
+# an existing owner's bar is otherwise preserved completely untouched
+# (Case 4 above), so without this explicit strip the stale entry would
+# survive every future update forever. omarchy.menu is a real, freely
+# toggleable widget nobody's locked out of -- it must survive
+# untouched, proving this is a targeted single-id strip, not a general
+# layout migration.
+stale_media='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [{ "id": "ruixen.applauncher" }],
+      "center": [{ "id": "omarchy.menu" }, { "id": "ruixen.media" }, { "id": "ruixen.weather" }],
+      "right": [{ "id": "ruixen.media", "hidden": [] }]
+    }
+  },
+  "plugins": []
+}'
+out6="$(printf '%s' "$stale_media" | "$build")"
+check "existing install with stale ruixen.media in layout: stripped from every section" \
+  "$(jq -c '.bar.layout' <<<"$out6")" \
+  '{"left":[{"id":"ruixen.applauncher"}],"center":[{"id":"omarchy.menu"},{"id":"ruixen.weather"}],"right":[]}'
+check "existing install with stale ruixen.media in layout: still gets the plugins[] entry" \
+  "$(jq -c '[.plugins[].id] | sort' <<<"$out6")" \
+  '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
+
 # --- Case 5: invalid JSON input is rejected, not silently swallowed
 if printf 'not json at all' | "$build" >/dev/null 2>&1; then
   printf 'FAIL - invalid JSON input should not succeed\n'

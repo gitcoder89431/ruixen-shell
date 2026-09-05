@@ -104,6 +104,17 @@ Item {
   readonly property var notificationService: shell ? shell.firstPartyServiceFor("omarchy.notifications") : null
   readonly property bool dnd: notificationService ? notificationService.doNotDisturb : false
 
+  // The notch's own notification-history backing store (Column 3 of
+  // the Widgets dashboard) -- attaches to notificationService above,
+  // in process, to add a read flag and a deeper backlog on top of it.
+  // See NotificationService.qml's own header for the full design and
+  // its one deliberate scope difference from the project it was
+  // studied from.
+  NotificationService {
+    id: notificationHistory
+    shell: root.shell
+  }
+
   // Real brightness control, per direct request ("can this actually
   // control the brightness?") -- omarchy.monitor (the real Display
   // settings panel this mirrors visually) only declares kind
@@ -1227,6 +1238,7 @@ Item {
                 userHost: root.userHost
                 displayedTitle: root.displayedTitle
                 dnd: root.dnd
+                notificationHistory: notificationHistory
                 brightnessPercent: root.brightnessPercent
                 brightnessAvailable: root.brightnessAvailable
                 setBrightness: root.setBrightness

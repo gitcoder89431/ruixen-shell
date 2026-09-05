@@ -7,6 +7,7 @@ import Quickshell.Networking
 import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 import qs.Commons
+import "NotificationModel.js" as NotificationModel
 
 // Pure-frontend port of ambxst's WidgetsTab.qml (the actual content of
 // their dashboard's default tab -- what most people mean by "the
@@ -53,6 +54,12 @@ Item {
   // notch's own bell already reads -- was undefined here, the
   // notification header's bell was purely decorative.
   property bool dnd: false
+  // The notch's own notification-history service (Overlay.qml's own
+  // NotificationService instance), handed down whole -- same pattern
+  // mediaService above already uses, since Column 3 below calls
+  // clearAll()/activate() on it directly, not just reads flattened
+  // values off it.
+  property var notificationHistory: null
   // Real brightness passthrough -- Overlay.qml owns the actual
   // omarchy-monitor-state/omarchy-brightness-display CLI calls (no
   // "service" kind on omarchy.monitor to read directly), this just
@@ -1135,8 +1142,10 @@ Item {
           }
 
           // Clear-all "broom" -- ambxst's own NotificationHistory.qml
-          // header has the same bell + broom pair. Decorative, no real
-          // history to clear yet. Fixed orange (not theme-linked, same
+          // header has the same bell + broom pair. Now wired to the
+          // real service's own clearAll() (the first-party history
+          // itself is left alone -- see NotificationService.qml's own
+          // comment on why). Fixed orange (not theme-linked, same
           // "state semantic" reasoning as the bell's red above) --
           // deliberately different from the bell's red so "DND active"
           // and "clear/destructive action" don't share one color.
@@ -1149,19 +1158,120 @@ Item {
             Text {
               anchors.centerIn: parent
               text: "󰃢"
-              color: "#e0a050"
+              color: clearNotificationsArea.containsMouse ? Qt.lighter("#e0a050", 1.25) : "#e0a050"
               font.family: root.fontFamily
               font.pixelSize: 16
+            }
+
+            MouseArea {
+              id: clearNotificationsArea
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.notificationHistory) root.notificationHistory.clearAll()
             }
           }
         }
 
-        // No real history service wired here yet -- this is the "does
-        // it fit, does it look right" placeholder ambxst's own
-        // NotificationHistory.qml occupies.
+        // Real history, in place of the "does it fit, does it look
+        // right" placeholder ambxst's own NotificationHistory.qml
+        // occupied. A plain JS array binds directly as a ListView
+        // model -- this card only ever shows a handful of rows, so the
+        // in-place ListModel.syncRows optimization the reference
+        // project uses for its own much longer flyout list isn't
+        // needed here.
+        ListView {
+          id: notificationList
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          spacing: 4
+          model: root.notificationHistory ? root.notificationHistory.entries : []
+          visible: count > 0
+
+          // Drives each row's own "2m" / "3h" label. One timer for the
+          // whole list is plenty -- these are coarse, scanned ages, not
+          // a live-updating clock.
+          property double now: Date.now()
+          Timer {
+            running: true
+            interval: 30000
+            repeat: true
+            onTriggered: notificationList.now = Date.now()
+          }
+
+          delegate: Rectangle {
+            id: notificationRow
+            required property var modelData
+            width: notificationList.width
+            height: 38
+            radius: 8
+            color: notificationRowArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+
+            ColumnLayout {
+              anchors.fill: parent
+              anchors.leftMargin: 8
+              anchors.rightMargin: 8
+              spacing: 1
+
+              RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                // Unread dot -- the one glance-able signal this compact
+                // card needs; a full unread/all tab split (like the
+                // reference project's own flyout) is more than a
+                // 4-column dashboard card has room for.
+                Rectangle {
+                  Layout.preferredWidth: 6
+                  Layout.preferredHeight: 6
+                  radius: 3
+                  color: root.accent
+                  visible: notificationRow.modelData.unread === true
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  text: NotificationModel.appLabel(notificationRow.modelData)
+                  color: notificationRow.modelData.unread ? root.textColor : root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: 10
+                  font.bold: notificationRow.modelData.unread === true
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  text: NotificationModel.relativeTime(notificationRow.modelData.timestamp, notificationList.now)
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: 9
+                }
+              }
+
+              Text {
+                Layout.fillWidth: true
+                text: NotificationModel.bodyText(notificationRow.modelData) || notificationRow.modelData.summary
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 10
+                elide: Text.ElideRight
+              }
+            }
+
+            MouseArea {
+              id: notificationRowArea
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.notificationHistory) root.notificationHistory.activate(notificationRow.modelData.key)
+            }
+          }
+        }
+
         Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
+          visible: notificationList.count === 0
 
           Text {
             anchors.centerIn: parent

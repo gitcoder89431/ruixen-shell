@@ -11,7 +11,9 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   workspace indicator, pinned quick-launch apps, weather, clock, and a
   settings shortcut, all in one connected pill layout.
 - **`ruixen.notch`** — a center-notch dashboard with metrics, wallpapers,
-  storage, and music control, expanding from the bar.
+  storage, music control, and a notification history card (attaches to
+  Omarchy's own notification service, adding read/unread tracking and a
+  deeper backlog on top of it), expanding from the bar.
 - **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
   and notch together visually.
 - **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,

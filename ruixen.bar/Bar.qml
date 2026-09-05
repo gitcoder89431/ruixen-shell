@@ -924,48 +924,11 @@ Item {
     }
   }
 
-  function rawLayoutSection(config, region) {
-    if (!Util.isPlainObject(config.bar)) config.bar = {}
-    if (!Util.isPlainObject(config.bar.layout)) config.bar.layout = {}
-    if (!Array.isArray(config.bar.layout[region])) config.bar.layout[region] = []
-
-    return config.bar.layout[region]
-  }
-
-  function rawEntryIndex(entries, name) {
-    for (var i = 0; i < entries.length; i++) {
-      if (root.entryId(entries[i]) === name) return i
-    }
-
-    return -1
-  }
-
-  function moveModuleInConfig(config, fromRegion, fromName, toRegion, beforeName) {
-    var fromEntries = rawLayoutSection(config, fromRegion)
-    var toEntries = rawLayoutSection(config, toRegion)
-    var fromIndex = rawEntryIndex(fromEntries, fromName)
-    if (fromIndex < 0) return false
-
-    var toIndex = beforeName ? rawEntryIndex(toEntries, beforeName) : toEntries.length
-    if (toIndex < 0) toIndex = toEntries.length
-
-    if (fromRegion === toRegion && fromIndex === toIndex) return false
-
-    var movedEntry = fromEntries[fromIndex]
-    fromEntries.splice(fromIndex, 1)
-
-    if (fromRegion === toRegion && fromIndex < toIndex) toIndex -= 1
-    if (toIndex < 0) toIndex = 0
-    if (toIndex > toEntries.length) toIndex = toEntries.length
-    if (fromRegion === toRegion && fromIndex === toIndex) {
-      fromEntries.splice(fromIndex, 0, movedEntry)
-      return false
-    }
-
-    toEntries.splice(toIndex, 0, movedEntry)
-    return true
-  }
-
+  // Issue #7: the actual config-mutation math (find the entry, splice
+  // it out, splice it back in at the target index) has no QML/Item
+  // dependency at all -- moved to BarModel.js's own moveModuleInConfig,
+  // unit-testable without a live Quickshell instance. This wrapper is
+  // the only part that genuinely needs to be here: root.shell itself.
   function dropBarModule(source, toRegion, beforeName) {
     if (!source || !source.region || !source.moduleName || !toRegion) return false
     if (source.region === toRegion && source.moduleName === beforeName) return false
@@ -973,7 +936,7 @@ Item {
 
     var changed = false
     root.shell.mutateShellConfig(function(config) {
-      changed = moveModuleInConfig(config, source.region, source.moduleName, toRegion, beforeName)
+      changed = BarModel.moveModuleInConfig(config, source.region, source.moduleName, toRegion, beforeName)
     })
     return changed
   }

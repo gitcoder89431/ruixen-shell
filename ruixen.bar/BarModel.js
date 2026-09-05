@@ -55,6 +55,50 @@ function entryIndex(entries, name) {
   return -1
 }
 
+// Extracted from Bar.qml (issue #7 -- "Split backend/state
+// responsibilities out of oversized Settings.qml and Bar.qml"):
+// module drag-to-reorder's own config mutation was pure data
+// manipulation with no QML/Item dependency at all, just living inline
+// in the host file. rawLayoutSection/rawEntryIndex/moveModuleInConfig
+// moved here verbatim (rawEntryIndex was already a byte-for-byte
+// duplicate of entryIndex above -- replaced with the one real
+// definition, not kept as a second copy). Bar.qml's own dropBarModule
+// is now a thin wrapper: everything it does not need root.shell.
+// mutateShellConfig for lives here instead, unit-testable without a
+// live Quickshell instance (see tests/js/BarModel.test.js).
+function layoutSection(config, region) {
+  if (!isPlainObject(config.bar)) config.bar = {}
+  if (!isPlainObject(config.bar.layout)) config.bar.layout = {}
+  if (!Array.isArray(config.bar.layout[region])) config.bar.layout[region] = []
+  return config.bar.layout[region]
+}
+
+function moveModuleInConfig(config, fromRegion, fromName, toRegion, beforeName) {
+  var fromEntries = layoutSection(config, fromRegion)
+  var toEntries = layoutSection(config, toRegion)
+  var fromIndex = entryIndex(fromEntries, fromName)
+  if (fromIndex < 0) return false
+
+  var toIndex = beforeName ? entryIndex(toEntries, beforeName) : toEntries.length
+  if (toIndex < 0) toIndex = toEntries.length
+
+  if (fromRegion === toRegion && fromIndex === toIndex) return false
+
+  var movedEntry = fromEntries[fromIndex]
+  fromEntries.splice(fromIndex, 1)
+
+  if (fromRegion === toRegion && fromIndex < toIndex) toIndex -= 1
+  if (toIndex < 0) toIndex = 0
+  if (toIndex > toEntries.length) toIndex = toEntries.length
+  if (fromRegion === toRegion && fromIndex === toIndex) {
+    fromEntries.splice(fromIndex, 0, movedEntry)
+    return false
+  }
+
+  toEntries.splice(toIndex, 0, movedEntry)
+  return true
+}
+
 function entriesBefore(entries, name) {
   var index = entryIndex(entries, name)
   return index <= 0 ? [] : entries.slice(0, index)

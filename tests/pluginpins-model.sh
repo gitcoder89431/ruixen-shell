@@ -42,10 +42,9 @@ check "manifest defaults to the right section (curatedRightIds places it explici
 # settings/quickactions group) rather than just hiding an optional widget.
 required_exclusions=(
   "ruixen.applauncher" "ruixen.workspaces" "ruixen.pinnedapps" "ruixen.tray"
-  "ruixen.quickactions" "ruixen.settingsbutton" "ruixen.stayawake"
+  "ruixen.quickactions" "ruixen.settingsbutton"
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
-  "omarchy.system-update" "omarchy.power" "omarchy.keyboard-layout"
-  "omarchy.indicators"
+  "omarchy.keyboard-layout" "omarchy.indicators" "omarchy.network"
 )
 excluded_block="$(grep -A20 'readonly property var excludedIds:' "$widget_qml")"
 missing=0
@@ -56,7 +55,29 @@ for id in "${required_exclusions[@]}"; do
   fi
 done
 if [[ "$missing" -eq 0 ]]; then
-  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), system-update/power (already handled by curatedRightIds), keyboard-layout (self-hides on a single layout), and indicators (redundant + a real IPC collision)\n'
+  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), keyboard-layout (self-hides on a single layout), indicators (redundant + a real IPC collision), and network (a real, ongoing IPC collision)\n'
+  pass=$((pass + 1))
+else
+  fail_count=$((fail_count + 1))
+fi
+
+# Deliberately NOT excluded, following the right-side four-group redraw
+# (Bar.qml's own curatedRightIds comment): stayawake/system-update/power
+# lost their own dedicated pill and are now just optional widgets in
+# trayPill's own catch-all, same as anything else -- unpinning them
+# through this dropdown no longer breaks a special pill the way it once
+# would have. A future change accidentally re-adding one of these here
+# should fail loudly, not silently make them unpinnable again.
+must_not_exclude=("ruixen.stayawake" "omarchy.system-update" "omarchy.power")
+wrongly_excluded=0
+for id in "${must_not_exclude[@]}"; do
+  if grep -qF "\"$id\"" <<<"$excluded_block"; then
+    printf 'FAIL - excludedIds should NOT contain: %s (it has no dedicated pill left to break)\n' "$id"
+    wrongly_excluded=$((wrongly_excluded + 1))
+  fi
+done
+if [[ "$wrongly_excluded" -eq 0 ]]; then
+  printf 'ok   - stayawake/system-update/power are NOT excluded (no dedicated pill left to break by unpinning them)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))

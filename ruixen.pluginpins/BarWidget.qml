@@ -80,6 +80,17 @@ BarWidget {
   // without a second keyboard layout configured -- most people -- so it
   // reads as broken through this generic dropdown either way.
   //
+  // omarchy.network excluded per direct follow-up: pinning it produced
+  // a real, ongoing "Handler was registered but will not be used
+  // because another handler is registered for target omarchy.network"
+  // warning, repeating roughly every second rather than once at
+  // startup -- something keeps recreating a competing instance. Not
+  // ruixen.settings' own WifiContent.qml (checked directly: it reads
+  // Quickshell's own Networking singleton, no IpcHandler of its own,
+  // can't be the second registrant). Root cause not found; excluded as
+  // the practical fix since the actual collision source is stock
+  // Omarchy code we can't edit either way.
+  //
   // omarchy.indicators excluded per direct follow-up ("it crashed when
   // i toggled it and now does nothing") -- its own IpcHandler already
   // collides with another instance of the same target at plain shell
@@ -87,16 +98,21 @@ BarWidget {
   // it: "Handler was registered but will not be used because another
   // handler is registered for target omarchy.indicators". It also
   // duplicates dictation/screen-recording/reminders/night-light/DND,
-  // which ruixen.quickactions already reimplements, and stay-awake,
-  // which ruixen.stayawake already owns as its own pill -- pinning it
-  // would only add a second, conflicting copy of functionality this bar
-  // already has.
+  // which ruixen.quickactions already reimplements. Stay-awake and its
+  // own DND-adjacent functionality overlap less directly now that
+  // ruixen.stayawake no longer has a dedicated pill of its own (see the
+  // right-side four-group redraw, Bar.qml's own curatedRightIds
+  // comment) -- ruixen.stayawake, omarchy.system-update, and
+  // omarchy.power all moved out of that reasoning and are no longer
+  // excluded here: none of the three has a special pill left to break
+  // by unpinning, they're just optional widgets in trayPill's own
+  // catch-all now, same as anything else this dropdown manages.
   readonly property var excludedIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
-    "ruixen.stayawake", "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
-    "omarchy.clock", "omarchy.system-update", "omarchy.power",
-    "omarchy.keyboard-layout", "omarchy.indicators",
+    "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
+    "omarchy.clock", "omarchy.keyboard-layout", "omarchy.indicators",
+    "omarchy.network",
     "omarchy.bar", "omarchy.menu", "omarchy.spacer",
     "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media"
   ]

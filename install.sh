@@ -378,6 +378,21 @@ printf '  applied rounded corners + blur matching the frame (24px)\n'
 printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"
 
 printf '\n[6/6] Restarting Omarchy shell\n'
+# Direct real-world report: a tester's install/update completed with
+# every plugin file genuinely deployed and up to date, yet the bar
+# kept rendering old, pre-update layout after the restart -- a
+# stale-QML-bytecode disk cache was the working theory that actually
+# fixed it live (rm -rf + restart), confirmed against Quickshell's own
+# real qmlcache directory on this dev machine (~/.cache/quickshell/
+# qmlcache/*.qmlc). Qt's QML disk cache is SUPPOSED to invalidate
+# automatically off each source file's mtime, but that is exactly the
+# kind of check that can silently go wrong -- clearing it outright
+# before every restart costs one cold-recompile (a few hundred ms) and
+# removes an entire class of "the files are right but the screen is
+# still wrong" reports, no need to root-cause the exact invalidation
+# failure to be confident this is safe: it is purely compiled
+# bytecode, never data, so deleting it can never lose anything.
+rm -rf "$HOME/.cache/quickshell/qmlcache" 2>/dev/null || true
 omarchy restart shell
 
 # Direct review finding ("Make repo-path state part of the successful

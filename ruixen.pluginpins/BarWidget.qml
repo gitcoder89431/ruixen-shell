@@ -64,11 +64,39 @@ BarWidget {
   // new group". Excluded rather than taught this one widget's own
   // special-cased home -- same treatment ruixen.weather already gets
   // for the identical reason.
+  //
+  // omarchy.system-update and omarchy.power excluded per direct
+  // follow-up: both already live in curatedRightIds and render on
+  // their own real-world condition (an update being available, running
+  // on a laptop) -- offering them here as a separate on/off toggle is
+  // pure duplication of something already handled automatically.
+  //
+  // omarchy.keyboard-layout excluded per direct follow-up ("not showing
+  // anything, no new icons on toggle, remove it?") -- confirmed by
+  // reading its own source: `visible: layoutLabel !== "" &&
+  // multipleLayouts`, deliberately invisible on a single-layout install
+  // ("stays out of the way until there are two", its own comment). Not
+  // a bug, but pinning it produces zero visible feedback for anyone
+  // without a second keyboard layout configured -- most people -- so it
+  // reads as broken through this generic dropdown either way.
+  //
+  // omarchy.indicators excluded per direct follow-up ("it crashed when
+  // i toggled it and now does nothing") -- its own IpcHandler already
+  // collides with another instance of the same target at plain shell
+  // startup, confirmed in the journal before this widget ever touched
+  // it: "Handler was registered but will not be used because another
+  // handler is registered for target omarchy.indicators". It also
+  // duplicates dictation/screen-recording/reminders/night-light/DND,
+  // which ruixen.quickactions already reimplements, and stay-awake,
+  // which ruixen.stayawake already owns as its own pill -- pinning it
+  // would only add a second, conflicting copy of functionality this bar
+  // already has.
   readonly property var excludedIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
     "ruixen.stayawake", "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
-    "omarchy.clock",
+    "omarchy.clock", "omarchy.system-update", "omarchy.power",
+    "omarchy.keyboard-layout", "omarchy.indicators",
     "omarchy.bar", "omarchy.menu", "omarchy.spacer",
     "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media"
   ]

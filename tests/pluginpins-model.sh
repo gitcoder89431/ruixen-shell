@@ -44,8 +44,10 @@ required_exclusions=(
   "ruixen.applauncher" "ruixen.workspaces" "ruixen.pinnedapps" "ruixen.tray"
   "ruixen.quickactions" "ruixen.settingsbutton" "ruixen.stayawake"
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
+  "omarchy.system-update" "omarchy.power" "omarchy.keyboard-layout"
+  "omarchy.indicators"
 )
-excluded_block="$(grep -A12 'readonly property var excludedIds:' "$widget_qml")"
+excluded_block="$(grep -A20 'readonly property var excludedIds:' "$widget_qml")"
 missing=0
 for id in "${required_exclusions[@]}"; do
   if ! grep -qF "\"$id\"" <<<"$excluded_block"; then
@@ -54,7 +56,7 @@ for id in "${required_exclusions[@]}"; do
   fi
 done
 if [[ "$missing" -eq 0 ]]; then
-  printf 'ok   - excludedIds covers every structural ruixen id (app launcher, workspaces, tray, pinnedapps, quickactions, settingsbutton, stayawake, weather, media, itself) plus omarchy.clock (shares clockPill with weather, has its own baked-in format settings)\n'
+  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), system-update/power (already handled by curatedRightIds), keyboard-layout (self-hides on a single layout), and indicators (redundant + a real IPC collision)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))
@@ -90,8 +92,8 @@ check "checkmark glyph is a \\u escape, not a raw pasted character" \
 # No debug scaffolding left behind from live verification.
 check "no leftover console.log debug statements" \
   "$(grep -c 'console\.log' "$widget_qml")" "0"
-check "no leftover debug IpcHandler" \
-  "$(grep -c 'IpcHandler' "$widget_qml")" "0"
+check "no leftover debug IpcHandler declaration (a mention of the word in a comment is fine)" \
+  "$(grep -c 'IpcHandler {' "$widget_qml")" "0"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

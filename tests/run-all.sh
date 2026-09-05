@@ -34,6 +34,7 @@ suites=(
   "$script_dir/workspaces-pill-strict.sh"
   "$script_dir/bar-drag-protected-slots.sh"
   "$script_dir/bar-left-pluginpins-pill.sh"
+  "$script_dir/repair-drift-detection.sh"
 )
 
 overall_status=0

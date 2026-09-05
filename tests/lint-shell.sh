@@ -16,6 +16,7 @@ targets=(
   "$repo_dir/update.sh"
   "$repo_dir/uninstall.sh"
   "$repo_dir/ruixen-doctor.sh"
+  "$repo_dir/ruixen-repair.sh"
   "$repo_dir/ruixen-bar-mode.sh"
   "$repo_dir/hyprland/ruixen-lookfeel.sh"
   "$repo_dir/ruixen.notch/list-wallpapers.sh"

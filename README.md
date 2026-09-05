@@ -87,11 +87,25 @@ date:
 ```
 
 A read-only diagnostic report — checks nothing changes. Prints your
-git status vs the remote, whether each deployed plugin's version
-actually matches this checkout's own source (catches an update that
-silently didn't finish), backup history, the current bar layout (ids
-only), and basic runtime health. Safe to paste the output anywhere —
-no paths, hostnames, or personal config values are ever printed.
+git status vs the remote, whether each deployed plugin's actual file
+content matches this checkout's own source byte-for-byte (catches an
+update that silently didn't finish, even when nothing's version number
+changed), backup history, the current bar layout (ids only), and basic
+runtime health. Safe to paste the output anywhere — no paths,
+hostnames, or personal config values are ever printed.
+
+If doctor finds drift, fix it directly:
+
+```bash
+./ruixen-repair.sh --dry-run   # report what's broken, change nothing
+./ruixen-repair.sh             # actually fix it
+```
+
+Detects any plugin whose deployed files don't match this checkout
+(missing entirely or content mismatch) and a dangling `looknfeel.lua`
+symlink, then fixes them by running `install.sh` itself — the same
+deploy path every install/update already uses, so `shell.json` and any
+third-party bar entries are preserved exactly as they always are.
 
 ## Disabling / going back to Omarchy defaults
 

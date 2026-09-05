@@ -758,6 +758,28 @@ Item {
     "ruixen.tray", "ruixen.pluginpins"
   ])
 
+  // Solo pills -- each renders exactly one fixed id, with no second
+  // legitimate home anywhere else on the bar (unlike ruixen.settingsbutton,
+  // which can genuinely live in either curatedPill or its own left-side
+  // settingsPill fallback -- kept working on purpose, a direct follow-up
+  // called it out as a nice, keeper behavior, not something to lock
+  // down the same way). Direct follow-up after the broader
+  // protectedModuleIds fix ("we either want to move the whole
+  // workspace or app launcher as a plugin by itself, dont allow stuff
+  // in there... on other pills that are solo buttons dont allow move
+  // out of the pill or other stuff into the pill"): these ids cannot
+  // be dragged AT ALL, in either direction -- protectedModuleIds alone
+  // only blocked foreign ids from landing here, a drag whose SOURCE is
+  // itself protected (ruixen.tray dragged near workspacesPill, say)
+  // could still land on another solo pill's slot and vanish just the
+  // same way. Blocking the drag from ever starting for these ids is
+  // simpler and more complete than trying to validate every possible
+  // destination.
+  readonly property var immovableModuleIds: [
+    "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
+    "ruixen.tray", "ruixen.pluginpins"
+  ]
+
   // Direct review finding ("Reserve horizontal space for the Notch so
   // bar widgets cannot render underneath it", #28): ruixen.notch's own
   // overlay window sits on WlrLayer.Overlay, a compositor layer ABOVE
@@ -2759,6 +2781,7 @@ Item {
       property real pressedX: 0
       property real pressedY: 0
       readonly property bool canReorder: root.shell && typeof root.shell.mutateShellConfig === "function"
+        && root.immovableModuleIds.indexOf(slot.moduleName) === -1
       readonly property real dragThreshold: Style.space(4)
 
       anchors.fill: parent

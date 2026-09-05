@@ -53,5 +53,22 @@ check "moduleDropAtScene computes whether the dragged source is itself protected
 check "moduleDropAtScene's candidate loop skips protected slots for a non-protected drag source" \
   "$(grep -Fc 'if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) continue' "$bar_qml" || true)" "1"
 
+# Direct follow-up: solo pills (workspace, app launcher, pinned apps,
+# tray, the pluginpins toggle itself) cannot be dragged AT ALL, in
+# either direction -- protectedModuleIds alone only stopped a FOREIGN
+# id from landing there; a protected source (ruixen.tray, say) could
+# still be dropped onto another solo pill's own slot and vanish the
+# same way. ruixen.settingsbutton is deliberately NOT in this list --
+# its own ability to pop between curatedPill and its left-side
+# settingsPill fallback is a real, wanted feature, not a bug.
+check "immovableModuleIds exists, exactly once" \
+  "$(grep -c 'readonly property var immovableModuleIds:' "$bar_qml" || true)" "1"
+
+check "immovableModuleIds does NOT include ruixen.settingsbutton (its dual-home pop-out stays a feature)" \
+  "$(grep -A6 'readonly property var immovableModuleIds:' "$bar_qml" | grep -c '"ruixen.settingsbutton"' || true)" "0"
+
+check "canReorder is false for an immovable id, so its drag never even starts" \
+  "$(grep -Fc 'root.immovableModuleIds.indexOf(slot.moduleName) === -1' "$bar_qml" || true)" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

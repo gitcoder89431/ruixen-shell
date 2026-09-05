@@ -8,6 +8,7 @@ import Quickshell.Networking
 import Quickshell.Bluetooth
 import Quickshell.Io
 import qs.Commons
+import "services"
 
 // Ruixen Settings -- standalone center-panel settings app. First plugin
 // in the "ruixen apps" family (settings/launcher/AI chat/notepad, per
@@ -877,7 +878,7 @@ Item {
     root.setBtScannerEnabled(true)
     if (root.opened) {
       root.refreshPlugins()
-      repoPathProc.running = true
+      pluginService.refreshRepoPath()
       barModeReadProc.running = true
       animationProfileReadProc.running = true
       if (root.hardwareName === "") identityProc.running = true
@@ -1236,217 +1237,30 @@ Item {
   // a real installed ruixen.* plugin) -- these are cp -r'd from one
   // shared monorepo checkout instead, so this repo's own update.sh
   // (git pull + reinstall) is the real update path, not that command.
-  property var pluginRows: []
-  property string pluginBusyId: ""
-  // Direct review finding ("Make rapid asynchronous Process actions
-  // last-action-wins"): pluginActionProc below is ONE shared Process
-  // across every row's own toggle, and reassigning a Quickshell
-  // Process's command while it's already running does NOT cancel the
-  // in-flight run -- confirmed directly -- it finishes, THEN the
-  // reassigned command auto-fires. So toggling row A then quickly row
-  // B doesn't lose either toggle (both really do run, in order), but
-  // without this, pluginActionProc's own onExited had no way to tell
-  // "did the run that just exited belong to the row currently marked
-  // busy, or a stale run for a row that's since been superseded" --
-  // it would clear pluginBusyId the moment ANY run exited, even A's,
-  // while B's own toggle was still only QUEUED, not yet actually
-  // running. Tracks the one genuinely-queued toggle (at most one can
-  // ever be pending, matching Quickshell's own Process semantics) so
-  // onExited only clears busy state once nothing is left queued.
-  property string pluginActionPendingId: ""
-  property string pluginUpdateStatus: ""
-  property string pluginUpdateError: ""
-  property string ruixenRepoPath: ""
-
-  function parsePluginList(raw) {
-    var rows = []
-    try {
-      var data = JSON.parse(raw || "[]")
-      for (var i = 0; i < data.length; i++) {
-        var p = data[i]
-        if (String(p.id || "").indexOf("ruixen.") !== 0) continue
-        // ruixen.stayawake is a plain bar-widget with no other kind, so
-        // "enabled" is purely "present in bar.layout somewhere" (real
-        // registry semantics, confirmed by reading PluginRegistry.qml
-        // directly -- no separate disabled flag for a non-first-party
-        // widget). ruixen.pluginpins' own pin/unpin dropdown toggles
-        // that exact same state, so this row and that one aren't two
-        // independent controls -- they're two doors onto the same
-        // switch. Direct follow-up after that caused real confusion
-        // ("i have it disabled in settings but i can pin it and use
-        // it?"): dropped here entirely rather than keep a second,
-        // redundant door to the same toggle.
-        if (p.id === "ruixen.stayawake") continue
-        rows.push(p)
-      }
-      // Locked (protected) plugins first, alphabetical within each
-      // group -- direct request ("the one that is locked like ruixen
-      // setting and ruixen bar, can you put them first of the list").
-      // pluginIsProtected is the exact same real check the lock glyph
-      // itself is gated on (PluginsContent.qml), not a separate
-      // "core" concept invented just for sorting -- whatever the lock
-      // icon shows on is what sorts first.
-      rows.sort(function(a, b) {
-        var aLocked = root.pluginIsProtected(a) ? 0 : 1
-        var bLocked = root.pluginIsProtected(b) ? 0 : 1
-        if (aLocked !== bLocked) return aLocked - bLocked
-        return a.name.localeCompare(b.name)
-      })
-    } catch (e) {}
-    return rows
-  }
-
-  Process {
-    id: pluginListProc
-    command: ["omarchy", "plugin", "list", "--json"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.pluginRows = root.parsePluginList(text)
-    }
-  }
-
-  function refreshPlugins() {
-    if (!pluginListProc.running) pluginListProc.running = true
-  }
-
-  // Self-lockout guard the CLI itself doesn't provide -- ruixen.bar
-  // reports canDisable: false (Omarchy's own protection, presumably
-  // since losing the bar with no keybind back is a real dead end), but
-  // ruixen.settings reports canDisable: true even though disabling or
-  // removing the very plugin rendering this settings app would unload
-  // it immediately, mid-session (confirmed: enable/disable apply live
-  // via setPluginEnabled, no restart needed), with no way back in
-  // short of a terminal. Blocked here on top of what the CLI allows.
-  function pluginIsProtected(row) {
-    // ruixen.media is enabled service-only (its own oversized bar badge
-    // stays deliberately out of every layout -- see ruixen-bar-
-    // canonical.json's own comment) purely to back the notch's music
-    // control. The CLI itself reports canDisable: true for it (nothing
-    // else structurally depends on it staying enabled the way the bar
-    // does), but disabling it here would silently kill the notch's
-    // media widget with no toggle-back-on path visible anywhere in the
-    // bar -- it never had one to begin with. Locked the same way
-    // ruixen.settings locks itself, not via the CLI's own flag.
-    return !row || row.id === "ruixen.settings" || row.id === "ruixen.media" || !row.canDisable
-  }
-
-  Process {
-    id: pluginActionProc
-    stdout: StdioCollector { waitForEnd: true }
-    stderr: StdioCollector { waitForEnd: true }
-    onExited: {
-      // A newer toggle is genuinely queued behind this one (Quickshell
-      // will auto-fire it now that this run has exited) -- leave
-      // pluginBusyId showing that row rather than clearing it, which
-      // would flash "nothing busy" for a moment right before the
-      // queued toggle actually starts.
-      if (root.pluginActionPendingId !== "") {
-        root.pluginActionPendingId = ""
-      } else {
-        root.pluginBusyId = ""
-      }
-      root.refreshPlugins()
-    }
-  }
-
-  function togglePluginEnabled(row) {
-    if (!row || !row.id || root.pluginIsProtected(row)) return
-    root.pluginActionPendingId = pluginActionProc.running ? row.id : ""
-    root.pluginBusyId = row.id
-    pluginActionProc.command = ["omarchy", "plugin", row.enabled ? "disable" : "enable", row.id]
-    pluginActionProc.running = true
-  }
-
-  // Per-plugin remove was dropped entirely per direct follow-up ("why
-  // not allow disable only and uninstall gets rid of everything as the
-  // only option") -- disable already covers "don't want this running"
-  // (instant, reversible), and actual file removal now lives
-  // exclusively behind the danger-zone full uninstall's own typed
-  // confirmation. A second, lighter-weight per-row way to delete files
-  // was redundant with that, not a real safety improvement. See
-  // uninstall.sh for the equivalent backup-cleanup reasoning that used
-  // to live in a confirmRemovePlugin() here.
-
-  // Repo path -- install.sh now writes its own checkout location to
-  // this state file on every install/update run (added alongside this
-  // feature, since nothing previously recorded it anywhere machine-
-  // readable). Read fresh via bash so a missing file just yields an
-  // empty string instead of a QML file-read error.
-  Process {
-    id: repoPathProc
-    command: ["bash", "-c", "cat \"$HOME/.local/state/ruixen/repo-path\" 2>/dev/null"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.ruixenRepoPath = text.trim()
-    }
-  }
-
-  Process {
-    id: updateProc
-    stdout: StdioCollector { waitForEnd: true }
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        // A successful run never gets here to report success -- update.sh
-        // ends with `omarchy restart shell`, which tears down and
-        // reloads this very plugin instance before this handler would
-        // ever fire. Only a failure that happens BEFORE that point
-        // (network down, git pull conflict, etc.) leaves this instance
-        // alive long enough to actually show the error.
-        if (updateProc.exitCode !== 0) {
-          root.pluginUpdateStatus = "error"
-          var errLines = text.trim().split("\n")
-          root.pluginUpdateError = errLines.slice(Math.max(0, errLines.length - 3)).join("\n")
-        }
-      }
-    }
-  }
-
-  function updateRuixenShell() {
-    if (root.ruixenRepoPath === "" || root.pluginUpdateStatus === "updating") return
-    root.pluginUpdateStatus = "updating"
-    root.pluginUpdateError = ""
-    // Single-quoted, with any literal single-quote in the path escaped
-    // as '\'' -- the standard safe way to embed an arbitrary string as
-    // one bash argument, rather than the nested-double-quote version
-    // this first went out with (cd \"$(cat \\\"...\\\")\" -- readable
-    // on paper but actually wrong: escaping the inner quotes with \\\"
-    // stops them from acting as bash quoting at all inside $(...),
-    // which already gets a fresh quoting context of its own).
-    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
-    updateProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh"]
-    updateProc.running = true
-  }
-
-  // Full uninstall -- direct request, following a real Discord report
-  // ("its currently hard to uninstall cleanly even with cli"). Runs
-  // this repo's own new uninstall.sh, which reverses everything
-  // install.sh did: switches back to the built-in Omarchy bar, removes
-  // every ruixen.* plugin's files for real (omarchy-plugin-remove
-  // itself only backs a cp -r'd plugin up to a hidden .{id}.bak.
-  // <timestamp> folder rather than deleting it -- confirmed by reading
-  // it directly -- so uninstall.sh explicitly deletes those backups
-  // too afterward, per direct follow-up: "people want like a full
-  // uninstall"), restores the real pre-install looknfeel.lua (or
-  // Omarchy's own default if there was none), and restarts the shell.
-  // See uninstall.sh's own comments for the full research behind each
-  // step.
   //
-  // Deliberately fired via Quickshell.execDetached, not a lifecycle-
-  // bound Process like updateProc above -- the script's own last real
-  // step disables/removes ruixen.settings itself, which would tear
-  // down this very QML instance (and, plausibly, any Process objects
-  // it owns) mid-script if that happened before the script finished.
-  // execDetached exists specifically to survive exactly that, the same
-  // reason Wi-Fi/Bluetooth's own actions already use it.
-  readonly property string uninstallConfirmPhrase: "CONFIRM UNINSTALL"
-  property string uninstallConfirmInput: ""
+  // Issue #7 ("Split backend/state responsibilities out of oversized
+  // Settings.qml and Bar.qml"): list/toggle/update/uninstall's actual
+  // backend (state + Process wiring + the pure parse/lockout logic
+  // underneath it) all now live in services/PluginService.qml (and its
+  // own PluginModel.js for the pure half) -- extracted verbatim, no
+  // behavior change. These are thin pass-throughs so PluginsContent.qml's
+  // own settingsRoot.xxx calls needed zero changes; only the
+  // implementation moved.
+  PluginService { id: pluginService }
 
-  function confirmFullUninstall() {
-    if (root.ruixenRepoPath === "" || root.uninstallConfirmInput !== root.uninstallConfirmPhrase) return
-    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
-    Quickshell.execDetached(["bash", "-c", "cd '" + safePath + "' && ./uninstall.sh"])
-  }
+  property alias pluginRows: pluginService.pluginRows
+  property alias pluginBusyId: pluginService.pluginBusyId
+  property alias pluginUpdateStatus: pluginService.pluginUpdateStatus
+  property alias pluginUpdateError: pluginService.pluginUpdateError
+  property alias ruixenRepoPath: pluginService.ruixenRepoPath
+  property alias uninstallConfirmPhrase: pluginService.uninstallConfirmPhrase
+  property alias uninstallConfirmInput: pluginService.uninstallConfirmInput
+
+  function refreshPlugins() { pluginService.refreshPlugins() }
+  function pluginIsProtected(row) { return pluginService.pluginIsProtected(row) }
+  function togglePluginEnabled(row) { pluginService.togglePluginEnabled(row) }
+  function updateRuixenShell() { pluginService.updateRuixenShell() }
+  function confirmFullUninstall() { pluginService.confirmFullUninstall() }
 
   PanelWindow {
     id: panel

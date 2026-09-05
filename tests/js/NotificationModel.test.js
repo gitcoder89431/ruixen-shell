@@ -18,7 +18,10 @@ check("entryFromRow: a row with no summary/body/app is not a real notification",
   M.entryFromRow({ timestamp: 1 }), null);
 check("entryFromRow: a real row is captured as an unread snapshot",
   M.entryFromRow({ timestamp: 10, originalId: 1, app: "Slack", summary: "New message", body: "hi", execArgv: "" }),
-  { key: "10-1.json", app: "Slack", appIcon: "", summary: "New message", body: "hi", glyph: "", execArgv: "", urgency: 1, timestamp: 10, unread: true });
+  { key: "10-1.json", app: "Slack", appIcon: "", summary: "New message", body: "hi", glyph: "", image: "", execArgv: "", urgency: 1, timestamp: 10, unread: true });
+check("entryFromRow: a real preview image (e.g. a screenshot's own file) is captured",
+  M.entryFromRow({ timestamp: 10, originalId: 1, app: "omarchy-action", summary: "Screenshot saved", image: "/home/dev/Pictures/screenshot-1.png" }).image,
+  "/home/dev/Pictures/screenshot-1.png");
 
 check("entryChanged: identical content is unchanged",
   M.entryChanged({ summary: "a", body: "b", app: "c", appIcon: "d", glyph: "e", execArgv: "f", urgency: 1 },
@@ -90,6 +93,15 @@ check("focusPatterns: a multi-word app tries both its plain and hyphenated windo
   M.focusPatterns({ app: "My App", appIcon: "" }), ["My App", "My-App"]);
 
 // ---- display ------------------------------------------------------------
+
+check("imageUrl: a bare filesystem path (omarchy-notification-send's own shape) gets a file:// prefix",
+  M.imageUrl({ image: "/home/dev/Pictures/screenshot-1.png" }), "file:///home/dev/Pictures/screenshot-1.png");
+check("imageUrl: an already-real URI passes through unchanged",
+  M.imageUrl({ image: "file:///home/dev/Pictures/screenshot-1.png" }), "file:///home/dev/Pictures/screenshot-1.png");
+check("imageUrl: no image yields an empty string", M.imageUrl({ image: "" }), "");
+check("imageUrl: a relative path (not resolvable to a real local file) yields an empty string",
+  M.imageUrl({ image: "relative/path.png" }), "");
+check("imageUrl: null entry yields an empty string, not a crash", M.imageUrl(null), "");
 
 check("appLabel: notify-send reads as a plain 'Notification'", M.appLabel({ app: "notify-send" }), "Notification");
 check("appLabel: a real app name is used as-is", M.appLabel({ app: "Slack" }), "Slack");

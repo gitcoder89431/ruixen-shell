@@ -44,6 +44,17 @@ function entryFromRow(row) {
     summary: String(r.summary || ""),
     body: String(r.body || ""),
     glyph: String(r.glyph || ""),
+    // A real preview image (the image-path hint, e.g. a screenshot's
+    // own file), when the sender attached one -- confirmed by reading
+    // omarchy-capture-screenshot/omarchy-notification-send directly:
+    // --image sets exactly this role, and a screenshot's own file
+    // lives permanently under ~/Pictures, not a temp path. First pass
+    // (placeholder/test): stored and rendered as-is, no local copy of
+    // our own yet -- a Chromium-sourced image:// or a sender's /tmp
+    // file that gets deleted on close is a real gap the row would then
+    // just quietly stop showing, follow-up if that turns out to matter
+    // in practice.
+    image: String(r.image || ""),
     execArgv: String(r.execArgv || ""),
     urgency: typeof r.urgency === "number" ? r.urgency : 1,
     timestamp: Number(r.timestamp) || 0,
@@ -224,6 +235,23 @@ function focusPatterns(entry) {
 }
 
 // ---------------------------------------------------------------- display
+
+// A usable QML Image source for a stored entry's own preview image, or
+// "" if it has none. The raw image-path hint can be a bare filesystem
+// path -- confirmed by reading omarchy-notification-send directly,
+// its own --image sets the hint to exactly whatever path it was given,
+// no file:// prefix -- or already a real URI from some other sender.
+// Image.source needs an actual URL either way, so a bare path gets one
+// stitched on; anything with no recognizable local path (an in-process
+// image:// handle, for instance) is left for a future pass rather than
+// handed to Image as-is.
+function imageUrl(entry) {
+  var value = String((entry && entry.image) || "").trim()
+  if (!value) return ""
+  if (value.indexOf("://") !== -1) return value
+  if (value.charAt(0) === "/") return "file://" + value
+  return ""
+}
 
 // Sender name for a row's own label. CLI tooling (notify-send) carries
 // no useful app name, so the row just says so plainly instead of

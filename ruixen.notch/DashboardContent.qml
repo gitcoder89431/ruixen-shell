@@ -1255,19 +1255,68 @@ Item {
             radius: 10
             color: "#000000"
 
-            ColumnLayout {
+            // Direct follow-up: "if theres an image with the
+            // notification then switch it so the the row has the
+            // thumbnail showing on like the new left column" --
+            // placeholder/test pass. Wraps the existing header+body
+            // ColumnLayout in a RowLayout alongside a thumbnail that
+            // only takes up space when modelData.image is actually
+            // set (QtQuick Layouts skip invisible items entirely, so
+            // the text column reclaims that width on its own whenever
+            // there's no image -- the "switch" the request asked for,
+            // no extra binding needed).
+            RowLayout {
               anchors.fill: parent
               anchors.leftMargin: 12
               anchors.rightMargin: 12
+              anchors.topMargin: 8
+              anchors.bottomMargin: 8
+              spacing: 8
+
+              // sourceSize constrains DECODE resolution, not just
+              // display size -- same technique WallpapersContent.qml's
+              // own thumbnails already use in this plugin, so this
+              // costs a few KB in memory regardless of how large the
+              // source image really is (a full screenshot, say), not
+              // a full-resolution decode shrunk after the fact.
+              //
+              // Real bug, found live ("even the one without preview
+              // now has a large gap empty space"): visible alone does
+              // NOT collapse a Layout item's reserved space in Qt Quick
+              // Layouts -- this exact codebase already knew that and
+              // worked around it elsewhere (Settings.qml's own
+              // headerPill: "Layout.preferredHeight: visible ? 32 : 0"
+              // for the same reason). Same fix here: preferredWidth/
+              // maximumWidth (and height) explicitly collapse to 0
+              // when there's no image, rather than trusting visibility
+              // alone to free the space.
+              Image {
+                readonly property bool hasImage: source !== ""
+                Layout.preferredWidth: hasImage ? 48 : 0
+                Layout.maximumWidth: hasImage ? 48 : 0
+                Layout.preferredHeight: hasImage ? 48 : 0
+                Layout.maximumHeight: hasImage ? 48 : 0
+                Layout.alignment: Qt.AlignVCenter
+                visible: hasImage
+                source: NotificationModel.imageUrl(notificationRow.modelData)
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                sourceSize: Qt.size(96, 96)
+              }
+
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
               // Real bug, found only after measuring the OUTER card's
               // own margin numerically and confirming it was already
               // correct (10px on all 4 sides) -- the actual complaint
               // was this INNER content, one level down: it had left/
               // right margins but no top/bottom at all, so the header
               // row sat flush against each individual row pill's own
-              // top edge.
-              anchors.topMargin: 8
-              anchors.bottomMargin: 8
+              // top edge. Now expressed via the outer RowLayout's own
+              // margins above (this ColumnLayout is Layout-managed,
+              // not anchors-managed, since the thumbnail column was
+              // added alongside it).
               spacing: 2
 
               RowLayout {
@@ -1346,6 +1395,7 @@ Item {
                 maximumLineCount: 2
                 elide: Text.ElideRight
               }
+            }
             }
 
             // Direct follow-up: "in addition to x to delete then i

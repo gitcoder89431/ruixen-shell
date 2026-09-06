@@ -128,20 +128,31 @@ Item {
                 // the grey tonal fill this used before.
                 color: "#000000"
 
-                // Right-click anywhere on the card to remove it --
-                // direct follow-up ("the x clear is in the way if we
-                // gonna use the chevlon arrow then, lets just do right
-                // click to dismiss only"), same acceptedButtons split
-                // the notification row already uses. Declared BEFORE
-                // the chevron MouseAreas below, so they still win
-                // left-click hit-testing in their own small area (a
-                // later sibling stacks on top); a right-click over them
-                // falls through to this one since they don't accept
-                // RightButton themselves.
+                // Whole-row click, no chevrons -- direct follow-up
+                // ("would it be intuituve to only allow dismiss on
+                // done... left click on Todo moves to In Progress...
+                // in progress left click advances to done but right
+                // click goes back to Todo... in Done, right click to
+                // dismiss"). Left-click always means "advance" (a
+                // no-op on Done, nothing after it); right-click always
+                // means "go back", except on Done specifically, where
+                // there's nothing meaningful to go back to as the
+                // primary action, so it dismisses instead -- one
+                // consistent meaning per button, only Done's right-
+                // click is the deliberate exception.
                 MouseArea {
                   anchors.fill: parent
-                  acceptedButtons: Qt.RightButton
-                  onClicked: if (root.kanbanService) root.kanbanService.removeCard(cardRoot.modelData.id)
+                  acceptedButtons: Qt.LeftButton | Qt.RightButton
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: function(mouse) {
+                    if (!root.kanbanService) return
+                    if (mouse.button === Qt.RightButton) {
+                      if (columnRoot.columnId === "done") root.kanbanService.removeCard(cardRoot.modelData.id)
+                      else root.kanbanService.regressCard(cardRoot.modelData.id)
+                    } else {
+                      root.kanbanService.advanceCard(cardRoot.modelData.id)
+                    }
+                  }
                 }
 
                 RowLayout {
@@ -159,54 +170,15 @@ Item {
                     wrapMode: Text.WordWrap
                   }
 
-                  // Regress -- hidden on the first column (nothing to
-                  // regress to) and on the last one, where a plain
-                  // green checkmark reads better than a back-arrow --
-                  // direct request ("on the done, instead of the
-                  // chevlon back, just show a green checkmark"). A
-                  // done card can still be un-done via CLI
-                  // (kanbanRegressCard/kanbanMoveCard) if that's ever
-                  // actually needed -- just not a default affordance
-                  // shown on every completed card.
-                  Text {
-                    visible: columnRoot.columnId !== "todo" && columnRoot.columnId !== "done"
-                    text: "‹"
-                    color: regressArea.containsMouse ? root.textColor : root.muted
-                    font.pixelSize: 13
-
-                    MouseArea {
-                      id: regressArea
-                      anchors.fill: parent
-                      anchors.margins: -4
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: if (root.kanbanService) root.kanbanService.regressCard(cardRoot.modelData.id)
-                    }
-                  }
-
+                  // Purely a status marker now, not a button -- the
+                  // whole row handles clicks above. Direct request:
+                  // "on the done, instead of the chevlon back, just
+                  // show a green checkmark".
                   Text {
                     visible: columnRoot.columnId === "done"
                     text: "✓"
                     color: "#3ecf5b"
                     font.pixelSize: 13
-                  }
-
-                  // Advance -- hidden on the last column, nothing to
-                  // advance to.
-                  Text {
-                    visible: columnRoot.columnId !== "done"
-                    text: "›"
-                    color: advanceArea.containsMouse ? root.textColor : root.muted
-                    font.pixelSize: 13
-
-                    MouseArea {
-                      id: advanceArea
-                      anchors.fill: parent
-                      anchors.margins: -4
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: if (root.kanbanService) root.kanbanService.advanceCard(cardRoot.modelData.id)
-                    }
                   }
                 }
               }

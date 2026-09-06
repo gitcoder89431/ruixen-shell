@@ -1252,6 +1252,10 @@ Item {
   property alias pluginBusyId: pluginService.pluginBusyId
   property alias pluginUpdateStatus: pluginService.pluginUpdateStatus
   property alias pluginUpdateError: pluginService.pluginUpdateError
+  property alias pluginCheckStatus: pluginService.pluginCheckStatus
+  property alias pluginCheckError: pluginService.pluginCheckError
+  property alias pluginChangedIds: pluginService.pluginChangedIds
+  property alias pluginsUpToDate: pluginService.pluginsUpToDate
   property alias ruixenRepoPath: pluginService.ruixenRepoPath
   property alias uninstallConfirmPhrase: pluginService.uninstallConfirmPhrase
   property alias uninstallConfirmInput: pluginService.uninstallConfirmInput
@@ -1260,6 +1264,7 @@ Item {
   function pluginIsProtected(row) { return pluginService.pluginIsProtected(row) }
   function togglePluginEnabled(row) { pluginService.togglePluginEnabled(row) }
   function updateRuixenShell() { pluginService.updateRuixenShell() }
+  function checkForUpdates() { pluginService.checkForUpdates() }
   function confirmFullUninstall() { pluginService.confirmFullUninstall() }
 
   PanelWindow {
@@ -1905,6 +1910,43 @@ Item {
                       anchors.fill: parent
                       cursorShape: Qt.PointingHandCursor
                       onClicked: root.toggleBluetoothRadio()
+                    }
+                  }
+
+                  // Check for updates -- direct request, sits before
+                  // the Update icon below (same "check first, act
+                  // second" order as reading before writing anywhere
+                  // else in this app). Unlike Update, this is a real
+                  // "is anything actually available" check: fetches +
+                  // compares via update.sh --check-json (read-only,
+                  // never mutates the working tree, never restarts the
+                  // shell), then PluginsContent.qml's own per-row dot
+                  // reads pluginChangedIds to show which specific
+                  // plugins are part of that pending batch.
+                  Text {
+                    visible: root.selectedSection === 5
+                    Layout.alignment: Qt.AlignVCenter
+                    text: ""
+                    font.family: root.fontFamily
+                    font.pixelSize: 14
+                    color: root.ruixenRepoPath === "" ? Qt.rgba(1, 1, 1, 0.25) : root.muted
+                    rotation: root.pluginCheckStatus === "checking" ? checkSpinAngle : 0
+                    property real checkSpinAngle: 0
+
+                    NumberAnimation on checkSpinAngle {
+                      running: root.pluginCheckStatus === "checking"
+                      loops: Animation.Infinite
+                      from: 0
+                      to: 360
+                      duration: 900
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -6
+                      enabled: root.ruixenRepoPath !== "" && root.pluginCheckStatus !== "checking"
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.checkForUpdates()
                     }
                   }
 

@@ -43,6 +43,16 @@ ColumnLayout {
     color: "#e05252"
   }
 
+  Text {
+    visible: settingsRoot.pluginCheckStatus === "error" && settingsRoot.pluginCheckError !== ""
+    Layout.fillWidth: true
+    text: settingsRoot.pluginCheckError
+    wrapMode: Text.WordWrap
+    font.family: settingsRoot.fontFamily
+    font.pixelSize: 10
+    color: "#e05252"
+  }
+
   // No inner Flickable of its own anymore -- direct follow-up
   // ("should we just scroll with the header too, so put the fade on
   // top and everything in the page scroll, nothing is sticky"): the
@@ -137,6 +147,26 @@ ColumnLayout {
                   color: pluginRow.isProtected ? settingsRoot.muted : settingsRoot.textColor
                   elide: Text.ElideRight
                   Layout.fillWidth: true
+                }
+
+                // Update-status dot -- only shown once a real check has
+                // actually run (settingsRoot.pluginCheckStatus ===
+                // "checked"), never a guess beforehand. Green when this
+                // specific plugin has no files in the pending batch,
+                // yellow when it does. Not a version-number display on
+                // purpose: this repo's monorepo update.sh always pulls
+                // (and reinstalls) every plugin together as one unit, so
+                // there's no such thing as "this plugin is 2 versions
+                // behind" independent of the others -- what IS real and
+                // worth showing is which plugins actually have changes
+                // waiting in that one shared pending batch.
+                Rectangle {
+                  visible: settingsRoot.pluginCheckStatus === "checked"
+                  readonly property bool pending: settingsRoot.pluginChangedIds.indexOf(pluginRow.modelData.id) >= 0
+                  Layout.preferredWidth: 6
+                  Layout.preferredHeight: 6
+                  radius: 3
+                  color: pending ? "#e8c34a" : "#3ecf5b"
                 }
 
                 // Lock -- protected plugin (canDisable:

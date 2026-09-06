@@ -54,6 +54,50 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   exec "$script_dir/install.sh" --dry-run
 fi
 
+# ruixen.settings' own Plugins page "check for updates" icon -- a
+# stable machine-readable sibling of --dry-run above, not a replacement
+# for it. Deliberately its own flag rather than reusing --dry-run's
+# prose output: that text is already covered by tests/update-dry-run.sh
+# and free to keep changing wording-wise, which would be a bad contract
+# for a UI to parse. Same read-only fetch-then-compare (never mutates
+# the working tree) as --dry-run, plus one thing --dry-run doesn't
+# report: WHICH of this monorepo's own ruixen.* plugin directories are
+# actually among the pending commits, even though update.sh always
+# pulls (and install.sh reinstalls) every plugin together as one unit
+# regardless of which ones actually changed.
+if [[ "${1:-}" == "--check-json" ]]; then
+  if [[ -n "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]]; then
+    printf '{"error":"dirty checkout"}\n'
+    exit 0
+  fi
+
+  branch="$(git -C "$script_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+  if [[ -z "$branch" ]] || ! git -C "$script_dir" fetch --quiet origin "$branch" >/dev/null 2>&1; then
+    printf '{"error":"fetch failed"}\n'
+    exit 0
+  fi
+
+  current_sha="$(git -C "$script_dir" rev-parse HEAD 2>/dev/null || echo "")"
+  candidate_sha="$(git -C "$script_dir" rev-parse "origin/$branch" 2>/dev/null || echo "")"
+  if [[ -z "$current_sha" || -z "$candidate_sha" ]]; then
+    printf '{"error":"could not resolve revisions"}\n'
+    exit 0
+  fi
+
+  if [[ "$current_sha" == "$candidate_sha" ]]; then
+    printf '{"upToDate": true, "changedPlugins": []}\n'
+    exit 0
+  fi
+
+  # Top-level ruixen.* directory names only, deduped -- a plugin
+  # touched by more than one changed file must only show up once.
+  changed_plugins="$(git -C "$script_dir" diff --name-only "$current_sha..$candidate_sha" \
+    | grep -oE '^ruixen\.[^/]+' | sort -u || true)"
+  changed_json="$(printf '%s\n' "$changed_plugins" | awk 'NF{printf "%s\"%s\"", (NR>1?",":""), $0}')"
+  printf '{"upToDate": false, "changedPlugins": [%s]}\n' "$changed_json"
+  exit 0
+fi
+
 # Direct review finding ("safer release update behavior"): a bare
 # `git pull` merges by default, which for a checkout with local commits
 # (a user's own experiment, or a dev workflow) silently creates a merge

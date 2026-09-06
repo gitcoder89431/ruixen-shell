@@ -167,6 +167,44 @@ Item {
     updateProc.running = true
   }
 
+  // "Check for updates" icon, next to the Update button -- direct
+  // request. Read-only (update.sh --check-json only fetches + compares,
+  // same never-mutates-the-working-tree guarantee --dry-run already
+  // has), so unlike updateRuixenShell() above this never restarts the
+  // shell and always gets to report its own result.
+  property string pluginCheckStatus: ""
+  property string pluginCheckError: ""
+  property var pluginChangedIds: []
+  property bool pluginsUpToDate: true
+
+  Process {
+    id: checkUpdatesProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var parsed = null
+        try { parsed = JSON.parse(text) } catch (e) { parsed = null }
+        if (!parsed || parsed.error) {
+          root.pluginCheckStatus = "error"
+          root.pluginCheckError = (parsed && parsed.error) || "check failed"
+          return
+        }
+        root.pluginsUpToDate = !!parsed.upToDate
+        root.pluginChangedIds = Array.isArray(parsed.changedPlugins) ? parsed.changedPlugins : []
+        root.pluginCheckStatus = "checked"
+      }
+    }
+  }
+
+  function checkForUpdates() {
+    if (root.ruixenRepoPath === "" || root.pluginCheckStatus === "checking") return
+    root.pluginCheckStatus = "checking"
+    root.pluginCheckError = ""
+    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
+    checkUpdatesProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh --check-json"]
+    checkUpdatesProc.running = true
+  }
+
   // Full uninstall -- direct request, following a real Discord report
   // ("its currently hard to uninstall cleanly even with cli"). Runs
   // this repo's own new uninstall.sh, which reverses everything

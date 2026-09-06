@@ -41,6 +41,7 @@ suites=(
   "$script_dir/uninstall-dry-run.sh"
   "$script_dir/install-dry-run.sh"
   "$script_dir/update-dry-run.sh"
+  "$script_dir/update-check-json.sh"
 )
 
 overall_status=0

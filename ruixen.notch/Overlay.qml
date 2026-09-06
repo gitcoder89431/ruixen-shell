@@ -115,6 +115,12 @@ Item {
     shell: root.shell
   }
 
+  // The notch's own Kanban tab backing store (4th dashboard tab) --
+  // see KanbanService.qml's own header for the full design.
+  KanbanService {
+    id: kanbanService
+  }
+
   // Real brightness control, per direct request ("can this actually
   // control the brightness?") -- omarchy.monitor (the real Display
   // settings panel this mirrors visually) only declares kind
@@ -630,6 +636,30 @@ Item {
       // true, so nothing else would tell UserAvatar's Image to re-read
       // the file.
       function refreshAvatar(): void { root.avatarCacheBust = root.avatarCacheBust + 1 }
+
+      // Kanban tab (4th dashboard tab) -- direct request, agent-native
+      // by design: these are the SAME functions KanbanContent.qml's
+      // own UI calls on kanbanService directly, exposed here too so
+      // the board can be driven entirely from the CLI, e.g.
+      // `omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo`.
+      // Column ids are always exactly "todo"/"in-progress"/"done" --
+      // see KanbanModel.js's own header for why the count is fixed.
+      function kanbanAddCard(title: string, columnId: string): string {
+        return kanbanService.addCard(title, columnId)
+      }
+      function kanbanMoveCard(cardId: string, columnId: string): void {
+        kanbanService.moveCard(cardId, columnId)
+      }
+      function kanbanAdvanceCard(cardId: string): void { kanbanService.advanceCard(cardId) }
+      function kanbanRegressCard(cardId: string): void { kanbanService.regressCard(cardId) }
+      function kanbanRemoveCard(cardId: string): void { kanbanService.removeCard(cardId) }
+      function kanbanRenameColumn(columnId: string, label: string): void {
+        kanbanService.renameColumn(columnId, label)
+      }
+      // Returns the whole board as JSON ({columns, cards}) -- how a
+      // script (or me, driving the board on your behalf) reads it back
+      // without any QML access at all.
+      function kanbanListCards(): string { return kanbanService.listCards() }
     }
 
     // Fire-once, not auto-running -- triggered by the tab bar's bottom
@@ -694,7 +724,7 @@ Item {
           panel.launcherOpen = false
           event.accepted = true
         } else if (event.key === Qt.Key_Tab && panel.pinnedOpen && !panel.launcherOpen) {
-          panel.dashboardTab = (panel.dashboardTab + 1) % 3
+          panel.dashboardTab = (panel.dashboardTab + 1) % 4
           event.accepted = true
         }
       }
@@ -1192,6 +1222,11 @@ Item {
                 active: panel.dashboardTab === 2
                 onActivated: { panel.dashboardTab = 2; panel.pinnedOpen = true }
               }
+              TabButton {
+                glyph: ""
+                active: panel.dashboardTab === 3
+                onActivated: { panel.dashboardTab = 3; panel.pinnedOpen = true }
+              }
 
               Item { Layout.fillHeight: true }
 
@@ -1264,6 +1299,16 @@ Item {
                 accent: root.accent
                 fontFamily: root.fontFamily
                 avatarCacheBust: root.avatarCacheBust
+              }
+
+              KanbanContent {
+                anchors.fill: parent
+                visible: panel.dashboardTab === 3
+                textColor: root.textColor
+                muted: root.muted
+                accent: root.accent
+                fontFamily: root.fontFamily
+                kanbanService: kanbanService
               }
             }
           }

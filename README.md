@@ -70,6 +70,21 @@ o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settin
 
 Pick any other unbound key if you'd rather — `omarchy menu keybindings --print` lists what's already taken.
 
+Want a keybind that jumps straight to one settings page instead of always
+opening on whichever page was open last? Use `summon` with a `section`
+payload instead of `toggle` — this opens Ruixen Settings on that page (or
+switches to it if the panel's already open on a different one) rather than
+closing the panel if it happens to already be open:
+
+```lua
+o.bind("SUPER + W", "Wi-Fi Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"wifi"}']])
+o.bind("SUPER + A", "Audio Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"audio"}']])
+o.bind("SUPER + B", "Bluetooth Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"bluetooth"}']])
+```
+
+Valid `section` values: `general` (Profile), `audio`, `wifi`, `bluetooth`,
+`display`, `plugins`, `about`.
+
 Want to see exactly what it would do first, without changing anything?
 
 ```bash

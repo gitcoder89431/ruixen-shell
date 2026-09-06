@@ -227,9 +227,10 @@ No restart needed either way — it's a live config reload.
 
 `ruixen.notch`'s dashboard has a 4th tab: a fixed 3-column board (Todo / In
 Progress / Done — Tab cycles through all 4 tabs, or click the column-icon in
-the left rail). It's deliberately agent-native — adding a card, renaming a
-column, and setting priority are all CLI-only, no typing in the panel
-itself:
+the left rail). It's agent-native — built to be driven programmatically
+(scripts, automation, a headless CLI workflow) rather than typed into by
+hand, so adding a card, renaming a column, and setting priority are all
+CLI-only:
 
 ```bash
 omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high   # priority: high/medium/low, defaults to medium if omitted/blank
@@ -240,13 +241,8 @@ omarchy-shell ruixen.notch kanbanRemoveCard <cardId>
 omarchy-shell ruixen.notch kanbanListCards                     # whole board as JSON
 ```
 
-The panel itself is still fully usable by hand for moving cards around —
-just click, no typing:
-
-- **Left-click** a card to advance it one column (dismisses it instead if
-  it's already in Done, since there's nothing further to advance to).
-- **Right-click** to send it back one column (no-op on Todo — nothing
-  before it).
+Moving cards around by hand works too — left-click a card to advance it
+(dismisses it once it's in Done), right-click to send it back.
 
 Board state lives at `~/.local/state/ruixen/kanban-store.json`.
 

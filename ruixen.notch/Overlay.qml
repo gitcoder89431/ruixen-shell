@@ -1238,6 +1238,7 @@ Item {
                 userHost: root.userHost
                 displayedTitle: root.displayedTitle
                 dnd: root.dnd
+                notificationService: root.notificationService
                 notificationHistory: notificationHistory
                 brightnessPercent: root.brightnessPercent
                 brightnessAvailable: root.brightnessAvailable

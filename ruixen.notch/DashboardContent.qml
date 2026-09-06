@@ -54,6 +54,13 @@ Item {
   // notch's own bell already reads -- was undefined here, the
   // notification header's bell was purely decorative.
   property bool dnd: false
+  // The raw first-party notifications service itself (Overlay.qml's own
+  // root.notificationService, shell.firstPartyServiceFor("omarchy.notifications"))
+  // -- not notificationHistory below, which is OUR OWN history-card
+  // service wrapping it. Needed here so this card's own bell can call
+  // setDoNotDisturb() directly, the exact same call the collapsed
+  // notch's own bell already makes.
+  property var notificationService: null
   // The notch's own notification-history service (Overlay.qml's own
   // NotificationService instance), handed down whole -- same pattern
   // mediaService above already uses, since Column 3 below calls
@@ -1129,12 +1136,12 @@ Item {
           }
 
           // DND bell -- mirrors the collapsed notch's own bell glyph,
-          // now reading the same real dnd state (was undefined/
-          // decorative here before). Still not clickable -- the actual
-          // toggle stays owned by ruixen.dnd, this just reflects state.
-          // Accent (theme token) when notifications are live, the same
-          // fixed red the collapsed notch's own bell uses when silenced
-          // -- kept as a fixed semantic color rather than theme-linked,
+          // reading the same real dnd state. Now clickable too, calling
+          // the exact same setDoNotDisturb() the collapsed notch's own
+          // bell already calls on the real first-party service. Accent
+          // (theme token) when notifications are live, the same fixed
+          // red the collapsed notch's own bell uses when silenced --
+          // kept as a fixed semantic color rather than theme-linked,
           // same reasoning as accent itself before it got theme-linked:
           // "DND active" needs to read as alarm/urgent regardless of
           // theme, not blend into it.
@@ -1147,9 +1154,17 @@ Item {
             Text {
               anchors.centerIn: parent
               text: "󰂛"
-              color: root.dnd ? "#e05252" : root.accent
+              color: root.dnd ? "#e05252" : (dndBellArea.containsMouse ? Qt.lighter(root.accent, 1.25) : root.accent)
               font.family: root.fontFamily
               font.pixelSize: 16
+            }
+
+            MouseArea {
+              id: dndBellArea
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.notificationService) root.notificationService.setDoNotDisturb(!root.dnd)
             }
           }
 

@@ -1926,7 +1926,7 @@ Item {
                   Text {
                     visible: root.selectedSection === 5
                     Layout.alignment: Qt.AlignVCenter
-                    text: ""
+                    text: ""
                     font.family: root.fontFamily
                     font.pixelSize: 14
                     color: root.ruixenRepoPath === "" ? Qt.rgba(1, 1, 1, 0.25) : root.muted

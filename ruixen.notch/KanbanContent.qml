@@ -129,17 +129,15 @@ Item {
                 color: "#000000"
 
                 // Whole-row click, no chevrons -- direct follow-up
-                // ("would it be intuituve to only allow dismiss on
-                // done... left click on Todo moves to In Progress...
-                // in progress left click advances to done but right
-                // click goes back to Todo... in Done, right click to
-                // dismiss"). Left-click always means "advance" (a
-                // no-op on Done, nothing after it); right-click always
-                // means "go back", except on Done specifically, where
-                // there's nothing meaningful to go back to as the
-                // primary action, so it dismisses instead -- one
-                // consistent meaning per button, only Done's right-
-                // click is the deliberate exception.
+                // ("i need the same pattern to go back from done to in
+                // progress... just click to advance or dismiss and
+                // right click to back"). Right-click is now uniformly
+                // "go back" on every column, no exception (a no-op on
+                // Todo, nothing before it, already handled by
+                // prevColumnId's own clamp). Left-click advances one
+                // step everywhere except Done, where there's nothing
+                // after it, so it dismisses instead -- the terminal
+                // version of "the forward action" rather than a no-op.
                 MouseArea {
                   anchors.fill: parent
                   acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -147,8 +145,9 @@ Item {
                   onClicked: function(mouse) {
                     if (!root.kanbanService) return
                     if (mouse.button === Qt.RightButton) {
-                      if (columnRoot.columnId === "done") root.kanbanService.removeCard(cardRoot.modelData.id)
-                      else root.kanbanService.regressCard(cardRoot.modelData.id)
+                      root.kanbanService.regressCard(cardRoot.modelData.id)
+                    } else if (columnRoot.columnId === "done") {
+                      root.kanbanService.removeCard(cardRoot.modelData.id)
                     } else {
                       root.kanbanService.advanceCard(cardRoot.modelData.id)
                     }

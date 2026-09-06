@@ -1273,9 +1273,44 @@ Item {
             // leaves the text margins genuinely clear.
             radius: 10
             color: "#000000"
+            // Direct follow-up ("the thumbnail looks a bit wierd now,
+            // i guess instead of making the corner on the image should
+            // we just make the image larger so it goes to the row card
+            // edge anyways"): dropped the separate MultiEffect/mask
+            // treatment on the image entirely -- the image below now
+            // spans this row's own full edge-to-edge bounds instead of
+            // sitting inset with its own independently-rounded corners,
+            // and clip: true here keeps it (and anything else) from
+            // spilling past this Rectangle's own rectangular bounds.
+            // The very top two corners read slightly squared rather
+            // than perfectly following the row's curve where the image
+            // sits flush against them -- clip never respects radius in
+            // Qt Quick, a known limitation -- traded deliberately for
+            // simplicity over the previous mask.
+            clip: true
+
+            // Thumbnail -- a plain sibling of the margined ColumnLayout
+            // below, not one of its children, specifically so it can
+            // reach this row's own left/right/top edges directly
+            // rather than sitting inset like the text content does.
+            Image {
+              id: notificationThumbnailImage
+              anchors.top: parent.top
+              anchors.left: parent.left
+              anchors.right: parent.right
+              height: notificationRow.hasImage ? 60 : 0
+              visible: notificationRow.hasImage
+              source: NotificationModel.imageUrl(notificationRow.modelData)
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              sourceSize: Qt.size(320, 120)
+            }
 
             ColumnLayout {
-              anchors.fill: parent
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              anchors.top: notificationThumbnailImage.bottom
               anchors.leftMargin: 12
               anchors.rightMargin: 12
               // Real bug, found only after measuring the OUTER card's
@@ -1288,65 +1323,6 @@ Item {
               anchors.topMargin: 8
               anchors.bottomMargin: 8
               spacing: 4
-
-              // Preview thumbnail -- placeholder/test pass, renders
-              // whatever the row's own image role already resolves to
-              // (see NotificationModel.js's own imageUrl comment for
-              // the real-world shape this turned out to have).
-              // sourceSize constrains DECODE resolution, not just
-              // display size -- same technique WallpapersContent.qml's
-              // own thumbnails already use in this plugin, so this
-              // costs a few KB in memory regardless of how large the
-              // source image really is (a full screenshot, say), not
-              // a full-resolution decode shrunk after the fact.
-              // preferredHeight/maximumHeight collapse to 0 when
-              // there's no image, not visible alone -- same reasoning
-              // as Settings.qml's own headerPill collapse.
-              //
-              // Rounded corners -- direct follow-up ("can you draw the
-              // curve corner on the thumbnail, same radii as the
-              // notfications panel"). Image has no radius property of
-              // its own; same MultiEffect + Rectangle-mask technique
-              // this plugin already uses for the avatar image and the
-              // player art (see Overlay.qml's own avatarImageMask),
-              // not invented here -- a plain `clip: true` on a rounded
-              // Rectangle only clips to the axis-aligned bounding box,
-              // never the actual curve.
-              Item {
-                id: notificationThumbnailArea
-                Layout.fillWidth: true
-                Layout.preferredHeight: notificationRow.hasImage ? 60 : 0
-                Layout.maximumHeight: notificationRow.hasImage ? 60 : 0
-                visible: notificationRow.hasImage
-
-                Image {
-                  id: notificationThumbnailImage
-                  anchors.fill: parent
-                  source: NotificationModel.imageUrl(notificationRow.modelData)
-                  fillMode: Image.PreserveAspectCrop
-                  asynchronous: true
-                  sourceSize: Qt.size(320, 120)
-                  visible: false
-                }
-
-                Rectangle {
-                  id: notificationThumbnailMask
-                  anchors.fill: parent
-                  radius: 10
-                  color: "#ffffff"
-                  visible: false
-                  layer.enabled: true
-                }
-
-                MultiEffect {
-                  anchors.fill: parent
-                  source: notificationThumbnailImage
-                  maskEnabled: true
-                  maskSource: notificationThumbnailMask
-                  maskThresholdMin: 0.5
-                  maskThresholdMax: 1.0
-                }
-              }
 
               RowLayout {
                 id: notificationHeaderRow

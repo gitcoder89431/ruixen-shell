@@ -1302,17 +1302,50 @@ Item {
               // preferredHeight/maximumHeight collapse to 0 when
               // there's no image, not visible alone -- same reasoning
               // as Settings.qml's own headerPill collapse.
-              Image {
-                id: notificationThumbnailImage
+              //
+              // Rounded corners -- direct follow-up ("can you draw the
+              // curve corner on the thumbnail, same radii as the
+              // notfications panel"). Image has no radius property of
+              // its own; same MultiEffect + Rectangle-mask technique
+              // this plugin already uses for the avatar image and the
+              // player art (see Overlay.qml's own avatarImageMask),
+              // not invented here -- a plain `clip: true` on a rounded
+              // Rectangle only clips to the axis-aligned bounding box,
+              // never the actual curve.
+              Item {
+                id: notificationThumbnailArea
                 Layout.fillWidth: true
                 Layout.preferredHeight: notificationRow.hasImage ? 60 : 0
                 Layout.maximumHeight: notificationRow.hasImage ? 60 : 0
                 visible: notificationRow.hasImage
-                clip: true
-                source: NotificationModel.imageUrl(notificationRow.modelData)
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                sourceSize: Qt.size(320, 120)
+
+                Image {
+                  id: notificationThumbnailImage
+                  anchors.fill: parent
+                  source: NotificationModel.imageUrl(notificationRow.modelData)
+                  fillMode: Image.PreserveAspectCrop
+                  asynchronous: true
+                  sourceSize: Qt.size(320, 120)
+                  visible: false
+                }
+
+                Rectangle {
+                  id: notificationThumbnailMask
+                  anchors.fill: parent
+                  radius: 10
+                  color: "#ffffff"
+                  visible: false
+                  layer.enabled: true
+                }
+
+                MultiEffect {
+                  anchors.fill: parent
+                  source: notificationThumbnailImage
+                  maskEnabled: true
+                  maskSource: notificationThumbnailMask
+                  maskThresholdMin: 0.5
+                  maskThresholdMax: 1.0
+                }
               }
 
               RowLayout {

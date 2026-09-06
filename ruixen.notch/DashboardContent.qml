@@ -1197,7 +1197,10 @@ Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true
-          spacing: 4
+          // 4 -> 2, part of "just make the cards spacing more compact
+          // overalll" -- row-to-row spacing tightened alongside the
+          // internal top/bottom margin rebalance a few lines up.
+          spacing: 2
           model: root.notificationHistory ? root.notificationHistory.entries : []
           visible: count > 0
           // Direct follow-up: "theres like an overscroll effect on it
@@ -1347,17 +1350,19 @@ Item {
               // row sat flush against each individual row pill's own
               // top edge.
               //
-              // Direct follow-up: "the gap between the thumbnail
-              // buttom and the row title is too much" -- this same
-              // topMargin does double duty (space from the row's own
-              // top edge when there's no image, space from the
-              // thumbnail's bottom edge when there is one), and 8px
-              // reads as too much gap specifically in the second case.
-              // Smaller (4, matching this ColumnLayout's own internal
-              // spacing below) only when hasImage; unchanged otherwise.
-              anchors.topMargin: notificationRow.hasImage ? 4 : 8
-              anchors.bottomMargin: 8
-              spacing: 4
+              // Direct follow-up ("its also unblanace right now the
+              // top of the card isnt the same as the buttom... just
+              // make the cards spacing more compact overalll"): this
+              // same topMargin does double duty (space from the row's
+              // own top edge when there's no image, space from the
+              // thumbnail's bottom edge when there is one). An earlier
+              // pass set it to 0 for the image case specifically, which
+              // left it visibly lopsided against bottomMargin's own 8 --
+              // both now match at 2 for the image case (compact, but
+              // even top-to-bottom), unchanged (8/8) otherwise.
+              anchors.topMargin: notificationRow.hasImage ? 2 : 8
+              anchors.bottomMargin: notificationRow.hasImage ? 2 : 8
+              spacing: 2
 
               RowLayout {
                 id: notificationHeaderRow

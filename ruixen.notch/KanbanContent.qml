@@ -9,10 +9,13 @@ import QtQuick.Layouts
 // variable-width/count layout would otherwise risk (this session
 // already hit several of those elsewhere in this same plugin).
 //
-// Agent-native by design: KanbanService.qml's own functions
-// (addCard/moveCard/removeCard/renameColumn) are also real IpcHandler
-// functions on Overlay.qml's "ruixen.notch" target, so the board is
-// meant to be driven from the CLI just as much as by hand here.
+// Agent-native by design, and CLI-only for any TEXT ENTRY -- direct
+// request ("i rather do it from cli or tui tbh"): adding a card and
+// renaming a column both go through KanbanService.qml's own functions
+// via Overlay.qml's "ruixen.notch" IpcHandler target
+// (kanbanAddCard/kanbanRenameColumn/...), never an in-panel TextInput.
+// This panel is otherwise mouse-driven (advance/regress/remove a
+// card), just never for typing a title or a label.
 Item {
   id: root
 
@@ -40,22 +43,20 @@ Item {
     border.color: Qt.rgba(1, 1, 1, 0.14)
     border.width: 1.5
 
-    property bool editingLabel: false
-
     ColumnLayout {
       anchors.fill: parent
       anchors.margins: 10
       spacing: 8
 
-      // Header -- click the label to rename it in place (the manual
-      // path; renameColumn is also a real IPC function for the agent
-      // path). Count badge next to it is read-only either way.
+      // Header -- read-only. Renaming a column is CLI/agent-only
+      // (kanbanRenameColumn), per direct request ("i rather do it from
+      // cli or tui tbh") -- no in-panel typing at all, not just for
+      // adding cards.
       RowLayout {
         Layout.fillWidth: true
         spacing: 6
 
         Text {
-          visible: !columnRoot.editingLabel
           Layout.fillWidth: true
           text: columnRoot.modelData.label
           color: root.textColor
@@ -63,37 +64,6 @@ Item {
           font.pixelSize: 12
           font.bold: true
           elide: Text.ElideRight
-
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              columnLabelInput.text = columnRoot.modelData.label
-              columnRoot.editingLabel = true
-              columnLabelInput.forceActiveFocus()
-              columnLabelInput.selectAll()
-            }
-          }
-        }
-
-        TextInput {
-          id: columnLabelInput
-          visible: columnRoot.editingLabel
-          Layout.fillWidth: true
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          font.bold: true
-
-          function commit() {
-            if (root.kanbanService && text.trim() !== "")
-              root.kanbanService.renameColumn(columnRoot.columnId, text.trim())
-            columnRoot.editingLabel = false
-          }
-
-          onAccepted: commit()
-          onActiveFocusChanged: if (!activeFocus) commit()
-          Keys.onEscapePressed: columnRoot.editingLabel = false
         }
 
         Text {
@@ -204,62 +174,11 @@ Item {
         }
       }
 
-      // Add card -- collapsed to a plain "+" until clicked, matching
-      // the dismiss-X-on-hover precedent elsewhere in this plugin of
-      // not showing every possible action at once. Direct request
-      // acknowledged this is the secondary path ("i dont see myself
-      // ever typing shit out"), so it stays minimal: one line, Enter
-      // to commit, no rich fields.
-      Text {
-        visible: !addCardInput.visible
-        text: "+ Add card"
-        color: addCardArea.containsMouse ? root.textColor : root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 11
-
-        MouseArea {
-          id: addCardArea
-          anchors.fill: parent
-          anchors.margins: -4
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            addCardInput.text = ""
-            addCardInput.visible = true
-            addCardInput.forceActiveFocus()
-          }
-        }
-      }
-
-      Rectangle {
-        visible: addCardInput.visible
-        Layout.fillWidth: true
-        Layout.preferredHeight: 26
-        radius: 6
-        color: Qt.rgba(1, 1, 1, 0.06)
-
-        TextInput {
-          id: addCardInput
-          visible: false
-          anchors.fill: parent
-          anchors.leftMargin: 8
-          anchors.rightMargin: 8
-          verticalAlignment: TextInput.AlignVCenter
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          clip: true
-
-          function commit() {
-            if (root.kanbanService && text.trim() !== "")
-              root.kanbanService.addCard(text.trim(), columnRoot.columnId)
-            visible = false
-          }
-
-          onAccepted: commit()
-          onActiveFocusChanged: if (!activeFocus) visible = false
-          Keys.onEscapePressed: visible = false
-        }
-      }
+      // No in-panel "add card"/rename input -- CLI/agent-only for any
+      // text entry (kanbanAddCard/kanbanRenameColumn), per direct
+      // request ("i rather do it from cli or tui tbh"). Advancing,
+      // regressing, and removing a card stay mouse-driven here since
+      // those are plain clicks, not typing.
     }
   }
 

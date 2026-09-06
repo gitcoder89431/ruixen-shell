@@ -1644,11 +1644,21 @@ Item {
             // circles instead of just using their one real number.
             var handleSpacing = 6
             var gapRad = handleSpacing / r
+            // Clamped -- without this, ctx.arc's start angle could land
+            // past its own end angle near value: 1 (endAngle + gapRad
+            // exceeding the ring's own true terminus), which draws the
+            // long way around (nearly a full circle) instead of
+            // nothing. Same fix already applied to the player card's
+            // own CircularSeek track arc above -- confirmed live: the
+            // mic dial hit this exact edge routinely since Pipewire mic
+            // gain commonly boosts past 100%, and effectiveValue clamps
+            // display at exactly 1.0 whenever it does.
+            var trackStartAngle = Math.min(startAngle + totalSweep, endAngle + gapRad)
             ctx.lineWidth = 3
             ctx.lineCap = "round"
             ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
             ctx.beginPath()
-            ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
+            ctx.arc(cx, cy, r, trackStartAngle, startAngle + totalSweep)
             ctx.stroke()
 
             ctx.strokeStyle = dialRoot.ringAccent

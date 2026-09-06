@@ -149,3 +149,23 @@ function prevColumnId(columnId) {
   if (idx < 0) return COLUMN_IDS[0]
   return COLUMN_IDS[Math.max(idx - 1, 0)]
 }
+
+// Column-specific empty-state copy -- direct request ("no cards
+// doesnt good... more agentic tool"): a flat "No cards" everywhere
+// reads as placeholder UI copy, not a real status. Each column's own
+// empty message reads as an actual status instead -- an empty Todo is
+// genuinely good news ("no further tasks"), an empty Done just hasn't
+// shipped anything yet, neither of which "No cards" conveys. Keyed by
+// the fixed column ids directly rather than DEFAULT_LABELS, since a
+// renamed column (renameColumn only touches the label, never the id)
+// should still show the right status for what that column actually
+// means.
+var EMPTY_STATE_LABELS = {
+  "todo": "No further tasks",
+  "in-progress": "Nothing in progress",
+  "done": "Nothing completed yet"
+}
+
+function emptyStateLabel(columnId) {
+  return EMPTY_STATE_LABELS[columnId] || "No cards"
+}

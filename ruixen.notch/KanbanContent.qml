@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "KanbanModel.js" as KanbanModel
 
 // 4th dashboard tab -- a fixed 3-column Kanban board (Todo/In
 // Progress/Done by default), backed by KanbanService.qml. Direct
@@ -25,11 +26,13 @@ Item {
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
 
-  // Same OLED-black-card + subtle grey frame language already
-  // established for the notification history cards in
-  // DashboardContent.qml (color: "#000000", a translucent white
-  // border rather than solid black -- solid black would be invisible
-  // against this same black background).
+  // Direct request: the column panel itself reads as a grey tonal
+  // surface (same translucent-white fill this plugin already uses for
+  // dial backgrounds/toggle tracks), with the cards inside it as
+  // black-on-white-text instead -- swapped from the first pass, which
+  // had this inverted (black panel, grey cards). Matches the
+  // notification history cards' own black/white contrast for the same
+  // reason: better readability.
   component KanbanColumn: Rectangle {
     id: columnRoot
     required property var modelData
@@ -39,9 +42,10 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
     radius: 10
-    color: "#000000"
-    border.color: Qt.rgba(1, 1, 1, 0.14)
-    border.width: 1.5
+    // No border -- a tonal panel like this floats on its own fill,
+    // per direct request ("we dont need thick borders on the panel
+    // they float").
+    color: Qt.rgba(1, 1, 1, 0.06)
 
     ColumnLayout {
       anchors.fill: parent
@@ -92,6 +96,19 @@ Item {
           width: parent.width
           spacing: 6
 
+          // Column-specific status, not a flat "No cards" -- see
+          // KanbanModel.emptyStateLabel's own comment for why.
+          Text {
+            visible: columnRoot.columnCards.length === 0
+            Layout.fillWidth: true
+            Layout.topMargin: 8
+            horizontalAlignment: Text.AlignHCenter
+            text: KanbanModel.emptyStateLabel(columnRoot.columnId)
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
+
           Repeater {
             model: columnRoot.columnCards
 
@@ -101,7 +118,10 @@ Item {
               Layout.fillWidth: true
               Layout.preferredHeight: cardContent.implicitHeight + 16
               radius: 8
-              color: Qt.rgba(1, 1, 1, 0.06)
+              // Black card, white text -- same contrast as the
+              // notification history cards, better readability than
+              // the grey tonal fill this used before.
+              color: "#000000"
 
               RowLayout {
                 id: cardContent

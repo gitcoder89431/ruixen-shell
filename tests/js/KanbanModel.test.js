@@ -83,4 +83,11 @@ check("nextColumnId: an unknown column id falls back to the first", M.nextColumn
 check("prevColumnId: regresses one step", M.prevColumnId("done"), "in-progress");
 check("prevColumnId: clamps at the first column, no wraparound", M.prevColumnId("todo"), "todo");
 
+check("emptyStateLabel: todo reads as good news, not placeholder copy",
+  M.emptyStateLabel("todo"), "No further tasks");
+check("emptyStateLabel: in-progress", M.emptyStateLabel("in-progress"), "Nothing in progress");
+check("emptyStateLabel: done", M.emptyStateLabel("done"), "Nothing completed yet");
+check("emptyStateLabel: an unknown column id still returns a fallback, not undefined",
+  M.emptyStateLabel("someday"), "No cards");
+
 summary();

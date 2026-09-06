@@ -1473,6 +1473,29 @@ Item {
               cursorShape: Qt.PointingHandCursor
               onClicked: if (root.notificationHistory) root.notificationHistory.forgetOne(notificationRow.modelData.key)
             }
+
+            // A frame around the whole card, thumbnail included -- a
+            // border on notificationRow itself paints as part of its own
+            // background, before any children, so the thumbnail (flush
+            // against the same top/left/right edges) would draw over it;
+            // this overlay is declared last instead, on top of
+            // everything. Per-corner radius properties, matching
+            // notificationThumbnailMask exactly, rather than the plain
+            // `radius` shorthand -- the two take different rendering
+            // paths and rasterize their corner curves slightly
+            // differently, which showed up as visible artifacts right
+            // where this frame's top corners overlapped the mask's own.
+            Rectangle {
+              anchors.fill: parent
+              topLeftRadius: 10
+              topRightRadius: 10
+              bottomLeftRadius: 10
+              bottomRightRadius: 10
+              antialiasing: true
+              color: "transparent"
+              border.color: "#000000"
+              border.width: 1.5
+            }
           }
         }
 

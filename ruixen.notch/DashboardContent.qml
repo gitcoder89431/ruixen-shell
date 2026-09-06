@@ -1242,7 +1242,19 @@ Item {
             // a second line at all. Confirmed live via a genuinely
             // long test notification before changing this, not
             // assumed.
-            height: 70
+            // Direct follow-up: "if theres an image... reconsider a
+            // new design? maybe on top for one with preview" -- a
+            // left-column thumbnail (RowLayout, width-collapsed when
+            // absent) was tried first and its collapse never actually
+            // worked live despite matching this codebase's own proven
+            // Layout-collapse pattern; moved to a HEIGHT-collapsed band
+            // on top instead, the same axis (height, inside a
+            // ColumnLayout) Settings.qml's own headerPill already
+            // proves works, rather than width inside a RowLayout.
+            // notificationThumbnailImage's own hasImage decides both
+            // this row's total height and the image band's own height
+            // below.
+            height: notificationThumbnailImage.hasImage ? 134 : 70
             // Direct follow-up: "the text re clipping under the card
             // pills now, dont use that much curve on this pill make it
             // like regular curve like the calendar" -- radius: height/2
@@ -1255,69 +1267,47 @@ Item {
             radius: 10
             color: "#000000"
 
-            // Direct follow-up: "if theres an image with the
-            // notification then switch it so the the row has the
-            // thumbnail showing on like the new left column" --
-            // placeholder/test pass. Wraps the existing header+body
-            // ColumnLayout in a RowLayout alongside a thumbnail that
-            // only takes up space when modelData.image is actually
-            // set (QtQuick Layouts skip invisible items entirely, so
-            // the text column reclaims that width on its own whenever
-            // there's no image -- the "switch" the request asked for,
-            // no extra binding needed).
-            RowLayout {
+            ColumnLayout {
               anchors.fill: parent
               anchors.leftMargin: 12
               anchors.rightMargin: 12
-              anchors.topMargin: 8
-              anchors.bottomMargin: 8
-              spacing: 8
-
-              // sourceSize constrains DECODE resolution, not just
-              // display size -- same technique WallpapersContent.qml's
-              // own thumbnails already use in this plugin, so this
-              // costs a few KB in memory regardless of how large the
-              // source image really is (a full screenshot, say), not
-              // a full-resolution decode shrunk after the fact.
-              //
-              // Real bug, found live ("even the one without preview
-              // now has a large gap empty space"): visible alone does
-              // NOT collapse a Layout item's reserved space in Qt Quick
-              // Layouts -- this exact codebase already knew that and
-              // worked around it elsewhere (Settings.qml's own
-              // headerPill: "Layout.preferredHeight: visible ? 32 : 0"
-              // for the same reason). Same fix here: preferredWidth/
-              // maximumWidth (and height) explicitly collapse to 0
-              // when there's no image, rather than trusting visibility
-              // alone to free the space.
-              Image {
-                readonly property bool hasImage: source !== ""
-                Layout.preferredWidth: hasImage ? 48 : 0
-                Layout.maximumWidth: hasImage ? 48 : 0
-                Layout.preferredHeight: hasImage ? 48 : 0
-                Layout.maximumHeight: hasImage ? 48 : 0
-                Layout.alignment: Qt.AlignVCenter
-                visible: hasImage
-                source: NotificationModel.imageUrl(notificationRow.modelData)
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                sourceSize: Qt.size(96, 96)
-              }
-
-            ColumnLayout {
-              Layout.fillWidth: true
-              Layout.fillHeight: true
               // Real bug, found only after measuring the OUTER card's
               // own margin numerically and confirming it was already
               // correct (10px on all 4 sides) -- the actual complaint
               // was this INNER content, one level down: it had left/
               // right margins but no top/bottom at all, so the header
               // row sat flush against each individual row pill's own
-              // top edge. Now expressed via the outer RowLayout's own
-              // margins above (this ColumnLayout is Layout-managed,
-              // not anchors-managed, since the thumbnail column was
-              // added alongside it).
-              spacing: 2
+              // top edge.
+              anchors.topMargin: 8
+              anchors.bottomMargin: 8
+              spacing: 4
+
+              // Preview thumbnail -- placeholder/test pass, renders
+              // whatever the row's own image role already resolves to
+              // (see NotificationModel.js's own imageUrl comment for
+              // the real-world shape this turned out to have).
+              // sourceSize constrains DECODE resolution, not just
+              // display size -- same technique WallpapersContent.qml's
+              // own thumbnails already use in this plugin, so this
+              // costs a few KB in memory regardless of how large the
+              // source image really is (a full screenshot, say), not
+              // a full-resolution decode shrunk after the fact.
+              // preferredHeight/maximumHeight collapse to 0 when
+              // there's no image, not visible alone -- same reasoning
+              // as Settings.qml's own headerPill collapse.
+              Image {
+                id: notificationThumbnailImage
+                readonly property bool hasImage: source !== ""
+                Layout.fillWidth: true
+                Layout.preferredHeight: hasImage ? 60 : 0
+                Layout.maximumHeight: hasImage ? 60 : 0
+                visible: hasImage
+                clip: true
+                source: NotificationModel.imageUrl(notificationRow.modelData)
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                sourceSize: Qt.size(320, 120)
+              }
 
               RowLayout {
                 id: notificationHeaderRow
@@ -1395,7 +1385,6 @@ Item {
                 maximumLineCount: 2
                 elide: Text.ElideRight
               }
-            }
             }
 
             // Direct follow-up: "in addition to x to delete then i

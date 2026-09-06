@@ -1197,10 +1197,7 @@ Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true
-          // 4 -> 2, part of "just make the cards spacing more compact
-          // overalll" -- row-to-row spacing tightened alongside the
-          // internal top/bottom margin rebalance a few lines up.
-          spacing: 2
+          spacing: 4
           model: root.notificationHistory ? root.notificationHistory.entries : []
           visible: count > 0
           // Direct follow-up: "theres like an overscroll effect on it

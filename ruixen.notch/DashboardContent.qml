@@ -1346,7 +1346,16 @@ Item {
               // right margins but no top/bottom at all, so the header
               // row sat flush against each individual row pill's own
               // top edge.
-              anchors.topMargin: 8
+              //
+              // Direct follow-up: "the gap between the thumbnail
+              // buttom and the row title is too much" -- this same
+              // topMargin does double duty (space from the row's own
+              // top edge when there's no image, space from the
+              // thumbnail's bottom edge when there is one), and 8px
+              // reads as too much gap specifically in the second case.
+              // Smaller (4, matching this ColumnLayout's own internal
+              // spacing below) only when hasImage; unchanged otherwise.
+              anchors.topMargin: notificationRow.hasImage ? 4 : 8
               anchors.bottomMargin: 8
               spacing: 4
 

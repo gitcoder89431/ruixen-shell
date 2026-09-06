@@ -84,114 +84,120 @@ Item {
       // agent calling moveCard directly. A plain Column, not a
       // ListView -- a handful of short text cards per column, no
       // scrolling machinery needed for that.
-      Flickable {
+      // Wrapping Item, not just the Flickable directly -- the empty-
+      // state Text below is a SIBLING of the Flickable, centered in
+      // this whole card area, rather than a child of cardsColumn
+      // (a top-down ColumnLayout, which only ever put it near the top
+      // of the column, not centered in the available height). Direct
+      // follow-up: "the empty text are center but not middle".
+      Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        clip: true
-        contentHeight: cardsColumn.implicitHeight
-        boundsBehavior: Flickable.StopAtBounds
 
-        ColumnLayout {
-          id: cardsColumn
-          width: parent.width
-          spacing: 6
+        Text {
+          visible: columnRoot.columnCards.length === 0
+          anchors.centerIn: parent
+          text: KanbanModel.emptyStateLabel(columnRoot.columnId)
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
 
-          // Column-specific status, not a flat "No cards" -- see
-          // KanbanModel.emptyStateLabel's own comment for why.
-          Text {
-            visible: columnRoot.columnCards.length === 0
-            Layout.fillWidth: true
-            Layout.topMargin: 8
-            horizontalAlignment: Text.AlignHCenter
-            text: KanbanModel.emptyStateLabel(columnRoot.columnId)
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 11
-          }
+        Flickable {
+          anchors.fill: parent
+          clip: true
+          contentHeight: cardsColumn.implicitHeight
+          boundsBehavior: Flickable.StopAtBounds
 
-          Repeater {
-            model: columnRoot.columnCards
+          ColumnLayout {
+            id: cardsColumn
+            width: parent.width
+            spacing: 6
 
-            Rectangle {
-              id: cardRoot
-              required property var modelData
-              Layout.fillWidth: true
-              Layout.preferredHeight: cardContent.implicitHeight + 16
-              radius: 8
-              // Black card, white text -- same contrast as the
-              // notification history cards, better readability than
-              // the grey tonal fill this used before.
-              color: "#000000"
+              Repeater {
+              model: columnRoot.columnCards
 
-              RowLayout {
-                id: cardContent
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 6
+              Rectangle {
+                id: cardRoot
+                required property var modelData
+                Layout.fillWidth: true
+                Layout.preferredHeight: cardContent.implicitHeight + 16
+                radius: 8
+                // Black card, white text -- same contrast as the
+                // notification history cards, better readability than
+                // the grey tonal fill this used before.
+                color: "#000000"
 
-                Text {
-                  Layout.fillWidth: true
-                  text: cardRoot.modelData.title
-                  color: root.textColor
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                  wrapMode: Text.WordWrap
-                }
+                RowLayout {
+                  id: cardContent
+                  anchors.fill: parent
+                  anchors.margins: 8
+                  spacing: 6
 
-                // Regress -- hidden on the first column, nothing to
-                // regress to.
-                Text {
-                  visible: columnRoot.columnId !== "todo"
-                  text: "‹"
-                  color: regressArea.containsMouse ? root.textColor : root.muted
-                  font.pixelSize: 13
-
-                  MouseArea {
-                    id: regressArea
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: if (root.kanbanService) root.kanbanService.regressCard(cardRoot.modelData.id)
+                  Text {
+                    Layout.fillWidth: true
+                    text: cardRoot.modelData.title
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    wrapMode: Text.WordWrap
                   }
-                }
 
-                // Advance -- hidden on the last column, nothing to
-                // advance to.
-                Text {
-                  visible: columnRoot.columnId !== "done"
-                  text: "›"
-                  color: advanceArea.containsMouse ? root.textColor : root.muted
-                  font.pixelSize: 13
+                  // Regress -- hidden on the first column, nothing to
+                  // regress to.
+                  Text {
+                    visible: columnRoot.columnId !== "todo"
+                    text: "‹"
+                    color: regressArea.containsMouse ? root.textColor : root.muted
+                    font.pixelSize: 13
 
-                  MouseArea {
-                    id: advanceArea
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: if (root.kanbanService) root.kanbanService.advanceCard(cardRoot.modelData.id)
+                    MouseArea {
+                      id: regressArea
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: if (root.kanbanService) root.kanbanService.regressCard(cardRoot.modelData.id)
+                    }
                   }
-                }
 
-                Text {
-                  text: "✕"
-                  font.pixelSize: 11
-                  color: removeArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+                  // Advance -- hidden on the last column, nothing to
+                  // advance to.
+                  Text {
+                    visible: columnRoot.columnId !== "done"
+                    text: "›"
+                    color: advanceArea.containsMouse ? root.textColor : root.muted
+                    font.pixelSize: 13
 
-                  MouseArea {
-                    id: removeArea
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: if (root.kanbanService) root.kanbanService.removeCard(cardRoot.modelData.id)
+                    MouseArea {
+                      id: advanceArea
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: if (root.kanbanService) root.kanbanService.advanceCard(cardRoot.modelData.id)
+                    }
+                  }
+
+                  Text {
+                    text: "✕"
+                    font.pixelSize: 11
+                    color: removeArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+
+                    MouseArea {
+                      id: removeArea
+                      anchors.fill: parent
+                      anchors.margins: -4
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: if (root.kanbanService) root.kanbanService.removeCard(cardRoot.modelData.id)
+                    }
                   }
                 }
               }
-            }
           }
         }
+      }
       }
 
       // No in-panel "add card"/rename input -- CLI/agent-only for any

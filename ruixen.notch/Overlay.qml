@@ -644,8 +644,12 @@ Item {
       // `omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo`.
       // Column ids are always exactly "todo"/"in-progress"/"done" --
       // see KanbanModel.js's own header for why the count is fixed.
-      function kanbanAddCard(title: string, columnId: string): string {
-        return kanbanService.addCard(title, columnId)
+      // priority is "high"/"medium"/"low" (defaults to "medium" if
+      // omitted or unrecognized) -- direct request ("take care of the
+      // priority via the api, this shit will be agent run mostly"): no
+      // manual UI to set it, CLI/agent-only, same as add/rename.
+      function kanbanAddCard(title: string, columnId: string, priority: string): string {
+        return kanbanService.addCard(title, columnId, priority)
       }
       function kanbanMoveCard(cardId: string, columnId: string): void {
         kanbanService.moveCard(cardId, columnId)
@@ -655,6 +659,9 @@ Item {
       function kanbanRemoveCard(cardId: string): void { kanbanService.removeCard(cardId) }
       function kanbanRenameColumn(columnId: string, label: string): void {
         kanbanService.renameColumn(columnId, label)
+      }
+      function kanbanSetPriority(cardId: string, priority: string): void {
+        kanbanService.setPriority(cardId, priority)
       }
       // Returns the whole board as JSON ({columns, cards}) -- how a
       // script (or me, driving the board on your behalf) reads it back

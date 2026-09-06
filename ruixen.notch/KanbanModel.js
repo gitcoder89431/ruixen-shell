@@ -30,6 +30,22 @@ function isColumnId(id) {
   return COLUMN_IDS.indexOf(id) >= 0
 }
 
+// Priority -- direct request ("take care of the priority via the
+// api, this shit will be agent run mostly"): no manual cycling, no
+// column-count-style dynamism, just a value the agent sets via
+// KanbanService.setPriority(). Order here IS sort rank (see
+// cardsInColumn below) -- high first, low last.
+var PRIORITIES = ["high", "medium", "low"]
+var DEFAULT_PRIORITY = "medium"
+
+function isPriority(value) {
+  return PRIORITIES.indexOf(value) >= 0
+}
+
+function normalizePriority(value) {
+  return isPriority(value) ? value : DEFAULT_PRIORITY
+}
+
 function defaultColumns() {
   return COLUMN_IDS.map(function(id) {
     return { id: id, label: DEFAULT_LABELS[id] }
@@ -74,13 +90,14 @@ function makeCardId(now, seed) {
 
 // null on a blank title -- nothing to store, matches entryFromRow's
 // own "not a real notification" null-return convention.
-function entryFromInput(title, columnId, now, seed) {
+function entryFromInput(title, columnId, priority, now, seed) {
   var text = String(title || "").trim()
   if (!text) return null
   return {
     id: makeCardId(now, seed),
     column: isColumnId(columnId) ? columnId : COLUMN_IDS[0],
     title: text,
+    priority: normalizePriority(priority),
     createdAt: Number(now) || 0
   }
 }
@@ -97,10 +114,25 @@ function normalizeCards(raw) {
       id: c.id,
       column: isColumnId(c.column) ? c.column : COLUMN_IDS[0],
       title: String(c.title),
+      priority: normalizePriority(c.priority),
       createdAt: Number(c.createdAt) || 0
     })
   }
   return out
+}
+
+// No-op (cards unchanged) on an unknown card id or an invalid
+// priority -- same fails-closed shape as moveCard.
+function setPriority(cards, cardId, priority) {
+  var list = normalizeCards(cards)
+  if (!isPriority(priority)) return list
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === cardId) list[i] = {
+      id: list[i].id, column: list[i].column, title: list[i].title,
+      priority: priority, createdAt: list[i].createdAt
+    }
+  }
+  return list
 }
 
 function addCard(cards, card) {
@@ -116,7 +148,10 @@ function moveCard(cards, cardId, columnId) {
   if (!isColumnId(columnId)) return list
   for (var i = 0; i < list.length; i++) {
     if (list[i].id === cardId) {
-      list[i] = { id: list[i].id, column: columnId, title: list[i].title, createdAt: list[i].createdAt }
+      list[i] = {
+        id: list[i].id, column: columnId, title: list[i].title,
+        priority: list[i].priority, createdAt: list[i].createdAt
+      }
     }
   }
   return list
@@ -129,10 +164,15 @@ function removeCard(cards, cardId) {
 // Oldest-first within a column -- the order cards were actually added
 // in, matching a real board's own left-to-right/top-to-bottom reading
 // order rather than an arbitrary storage order.
+// Priority first (PRIORITIES' own order is the rank: high, medium,
+// low), oldest-first as the tiebreaker within the same priority.
 function cardsInColumn(cards, columnId) {
   return normalizeCards(cards)
     .filter(function(c) { return c.column === columnId })
-    .sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0) })
+    .sort(function(a, b) {
+      var rank = PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority)
+      return rank !== 0 ? rank : (a.createdAt || 0) - (b.createdAt || 0)
+    })
 }
 
 // The manual "advance"/"send back" arrow on a card -- clamped at

@@ -43,13 +43,19 @@ Item {
 
   // Returns the new card's id (empty string on a blank title) --
   // useful for a caller that wants to immediately move/remove the
-  // card it just created without a separate lookup.
-  function addCard(title, columnId) {
-    var entry = KanbanModel.entryFromInput(title, columnId, Date.now())
+  // card it just created without a separate lookup. priority defaults
+  // to "medium" when omitted/invalid (see KanbanModel.normalizePriority).
+  function addCard(title, columnId, priority) {
+    var entry = KanbanModel.entryFromInput(title, columnId, priority, Date.now())
     if (!entry) return ""
     service.cards = KanbanModel.addCard(service.cards, entry)
     scheduleSave()
     return entry.id
+  }
+
+  function setPriority(cardId, priority) {
+    service.cards = KanbanModel.setPriority(service.cards, cardId, priority)
+    scheduleSave()
   }
 
   function moveCard(cardId, columnId) {

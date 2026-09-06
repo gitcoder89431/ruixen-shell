@@ -160,6 +160,25 @@ Item {
                   anchors.margins: 8
                   spacing: 6
 
+                  // Priority dot, same shape as the notification row's
+                  // own unread dot -- read-only here, no click handler.
+                  // Direct request ("take care of the priority via the
+                  // api, this shit will be agent run mostly"): the
+                  // agent sets it via kanbanSetPriority/kanbanAddCard,
+                  // this just displays whatever it's set to. Red/
+                  // yellow/muted for high/medium/low -- medium reuses
+                  // the same yellow the settings page's own "pending
+                  // update" dot already established.
+                  Rectangle {
+                    Layout.preferredWidth: 6
+                    Layout.preferredHeight: 6
+                    Layout.alignment: Qt.AlignVCenter
+                    radius: 3
+                    color: cardRoot.modelData.priority === "high" ? "#e05252"
+                      : cardRoot.modelData.priority === "low" ? root.muted
+                      : "#e8c34a"
+                  }
+
                   Text {
                     Layout.fillWidth: true
                     text: cardRoot.modelData.title

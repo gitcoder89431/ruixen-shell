@@ -11,9 +11,10 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   workspace indicator, pinned quick-launch apps, weather, clock, and a
   settings shortcut, all in one connected pill layout.
 - **`ruixen.notch`** — a center-notch dashboard with metrics, wallpapers,
-  storage, music control, and a notification history card (attaches to
+  storage, music control, a notification history card (attaches to
   Omarchy's own notification service, adding read/unread tracking and a
-  deeper backlog on top of it), expanding from the bar.
+  deeper backlog on top of it), and a Kanban board (see below), expanding
+  from the bar.
 - **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
   and notch together visually.
 - **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,
@@ -221,6 +222,33 @@ trying:
 ```
 
 No restart needed either way — it's a live config reload.
+
+## Kanban board
+
+`ruixen.notch`'s dashboard has a 4th tab: a fixed 3-column board (Todo / In
+Progress / Done — Tab cycles through all 4 tabs, or click the column-icon in
+the left rail). It's deliberately agent-native — adding a card, renaming a
+column, and setting priority are all CLI-only, no typing in the panel
+itself:
+
+```bash
+omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high   # priority: high/medium/low, defaults to medium if omitted/blank
+omarchy-shell ruixen.notch kanbanMoveCard <cardId> in-progress
+omarchy-shell ruixen.notch kanbanSetPriority <cardId> high
+omarchy-shell ruixen.notch kanbanRenameColumn todo "Backlog"
+omarchy-shell ruixen.notch kanbanRemoveCard <cardId>
+omarchy-shell ruixen.notch kanbanListCards                     # whole board as JSON
+```
+
+The panel itself is still fully usable by hand for moving cards around —
+just click, no typing:
+
+- **Left-click** a card to advance it one column (dismisses it instead if
+  it's already in Done, since there's nothing further to advance to).
+- **Right-click** to send it back one column (no-op on Todo — nothing
+  before it).
+
+Board state lives at `~/.local/state/ruixen/kanban-store.json`.
 
 ## Window look'n'feel (Hyprland)
 

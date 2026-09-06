@@ -127,6 +127,17 @@ Item {
                 // notification history cards, better readability than
                 // the grey tonal fill this used before.
                 color: "#000000"
+                // Accent border on hover -- direct request ("better
+                // visibility on hover of the row... so i know what im
+                // clicking or moving around"). A plain border directly
+                // on this Rectangle, unlike the notification row's own
+                // top-layer overlay trick -- that workaround exists
+                // there specifically because a thumbnail image paints
+                // over a Rectangle's own border; this card has no such
+                // overlapping content, so the direct border just works.
+                border.color: cardArea.containsMouse ? root.accent : "transparent"
+                border.width: 1.5
+                Behavior on border.color { ColorAnimation { duration: 100 } }
 
                 // Whole-row click, no chevrons -- direct follow-up
                 // ("i need the same pattern to go back from done to in
@@ -139,8 +150,10 @@ Item {
                 // after it, so it dismisses instead -- the terminal
                 // version of "the forward action" rather than a no-op.
                 MouseArea {
+                  id: cardArea
                   anchors.fill: parent
                   acceptedButtons: Qt.LeftButton | Qt.RightButton
+                  hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: function(mouse) {
                     if (!root.kanbanService) return

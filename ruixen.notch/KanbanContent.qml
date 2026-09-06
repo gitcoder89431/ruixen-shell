@@ -128,6 +128,22 @@ Item {
                 // the grey tonal fill this used before.
                 color: "#000000"
 
+                // Right-click anywhere on the card to remove it --
+                // direct follow-up ("the x clear is in the way if we
+                // gonna use the chevlon arrow then, lets just do right
+                // click to dismiss only"), same acceptedButtons split
+                // the notification row already uses. Declared BEFORE
+                // the chevron MouseAreas below, so they still win
+                // left-click hit-testing in their own small area (a
+                // later sibling stacks on top); a right-click over them
+                // falls through to this one since they don't accept
+                // RightButton themselves.
+                MouseArea {
+                  anchors.fill: parent
+                  acceptedButtons: Qt.RightButton
+                  onClicked: if (root.kanbanService) root.kanbanService.removeCard(cardRoot.modelData.id)
+                }
+
                 RowLayout {
                   id: cardContent
                   anchors.fill: parent
@@ -178,21 +194,6 @@ Item {
                       onClicked: if (root.kanbanService) root.kanbanService.advanceCard(cardRoot.modelData.id)
                     }
                   }
-
-                  Text {
-                    text: "✕"
-                    font.pixelSize: 11
-                    color: removeArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
-
-                    MouseArea {
-                      id: removeArea
-                      anchors.fill: parent
-                      anchors.margins: -4
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: if (root.kanbanService) root.kanbanService.removeCard(cardRoot.modelData.id)
-                    }
-                  }
                 }
               }
           }
@@ -210,6 +211,24 @@ Item {
 
   RowLayout {
     anchors.fill: parent
+    // Extra clearance on the right -- direct report ("thrid panel
+    // sits too close to edge"), confirmed live: the Done column's own
+    // right edge sat only a few px from the notch's own curved right
+    // edge. Same fix, same value, as MetricsContent.qml's own
+    // Layout.rightMargin: 10 on its stat-tile grid (its own comment:
+    // "the expanded panel's outer anchors.rightMargin... wasn't enough
+    // breathing room on its own for this dense a grid") -- this tab is
+    // the same shape of problem, a full-width grid of tonal panels
+    // reaching the panel's own right edge.
+    anchors.rightMargin: 10
+    // Same reasoning, bottom edge -- direct follow-up: "the buttom of
+    // the panel stil ends too close to the buttom of the notch edge".
+    // The notch's own signature shape has its rounded corners at the
+    // BOTTOM (see Overlay.qml's own bottomLeftRadius/bottomRightRadius
+    // on the notch shape itself), so a full-height panel reaching the
+    // shared 12px outer bottomMargin needs real clearance from that
+    // curve, same as the right edge did.
+    anchors.bottomMargin: 10
     spacing: 8
 
     Repeater {

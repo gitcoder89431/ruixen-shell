@@ -159,10 +159,17 @@ Item {
                     wrapMode: Text.WordWrap
                   }
 
-                  // Regress -- hidden on the first column, nothing to
-                  // regress to.
+                  // Regress -- hidden on the first column (nothing to
+                  // regress to) and on the last one, where a plain
+                  // green checkmark reads better than a back-arrow --
+                  // direct request ("on the done, instead of the
+                  // chevlon back, just show a green checkmark"). A
+                  // done card can still be un-done via CLI
+                  // (kanbanRegressCard/kanbanMoveCard) if that's ever
+                  // actually needed -- just not a default affordance
+                  // shown on every completed card.
                   Text {
-                    visible: columnRoot.columnId !== "todo"
+                    visible: columnRoot.columnId !== "todo" && columnRoot.columnId !== "done"
                     text: "‹"
                     color: regressArea.containsMouse ? root.textColor : root.muted
                     font.pixelSize: 13
@@ -175,6 +182,13 @@ Item {
                       cursorShape: Qt.PointingHandCursor
                       onClicked: if (root.kanbanService) root.kanbanService.regressCard(cardRoot.modelData.id)
                     }
+                  }
+
+                  Text {
+                    visible: columnRoot.columnId === "done"
+                    text: "✓"
+                    color: "#3ecf5b"
+                    font.pixelSize: 13
                   }
 
                   // Advance -- hidden on the last column, nothing to

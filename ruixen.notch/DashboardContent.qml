@@ -1232,6 +1232,14 @@ Item {
           delegate: Rectangle {
             id: notificationRow
             required property var modelData
+            // Computed directly from modelData (a plain string
+            // comparison), not from the Image element's own `source`
+            // -- Image.source is a `url`-typed property, and comparing
+            // a url against a plain "" string is exactly the kind of
+            // implicit-coercion edge case that looked right on paper
+            // but reserved the thumbnail band's height for every row
+            // live, image or not.
+            readonly property bool hasImage: NotificationModel.imageUrl(modelData) !== ""
             width: notificationList.width
             // 56 -> 70: with the 8px top/bottom margins added since,
             // the body Text's own fillHeight allocation (56 - 16
@@ -1251,10 +1259,9 @@ Item {
             // on top instead, the same axis (height, inside a
             // ColumnLayout) Settings.qml's own headerPill already
             // proves works, rather than width inside a RowLayout.
-            // notificationThumbnailImage's own hasImage decides both
-            // this row's total height and the image band's own height
-            // below.
-            height: notificationThumbnailImage.hasImage ? 134 : 70
+            // This row's own hasImage (above) decides both its total
+            // height and the image band's own height below.
+            height: hasImage ? 134 : 70
             // Direct follow-up: "the text re clipping under the card
             // pills now, dont use that much curve on this pill make it
             // like regular curve like the calendar" -- radius: height/2
@@ -1297,11 +1304,10 @@ Item {
               // as Settings.qml's own headerPill collapse.
               Image {
                 id: notificationThumbnailImage
-                readonly property bool hasImage: source !== ""
                 Layout.fillWidth: true
-                Layout.preferredHeight: hasImage ? 60 : 0
-                Layout.maximumHeight: hasImage ? 60 : 0
-                visible: hasImage
+                Layout.preferredHeight: notificationRow.hasImage ? 60 : 0
+                Layout.maximumHeight: notificationRow.hasImage ? 60 : 0
+                visible: notificationRow.hasImage
                 clip: true
                 source: NotificationModel.imageUrl(notificationRow.modelData)
                 fillMode: Image.PreserveAspectCrop

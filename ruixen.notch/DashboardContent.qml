@@ -1273,37 +1273,63 @@ Item {
             // leaves the text margins genuinely clear.
             radius: 10
             color: "#000000"
-            // Direct follow-up ("the thumbnail looks a bit wierd now,
-            // i guess instead of making the corner on the image should
-            // we just make the image larger so it goes to the row card
-            // edge anyways"): dropped the separate MultiEffect/mask
-            // treatment on the image entirely -- the image below now
-            // spans this row's own full edge-to-edge bounds instead of
-            // sitting inset with its own independently-rounded corners,
-            // and clip: true here keeps it (and anything else) from
-            // spilling past this Rectangle's own rectangular bounds.
-            // The very top two corners read slightly squared rather
-            // than perfectly following the row's curve where the image
-            // sits flush against them -- clip never respects radius in
-            // Qt Quick, a known limitation -- traded deliberately for
-            // simplicity over the previous mask.
-            clip: true
-
-            // Thumbnail -- a plain sibling of the margined ColumnLayout
-            // below, not one of its children, specifically so it can
-            // reach this row's own left/right/top edges directly
-            // rather than sitting inset like the text content does.
-            Image {
-              id: notificationThumbnailImage
+            // Direct follow-up chain: image made edge-to-edge with a
+            // plain clip (previous commit) left the top two corners
+            // visibly squared where the image sits flush against them
+            // -- "just make them have the curve corner still". Back to
+            // a MultiEffect mask (same technique as the avatar/player
+            // art elsewhere in this plugin), but the likely real reason
+            // the FIRST mask attempt "looked a bit wierd": it rounded
+            // all 4 corners uniformly, including the bottom two, which
+            // aren't at any card edge -- the image flows straight into
+            // the text below there, so a rounded bottom edge left two
+            // small triangles of the card's own black background
+            // visibly poking through where the image's corners curved
+            // inward but nothing behind it did. topLeftRadius/
+            // topRightRadius here (Qt's own per-corner Rectangle
+            // properties, already used elsewhere in this repo -- see
+            // Overlay.qml's own bottomLeftRadius/bottomRightRadius on
+            // the notch shape, or Bar.qml's topLeftRadius) round only
+            // the two corners that actually meet this row's own curve;
+            // the bottom stays flat, flush with the text area below it.
+            Item {
+              id: notificationThumbnailArea
               anchors.top: parent.top
               anchors.left: parent.left
               anchors.right: parent.right
               height: notificationRow.hasImage ? 60 : 0
               visible: notificationRow.hasImage
-              source: NotificationModel.imageUrl(notificationRow.modelData)
-              fillMode: Image.PreserveAspectCrop
-              asynchronous: true
-              sourceSize: Qt.size(320, 120)
+
+              Image {
+                id: notificationThumbnailImage
+                anchors.fill: parent
+                source: NotificationModel.imageUrl(notificationRow.modelData)
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                sourceSize: Qt.size(320, 120)
+                visible: false
+              }
+
+              Rectangle {
+                id: notificationThumbnailMask
+                anchors.fill: parent
+                topLeftRadius: 10
+                topRightRadius: 10
+                bottomLeftRadius: 0
+                bottomRightRadius: 0
+                color: "#ffffff"
+                visible: false
+                layer.enabled: true
+              }
+
+              MultiEffect {
+                anchors.fill: parent
+                source: notificationThumbnailImage
+                maskEnabled: true
+                maskSource: notificationThumbnailMask
+                maskThresholdMin: 0.5
+                maskThresholdMax: 1.0
+              }
             }
 
             ColumnLayout {

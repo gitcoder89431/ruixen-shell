@@ -1243,28 +1243,19 @@ Item {
             // but reserved the thumbnail band's height for every row
             // live, image or not.
             readonly property bool hasImage: NotificationModel.imageUrl(modelData) !== ""
+            // A typical card's padding is the same on every side and
+            // doesn't change with content -- one constant, used for both
+            // the top and bottom gap (image or not), instead of the
+            // former hardcoded 8/2 split.
+            readonly property int cardPadding: 10
             width: notificationList.width
-            // 56 -> 70: with the 8px top/bottom margins added since,
-            // the body Text's own fillHeight allocation (56 - 16
-            // margins - ~16 header row - 2 spacing = ~22px) fell just
-            // short of two real 10px-font lines (~24-28px) -- it was
-            // eliding to a single line after the first word wrap
-            // regardless of maximumLineCount: 2, not actually showing
-            // a second line at all. Confirmed live via a genuinely
-            // long test notification before changing this, not
-            // assumed.
-            // Direct follow-up: "if theres an image... reconsider a
-            // new design? maybe on top for one with preview" -- a
-            // left-column thumbnail (RowLayout, width-collapsed when
-            // absent) was tried first and its collapse never actually
-            // worked live despite matching this codebase's own proven
-            // Layout-collapse pattern; moved to a HEIGHT-collapsed band
-            // on top instead, the same axis (height, inside a
-            // ColumnLayout) Settings.qml's own headerPill already
-            // proves works, rather than width inside a RowLayout.
-            // This row's own hasImage (above) decides both its total
-            // height and the image band's own height below.
-            height: hasImage ? 134 : 70
+            // A typical card hugs its own content instead of being a
+            // fixed box: short notifications get a smaller card, long
+            // ones get a bigger card, but the padding around the content
+            // stays the same either way. Height is the thumbnail band
+            // (0 when absent) plus top/bottom padding plus however tall
+            // the text column actually is -- not a hardcoded number.
+            height: notificationThumbnailArea.height + cardPadding + notificationContentColumn.implicitHeight + cardPadding
             // Direct follow-up: "the text re clipping under the card
             // pills now, dont use that much curve on this pill make it
             // like regular curve like the calendar" -- radius: height/2
@@ -1336,32 +1327,26 @@ Item {
             }
 
             ColumnLayout {
+              id: notificationContentColumn
+              // notificationThumbnailArea, not notificationThumbnailImage
+              // -- the Image lives one branch deeper (inside that Item),
+              // so anchoring to it directly was an invalid cross-branch
+              // anchor (only a parent or a true sibling is legal). It
+              // failed silently at runtime (confirmed via journalctl:
+              // "Cannot anchor to an item that isn't a parent or
+              // sibling").
+              //
+              // No bottom anchor any more -- the column sizes to its own
+              // content (implicitHeight) and the row's own height above
+              // is derived FROM that, not the other way around, so a
+              // short body no longer leaves dead space before the card's
+              // bottom edge.
               anchors.left: parent.left
               anchors.right: parent.right
-              anchors.bottom: parent.bottom
-              anchors.top: notificationThumbnailImage.bottom
+              anchors.top: notificationThumbnailArea.bottom
               anchors.leftMargin: 12
               anchors.rightMargin: 12
-              // Real bug, found only after measuring the OUTER card's
-              // own margin numerically and confirming it was already
-              // correct (10px on all 4 sides) -- the actual complaint
-              // was this INNER content, one level down: it had left/
-              // right margins but no top/bottom at all, so the header
-              // row sat flush against each individual row pill's own
-              // top edge.
-              //
-              // Direct follow-up ("its also unblanace right now the
-              // top of the card isnt the same as the buttom... just
-              // make the cards spacing more compact overalll"): this
-              // same topMargin does double duty (space from the row's
-              // own top edge when there's no image, space from the
-              // thumbnail's bottom edge when there is one). An earlier
-              // pass set it to 0 for the image case specifically, which
-              // left it visibly lopsided against bottomMargin's own 8 --
-              // both now match at 2 for the image case (compact, but
-              // even top-to-bottom), unchanged (8/8) otherwise.
-              anchors.topMargin: notificationRow.hasImage ? 2 : 8
-              anchors.bottomMargin: notificationRow.hasImage ? 2 : 8
+              anchors.topMargin: notificationRow.cardPadding
               spacing: 2
 
               RowLayout {
@@ -1430,8 +1415,9 @@ Item {
 
               Text {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-                verticalAlignment: Text.AlignTop
+                // No fillHeight -- sizes to its own actual content (1 or
+                // 2 lines), so the card doesn't reserve extra dead space
+                // below a short message.
                 text: NotificationModel.bodyText(notificationRow.modelData) || notificationRow.modelData.summary
                 color: root.muted
                 font.family: root.fontFamily
@@ -1473,10 +1459,19 @@ Item {
               id: dismissNotificationArea
               visible: notificationRowArea.containsMouse
               enabled: notificationRowArea.containsMouse
-              anchors.horizontalCenter: notificationIndicatorSlot.horizontalCenter
-              anchors.verticalCenter: notificationHeaderRow.verticalCenter
+              // notificationIndicatorSlot lives two branches deeper
+              // (RowLayout > ColumnLayout), so a direct anchor to it was
+              // invalid (only a parent or true sibling is legal) and
+              // failed silently at runtime -- confirmed via journalctl:
+              // "Cannot anchor to an item that isn't a parent or
+              // sibling". mapToItem translates its center into
+              // notificationRow's own coordinate space instead, which
+              // works across any branch and stays live since it reads
+              // each ancestor's own x/y/width/height during evaluation.
               width: 20
               height: 20
+              x: notificationIndicatorSlot.mapToItem(notificationRow, notificationIndicatorSlot.width / 2, notificationIndicatorSlot.height / 2).x - width / 2
+              y: notificationIndicatorSlot.mapToItem(notificationRow, notificationIndicatorSlot.width / 2, notificationIndicatorSlot.height / 2).y - height / 2
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: if (root.notificationHistory) root.notificationHistory.forgetOne(notificationRow.modelData.key)

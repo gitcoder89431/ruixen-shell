@@ -160,23 +160,46 @@ Item {
                   anchors.margins: 8
                   spacing: 6
 
-                  // Priority dot, same shape as the notification row's
-                  // own unread dot -- read-only here, no click handler.
-                  // Direct request ("take care of the priority via the
-                  // api, this shit will be agent run mostly"): the
-                  // agent sets it via kanbanSetPriority/kanbanAddCard,
-                  // this just displays whatever it's set to. Red/
-                  // yellow/muted for high/medium/low -- medium reuses
-                  // the same yellow the settings page's own "pending
-                  // update" dot already established.
-                  Rectangle {
-                    Layout.preferredWidth: 6
-                    Layout.preferredHeight: 6
+                  // Priority dot on every column except Done, where a
+                  // green checkmark takes its place instead -- direct
+                  // follow-up ("instead of the check green being on
+                  // the right, can we just replace the dots with the
+                  // check on done then"). Both live inside one fixed-
+                  // size wrapper Item (not two separately-toggled
+                  // RowLayout siblings) -- Qt Quick Layouts don't
+                  // collapse an invisible item's own reserved space, so
+                  // two visibility-toggled Layout children here would
+                  // leave a gap; plain anchored children of one
+                  // Layout-managed wrapper sidesteps that entirely.
+                  // Read-only either way, no click handler -- the
+                  // agent sets priority via kanbanSetPriority/
+                  // kanbanAddCard, this just displays it.
+                  Item {
+                    Layout.preferredWidth: 10
+                    Layout.preferredHeight: 10
                     Layout.alignment: Qt.AlignVCenter
-                    radius: 3
-                    color: cardRoot.modelData.priority === "high" ? "#e05252"
-                      : cardRoot.modelData.priority === "low" ? root.muted
-                      : "#e8c34a"
+
+                    Rectangle {
+                      visible: columnRoot.columnId !== "done"
+                      anchors.centerIn: parent
+                      width: 6
+                      height: 6
+                      radius: 3
+                      // Red/yellow/muted for high/medium/low -- medium
+                      // reuses the same yellow the settings page's own
+                      // "pending update" dot already established.
+                      color: cardRoot.modelData.priority === "high" ? "#e05252"
+                        : cardRoot.modelData.priority === "low" ? root.muted
+                        : "#e8c34a"
+                    }
+
+                    Text {
+                      visible: columnRoot.columnId === "done"
+                      anchors.centerIn: parent
+                      text: "✓"
+                      color: "#3ecf5b"
+                      font.pixelSize: 13
+                    }
                   }
 
                   Text {
@@ -186,17 +209,6 @@ Item {
                     font.family: root.fontFamily
                     font.pixelSize: 11
                     wrapMode: Text.WordWrap
-                  }
-
-                  // Purely a status marker now, not a button -- the
-                  // whole row handles clicks above. Direct request:
-                  // "on the done, instead of the chevlon back, just
-                  // show a green checkmark".
-                  Text {
-                    visible: columnRoot.columnId === "done"
-                    text: "✓"
-                    color: "#3ecf5b"
-                    font.pixelSize: 13
                   }
                 }
               }

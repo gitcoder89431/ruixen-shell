@@ -80,6 +80,7 @@ closing the panel if it happens to already be open:
 o.bind("SUPER + W", "Wi-Fi Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"wifi"}']])
 o.bind("SUPER + A", "Audio Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"audio"}']])
 o.bind("SUPER + B", "Bluetooth Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"bluetooth"}']])
+o.bind("SUPER + D", "Display Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"display"}']])
 ```
 
 Valid `section` values: `general` (Profile), `audio`, `wifi`, `bluetooth`,

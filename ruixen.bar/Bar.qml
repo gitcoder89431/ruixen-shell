@@ -393,11 +393,44 @@ Item {
   // Hyprland's reservation ends.
   readonly property int barSize: 34
 
-  // Docked mode's open-facing shoulder: shared between the docked pill's
-  // OWN corner radius and its RoundCorner wing's size, so they meet with
-  // a matching straight edge and tangent instead of a visible seam (see
-  // leftDockedBg/leftShoulderWing).
+  // Docked mode's open-facing shoulder: the PHYSICAL SPACE reserved
+  // below the pill row for the wing pieces (leftShoulderWing/
+  // leftFrameHemWing below) to render in, so the pill's own solid
+  // black fill stays continuous down to where ruixen.frame-widget's
+  // own border strip picks up -- needed regardless of corner style,
+  // unlike dockedCornerRadius below (how CURVED that space's own fill
+  // looks, which DOES vary). Deliberately NOT the same property as
+  // dockedCornerRadius, even though they're both 24 in the common
+  // "on" case -- real bug, found live via direct report ("the top
+  // inner curves are gone now... top part was relying on that corner
+  // frame for the corner, now theres like a triangle whole"): a first
+  // attempt at this fix used ONE shared dynamic value for both the
+  // wing's OWN reserved size and its curve amount, so switching to
+  // the square variant (radius 0) also shrank the wing's SIZE to 0 --
+  // removing the space its solid black fill used to occupy entirely,
+  // not just its curve, and leaving that space showing the wallpaper
+  // through instead. Kept as a fixed constant; only the radius drawn
+  // within it varies.
   readonly property int shoulderWingSize: 24
+
+  // How curved the docked pill's own outer corner AND the wing pieces
+  // above are -- 0 for a plain square fill (still solid, full
+  // shoulderWingSize), 24 for the original full curve. Mirrors
+  // ruixen.frame-widget's own dynamic cornerRadius exactly, read the
+  // same way (the real deployed looknfeel.lua symlink) so the two
+  // can't independently drift out of sync with each other.
+  property int dockedCornerRadius: 0
+
+  Process {
+    id: readLookAndFeelVariantForDockedCorner
+    command: ["bash", "-c", "readlink \"$HOME/.config/hypr/looknfeel.lua\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.dockedCornerRadius = text.indexOf("looknfeel.ruixen.lua") >= 0 ? 24 : 0
+      }
+    }
+  }
 
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
@@ -877,7 +910,10 @@ Item {
     return source ? Util.fileUrl(source) : ""
   }
 
-  Component.onCompleted: applyBarConfig()
+  Component.onCompleted: {
+    applyBarConfig()
+    readLookAndFeelVariantForDockedCorner.running = true
+  }
 
   // Revealing the indicators widens their section, which can slide a neighbour
   // under a stationary pointer. Collapsing on that un-hover would move it back
@@ -1325,11 +1361,24 @@ Item {
     // "topRight", "bottomLeft", "bottomRight".
     property string corner: "topLeft"
     property int size: 25
+    // How curved the fill actually is, separate from `size` (the
+    // physical space reserved) -- defaults to `size` (the original,
+    // always-fully-curved behavior). 0 draws a plain solid square
+    // filling the full `size` x `size` area instead of an arc -- real
+    // bug this decoupling fixes, found live via direct report ("the
+    // top inner curves are gone now"): an earlier version of this fix
+    // used ONE value for both `size` and the curve amount, so a
+    // square-corner look'n'feel variant (radius 0) also shrank this
+    // piece's own SIZE to 0 -- removing the space its solid fill used
+    // to occupy, not just its curve, and showing the wallpaper through
+    // where solid black used to be.
+    property int radius: size
     property color color: "#000000"
 
     onColorChanged: cornerCanvas.requestPaint()
     onCornerChanged: cornerCanvas.requestPaint()
     onSizeChanged: cornerCanvas.requestPaint()
+    onRadiusChanged: cornerCanvas.requestPaint()
     onVisibleChanged: if (visible) cornerCanvas.requestPaint()
 
     // implicitWidth/Height alone (ambxst's own original) only sizes this
@@ -1347,8 +1396,16 @@ Item {
       antialiasing: true
       onPaint: {
         var ctx = getContext("2d")
-        var r = cornerRoot.size
+        var r = cornerRoot.radius
         ctx.clearRect(0, 0, width, height)
+        ctx.fillStyle = cornerRoot.color
+        if (r <= 0) {
+          // Square-corner variant -- still a full, solid size x size
+          // fill (see this property's own comment for why), just no
+          // curve.
+          ctx.fillRect(0, 0, cornerRoot.size, cornerRoot.size)
+          return
+        }
         ctx.beginPath()
         switch (cornerRoot.corner) {
         case "topLeft":
@@ -1369,7 +1426,6 @@ Item {
           break
         }
         ctx.closePath()
-        ctx.fillStyle = cornerRoot.color
         ctx.fill()
       }
     }
@@ -1635,12 +1691,13 @@ Item {
           height: root.barSize
           color: "#000000"
           antialiasing: true
-          // Matches ruixen.frame-widget's own cornerRadius (24) exactly --
-          // this corner sits at the same point the frame's rounded-rect
-          // hole starts (see BarPanel's margins above: frameInset used for
-          // top too when docked, not topInset, specifically so this lines
-          // up).
-          topLeftRadius: 24
+          // Matches ruixen.frame-widget's own cornerRadius exactly (both
+          // now read from the same real deployed looknfeel.lua symlink,
+          // see root.dockedCornerRadius's own comment) -- this corner
+          // sits at the same point the frame's rounded-rect hole starts
+          // (see BarPanel's margins above: frameInset used for top too
+          // when docked, not topInset, specifically so this lines up).
+          topLeftRadius: root.dockedCornerRadius
           topRightRadius: 0
           // Square, not a plain recede curve -- the actual concave wrap
           // (per direct request: "the smooth curve should face inward")
@@ -1650,19 +1707,20 @@ Item {
           // hand-off into that wing rather than competing with
           // topLeftRadius for room on the same 34px edge.
           bottomLeftRadius: 0
-          // The real shoulder. Matches shoulderWingSize (24), not the
-          // pill's full height -- the earlier seam/glitch came from this
-          // being `height` (34) while the wing was ALSO full-height: two
-          // full-height curves with no shared straight edge to align
-          // against. Same radius as the wing's own size instead, so
-          // there's a real flush edge between them and their curves
-          // share a tangent at the join.
-          bottomRightRadius: root.shoulderWingSize
+          // The real shoulder. Matches the wing's own CURVE amount
+          // (dockedCornerRadius), not its reserved size -- the earlier
+          // seam/glitch came from this being `height` (34) while the
+          // wing was ALSO full-height: two full-height curves with no
+          // shared straight edge to align against. Same radius as the
+          // wing's own curve instead, so there's a real flush edge
+          // between them and their curves share a tangent at the join
+          // (or both are equally square, in the square-corner variant).
+          bottomRightRadius: root.dockedCornerRadius
         }
 
         // ambxst's own rightCornerMaskPart, ported: a small square sitting
         // immediately past the body's own right edge, corner: topLeft.
-        // Same size as leftDockedBg's own bottomRightRadius above (24),
+        // Same size as leftDockedBg's own bottomRightRadius above,
         // not the full pill height -- their own notch wing is a small
         // square matched to its body's own corner radius, not a
         // full-height piece; that mismatch was the earlier bug.
@@ -1671,6 +1729,7 @@ Item {
           visible: root.docked
           corner: "topLeft"
           size: root.shoulderWingSize
+          radius: root.dockedCornerRadius
           color: "#000000"
           x: leftDockedBg.x + leftDockedBg.width
           y: 0
@@ -1689,6 +1748,7 @@ Item {
           visible: root.docked
           corner: "topLeft"
           size: root.shoulderWingSize
+          radius: root.dockedCornerRadius
           color: "#000000"
           x: 0
           y: leftDockedBg.height
@@ -1703,12 +1763,12 @@ Item {
           height: root.barSize
           color: "#000000"
           antialiasing: true
-          topRightRadius: 24
+          topRightRadius: root.dockedCornerRadius
           topLeftRadius: 0
           // Mirrors leftDockedBg's own bottomLeftRadius -- see its comment.
           bottomRightRadius: 0
           // Mirrors leftDockedBg's own bottomRightRadius -- see its comment.
-          bottomLeftRadius: root.shoulderWingSize
+          bottomLeftRadius: root.dockedCornerRadius
         }
 
         // Mirrors leftShoulderWing -- see its comment.
@@ -1732,6 +1792,7 @@ Item {
           visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
+          radius: root.dockedCornerRadius
           color: "#000000"
           x: rightDockedBg.x - size + 1
           y: 0
@@ -1743,6 +1804,7 @@ Item {
           visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
+          radius: root.dockedCornerRadius
           color: "#000000"
           x: rightDockedBg.x + rightDockedBg.width - size
           y: rightDockedBg.height

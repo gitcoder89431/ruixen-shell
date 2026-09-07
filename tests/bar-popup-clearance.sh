@@ -86,7 +86,7 @@ check() {
 }
 
 bar_size="$(grep -oP 'readonly property int barSize:\s*\K[0-9]+' "$bar_qml")"
-shoulder_wing_size="$(grep -oP 'readonly property int shoulderWingSize:\s*\K[0-9]+' "$bar_qml")"
+shoulder_wing_size="$(grep -oP 'property int shoulderWingSize:\s*\K[0-9]+' "$bar_qml")"
 notch_top_margin="$(grep -oP 'readonly property int collapsedTopMargin:\s*\K[0-9]+' "$notch_geometry_qml")"
 notch_collapsed_height="$(grep -oP 'readonly property int collapsedHeight:\s*\K[0-9]+' "$notch_geometry_qml")"
 

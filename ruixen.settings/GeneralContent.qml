@@ -368,6 +368,88 @@ ColumnLayout {
     }
   }
 
+  // Window Curvature -- own card, same segmented-button treatment as
+  // Bar Layout/Animation Style above. Direct request: a Settings UI
+  // for the on/square split hyprland/ruixen-lookfeel.sh already has.
+  // "Off" (stock Omarchy, no border/blur/shadow either) isn't offered
+  // here -- a much bigger toggle than just corner shape, stays
+  // CLI-only. Clicking either option runs the real script and
+  // restarts the shell (see setCornerCurvature's own comment), so
+  // this settings panel itself will visibly reopen fresh a moment
+  // after clicking -- expected, not a bug.
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: curvatureCardContent.implicitHeight + 24
+    radius: 10
+    color: "#000000"
+
+    ColumnLayout {
+      id: curvatureCardContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Window Curvature"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 11
+        font.weight: Font.DemiBold
+        color: settingsRoot.muted
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Repeater {
+          model: [
+            { id: "sharp", label: "Sharp" },
+            { id: "rounded", label: "Rounded" }
+          ]
+
+          Rectangle {
+            id: curvatureBtn
+            required property var modelData
+            readonly property bool isCurrent: settingsRoot.cornerCurvature === curvatureBtn.modelData.id
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            radius: 6
+            color: curvatureBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: curvatureBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: curvatureBtn.modelData.label
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 11
+              font.weight: curvatureBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: curvatureBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: settingsRoot.ruixenRepoPath !== ""
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.setCornerCurvature(curvatureBtn.modelData.id)
+            }
+          }
+        }
+      }
+
+      Text {
+        visible: settingsRoot.ruixenRepoPath === ""
+        Layout.fillWidth: true
+        text: "Needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable this."
+        wrapMode: Text.WordWrap
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 10
+        color: settingsRoot.muted
+      }
+    }
+  }
+
   // No more trailing fillHeight spacer -- direct follow-up ("nothing
   // is sticky... everything in the page scroll"): this page's own
   // ColumnLayout is naturally sized inside Settings.qml's shared

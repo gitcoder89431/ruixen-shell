@@ -290,6 +290,55 @@ Item {
     animationProfileWriteProc.running = true
   }
 
+  // Window Curvature (Sharp/Rounded) -- direct request: a Settings UI
+  // for the on/square split hyprland/ruixen-lookfeel.sh already has.
+  // "Sharp" = the square variant (thin border/blur/shadow/animations
+  // kept, just no rounding), "Rounded" = the original "on" variant.
+  // Deliberately doesn't expose the full "off" here -- that's a much
+  // bigger, all-or-nothing toggle (loses blur/shadow/the thinner
+  // border too), stays CLI-only, unchanged.
+  //
+  // Unlike barMode/animationProfile above (a plain-text preference
+  // file some OTHER script reads, changed with just a config write +
+  // hyprctl reload), this runs the real ruixen-lookfeel.sh script
+  // itself via root.ruixenRepoPath (same mechanism the Plugins page's
+  // own update/uninstall already need a real checkout for) rather
+  // than reimplementing its symlink-swap/backup/restart logic here a
+  // second time. That script now does a full `omarchy restart shell`
+  // of its own (see its own comment for why hyprctl reload alone
+  // could never be enough -- a separate process, ruixen.frame-widget,
+  // needs to re-read which variant is active too), so this settings
+  // panel itself will be torn down and reloaded fresh by that restart,
+  // same already-accepted behavior updateRuixenShell() below has.
+  property string cornerCurvature: "rounded"
+
+  Process {
+    id: cornerCurvatureReadProc
+    command: ["bash", "-c", "readlink \"" + Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.cornerCurvature = String(text || "").indexOf("looknfeel.square.lua") >= 0 ? "sharp" : "rounded"
+      }
+    }
+  }
+
+  Process {
+    id: cornerCurvatureWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setCornerCurvature(curvature) {
+    if (curvature !== "sharp" && curvature !== "rounded") return
+    if (root.ruixenRepoPath === "") return
+    root.cornerCurvature = curvature
+    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
+    var variant = curvature === "sharp" ? "square" : "on"
+    cornerCurvatureWriteProc.command = ["bash", "-c",
+      "cd '" + safePath + "' && ./hyprland/ruixen-lookfeel.sh " + variant]
+    cornerCurvatureWriteProc.running = true
+  }
+
   // Avatar -- ~/.face.icon, same convention/gradient-fallback mechanism
   // ruixen.notch's own UserAvatar component already uses. "gradient" is
   // just another entry in avatarCollections, not a separate Reset
@@ -881,6 +930,7 @@ Item {
       pluginService.refreshRepoPath()
       barModeReadProc.running = true
       animationProfileReadProc.running = true
+      cornerCurvatureReadProc.running = true
       if (root.hardwareName === "") identityProc.running = true
     }
   }

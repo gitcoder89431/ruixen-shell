@@ -634,11 +634,33 @@ Item {
       // Real, permanent counterparts for the dashboard itself (not the
       // launcher) -- direct Discord ask ("a keybind to summon the
       // notch"), same shape as the launcher trio above. Opens on
-      // whichever dashboardTab was last selected (matches clicking the
-      // notch itself to expand it -- no tab is forced).
+      // whichever dashboardTab was last selected when no payload is
+      // given (matches clicking the notch itself to expand it -- no
+      // tab is forced).
+      //
       function openDashboard(): void { panel.pinnedOpen = true }
       function closeDashboard(): void { panel.pinnedOpen = false }
       function toggleDashboard(): void { panel.pinnedOpen = !panel.pinnedOpen }
+      // Jump straight to one tab -- direct follow-up ("a keybind that
+      // opens to the kanban board... to see updates"). A separate
+      // function with a required plain-string arg, not an optional
+      // JSON payload bolted onto openDashboard above: Quickshell's
+      // IpcHandler enforces exact arity against the declared typed
+      // signature (confirmed live -- "Too few arguments provided (1
+      // required but 0 were provided)" the moment openDashboard grew a
+      // required param), so a single shared function would have broken
+      // every existing zero-arg `openDashboard` call instead of
+      // actually being optional. Valid tab values: "widgets" (0),
+      // "wallpapers" (1), "metrics" (2), "kanban" (3) -- matching
+      // dashboardTab's own fixed index order, left/right tab bar top
+      // to bottom. An unrecognized name is a no-op on the tab (still
+      // opens on whichever tab was already selected).
+      function openDashboardTab(tab: string): void {
+        var tabNames = ["widgets", "wallpapers", "metrics", "kanban"]
+        var index = tabNames.indexOf(tab)
+        if (index >= 0) panel.dashboardTab = index
+        panel.pinnedOpen = true
+      }
       // Called by ruixen.settings' General page after Shuffle/Reset
       // writes or removes ~/.face.icon -- this plugin is keepLoaded:
       // true, so nothing else would tell UserAvatar's Image to re-read

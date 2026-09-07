@@ -14,6 +14,7 @@ suites=(
   "$script_dir/shell-json-merge.sh"
   "$script_dir/looknfeel-preserve.sh"
   "$script_dir/looknfeel-stable-path.sh"
+  "$script_dir/looknfeel-choice-persist.sh"
   "$script_dir/uninstall-bar-restore.sh"
   "$script_dir/merge-uninstall-bar.sh"
   "$script_dir/uninstall-preserve-thirdparty.sh"

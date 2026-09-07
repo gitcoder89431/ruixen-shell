@@ -115,11 +115,30 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 
   printf '\nHyprland window look:\n'
   looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
-  looknfeel_src="$script_dir/hyprland/looknfeel.ruixen.lua"
+  looknfeel_data_dir_preview="$HOME/.local/share/ruixen-shell/hyprland"
+  # Same preserve-the-current-choice logic as the real install step
+  # below (see its own comment) -- a dry-run that claimed "off" would
+  # flip back to "on" was itself part of the bug, since it matched
+  # what the OLD unconditional code actually did.
+  looknfeel_preview_variant=""
+  if [[ -L "$looknfeel_target" ]]; then
+    looknfeel_preview_link="$(readlink "$looknfeel_target")"
+    case "$looknfeel_preview_link" in
+      "$looknfeel_data_dir_preview"/*) looknfeel_preview_variant="$(basename "$looknfeel_preview_link")" ;;
+    esac
+  fi
+  looknfeel_src="$script_dir/hyprland/${looknfeel_preview_variant:-looknfeel.ruixen.lua}"
   if [[ -L "$looknfeel_target" ]]; then
     link_target="$(readlink -f "$looknfeel_target" 2>/dev/null || true)"
     if [[ -n "$link_target" ]] && cmp -s "$link_target" "$looknfeel_src" 2>/dev/null; then
-      printf '  already Ruixen own symlink, matches this checkout -- no change\n'
+      if [[ "$looknfeel_preview_variant" == "looknfeel.default.lua" ]]; then
+        printf '  already Ruixen own symlink (stock look, off), matches this checkout -- no change\n'
+      else
+        printf '  already Ruixen own symlink, matches this checkout -- no change\n'
+      fi
+    elif [[ -n "$looknfeel_preview_variant" ]]; then
+      printf '  would refresh the deployed asset -- your current choice (%s) is kept, not reset to the default look\n' \
+        "${looknfeel_preview_variant%.lua}"
     else
       printf '  would back up the current looknfeel.lua and point it at this checkout own version\n'
     fi
@@ -527,7 +546,27 @@ for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
 done
 
 looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
-looknfeel_src="$looknfeel_data_dir/looknfeel.ruixen.lua"
+# Preserve whichever variant is already active across a reinstall/
+# update -- real bug, found live via direct report ("Looks and Feel
+# turns back on after a restart"): this unconditionally pointed at the
+# "on" (ruixen) variant on every run, silently overriding an explicit
+# `ruixen-lookfeel.sh off` from a previous install the moment
+# update.sh (which calls install.sh) ran again -- easy to describe as
+# "after a restart" since update.sh itself ends with one. Read BEFORE
+# the deployed-variant refresh loop above touches $looknfeel_target
+# itself, so this still reflects whatever the user's install actually
+# had going into this run. Only a target that ISN'T already one of
+# Ruixen's own two deployed variants (a genuinely fresh install, or
+# some unrelated file) falls back to "on", matching this project's own
+# out-of-the-box look.
+looknfeel_current_variant=""
+if [[ -L "$looknfeel_target" ]]; then
+  looknfeel_existing_link="$(readlink "$looknfeel_target")"
+  case "$looknfeel_existing_link" in
+    "$looknfeel_data_dir"/*) looknfeel_current_variant="$(basename "$looknfeel_existing_link")" ;;
+  esac
+fi
+looknfeel_src="$looknfeel_data_dir/${looknfeel_current_variant:-looknfeel.ruixen.lua}"
 looknfeel_pristine_dir="$state_dir/looknfeel-pristine"
 LOOKNFEEL_TOUCHED=1
 "$script_dir/lib/apply-looknfeel.sh" "$looknfeel_target" "$looknfeel_src" "$looknfeel_pristine_dir" "$stamp"
@@ -536,7 +575,11 @@ if [[ -e "${looknfeel_target}.bak.${stamp}" ]]; then
   printf '  backed up existing looknfeel.lua -> looknfeel.lua.bak.%s\n' "$stamp"
 fi
 hyprctl reload >/dev/null 2>&1 || true
-printf '  applied rounded corners + blur matching the frame (24px)\n'
+if [[ "$looknfeel_current_variant" == "looknfeel.default.lua" ]]; then
+  printf '  kept your existing choice: stock Omarchy look (square corners, no blur)\n'
+else
+  printf '  applied rounded corners + blur matching the frame (24px)\n'
+fi
 printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"
 
 printf '\n[6/6] Restarting Omarchy shell\n'

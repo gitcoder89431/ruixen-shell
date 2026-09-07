@@ -631,6 +631,14 @@ Item {
       function openLauncher(): void { panel.launcherOpen = true }
       function closeLauncher(): void { panel.launcherOpen = false }
       function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }
+      // Real, permanent counterparts for the dashboard itself (not the
+      // launcher) -- direct Discord ask ("a keybind to summon the
+      // notch"), same shape as the launcher trio above. Opens on
+      // whichever dashboardTab was last selected (matches clicking the
+      // notch itself to expand it -- no tab is forced).
+      function openDashboard(): void { panel.pinnedOpen = true }
+      function closeDashboard(): void { panel.pinnedOpen = false }
+      function toggleDashboard(): void { panel.pinnedOpen = !panel.pinnedOpen }
       // Called by ruixen.settings' General page after Shuffle/Reset
       // writes or removes ~/.face.icon -- this plugin is keepLoaded:
       // true, so nothing else would tell UserAvatar's Image to re-read

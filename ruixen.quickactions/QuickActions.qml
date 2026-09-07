@@ -194,6 +194,19 @@ BarWidget {
     contentWidth: popup.fittedContentWidth(Style.space(200))
     contentHeight: popup.fittedContentHeight(column.implicitHeight)
 
+    // Escape to dismiss, matching Omarchy's own dropdowns -- direct
+    // request. See ruixen.pluginpins/BarWidget.qml's identical block
+    // for the full "why" (PopupCard itself has no such handling,
+    // xdg-popups can still receive keys once something inside holds
+    // active focus).
+    Item {
+      id: escapeCatcher
+      anchors.fill: parent
+      focus: true
+      Keys.onEscapePressed: root.close()
+    }
+    onOpenChanged: if (open) Qt.callLater(function() { escapeCatcher.forceActiveFocus() })
+
     Column {
       id: column
       anchors.fill: parent

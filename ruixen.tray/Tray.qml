@@ -246,6 +246,20 @@ BarWidget {
     // read the header's extent through its own visibility.
     readonly property int menuHeaderHeight: menuHeader.visible ? menuHeader.implicitHeight : 0
 
+    // Escape to dismiss, matching Omarchy's own dropdowns -- direct
+    // request. See ruixen.pluginpins/BarWidget.qml's identical block
+    // for the full "why" (PopupCard itself has no such handling,
+    // xdg-popups can still receive keys once something inside holds
+    // active focus). Confirmed live on that widget before rolling out
+    // here.
+    Item {
+      id: escapeCatcher
+      anchors.fill: parent
+      focus: true
+      Keys.onEscapePressed: root.close()
+    }
+    onOpenChanged: if (open) Qt.callLater(function() { escapeCatcher.forceActiveFocus() })
+
     Column {
       id: trayMenuLayout
       anchors.fill: parent

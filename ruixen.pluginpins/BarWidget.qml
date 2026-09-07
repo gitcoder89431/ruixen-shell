@@ -280,6 +280,27 @@ BarWidget {
     contentWidth: popup.fittedContentWidth(Style.space(220))
     contentHeight: popup.fittedContentHeight(column.implicitHeight, Style.space(360))
 
+    // Escape to dismiss, matching Omarchy's own dropdowns -- direct
+    // request. PopupCard itself (Omarchy's own component, not ours)
+    // has no such handling; a plain xdg-popup CAN receive key events
+    // once something inside it holds active focus (confirmed by
+    // reading Omarchy's own KeyboardPanel.qml comment: "xdg-popups...
+    // only receive keys after a click/hover routes focus through
+    // their parent surface" -- true here since opening this popup IS
+    // a click). A separate invisible sibling, not added onto the
+    // existing Text/Flickable below, so it doesn't disturb either
+    // one's own layout. Qt.callLater on open, same reasoning
+    // KeyboardPanel.qml gives for its own equivalent: the surface
+    // needs a moment to finish mapping before a forceActiveFocus()
+    // call actually sticks.
+    Item {
+      id: escapeCatcher
+      anchors.fill: parent
+      focus: true
+      Keys.onEscapePressed: root.close()
+    }
+    onOpenChanged: if (open) Qt.callLater(function() { escapeCatcher.forceActiveFocus() })
+
     Text {
       visible: root.candidates.length === 0
       anchors.centerIn: parent

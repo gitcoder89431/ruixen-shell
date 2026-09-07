@@ -39,6 +39,17 @@ list with no toggle.
 Every plugin shares the same OLED-black background, corner radii, and motion
 language, so they read as one shell instead of a pile of separate widgets.
 
+## Documentation
+
+- [`docs/KEYBINDS.md`](docs/KEYBINDS.md) — ready-to-use Hyprland keybind
+  recipes: Ruixen Settings (and jumping straight to one page), the notch
+  dashboard, the app launcher.
+- [`docs/CONTROL.md`](docs/CONTROL.md) — how every plugin here is
+  controllable over a plain CLI call (`omarchy-shell <target> <method>
+  [args]`), the same mechanism a keybind, a script, or an AI agent all use
+  identically, plus the Kanban board's full command reference as a worked
+  example.
+
 ## Install
 
 Ruixen Shell targets Omarchy `4.0.0-1` (also confirmed working on `4.0.1-1`).
@@ -61,31 +72,10 @@ matching Hyprland window look (rounded corners + blur, see below — also
 backed up if you already have a `looknfeel.lua`), and restarts the Omarchy
 shell.
 
-After installing, add a keybind of your own for opening Ruixen Settings —
-the installer deliberately doesn't touch your Hyprland config:
-
-```lua
--- in your ~/.config/hypr/bindings.lua
-o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
-```
-
-Pick any other unbound key if you'd rather — `omarchy menu keybindings --print` lists what's already taken.
-
-Want a keybind that jumps straight to one settings page instead of always
-opening on whichever page was open last? Use `summon` with a `section`
-payload instead of `toggle` — this opens Ruixen Settings on that page (or
-switches to it if the panel's already open on a different one) rather than
-closing the panel if it happens to already be open:
-
-```lua
-o.bind("SUPER + W", "Wi-Fi Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"wifi"}']])
-o.bind("SUPER + A", "Audio Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"audio"}']])
-o.bind("SUPER + B", "Bluetooth Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"bluetooth"}']])
-o.bind("SUPER + D", "Display Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"display"}']])
-```
-
-Valid `section` values: `general` (Profile), `audio`, `wifi`, `bluetooth`,
-`display`, `plugins`, `about`.
+After installing, add a keybind of your own for opening Ruixen Settings (and
+anything else — the app launcher, jumping straight to one settings page) —
+the installer deliberately doesn't touch your Hyprland config. See
+[`docs/KEYBINDS.md`](docs/KEYBINDS.md) for ready-to-use recipes.
 
 Want to see exactly what it would do first, without changing anything?
 
@@ -228,23 +218,9 @@ No restart needed either way — it's a live config reload.
 `ruixen.notch`'s dashboard has a 4th tab: a fixed 3-column board (Todo / In
 Progress / Done — Tab cycles through all 4 tabs, or click the column-icon in
 the left rail). It's agent-native — built to be driven programmatically
-(scripts, automation, a headless CLI workflow) rather than typed into by
-hand, so adding a card, renaming a column, and setting priority are all
-CLI-only:
-
-```bash
-omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high   # priority: high/medium/low, defaults to medium if omitted/blank
-omarchy-shell ruixen.notch kanbanMoveCard <cardId> in-progress
-omarchy-shell ruixen.notch kanbanSetPriority <cardId> high
-omarchy-shell ruixen.notch kanbanRenameColumn todo "Backlog"
-omarchy-shell ruixen.notch kanbanRemoveCard <cardId>
-omarchy-shell ruixen.notch kanbanListCards                     # whole board as JSON
-```
-
-Moving cards around by hand works too — left-click a card to advance it
-(dismisses it once it's in Done), right-click to send it back.
-
-Board state lives at `~/.local/state/ruixen/kanban-store.json`.
+rather than typed into by hand, so adding a card, renaming a column, and
+setting priority are all CLI-only. Full command reference and how the
+click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
 
 ## Window look'n'feel (Hyprland)
 

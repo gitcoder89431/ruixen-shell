@@ -419,6 +419,36 @@ Item {
   // clipping under a mismatched frame) is untouched by this revert.
   readonly property int shoulderWingSize: 24
 
+  // Docked mode's own leftDockedBg/rightDockedBg pieces round their
+  // OUTER top corner (topLeftRadius/topRightRadius) to match
+  // ruixen.frame-widget's real corner curve -- the point they sit
+  // flush against (see BarPanel's own frameInset comment above). That
+  // radius was hardcoded to shoulderWingSize (24), silently assuming
+  // frame's own cornerRadius is always 24. Once frame-widget grew its
+  // own dynamic cornerRadius (0 in "square" mode, matching
+  // ruixen.frame-widget/Overlay.qml), this hardcoded 24 went stale:
+  // the dock's corner kept curving inward while frame's actual corner
+  // went sharp, leaving a small triangular gap of wallpaper visible
+  // right at the true screen corner. Direct live report: "the triangle
+  // hole at the top of the frame now, not the wings." Same
+  // Process+StdioCollector pattern as frame-widget's own
+  // readLookAndFeelVariant, so both sides always agree. Deliberately
+  // NOT touching shoulderWingSize itself or either wing's own radius --
+  // those are the dock's own fixed decorative shoulder shape, confirmed
+  // (see shoulderWingSize's own comment above) to never actually
+  // overlap frame's corner region, and must stay always-rounded.
+  property int dockedFrameCornerRadius: 24
+
+  Process {
+    id: readLookAndFeelVariantForDock
+    command: ["bash", "-c", "readlink \"$HOME/.config/hypr/looknfeel.lua\" 2>/dev/null"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.dockedFrameCornerRadius = text.indexOf("looknfeel.ruixen.lua") >= 0 ? 24 : 0
+      }
+    }
+  }
+
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
   // room for its collapsed height (44, full ambxst parity) without its
@@ -897,7 +927,10 @@ Item {
     return source ? Util.fileUrl(source) : ""
   }
 
-  Component.onCompleted: applyBarConfig()
+  Component.onCompleted: {
+    applyBarConfig()
+    readLookAndFeelVariantForDock.running = true
+  }
 
   // Revealing the indicators widens their section, which can slide a neighbour
   // under a stationary pointer. Collapsing on that un-hover would move it back
@@ -1655,12 +1688,12 @@ Item {
           height: root.barSize
           color: "#000000"
           antialiasing: true
-          // Matches ruixen.frame-widget's own cornerRadius (24) exactly --
-          // this corner sits at the same point the frame's rounded-rect
-          // hole starts (see BarPanel's margins above: frameInset used for
-          // top too when docked, not topInset, specifically so this lines
-          // up).
-          topLeftRadius: root.shoulderWingSize
+          // Tracks ruixen.frame-widget's own real cornerRadius (0 or 24,
+          // see root.dockedFrameCornerRadius above) -- this corner sits
+          // at the same point the frame's rounded-rect hole starts (see
+          // BarPanel's margins above: frameInset used for top too when
+          // docked, not topInset, specifically so this lines up).
+          topLeftRadius: root.dockedFrameCornerRadius
           topRightRadius: 0
           // Square, not a plain recede curve -- the actual concave wrap
           // (per direct request: "the smooth curve should face inward")
@@ -1723,7 +1756,7 @@ Item {
           height: root.barSize
           color: "#000000"
           antialiasing: true
-          topRightRadius: root.shoulderWingSize
+          topRightRadius: root.dockedFrameCornerRadius
           topLeftRadius: 0
           // Mirrors leftDockedBg's own bottomLeftRadius -- see its comment.
           bottomRightRadius: 0

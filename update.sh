@@ -132,13 +132,31 @@ before_sha="$(git -C "$script_dir" rev-parse --short HEAD 2>/dev/null || echo un
 before_version="$(git -C "$script_dir" log -1 --format=%cd --date=short 2>/dev/null || echo unknown)"
 
 printf '[1/2] Pulling latest changes (currently at %s, %s)\n' "$before_sha" "$before_version"
-# --ff-only refuses outright rather than merging if history has
-# diverged (a force-pushed rewrite upstream, or local commits this
-# checkout made itself) -- exactly the "avoid silently merging" ask,
-# and a clearer failure than an unexpected merge commit or conflict
-# markers appearing in a script that's supposed to be non-interactive.
-git -C "$script_dir" pull --ff-only \
-  || fail "git pull --ff-only failed -- this checkout's history has diverged from upstream (a force-push, or local commits here). Resolve manually (e.g. git log, git reset --hard origin/master if you're sure) and run this again"
+# fetch + merge --ff-only, NOT `git pull --ff-only` -- live user
+# report: a raw "fatal: cannot rebase onto multiple branches" from git
+# itself, printed right before this script's own clearer failure
+# message below, confusing to read as one blob. Root cause NOT
+# confirmed -- tried reproducing it here with a couple of plausible
+# local-git-config culprits (branch.master.merge with two entries plus
+# pull.rebase=true; a `pull = pull --rebase` alias) and --ff-only
+# correctly overrode both every time, so whatever triggered it on that
+# specific machine remains unknown. Switched anyway: `git fetch` +
+# `git merge` are separate top-level commands with no rebase-related
+# config path at all (rebase is a categorically different subcommand
+# from merge), so this sequence can't hit that class of surprise
+# regardless of the actual mechanism, known or not.
+# --ff-only itself is unchanged: refuses outright rather than merging
+# if history has diverged (a force-pushed rewrite upstream, or local
+# commits this checkout made itself) -- exactly the "avoid silently
+# merging" ask, and a clearer failure than an unexpected merge commit
+# or conflict markers appearing in a script that's supposed to be
+# non-interactive.
+current_branch="$(git -C "$script_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+[[ -n "$current_branch" ]] || fail "could not determine the current branch (detached HEAD?) -- resolve manually and run this again"
+git -C "$script_dir" fetch origin "$current_branch" \
+  || fail "git fetch failed -- check your network connection and try again"
+git -C "$script_dir" merge --ff-only "origin/$current_branch" \
+  || fail "git merge --ff-only failed -- this checkout's history has diverged from upstream (a force-push, or local commits here). Resolve manually (e.g. git log, git reset --hard origin/master if you're sure) and run this again"
 
 after_sha="$(git -C "$script_dir" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ "$before_sha" == "$after_sha" ]]; then

@@ -138,6 +138,18 @@ check "diverged history: HEAD is untouched, not merged or reset" \
   "$(git -C "$c4" rev-parse --short HEAD)" "$before_c4"
 check "diverged history: install.sh was never reached" \
   "$(grep -c "install.sh ran" "$work/case4.out" || true)" "0"
+# Live user report ("so they made a change to the git cloned repo, and
+# then they commit it... should we fix it with better error handling
+# messages"): the message now names the actual local commit count and
+# the real recovery command, and git's own noisy multi-line "hint:"
+# block (confirmed live) is suppressed so it can't crowd out this
+# message in the Plugins settings page's own last-3-lines error view.
+check "diverged history: names the exact local commit count (1)" \
+  "$(grep -c '1 local commit(s)' "$work/case4.out")" "1"
+check "diverged history: gives the real reset command for this branch" \
+  "$(grep -c 'git reset --hard origin/master' "$work/case4.out")" "1"
+check "diverged history: git's own noisy hint block is suppressed" \
+  "$(grep -c '^hint:' "$work/case4.out")" "0"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

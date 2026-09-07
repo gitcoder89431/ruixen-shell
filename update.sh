@@ -155,8 +155,27 @@ current_branch="$(git -C "$script_dir" rev-parse --abbrev-ref HEAD 2>/dev/null |
 [[ -n "$current_branch" ]] || fail "could not determine the current branch (detached HEAD?) -- resolve manually and run this again"
 git -C "$script_dir" fetch origin "$current_branch" \
   || fail "git fetch failed -- check your network connection and try again"
-git -C "$script_dir" merge --ff-only "origin/$current_branch" \
-  || fail "git merge --ff-only failed -- this checkout's history has diverged from upstream (a force-push, or local commits here). Resolve manually (e.g. git log, git reset --hard origin/master if you're sure) and run this again"
+if ! git -c advice.diverging=false -C "$script_dir" merge --ff-only "origin/$current_branch" 2>/dev/null; then
+  # -c advice.diverging=false above suppresses git's own multi-line
+  # "hint:" block (confirmed live: 7+ lines of generic merge/rebase
+  # advice ahead of the one line that actually matters) -- the Plugins
+  # settings page's own error display only shows the LAST 3 lines of
+  # this script's stderr, and that hint noise was crowding out (or at
+  # least badly cluttering) this message right when a user needed it
+  # clearest. Named and counted here instead of just "local commits
+  # here" -- direct follow-up ("so they made a change to the git
+  # cloned repo, and then they commit it... how can we get out of
+  # this"): the actual, by far most likely cause for this specific
+  # distribution model (clone + run scripts, not a personal fork) is a
+  # commit made directly in the checkout, not a force-push, so the
+  # message leads with that and gives the exact count instead of
+  # leaving the reader to go figure out which of two vague
+  # possibilities applies to them. origin/$current_branch, not a
+  # hardcoded origin/master -- correct even for someone who's on a
+  # different branch for whatever reason.
+  local_only="$(git -C "$script_dir" rev-list --count "origin/$current_branch..HEAD" 2>/dev/null || echo "some")"
+  fail "this checkout has $local_only local commit(s) not on origin/$current_branch, so it can't be fast-forwarded. Most likely cause: something was edited and committed directly in this checkout (this repo is meant to stay a clean clone in sync with origin, not a personal fork -- use Ruixen Settings or the toggle scripts in this repo for customization instead). If you don't need to keep that commit: git reset --hard origin/$current_branch, then run this again. If you DO need to keep it: resolve it by hand (rebase, or move it to your own branch) before this script can proceed"
+fi
 
 after_sha="$(git -C "$script_dir" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ "$before_sha" == "$after_sha" ]]; then

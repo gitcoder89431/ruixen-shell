@@ -67,5 +67,19 @@ run_install "$fake_home" || { cat "$fake_home/install.out" >&2; exit 1; }
 check "second reinstall: still off" \
   "$(basename "$(readlink "$looknfeel_link")")" "looknfeel.default.lua"
 
+# --- Case 5: same for the "square" variant (direct request: stock
+# square corners, but keeping the thin border/blur/shadow/animations
+# "on" adds -- added alongside on/off, not just tested for those two).
+square_variant="$fake_home/.local/share/ruixen-shell/hyprland/looknfeel.square.lua"
+ln -sf "$square_variant" "$looknfeel_link"
+check "square: now points at the square variant" \
+  "$(basename "$(readlink "$looknfeel_link")")" "looknfeel.square.lua"
+
+run_install "$fake_home" || { cat "$fake_home/install.out" >&2; exit 1; }
+check "reinstall: square choice survives, NOT reverted back to on" \
+  "$(basename "$(readlink "$looknfeel_link")")" "looknfeel.square.lua"
+check "reinstall: reports keeping the square choice specifically" \
+  "$(grep -c 'kept your existing choice: square corners' "$fake_home/install.out")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

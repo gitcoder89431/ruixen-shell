@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
 // Ported from REPOS/PLUGINS/quickshell-mocha-v2's Frame.qml FrameMaskCanvas —
@@ -20,7 +21,42 @@ Item {
 
     readonly property color frameColor: "#000000"
     readonly property int thickness: 6
-    readonly property int cornerRadius: 24
+    // Was a hardcoded 24 -- real bug, found live while adding a 3rd
+    // look'n'feel variant (hyprland/looknfeel.square.lua, 0 rounding):
+    // this frame's own corner mask never actually matched whatever
+    // Hyprland's real window rounding was, it just always assumed
+    // looknfeel.ruixen.lua's 24px. That silently mismatched for
+    // "off" (0 rounding) too, already, before "square" ever existed --
+    // a real window's square corner got partly painted over by this
+    // frame's still-rounded hole, reading as "the bottom corner clips
+    // under the shell frame". Read once at startup from the real
+    // deployed symlink (the same stable path
+    // hyprland/ruixen-lookfeel.sh's own header comment explains, not
+    // the git checkout) rather than assumed. Defaults to 0 (square) on
+    // read failure or an unrecognized target -- a square hole under an
+    // actually-rounded window just leaves a small transparent sliver
+    // of wallpaper in each corner, not this frame's own color painted
+    // over real window content, which is the direction that's
+    // actually safe to get wrong.
+    property int cornerRadius: 0
+
+    Process {
+        id: readLookAndFeelVariant
+        command: ["bash", "-c", "readlink \"$HOME/.config/hypr/looknfeel.lua\" 2>/dev/null"]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                root.cornerRadius = text.indexOf("looknfeel.ruixen.lua") >= 0 ? 24 : 0
+            }
+        }
+    }
+
+    Component.onCompleted: readLookAndFeelVariant.running = true
+    // Canvas.onPaint is a plain JS function, not a reactive binding --
+    // it never re-runs on its own just because cornerRadius changes
+    // once the Process above finishes (same class of bug already
+    // fixed for the notch's own volume dials this same session).
+    onCornerRadiusChanged: canvas.requestPaint()
 
     // Real fullscreen-state watching, not a layer trick -- this stays on
     // WlrLayer.Overlay (see ruixen.notch's own Overlay.qml for why: Top

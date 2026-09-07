@@ -18,11 +18,16 @@ fail() {
 
 usage() {
   cat <<'EOF'
-Usage: ruixen-lookfeel <on|off|status>
+Usage: ruixen-lookfeel <on|off|square|status>
 
   on      Apply Ruixen's window look'n'feel (rounded corners matching the
           frame/bar's radius, plus blur) to Hyprland.
-  off     Restore Hyprland's stock look'n'feel (square corners, no blur).
+  off     Restore Hyprland's stock look'n'feel (square corners, no blur,
+          stock 2px border).
+  square  Ruixen's look'n'feel (thin border, blur, shadow, animations)
+          but with square corners instead of rounded -- direct request:
+          someone wanted the stock square-corner look without giving up
+          everything else `on` adds.
   status  Print which variant is currently active.
 EOF
 }
@@ -46,6 +51,17 @@ apply() {
 
   ln -sf "$src" "$target"
   hyprctl reload >/dev/null
+  # Full shell restart, not just `hyprctl reload` -- real bug, found
+  # while adding the square variant above: ruixen.frame-widget's own
+  # screen-frame corner mask reads which variant is active at its own
+  # startup and never again, so switching look'n'feel without also
+  # restarting Quickshell left the frame's corner rounding stuck at
+  # whatever it was when the shell last started, mismatched against
+  # the real window corners -- live report: "the buttom corner will
+  # clip under the shell frame". `hyprctl reload` only reloads
+  # Hyprland's own config, a completely separate process from
+  # Quickshell, so it could never have picked this up on its own.
+  omarchy restart shell >/dev/null 2>&1 || true
   printf 'Applied Ruixen look'"'"'n'"'"'feel: %s\n' "$variant"
 }
 
@@ -56,6 +72,9 @@ case "$command" in
     ;;
   off)
     apply "off (stock Omarchy)" "$looknfeel_data_dir/looknfeel.default.lua"
+    ;;
+  square)
+    apply "square (blur + shadow, no rounding)" "$looknfeel_data_dir/looknfeel.square.lua"
     ;;
   status)
     current

@@ -230,8 +230,14 @@ frame/bar. Toggle it independently of the plugins above:
 ```bash
 hyprland/ruixen-lookfeel.sh on      # rounded corners + blur, matches the frame
 hyprland/ruixen-lookfeel.sh off     # stock Omarchy: square corners, no blur
+hyprland/ruixen-lookfeel.sh square  # square corners, but keeps the thin border/blur/shadow/animations
 hyprland/ruixen-lookfeel.sh status  # show which one is active
 ```
+
+`square` is for anyone who wants stock Omarchy's own square corners without
+giving up the rest of Ruixen's look. The screen frame's own corner rounding
+follows whichever of the three is active automatically, so it never
+mismatches against the real window corners.
 
 ## Requirements
 

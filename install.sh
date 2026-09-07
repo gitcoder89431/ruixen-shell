@@ -364,7 +364,7 @@ rollback_looknfeel() {
 rollback_looknfeel_data() {
   [[ "$LOOKNFEEL_DATA_TOUCHED" -eq 1 ]] || return 0
   local variant
-  for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
+  for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua; do
     rm -f "$looknfeel_data_dir/$variant"
     if [[ "${LOOKNFEEL_DATA_HAD_BACKUP[$variant]:-0}" -eq 1 ]]; then
       mv "$looknfeel_data_backup_dir/$variant.bak.$stamp" "$looknfeel_data_dir/$variant" \
@@ -535,7 +535,7 @@ LOOKNFEEL_DATA_TOUCHED=1
 [[ -e "$HOME/.local/share/ruixen-shell" ]] && LOOKNFEEL_DATA_ROOT_PREEXISTED=1 || LOOKNFEEL_DATA_ROOT_PREEXISTED=0
 looknfeel_data_dir="$HOME/.local/share/ruixen-shell/hyprland"
 mkdir -p "$looknfeel_data_dir"
-for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
+for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua; do
   if [[ -e "$looknfeel_data_dir/$variant" ]]; then
     cp "$looknfeel_data_dir/$variant" "$looknfeel_data_backup_dir/$variant.bak.$stamp"
     LOOKNFEEL_DATA_HAD_BACKUP[$variant]=1
@@ -575,11 +575,17 @@ if [[ -e "${looknfeel_target}.bak.${stamp}" ]]; then
   printf '  backed up existing looknfeel.lua -> looknfeel.lua.bak.%s\n' "$stamp"
 fi
 hyprctl reload >/dev/null 2>&1 || true
-if [[ "$looknfeel_current_variant" == "looknfeel.default.lua" ]]; then
-  printf '  kept your existing choice: stock Omarchy look (square corners, no blur)\n'
-else
-  printf '  applied rounded corners + blur matching the frame (24px)\n'
-fi
+case "$looknfeel_current_variant" in
+  looknfeel.default.lua)
+    printf '  kept your existing choice: stock Omarchy look (square corners, no blur)\n'
+    ;;
+  looknfeel.square.lua)
+    printf '  kept your existing choice: square corners, with the thin border/blur/shadow\n'
+    ;;
+  *)
+    printf '  applied rounded corners + blur matching the frame (24px)\n'
+    ;;
+esac
 printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"
 
 printf '\n[6/6] Restarting Omarchy shell\n'
@@ -670,7 +676,7 @@ prune_backups "$backup_retain_count" "${looknfeel_target}.bak.*"
 # other backup here -- left unbounded, it would just reintroduce the
 # exact unbounded-accumulation problem #10 already fixed everywhere
 # else, for a location that happens to be new instead of old.
-for variant in looknfeel.ruixen.lua looknfeel.default.lua; do
+for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua; do
   prune_backups "$backup_retain_count" "$looknfeel_data_backup_dir/$variant.bak.*"
 done
 

@@ -37,6 +37,12 @@ depends on directly still hold on the new version:
 - `WidgetButton.qml`'s own `wheelMoved`/click signal shape (every stock
   bar-widget's scroll-to-adjust behavior depends on this)
 
+## Known incompatible versions
+
+| Omarchy version | Status | Notes |
+|---|---|---|
+| `4.0.3-1` | **Do not update to this** | Confirmed via direct source diff (not just release notes) to break `shell.firstPartyServiceFor`/`shell.appLibrary` for third-party plugins outside a narrow allowlist — breaks the app launcher, notification history, media/dashboard integration, the peripherals battery widget, and the bar↔notch geometry sync in this repo specifically. Omarchy's own manual documents the tradeoff as intended, not a bug. See issue #38 for the full breakdown and remediation plan. Ledger stays pinned at `4.0.2-1` until #38 is resolved and verified. |
+
 ## Known scope not covered here
 
 A full CI-level contract regression gate — pinning an immutable Omarchy

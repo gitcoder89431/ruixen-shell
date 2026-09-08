@@ -38,11 +38,13 @@ check("entryFromInput: a blank title yields null, nothing to store",
   M.entryFromInput("   ", "todo", "high", 10), null);
 check("entryFromInput: a real card lands in the requested column",
   M.entryFromInput("Fix bug", "done", "high", 10, 0.5),
-  { id: "card-10-500000", column: "done", title: "Fix bug", priority: "high", createdAt: 10, dueAt: 0, label: "" });
+  { id: "card-10-500000", column: "done", title: "Fix bug", priority: "high", createdAt: 10, dueAt: 0, label: "", description: "" });
 check("entryFromInput: an invalid column id falls back to the first column",
   M.entryFromInput("Fix bug", "someday", "high", 10, 0.5).column, "todo");
 check("entryFromInput: an invalid/omitted priority falls back to medium",
   M.entryFromInput("Fix bug", "todo", "urgent!!", 10, 0.5).priority, "medium");
+check("entryFromInput: an overlong title is trimmed to the cap, not rejected",
+  M.entryFromInput("a".repeat(80), "todo", "high", 10, 0.5).title, "a".repeat(48));
 
 check("normalizeCards: a card missing a title is dropped",
   M.normalizeCards([{ id: "a", column: "todo" }]), []);
@@ -54,17 +56,23 @@ check("normalizeCards: a valid persisted priority is kept",
   M.normalizeCards([{ id: "a", column: "todo", title: "X", priority: "low", createdAt: 1 }])[0].priority, "low");
 check("normalizeCards: a non-array input yields an empty list, not a crash",
   M.normalizeCards(null), []);
-check("normalizeCards: a missing dueAt/label default to 0/empty",
+check("normalizeCards: a missing dueAt/label/description default to 0/empty/empty",
   M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1 }])[0],
-  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 0, label: "" });
-check("normalizeCards: a valid persisted dueAt/label are kept",
-  M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, dueAt: 500, label: "Github" }])[0],
-  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 500, label: "Github" });
+  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 0, label: "", description: "" });
+check("normalizeCards: a valid persisted dueAt/label/description are kept",
+  M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }])[0],
+  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
 check("normalizeCards: a zero/negative persisted dueAt is treated as absent",
   M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, dueAt: -5 }])[0].dueAt, 0);
 check("normalizeCards: an overlong persisted label is trimmed to the cap, not dropped",
   M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, label: "a".repeat(40) }])[0].label,
   "a".repeat(24));
+check("normalizeCards: an overlong persisted title is trimmed to the cap, not dropped",
+  M.normalizeCards([{ id: "a", column: "todo", title: "a".repeat(80), createdAt: 1 }])[0].title,
+  "a".repeat(48));
+check("normalizeCards: an overlong persisted description is trimmed to the cap, not dropped",
+  M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, description: "a".repeat(80) }])[0].description,
+  "a".repeat(60));
 
 check("addCard: appends to the end",
   M.addCard([{ id: "a", column: "todo", title: "A", createdAt: 1 }], { id: "b", column: "todo", title: "B", createdAt: 2 })
@@ -78,9 +86,10 @@ const threeCards = [
 // What threeCards looks like after passing through normalizeCards --
 // every mutator here runs the input through that first, even on a
 // no-op path, so a "changes nothing" assertion must compare against
-// this (dueAt/label included), not the bare input literal above.
+// this (dueAt/label/description included), not the bare input literal
+// above.
 const threeCardsNormalized = threeCards.map(function(c) {
-  return Object.assign({}, c, { dueAt: 0, label: "" });
+  return Object.assign({}, c, { dueAt: 0, label: "", description: "" });
 });
 
 check("moveCard: updates just the matching card's column",
@@ -92,9 +101,9 @@ check("moveCard: an invalid target column changes nothing (fails closed)",
 check("moveCard: preserves the card's own priority across the move",
   M.moveCard([{ id: "a", column: "todo", title: "A", priority: "high", createdAt: 1 }], "a", "done")[0].priority,
   "high");
-check("moveCard: preserves the card's own dueAt/label across the move",
-  M.moveCard([{ id: "a", column: "todo", title: "A", createdAt: 1, dueAt: 500, label: "Github" }], "a", "done")[0],
-  { id: "a", column: "done", title: "A", priority: "medium", createdAt: 1, dueAt: 500, label: "Github" });
+check("moveCard: preserves the card's own dueAt/label/description across the move",
+  M.moveCard([{ id: "a", column: "todo", title: "A", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }], "a", "done")[0],
+  { id: "a", column: "done", title: "A", priority: "medium", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
 
 check("removeCard: drops just the matching card",
   M.removeCard(threeCards, "b").map(function(c) { return c.id; }), ["a", "c"]);
@@ -103,9 +112,9 @@ check("removeCard: an unknown card id changes nothing",
 
 check("setPriority: updates just the matching card's priority",
   M.setPriority(threeCards, "b", "high").map(function(c) { return c.priority; }), ["medium", "high", "medium"]);
-check("setPriority: preserves the card's own dueAt/label",
-  M.setPriority([{ id: "a", column: "todo", title: "A", createdAt: 1, dueAt: 500, label: "Github" }], "a", "high")[0],
-  { id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github" });
+check("setPriority: preserves the card's own dueAt/label/description",
+  M.setPriority([{ id: "a", column: "todo", title: "A", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }], "a", "high")[0],
+  { id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
 check("setPriority: an unknown card id changes nothing",
   M.setPriority(threeCards, "z", "high"), threeCardsNormalized);
 check("setPriority: an invalid priority changes nothing (fails closed)",
@@ -115,13 +124,15 @@ check("setPriority: an invalid priority changes nothing (fails closed)",
 
 check("renameCard: updates just the matching card's title",
   M.renameCard(threeCards, "b", "New title").map(function(c) { return c.title; }), ["A", "New title", "C"]);
-check("renameCard: preserves the card's own priority/dueAt/label",
-  M.renameCard([{ id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github" }], "a", "B")[0],
-  { id: "a", column: "todo", title: "B", priority: "high", createdAt: 1, dueAt: 500, label: "Github" });
+check("renameCard: preserves the card's own priority/dueAt/label/description",
+  M.renameCard([{ id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }], "a", "B")[0],
+  { id: "a", column: "todo", title: "B", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
 check("renameCard: an unknown card id changes nothing",
   M.renameCard(threeCards, "z", "New title"), threeCardsNormalized);
 check("renameCard: a blank title changes nothing (a card's title can never become empty)",
   M.renameCard(threeCards, "b", "   "), threeCardsNormalized);
+check("renameCard: an overlong title is trimmed to the cap, not rejected",
+  M.renameCard(threeCards, "b", "a".repeat(80))[1].title, "a".repeat(48));
 
 // ---- setDueDate -----------------------------------------------------
 
@@ -144,6 +155,17 @@ check("setLabel: an overlong label is trimmed to the cap, not rejected",
   M.setLabel(threeCards, "b", "a".repeat(40))[0 + 1].label, "a".repeat(24));
 check("setLabel: an unknown card id changes nothing",
   M.setLabel(threeCards, "z", "Github"), threeCardsNormalized);
+
+// ---- setDescription -----------------------------------------------
+
+check("setDescription: updates just the matching card's description",
+  M.setDescription(threeCards, "b", "Needs review").map(function(c) { return c.description; }), ["", "Needs review", ""]);
+check("setDescription: an empty string clears an existing description (a valid value, not rejected)",
+  M.setDescription([{ id: "a", column: "todo", title: "A", createdAt: 1, description: "Needs review" }], "a", "")[0].description, "");
+check("setDescription: an overlong description is trimmed to the cap, not rejected",
+  M.setDescription(threeCards, "b", "a".repeat(80))[1].description, "a".repeat(60));
+check("setDescription: an unknown card id changes nothing",
+  M.setDescription(threeCards, "z", "Needs review"), threeCardsNormalized);
 
 // ---- isOverdue ----------------------------------------------------
 

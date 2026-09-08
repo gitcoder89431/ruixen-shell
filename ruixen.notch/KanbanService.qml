@@ -76,6 +76,13 @@ Item {
     scheduleSave()
   }
 
+  // An empty description clears it -- see KanbanModel.setDescription's
+  // own comment.
+  function setDescription(cardId, description) {
+    service.cards = KanbanModel.setDescription(service.cards, cardId, description)
+    scheduleSave()
+  }
+
   function moveCard(cardId, columnId) {
     service.cards = KanbanModel.moveCard(service.cards, cardId, columnId)
     scheduleSave()

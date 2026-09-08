@@ -59,6 +59,7 @@ omarchy-shell ruixen.notch kanbanSetPriority <cardId> high
 omarchy-shell ruixen.notch kanbanRenameCard <cardId> "Fix the other bug"   # no-op on a blank title
 omarchy-shell ruixen.notch kanbanSetDueDate <cardId> 2026-09-12   # any Date.parse()-recognized string; "" clears it, an unparseable value is a no-op
 omarchy-shell ruixen.notch kanbanSetLabel <cardId> "Github"       # one free-text label per card, not multiple tags; "" clears it
+omarchy-shell ruixen.notch kanbanSetDescription <cardId> "Needs review"   # a short second line, always shown elided to one line; "" clears it
 omarchy-shell ruixen.notch kanbanRenameColumn todo "Backlog"
 omarchy-shell ruixen.notch kanbanRemoveCard <cardId>
 omarchy-shell ruixen.notch kanbanListCards                     # whole board as JSON -- read it back from a script just as easily
@@ -66,6 +67,11 @@ omarchy-shell ruixen.notch kanbanListCards                     # whole board as 
 
 A card overdue (past its due date, and not in the Done column) shows its due
 date in red in the panel — Done cards never do, a shipped card is not late.
+
+Titles and descriptions are deliberately short (48 / 60 characters, silently
+trimmed rather than rejected) — this board is a glance surface, not a notes
+app. Anything more detailed belongs in the terminal or an agent's own
+context, not a longer field here.
 
 Board state is a plain JSON file at `~/.local/state/ruixen/kanban-store.json`
 — nothing about it is locked to this plugin. Any other tool with filesystem

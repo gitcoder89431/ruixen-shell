@@ -772,6 +772,15 @@ Item {
       function kanbanSetLabel(cardId: string, label: string): void {
         kanbanService.setLabel(cardId, label)
       }
+      // A short second line under the title, always shown as a single
+      // elided line in the panel -- direct request: "i wanna see a
+      // short title and description... further detail might be better
+      // thru the terminal or agent context". There is no fuller notes
+      // field anywhere in this board on purpose. An empty string
+      // clears it; an overlong one is capped, not rejected.
+      function kanbanSetDescription(cardId: string, description: string): void {
+        kanbanService.setDescription(cardId, description)
+      }
       // Returns the whole board as JSON ({columns, cards}) -- how a
       // script (or me, driving the board on your behalf) reads it back
       // without any QML access at all.

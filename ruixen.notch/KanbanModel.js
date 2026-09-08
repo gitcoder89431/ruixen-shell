@@ -46,25 +46,37 @@ function normalizePriority(value) {
   return isPriority(value) ? value : DEFAULT_PRIORITY
 }
 
-// Label -- direct request: "tags labels but maybe one each... kinda
-// like folders... useful to filter task by like groups". One free-text
-// string per card, not a multi-tag array -- deliberately narrower than
-// a general tagging system, matching this board's own established
-// "less dynamic stuff to worry about" scope. Empty string means "no
-// label", a valid, ordinary value (unlike a card's title, which can
-// never be blank) -- clearing a label back to none is a real action,
-// not an error. Capped the same defensive way this repo already caps
-// other agent-writable free text reaching a fixed-width UI row (see
-// ruixen.peripherals/helper/status.py's own FIELD_LIMIT for the same
-// reasoning): a label is rendered in a small fixed card row, so an
-// unbounded string is a UI-stability problem regardless of how it got
-// there, not a security boundary.
+// Direct request, after seeing the board's own real width live: "make
+// sure its short, like... more like a trello board where its like more
+// glancing... further detail might be better thru the terminal or
+// agent context... should feel more like observation or monitor kinda
+// feel". Every free-text field on a card is capped for exactly that
+// reason -- a card here is a glance surface, not a document, and this
+// repo already has the identical "agent-writable free text reaching a
+// fixed-width UI row is a stability problem regardless of how it got
+// there" reasoning for ruixen.peripherals/helper/status.py's own
+// FIELD_LIMIT. Silently trimmed to the cap, never rejected -- an
+// overlong value is still a real, well-intentioned value, just too
+// long, not an error.
+//
+// TITLE_LIMIT (48): roughly 2 wrapped lines even in the narrowest
+// column (Todo/Done, ~200px live-measured). DESCRIPTION_LIMIT (60): a
+// single line, always elided rather than wrapped (see
+// KanbanContent.qml) -- strictly secondary to the title, so it never
+// grows a card's height. LABEL_LIMIT (24): a short category word, not
+// a sentence -- "like folders", per the original request.
+var TITLE_LIMIT = 48
+var DESCRIPTION_LIMIT = 60
 var LABEL_LIMIT = 24
 
-function clampLabel(value) {
+function clampText(value, limit) {
   var text = String(value || "").trim()
-  if (text.length > LABEL_LIMIT) text = text.slice(0, LABEL_LIMIT).trim()
+  if (text.length > limit) text = text.slice(0, limit).trim()
   return text
+}
+
+function clampLabel(value) {
+  return clampText(value, LABEL_LIMIT)
 }
 
 function defaultColumns() {
@@ -110,13 +122,15 @@ function makeCardId(now, seed) {
 }
 
 // null on a blank title -- nothing to store, matches entryFromRow's
-// own "not a real notification" null-return convention. dueAt/label
-// both start absent (0 / "") -- set via the separate setDueDate/
-// setLabel calls below, not extra creation-time arguments, so
-// kanbanAddCard's own IPC arity (title, columnId, priority) never has
-// to change for callers/scripts that don't care about either.
+// own "not a real notification" null-return convention. dueAt/label/
+// description all start absent (0 / "" / "") -- set via the separate
+// setDueDate/setLabel/setDescription calls below, not extra creation-
+// time arguments, so kanbanAddCard's own IPC arity (title, columnId,
+// priority) never has to change for callers/scripts that don't care
+// about any of them. title is capped, not rejected -- see TITLE_LIMIT's
+// own comment.
 function entryFromInput(title, columnId, priority, now, seed) {
-  var text = String(title || "").trim()
+  var text = clampText(title, TITLE_LIMIT)
   if (!text) return null
   return {
     id: makeCardId(now, seed),
@@ -125,7 +139,8 @@ function entryFromInput(title, columnId, priority, now, seed) {
     priority: normalizePriority(priority),
     createdAt: Number(now) || 0,
     dueAt: 0,
-    label: ""
+    label: "",
+    description: ""
   }
 }
 
@@ -140,11 +155,12 @@ function normalizeCards(raw) {
     out.push({
       id: c.id,
       column: isColumnId(c.column) ? c.column : COLUMN_IDS[0],
-      title: String(c.title),
+      title: clampText(c.title, TITLE_LIMIT),
       priority: normalizePriority(c.priority),
       createdAt: Number(c.createdAt) || 0,
       dueAt: Number(c.dueAt) > 0 ? Number(c.dueAt) : 0,
-      label: clampLabel(c.label)
+      label: clampLabel(c.label),
+      description: clampText(c.description, DESCRIPTION_LIMIT)
     })
   }
   return out
@@ -159,7 +175,7 @@ function setPriority(cards, cardId, priority) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
       priority: priority, createdAt: list[i].createdAt,
-      dueAt: list[i].dueAt, label: list[i].label
+      dueAt: list[i].dueAt, label: list[i].label, description: list[i].description
     }
   }
   return list
@@ -167,16 +183,17 @@ function setPriority(cards, cardId, priority) {
 
 // Blank/whitespace-only title changes nothing -- unlike a label, a
 // card's title can never become empty (matches renameColumn's own
-// same-shaped guard for a column's label).
+// same-shaped guard for a column's label). A too-long title is
+// trimmed to the cap, not rejected -- same treatment as creation.
 function renameCard(cards, cardId, title) {
   var list = normalizeCards(cards)
-  var text = String(title || "").trim()
+  var text = clampText(title, TITLE_LIMIT)
   if (!text) return list
   for (var i = 0; i < list.length; i++) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: text,
       priority: list[i].priority, createdAt: list[i].createdAt,
-      dueAt: list[i].dueAt, label: list[i].label
+      dueAt: list[i].dueAt, label: list[i].label, description: list[i].description
     }
   }
   return list
@@ -194,7 +211,7 @@ function setDueDate(cards, cardId, dueAt) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
       priority: list[i].priority, createdAt: list[i].createdAt,
-      dueAt: normalized, label: list[i].label
+      dueAt: normalized, label: list[i].label, description: list[i].description
     }
   }
   return list
@@ -209,7 +226,27 @@ function setLabel(cards, cardId, label) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
       priority: list[i].priority, createdAt: list[i].createdAt,
-      dueAt: list[i].dueAt, label: text
+      dueAt: list[i].dueAt, label: text, description: list[i].description
+    }
+  }
+  return list
+}
+
+// An empty description is a valid value (clears it), same as label --
+// direct request: "i wanna see a short title and description...
+// further detail might be better thru the terminal or agent context",
+// so this is deliberately capped tighter than a real notes field would
+// be (DESCRIPTION_LIMIT), and always rendered as a single elided line
+// in the panel (see KanbanContent.qml), never a wrapped/expandable
+// block -- there is no "more detail" affordance in this UI by design.
+function setDescription(cards, cardId, description) {
+  var list = normalizeCards(cards)
+  var text = clampText(description, DESCRIPTION_LIMIT)
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === cardId) list[i] = {
+      id: list[i].id, column: list[i].column, title: list[i].title,
+      priority: list[i].priority, createdAt: list[i].createdAt,
+      dueAt: list[i].dueAt, label: list[i].label, description: text
     }
   }
   return list
@@ -231,7 +268,7 @@ function moveCard(cards, cardId, columnId) {
       list[i] = {
         id: list[i].id, column: columnId, title: list[i].title,
         priority: list[i].priority, createdAt: list[i].createdAt,
-        dueAt: list[i].dueAt, label: list[i].label
+        dueAt: list[i].dueAt, label: list[i].label, description: list[i].description
       }
     }
   }

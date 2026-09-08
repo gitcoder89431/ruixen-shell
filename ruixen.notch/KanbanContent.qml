@@ -267,13 +267,14 @@ Item {
                 }
 
                 // ColumnLayout, not a single row, now that a card can
-                // carry a second line of metadata (label/due date)
-                // below its title -- direct follow-up requesting both
-                // fields. An invisible QtQuick.Layouts child reserves
-                // no space, so a card with neither set (every card
-                // before this pass, and any new one that never gets
-                // either) renders byte-for-byte the same single-row
-                // height as before -- confirmed live, not assumed.
+                // carry a description line plus a label/due-date row
+                // below its title -- direct follow-up requesting all
+                // three fields. An invisible QtQuick.Layouts child
+                // reserves no space, so a card with none of them set
+                // (every card before this pass, and any new one that
+                // never gets any) renders byte-for-byte the same
+                // single-row height as before -- confirmed live, not
+                // assumed.
                 ColumnLayout {
                   id: cardContent
                   anchors.fill: parent
@@ -334,6 +335,28 @@ Item {
                       font.pixelSize: 11
                       wrapMode: Text.WordWrap
                     }
+                  }
+
+                  // Description -- always a single elided line, never
+                  // wrapped, unlike the title above. Direct request:
+                  // "i wanna see a short title and description... the
+                  // notch kanban should feel more like observation or
+                  // monitor kinda feel" -- a card here is a glance
+                  // surface, so this can never grow taller than one
+                  // line no matter how it is set. CLI/agent-set only
+                  // (kanbanSetDescription), same "no in-panel typing"
+                  // rule as everything else here. leftMargin 16 lines
+                  // it up under the title, same as the meta row below.
+                  Text {
+                    visible: cardRoot.modelData.description !== ""
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 16
+                    text: cardRoot.modelData.description
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
                   }
 
                   // Label + due date -- both optional, CLI/agent-set

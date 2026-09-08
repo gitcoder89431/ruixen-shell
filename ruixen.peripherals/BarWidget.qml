@@ -137,6 +137,12 @@ BarWidget {
     id: button
     bar: root.bar
     text: root.mainText(root.selectedDevice)
+    // Smaller than the default icon font (13px) -- direct follow-up:
+    // "the numbers are kinda big, maybe abit smaller font size and more
+    // compact." Only actually matters for the percent-text case; a
+    // single kind/plug glyph reads fine either size, and BarIconButton's
+    // own OpticalGlyph centers whichever glyph shows up regardless.
+    fontSize: Style.font.bodySmall
     // Fixed width whenever a real percentage is being shown (not
     // dependent on the number's own digit count) -- direct follow-up:
     // "make sure the number dont shift between 2 or 3 digits oldly."
@@ -145,8 +151,10 @@ BarWidget {
     // a real device's battery drains from "100%" down through "9%" --
     // only the icon-vs-percent cases (nothing selected / no reading)
     // ever actually change width, and those are discrete state changes,
-    // not a live-updating number.
-    slotSize: Style.bar.iconSlot * (root.selectedDevice && root.selectedDevice.available && !vertical ? 2 : 1)
+    // not a live-updating number. Narrowed from a flat 2x to 1.6x
+    // alongside the smaller font -- "more compact" -- still comfortably
+    // fits "100%" at the new size.
+    slotSize: Style.bar.iconSlot * (root.selectedDevice && root.selectedDevice.available && !vertical ? 1.6 : 1)
     tooltipText: root.selectedDevice ? root.selectedDevice.name : "Wireless peripherals -- pick one to show here"
     onPressed: function() { root.popupOpen = !root.popupOpen }
   }

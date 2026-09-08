@@ -156,7 +156,9 @@ check "no leftover showPercentage/togglePercentage (retired with the battery-gly
 check "no leftover battery-glyph arrays/function (retired for plain percent text)" \
   "$(grep -c 'chargingIcons\|defaultIcons\|batteryGlyph' "$widget_qml" || true)" "0"
 check "the bar icon's own slot width is fixed while a real percentage is showing, independent of the number's own digit count" \
-  "$(grep -c 'root\.selectedDevice && root\.selectedDevice\.available && !vertical ? 2 : 1' "$widget_qml")" "1"
+  "$(grep -c 'root\.selectedDevice && root\.selectedDevice\.available && !vertical ? 1\.6 : 1' "$widget_qml")" "1"
+check "the bar icon's own font is smaller than the default icon size, for the percent text specifically" \
+  "$(grep -c 'fontSize: Style\.font\.bodySmall' "$widget_qml")" "1"
 
 # Every kind glyph and the select glyph must be QML \u escapes, not
 # pasted Nerd Font characters -- direct precedent: a hidden/corrupted

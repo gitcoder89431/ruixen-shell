@@ -3,7 +3,9 @@
 A connected bar, notch, and settings app for Omarchy — an OLED-black, unified
 visual layer that runs as plugins inside the Omarchy shell you already use.
 
-![Ruixen Shell preview](preview.png)
+![Ruixen Shell — home view](preview/preview_home.png)
+![Ruixen Shell — notch dashboard](preview/preview_notch.png)
+![Ruixen Shell — docked bar mode](preview/preview_dock.png)
 
 ## What's included
 

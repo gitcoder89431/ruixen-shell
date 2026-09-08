@@ -133,25 +133,51 @@ check "manifest declares both service and bar-widget kinds" \
 check "manifest's bar-widget entry point is BarWidget.qml" \
   "$(grep -c '"barWidget": "BarWidget.qml"' "$manifest_json")" "1"
 
-check "pin persistence uses mutateShellConfig, same primitive ruixen.pluginpins already uses" \
-  "$(grep -c 'bar\.shell\.mutateShellConfig(function' "$widget_qml")" "1"
-check "pinned ids are read back via the stock BarWidget base's own setting() helper" \
-  "$(grep -c 'root\.setting("pinnedIds", \[\])' "$widget_qml")" "1"
+# Single-selection redesign, direct follow-up: "the pin ability kinda
+# sucks... can we collapse it into this so the main icon shows the
+# battery icon always" -- one selectedId string (mutateShellConfig, same
+# primitive ruixen.pluginpins already uses for its own pin persistence),
+# not a pinnedIds array, and a real battery glyph on the bar icon itself
+# instead of a generic trigger + separate pinned badges.
+check "selection persistence uses mutateShellConfig, same primitive ruixen.pluginpins already uses" \
+  "$(grep -c 'bar\.shell\.mutateShellConfig(function' "$widget_qml")" "2"
+check "selectedId is read back via the stock BarWidget base's own setting() helper" \
+  "$(grep -c 'root\.setting("selectedId", "")' "$widget_qml")" "1"
+check "showPercentage is read back via the stock BarWidget base's own setting() helper (right-click toggle, matching omarchy.power's own pattern)" \
+  "$(grep -c 'root\.setting("showPercentage", false)' "$widget_qml")" "1"
+check "no leftover pinnedIds (the retired multi-pin design)" \
+  "$(grep -c 'pinnedIds' "$widget_qml" || true)" "0"
 
-# Every kind glyph and the trigger/pin glyphs must be QML \u escapes, not
-# pasted Nerd Font characters -- direct precedent: a hidden/corrupted
+# Every kind glyph and the trigger/select glyphs must be QML \u escapes,
+# not pasted Nerd Font characters -- direct precedent: a hidden/corrupted
 # glyph byte has broken this exact thing multiple times already elsewhere
-# in this repo.
-#  (generic-device plug glyph) legitimately appears twice by design
-# -- once as kindGlyph's own default case, once as the trigger button's
-# own icon (intentionally the same "generic device" glyph both places).
+# in this repo. The generic-device plug glyph legitimately appears twice
+# by design -- once as kindGlyph's own default case, once as
+# batteryGlyph's own "nothing selected yet" fallback.
 declare -A expected_escape_counts=(
   ['\\uefba']=1 ['\\uf11c']=1 ['\\uf025']=1 ['\\uf11b']=1
-  ['\\uf1e6']=2 ['\\uf005']=1
+  ['\\uf1e6']=2 ['\\uf00c']=1
 )
 for esc in "${!expected_escape_counts[@]}"; do
-  check "glyph $esc is a \\u escape, not a raw pasted character" \
+  check "glyph $esc is a \u escape, not a raw pasted character" \
     "$(grep -c "\"$esc\"" "$widget_qml")" "${expected_escape_counts[$esc]}"
+done
+
+# The battery-state glyphs are all above the BMP (Material Design Icons'
+# supplementary-plane range in this Nerd Font build) -- confirmed live
+# via fontTools against this machine's actual font file before writing
+# these. Each needs a real UTF-16 surrogate PAIR, not a single \uXXXX --
+# spot-check a few of the 21 (10 default + 10 charging + 1 unknown)
+# rather than every one, just to catch the pattern breaking wholesale.
+declare -A expected_surrogate_counts=(
+  ['\\udb80\\udc79']=1
+  ['\\udb80\\udc85']=1
+  ['\\udb82\\udc9c']=1
+  ['\\udb80\\udc91']=1
+)
+for esc in "${!expected_surrogate_counts[@]}"; do
+  check "battery glyph surrogate pair $esc is present, not a raw pasted character" \
+    "$(grep -c "\"$esc\"" "$widget_qml")" "${expected_surrogate_counts[$esc]}"
 done
 
 # No literal multi-byte glyph characters anywhere in the file (the actual

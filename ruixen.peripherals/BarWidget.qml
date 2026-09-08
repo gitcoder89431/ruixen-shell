@@ -5,19 +5,25 @@ import qs.Commons
 import qs.Ui
 
 // Battery percentage for wireless peripherals (mice/keyboards/headsets/
-// controllers), pinned to the bar the same way ruixen.pluginpins pins
-// other plugins -- direct request: "displayed as icons on our topbar so
-// they can see the battery level and pin it, kinda like the pinplugins."
+// controllers) -- one bar icon, showing a real battery-state glyph for
+// whichever single device is selected, same interaction language as
+// Omarchy's own omarchy.power (its own laptop-battery bar icon: always a
+// battery glyph, right-click toggles the percentage, click opens a
+// panel). Direct follow-up after shipping a first pass with multi-device
+// pin badges + a generic plug trigger: "the pin ability kinda sucks,
+// doesnt look good... does omarchy power just show the battery level,
+// can we collapse it into this so the main icon shows the battery icon
+// always." omarchy.power itself is a stock /usr/share/omarchy file (we
+// never edit those) and only ever shows the laptop's own single battery
+// -- can't literally merge into it, so this file adopts its pattern
+// instead, single-selection (not omarchy.power's own multi-badge idea)
+// per direct confirmation: "one icon only, pick a single device."
 //
 // Detection (Service.qml + helper/status.py) is ported from
 // github.com/xgborgeso/omarchy-peripheral-batteries (MIT) -- see
 // helper/status.py's own header for why (Quickshell.Bluetooth's own
 // battery property and Quickshell.Services.UPower both have real, live-
-// confirmed coverage gaps that reading /sys directly doesn't have). This
-// file is new: their own UI is a single dropdown-only bar icon: this one
-// additionally renders a small icon+percentage per PINNED device inline
-// in the bar, and drives pinning off this widget's own shell.json layout
-// entry instead of a settings-schema panel.
+// confirmed coverage gaps that reading /sys directly doesn't have).
 BarWidget {
   id: root
   moduleName: "ruixen.peripherals"
@@ -32,11 +38,12 @@ BarWidget {
   // (id excluded) become `settings` -- see ruixen.bar/BarModel.js's own
   // entrySettings(), same convention omarchy.clock's format/formatAlt
   // already use. No new state file needed.
-  readonly property var pinnedIds: root.setting("pinnedIds", [])
-
-  function isPinned(id) { return root.pinnedIds.indexOf(id) !== -1 }
+  readonly property string selectedId: root.setting("selectedId", "")
+  readonly property var selectedDevice: root.deviceById(root.selectedId)
+  readonly property bool showPercentage: root.setting("showPercentage", false) === true
 
   function deviceById(id) {
+    if (!id) return null
     for (var i = 0; i < root.devices.length; i++) {
       if (root.devices[i].id === id) return root.devices[i]
     }
@@ -44,9 +51,11 @@ BarWidget {
   }
 
   // Same read-modify-persist primitive ruixen.pluginpins' own setPinSide
-  // uses, but mutating THIS widget's own layout entry's pinnedIds array
-  // directly instead of moving entries between bar sections.
-  function togglePin(id) {
+  // uses, but writing a single selectedId string on THIS widget's own
+  // layout entry instead of moving entries between bar sections.
+  // Clicking the already-selected row clears the selection (empty
+  // string), same toggle feel as a real radio choice you can turn off.
+  function selectDevice(id) {
     if (!bar || !bar.shell || typeof bar.shell.mutateShellConfig !== "function") return
     bar.shell.mutateShellConfig(function(config) {
       if (!config.bar || !config.bar.layout) return
@@ -57,11 +66,25 @@ BarWidget {
         for (var j = 0; j < arr.length; j++) {
           var entry = arr[j]
           if (!entry || entry.id !== root.moduleName) continue
-          var ids = Array.isArray(entry.pinnedIds) ? entry.pinnedIds.slice() : []
-          var idx = ids.indexOf(id)
-          if (idx >= 0) ids.splice(idx, 1)
-          else ids.push(id)
-          entry.pinnedIds = ids
+          entry.selectedId = (entry.selectedId === id) ? "" : id
+          return
+        }
+      }
+    })
+  }
+
+  function togglePercentage() {
+    if (!bar || !bar.shell || typeof bar.shell.mutateShellConfig !== "function") return
+    bar.shell.mutateShellConfig(function(config) {
+      if (!config.bar || !config.bar.layout) return
+      var sections = ["left", "center", "right"]
+      for (var i = 0; i < sections.length; i++) {
+        var arr = config.bar.layout[sections[i]]
+        if (!Array.isArray(arr)) continue
+        for (var j = 0; j < arr.length; j++) {
+          var entry = arr[j]
+          if (!entry || entry.id !== root.moduleName) continue
+          entry.showPercentage = !(entry.showPercentage === true)
           return
         }
       }
@@ -70,7 +93,9 @@ BarWidget {
 
   // Font Awesome solid, \u escapes only -- never a pasted glyph, per
   // ruixen.pluginpins' own established reasoning (corrupted-byte issues
-  // hit twice already elsewhere in this repo).
+  // hit twice already elsewhere in this repo). Used only for the
+  // dropdown list's own per-row device-kind icon now -- the main bar
+  // icon uses a real battery glyph instead, see batteryGlyph() below.
   //
   // "mouse" is \uefba, not FA's own standard \uf8cc codepoint for the
   // same computer-mouse icon -- confirmed live by inspecting this
@@ -87,6 +112,42 @@ BarWidget {
       case "controller": return "\uf11b"
       default: return "\uf1e6"
     }
+  }
+
+  // Real battery-state glyphs, same icon language as omarchy.power's own
+  // Model.js batteryIcon() (10 charge-level icons, a separate 10-level
+  // set while charging, both from Material Design Icons' own "battery"
+  // family) -- confirmed live via fontTools that every codepoint here
+  // exists in this machine's actual font. These all sit above the BMP
+  // (Material Design Icons' supplementary-plane range in this Nerd Font
+  // build), so each needs a real UTF-16 surrogate pair, not a plain
+  // single \uXXXX -- computed directly from each glyph's real codepoint,
+  // not guessed. No precedent for this in the repo before now (every
+  // other glyph anywhere in this codebase happens to fit in a single
+  // \uXXXX), so spelling this out: a surrogate PAIR is still just two
+  // \u escapes back to back, same "never a pasted glyph" rule as always.
+  readonly property var chargingIcons: [
+    "\udb82\udc9c", "\udb80\udc86", "\udb80\udc87", "\udb80\udc88", "\udb82\udc9d",
+    "\udb80\udc89", "\udb82\udc9e", "\udb80\udc8a", "\udb80\udc8b", "\udb80\udc85"
+  ]
+  readonly property var defaultIcons: [
+    "\udb80\udc7a", "\udb80\udc7b", "\udb80\udc7c", "\udb80\udc7d", "\udb80\udc7e",
+    "\udb80\udc7f", "\udb80\udc80", "\udb80\udc81", "\udb80\udc82", "\udb80\udc79"
+  ]
+  // md-battery_unknown -- shown for a device that isn't currently
+  // reporting a fresh reading (real, expected HID++ behavior confirmed
+  // live: capacity comes back empty between battery-report events even
+  // though the device is genuinely connected).
+  readonly property string unknownBatteryIcon: "\udb80\udc91"
+
+  function batteryGlyph(device) {
+    // Nothing selected yet -- generic plug, same as the old always-on
+    // trigger icon, now just the empty/unselected state instead of the
+    // only state.
+    if (!device) return "\uf1e6"
+    if (!device.available) return root.unknownBatteryIcon
+    var index = Math.max(0, Math.min(9, Math.floor(device.level / 10)))
+    return device.charging ? root.chargingIcons[index] : root.defaultIcons[index]
   }
 
   function percentText(device) {
@@ -106,48 +167,23 @@ BarWidget {
   property bool popupOpen: false
   function close() { popupOpen = false }
 
-  implicitWidth: row.implicitWidth
-  implicitHeight: row.implicitHeight
+  implicitWidth: button.implicitWidth
+  implicitHeight: button.implicitHeight
 
-  RowLayout {
-    id: row
-    anchors.fill: parent
-    spacing: Style.space(6)
-
-    Repeater {
-      model: root.pinnedIds
-
-      RowLayout {
-        id: pinnedBadge
-        required property var modelData
-        readonly property var device: root.deviceById(modelData)
-        // A pin can outlive the device it points at (unplugged, out of
-        // range) -- render nothing rather than a stale/blank badge.
-        visible: pinnedBadge.device !== null
-        spacing: Style.space(3)
-
-        Text {
-          text: pinnedBadge.device ? root.kindGlyph(pinnedBadge.device.kind) : ""
-          color: root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-        }
-
-        Text {
-          text: pinnedBadge.device ? root.percentText(pinnedBadge.device) : ""
-          color: root.percentColor(pinnedBadge.device)
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-        }
-      }
-    }
-
-    BarIconButton {
-      id: button
-      bar: root.bar
-      text: "\uf1e6"
-      tooltipText: "Wireless peripherals"
-      onPressed: function() { root.popupOpen = !root.popupOpen }
+  // Same shape as omarchy.power's own BarIconButton: the glyph itself
+  // always reflects real state, right-click adds the percentage next to
+  // it instead of needing a whole separate badge/row for that.
+  BarIconButton {
+    id: button
+    bar: root.bar
+    text: root.showPercentage && root.selectedDevice
+      ? root.percentText(root.selectedDevice) + " " + root.batteryGlyph(root.selectedDevice)
+      : root.batteryGlyph(root.selectedDevice)
+    slotSize: Style.bar.iconSlot * (root.showPercentage && root.selectedDevice && !vertical ? 2 : 1)
+    tooltipText: root.selectedDevice ? root.selectedDevice.name : "Wireless peripherals -- pick one to show here"
+    onPressed: function(mouseButton) {
+      if (mouseButton === Qt.RightButton) root.togglePercentage()
+      else root.popupOpen = !root.popupOpen
     }
   }
 
@@ -193,7 +229,7 @@ BarWidget {
     Text {
       id: percent
       anchors.verticalCenter: parent.verticalCenter
-      anchors.right: pinGlyph.left
+      anchors.right: checkGlyph.left
       anchors.rightMargin: Style.space(8)
       width: Style.space(28)
       horizontalAlignment: Text.AlignRight
@@ -203,18 +239,20 @@ BarWidget {
       font.pixelSize: Style.font.bodySmall
     }
 
-    // Star ("star", U+F005) filled-in color when pinned, muted outline
-    // color otherwise -- same slot/position convention as
-    // ruixen.pluginpins' own checkGlyph.
+    // Check ("check", U+F00C) when this row is the selected device --
+    // same slot/position/glyph convention as ruixen.pluginpins' own
+    // checkGlyph, swapped in for the old star now that this is a single
+    // choice, not a multi-pin list.
     Text {
-      id: pinGlyph
+      id: checkGlyph
+      visible: root.selectedId === rowRoot.device.id
       anchors.verticalCenter: parent.verticalCenter
       anchors.right: parent.right
       anchors.rightMargin: Style.space(10)
       width: Style.space(16)
       horizontalAlignment: Text.AlignHCenter
-      text: "\uf005"
-      color: root.isPinned(rowRoot.device.id) ? Color.accent : Qt.darker(root.foreground, 1.6)
+      text: "\uf00c"
+      color: Color.accent
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
     }
@@ -281,7 +319,7 @@ BarWidget {
             required property var modelData
             width: column.width
             device: modelData
-            onTriggered: root.togglePin(modelData.id)
+            onTriggered: root.selectDevice(modelData.id)
           }
         }
       }

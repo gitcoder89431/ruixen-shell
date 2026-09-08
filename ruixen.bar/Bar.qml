@@ -728,17 +728,23 @@ Item {
   //      network cofee ai [are] toggleable from the plugins pin so they
   //      stay pinnable or not in the plugin group". The toggle icon
   //      lives together with whatever it toggles, not off on its own.
-  //   3. curatedPill ("SYSTEM") -- an exact, fixed four: system-update,
-  //      power, quickactions, settingsbutton ("system is POWER UPDATE
-  //      MORE ACTIONS AND SETTING"). Never a catch-all -- nothing else
-  //      ever joins this pill, by design.
+  //   3. curatedPill ("SYSTEM") -- system-update, power, quickactions,
+  //      settingsbutton, and now ruixen.peripherals too ("system is
+  //      POWER UPDATE MORE ACTIONS AND SETTING"). Was described as
+  //      "never a catch-all, nothing else ever joins this pill" until
+  //      peripherals -- direct exception, not a reversal of that design:
+  //      "its kinda crowding to put it in the pinplugins group, can we
+  //      move this so it works inside the setting more actions group
+  //      instead. we already have a power there so it kinda make
+  //      sense." Still not a real catch-all -- still an exact id-match
+  //      list below, just one entry longer.
   //   4. clockPill -- weather + clock, unchanged.
   //
-  // curatedRightIds is that exact fixed four. pluginPinsGroupIds is
+  // curatedRightIds is that exact fixed list. pluginPinsGroupIds is
   // everything that lands in pill 2 -- ruixen.pluginpins itself plus
   // every id NOT in curatedRightIds and NOT ruixen.tray. There's
   // deliberately no third named list: pill 2 is defined as "whatever
-  // isn't tray and isn't the fixed system four", so a newly-pinned
+  // isn't tray and isn't the fixed system list", so a newly-pinned
   // third-party widget lands there automatically without needing its
   // id added anywhere.
   //
@@ -750,8 +756,10 @@ Item {
   // point right after tray in shell.json's own array. That still lands
   // it in pill 2 (not curated, not tray itself), matching "third-party
   // lands left of the coffee" from the original design intent -- the
-  // coffee (stayawake) itself lives in pill 2 now too.
-  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton"]
+  // coffee (stayawake) itself lives in pill 2 now too. ruixen.peripherals
+  // itself started out there too (this is exactly the "crowding" report
+  // above) before moving into curatedRightIds explicitly.
+  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton", "ruixen.peripherals"]
   // The two ids clockPill gives its own special pill+divider treatment
   // (see clockPill's own comment) -- direct review finding ("Support
   // arbitrary third-party widgets in the horizontal center region",

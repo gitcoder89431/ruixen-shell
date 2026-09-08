@@ -44,7 +44,7 @@ required_exclusions=(
   "ruixen.applauncher" "ruixen.workspaces" "ruixen.pinnedapps" "ruixen.tray"
   "ruixen.quickactions" "ruixen.settingsbutton"
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
-  "omarchy.system-update" "omarchy.power"
+  "omarchy.system-update" "omarchy.power" "ruixen.peripherals"
   "omarchy.keyboard-layout" "omarchy.indicators" "omarchy.network"
   "omarchy.active-window"
 )

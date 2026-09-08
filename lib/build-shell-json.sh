@@ -100,7 +100,8 @@ protected_bar_ids='[
   "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
   "ruixen.settingsbutton", "ruixen.weather", "omarchy.clock",
   "ruixen.tray", "ruixen.pluginpins",
-  "omarchy.system-update", "omarchy.power", "ruixen.quickactions"
+  "omarchy.system-update", "omarchy.power", "ruixen.quickactions",
+  "ruixen.peripherals"
 ]'
 
 existing_json="$(cat)"

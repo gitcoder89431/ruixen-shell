@@ -38,7 +38,20 @@ BarWidget {
   // ruixen.media's own identical close() for the identical reason.
   function close() { popupOpen = false }
 
-  readonly property var pluginRegistry: bar && bar.shell ? bar.shell.pluginRegistry : null
+  // ruixen-shell issue #45/#38: Omarchy v4.0.3 replaces bar.shell (what
+  // this used to read pluginRegistry off) with a narrower scoped object
+  // that never declares a pluginRegistry property at all (confirmed
+  // against its real property list: pluginId, appLibrary, bar,
+  // barConfig, idleConfig, plus a fixed set of functions -- no
+  // registry). bar.barWidgetRegistry is unaffected -- ruixen.bar's own
+  // root already receives it directly (Bar.qml's own
+  // ModuleSlot.registryComponent reads root.barWidgetRegistry.widgets
+  // the same way), a separate injection line from the bar.shell
+  // restriction entirely. Its widgets map is already pre-filtered to
+  // kind:"bar-widget" plugins by the host before anything gets
+  // registered into it, so there's no manifest.kinds check to redo here
+  // the way the old pluginRegistry-based candidates list needed one.
+  readonly property var widgetRegistry: bar ? bar.barWidgetRegistry : null
 
   // Ids structural to THIS bar's own curated layout, not "optional
   // widgets" someone would browse/toggle here -- excluded even though
@@ -133,35 +146,43 @@ BarWidget {
     "ruixen.peripherals"
   ]
 
-  // Recomputed whenever the registry mutates (a plugin gets installed,
-  // enabled/disabled, or moved) -- registryRevision is read here purely
-  // to create that binding dependency, same pattern shell.qml's own
-  // selectedBarAvailable/activeBarManifest already use.
-  // Real per-side lookup, not a hand-rolled region scan -- findBarLocation
-  // is the same stock function PluginRegistry.qml's own isEnabled/inBar
-  // use internally, called here with shellConfigProvider's own live
-  // config so "which side is this id currently on" never drifts from
-  // what the registry itself considers true.
-  function currentSide(reg, id) {
-    if (!reg || typeof reg.shellConfigProvider !== "function" || typeof reg.findBarLocation !== "function") return null
-    var config = reg.shellConfigProvider()
-    if (!config) return null
-    var location = reg.findBarLocation(config, id)
-    return location && location.found ? location.section : null
+  // Real per-side lookup against bar.barConfig.layout directly -- the
+  // new scoped shell object has no findBarLocation()/shellConfigProvider()
+  // to delegate to (those lived on the old pluginRegistry), but
+  // ruixen.bar's own root already receives barConfig directly (same
+  // separate-from-bar.shell injection as barWidgetRegistry above), and
+  // its shape (config.bar, {left,center,right} arrays of {id}) is the
+  // same one setPinSide below already reads/writes, so this stays a
+  // plain scan of the same structure rather than a new mechanism.
+  function currentSide(id) {
+    var layout = bar && bar.barConfig ? bar.barConfig.layout : null
+    if (!layout) return null
+    var sections = ["left", "center", "right"]
+    for (var i = 0; i < sections.length; i++) {
+      var list = layout[sections[i]]
+      if (!Array.isArray(list)) continue
+      for (var j = 0; j < list.length; j++) {
+        if (list[j] && list[j].id === id) return sections[i]
+      }
+    }
+    return null
   }
 
+  // Recomputed whenever the registry mutates (a plugin gets installed,
+  // enabled/disabled, or moved) -- revision is read here purely to
+  // create that binding dependency, same pattern shell.qml's own
+  // selectedBarAvailable/activeBarManifest already use.
   readonly property var candidates: {
-    var reg = pluginRegistry
+    var reg = widgetRegistry
     if (!reg) return []
-    var revision = reg.registryRevision
-    var plugins = reg.installedPlugins || {}
+    var revision = reg.revision
+    var ids = reg.availableIds ? reg.availableIds() : []
     var out = []
-    for (var id in plugins) {
-      var manifest = plugins[id]
-      var kinds = manifest && manifest.kinds ? manifest.kinds : []
-      if (kinds.indexOf("bar-widget") === -1) continue
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i]
       if (excludedIds.indexOf(id) !== -1) continue
-      out.push({ id: id, name: manifest.name || id, side: root.currentSide(reg, id) })
+      var meta = reg.metadataFor(id) || {}
+      out.push({ id: id, name: meta.displayName || id, side: root.currentSide(id) })
     }
     out.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)) })
     return out

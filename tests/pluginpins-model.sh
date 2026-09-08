@@ -86,25 +86,35 @@ else
   fail_count=$((fail_count + 1))
 fi
 
-check "candidates filters to kind bar-widget only" \
-  "$(grep -c 'kinds\.indexOf("bar-widget")' "$widget_qml")" "1"
+# ruixen-shell issue #45/#38: Omarchy v4.0.3 removed bar.shell.pluginRegistry
+# (the old candidate source, which needed its own kind:"bar-widget"
+# filter since it enumerated every installed plugin). Candidates are now
+# read from bar.barWidgetRegistry instead -- unaffected by the
+# restriction, a separate injection straight onto ruixen.bar's own root
+# -- whose widgets map the host already pre-filters to kind:"bar-widget"
+# plugins before anything is registered into it, so there is no manifest
+# kind check left to make here.
+check "candidates enumerate the real widget registry's own availableIds(), not a re-filtered plugin list" \
+  "$(grep -c 'reg\.availableIds()' "$widget_qml")" "1"
 check "candidates excludes excludedIds" \
   "$(grep -c 'excludedIds\.indexOf(id)' "$widget_qml")" "1"
-check "candidates re-evaluates on registry changes (registryRevision read for its binding dependency)" \
-  "$(grep -c 'reg\.registryRevision' "$widget_qml")" "1"
+check "candidates re-evaluates on registry changes (revision read for its binding dependency)" \
+  "$(grep -c 'reg\.revision' "$widget_qml")" "1"
 # Direct follow-up: dragging turned out to have no way to populate an
 # initially-empty left-side group at all (ModuleList only registers a
 # real drop-target slot for entries that already exist), so pin/unpin
 # moved to left/right click here instead of drag-and-drop -- "can we
 # do right click and left click to send it to the new group on the
-# left or right depending on the click". currentSide reads the
-# registry's own findBarLocation()/shellConfigProvider(), not a
-# hand-rolled layout scan, matching the same real mechanism
-# PluginRegistry.qml's own isEnabled/inBar already use internally.
-check "currentSide reads the registry's own findBarLocation(), not a hand-rolled layout scan" \
-  "$(grep -c 'reg\.findBarLocation(config, id)' "$widget_qml")" "1"
-check "currentSide reads the registry's own live shellConfigProvider(), not a stale snapshot" \
-  "$(grep -c 'reg\.shellConfigProvider()' "$widget_qml")" "1"
+# left or right depending on the click". currentSide now scans
+# bar.barConfig.layout directly (the old registry-owned
+# findBarLocation()/shellConfigProvider() pair doesn't exist on the new
+# scoped shell object) -- the same {left,center,right} shape setPinSide
+# below already reads/writes, so this is the same structure, not a new
+# mechanism.
+check "currentSide scans bar.barConfig.layout directly" \
+  "$(grep -c 'bar && bar\.barConfig ? bar\.barConfig\.layout : null' "$widget_qml")" "1"
+check "currentSide sweeps all three sections, matching setPinSide's own section list" \
+  "$(grep -A10 'function currentSide' "$widget_qml" | grep -c '\["left", "center", "right"\]')" "1"
 
 # Unpin has to search every section, not just the clicked one -- a
 # plugin someone dragged elsewhere (the bar's own drag-to-reorder
@@ -131,6 +141,11 @@ check "right-pinned glyph (check, U+F00C) is a \\u escape, not a raw pasted char
   "$(grep -c '"\\uf00c"' "$widget_qml")" "1"
 check "left-pinned glyph (long-arrow-left, U+F177) is a \\u escape, not a raw pasted character" \
   "$(grep -c '"\\uf177"' "$widget_qml")" "1"
+
+check "no leftover bar.shell.pluginRegistry read, not even in a comment" \
+  "$(grep -c 'bar\.shell\.pluginRegistry' "$widget_qml" || true)" "0"
+check "widgetRegistry reads bar.barWidgetRegistry, unaffected by the bar.shell restriction" \
+  "$(grep -c 'bar ? bar\.barWidgetRegistry : null' "$widget_qml")" "1"
 
 # No debug scaffolding left behind from live verification.
 check "no leftover console.log debug statements" \

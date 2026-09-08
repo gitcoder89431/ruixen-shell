@@ -411,10 +411,18 @@ ColumnLayout {
             id: curvatureBtn
             required property var modelData
             readonly property bool isCurrent: settingsRoot.cornerCurvature === curvatureBtn.modelData.id
+            // Sharp is floating-only -- see setCornerCurvature's own
+            // comment in Settings.qml. Docked mode's wing decoration
+            // always stays rounded, so sharp+docked would always leave
+            // a visible seam between a window's own corner and the
+            // wing; disabled here rather than letting it be picked and
+            // silently no-op.
+            readonly property bool isDisabled: curvatureBtn.modelData.id === "sharp" && settingsRoot.barMode === "docked"
 
             Layout.fillWidth: true
             Layout.preferredHeight: 28
             radius: 6
+            opacity: curvatureBtn.isDisabled ? 0.4 : 1
             color: curvatureBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
             border.color: curvatureBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
@@ -430,7 +438,7 @@ ColumnLayout {
 
             MouseArea {
               anchors.fill: parent
-              enabled: settingsRoot.ruixenRepoPath !== ""
+              enabled: settingsRoot.ruixenRepoPath !== "" && !curvatureBtn.isDisabled
               cursorShape: Qt.PointingHandCursor
               onClicked: settingsRoot.setCornerCurvature(curvatureBtn.modelData.id)
             }
@@ -442,6 +450,16 @@ ColumnLayout {
         visible: settingsRoot.ruixenRepoPath === ""
         Layout.fillWidth: true
         text: "Needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable this."
+        wrapMode: Text.WordWrap
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 10
+        color: settingsRoot.muted
+      }
+
+      Text {
+        visible: settingsRoot.ruixenRepoPath !== "" && settingsRoot.barMode === "docked"
+        Layout.fillWidth: true
+        text: "Sharp corners are only available in floating bar mode -- docked mode's own wing shape always stays rounded."
         wrapMode: Text.WordWrap
         font.family: settingsRoot.fontFamily
         font.pixelSize: 10

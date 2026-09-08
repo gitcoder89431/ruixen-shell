@@ -14,8 +14,13 @@ this file does, is the only approach that covers both cases.
 
 Notification/threshold logic from the original Service.qml was NOT ported
 -- out of scope for this plugin's own first pass (pin-to-bar-icon, not
-alerts). This file's own detection/classification logic is otherwise
-unchanged from the source.
+alerts). This file's own detection/classification logic otherwise matches
+the source, with one deliberate deviation: merge() treats an Apple
+Bluetooth device reporting exactly 0 as unavailable rather than a real
+0%, working around a real kernel-level battery-refresh gap (see merge()'s
+own comment). The source repo's own notifyPlan() has no such guard --
+confirmed by reading its actual logic, not assumed -- so it is not a gap
+this file inherited by omission.
 
 Never opens /dev/hidraw. JSON on stdout, always exit 0.
 """
@@ -56,6 +61,15 @@ BRAND_FROM_VID = {
     0x1038: "SteelSeries",
     0x045E: "Microsoft",
     0x05AC: "Apple",
+    # A Bluetooth HID_ID's vendor field is a Bluetooth SIG company id, a
+    # separate namespace from USB vendor ids -- Apple's USB vid (0x05AC,
+    # above) never appears there. Confirmed live on real hardware (a
+    # Magic Keyboard's own HID_ID reads 0005:0000004C:...): Apple, Inc. is
+    # assigned company id 0x004C (76) in the Bluetooth SIG's own list.
+    # Without this, no Bluetooth-connected Apple device is ever
+    # recognized as Apple at all -- see merge()'s own Apple/Bluetooth/
+    # stale-zero guard, which silently never fired without this entry.
+    0x004C: "Apple",
     0x0951: "HyperX",
     0x1B1C: "Corsair",
 }
@@ -365,17 +379,44 @@ def merge(packs: list[Pack], hids: list[Hid]) -> list[Device]:
         if hid is not None and uniq_ok(hid.uniq):
             claimed_serials.append(hid.uniq)
         name = human_name(hid, pack)
+        brand = brand_of(hid, pack.manufacturer, name)
+        transport = transport_of(hid, name)
+        level = pack.level
+        remaining_sec = pack.remaining_sec
+        status = pack.status
+        charging = pack.charging
+        available = pack.level != LEVEL_UNKNOWN
+
+        # Apple's mainline hid-apple driver only actively re-fetches battery
+        # over USB (a GET_REPORT that needs a sleepable context an existing
+        # Bluetooth/uhid timer callback cannot provide -- see the in-review
+        # "HID: apple: report battery over USB" kernel patch series). Over
+        # Bluetooth the sysfs node can get stuck permanently at a stale 0
+        # after a re-pair, which reads as a confident "needs charging now"
+        # rather than "no reading yet". Confirmed live on real hardware
+        # (ruixen-shell issue #37): a real 92% before a forget/re-pair cycle,
+        # 0% and never recovering after. Narrow on purpose -- only brand
+        # Apple, transport bluetooth, and exactly zero -- so an unrelated
+        # device that legitimately drains to 0%, or an Apple device
+        # connected over USB (which the driver does refresh), is untouched.
+        if level == 0 and transport == "bluetooth" and brand.lower() == "apple":
+            level = LEVEL_UNKNOWN
+            remaining_sec = LEVEL_UNKNOWN
+            status = "unknown"
+            charging = False
+            available = False
+
         devices[device_id] = Device(
             id=device_id,
-            brand=brand_of(hid, pack.manufacturer, name),
+            brand=brand,
             kind=kind_of(name, hid),
-            transport=transport_of(hid, name),
+            transport=transport,
             name=name,
-            level=pack.level,
-            remaining_sec=pack.remaining_sec,
-            status=pack.status,
-            charging=pack.charging,
-            available=pack.level != LEVEL_UNKNOWN,
+            level=level,
+            remaining_sec=remaining_sec,
+            status=status,
+            charging=charging,
+            available=available,
         )
 
     for hid in hids:

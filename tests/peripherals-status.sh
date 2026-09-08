@@ -89,14 +89,73 @@ printf 'Unknown\n' > "$mouse_pack_dir/status"
 # fabricate a number.
 printf '\n' > "$mouse_pack_dir/capacity"
 
+# Apple Bluetooth keyboard stuck at a stale 0% after a re-pair -- real bug,
+# ruixen-shell issue #37. manufacturer and model_name are both blank, and
+# the hid's own vendor id is 0x004C, not Apple's USB vendor id 0x05AC --
+# all three match real hardware exactly (confirmed live against the real
+# keyboard's own /sys entries after this test was first written blind
+# with a wrong vid and a fabricated "Apple" manufacturer field, which
+# made the guard pass here while never actually firing on real hardware).
+# Bluetooth's HID_ID vendor field is a Bluetooth SIG company id, a
+# separate namespace from USB vendor ids -- Apple, Inc. is company id
+# 0x004C there. Brand must resolve from BRAND_FROM_VID's 0x004C entry,
+# not the manufacturer field, or this test would not have caught the
+# real gap.
+apple_kb_dir="$tmp_root/class/power_supply/hid-11:22:33:44:55:66-battery"
+mkdir -p "$apple_kb_dir"
+printf 'Battery\n' > "$apple_kb_dir/type"
+printf 'Device\n' > "$apple_kb_dir/scope"
+printf '11:22:33:44:55:66\n' > "$apple_kb_dir/serial_number"
+printf 'Magic Keyboard\n' > "$apple_kb_dir/model_name"
+printf '\n' > "$apple_kb_dir/manufacturer"
+printf 'Discharging\n' > "$apple_kb_dir/status"
+printf '0\n' > "$apple_kb_dir/capacity"
+
+apple_hid_dir="$tmp_root/class/hidraw/hidraw2/device"
+mkdir -p "$apple_hid_dir"
+printf 'HID_NAME=Magic Keyboard\nHID_UNIQ=11:22:33:44:55:66\nDRIVER=apple\nHID_ID=0005:0000004C:00000267\n' > "$apple_hid_dir/uevent"
+
+# A second Apple Bluetooth pack with a real nonzero level -- must NOT be
+# touched by the same guard (only exactly-zero is treated as suspicious).
+apple_trackpad_dir="$tmp_root/class/power_supply/hid-77:88:99:aa:bb:cc-battery"
+mkdir -p "$apple_trackpad_dir"
+printf 'Battery\n' > "$apple_trackpad_dir/type"
+printf 'Device\n' > "$apple_trackpad_dir/scope"
+printf '77:88:99:aa:bb:cc\n' > "$apple_trackpad_dir/serial_number"
+printf 'Magic Trackpad\n' > "$apple_trackpad_dir/model_name"
+printf '\n' > "$apple_trackpad_dir/manufacturer"
+printf 'Discharging\n' > "$apple_trackpad_dir/status"
+printf '64\n' > "$apple_trackpad_dir/capacity"
+
+apple_trackpad_hid_dir="$tmp_root/class/hidraw/hidraw3/device"
+mkdir -p "$apple_trackpad_hid_dir"
+printf 'HID_NAME=Magic Trackpad\nHID_UNIQ=77:88:99:aa:bb:cc\nDRIVER=apple\nHID_ID=0005:0000004C:00000265\n' > "$apple_trackpad_hid_dir/uevent"
+
+# A non-Apple device legitimately at 0% -- must NOT be reinterpreted by the
+# same guard (it is brand/transport-scoped, not a blanket "zero means
+# unavailable" rule).
+generic_zero_dir="$tmp_root/class/power_supply/hid-de:ad:be:ef:00:01-battery"
+mkdir -p "$generic_zero_dir"
+printf 'Battery\n' > "$generic_zero_dir/type"
+printf 'Device\n' > "$generic_zero_dir/scope"
+printf 'de:ad:be:ef:00:01\n' > "$generic_zero_dir/serial_number"
+printf 'Generic Controller\n' > "$generic_zero_dir/model_name"
+printf 'Generic Corp\n' > "$generic_zero_dir/manufacturer"
+printf 'Discharging\n' > "$generic_zero_dir/status"
+printf '0\n' > "$generic_zero_dir/capacity"
+
+generic_zero_hid_dir="$tmp_root/class/hidraw/hidraw4/device"
+mkdir -p "$generic_zero_hid_dir"
+printf 'HID_NAME=Generic Controller\nHID_UNIQ=de:ad:be:ef:00:01\nDRIVER=generic-bluetooth\nHID_ID=0005:00001234:00005678\n' > "$generic_zero_hid_dir/uevent"
+
 output="$(PERIPHERALS_SYSFS="$tmp_root" python3 "$helper_py")"
 
 check "helper exits with valid JSON (ok: true)" \
   "$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['ok'])" "$output")" "True"
 
 device_count="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])['devices']))" "$output")"
-check "exactly 2 devices reported (keyboard + mouse pack; laptop battery and bare receiver both excluded)" \
-  "$device_count" "2"
+check "exactly 5 devices reported (keyboard + mouse pack + 2 Apple packs + 1 generic-zero pack; laptop battery and bare receiver both excluded)" \
+  "$device_count" "5"
 
 kb_level="$(python3 -c "
 import json,sys
@@ -126,6 +185,40 @@ check "receiver correctly deduped against its own hidpp child (one Logitech row,
 check "laptop's own BAT0 pack never appears in the output" \
   "$(python3 -c "import json,sys; print(any('BAT0' in str(r) for r in json.loads(sys.argv[1])['devices']))" "$output")" \
   "False"
+
+# Apple Bluetooth keyboard reporting exactly 0 -- ruixen-shell issue #37
+# regression: treated as unavailable, not a real 0%, so the bar falls
+# back to the keyboard glyph instead of a confidently-wrong "0%".
+apple_kb_row="$(python3 -c "
+import json,sys
+d = json.loads(sys.argv[1])
+row = next(r for r in d['devices'] if r['name'] == 'Magic Keyboard')
+print(row['available'], row['level'], row['status'], row['brand'], row['transport'])
+" "$output")"
+check "Apple Bluetooth keyboard at a stale 0% is reported unavailable, not a real 0%" \
+  "$apple_kb_row" "False -1 unknown Apple bluetooth"
+
+# The same guard must not touch a real nonzero reading from another
+# Apple Bluetooth device -- only exactly-zero is ever suspicious.
+apple_trackpad_row="$(python3 -c "
+import json,sys
+d = json.loads(sys.argv[1])
+row = next(r for r in d['devices'] if r['name'] == 'Magic Trackpad')
+print(row['available'], row['level'])
+" "$output")"
+check "Apple Bluetooth trackpad with a real nonzero level is reported as-is" \
+  "$apple_trackpad_row" "True 64"
+
+# Nor a non-Apple device that legitimately reports 0% -- the guard is
+# brand/transport-scoped, not a blanket zero-means-unavailable rule.
+generic_zero_row="$(python3 -c "
+import json,sys
+d = json.loads(sys.argv[1])
+row = next(r for r in d['devices'] if r['name'] == 'Generic Controller')
+print(row['available'], row['level'])
+" "$output")"
+check "non-Apple device legitimately at 0% is unaffected by the Apple-only guard" \
+  "$generic_zero_row" "True 0"
 
 # --- static QML checks --------------------------------------------------
 check "manifest declares both service and bar-widget kinds" \

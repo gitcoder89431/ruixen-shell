@@ -58,6 +58,24 @@ Item {
     scheduleSave()
   }
 
+  // No-op on a blank title -- see KanbanModel.renameCard's own comment.
+  function renameCard(cardId, title) {
+    service.cards = KanbanModel.renameCard(service.cards, cardId, title)
+    scheduleSave()
+  }
+
+  // dueAt: epoch milliseconds, or <= 0 / omitted to clear the due date.
+  function setDueDate(cardId, dueAt) {
+    service.cards = KanbanModel.setDueDate(service.cards, cardId, dueAt)
+    scheduleSave()
+  }
+
+  // An empty label clears it -- see KanbanModel.setLabel's own comment.
+  function setLabel(cardId, label) {
+    service.cards = KanbanModel.setLabel(service.cards, cardId, label)
+    scheduleSave()
+  }
+
   function moveCard(cardId, columnId) {
     service.cards = KanbanModel.moveCard(service.cards, cardId, columnId)
     scheduleSave()

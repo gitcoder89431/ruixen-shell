@@ -46,6 +46,27 @@ function normalizePriority(value) {
   return isPriority(value) ? value : DEFAULT_PRIORITY
 }
 
+// Label -- direct request: "tags labels but maybe one each... kinda
+// like folders... useful to filter task by like groups". One free-text
+// string per card, not a multi-tag array -- deliberately narrower than
+// a general tagging system, matching this board's own established
+// "less dynamic stuff to worry about" scope. Empty string means "no
+// label", a valid, ordinary value (unlike a card's title, which can
+// never be blank) -- clearing a label back to none is a real action,
+// not an error. Capped the same defensive way this repo already caps
+// other agent-writable free text reaching a fixed-width UI row (see
+// ruixen.peripherals/helper/status.py's own FIELD_LIMIT for the same
+// reasoning): a label is rendered in a small fixed card row, so an
+// unbounded string is a UI-stability problem regardless of how it got
+// there, not a security boundary.
+var LABEL_LIMIT = 24
+
+function clampLabel(value) {
+  var text = String(value || "").trim()
+  if (text.length > LABEL_LIMIT) text = text.slice(0, LABEL_LIMIT).trim()
+  return text
+}
+
 function defaultColumns() {
   return COLUMN_IDS.map(function(id) {
     return { id: id, label: DEFAULT_LABELS[id] }
@@ -89,7 +110,11 @@ function makeCardId(now, seed) {
 }
 
 // null on a blank title -- nothing to store, matches entryFromRow's
-// own "not a real notification" null-return convention.
+// own "not a real notification" null-return convention. dueAt/label
+// both start absent (0 / "") -- set via the separate setDueDate/
+// setLabel calls below, not extra creation-time arguments, so
+// kanbanAddCard's own IPC arity (title, columnId, priority) never has
+// to change for callers/scripts that don't care about either.
 function entryFromInput(title, columnId, priority, now, seed) {
   var text = String(title || "").trim()
   if (!text) return null
@@ -98,7 +123,9 @@ function entryFromInput(title, columnId, priority, now, seed) {
     column: isColumnId(columnId) ? columnId : COLUMN_IDS[0],
     title: text,
     priority: normalizePriority(priority),
-    createdAt: Number(now) || 0
+    createdAt: Number(now) || 0,
+    dueAt: 0,
+    label: ""
   }
 }
 
@@ -115,7 +142,9 @@ function normalizeCards(raw) {
       column: isColumnId(c.column) ? c.column : COLUMN_IDS[0],
       title: String(c.title),
       priority: normalizePriority(c.priority),
-      createdAt: Number(c.createdAt) || 0
+      createdAt: Number(c.createdAt) || 0,
+      dueAt: Number(c.dueAt) > 0 ? Number(c.dueAt) : 0,
+      label: clampLabel(c.label)
     })
   }
   return out
@@ -129,7 +158,58 @@ function setPriority(cards, cardId, priority) {
   for (var i = 0; i < list.length; i++) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
-      priority: priority, createdAt: list[i].createdAt
+      priority: priority, createdAt: list[i].createdAt,
+      dueAt: list[i].dueAt, label: list[i].label
+    }
+  }
+  return list
+}
+
+// Blank/whitespace-only title changes nothing -- unlike a label, a
+// card's title can never become empty (matches renameColumn's own
+// same-shaped guard for a column's label).
+function renameCard(cards, cardId, title) {
+  var list = normalizeCards(cards)
+  var text = String(title || "").trim()
+  if (!text) return list
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === cardId) list[i] = {
+      id: list[i].id, column: list[i].column, title: text,
+      priority: list[i].priority, createdAt: list[i].createdAt,
+      dueAt: list[i].dueAt, label: list[i].label
+    }
+  }
+  return list
+}
+
+// dueAt <= 0 (or not a finite number) CLEARS the due date rather than
+// being rejected as invalid input -- "remove the deadline" is a real,
+// ordinary action here, unlike setPriority's fixed enum where there is
+// no equivalent "no priority" state to fall back to.
+function setDueDate(cards, cardId, dueAt) {
+  var list = normalizeCards(cards)
+  var value = Number(dueAt)
+  var normalized = isFinite(value) && value > 0 ? value : 0
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === cardId) list[i] = {
+      id: list[i].id, column: list[i].column, title: list[i].title,
+      priority: list[i].priority, createdAt: list[i].createdAt,
+      dueAt: normalized, label: list[i].label
+    }
+  }
+  return list
+}
+
+// An empty label is a valid value (clears it) -- unlike renameCard,
+// blank input here is not rejected.
+function setLabel(cards, cardId, label) {
+  var list = normalizeCards(cards)
+  var text = clampLabel(label)
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === cardId) list[i] = {
+      id: list[i].id, column: list[i].column, title: list[i].title,
+      priority: list[i].priority, createdAt: list[i].createdAt,
+      dueAt: list[i].dueAt, label: text
     }
   }
   return list
@@ -150,7 +230,8 @@ function moveCard(cards, cardId, columnId) {
     if (list[i].id === cardId) {
       list[i] = {
         id: list[i].id, column: columnId, title: list[i].title,
-        priority: list[i].priority, createdAt: list[i].createdAt
+        priority: list[i].priority, createdAt: list[i].createdAt,
+        dueAt: list[i].dueAt, label: list[i].label
       }
     }
   }
@@ -159,6 +240,16 @@ function moveCard(cards, cardId, columnId) {
 
 function removeCard(cards, cardId) {
   return normalizeCards(cards).filter(function(c) { return c.id !== cardId })
+}
+
+// "Overdue" excludes Done on purpose -- a shipped card with a past due
+// date is not late, it is finished. Encapsulated here (not duplicated
+// in QML's own per-card color logic) so both the panel and any future
+// consumer (the planned CLI wizard) agree on what overdue means.
+function isOverdue(card, nowMs) {
+  if (!card || !(card.dueAt > 0)) return false
+  if (card.column === "done") return false
+  return card.dueAt < (Number(nowMs) || Date.now())
 }
 
 // Oldest-first within a column -- the order cards were actually added

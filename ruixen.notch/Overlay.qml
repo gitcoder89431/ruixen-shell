@@ -743,6 +743,35 @@ Item {
       function kanbanSetPriority(cardId: string, priority: string): void {
         kanbanService.setPriority(cardId, priority)
       }
+      // No-op on a blank title -- see KanbanModel.renameCard's own
+      // comment. Fixes a real gap: a card's title was write-once at
+      // creation before this, no way to fix a typo or reword it after.
+      function kanbanRenameCard(cardId: string, title: string): void {
+        kanbanService.renameCard(cardId, title)
+      }
+      // date is meant to be typed by hand -- "2026-09-12",
+      // "2026-09-12T18:00", or anything else Date.parse() recognizes
+      // -- not a raw epoch number computed by the caller. An empty
+      // string explicitly clears the due date; anything else that
+      // fails to parse is a no-op rather than also clearing it, so a
+      // typo cannot silently wipe a real deadline that was already set.
+      function kanbanSetDueDate(cardId: string, date: string): void {
+        var text = String(date || "").trim()
+        if (text === "") {
+          kanbanService.setDueDate(cardId, 0)
+          return
+        }
+        var parsed = Date.parse(text)
+        if (!isNaN(parsed)) kanbanService.setDueDate(cardId, parsed)
+      }
+      // One free-text label per card, not a multi-tag array -- see
+      // KanbanModel.js's own comment for why. An empty string clears
+      // it; a real one is capped (KanbanModel.clampLabel) for a fixed-
+      // width card row, not rejected -- an overlong label is just
+      // trimmed, never an error.
+      function kanbanSetLabel(cardId: string, label: string): void {
+        kanbanService.setLabel(cardId, label)
+      }
       // Returns the whole board as JSON ({columns, cards}) -- how a
       // script (or me, driving the board on your behalf) reads it back
       // without any QML access at all.

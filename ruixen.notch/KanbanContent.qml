@@ -26,6 +26,15 @@ Item {
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
 
+  // Display-only formatting -- KanbanModel.js stores dueAt as a plain
+  // epoch millisecond number (locale-independent, easy to test in
+  // Node); turning that into "Sep 12" is a view concern, kept here
+  // rather than in the model.
+  function formatDueDate(dueAt) {
+    if (!(dueAt > 0)) return ""
+    return Qt.formatDate(new Date(dueAt), "MMM d")
+  }
+
   // Exposes the outer columnsRow's own measured width to KanbanColumn
   // (an inline `component`, so it cannot see a sibling id the way a
   // plain nested object could -- only this document's own root id is
@@ -257,61 +266,113 @@ Item {
                   }
                 }
 
-                RowLayout {
+                // ColumnLayout, not a single row, now that a card can
+                // carry a second line of metadata (label/due date)
+                // below its title -- direct follow-up requesting both
+                // fields. An invisible QtQuick.Layouts child reserves
+                // no space, so a card with neither set (every card
+                // before this pass, and any new one that never gets
+                // either) renders byte-for-byte the same single-row
+                // height as before -- confirmed live, not assumed.
+                ColumnLayout {
                   id: cardContent
                   anchors.fill: parent
                   anchors.margins: 8
-                  spacing: 6
+                  spacing: 2
 
-                  // Priority dot on every column except Done, where a
-                  // green checkmark takes its place instead -- direct
-                  // follow-up ("instead of the check green being on
-                  // the right, can we just replace the dots with the
-                  // check on done then"). Both live inside one fixed-
-                  // size wrapper Item (not two separately-toggled
-                  // RowLayout siblings) -- Qt Quick Layouts don't
-                  // collapse an invisible item's own reserved space, so
-                  // two visibility-toggled Layout children here would
-                  // leave a gap; plain anchored children of one
-                  // Layout-managed wrapper sidesteps that entirely.
-                  // Read-only either way, no click handler -- the
-                  // agent sets priority via kanbanSetPriority/
-                  // kanbanAddCard, this just displays it.
-                  Item {
-                    Layout.preferredWidth: 10
-                    Layout.preferredHeight: 10
-                    Layout.alignment: Qt.AlignVCenter
+                  RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
 
-                    Rectangle {
-                      visible: columnRoot.columnId !== "done"
-                      anchors.centerIn: parent
-                      width: 6
-                      height: 6
-                      radius: 3
-                      // Red/yellow/muted for high/medium/low -- medium
-                      // reuses the same yellow the settings page's own
-                      // "pending update" dot already established.
-                      color: cardRoot.modelData.priority === "high" ? "#e05252"
-                        : cardRoot.modelData.priority === "low" ? root.muted
-                        : "#e8c34a"
+                    // Priority dot on every column except Done, where a
+                    // green checkmark takes its place instead -- direct
+                    // follow-up ("instead of the check green being on
+                    // the right, can we just replace the dots with the
+                    // check on done then"). Both live inside one fixed-
+                    // size wrapper Item (not two separately-toggled
+                    // RowLayout siblings) -- Qt Quick Layouts don't
+                    // collapse an invisible item's own reserved space, so
+                    // two visibility-toggled Layout children here would
+                    // leave a gap; plain anchored children of one
+                    // Layout-managed wrapper sidesteps that entirely.
+                    // Read-only either way, no click handler -- the
+                    // agent sets priority via kanbanSetPriority/
+                    // kanbanAddCard, this just displays it.
+                    Item {
+                      Layout.preferredWidth: 10
+                      Layout.preferredHeight: 10
+                      Layout.alignment: Qt.AlignVCenter
+
+                      Rectangle {
+                        visible: columnRoot.columnId !== "done"
+                        anchors.centerIn: parent
+                        width: 6
+                        height: 6
+                        radius: 3
+                        // Red/yellow/muted for high/medium/low -- medium
+                        // reuses the same yellow the settings page's own
+                        // "pending update" dot already established.
+                        color: cardRoot.modelData.priority === "high" ? "#e05252"
+                          : cardRoot.modelData.priority === "low" ? root.muted
+                          : "#e8c34a"
+                      }
+
+                      Text {
+                        visible: columnRoot.columnId === "done"
+                        anchors.centerIn: parent
+                        text: "✓"
+                        color: "#3ecf5b"
+                        font.pixelSize: 13
+                      }
                     }
 
                     Text {
-                      visible: columnRoot.columnId === "done"
-                      anchors.centerIn: parent
-                      text: "✓"
-                      color: "#3ecf5b"
-                      font.pixelSize: 13
+                      Layout.fillWidth: true
+                      text: cardRoot.modelData.title
+                      color: root.textColor
+                      font.family: root.fontFamily
+                      font.pixelSize: 11
+                      wrapMode: Text.WordWrap
                     }
                   }
 
-                  Text {
+                  // Label + due date -- both optional, CLI/agent-set
+                  // only (kanbanSetLabel/kanbanSetDueDate), same "no
+                  // in-panel typing" rule as everything else here.
+                  // leftMargin 16 lines it up under the title, past the
+                  // priority dot's own 10px slot + 6px spacing above.
+                  RowLayout {
                     Layout.fillWidth: true
-                    text: cardRoot.modelData.title
-                    color: root.textColor
-                    font.family: root.fontFamily
-                    font.pixelSize: 11
-                    wrapMode: Text.WordWrap
+                    Layout.leftMargin: 16
+                    spacing: 6
+                    visible: cardRoot.modelData.label !== "" || cardRoot.modelData.dueAt > 0
+
+                    Text {
+                      visible: cardRoot.modelData.label !== ""
+                      Layout.maximumWidth: 90
+                      text: cardRoot.modelData.label
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 9
+                      elide: Text.ElideRight
+                    }
+
+                    // The sole flexible element -- pushes the due date
+                    // to the row's right edge whether or not a label is
+                    // also present (a label-only fillWidth would only
+                    // do that when both are shown).
+                    Item { Layout.fillWidth: true }
+
+                    // Red once actually overdue -- KanbanModel.isOverdue
+                    // already excludes Done (a shipped card is not
+                    // late), so this can never flag a finished card.
+                    Text {
+                      visible: cardRoot.modelData.dueAt > 0
+                      text: root.formatDueDate(cardRoot.modelData.dueAt)
+                      color: KanbanModel.isOverdue(cardRoot.modelData, Date.now()) ? "#e05252" : root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 9
+                    }
                   }
                 }
               }

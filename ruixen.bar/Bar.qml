@@ -1678,7 +1678,16 @@ Item {
           // top too when docked, not topInset, specifically so this lines
           // up).
           topLeftRadius: 24
-          topRightRadius: 0
+          // Rounded mode: 0, square -- this edge butts against
+          // leftShoulderWing right after it, same as always. Sharp
+          // mode: leftDockedBg's own right edge IS the true screen
+          // edge now (full width, see width above), so it needs to
+          // match frame's own rounded corner there too, same as
+          // topLeftRadius does on the left -- direct live report,
+          // after the wing-hiding attempt was reverted for being the
+          // wrong fix: "the top bar corner is still missing or has a
+          // wierd curve on the black full width we added."
+          topRightRadius: root.sharpCorners ? root.shoulderWingSize : 0
           // Square, not a plain recede curve -- the actual concave wrap
           // (per direct request: "the smooth curve should face inward")
           // is leftFrameHemWing below, in its own dedicated space
@@ -1687,14 +1696,18 @@ Item {
           // hand-off into that wing rather than competing with
           // topLeftRadius for room on the same 34px edge.
           bottomLeftRadius: 0
-          // The real shoulder. Matches shoulderWingSize (24), not the
-          // pill's full height -- the earlier seam/glitch came from this
-          // being `height` (34) while the wing was ALSO full-height: two
-          // full-height curves with no shared straight edge to align
-          // against. Same radius as the wing's own size instead, so
-          // there's a real flush edge between them and their curves
-          // share a tangent at the join.
-          bottomRightRadius: root.shoulderWingSize
+          // Rounded mode: the real shoulder, matches shoulderWingSize
+          // (24) -- a flush concave hand-off into leftShoulderWing
+          // right after this edge, same as always. Sharp mode:
+          // leftShoulderWing sits off-screen now (positioned at
+          // leftDockedBg.x + leftDockedBg.width, which is parent.width
+          // when full-width -- past the true right edge, effectively
+          // moot), so there's nothing left to hand off to; a concave
+          // cut here with nothing filling it would just notch a bite
+          // of wallpaper out of the strip's own true bottom-right
+          // corner. Flat (0) instead, matching the strip's plain
+          // bottom edge everywhere else.
+          bottomRightRadius: root.sharpCorners ? 0 : root.shoulderWingSize
         }
 
         // ambxst's own rightCornerMaskPart, ported: a small square sitting

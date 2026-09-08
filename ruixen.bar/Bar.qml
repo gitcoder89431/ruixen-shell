@@ -833,31 +833,33 @@ Item {
   // not visual bleed-through, but wasted layout space a widget could
   // otherwise occupy somewhere actually visible.
   //
-  // notchGeometryService is Omarchy's own real first-party service
-  // registry (shell.firstPartyServiceFor), the same established
-  // mechanism ruixen.media's own BarWidget.qml already uses to reach
-  // its sibling Service.qml -- reused here for a genuinely NEW thing,
-  // one Ruixen plugin (ruixen.bar) reading a constant a DIFFERENT
-  // Ruixen plugin (ruixen.notch) owns, so the two can never drift out
-  // of sync with each other's real numbers. See
-  // ruixen.notch/NotchGeometry.qml's own comment for exactly what this
-  // does and doesn't cover (the Notch's COLLAPSED footprint only, not
-  // its full live launcher/pinned-expanded width -- a deliberate,
-  // named scope limit, not an oversight).
-  readonly property var notchGeometryService: root.shell ? root.shell.firstPartyServiceFor("ruixen.notch") : null
+  // Used to read these live from ruixen.notch/NotchGeometry.qml via
+  // Omarchy's own shell.firstPartyServiceFor("ruixen.notch") -- one
+  // Ruixen plugin reading a constant a DIFFERENT Ruixen plugin owns, so
+  // the two could never drift out of sync with each other's real
+  // numbers. Omarchy v4.0.3 restricts that call to a fixed 4-item
+  // allowlist of Omarchy's own services, which "ruixen.notch" was never
+  // going to be in (ruixen-shell issue #41/#38), so these are now plain
+  // constants, manually kept in sync with NotchGeometry.qml's own
+  // current values instead -- the exact same convention this file's own
+  // ModuleSlot/cornerSize already uses for a different pair of
+  // plugins' shared numbers (see NotchGeometry.qml's own header for why
+  // these two specifically are the Notch's COLLAPSED footprint only,
+  // not its full live launcher/pinned-expanded width -- a deliberate,
+  // named scope limit, not an oversight). If NotchGeometry.qml's own
+  // reservedWidth/collapsedBottomEdge ever change, these two must
+  // change with them.
+  //
   // 340 matches NotchGeometry.qml's own current collapsedBodyWidth (284)
-  // + cornerSize (28) * 2 -- only ever used if the service itself is
-  // somehow unavailable (ruixen.notch disabled, or not yet loaded),
-  // so the bar still reserves a sane default rather than assuming zero.
-  readonly property int notchReservedWidth: notchGeometryService && notchGeometryService.reservedWidth ? notchGeometryService.reservedWidth : 340
+  // + cornerSize (28) * 2.
+  readonly property int notchReservedWidth: 340
 
   // Absolute screen Y of the Notch's own collapsed bottom edge -- see
   // implicitHeight's own comment below for what this is for (giving
   // weather/clock's popup enough window height to clear the Notch
   // without opening underneath it). 48 mirrors NotchGeometry.qml's own
-  // current collapsedTopMargin (4) + collapsedHeight (44), same
-  // service-unavailable fallback pattern as notchReservedWidth above.
-  readonly property int notchCollapsedBottomEdge: notchGeometryService && notchGeometryService.collapsedBottomEdge ? notchGeometryService.collapsedBottomEdge : 48
+  // current collapsedTopMargin (4) + collapsedHeight (44).
+  readonly property int notchCollapsedBottomEdge: 48
 
   // Screen-space rect the Notch's collapsed footprint occupies, centered
   // in a region of the given width -- per-output correct for free

@@ -209,22 +209,25 @@ jq -n \
   # bar.layout.left still read just [applauncher, workspaces] -- the
   # actual files were current, the CONFIG just never caught up.
   #
-  # Scoped to exactly these two ids on purpose, not a general
-  # "structural widget" concept -- both are brand new (this same
-  # session) and neither has any way to be intentionally removed once
-  # present (pluginpins IS the removal mechanism for everything else;
-  # pinnedapps is not offered in its own dropdown), so "missing
-  # entirely" can only mean "predates this feature", never "the user
-  # chose to unpin it". Inserted at a deterministic canonical neighbor
-  # (right after the anchor id, same section) rather than rebuilding
-  # the region array, so existing order/settings for everything else
-  # are untouched. A user who later actually unpins one of these two
-  # through means that do not yet exist is a future problem, not this
-  # one -- today, "absent" and "predates this feature" are the same
-  # fact for both ids.
+  # Scoped to exactly these ids on purpose, not a general "structural
+  # widget" concept -- each is brand new as of its own session and none
+  # has any way to be intentionally removed once present (pluginpins IS
+  # the removal mechanism for everything else; pinnedapps is not offered
+  # in its own dropdown; ruixen.peripherals moved into curatedRightIds,
+  # excluded from the pluginpins dropdown for the identical reason -- see
+  # the excludedIds comment in ruixen.pluginpins own BarWidget.qml), so
+  # "missing entirely" can only mean "predates this feature", never "the
+  # user chose to remove it". Inserted at a deterministic canonical
+  # neighbor (right after the anchor id, same section) rather than
+  # rebuilding the region array, so existing order/settings for
+  # everything else are untouched. A user who later actually removes one
+  # of these through means that do not yet exist is a future problem,
+  # not this one -- today, "absent" and "predates this feature" are the
+  # same fact for all three ids.
   | ([
        { id: "ruixen.pinnedapps", section: "left", after: "ruixen.workspaces" },
-       { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" }
+       { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" },
+       { id: "ruixen.peripherals", section: "right", after: "ruixen.settingsbutton" }
      ]) as $requiredStructural
   | (if ($migratedBar.layout | type) == "object" then
        reduce $requiredStructural[] as $req

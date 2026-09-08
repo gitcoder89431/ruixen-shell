@@ -29,16 +29,24 @@ Item {
     // "off" (0 rounding) too, already, before "square" ever existed --
     // a real window's square corner got partly painted over by this
     // frame's still-rounded hole, reading as "the bottom corner clips
-    // under the shell frame". Read once at startup from the real
-    // deployed symlink (the same stable path
-    // hyprland/ruixen-lookfeel.sh's own header comment explains, not
-    // the git checkout) rather than assumed. Defaults to 0 (square) on
-    // read failure or an unrecognized target -- a square hole under an
-    // actually-rounded window just leaves a small transparent sliver
-    // of wallpaper in each corner, not this frame's own color painted
-    // over real window content, which is the direction that's
-    // actually safe to get wrong.
-    property int cornerRadius: 0
+    // under the shell frame".
+    //
+    // Direct follow-up, later the same session: square only when BOTH
+    // floating AND sharp -- docked mode stays curved regardless of
+    // curvature. Docked's own gaps (hyprland/looknfeel.square.lua's
+    // gaps_out bump) already keep a real window's corner well clear of
+    // this frame's curve there, so there's no clipping risk to avoid by
+    // going square in docked mode -- direct request: "dont remove the
+    // curve from sharp and dock... i think the only one that doesnt
+    // use it and have it off is floating and sharp."
+    // Defaults chosen to keep cornerRadius at 0 (square) until both
+    // reads below resolve -- matches this property's own original
+    // safe-failure direction (a square hole under an actually-rounded
+    // window just leaves a transparent sliver of wallpaper, not this
+    // frame's own color painted over real window content).
+    property bool isSquareVariant: true
+    property bool isDocked: false
+    readonly property int cornerRadius: (!isDocked && isSquareVariant) ? 0 : 24
 
     Process {
         id: readLookAndFeelVariant
@@ -46,15 +54,29 @@ Item {
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
-                root.cornerRadius = text.indexOf("looknfeel.ruixen.lua") >= 0 ? 24 : 0
+                root.isSquareVariant = text.indexOf("looknfeel.square.lua") >= 0
             }
         }
     }
 
-    Component.onCompleted: readLookAndFeelVariant.running = true
+    Process {
+        id: readBarMode
+        command: ["bash", "-c", "python3 -c \"import json; d=json.load(open('" + Quickshell.env("HOME") + "/.config/omarchy/shell.json')); print('docked' if d.get('bar',{}).get('docked') is True else 'floating')\" 2>/dev/null || echo floating"]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                root.isDocked = String(text || "").trim() === "docked"
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        readLookAndFeelVariant.running = true
+        readBarMode.running = true
+    }
     // Canvas.onPaint is a plain JS function, not a reactive binding --
     // it never re-runs on its own just because cornerRadius changes
-    // once the Process above finishes (same class of bug already
+    // once the Processes above finish (same class of bug already
     // fixed for the notch's own volume dials this same session).
     onCornerRadiusChanged: canvas.requestPaint()
 

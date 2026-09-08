@@ -1683,19 +1683,18 @@ Item {
           visible: root.docked
           x: 0
           y: 0
-          // The FULL window width, in both curvature modes -- direct
-          // follow-up ("i kinda like it better than the dock mode we
-          // had even... it might even look good in round and sharp
-          // mode"): one continuous Waybar-style strip replaces the old
-          // two-group-plus-wing design entirely now, not just for sharp.
-          // ruixen.notch is a separate overlay window on its own
-          // compositor layer, already rendered on top of this one
+          // Rounded mode: just the left group's own width, unchanged.
+          // Sharp mode: the FULL window width -- direct request, "make
+          // the topbar a full black strip so it runs under the notch
+          // too" (a traditional single continuous Waybar-style strip,
+          // rather than two separate left/right groups with a gap in
+          // the middle). ruixen.notch is a separate overlay window on
+          // its own layer, already rendered on top of this one
           // regardless of what's drawn here, so extending underneath it
-          // needs no z-order change. rightDockedBg and all 4
-          // RoundCorner wing pieces below are permanently hidden when
-          // docked now (see their own visible: bindings) since this one
-          // piece covers their entire combined area, in either mode.
-          width: parent.width
+          // is safe -- no z-order change needed. rightDockedBg below is
+          // hidden in this mode since this one now covers its entire
+          // area too.
+          width: root.sharpCorners ? parent.width : (settingsPill.x + settingsPill.width)
           // root.barSize, not parent.height -- parent (the outer Item,
           // sized to the whole window) is taller than the pill row when
           // docked, to make room for leftFrameTaper below. This piece is
@@ -1703,40 +1702,44 @@ Item {
           height: root.barSize
           color: "#000000"
           antialiasing: true
-          // Both outer top corners now (this piece spans the full
-          // width in both modes -- see width above): rounded mode
-          // matches ruixen.frame-widget's own cornerRadius (24) exactly,
-          // the same point the frame's rounded-rect hole starts (see
-          // BarPanel's margins above: frameInset used for top too when
-          // docked, not topInset, specifically so this lines up). Sharp
-          // mode: 0, flat corner matching frame's own square corner
-          // there.
+          // Rounded mode: matches ruixen.frame-widget's own cornerRadius
+          // (24) exactly -- this corner sits at the same point the
+          // frame's rounded-rect hole starts (see BarPanel's margins
+          // above: frameInset used for top too when docked, not
+          // topInset, specifically so this lines up). Sharp mode: 0,
+          // flat corner, no wing to hand off to (see root.sharpCorners'
+          // own comment above).
           topLeftRadius: root.sharpCorners ? 0 : root.shoulderWingSize
-          topRightRadius: root.sharpCorners ? 0 : root.shoulderWingSize
-          // Bottom corners stay plain square in both modes now -- no
-          // wing exists to hand off to any more (retired, see
-          // leftShoulderWing/leftFrameHemWing's own comments below), and
-          // the bottom edge sits in the middle of open screen space, not
-          // near any of the frame's own corner curves.
+          topRightRadius: 0
+          // Square, not a plain recede curve -- the actual concave wrap
+          // (per direct request: "the smooth curve should face inward")
+          // is leftFrameHemWing below, in its own dedicated space
+          // (root.shoulderWingSize, added to BarPanel's implicitHeight
+          // when docked). Squaring this off keeps it a flush, seamless
+          // hand-off into that wing rather than competing with
+          // topLeftRadius for room on the same 34px edge.
           bottomLeftRadius: 0
-          bottomRightRadius: 0
+          // The real shoulder. Matches shoulderWingSize, not the
+          // pill's full height -- the earlier seam/glitch came from this
+          // being `height` (34) while the wing was ALSO full-height: two
+          // full-height curves with no shared straight edge to align
+          // against. Same radius as the wing's own size instead, so
+          // there's a real flush edge between them and their curves
+          // share a tangent at the join. 0 in sharp mode -- no wing
+          // exists to hand off to there, see root.sharpCorners.
+          bottomRightRadius: root.sharpCorners ? 0 : root.shoulderWingSize
         }
 
-        // leftShoulderWing/leftFrameHemWing/rightDockedBg/
-        // rightShoulderWing/rightFrameHemWing -- the old two-group
-        // pill design's decorative wing pieces and its separate right-
-        // side background. Permanently retired now that leftDockedBg
-        // above is one continuous full-width strip in BOTH curvature
-        // modes, not just sharp -- direct follow-up after seeing sharp's
-        // wing-free look live: "i kinda like it better than the dock
-        // mode we had even... it might even look good in round and
-        // sharp mode." leftDockedBg alone now covers this whole group's
-        // combined area either way, so all 5 are unconditionally
-        // hidden. Left in place (not deleted) rather than torn out, in
-        // case the old pill look ever needs to come back.
+        // ambxst's own rightCornerMaskPart, ported: a small square sitting
+        // immediately past the body's own right edge, corner: topLeft.
+        // Same size as leftDockedBg's own bottomRightRadius above,
+        // not the full pill height -- their own notch wing is a small
+        // square matched to its body's own corner radius, not a
+        // full-height piece; that mismatch was the earlier bug.
         RoundCorner {
           id: leftShoulderWing
-          visible: false
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topLeft"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1744,9 +1747,18 @@ Item {
           y: 0
         }
 
+        // The frame-hem corner's own wing -- concave, curving inward,
+        // not the plain recede curve a Rectangle radius gives. Flush
+        // against leftDockedBg's own square bottom edge at its own top
+        // (y: leftDockedBg.height, no seam -- both are simply square
+        // there) and flush against the true screen edge on its own left
+        // (x: 0, matching ruixen.frame-widget's continuing border strip),
+        // with the curve itself down at its far corner, closer to where
+        // this hands off to frame's plain strip continuing further down.
         RoundCorner {
           id: leftFrameHemWing
-          visible: false
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topLeft"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1756,22 +1768,44 @@ Item {
 
         Rectangle {
           id: rightDockedBg
-          visible: false
+          // Hidden in sharp mode -- leftDockedBg above already spans the
+          // full window width there, covering this piece's entire area.
+          visible: root.docked && !root.sharpCorners
           x: trayPill.x
           y: 0
           width: parent.width - trayPill.x
           height: root.barSize
           color: "#000000"
           antialiasing: true
+          // Mirrors leftDockedBg's own topLeftRadius -- see its comment.
           topRightRadius: root.sharpCorners ? 0 : root.shoulderWingSize
           topLeftRadius: 0
+          // Mirrors leftDockedBg's own bottomLeftRadius -- see its comment.
           bottomRightRadius: 0
+          // Mirrors leftDockedBg's own bottomRightRadius -- see its comment.
           bottomLeftRadius: root.sharpCorners ? 0 : root.shoulderWingSize
         }
 
+        // Mirrors leftShoulderWing -- see its comment.
+        //
+        // x is 1px INTO rightDockedBg's own territory (- size + 1, not
+        // - size), not flush against it -- direct live report of a thin
+        // vertical seam right at this exact boundary in docked mode,
+        // more visible after ruixen.stayawake/omarchy.agents' own icons
+        // moved closer to it in a recent reorg. Both this Canvas
+        // (antialiasing: true) and rightDockedBg (also antialiasing:
+        // true) independently soften their own edge where they meet,
+        // and two separately-antialiased shapes landing on the exact
+        // same coordinate can each erode inward by a sub-pixel amount,
+        // leaving a hairline of whatever's behind them (the wallpaper)
+        // showing through. A deliberate 1px overlap guarantees full
+        // coverage from at least one shape regardless of which side
+        // eroded more -- both are the same solid black, so the extra
+        // shared pixel is invisible either way.
         RoundCorner {
           id: rightShoulderWing
-          visible: false
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topRight"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1779,9 +1813,11 @@ Item {
           y: 0
         }
 
+        // Mirrors leftFrameHemWing -- see its comment.
         RoundCorner {
           id: rightFrameHemWing
-          visible: false
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topRight"
           size: root.shoulderWingSize
           color: "#000000"

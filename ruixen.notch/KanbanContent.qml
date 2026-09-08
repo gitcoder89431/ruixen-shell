@@ -115,19 +115,46 @@ Item {
         text: columnRoot.modelData.label
         color: root.textColor
         font.family: root.fontFamily
-        // A size step up from the old in-panel version (12 -> 13) --
-        // now that it reads as its own section title instead of a row
-        // inside the card surface, it earns a little more presence.
-        font.pixelSize: 13
+        // A size step up from the old in-panel version (12 -> 14, via
+        // an intermediate 13) -- now that it reads as its own section
+        // title instead of a row inside the card surface, it earns a
+        // little more presence. Direct follow-up ("maybe a bit
+        // bigger?") after seeing 13 live.
+        font.pixelSize: 14
         font.bold: true
         elide: Text.ElideRight
       }
 
-      Text {
-        text: String(columnRoot.columnCards.length)
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 10
+      // A small tonal pill instead of plain muted text -- Material 3's
+      // own count-badge convention for a section header, and more
+      // legible now that the header floats directly on the notch
+      // background rather than the panel's own tonal fill behind it.
+      // Sized from the count text's own implicitWidth (plus fixed
+      // padding), not a hardcoded slot -- a header count only ever
+      // changes on a card add/move/remove, a discrete state change,
+      // never a live-updating number, so there is no rapid-resize
+      // flicker risk the way a live percentage elsewhere in this
+      // plugin family has to guard against.
+      Rectangle {
+        Layout.alignment: Qt.AlignVCenter
+        implicitWidth: Math.max(countText.implicitHeight, countText.implicitWidth + 12)
+        implicitHeight: countText.implicitHeight + 6
+        radius: height / 2
+        color: Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: countText
+          anchors.centerIn: parent
+          text: String(columnRoot.columnCards.length)
+          color: root.textColor
+          font.family: root.fontFamily
+          // Sized up alongside the label (10 -> 11) -- direct
+          // follow-up ("maybe a bit bigger?"). The pill itself needs
+          // no separate change: its own implicitWidth/implicitHeight
+          // are already derived from this Text's own size above.
+          font.pixelSize: 11
+          font.bold: true
+        }
       }
     }
 

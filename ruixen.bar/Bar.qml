@@ -1705,15 +1705,7 @@ Item {
         // full-height piece; that mismatch was the earlier bug.
         RoundCorner {
           id: leftShoulderWing
-          // Sharp mode has no wing at all -- leftDockedBg spans the
-          // full width there, and with rightDockedBg also hidden, a
-          // wing piece would otherwise float alone with nothing else
-          // around it, since it only fills a small curved sliver of its
-          // own bounding box (see RoundCorner's own canvas) rather than
-          // a solid block -- direct live report: "i can see the desktop
-          // background on the right corner... looks like a right
-          // curve there."
-          visible: root.docked && !root.sharpCorners
+          visible: root.docked
           corner: "topLeft"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1731,9 +1723,7 @@ Item {
         // this hands off to frame's plain strip continuing further down.
         RoundCorner {
           id: leftFrameHemWing
-          // Sharp mode has no wing at all -- see leftShoulderWing's
-          // own comment above.
-          visible: root.docked && !root.sharpCorners
+          visible: root.docked
           corner: "topLeft"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1779,9 +1769,7 @@ Item {
         // shared pixel is invisible either way.
         RoundCorner {
           id: rightShoulderWing
-          // Sharp mode has no wing at all -- see leftShoulderWing's
-          // own comment above.
-          visible: root.docked && !root.sharpCorners
+          visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1792,9 +1780,7 @@ Item {
         // Mirrors leftFrameHemWing -- see its comment.
         RoundCorner {
           id: rightFrameHemWing
-          // Sharp mode has no wing at all -- see leftShoulderWing's
-          // own comment above.
-          visible: root.docked && !root.sharpCorners
+          visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
           color: "#000000"

@@ -236,8 +236,12 @@ hyprland/ruixen-lookfeel.sh status  # show which one is active
 
 `square` is for anyone who wants stock Omarchy's own square corners without
 giving up the rest of Ruixen's look. The screen frame's own corner rounding
-follows whichever of the three is active automatically, so it never
-mismatches against the real window corners.
+follows whichever of the three is active automatically when the bar is
+floating. When the bar is docked, the frame's corner always stays rounded
+regardless of which variant is active -- docked mode's own wider gaps
+already keep real window corners well clear of that curve, so nothing
+clips, and it keeps the docked bar's own corner (always rounded) visually
+consistent with the frame right next to it.
 
 ## Requirements
 

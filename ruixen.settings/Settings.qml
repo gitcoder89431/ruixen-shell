@@ -244,8 +244,18 @@ Item {
     var home = Quickshell.env("HOME")
     var path = home + "/.config/omarchy/shell.json"
     var value = mode === "docked" ? "True" : "False"
+    // Full restart, not just reloadConfig -- direct QA finding: a plain
+    // reloadConfig leaves ruixen.frame-widget's own isDocked stale
+    // (it only reads shell.json's bar.docked once at its own startup,
+    // same limitation curvature already had), so a Docked/Floating
+    // toggle here could silently disagree with Bar.qml's own always-
+    // rounded docked corner -- direct live report: "sharp docked and
+    // round dock ends up with the top bar with the triangle thing."
+    // Matches setCornerCurvature's own restart below exactly, so both
+    // toggles behave identically and nothing ever goes stale between
+    // them.
     barModeWriteProc.command = ["bash", "-c",
-      "python3 -c \"import json; p='" + path + "'; d=json.load(open(p)); d.setdefault('bar', {})['docked'] = " + value + "; json.dump(d, open(p, 'w'), indent=2)\" && omarchy-shell shell reloadConfig"]
+      "python3 -c \"import json; p='" + path + "'; d=json.load(open(p)); d.setdefault('bar', {})['docked'] = " + value + "; json.dump(d, open(p, 'w'), indent=2)\" && omarchy restart shell >/dev/null 2>&1 || true"]
     barModeWriteProc.running = true
   }
 

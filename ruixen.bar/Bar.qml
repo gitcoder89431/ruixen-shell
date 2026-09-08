@@ -399,6 +399,32 @@ Item {
   // leftDockedBg/leftShoulderWing).
   readonly property int shoulderWingSize: 24
 
+  // Sharp+docked only: whether leftDockedBg below should span the full
+  // window width instead of just the left widget group -- direct
+  // request, "make the topbar a full black strip so it runs under the
+  // notch too" (a traditional single continuous Waybar-style bar, not
+  // two separate left/right groups with a wallpaper gap in the
+  // middle). Deliberately NOT used for corner radius -- that stays
+  // hardcoded 24 always when docked now (see leftDockedBg/rightDockedBg
+  // below), matching ruixen.frame-widget's own corner, which also
+  // always stays rounded when docked regardless of curvature (see
+  // ruixen.frame-widget/Overlay.qml's own isDocked). Same read-once-at-
+  // startup Process pattern as frame-widget's own variant read -- safe
+  // because hyprland/ruixen-lookfeel.sh always does a full `omarchy
+  // restart shell` on every variant change.
+  property bool sharpCorners: false
+
+  Process {
+    id: readLookAndFeelVariantForDock
+    command: ["bash", "-c", "readlink \"$HOME/.config/hypr/looknfeel.lua\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.sharpCorners = text.indexOf("looknfeel.square.lua") >= 0
+      }
+    }
+  }
+
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
   // room for its collapsed height (44, full ambxst parity) without its
@@ -877,7 +903,10 @@ Item {
     return source ? Util.fileUrl(source) : ""
   }
 
-  Component.onCompleted: applyBarConfig()
+  Component.onCompleted: {
+    applyBarConfig()
+    readLookAndFeelVariantForDock.running = true
+  }
 
   // Revealing the indicators widens their section, which can slide a neighbour
   // under a stationary pointer. Collapsing on that un-hover would move it back
@@ -1627,7 +1656,15 @@ Item {
           visible: root.docked
           x: 0
           y: 0
-          width: settingsPill.x + settingsPill.width
+          // Rounded mode: just the left group's own width, unchanged.
+          // Sharp mode: the FULL window width (see root.sharpCorners'
+          // own comment above). rightDockedBg below is hidden in this
+          // mode since this one now covers its entire area too.
+          // ruixen.notch is a separate overlay window on its own layer,
+          // already rendered on top of this one regardless of what's
+          // drawn here, so extending underneath it needs no z-order
+          // change.
+          width: root.sharpCorners ? parent.width : (settingsPill.x + settingsPill.width)
           // root.barSize, not parent.height -- parent (the outer Item,
           // sized to the whole window) is taller than the pill row when
           // docked, to make room for leftFrameTaper below. This piece is
@@ -1696,7 +1733,10 @@ Item {
 
         Rectangle {
           id: rightDockedBg
-          visible: root.docked
+          // Hidden in sharp mode -- leftDockedBg above already spans
+          // the full window width there, covering this piece's entire
+          // area.
+          visible: root.docked && !root.sharpCorners
           x: trayPill.x
           y: 0
           width: parent.width - trayPill.x

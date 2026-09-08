@@ -1434,6 +1434,15 @@ Item {
                 anchors.fill: parent
                 visible: panel.dashboardTab === 0
                 shell: root.shell
+                // This whole tab bar + content area (an ancestor of this
+                // item) stays visible: true/opacity-based, not behind a
+                // Loader -- DashboardContent is alive for the entire
+                // session, not just while the dashboard is open. Needed
+                // here so its own nightlight status poll (ruixen-shell
+                // issue #43) can gate on the same "only while actually
+                // visible" condition brightnessStateProc's own Timer
+                // above already uses, instead of polling forever.
+                panelExpanded: panel.expanded
                 textColor: root.textColor
                 muted: root.muted
                 accent: root.accent

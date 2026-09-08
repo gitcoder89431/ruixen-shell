@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Widgets
 import Quickshell.Networking
 import Quickshell.Bluetooth
@@ -25,6 +26,10 @@ Item {
   id: root
 
   property var shell: null
+  // Whether the dashboard panel itself is currently open -- see this
+  // property's own comment at its Overlay.qml call site for why this
+  // file needs it now (gating the nightlight status poll below).
+  property bool panelExpanded: false
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
@@ -119,12 +124,109 @@ Item {
   }
 
   // Quick-controls backends -- wifi/bluetooth are real global Quickshell
-  // singletons (not gated behind Omarchy's plugin registry at all);
-  // nightlight/idle are Omarchy first-party "service" kind plugins, same
-  // shell.firstPartyServiceFor() pattern mediaService above already uses.
+  // singletons (not gated behind Omarchy's plugin registry at all).
   readonly property var bluetoothAdapter: Bluetooth.defaultAdapter
-  readonly property var nightlightService: root.shell ? root.shell.firstPartyServiceFor("omarchy.nightlight") : null
-  readonly property var idleService: root.shell ? root.shell.firstPartyServiceFor("omarchy.idle") : null
+
+  // nightlight/idle used to be Omarchy first-party "service" kind
+  // plugins read via shell.firstPartyServiceFor() -- ruixen-shell issue
+  // #43/#38: Omarchy v4.0.3 restricts that call to a fixed 4-item
+  // allowlist, and this file (kind: ["overlay","service"], not "bar")
+  // was never going to have bar capabilities to use it even for the
+  // two ids that ARE in the allowlist. Both are now read/controlled via
+  // omarchy-shell's own real "nightlight"/"idle" IPC targets instead
+  // (confirmed directly against /usr/share/omarchy/shell/plugins/
+  // services/{nightlight,idle}/Service.qml, not guessed) -- untouched
+  // by the v4.0.3 restriction, since that only gates the in-process
+  // firstPartyServiceFor() object handoff, not omarchy-shell's own IPC
+  // surface.
+  property bool nightlightEnabled: false
+  property bool stayAwakeEnabled: false
+
+  // Idle/stay-awake IS backed by a real on-disk flag file (its mere
+  // existence means stay-awake is on) -- confirmed live:
+  // ~/.local/state/omarchy/indicators/stay-awake. Watched directly,
+  // same pattern Overlay.qml's own barHidden already uses for a
+  // different Omarchy toggle file, so this reacts immediately even if
+  // stay-awake is toggled from somewhere other than this dashboard.
+  readonly property string omarchyStateHome: Quickshell.env("HOME")
+
+  FileView {
+    id: stayAwakeFlagFile
+    path: root.omarchyStateHome + "/.local/state/omarchy/indicators/stay-awake"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.stayAwakeEnabled = true
+    onLoadFailed: root.stayAwakeEnabled = false
+  }
+
+  // Nightlight has no on-disk state at all (Omarchy's own service
+  // derives it live from `hyprctl hyprsunset temperature`), so this
+  // polls its real status instead -- gated on panelExpanded, same "only
+  // pay the cost while actually visible" reasoning Overlay.qml's own
+  // brightnessStateProc Timer already uses for the exact same shape of
+  // problem.
+  Process {
+    id: nightlightStatusProc
+    command: ["omarchy-shell", "nightlight", "status"]
+    running: false
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var parsed = JSON.parse(String(text || "").trim() || "{}")
+          root.nightlightEnabled = parsed.enabled === true
+        } catch (e) {
+          // Leave nightlightEnabled at its last known value rather than
+          // flipping it to a guessed default on a transient parse
+          // failure.
+        }
+      }
+    }
+  }
+
+  Timer {
+    interval: 5000
+    running: root.panelExpanded
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!nightlightStatusProc.running) nightlightStatusProc.running = true
+  }
+
+  function sendNightlightAction(action) {
+    if (nightlightActionProc.running) return
+    nightlightActionProc.command = ["omarchy-shell", "nightlight", String(action)]
+    nightlightActionProc.running = true
+  }
+
+  Process {
+    id: nightlightActionProc
+    running: false
+    // Refresh right after acting, same as any other write-then-read
+    // control -- don't wait up to 5s for the next poll to reflect a
+    // change the user just made themselves.
+    onExited: if (!nightlightStatusProc.running) nightlightStatusProc.running = true
+  }
+
+  // wantStayAwake is the TOGGLE's own new switch state, not the IPC
+  // target's own "idle enabled" concept -- confirmed live, not
+  // guessed, that these are inverted: Omarchy's own idle service
+  // defines idleEnabled as `stayAwakeStateLoaded && !stayAwake` (see
+  // its real Service.qml), and calling its `enable` IPC method
+  // empirically turned stayAwake OFF while `disable` turned it ON.
+  // So wanting stay-awake ON means calling "disable" here, not
+  // "enable" -- named this way so the call site below reads correctly
+  // without the reader having to hold that inversion in their head.
+  function sendIdleAction(wantStayAwake) {
+    if (idleActionProc.running) return
+    idleActionProc.command = ["omarchy-shell", "idle", wantStayAwake ? "disable" : "enable"]
+    idleActionProc.running = true
+  }
+
+  Process {
+    id: idleActionProc
+    running: false
+  }
 
   // Real speaker/mic levels for the two Dial widgets below -- same
   // Pipewire singleton the real Display/audio panel reads
@@ -763,19 +865,18 @@ Item {
           QuickToggle {
             size: 40
             glyph: "\udb81\udda8"
-            active: root.nightlightService ? root.nightlightService.enabled : false
-            onActivated: if (root.nightlightService) root.nightlightService.toggle()
+            active: root.nightlightEnabled
+            onActivated: root.sendNightlightAction("toggle")
           }
 
           QuickToggle {
             size: 40
             glyph: "\udb81\udeca"
-            active: root.idleService ? root.idleService.stayAwake : false
-            // setIdleEnabled(current stayAwake value) IS the toggle --
-            // see ruixen.stayawake's own StayAwake.qml for the same
-            // pattern: stayAwake and idleEnabled are semantic opposites,
-            // so passing the about-to-be-old stayAwake value in flips it.
-            onActivated: if (root.idleService) root.idleService.setIdleEnabled(active)
+            active: root.stayAwakeEnabled
+            // Wants the NEW state, not a toggle-by-side-effect -- see
+            // sendIdleAction's own comment for the real (inverted)
+            // mapping to the underlying enable/disable IPC calls.
+            onActivated: root.sendIdleAction(!root.stayAwakeEnabled)
           }
 
           QuickToggle {

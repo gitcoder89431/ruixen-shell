@@ -633,14 +633,29 @@ Item {
       function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }
       // Real, permanent counterparts for the dashboard itself (not the
       // launcher) -- direct Discord ask ("a keybind to summon the
-      // notch"), same shape as the launcher trio above. Opens on
-      // whichever dashboardTab was last selected when no payload is
-      // given (matches clicking the notch itself to expand it -- no
-      // tab is forced).
+      // notch"), same shape as the launcher trio above.
       //
-      function openDashboard(): void { panel.pinnedOpen = true }
+      // Always resets to the Widgets tab (0) -- direct follow-up after
+      // a live report that Super+K (openDashboardTab kanban) followed
+      // by Super+N (toggleDashboard) "stays in kanban": the two keys
+      // are meant to do different jobs (K jumps straight to Kanban,
+      // N opens/closes the dashboard itself) but originally shared
+      // dashboardTab's own "wherever you left it" state, so N looked
+      // like it did nothing right after K. Deliberately NOT touching
+      // the plain click-to-expand interaction elsewhere in this file
+      // (onClicked: panel.pinnedOpen = true) or openDashboardTab below
+      // -- clicking the notch itself still opens on whatever tab was
+      // last selected, and a keybind can still jump straight to any
+      // specific tab; only these two IPC entry points force Widgets.
+      function openDashboard(): void {
+        panel.dashboardTab = 0
+        panel.pinnedOpen = true
+      }
       function closeDashboard(): void { panel.pinnedOpen = false }
-      function toggleDashboard(): void { panel.pinnedOpen = !panel.pinnedOpen }
+      function toggleDashboard(): void {
+        if (!panel.pinnedOpen) panel.dashboardTab = 0
+        panel.pinnedOpen = !panel.pinnedOpen
+      }
       // Jump straight to one tab -- direct follow-up ("a keybind that
       // opens to the kanban board... to see updates"). A separate
       // function with a required plain-string arg, not an optional

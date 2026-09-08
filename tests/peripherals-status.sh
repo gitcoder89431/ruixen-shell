@@ -167,14 +167,20 @@ done
 # supplementary-plane range in this Nerd Font build) -- confirmed live
 # via fontTools against this machine's actual font file before writing
 # these. Each needs a real UTF-16 surrogate PAIR, not a single \uXXXX --
-# spot-check a few of the 21 (10 default + 10 charging + 1 unknown)
-# rather than every one, just to catch the pattern breaking wholesale.
+# spot-check a few of the 20 (10 default + 10 charging) rather than
+# every one, just to catch the pattern breaking wholesale. The old
+# md-battery_unknown glyph (used for a device with no fresh reading) was
+# retired -- direct follow-up ("instead of like a battery with a
+# question mark on it, looks confusing, maybe just put the icon like
+# mouse or keyboard on it") -- batteryGlyph() falls back to kindGlyph()
+# for that case now instead.
 declare -A expected_surrogate_counts=(
   ['\\udb80\\udc79']=1
   ['\\udb80\\udc85']=1
   ['\\udb82\\udc9c']=1
-  ['\\udb80\\udc91']=1
 )
+check "the retired md-battery_unknown surrogate pair is gone, not just unused" \
+  "$(grep -c '\\\\udb80\\\\udc91' "$widget_qml" || true)" "0"
 for esc in "${!expected_surrogate_counts[@]}"; do
   check "battery glyph surrogate pair $esc is present, not a raw pasted character" \
     "$(grep -c "\"$esc\"" "$widget_qml")" "${expected_surrogate_counts[$esc]}"

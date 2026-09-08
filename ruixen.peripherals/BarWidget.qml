@@ -134,18 +134,22 @@ BarWidget {
     "\udb80\udc7a", "\udb80\udc7b", "\udb80\udc7c", "\udb80\udc7d", "\udb80\udc7e",
     "\udb80\udc7f", "\udb80\udc80", "\udb80\udc81", "\udb80\udc82", "\udb80\udc79"
   ]
-  // md-battery_unknown -- shown for a device that isn't currently
-  // reporting a fresh reading (real, expected HID++ behavior confirmed
-  // live: capacity comes back empty between battery-report events even
-  // though the device is genuinely connected).
-  readonly property string unknownBatteryIcon: "\udb80\udc91"
-
   function batteryGlyph(device) {
     // Nothing selected yet -- generic plug, same as the old always-on
     // trigger icon, now just the empty/unselected state instead of the
     // only state.
     if (!device) return "\uf1e6"
-    if (!device.available) return root.unknownBatteryIcon
+    // No fresh reading (real, expected HID++ behavior confirmed live:
+    // capacity comes back empty between battery-report events even
+    // though the device is genuinely connected) -- direct follow-up
+    // after shipping the dedicated md-battery_unknown glyph here:
+    // "instead of like a battery with a question mark on it, looks
+    // confusing, maybe just put the icon like mouse or keyboard on it,
+    // these are like usb plugged stuff." The device's own kind icon
+    // (same one the dropdown list already uses) reads as "this is a
+    // mouse, no battery data right now" far more clearly than an
+    // ambiguous battery-with-a-question-mark would.
+    if (!device.available) return root.kindGlyph(device.kind)
     var index = Math.max(0, Math.min(9, Math.floor(device.level / 10)))
     return device.charging ? root.chargingIcons[index] : root.defaultIcons[index]
   }

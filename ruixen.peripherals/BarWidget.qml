@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -31,8 +32,40 @@ BarWidget {
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
-  readonly property var peripheralsService: bar?.shell?.firstPartyServiceFor("ruixen.peripherals")
-  readonly property var devices: peripheralsService ? peripheralsService.devices : []
+  // Reads Service.qml's own state file directly instead of
+  // bar.shell.firstPartyServiceFor("ruixen.peripherals") -- ruixen-shell
+  // issue #40/#38: Omarchy v4.0.3 restricts that call to a fixed 4-item
+  // allowlist of Omarchy's own services, which "ruixen.peripherals" was
+  // never going to be in regardless of caller. This widget is a
+  // separate QML instance from Service.qml (only ever handed whatever
+  // ruixen.bar's own ModuleSlot chooses to inject via `bar`, never a
+  // shell property of its own), so the two now share state through a
+  // plain file instead of an in-process object reference.
+  readonly property string stateHome: Quickshell.env("HOME")
+  readonly property string statePath: stateHome + "/.local/state/ruixen/peripherals-state.json"
+  property var devices: []
+  property string lastError: ""
+
+  FileView {
+    id: stateFile
+    path: root.statePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.applyState(text())
+    onLoadFailed: root.applyState("")
+  }
+
+  function applyState(raw) {
+    var parsed
+    try {
+      parsed = JSON.parse(String(raw || "").trim() || "{}")
+    } catch (e) {
+      parsed = {}
+    }
+    root.devices = Array.isArray(parsed.devices) ? parsed.devices : []
+    root.lastError = typeof parsed.lastError === "string" ? parsed.lastError : ""
+  }
 
   // Direct sibling keys on this widget's OWN shell.json layout entry
   // (id excluded) become `settings` -- see ruixen.bar/BarModel.js's own
@@ -255,9 +288,7 @@ BarWidget {
       visible: root.devices.length === 0
       anchors.centerIn: parent
       width: parent.width
-      text: root.peripheralsService && root.peripheralsService.lastError
-        ? root.peripheralsService.lastError
-        : "No wireless peripherals found"
+      text: root.lastError ? root.lastError : "No wireless peripherals found"
       color: Qt.darker(root.foreground, 1.4)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall

@@ -7,6 +7,18 @@ import Quickshell.Io
 // github.com/xgborgeso/omarchy-peripheral-batteries's own Service.qml (MIT
 // license) -- notification/threshold logic from that original was NOT
 // ported, see helper/status.py's own header comment for why.
+//
+// Also mirrors devices/lastError to a small state file
+// (~/.local/state/ruixen/peripherals-state.json) -- ruixen-shell issue
+// #40: Omarchy v4.0.3 restricts shell.firstPartyServiceFor() to a fixed
+// 4-item allowlist of Omarchy's own services, so BarWidget.qml (a
+// separate QML instance from this one, only ever handed whatever
+// ruixen.bar's own ModuleSlot chooses to inject, never a shell
+// property of its own) can no longer reach this service directly.
+// Write-only relay, not a real persisted store -- device state is
+// always freshly recomputed from live hardware on every poll, nothing
+// here is meant to survive a restart, so there is no matching load
+// path the way KanbanService.qml's own real persistence needs one.
 Item {
   id: root
 
@@ -15,6 +27,43 @@ Item {
   readonly property bool hasDevices: devices.length > 0
 
   readonly property int refreshIntervalSec: 30
+
+  readonly property string home: Quickshell.env("HOME")
+  readonly property string statePath: home + "/.local/state/ruixen/peripherals-state.json"
+
+  // Debounced the same way KanbanService.qml's own saves are -- applyStatus
+  // can update devices and lastError as two separate property writes for
+  // one poll result, and there is no reason to write the file twice for
+  // what is really one logical update.
+  Timer {
+    id: saveTimer
+    interval: 400
+    repeat: false
+    onTriggered: root.flushState()
+  }
+
+  function scheduleSave() { saveTimer.restart() }
+
+  function flushState() {
+    stateFile.setText(JSON.stringify({ devices: root.devices, lastError: root.lastError }) + "\n")
+  }
+
+  onDevicesChanged: scheduleSave()
+  onLastErrorChanged: scheduleSave()
+
+  FileView {
+    id: stateFile
+    path: root.statePath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
+  }
+
+  Process {
+    id: ensureDirProc
+    command: ["mkdir", "-p", root.home + "/.local/state/ruixen"]
+    running: false
+  }
 
   function helperScript() {
     var resolved = Qt.resolvedUrl("helper/status.py").toString()
@@ -43,7 +92,10 @@ Item {
     root.devices = parsed.devices
   }
 
-  Component.onCompleted: refresh()
+  Component.onCompleted: {
+    ensureDirProc.running = true
+    refresh()
+  }
 
   Timer {
     interval: Math.max(5, root.refreshIntervalSec) * 1000

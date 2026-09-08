@@ -226,6 +226,28 @@ check "manifest declares both service and bar-widget kinds" \
 check "manifest's bar-widget entry point is BarWidget.qml" \
   "$(grep -c '"barWidget": "BarWidget.qml"' "$manifest_json")" "1"
 
+# Issue #40/#38: Omarchy v4.0.3 restricts shell.firstPartyServiceFor() to a
+# fixed 4-item allowlist of Omarchy's own services -- "ruixen.peripherals"
+# was never going to be in it. BarWidget.qml now reads Service.qml's own
+# state file directly instead.
+service_qml="$repo_dir/ruixen.peripherals/Service.qml"
+# "1", not "0" -- the only surviving mention is this migration's own
+# explanatory comment (quoting the retired call for context), not a real
+# leftover call. bar?.shell?.firstPartyServiceFor(...) as an actual
+# invocation is gone.
+check "no leftover bar.shell.firstPartyServiceFor call in BarWidget.qml (one explanatory comment mention is expected)" \
+  "$(grep -c 'firstPartyServiceFor' "$widget_qml" || true)" "1"
+check "BarWidget.qml reads the shared peripherals state file" \
+  "$(grep -c 'peripherals-state\.json' "$widget_qml")" "1"
+check "BarWidget.qml watches the state file for live changes" \
+  "$(grep -c 'watchChanges: true' "$widget_qml")" "1"
+# "2" -- once in Service.qml's own header comment, once in the real
+# statePath property.
+check "Service.qml writes the same state file path BarWidget.qml reads" \
+  "$(grep -c 'peripherals-state\.json' "$service_qml")" "2"
+check "Service.qml's state file writer uses atomic writes" \
+  "$(grep -c 'atomicWrites: true' "$service_qml")" "1"
+
 # Single-selection redesign, direct follow-up: "the pin ability kinda
 # sucks... can we collapse it into this so the main icon shows the
 # battery icon always" -- one selectedId string (mutateShellConfig, same

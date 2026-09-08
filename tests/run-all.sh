@@ -34,6 +34,7 @@ suites=(
   "$script_dir/bar-right-side-groups.sh"
   "$script_dir/bar-docked-left-inset.sh"
   "$script_dir/pluginpins-model.sh"
+  "$script_dir/peripherals-status.sh"
   "$script_dir/notch-bar-hidden-sync.sh"
   "$script_dir/workspaces-pill-strict.sh"
   "$script_dir/bar-drag-protected-slots.sh"

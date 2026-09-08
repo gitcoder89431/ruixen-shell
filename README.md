@@ -25,6 +25,13 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
 - **`ruixen.pluginpins`** — a pin/unpin dropdown on the bar for any other
   installed bar-widget plugin (yours or a third party's) — install
   something new, pin it from here, no shell.json editing required.
+- **`ruixen.peripherals`** — battery percentage for wireless mice,
+  keyboards, headsets and controllers (Bluetooth and USB receivers alike),
+  pin the ones you care about to show inline on the bar. Detection reads
+  `/sys` directly rather than Quickshell's own Bluetooth/UPower bindings,
+  which don't reliably cover every wireless peripheral — ported from
+  [xgborgeso/omarchy-peripheral-batteries](https://github.com/xgborgeso/omarchy-peripheral-batteries)
+  (MIT license).
 - **Tray widgets** — `ruixen.tray`, `ruixen.stayawake`,
   `ruixen.quickactions`, `ruixen.weather`, `ruixen.applauncher`,
   `ruixen.settingsbutton`. `ruixen.stayawake` (and any stock Omarchy widget

@@ -227,7 +227,7 @@ jq -n \
   | ([
        { id: "ruixen.pinnedapps", section: "left", after: "ruixen.workspaces" },
        { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" },
-       { id: "ruixen.peripherals", section: "right", after: "ruixen.settingsbutton" }
+       { id: "ruixen.peripherals", section: "right", after: "omarchy.power" }
      ]) as $requiredStructural
   | (if ($migratedBar.layout | type) == "object" then
        reduce $requiredStructural[] as $req

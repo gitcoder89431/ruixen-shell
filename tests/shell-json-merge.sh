@@ -330,9 +330,9 @@ old_pre_peripherals='{
   "plugins": []
 }'
 out12="$(printf '%s' "$old_pre_peripherals" | "$build")"
-check "structural gap (peripherals): inserted right after ruixen.settingsbutton on the right" \
+check "structural gap (peripherals): inserted right after omarchy.power on the right" \
   "$(jq -c '.bar.layout.right' <<<"$out12")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"},{"id":"ruixen.peripherals"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"},{"id":"ruixen.peripherals"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]'
 check "structural gap (peripherals): pinnedapps/pluginpins already present are not touched or duplicated" \
   "$(jq -c '.bar.layout.left' <<<"$out12")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'

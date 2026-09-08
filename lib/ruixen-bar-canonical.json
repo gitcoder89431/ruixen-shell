@@ -25,9 +25,9 @@
             { "id": "ruixen.pluginpins" },
             { "id": "omarchy.system-update" },
             { "id": "omarchy.power" },
+            { "id": "ruixen.peripherals" },
             { "id": "ruixen.quickactions" },
-            { "id": "ruixen.settingsbutton" },
-            { "id": "ruixen.peripherals" }
+            { "id": "ruixen.settingsbutton" }
         ]
     }
 }

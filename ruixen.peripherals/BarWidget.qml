@@ -155,7 +155,7 @@ BarWidget {
     // alongside the smaller font -- "more compact" -- still comfortably
     // fits "100%" at the new size.
     slotSize: Style.bar.iconSlot * (root.selectedDevice && root.selectedDevice.available && !vertical ? 1.6 : 1)
-    tooltipText: root.selectedDevice ? root.selectedDevice.name : "Wireless peripherals -- pick one to show here"
+    tooltipText: root.selectedDevice ? root.selectedDevice.name : "Wireless peripherals"
     onPressed: function() { root.popupOpen = !root.popupOpen }
   }
 

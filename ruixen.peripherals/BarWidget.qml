@@ -200,6 +200,16 @@ BarWidget {
       color: mouse.containsMouse ? Style.hoverFillFor(root.foreground, root.foreground) : "transparent"
     }
 
+    // One slot, not two -- direct follow-up ("the popup is a bit too
+    // wide, instead of a column where theres a check that comes in, can
+    // we place the pin device with the check instead of the device
+    // icon on that row"): the device-kind icon and the "this one's
+    // selected" indicator share the same position now. Selected shows
+    // a check (U+F00C, accent-colored, same glyph ruixen.pluginpins'
+    // own checkGlyph already uses); everything else still shows its
+    // own kind icon. Removes the separate right-side check column
+    // entirely, narrowing the row by that column's own width.
+    readonly property bool isSelected: root.selectedId === rowRoot.device.id
     Text {
       id: glyph
       anchors.verticalCenter: parent.verticalCenter
@@ -207,8 +217,8 @@ BarWidget {
       anchors.leftMargin: Style.space(10)
       width: Style.space(16)
       horizontalAlignment: Text.AlignHCenter
-      text: root.kindGlyph(rowRoot.device.kind)
-      color: root.foreground
+      text: rowRoot.isSelected ? "\uf00c" : root.kindGlyph(rowRoot.device.kind)
+      color: rowRoot.isSelected ? Color.accent : root.foreground
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
     }
@@ -229,32 +239,14 @@ BarWidget {
     Text {
       id: percent
       anchors.verticalCenter: parent.verticalCenter
-      anchors.right: checkGlyph.left
-      anchors.rightMargin: Style.space(8)
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(10)
       width: Style.space(28)
       horizontalAlignment: Text.AlignRight
       text: root.percentText(rowRoot.device)
       color: root.percentColor(rowRoot.device)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
-    }
-
-    // Check ("check", U+F00C) when this row is the selected device --
-    // same slot/position/glyph convention as ruixen.pluginpins' own
-    // checkGlyph, swapped in for the old star now that this is a single
-    // choice, not a multi-pin list.
-    Text {
-      id: checkGlyph
-      visible: root.selectedId === rowRoot.device.id
-      anchors.verticalCenter: parent.verticalCenter
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(10)
-      width: Style.space(16)
-      horizontalAlignment: Text.AlignHCenter
-      text: "\uf00c"
-      color: Color.accent
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.body
     }
 
     MouseArea {
@@ -272,7 +264,10 @@ BarWidget {
     owner: root
     bar: root.bar
     open: root.popupOpen
-    contentWidth: popup.fittedContentWidth(Style.space(240))
+    // Narrowed from 240 -- removing the separate check column (merged
+    // into the device-kind icon slot, see DeviceRow's own comment)
+    // freed up a whole column's worth of width.
+    contentWidth: popup.fittedContentWidth(Style.space(210))
     contentHeight: popup.fittedContentHeight(column.implicitHeight, Style.space(360))
 
     // Escape to dismiss, matching every other PopupCard in this repo.

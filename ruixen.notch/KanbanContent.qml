@@ -26,57 +26,120 @@ Item {
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
 
-  // Direct request: the column panel itself reads as a grey tonal
-  // surface (same translucent-white fill this plugin already uses for
-  // dial backgrounds/toggle tracks), with the cards inside it as
-  // black-on-white-text instead -- swapped from the first pass, which
-  // had this inverted (black panel, grey cards). Matches the
-  // notification history cards' own black/white contrast for the same
-  // reason: better readability.
-  component KanbanColumn: Rectangle {
+  // Exposes the outer columnsRow's own measured width to KanbanColumn
+  // (an inline `component`, so it cannot see a sibling id the way a
+  // plain nested object could -- only this document's own root id is
+  // reachable from inside it, same as every root.textColor/root.muted/
+  // etc reference already relies on elsewhere in this file).
+  property alias columnsRowWidth: columnsRow.width
+  property alias columnsRowSpacing: columnsRow.spacing
+
+  // In Progress reading wider than Todo/Done started as an accidental
+  // side effect of switching the column wrapper to a ColumnLayout (see
+  // KanbanColumn's own comment) -- direct follow-up once seen live: "i
+  // kinda like it, makes it the focus, but make sure the code is
+  // proper though." Made deliberate here: an explicit weight keyed off
+  // each column's stable id, not its label (a column's label is
+  // CLI/agent-renamable via kanbanRenameColumn and must never be able
+  // to shift the layout just by being long or short). 1.8 reproduces
+  // roughly the same proportions the accidental version happened to
+  // land on (measured live: ~198px/365px/198px), just as an intentional
+  // number instead of a coincidence of "In Progress" being a longer
+  // string than "Todo"/"Done".
+  function columnWidthWeight(columnId) {
+    return columnId === "in-progress" ? 1.8 : 1
+  }
+  // Fixed 3-column board (see KanbanModel.js's own COLUMN_IDS comment:
+  // "Deliberately fixed at exactly 3 columns, not a dynamic N-column"),
+  // so the total weight is a constant, not something summed at
+  // runtime over a variable column list.
+  readonly property real totalColumnWeight: 1 + 1.8 + 1
+
+  // Direct follow-up ("separate the header row... outside of the
+  // panel? kinda feature it more"), matching Material 3's own pattern
+  // of a section title sitting above its content surface rather than
+  // baked into it. The column is now a two-piece ColumnLayout: a plain
+  // header row directly on the notch background (no fill/radius -- it
+  // is not itself a surface), then the tonal panel below holding only
+  // the card area. Left/right Layout margins on the header mirror the
+  // panel's own anchors.margins: 10 so the label lines up with the
+  // card edges it is labeling, even though it is no longer a child of
+  // that panel.
+  component KanbanColumn: ColumnLayout {
     id: columnRoot
     required property var modelData
     readonly property string columnId: modelData.id
     readonly property var columnCards: root.kanbanService ? root.kanbanService.cardsInColumn(columnId) : []
 
+    readonly property real widthWeight: root.columnWidthWeight(columnRoot.columnId)
+
     Layout.fillWidth: true
     Layout.fillHeight: true
-    radius: 10
-    // No border -- a tonal panel like this floats on its own fill,
-    // per direct request ("we dont need thick borders on the panel
-    // they float").
-    color: Qt.rgba(1, 1, 1, 0.06)
+    // A ColumnLayout auto-computes its own implicitWidth from its
+    // children, unlike the plain Rectangle this used to be -- left
+    // alone, the header's own natural text width (whichever label is
+    // longest) would leak in as this column's Layout.preferredWidth
+    // default (Qt Quick Layouts uses implicitWidth as that fallback),
+    // and fillWidth only ever adds an equal slice of LEFTOVER space on
+    // top of each column's own, already-unequal, natural size -- it
+    // never rebalances the base allocation itself. That was the actual
+    // bug the first two attempts here got wrong: Layout.minimumWidth
+    // only matters when shrinking under space pressure (there was
+    // none, so it changed nothing), and a blanket Layout.preferredWidth:
+    // 0 does force genuinely equal thirds, but overwrote the very
+    // emphasis on In Progress that turned out to be wanted once seen
+    // live. Binding preferredWidth explicitly to this column's own
+    // weight (see root.columnWidthWeight) replaces both -- the ratio is
+    // now a deliberate constant instead of an emergent side effect of
+    // whatever text happens to be in the header, and it sums to
+    // exactly the available width, leaving fillWidth nothing ambiguous
+    // to distribute.
+    Layout.minimumWidth: 0
+    Layout.preferredWidth: root.columnsRowWidth > 0
+      ? (root.columnsRowWidth - 2 * root.columnsRowSpacing) * columnRoot.widthWeight / root.totalColumnWeight
+      : 0
+    spacing: 8
 
-    ColumnLayout {
-      anchors.fill: parent
-      anchors.margins: 10
-      spacing: 8
+    // Header -- read-only. Renaming a column is CLI/agent-only
+    // (kanbanRenameColumn), per direct request ("i rather do it from
+    // cli or tui tbh") -- no in-panel typing at all, not just for
+    // adding cards.
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.leftMargin: 10
+      Layout.rightMargin: 10
+      spacing: 6
 
-      // Header -- read-only. Renaming a column is CLI/agent-only
-      // (kanbanRenameColumn), per direct request ("i rather do it from
-      // cli or tui tbh") -- no in-panel typing at all, not just for
-      // adding cards.
-      RowLayout {
+      Text {
         Layout.fillWidth: true
-        spacing: 6
-
-        Text {
-          Layout.fillWidth: true
-          text: columnRoot.modelData.label
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          font.bold: true
-          elide: Text.ElideRight
-        }
-
-        Text {
-          text: String(columnRoot.columnCards.length)
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 10
-        }
+        text: columnRoot.modelData.label
+        color: root.textColor
+        font.family: root.fontFamily
+        // A size step up from the old in-panel version (12 -> 13) --
+        // now that it reads as its own section title instead of a row
+        // inside the card surface, it earns a little more presence.
+        font.pixelSize: 13
+        font.bold: true
+        elide: Text.ElideRight
       }
+
+      Text {
+        text: String(columnRoot.columnCards.length)
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 10
+      }
+    }
+
+    // The panel itself is now just the card surface -- same tonal fill
+    // and no-border floating look as before, just without the header
+    // baked in. Direct request, unchanged from the original panel:
+    // "we dont need thick borders on the panel they float".
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      radius: 10
+      color: Qt.rgba(1, 1, 1, 0.06)
 
       // Cards -- oldest first (KanbanService.cardsInColumn's own
       // order). No drag-and-drop: the manual path is the arrow pair
@@ -91,8 +154,8 @@ Item {
       // of the column, not centered in the available height). Direct
       // follow-up: "the empty text are center but not middle".
       Item {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
+        anchors.fill: parent
+        anchors.margins: 10
 
         Text {
           visible: columnRoot.columnCards.length === 0
@@ -229,16 +292,17 @@ Item {
         }
       }
       }
-
-      // No in-panel "add card"/rename input -- CLI/agent-only for any
-      // text entry (kanbanAddCard/kanbanRenameColumn), per direct
-      // request ("i rather do it from cli or tui tbh"). Advancing,
-      // regressing, and removing a card stay mouse-driven here since
-      // those are plain clicks, not typing.
     }
+
+    // No in-panel "add card"/rename input -- CLI/agent-only for any
+    // text entry (kanbanAddCard/kanbanRenameColumn), per direct
+    // request ("i rather do it from cli or tui tbh"). Advancing,
+    // regressing, and removing a card stay mouse-driven here since
+    // those are plain clicks, not typing.
   }
 
   RowLayout {
+    id: columnsRow
     anchors.fill: parent
     // Extra clearance on the right -- direct report ("thrid panel
     // sits too close to edge"), confirmed live: the Done column's own

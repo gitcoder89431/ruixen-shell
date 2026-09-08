@@ -7,22 +7,21 @@ import Quickshell.Widgets
 
 // Real "Metrics" dashboard tab, replacing the "coming soon" stub.
 // Left panel only for this pass -- per direct request, focus there
-// first, the right side (ambxst's own historical usage line chart)
-// becomes a grid of per-resource stat tiles in a follow-up, not a
-// chart port.
+// first, the right side (a historical usage line chart, the kind of
+// thing other Omarchy Quickshell shells' own metrics panels show)
+// becomes a grid of per-resource stat tiles in a follow-up instead.
 //
-// Left panel structure ported from ambxst's real MetricsTab.qml
-// (avatar + 3 identity rows, a section-header separator, a scrollable
-// resource list below it) but with the identity rows repurposed per
-// direct request: row 1 stays Username (same as ambxst, real $USER),
-// row 2 keeps ambxst's own "@" prefix but swaps hostname for the
-// machine's real hardware/PC name, row 3 swaps the Linux distro name
-// for the actual Omarchy version string ("Omarchy 4.0.0-1"). The
-// section header itself becomes "CPUs" (was "System"), and holds a
-// live per-core usage list instead of ambxst's mixed CPU/RAM/GPU/Disk
-// list -- "we can get this from fastfetch" for the identity fields,
-// confirmed fastfetch (`--format json -s Host:CPU`) gives exactly the
-// hardware name and CPU model needed, not guessed.
+// Left panel: avatar + 3 identity rows, a section-header separator, a
+// scrollable resource list below it -- a layout shape common to this
+// kind of system-info panel, repurposed here per direct request: row 1
+// is Username (real $USER), row 2 is an "@" prefix plus the machine's
+// real hardware/PC name, row 3 swaps the Linux distro name for the
+// actual Omarchy version string ("Omarchy 4.0.0-1"). The section
+// header itself is "CPUs" (was "System"), and holds a live per-core
+// usage list instead of a mixed CPU/RAM/GPU/Disk list -- "we can get
+// this from fastfetch" for the identity fields, confirmed fastfetch
+// (`--format json -s Host:CPU`) gives exactly the hardware name and
+// CPU model needed, not guessed.
 //
 // Per-core rows were briefly swapped out for a GPU row (both didn't
 // fit the original plan), then restored -- per direct correction:
@@ -52,8 +51,7 @@ Item {
   // collapsed row's own UserAvatar already could).
   property int avatarCacheBust: 0
 
-  // Real $USER, no process needed -- same source ambxst's own
-  // username row reads (Quickshell.env("USER")).
+  // Real $USER, no process needed -- Quickshell.env("USER") directly.
   readonly property string username: {
     var u = Quickshell.env("USER") || "user"
     return u.charAt(0).toUpperCase() + u.slice(1)
@@ -910,10 +908,9 @@ Item {
       // exact ring/tip math from DashboardContent.qml's own Dial
       // component (the speaker/mic volume dials) rather than inventing
       // a new circular gauge -- same 270deg sweep with a 45deg gap at
-      // the bottom (ambxst's own CircularControl.qml proportions),
-      // same handleSpacing-based gap-before-the-tip math, same thick
-      // white tip. Read-only here (no click/mute signal, nothing to
-      // toggle for a CPU/GPU usage reading), and adds the actual
+      // the bottom, same handleSpacing-based gap-before-the-tip math,
+      // same thick white tip. Read-only here (no click/mute signal,
+      // nothing to toggle for a CPU/GPU usage reading), and adds the actual
       // percentage as text since a stats tile needs the exact number,
       // not just the ring's fill level the way a volume control does.
       component DialTile: Rectangle {

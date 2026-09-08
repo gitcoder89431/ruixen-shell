@@ -289,6 +289,12 @@ restore.sh`) run against a throwaway fake `$HOME`/directory tree, never
 your real config, so they're safe to run anywhere including this repo's
 own checkout.
 
+## Credits
+
+- **[Omarchy](https://omarchy.org)** ([github.com/basecamp/omarchy](https://github.com/basecamp/omarchy)) — the Arch/Hyprland desktop this whole project is built on top of. `omarchy-shell`, Omarchy's own Quickshell-based bar/notch/notification runtime, is what every plugin here actually loads into.
+- **[Ambxst](https://github.com/Axenide/Ambxst)** (by Axenide) — UI/UX design inspiration for several `ruixen.notch` panels (the dashboard layout, calendar, metrics page, wallpapers picker). Ambxst's own code is AGPL-3.0 licensed; ruixen-shell's implementations are written independently, not derived from its source.
+- **[xgborgeso/omarchy-peripheral-batteries](https://github.com/xgborgeso/omarchy-peripheral-batteries)** (MIT) — `ruixen.peripherals`'s detection logic is ported from this project (see above, and the plugin's own source header for the full attribution).
+
 ## License
 
 Released under the [MIT License](LICENSE).

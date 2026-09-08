@@ -7,27 +7,22 @@ import Quickshell.Wayland
 import Quickshell.Widgets
 import qs.Commons
 
-// Shape ported pixel-for-pixel from
-// ~/REPOS/PLUGINS/quickshell-ambxst/modules/notch/Notch.qml +
-// modules/corners/RoundCorner.qml (see the long comment this used to have
-// -- unchanged, still applies). This pass ports the DEFAULT VIEW's actual
-// widget design too (modules/widgets/defaultview/*.qml): avatar | divider
-// | wavy player | divider | bell, matching their mainRow layout. Still
-// design-first, not full backend -- bell is a static placeholder (no
-// notification service wired up), avatar reads the same ~/.face.icon
-// convention they use, wave slider shows real position/length but isn't
-// drag-to-seek yet.
+// A dynamic-island-style notch: a small pill that expands into a wider
+// panel, informed by looking at how other Omarchy Quickshell shells
+// structure a similar always-on-top notch overlay. The collapsed
+// DEFAULT VIEW's own widget row -- avatar | divider | wavy player |
+// divider | bell -- is this file's own layout, not full backend: bell
+// is a static placeholder (no notification service wired up), avatar
+// reads the standard ~/.face.icon convention, wave slider shows real
+// position/length but isn't drag-to-seek yet.
 //
-// The wave itself is WavyLine.qml ported verbatim (modules/components/
-// WavyLine.qml) -- a Canvas drawing a sine wave whose phase increments
-// off Date.now(), driven by FrameAnimation while playing. Genuinely
-// self-contained, no shader/effect dependency.
+// The wave itself is WavyLine (see its own component comment below) --
+// a Canvas drawing a continuous sine wave, driven by FrameAnimation
+// while playing. Genuinely self-contained, no shader/effect dependency.
 //
-// Icons: ambxst uses a "Phosphor-Bold" icon font for its player controls
-// and Material Symbols codepoints for source-app icons (Spotify/Firefox/
-// etc via Nerd Font). Phosphor isn't installed here, so kept the same
-// Nerd Font glyphs already proven working in ruixen.media/ruixen.dnd
-// instead of pulling in a new font dependency for this pass.
+// Icons: Nerd Font glyphs, already proven working in ruixen.media/
+// ruixen.dnd, rather than pulling in a new icon font dependency for
+// this pass.
 Item {
   id: root
   property var shell: null
@@ -206,11 +201,11 @@ Item {
   // non-empty", not whether there's actually anything playing.
   readonly property string artUrl: hasMedia && activePlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
 
-  // ambxst falls back to the focused window's title, then "user@host",
-  // rather than ever showing a blank "no media" state. We don't have a
-  // compositor-window-title service wired up (that's ruixen.bar's own
-  // ActiveWindow territory, unrelated to this plugin), so fall back
-  // straight to user@host for now.
+  // Never leave a blank "no media" state -- fall back to something
+  // always available instead. A compositor-window-title fallback would
+  // read nicer, but that's ruixen.bar's own ActiveWindow territory,
+  // unrelated to this plugin, so this falls back straight to
+  // user@host for now.
   readonly property string userHost: Quickshell.env("USER") + "@" + Quickshell.env("HOSTNAME")
   readonly property string displayedTitle: hasMedia
     ? (artist ? artist + " - " + title : title)
@@ -279,10 +274,16 @@ Item {
   }
 
   // Quarter-circle silhouette, one corner at a time -- used as mask
-  // material for the concave flanks. Ported verbatim from RoundCorner.qml.
+  // material for the concave flanks. Same data-driven shape as
+  // ruixen.bar/Bar.qml's own RoundCorner (see its comment for the
+  // geometry explanation) -- a quarter-circle arc of radius
+  // `cornerSize`, centered on the box's diagonally opposite corner,
+  // closed off by a line back to this wedge's own sharp corner. Keyed
+  // by an int here (0 TopLeft, 1 TopRight, 2 BottomLeft, 3
+  // BottomRight) instead of a string, matching how this copy's own
+  // callers already pass `corner` as a plain int.
   component RoundCorner: Item {
     id: rc
-    // 0 TopLeft, 1 TopRight, 2 BottomLeft, 3 BottomRight
     property int corner: 0
     property int cornerSize: 20
     property color fillColor: "#ffffff"
@@ -295,21 +296,27 @@ Item {
     onCornerSizeChanged: canvas.requestPaint()
     onVisibleChanged: if (visible) canvas.requestPaint()
 
+    readonly property var cornerGeometry: ([
+      { centerX: 1, centerY: 1, startAngle: Math.PI, endAngle: 1.5 * Math.PI, pointX: 0, pointY: 0 },
+      { centerX: 0, centerY: 1, startAngle: 1.5 * Math.PI, endAngle: 2 * Math.PI, pointX: 1, pointY: 0 },
+      { centerX: 1, centerY: 0, startAngle: 0.5 * Math.PI, endAngle: Math.PI, pointX: 0, pointY: 1 },
+      { centerX: 0, centerY: 0, startAngle: 0, endAngle: 0.5 * Math.PI, pointX: 1, pointY: 1 }
+    ])
+
     Canvas {
       id: canvas
       anchors.fill: parent
       antialiasing: true
       onPaint: {
         var ctx = getContext("2d")
-        var r = rc.cornerSize
+        var size = rc.cornerSize
+        var g = rc.cornerGeometry[rc.corner]
         ctx.clearRect(0, 0, width, height)
+        if (!g) return
+
         ctx.beginPath()
-        switch (rc.corner) {
-          case 0: ctx.arc(r, r, r, Math.PI, 3 * Math.PI / 2); ctx.lineTo(0, 0); break
-          case 1: ctx.arc(0, r, r, 3 * Math.PI / 2, 2 * Math.PI); ctx.lineTo(r, 0); break
-          case 2: ctx.arc(r, 0, r, Math.PI / 2, Math.PI); ctx.lineTo(0, r); break
-          case 3: ctx.arc(0, 0, r, 0, Math.PI / 2); ctx.lineTo(r, r); break
-        }
+        ctx.arc(g.centerX * size, g.centerY * size, size, g.startAngle, g.endAngle)
+        ctx.lineTo(g.pointX * size, g.pointY * size)
         ctx.closePath()
         ctx.fillStyle = rc.fillColor
         ctx.fill()
@@ -317,46 +324,75 @@ Item {
     }
   }
 
-  // Ported verbatim from WavyLine.qml. The actual "wave" -- a sine wave
-  // whose phase increments off Date.now(), so it undulates continuously
-  // while `running`, redrawn every frame via FrameAnimation.
+  // A continuous sine-wave line, in the spirit of Material 3
+  // Expressive's own wavy active-indicator pattern (amplitude +
+  // wavelength describing the wave, animated by a looping phase
+  // offset) -- written independently against that public design
+  // language rather than ported from any one project's own
+  // implementation. Parametrized directly in physical terms
+  // (wavelengthPx: the px distance between crests) instead of a raw
+  // cycle count relative to some separately-tracked reference length,
+  // which also removes the need for a second "what is this frequency
+  // relative to" property entirely -- the wave's spatial density no
+  // longer depends on the canvas's own current width at all, so it
+  // stays visually consistent even while that width is animating (see
+  // the caller below, where the visible portion shrinks/grows as
+  // playback progresses).
+  //
+  // Phase advances from an accumulated elapsed-time counter
+  // (FrameAnimation's own per-frame frameTime, in seconds) rather than
+  // dividing a raw Date.now() timestamp -- avoids the wave's motion
+  // silently losing precision from an ever-growing epoch value over a
+  // long-running session, and reads as "speed in radians/second"
+  // directly instead of an opaque magic divisor.
   component WavyLine: Canvas {
     id: wave
     property color lineColor: "#ffffff"
     property real lineWidth: 2
-    property real frequency: 2
-    property real amplitudeMultiplier: 0.5
-    property real fullLength: width
+    property real wavelengthPx: 24
+    property real amplitudeRatio: 0.5
     property bool running: true
+    // Radians/second -- 2.5 matches the undulation speed the previous
+    // Date.now()/400 divisor gave (1000ms / 400 = 2.5 rad/s).
+    property real phaseSpeed: 2.5
 
     readonly property bool shouldAnimate: running && visible && width > 0 && opacity > 0
+    property real phase: 0
 
     onPaint: {
       var ctx = getContext("2d")
       ctx.clearRect(0, 0, width, height)
-      if (width <= 0 || height <= 0) return
+      if (width <= 0 || height <= 0 || wave.wavelengthPx <= 0) return
 
-      var amp = wave.lineWidth * wave.amplitudeMultiplier
-      var freq = wave.frequency
-      var phase = Date.now() / 400.0
+      var amplitude = wave.lineWidth * wave.amplitudeRatio
+      var angularStep = (2 * Math.PI) / wave.wavelengthPx
       var centerY = height / 2
+      var halfStroke = wave.lineWidth / 2
 
       ctx.strokeStyle = wave.lineColor
       ctx.lineWidth = wave.lineWidth
       ctx.lineCap = "round"
       ctx.beginPath()
 
-      for (var x = ctx.lineWidth / 2; x <= wave.width - ctx.lineWidth / 2; x += 1) {
-        var waveY = centerY + amp * Math.sin(freq * 2 * Math.PI * x / wave.fullLength + phase)
-        if (x === ctx.lineWidth / 2) ctx.moveTo(x, waveY)
-        else ctx.lineTo(x, waveY)
+      var drawnFirstPoint = false
+      for (var x = halfStroke; x <= wave.width - halfStroke; x += 1) {
+        var y = centerY + amplitude * Math.sin(angularStep * x + wave.phase)
+        if (!drawnFirstPoint) {
+          ctx.moveTo(x, y)
+          drawnFirstPoint = true
+        } else {
+          ctx.lineTo(x, y)
+        }
       }
       ctx.stroke()
     }
 
     FrameAnimation {
       running: wave.shouldAnimate
-      onTriggered: wave.requestPaint()
+      onTriggered: {
+        wave.phase += wave.phaseSpeed * frameTime
+        wave.requestPaint()
+      }
     }
   }
 
@@ -479,11 +515,10 @@ Item {
     opacity: 0.1
   }
 
-  // Left-side vertical tab-bar button, matching ambxst's Dashboard.qml
-  // tabsContainer icon buttons (Widgets/Wallpapers/Metrics stacked, plus
-  // a settings gear pinned at the bottom). Just a plain icon + tonal
-  // hover/active background, no ambxst StyledRect dependency, same
-  // approach as every other component ported into this file.
+  // Left-side vertical tab-bar button (Widgets/Wallpapers/Metrics
+  // stacked, plus a settings gear pinned at the bottom). Just a plain
+  // icon + tonal hover/active background, no external styling
+  // dependency, same approach as every other component in this file.
   component TabButton: Rectangle {
     id: tabBtn
     property string glyph: ""
@@ -780,11 +815,10 @@ Item {
           event.accepted = true
         }
       }
-      // Ambxst derives its own notch corner geometry from its window
-      // rounding config (roundness=16 default): cornerSize=roundness+4,
-      // collapsed radius=roundness+4, expanded radius=roundness+20. Our
-      // frame/Hyprland rounding is 24, not 16 -- same formula, our own
-      // rounding: cornerSize=28, collapsed radius=28 (see centerMask
+      // Notch corner geometry derived from this machine's own window
+      // rounding (Hyprland rounding=24), not a flat guess:
+      // cornerSize=roundness+4, collapsed radius=roundness+4, expanded
+      // radius=roundness+20 -- cornerSize=28, collapsed radius=28 (see centerMask
       // below), expanded radius=44.
       //
       // Mirrored in this same plugin's own NotchGeometry.qml service
@@ -792,24 +826,23 @@ Item {
       // this value, change that one too. See that file's own comment
       // for why it can't just read this property live instead.
       readonly property int cornerSize: 28
-      // Collapsed width trimmed from ambxst's own 290 (matched to their
-      // actual DefaultView.qml row) -- our actual content (avatar +
-      // divider + play glyph/wave + divider + bell) is narrower than
-      // theirs, so 290 left a big empty gap between the avatar/bell and
-      // the notch's own curved edges. First attempt went to 240, but
-      // collapsedContent's real parent is a clip:true Item sized to
-      // exactly bodyWidth (see below) -- content measures ~236-240px
-      // wide (avatar 20 + 2 dividers + wave-track 140 + play glyph +
-      // bell + Row spacing), landing right at that clip edge and cutting
-      // the bell off. 260 gives real margin instead of a knife's-edge
-      // fit. Expanded width (420) is unrelated -- ambxst's
-      // notificationMinWidth target, still fits our own expanded content.
-      // Media hover/pin now tries ambxst's own real dashboard size
-      // (DashboardView.qml: implicitWidth 900, implicitHeight 56+48*6 =
-      // 344) instead of reusing the smaller 420x190 -- untested territory
-      // for this notch (only 44 and 190 are proven safe against the
-      // masking bug below), so watch for the same flat-bottom-corner
-      // symptom if this doesn't pan out.
+      // Collapsed width trimmed down from an initial 290 -- this row's
+      // actual content (avatar + divider + play glyph/wave + divider +
+      // bell) is narrower than that, so 290 left a big empty gap
+      // between the avatar/bell and the notch's own curved edges. First
+      // attempt went to 240, but collapsedContent's real parent is a
+      // clip:true Item sized to exactly bodyWidth (see below) --
+      // content measures ~236-240px wide (avatar 20 + 2 dividers +
+      // wave-track 140 + play glyph + bell + Row spacing), landing
+      // right at that clip edge and cutting the bell off. 260 gives
+      // real margin instead of a knife's-edge fit. Expanded width (420)
+      // still fits this notch's own expanded content comfortably.
+      // Media hover/pin tries a real dashboard-sized target (implicitWidth
+      // 900, implicitHeight 56+48*6 = 344) instead of reusing the
+      // smaller 420x190 -- untested territory for this notch (only 44
+      // and 190 are proven safe against the masking bug below), so
+      // watch for the same flat-bottom-corner symptom if this doesn't
+      // pan out.
       //
       // launcherOpen deliberately does NOT follow this -- it keeps its
       // own separate 420x190 branch, proven safe, since an earlier
@@ -833,12 +866,12 @@ Item {
       // reflected there -- see that file's own comment for why.
       readonly property int bodyWidth: panel.launcherOpen ? 420 : (panel.pinnedOpen ? 900 : 284)
       width: bodyWidth + cornerSize * 2
-      // Full ambxst parity (44px collapsed) -- ruixen-bar's own reserved
-      // screen zone (notchClearance) was bumped to cover this plus a
-      // buffer, so it no longer overlaps tiled windows the way it did
-      // when this was smaller but the reserved zone was still just
-      // barSize-sized. Dashboard height bumped past ambxst's own 344 to
-      // 400 per direct feedback ("a bit too short") -- past the
+      // 44px collapsed -- ruixen-bar's own reserved screen zone
+      // (notchClearance) was bumped to cover this plus a buffer, so it
+      // no longer overlaps tiled windows the way it did when this was
+      // smaller but the reserved zone was still just barSize-sized.
+      // Dashboard height bumped past the initial 344 to 400 per direct
+      // feedback ("a bit too short") -- past the
       // previously-tested-safe value, so stress-tested 3x (open/close
       // cycles, checking the bottom-corner mask each time) before
       // keeping it. Collapsed case (44) mirrored in this same plugin's
@@ -1041,9 +1074,9 @@ Item {
                 text: root.playIcon
                 color: root.textColor
                 font.family: root.fontFamily
-                // Matches the bar's new icon standard (18px, tuned to
-                // ambxst's own bar-icon size) -- was 11, visibly undersized
-                // next to the 20px avatar in this same row.
+                // Matches the bar's own icon standard (18px) -- was 11,
+                // visibly undersized next to the 20px avatar in this
+                // same row.
                 font.pixelSize: 18
 
                 // Own click target, same pattern as the avatar/bell now
@@ -1131,9 +1164,13 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 lineColor: root.hasMedia ? root.accent : root.muted
                 lineWidth: 4
-                frequency: 6
-                amplitudeMultiplier: root.isPlaying ? 1.4 : 0.15
-                fullLength: 140
+                // 140/6 preserves the same wave density the old
+                // frequency: 6 (cycles across a fixed 140px reference)
+                // gave -- expressed directly as a physical wavelength
+                // now, so it no longer needs that separate reference
+                // length property at all.
+                wavelengthPx: 140 / 6
+                amplitudeRatio: root.isPlaying ? 1.4 : 0.15
                 running: root.isPlaying
               }
 
@@ -1220,10 +1257,10 @@ Item {
         // Expanded: blurred-art thumbnail, title/artist, big wave
         // progress, transport controls.
         // Expanded: dashboard content (player + quick controls/calendar +
-        // notifications + volume dials), ported from ambxst's
-        // WidgetsTab.qml -- see DashboardContent.qml for the full
-        // breakdown. Media data/colors passed through from the same
-        // root-level properties the collapsed view already reads.
+        // notifications + volume dials) -- see DashboardContent.qml
+        // for the full breakdown. Media data/colors passed through
+        // from the same root-level properties the collapsed view
+        // already reads.
         Item {
           id: expandedContent
           visible: panel.expanded && !panel.launcherOpen
@@ -1237,13 +1274,12 @@ Item {
 
           RowLayout {
             anchors.fill: parent
-            // 8px, matching ambxst's own mainLayout Row spacing (Dashboard.qml)
-            // -- we were at 10, a bit looser than their real rhythm.
+            // 8px -- tightened from 10, a bit looser than this row's
+            // own rhythm otherwise.
             spacing: 8
 
-            // Left vertical tab bar -- ambxst's Dashboard.qml
-            // tabsContainer: Widgets/Wallpapers/Metrics stacked icon
-            // buttons, settings gear pinned at the bottom via a
+            // Left vertical tab bar: Widgets/Wallpapers/Metrics stacked
+            // icon buttons, settings gear pinned at the bottom via a
             // fillHeight spacer above it. All three are real now (see
             // WallpapersContent.qml/MetricsContent.qml) -- Metrics'
             // own right-side stat tiles are still a stub within that

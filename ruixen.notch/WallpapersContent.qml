@@ -139,10 +139,9 @@ Item {
   readonly property int gifCount: wallpaperPaths.filter(function(e) { return e.kind === "gif" }).length
 
   // Filename substring match against the REAL path (the video's own
-  // filename, not its poster's hashed cache name) -- same logic as
-  // ambxst's own WallpapersTab filteredWallpapers (ported the rule,
-  // not the file -- their version is bound up with per-screen/OLED/
-  // tint/scheme state this notch doesn't have). kindFilter narrows
+  // filename, not its poster's hashed cache name) -- a plain
+  // independent filter, deliberately not carrying any per-screen/OLED/
+  // tint/scheme state this notch doesn't have. kindFilter narrows
   // first, search narrows further -- either or both can be active.
   readonly property var filteredPaths: {
     var result = kindFilter === "all" ? wallpaperPaths : wallpaperPaths.filter(function(e) { return e.kind === kindFilter })
@@ -501,12 +500,10 @@ Item {
       onMovementStarted: root.loadGate = root.wallpaperPaths.length
 
       // Structural rewrite per direct correction: the previous pass
-      // copied ambxst's frame APPEARANCE without their actual
-      // rendering structure. Ambxst never animates a border on the
-      // image container itself -- the wallpaper image stays
-      // geometrically static, and a separate highlight overlay
-      // draws above it. Copying the frame onto the SAME
-      // ClippingRectangle that holds the image (animated
+      // put the hover frame's APPEARANCE on the same element that
+      // holds the image, without keeping the image container itself
+      // geometrically static. Animating a border directly on the
+      // SAME ClippingRectangle that holds the image (animated
       // border.width, a permanent Image margin, an idle
       // Behavior-driven fill color) is what caused the reported
       // zoom/flash/lingering-fade symptoms -- each one traced back
@@ -627,12 +624,9 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
             // "CURRENT" in the theme's own accent color for the
-            // actually-active wallpaper, matching ambxst's real
-            // treatment (their isCurrentWallpaper label swaps to
-            // Styling.srItem("overprimary") the same way) -- plain
-            // filename otherwise, real's own (the video's real
-            // filename for a video entry, not its poster's hashed
-            // cache name).
+            // actually-active wallpaper -- plain filename otherwise,
+            // real's own (the video's real filename for a video
+            // entry, not its poster's hashed cache name).
             text: tile.active ? "CURRENT" : tile.modelData.real.substring(tile.modelData.real.lastIndexOf("/") + 1)
             color: tile.active ? root.accent : root.textColor
             font.family: root.fontFamily

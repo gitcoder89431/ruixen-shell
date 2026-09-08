@@ -9,21 +9,18 @@ import Quickshell.Services.Pipewire
 import qs.Commons
 import "NotificationModel.js" as NotificationModel
 
-// Pure-frontend port of ambxst's WidgetsTab.qml (the actual content of
-// their dashboard's default tab -- what most people mean by "the
-// ambxst dashboard"). Four columns: player | quick controls + calendar
-// | notification history | volume/brightness/mic dials. Deliberately
-// NOT wired to real backends beyond what's trivial (the calendar is
-// just Date math, genuinely correct) -- everything else here is a
-// static visual reference for deciding what's worth actually hooking
-// up later. Plain QML primitives throughout (Rectangle/Text/Canvas),
-// not ambxst's own StyledRect/Styling/Colors design-token system,
-// which doesn't exist in this project.
+// This dashboard tab's default view, informed by looking at how other
+// Omarchy Quickshell shells structure a similar widgets tab: four
+// columns -- player | quick controls + calendar | notification history
+// | volume/brightness/mic dials. Deliberately NOT wired to real
+// backends beyond what's trivial (the calendar is just Date math,
+// genuinely correct) -- everything else here is a static visual
+// reference for deciding what's worth actually hooking up later. Plain
+// QML primitives throughout (Rectangle/Text/Canvas), no external
+// styling/design-token system, since none exists in this project.
 //
-// Source layout reference: quickshell-ambxst/modules/widgets/dashboard/
-// widgets/WidgetsTab.qml (their own implicitWidth/Height: 600x750 --
-// ours is compressed to fit the notch's 900x344 dashboard size instead
-// of a straight port).
+// Compressed to fit this notch's own 900x344 dashboard size, not a
+// straight copy of any other shell's own dashboard dimensions.
 Item {
   id: root
 
@@ -205,17 +202,16 @@ Item {
   }
 
   // Half-circle progress ring, arcing over the top of the album art
-  // disc -- ambxst's own CircularSeekBar (modules/components/
-  // CircularSeekBar.qml) does this with QtQuick.Shapes (PathAngleArc/
-  // PathPolyline), draggable, dashed, with a handle indicator. That's a
-  // lot more machinery than this notch needs -- ported just the visual
-  // result with a Canvas instead, same technique WavyLine already uses
+  // disc. A draggable/dashed/handle-indicator ring built on
+  // QtQuick.Shapes (PathAngleArc/PathPolyline) is a lot more machinery
+  // than this notch needs for a read-only progress display, so this is
+  // a plain Canvas instead, same technique WavyLine already uses
   // elsewhere in this file (a sine perturbation redrawn every frame),
   // just applied to an arc's radius instead of a straight line's y.
-  // startAngle/spanAngle match their own values (180deg -> +180deg
-  // sweep = the top half of the circle, left-to-right through 12
-  // o'clock) -- not arbitrary, that's what "arcs over the top" means
-  // geometrically in canvas angle convention (0 = 3 o'clock, clockwise).
+  // startAngle/spanAngle: 180deg -> +180deg sweep = the top half of the
+  // circle, left-to-right through 12 o'clock -- not arbitrary, that's
+  // what "arcs over the top" means geometrically in canvas angle
+  // convention (0 = 3 o'clock, clockwise).
   component CircularSeek: Canvas {
     id: seek
     property real value: 0
@@ -265,10 +261,9 @@ Item {
       var r = Math.min(width, height) / 2 - seek.ringWidth - 9
 
       ctx.lineWidth = seek.ringWidth
-      // Native round cap, matching ambxst's own CircularSeekBar.qml
-      // exactly (capStyle: ShapePath.RoundCap on both the progress and
-      // track ShapePaths) -- see the gap math below for why this no
-      // longer needs "butt" + hand-drawn fake circles.
+      // Native round cap on both the progress and track strokes -- see
+      // the gap math below for why this no longer needs "butt" +
+      // hand-drawn fake circles.
       ctx.lineCap = "round"
 
       // Track -- ONLY the unplayed remainder, not the full span. The
@@ -284,17 +279,15 @@ Item {
       var clamped = Math.max(0, Math.min(1, seek.value))
       var endAngle = seek.startAngle + seek.spanAngle * clamped
 
-      // Gap around the tip -- ambxst's own CircularSeekBar.qml uses a
-      // flat handleSpacing: 10 (5px trim/side) because their handle is
-      // the SAME width as the ring. This tip is deliberately thicker
+      // Gap around the tip -- a flat trim only clears a tip that's the
+      // SAME width as the ring itself. This tip is deliberately thicker
       // (ringWidth * 1.5, per an earlier direct request for "pretty
-      // thick") -- a flat 5px trim doesn't clear a wider tip, so the
-      // tip's own body was overlapping back into the trimmed region
-      // and covering the wave's rounded end, reading as if the cap
-      // were clipped/pointy. Trim computed from the actual rendered
-      // widths instead of copying ambxst's literal constant unchanged:
-      // half the ring's own cap bleed + half the tip's width + the
-      // actual desired daylight gap.
+      // thick"), so a flat trim doesn't clear it -- the tip's own body
+      // was overlapping back into the trimmed region and covering the
+      // wave's rounded end, reading as if the cap were clipped/pointy.
+      // Trim computed from the actual rendered widths instead of a
+      // flat constant: half the ring's own cap bleed + half the tip's
+      // width + the actual desired daylight gap.
       var tipLineWidth = seek.ringWidth * 1.5
       var desiredGap = 2
       var gapPx = seek.ringWidth / 2 + tipLineWidth / 2 + desiredGap
@@ -329,10 +322,9 @@ Item {
       }
       ctx.stroke()
 
-      // Tip -- a thick radial tick at the current progress position,
-      // ported from ambxst's own CircularSeekBar handle (a fat line
-      // straddling the track radius, not a dot on top of it). Always
-      // drawn now, even at value: 0 (clamped === 0 just means it sits
+      // Tip -- a thick radial tick at the current progress position
+      // (a fat line straddling the track radius, not a dot on top of
+      // it). Always drawn now, even at value: 0 (clamped === 0 just means it sits
       // right at the arc's own start point) -- per direct request to
       // keep it visible at the head of the ring in the idle/no-media
       // state too, instead of disappearing entirely.
@@ -357,17 +349,16 @@ Item {
 
   RowLayout {
     anchors.fill: parent
-    // 8px, matching ambxst's own WidgetsTab.qml RowLayout spacing --
-    // we were at 12, looser than their real column rhythm.
+    // 8px -- tightened from 12, looser than this row's own column
+    // rhythm otherwise.
     spacing: 8
 
     // ---- Column 1: player -------------------------------------------
-    // Own bespoke background instead of the shared Pane -- ambxst's real
-    // FullPlayer.qml uses variant: "transparent" (their StyledRect variant
-    // that forces border/radius-fill to 0, i.e. no visible border at all)
-    // plus a blurred-album-art backdrop, not a flat black+border card like
-    // the other 3 columns. Ported the blur technique from the same
-    // backgroundArt trick the collapsed notch view already uses.
+    // Own bespoke background instead of the shared Pane -- a fully
+    // transparent card (no visible border) plus a blurred-album-art
+    // backdrop, not a flat black+border card like the other 3 columns.
+    // Reuses the same blur/backgroundArt trick the collapsed notch
+    // view already uses.
     // ClippingRectangle, not a plain Rectangle -- the same gotcha
     // documented below for the album art disc applies here too: plain
     // Rectangle.clip only clips children to the bounding BOX, it does
@@ -383,23 +374,21 @@ Item {
       Layout.maximumWidth: 210
       Layout.fillHeight: true
       radius: 10
-      // Genuinely transparent -- no fill at all, matching ambxst's real
-      // StyledRect variant:"transparent" (opacity forced to 0, border
-      // forced to 0 -- see Styling.qml's "transparent" case). No
-      // separate card layer here means this area shows straight through
+      // Genuinely transparent -- no fill at all, opacity and border
+      // both forced to 0. No separate card layer here means this area
+      // shows straight through
       // to the notch's own shared black base (notchBg, one file over in
       // Overlay.qml) when there's no art, and the blurred art itself is
       // the only "fill" once there is.
       color: "transparent"
 
-      // Matches ambxst's real fallback exactly (checked their source
-      // directly, not guessed): blur the track's own art when playing,
-      // otherwise blur the actual desktop wallpaper file -- there's
-      // always something to blur, never a blank/plain background. Not
-      // a live compositor blur-through to whatever's behind the notch
-      // (that was the wrong target entirely) -- ambxst's own player
-      // never shows real desktop, just blurred art OR a blurred static
-      // wallpaper image, same MultiEffect either way.
+      // Blur the track's own art when playing, otherwise blur the
+      // actual desktop wallpaper file -- there's always something to
+      // blur, never a blank/plain background. Not a live compositor
+      // blur-through to whatever's behind the notch (that was the
+      // wrong target entirely) -- this player never shows real
+      // desktop, just blurred art OR a blurred static wallpaper image,
+      // same MultiEffect either way.
       // root.resolvedWallpaperPath (see its own comment above) rather than
       // the symlink path directly -- a genuinely different URL each time
       // the wallpaper changes, so the Image elements below actually
@@ -426,18 +415,23 @@ Item {
         blurEnabled: true
         blurMax: 32
         blur: 1.0
-        // 0.25, matching ambxst's own ratio exactly (was 0.35, a guess).
+        // 0.25 -- was 0.35, a guess that read too strong.
         opacity: 0.25
       }
 
-      // Sharp-edge accent ring -- ambxst's own FullPlayer.qml layers a
-      // SECOND, full-resolution (unblurred) copy of the same art/
-      // wallpaper on top, masked with maskInverted: true against an
-      // inset white rectangle (4px in on every side). Inverted means
-      // the mask hides the interior and only lets the sharp image show
-      // in the thin ring OUTSIDE that inset -- a crisp border around
-      // the edge, blurred everywhere inside it. Ported directly from
-      // their real innerAreaMask + fullArtEffect, not invented.
+      // Sharp-edge accent ring: a SECOND, full-resolution (unblurred)
+      // copy of the same art/wallpaper layered on top, masked with
+      // MultiEffect's own maskInverted: true against an inset opaque
+      // rectangle -- inverted means the mask hides the interior and
+      // only lets the sharp image show in the thin ring OUTSIDE that
+      // inset, a crisp border around the edge, blurred everywhere
+      // inside it. Inset is half this card's own corner radius (5px,
+      // since playerCard.radius is 10) rather than a flat pixel
+      // constant, so the ring stays proportionate if the card's own
+      // radius ever changes. maskThresholdMin/maskSpreadAtMin both
+      // default to 0.0 (a hard mask edge, per MultiEffect's own docs)
+      // -- nudged up slightly here for a softer ring edge, tuned
+      // live against this exact card rather than copied.
       Image {
         id: playerBgArtFull
         anchors.fill: parent
@@ -449,17 +443,19 @@ Item {
       }
 
       Item {
-        id: innerAreaMask
+        id: ringCutoutMask
         anchors.fill: parent
         visible: false
         layer.enabled: true
 
+        readonly property real inset: playerCard.radius / 2
+
         Rectangle {
-          x: 4
-          y: 4
-          width: parent.width - 8
-          height: parent.height - 8
-          radius: playerCard.radius - 4
+          x: ringCutoutMask.inset
+          y: ringCutoutMask.inset
+          width: parent.width - 2 * ringCutoutMask.inset
+          height: parent.height - 2 * ringCutoutMask.inset
+          radius: playerCard.radius - ringCutoutMask.inset
           color: "#ffffff"
         }
       }
@@ -468,10 +464,10 @@ Item {
         anchors.fill: parent
         source: playerBgArtFull
         maskEnabled: true
-        maskSource: innerAreaMask
+        maskSource: ringCutoutMask
         maskInverted: true
-        maskThresholdMin: 0.5
-        maskSpreadAtMin: 1.0
+        maskThresholdMin: 0.35
+        maskSpreadAtMin: 0.4
       }
 
       // Plain Item + a centered inner ColumnLayout, not two fillHeight
@@ -541,8 +537,7 @@ Item {
             // hard way: plain QtQuick Rectangle.clip only clips children
             // to the bounding BOX, it does not follow radius, regardless
             // of how high radius is set. Quickshell's own ClippingRectangle
-            // (Quickshell.Widgets) is what ambxst's real clippedDisc uses
-            // for exactly this reason.
+            // (Quickshell.Widgets) is the fix for exactly this reason.
             ClippingRectangle {
               width: 130
               height: 130
@@ -561,10 +556,9 @@ Item {
           }
         }
 
-        // Title + album + artist as three centered lines, matching
-        // ambxst's own metadata ColumnLayout exactly (title bold, TWO
-        // secondary lines dimmer -- album was missing entirely before,
-        // not just the ordering being off).
+        // Title + album + artist as three centered lines (title bold,
+        // TWO secondary lines dimmer -- album was missing entirely
+        // before, not just the ordering being off).
         // leftMargin/rightMargin -- long titles/artists were eliding
         // (or just wrapping) right up against playerCard's own edge,
         // only ~4px of natural clearance from the card's rounded
@@ -626,9 +620,9 @@ Item {
         // if the Row is sized to its own content instead of stretched.
         // Icon sizes scaled up to match the album art disc's own
         // growth (80 -> 130 across earlier passes) -- play/pause
-        // grown to ambxst's real 44x44 playPauseBtn dimension
-        // (previously 34, undersized for how big the disc got since),
-        // prev/next and spacing scaled by the same ~1.3x factor.
+        // grown to a 44x44 dimension (previously 34, undersized for
+        // how big the disc got since), prev/next and spacing scaled
+        // by the same ~1.3x factor.
         Row {
           Layout.alignment: Qt.AlignHCenter
           spacing: 22
@@ -651,8 +645,8 @@ Item {
           // SQUARE, not a circle -- same radius:size/4 proportion
           // QuickToggle uses for the wifi/bluetooth quick-controls
           // buttons, per direct request to match that shape instead of
-          // ambxst's own fully-round playPauseBtn. Prev/next stay plain
-          // glyphs with no background.
+          // a fully-round button. Prev/next stay plain glyphs with no
+          // background.
           Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: 44
@@ -698,9 +692,8 @@ Item {
           }
         }
 
-        // Duration -- ambxst's own "Duration Area" text, same
-        // position/opacity (formatTime(position) + " / " +
-        // formatTime(length), muted). topMargin on top of the
+        // Duration text: formatTime(position) + " / " +
+        // formatTime(length), muted. topMargin on top of the
         // ColumnLayout's own 8px spacing, per direct feedback --
         // wanted a bit more separation here specifically, not a
         // blanket increase to every gap in the column.
@@ -794,14 +787,12 @@ Item {
       // needed), unlike everything else in this file. Prev/next month
       // arrows work; today's cell is highlighted.
       //
-      // Structure ported literally from ambxst's own Calendar.qml this
-      // time (checked directly, not guessed): outer frame is grey
-      // ("pane"), with the title text, each chevron, and the whole
-      // day-grid as their own separate BLACK ("internalbg") sub-panels
-      // nested inside it -- the grey only ever shows as the gutter
-      // around/between those black panels, never as a fill behind text
-      // itself. The current week row gets a grey ("pane") highlight
-      // inside the black day-grid, same as ambxst's currentWeekRow.
+      // Layered panel structure: outer frame is grey ("pane"), with
+      // the title text, each chevron, and the whole day-grid as their
+      // own separate BLACK sub-panels nested inside it -- the grey
+      // only ever shows as the gutter around/between those black
+      // panels, never as a fill behind text itself. The current week
+      // row gets a grey ("pane") highlight inside the black day-grid.
       Rectangle {
         id: calendarPane
         Layout.fillWidth: true
@@ -818,9 +809,9 @@ Item {
         readonly property date today: new Date()
 
         // Monday-first 6x7 grid, padded with leading/trailing days from
-        // the adjacent months so every week row stays full. currentWeekRow
-        // mirrors ambxst's own field of the same name -- which row (if
-        // any) contains today, -1 when viewing a different month.
+        // the adjacent months so every week row stays full.
+        // currentWeekRow: which row (if any) contains today, -1 when
+        // viewing a different month.
         readonly property var calendarData: {
           var first = viewingDate
           var year = first.getFullYear()
@@ -870,9 +861,8 @@ Item {
 
           // Header row -- title pill fills the remaining width, each
           // chevron is its own fixed-width pill, all black, all the
-          // same height. Matches ambxst's titleRect/leftButton/
-          // rightButton trio exactly (just without their hover/press
-          // accent-color swap).
+          // same height (no hover/press accent-color swap on the
+          // chevrons here, unlike some comparable calendar headers).
           // Header grown 28px -> 36px (title 13px -> 16px, chevron
           // pills 28px -> 36px, glyphs 14px -> 16px) and the day-grid
           // below shrunk to compensate -- per direct feedback, the
@@ -944,8 +934,7 @@ Item {
           }
 
           // Day-grid -- one black sub-panel holding the weekday labels
-          // and all 6 week rows, matching ambxst's own second
-          // "internalbg" StyledRect. Sized to its actual content
+          // and all 6 week rows. Sized to its actual content
           // instead of Layout.fillHeight -- fillHeight let it stretch
           // to whatever leftover height calendarPane had, and
           // ColumnLayout spread that leftover space out as visible gaps
@@ -1017,9 +1006,8 @@ Item {
               }
 
               // Divider between the weekday labels and the day grid --
-              // ambxst has the same Separator in this exact spot
-              // (their own version also insets it, leftMargin/
-              // rightMargin: 8, instead of running edge-to-edge).
+              // inset (leftMargin/rightMargin: 8) instead of running
+              // edge-to-edge.
               Rectangle {
                 Layout.fillWidth: true
                 Layout.leftMargin: 8
@@ -1101,16 +1089,14 @@ Item {
 
         RowLayout {
           Layout.fillWidth: true
-          // 32px, matching ambxst's own header RowLayout
-          // (Layout.maximumHeight: 32 in NotificationHistory.qml) --
-          // we were at 26, visibly smaller than their real proportions.
+          // 32px -- was 26, visibly smaller than felt right next to
+          // the rest of this panel's proportions.
           Layout.preferredHeight: 32
           Layout.maximumHeight: 32
           spacing: 6
 
           // Fills the remaining width instead of hugging the text --
-          // matches ambxst's own titleRect (Layout.fillWidth: true
-          // inside the same header RowLayout), not a snug-fit pill.
+          // not a snug-fit pill.
           // radius: 10, not height/2 -- these 3 header pills were still
           // full capsules from the earlier "pill" pass even after the
           // rows below were changed to a regular rounded rect; that
@@ -1168,9 +1154,8 @@ Item {
             }
           }
 
-          // Clear-all "broom" -- ambxst's own NotificationHistory.qml
-          // header has the same bell + broom pair. Now wired to the
-          // real service's own clearAll() (the first-party history
+          // Clear-all "broom" -- wired to the real service's own
+          // clearAll() (the first-party history
           // itself is left alone -- see NotificationService.qml's own
           // comment on why). Fixed orange (not theme-linked, same
           // "state semantic" reasoning as the bell's red above) --
@@ -1200,13 +1185,12 @@ Item {
           }
         }
 
-        // Real history, in place of the "does it fit, does it look
-        // right" placeholder ambxst's own NotificationHistory.qml
-        // occupied. A plain JS array binds directly as a ListView
-        // model -- this card only ever shows a handful of rows, so the
-        // in-place ListModel.syncRows optimization the reference
-        // project uses for its own much longer flyout list isn't
-        // needed here.
+        // Real history, in place of the earlier "does it fit, does it
+        // look right" placeholder. A plain JS array binds directly as
+        // a ListView model -- this card only ever shows a handful of
+        // rows, so a more elaborate in-place row-sync optimization
+        // (worthwhile for a much longer flyout list) isn't needed
+        // here.
         ListView {
           id: notificationList
           Layout.fillWidth: true
@@ -1537,20 +1521,17 @@ Item {
       Layout.preferredWidth: 78
       Layout.maximumWidth: 78
       Layout.fillHeight: true
-      // 8px, matching ambxst's own circular-controls column spacing.
+      // 8px column spacing.
       spacing: 8
 
-      // Round tonal badge wrapping icon + ring together, matching
-      // ambxst's real CircularControl.qml directly (checked the actual
-      // component, not just its usage in WidgetsTab.qml) -- it's a
-      // StyledRect (tonal panel) containing both the Canvas ring AND
-      // the icon Text as children, not a bare ring floating on the
-      // card background like this was before. Per direct request
-      // ("wrap/frame the tonal badge so the mic icon and the progress
-      // bar is together like ambxst... inside a round tonal badge").
-      // Ring inset bumped 3px -> 8px to match their own ratio (their
-      // ring radius is a fixed 16 inside a 48px box, i.e. width/2 - 8)
-      // -- 3px sat the ring almost flush against the badge's own edge.
+      // Round tonal badge wrapping icon + ring together: a tonal panel
+      // containing both the Canvas ring AND the icon Text as children,
+      // not a bare ring floating on the card background like this was
+      // before. Per direct request ("wrap/frame the tonal badge so the
+      // mic icon and the progress bar is together... inside a round
+      // tonal badge"). Ring inset bumped 3px -> 8px (ring radius is a
+      // fixed 16 inside a 48px box, i.e. width/2 - 8) -- 3px sat the
+      // ring almost flush against the badge's own edge.
       component Dial: Rectangle {
         id: dialRoot
         property string glyph: ""
@@ -1613,13 +1594,13 @@ Item {
         radius: width / 2
         color: Qt.rgba(1, 1, 1, 0.06)
 
-        // Not a full circle -- ambxst's own ring has a 45deg gap on
-        // each side (their gapAngle: 45), starting at ~7:30 on a clock
-        // face and sweeping 270deg clockwise back around to ~4:30,
-        // leaving the gap sitting at the bottom of the badge. Matched
-        // their exact angle math (baseStartAngle = 90deg + gapAngle,
-        // totalAngle = 360deg - 2*gapAngle) in this Canvas's own radian
-        // terms, per direct request ("doesnt have like a full
+        // Not a full circle -- a gapped circular indicator, in the
+        // same spirit as Material 3's own gap-style circular progress
+        // pattern: a 45deg gap on each side, starting at ~7:30 on a
+        // clock face and sweeping 270deg clockwise back around to
+        // ~4:30, leaving the gap sitting at the bottom of the badge
+        // (baseStartAngle = 90deg + gapAngle, totalAngle = 360deg -
+        // 2*gapAngle), per direct request ("doesnt have like a full
         // circle... goes from i guess 4 o'clock to 7 o'clock").
         Canvas {
           id: dialCanvas
@@ -1631,17 +1612,16 @@ Item {
             var startAngle = Math.PI / 2 + Math.PI / 4
             var totalSweep = Math.PI * 2 - Math.PI / 2
             var endAngle = startAngle + dialRoot.effectiveValue * totalSweep
-            // Gap around the tip -- ported directly from ambxst's real
-            // CircularControl.qml this time (their handleSpacing: 6,
-            // handleGapRad = handleSpacing * (360/(2*PI*radius)) *
-            // (PI/180), which simplifies exactly to handleSpacing/r --
-            // a plain arc-length-to-radians conversion, the FULL 6px
-            // applied on each side, not halved like the player ring's
-            // different CircularSeekBar.qml reference uses). Native
-            // RoundCap, no fake endpoint circles, no compensation for
-            // the cap's own bleed -- previous passes here kept
-            // inventing a bigger and bigger "gapPx" plus manually-drawn
-            // circles instead of just using their one real number.
+            // Gap around the tip: a flat 6px arc-length-to-radians
+            // conversion (gapRad = 6/r, the standard formula for
+            // converting a desired pixel gap at a given radius into
+            // radians), the FULL 6px applied on each side, not halved
+            // like the player ring's CircularSeek above needs for its
+            // own thicker tip. Native RoundCap, no fake endpoint
+            // circles, no compensation for the cap's own bleed --
+            // previous passes here kept inventing a bigger and bigger
+            // "gapPx" plus manually-drawn circles instead of just
+            // using this one real number.
             var handleSpacing = 6
             var gapRad = handleSpacing / r
             // Clamped -- without this, ctx.arc's start angle could land
@@ -1670,9 +1650,8 @@ Item {
             // Thick tip at the current value, same treatment as the
             // player card's own CircularSeek tip -- a fat radial tick,
             // not a dot, white for contrast against the accent arc.
-            // Ambxst's own handle here is the SAME width as the ring
-            // itself (their lineWidth: 4 reused for both) -- went
-            // noticeably thicker instead per direct request ("pretty
+            // Deliberately thicker than the ring itself (not reusing
+            // the same lineWidth for both) per direct request ("pretty
             // thick"), matching how the bigger player ring's tip
             // already reads chunkier than its own track.
             //
@@ -1739,8 +1718,7 @@ Item {
       // bar already uses for its settings gear, just with a middle
       // element added here.
       //
-      // Checked ambxst's real source directly for the icon+bar SHAPE
-      // itself (WidgetsTab.qml's brightnessContainer: icon on top, a
+      // Brightness keeps its own icon+bar shape (icon on top, a
       // vertical bar below it, NOT a circular dial like speaker/mic
       // get) -- this reorder doesn't change that shape, just where
       // the pieces sit in the column.

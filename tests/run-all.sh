@@ -37,6 +37,7 @@ suites=(
   "$script_dir/peripherals-status.sh"
   "$script_dir/media-status-relay.sh"
   "$script_dir/idle-nightlight-relay.sh"
+  "$script_dir/notification-relay.sh"
   "$script_dir/notch-bar-hidden-sync.sh"
   "$script_dir/workspaces-pill-strict.sh"
   "$script_dir/bar-drag-protected-slots.sh"

@@ -59,13 +59,13 @@ Item {
   // notch's own bell already reads -- was undefined here, the
   // notification header's bell was purely decorative.
   property bool dnd: false
-  // The raw first-party notifications service itself (Overlay.qml's own
-  // root.notificationService, shell.firstPartyServiceFor("omarchy.notifications"))
-  // -- not notificationHistory below, which is OUR OWN history-card
-  // service wrapping it. Needed here so this card's own bell can call
-  // setDoNotDisturb() directly, the exact same call the collapsed
-  // notch's own bell already makes.
-  property var notificationService: null
+  // Overlay.qml's own sendDndAction(action) function, threaded down so
+  // this card's own bell can toggle DND the same way the collapsed
+  // notch's own bell does -- see Overlay.qml's dnd property comment
+  // (ruixen-shell issue #42/#38) for why this goes through the real
+  // "notifications" IPC target rather than a first-party service
+  // handle.
+  property var sendDndAction: null
   // The notch's own notification-history service (Overlay.qml's own
   // NotificationService instance), handed down whole -- Column 3 below
   // calls clearAll()/activate() on it directly, not just reads flattened
@@ -1253,7 +1253,7 @@ Item {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.notificationService) root.notificationService.setDoNotDisturb(!root.dnd)
+              onClicked: if (root.sendDndAction) root.sendDndAction("toggleDnd")
             }
           }
 

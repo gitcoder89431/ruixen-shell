@@ -5,41 +5,54 @@ import qs.Commons
 import "NotificationModel.js" as NotificationModel
 
 // Backing store for the notch's own notification history card (Column 3
-// of the Widgets dashboard -- see DashboardContent.qml). Approach
-// studied directly from BitYoungjae/byj-omarchy-notifications (MIT):
-// attach to Omarchy's own first-party omarchy.notifications service
-// in-process rather than running a second notification daemon, and add
-// the two things that service has no reason to keep on its own --
-// a read flag per notification, and a backlog deeper than the 10
-// entries its own history directory retains.
+// of the Widgets dashboard -- see DashboardContent.qml). Originally
+// attached to Omarchy's own first-party omarchy.notifications service
+// in-process (approach studied from BitYoungjae/byj-omarchy-notifications,
+// MIT), adding a read flag per notification and a backlog deeper than
+// the 10 entries its own history directory retains.
 //
-// Deliberate scope difference from that project: no toast-outliving
-// click-through. Its LiveNotifications.qml keeps a notification "open"
-// at the sender past its own toast by swapping in stand-in objects
-// inside the first-party service's private internals (liveRefs,
-// popupModel, refreshPopup, ...) so a row click can still run a
-// sender's exact default action minutes later. Confirmed that Omarchy
-// 4.0.2-1 on this machine really does expose everything that needs --
-// but those are undocumented internals, not a public API, and that
-// mechanism is the one part of the reference project genuinely likely
-// to break on some future Omarchy release. This service instead reads
-// two things every real service here already treats as safe, ordinary
-// data: an action toast's own execArgv role (written into the plain
-// snapshot, no live object involved), and Omarchy's own
-// omarchy-hyprland-focus-app for bringing the sender's window forward.
-// A future pass can add the deeper mechanism if it turns out to be
-// worth the fragility -- see COMPATIBILITY.md if it ever does, the
-// same way every other host-contract dependency here is tracked.
+// ruixen-shell issue #42/#38: Omarchy v4.0.3 restricts
+// shell.firstPartyServiceFor() to a fixed allowlist, and only for a
+// plugin declaring manifest kind "bar" -- ruixen.notch (kind:
+// ["overlay","service"]) was never going to have bar capabilities to
+// use it even for "omarchy.notifications", which IS nominally in that
+// allowlist. Verified directly against
+// /usr/share/omarchy/shell/plugins/notifications/Service.qml: every
+// notification the real service shows or silences is also mirrored to
+// its own on-disk state as a plain, single-line JSON file -- one file
+// per live on-screen popup directly under omarchyStateDir, moved into
+// historyDir the moment it leaves the screen (dismissed/expired/
+// archived), written by the exact same serializePopup() call in both
+// places. Reading both directories (rather than the in-process
+// popupModel) is now the ingestion path -- swept on a timer instead of
+// being told about arrivals immediately, but the same
+// timestamp-originalId identity this store already keyed its entries
+// by (see NotificationModel.js's rowKey) means a notification read
+// live and the same one later read out of history collapse onto one
+// entry rather than appearing twice.
+//
+// Deliberate scope difference from the BitYoungjae project this was
+// studied from: no toast-outliving click-through. Its
+// LiveNotifications.qml keeps a notification "open" at the sender past
+// its own toast by swapping in stand-in objects inside the first-party
+// service's private internals (liveRefs, popupModel, refreshPopup,
+// ...) so a row click can still run a sender's exact default action
+// minutes later -- those are undocumented internals, not a public API,
+// and were already the one part of that approach genuinely likely to
+// break on some future Omarchy release (this v4.0.3 pass is exactly
+// that break). This service instead reads two things every real
+// service here already treats as safe, ordinary data: an action
+// toast's own execArgv role (written into the plain snapshot, no live
+// object involved), and Omarchy's own omarchy-hyprland-focus-app for
+// bringing the sender's window forward.
 Item {
   id: service
 
   // Injected by Overlay.qml, same as every other service reference
-  // this plugin already threads through (mediaService, etc).
+  // this plugin already threads through (mediaService, etc) -- kept
+  // even though nothing here calls shell.firstPartyServiceFor() any
+  // more, in case a future need for shell.appLibrary/etc arises here.
   property var shell: null
-
-  readonly property var source: shell && typeof shell.firstPartyServiceFor === "function"
-    ? shell.firstPartyServiceFor("omarchy.notifications") : null
-  readonly property bool sourceReady: source !== null && source !== undefined
 
   readonly property string home: Quickshell.env("HOME")
   // Flat under ~/.local/state/ruixen/, matching every other piece of
@@ -48,11 +61,11 @@ Item {
   // subdirectory.
   readonly property string storePath: home + "/.local/state/ruixen/notifications-store.json"
 
-  // Where the first-party service parks a notification that never
-  // reached the screen at all -- the do-not-disturb backstop below.
-  // Everything else is picked up from popupModel, in process, the
-  // moment it happens.
-  readonly property string sourceHistoryDir: home + "/.local/state/omarchy/notifications/history/"
+  // The real Omarchy notifications service's own on-disk state: one
+  // file per notification currently showing on screen lives directly
+  // here, moved into historyDir the moment it leaves the screen.
+  readonly property string omarchyStateDir: home + "/.local/state/omarchy/notifications/"
+  readonly property string historyDir: omarchyStateDir + "history/"
 
   // The first-party history directory itself is capped at 10; this is
   // the reason the card can show more than that.
@@ -71,17 +84,17 @@ Item {
   // Notifications cleared out of the card. The first-party history is
   // left as it is -- not this plugin's state to wipe -- so a watermark
   // is what tells "already cleared" from "not seen yet" apart; without
-  // it, a do-not-disturb sweep would read a cleared notification
-  // straight back in.
+  // it, the recurring sweep would read a cleared notification straight
+  // back in.
   property double clearedBefore: 0
 
   // Keys dismissed one at a time via the card's own per-row "x"
   // (forgetOne below) -- clearedBefore's single watermark only covers
   // "everything older than X" (clearAll), not "this one specific
   // entry while its neighbors stay", so a dismissed key needs its own
-  // record. Without this, a do-not-disturb history sweep re-reads the
-  // exact same on-disk file every 5 seconds and would otherwise
-  // silently bring a dismissed row right back.
+  // record. Without this, the recurring sweep re-reads the exact same
+  // on-disk file every few seconds and would otherwise silently bring
+  // a dismissed row right back.
   property var forgottenKeys: []
 
   function entryFor(key) {
@@ -130,51 +143,21 @@ Item {
     scheduleSave()
   }
 
-  // Every notification that reaches the screen passes through the
-  // first-party popup model, in this same process -- insertions,
-  // removals and reorders all land here, and the scan only ever adds
-  // what it has not seen, so running it more than strictly necessary
-  // costs nothing.
-  Connections {
-    target: service.sourceReady ? service.source.popupModel : null
-    ignoreUnknownSignals: true
-    function onCountChanged() { service.ingestPopups() }
-    function onDataChanged() { service.ingestPopups() }
-  }
-
-  function ingestPopups() {
-    if (!sourceReady) return
-    var model = source.popupModel
-    if (!model) return
-
-    var batch = []
-    for (var i = 0; i < model.count; i++) {
-      var row = null
-      try {
-        row = model.get(i)
-      } catch (e) {
-        continue
-      }
-      // The first-party "No recent notifications" replay placeholder
-      // carries originalId -1 and is not a real notification.
-      if (!row || row.originalId < 0) continue
-      var entry = NotificationModel.entryFromRow(row)
-      if (entry) batch.push(entry)
-    }
-    absorb(batch)
-  }
-
-  // Do-not-disturb is the one path that never reaches popupModel: a
-  // silenced notification is written straight into the first-party
-  // history and never shown, so that directory is the only place to
-  // read it back from. True once the first sweep has folded in --
-  // counting whatever was already on the machine before this service
+  // No more in-process popup model to be told about arrivals through --
+  // sweep both of the real service's own on-disk directories instead.
+  // Both are plain, single-line JSON files in the exact shape
+  // NotificationModel.entryFromRow already expects (the real service
+  // writes both through the same serializePopup() call), so one parser
+  // already proven against the history directory covers this too.
+  //
+  // Counting whatever was already on the machine before this service
   // ever ran as unread would hand a brand-new install a badge no one
-  // earned, so that first batch is absorbed as already read instead.
+  // earned, so the very first sweep is absorbed as already read
+  // instead.
   property bool primed: false
 
   Process {
-    id: historyProc
+    id: sweepProc
     running: false
     stdout: StdioCollector {
       waitForEnd: true
@@ -189,32 +172,33 @@ Item {
     }
   }
 
-  function sweepHistory() {
-    if (historyProc.running) return
+  function sweepNotifications() {
+    if (sweepProc.running) return
     // awk 1 rather than cat: a torn file missing its trailing newline
     // must not glue itself onto the next one and take a valid entry
-    // down with it.
-    historyProc.command = ["bash", "-c",
-      "awk 1 \"$1\"/*.json 2>/dev/null || true", "--", service.sourceHistoryDir]
-    historyProc.running = true
+    // down with it. Both dirs in one pass -- a notification only ever
+    // lives in exactly one of them at a time (the real service mv's it
+    // across on archive), so there is nothing to dedup between the two
+    // halves of this read, only against what absorb() already knows.
+    sweepProc.command = ["bash", "-c",
+      "awk 1 \"$1\"/*.json \"$2\"/*.json 2>/dev/null || true", "--",
+      service.omarchyStateDir, service.historyDir]
+    sweepProc.running = true
   }
 
-  readonly property bool doNotDisturb: sourceReady && source.doNotDisturb === true
-
-  // The first-party history keeps ten entries, so a five-second beat
-  // cannot miss one unless more than ten arrive between ticks -- and it
-  // only ever runs while do-not-disturb is actually on.
+  // Was gated on the first-party service's own do-not-disturb flag
+  // (only worth polling while a silenced notification could otherwise
+  // be missed) -- now the only ingestion path there is, so it just
+  // always runs. Three seconds keeps the card feeling live without
+  // spawning a process per notification the way immediate in-process
+  // notice used to.
   Timer {
-    running: service.doNotDisturb && service.storeLoaded
-    interval: 5000
+    running: service.storeLoaded
+    interval: 3000
     repeat: true
     triggeredOnStart: true
-    onTriggered: service.sweepHistory()
+    onTriggered: service.sweepNotifications()
   }
-
-  // Catch the tail of a do-not-disturb window the moment it ends, and
-  // anything that arrived while the shell was not running at all.
-  onDoNotDisturbChanged: if (storeLoaded) sweepHistory()
 
   // ------------------------------------------------------------- read state
 
@@ -236,8 +220,8 @@ Item {
 
   // Empties the card. The first-party history is left as it is -- its
   // own showHistory replay is not this plugin's to erase -- so the
-  // watermark below is what keeps the next do-not-disturb sweep from
-  // reading it all straight back in.
+  // watermark below is what keeps the next sweep from reading it all
+  // straight back in.
   function clearAll() {
     var newest = 0
     for (var i = 0; i < entries.length; i++)
@@ -245,7 +229,7 @@ Item {
     clearedBefore = Math.max(clearedBefore, newest)
     entries = []
     scheduleSave()
-    ingestPopups()
+    sweepNotifications()
   }
 
   // Dismisses one specific row -- the card's own per-row "x" -- rather
@@ -357,10 +341,9 @@ Item {
     service.entries = NotificationModel.normalize(loaded.concat(service.entries), service.retention)
     service.storeLoaded = true
 
-    // Pick up whatever arrived while the shell was not running, then
-    // take over from the live model.
-    service.sweepHistory()
-    service.ingestPopups()
+    // Pick up whatever arrived while the shell was not running; the
+    // Timer above takes over the recurring sweep from here.
+    service.sweepNotifications()
   }
 
   function flushStore() {

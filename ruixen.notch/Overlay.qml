@@ -162,17 +162,53 @@ Item {
     onExited: root.mediaActionPending = false
   }
 
-  // Same first-party service ruixen.dnd reads -- the bell here just
-  // reflects the real state, doesn't own it.
-  readonly property var notificationService: shell ? shell.firstPartyServiceFor("omarchy.notifications") : null
-  readonly property bool dnd: notificationService ? notificationService.doNotDisturb : false
+  // ruixen-shell issue #42/#38: Omarchy v4.0.3 restricts
+  // shell.firstPartyServiceFor() to a fixed allowlist, and only for a
+  // plugin declaring manifest kind "bar" -- this file (kind:
+  // ["overlay","service"]) was never going to have bar capabilities to
+  // use it even for "omarchy.notifications", which IS nominally in
+  // that allowlist. DND is now read straight off the real service's
+  // own persisted state file instead (confirmed directly against
+  // /usr/share/omarchy/shell/plugins/notifications/Service.qml:
+  // settingsPath = ~/.local/state/omarchy/notifications.json,
+  // {"version":3,"dnd":bool}, atomicWrites: true) -- watched, so an
+  // external toggle (ruixen.quickactions' own pill, say) is reflected
+  // here immediately, the same pattern already used for the
+  // stay-awake flag file in DashboardContent.qml.
+  property bool dnd: false
+
+  FileView {
+    id: dndStateFile
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/notifications.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var parsed = JSON.parse(text() || "{}")
+        root.dnd = parsed && parsed.dnd === true
+      } catch (e) {
+        // Leave dnd at its last known value on a transient parse
+        // failure (e.g. read mid-write) rather than guessing false.
+      }
+    }
+    onLoadFailed: root.dnd = false
+  }
+
+  function sendDndAction(action) {
+    if (dndActionProcess.running) return
+    dndActionProcess.command = ["omarchy-shell", "notifications", String(action)]
+    dndActionProcess.running = true
+  }
+
+  Process { id: dndActionProcess; running: false }
 
   // The notch's own notification-history backing store (Column 3 of
-  // the Widgets dashboard) -- attaches to notificationService above,
-  // in process, to add a read flag and a deeper backlog on top of it.
-  // See NotificationService.qml's own header for the full design and
-  // its one deliberate scope difference from the project it was
-  // studied from.
+  // the Widgets dashboard) -- independent of the dnd property above,
+  // sweeping the real service's own on-disk state to add a read flag
+  // and a deeper backlog on top of it. See NotificationService.qml's
+  // own header for the full design and its one deliberate scope
+  // difference from the project it was studied from.
   NotificationService {
     id: notificationHistory
     shell: root.shell
@@ -1334,15 +1370,17 @@ Item {
             Behavior on color { ColorAnimation { duration: 160 } }
 
             // Real toggle now, not just a state readout -- per direct
-            // request ("the notification toggle right"). Same real API
-            // ruixen.dnd's own bar pill calls
-            // (notificationService.setDoNotDisturb), not a separate
-            // reimplementation.
+            // request ("the notification toggle right"). Goes through
+            // the real "notifications" IPC target (confirmed against
+            // the real service's own IpcHandler) rather than
+            // ruixen.quickactions' own bar.shell.firstPartyServiceFor()
+            // call -- this file has no bar capabilities to make that
+            // same call with, see the dnd property comment above.
             MouseArea {
               anchors.fill: parent
               anchors.margins: -6
               cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.notificationService) root.notificationService.setDoNotDisturb(!root.dnd)
+              onClicked: root.sendDndAction("toggleDnd")
             }
           }
         }
@@ -1462,7 +1500,7 @@ Item {
                 userHost: root.userHost
                 displayedTitle: root.displayedTitle
                 dnd: root.dnd
-                notificationService: root.notificationService
+                sendDndAction: root.sendDndAction
                 notificationHistory: notificationHistory
                 brightnessPercent: root.brightnessPercent
                 brightnessAvailable: root.brightnessAvailable

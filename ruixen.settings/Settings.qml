@@ -247,14 +247,6 @@ Item {
     barModeWriteProc.command = ["bash", "-c",
       "python3 -c \"import json; p='" + path + "'; d=json.load(open(p)); d.setdefault('bar', {})['docked'] = " + value + "; json.dump(d, open(p, 'w'), indent=2)\" && omarchy-shell shell reloadConfig"]
     barModeWriteProc.running = true
-
-    // Sharp is floating-only (see setCornerCurvature's own comment) --
-    // switching to docked while sharp is active forces curvature back
-    // to rounded, rather than leaving a combination that's known to
-    // put a window's own corner right up against the dock's wing
-    // decoration with no buffer between them.
-    if (mode === "docked" && root.cornerCurvature === "sharp")
-      root.setCornerCurvature("rounded")
   }
 
   // Animation Profiles -- direct request ("its the hyprland windows
@@ -338,14 +330,6 @@ Item {
 
   function setCornerCurvature(curvature) {
     if (curvature !== "sharp" && curvature !== "rounded") return
-    // Sharp only supports floating bar mode -- direct decision after
-    // repeated live reports chasing docked mode's own wing decoration
-    // vs. a real Hyprland window's corner never quite lining up under
-    // sharp's rounding=0 (see this file's header comment and git
-    // history for the abandoned radius-matching attempts). Docked
-    // mode's wings/frame corner always stay rounded regardless of this
-    // setting, so sharp+docked would always have a visible seam.
-    if (curvature === "sharp" && root.barMode === "docked") return
     if (root.ruixenRepoPath === "") return
     root.cornerCurvature = curvature
     var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")

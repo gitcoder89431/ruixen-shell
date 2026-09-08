@@ -419,6 +419,39 @@ Item {
   // clipping under a mismatched frame) is untouched by this revert.
   readonly property int shoulderWingSize: 24
 
+  // Docked mode's own wing decoration (leftShoulderWing/leftFrameHemWing
+  // and their right-side mirrors, see shoulderWingSize's own comment
+  // above) is a fixed, always-rounded shape -- it has no sharp-corner
+  // equivalent, which is exactly why sharp+docked used to leave a real
+  // Hyprland window's own corner sitting right against a still-rounded
+  // wing with no buffer between them (direct live report: "the top
+  // hyprland corner is actually touching the top wings"). Rather than
+  // keep chasing radius agreement between window rounding/frame corner/
+  // dock wing (two different attempts, both reverted -- see git
+  // history), sharp mode gets its own flat, wing-free docked look
+  // instead: no curved shape left to conflict with anything, closer to
+  // a traditional Waybar/stock-Omarchy top bar (which "Sharp" already
+  // represents thematically). See leftDockedBg/rightDockedBg and the
+  // four wing RoundCorner instances below for where this is consumed.
+  //
+  // Read-once-at-startup, same proven pattern as
+  // ruixen.frame-widget/Overlay.qml's own cornerRadius -- safe because
+  // hyprland/ruixen-lookfeel.sh always does a full `omarchy restart
+  // shell` on every variant change, so this file is guaranteed to be
+  // running fresh whenever the real answer is actually different.
+  property bool sharpCorners: false
+
+  Process {
+    id: readLookAndFeelVariantForDock
+    command: ["bash", "-c", "readlink \"$HOME/.config/hypr/looknfeel.lua\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.sharpCorners = text.indexOf("looknfeel.square.lua") >= 0
+      }
+    }
+  }
+
   // Reserved screen zone for windows -- taller than barSize so
   // ruixen.notch (a separate overlay, reserves nothing on its own) has
   // room for its collapsed height (44, full ambxst parity) without its
@@ -897,7 +930,10 @@ Item {
     return source ? Util.fileUrl(source) : ""
   }
 
-  Component.onCompleted: applyBarConfig()
+  Component.onCompleted: {
+    applyBarConfig()
+    readLookAndFeelVariantForDock.running = true
+  }
 
   // Revealing the indicators widens their section, which can slide a neighbour
   // under a stationary pointer. Collapsing on that un-hover would move it back
@@ -1655,12 +1691,14 @@ Item {
           height: root.barSize
           color: "#000000"
           antialiasing: true
-          // Matches ruixen.frame-widget's own cornerRadius (24) exactly --
-          // this corner sits at the same point the frame's rounded-rect
-          // hole starts (see BarPanel's margins above: frameInset used for
-          // top too when docked, not topInset, specifically so this lines
-          // up).
-          topLeftRadius: root.shoulderWingSize
+          // Rounded mode: matches ruixen.frame-widget's own cornerRadius
+          // (24) exactly -- this corner sits at the same point the
+          // frame's rounded-rect hole starts (see BarPanel's margins
+          // above: frameInset used for top too when docked, not
+          // topInset, specifically so this lines up). Sharp mode: 0,
+          // flat corner, no wing to hand off to (see root.sharpCorners'
+          // own comment above).
+          topLeftRadius: root.sharpCorners ? 0 : root.shoulderWingSize
           topRightRadius: 0
           // Square, not a plain recede curve -- the actual concave wrap
           // (per direct request: "the smooth curve should face inward")
@@ -1676,8 +1714,9 @@ Item {
           // full-height curves with no shared straight edge to align
           // against. Same radius as the wing's own size instead, so
           // there's a real flush edge between them and their curves
-          // share a tangent at the join.
-          bottomRightRadius: root.shoulderWingSize
+          // share a tangent at the join. 0 in sharp mode -- no wing
+          // exists to hand off to there, see root.sharpCorners.
+          bottomRightRadius: root.sharpCorners ? 0 : root.shoulderWingSize
         }
 
         // ambxst's own rightCornerMaskPart, ported: a small square sitting
@@ -1688,7 +1727,8 @@ Item {
         // full-height piece; that mismatch was the earlier bug.
         RoundCorner {
           id: leftShoulderWing
-          visible: root.docked
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topLeft"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1706,7 +1746,8 @@ Item {
         // this hands off to frame's plain strip continuing further down.
         RoundCorner {
           id: leftFrameHemWing
-          visible: root.docked
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topLeft"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1723,12 +1764,13 @@ Item {
           height: root.barSize
           color: "#000000"
           antialiasing: true
-          topRightRadius: root.shoulderWingSize
+          // Mirrors leftDockedBg's own topLeftRadius -- see its comment.
+          topRightRadius: root.sharpCorners ? 0 : root.shoulderWingSize
           topLeftRadius: 0
           // Mirrors leftDockedBg's own bottomLeftRadius -- see its comment.
           bottomRightRadius: 0
           // Mirrors leftDockedBg's own bottomRightRadius -- see its comment.
-          bottomLeftRadius: root.shoulderWingSize
+          bottomLeftRadius: root.sharpCorners ? 0 : root.shoulderWingSize
         }
 
         // Mirrors leftShoulderWing -- see its comment.
@@ -1749,7 +1791,8 @@ Item {
         // shared pixel is invisible either way.
         RoundCorner {
           id: rightShoulderWing
-          visible: root.docked
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topRight"
           size: root.shoulderWingSize
           color: "#000000"
@@ -1760,7 +1803,8 @@ Item {
         // Mirrors leftFrameHemWing -- see its comment.
         RoundCorner {
           id: rightFrameHemWing
-          visible: root.docked
+          // Sharp mode has no wing at all -- see root.sharpCorners.
+          visible: root.docked && !root.sharpCorners
           corner: "topRight"
           size: root.shoulderWingSize
           color: "#000000"

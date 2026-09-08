@@ -447,8 +447,63 @@ Item {
   // syncPlayingOrder only depends on the set of players and each player's
   // isPlaying state: onPlayersChanged covers players appearing/disappearing,
   // and the Instantiator wires isPlayingChanged for each live player.
-  Component.onCompleted: root.syncPlayingOrder()
+  Component.onCompleted: {
+    root.syncPlayingOrder()
+    mediaEnsureDirProc.running = true
+  }
   onPlayersChanged: root.syncPlayingOrder()
+
+  // Mirrors statusJson() to a small state file
+  // (~/.local/state/ruixen/media-state.json) -- ruixen-shell issue
+  // #39/#38: Omarchy v4.0.3 restricts shell.firstPartyServiceFor() to a
+  // fixed 4-item allowlist of Omarchy's own services, which
+  // "ruixen.media" was never going to be in, so ruixen.notch (a
+  // separate QML instance, only ever handed whatever ruixen.bar's own
+  // ModuleSlot injects, never a shell property of its own) can no
+  // longer reach this service directly.
+  //
+  // Refreshed on a 500ms poll, unlike syncPlayingOrder's own reactive
+  // wiring above -- confirmed necessary, not guessed: ruixen.notch's
+  // own pre-#39 code had to poll activePlayer.position itself on a
+  // matching 500ms Timer rather than bind to a positionChanged signal,
+  // because Quickshell's own MPRIS binding does not push position
+  // updates the way it does for isPlaying (see syncPlayingOrder's own
+  // comment for the contrast). Runs whenever there is any player at all
+  // (not just while actually playing), so a paused-track metadata
+  // change is still reflected within 500ms; the immediate
+  // onActivePlayerChanged flush below covers the player
+  // appearing/disappearing edges without waiting on the timer's own
+  // first tick.
+  readonly property string mediaStateHome: Quickshell.env("HOME")
+  readonly property string mediaStatePath: mediaStateHome + "/.local/state/ruixen/media-state.json"
+
+  function flushMediaState() {
+    mediaStateFile.setText(root.statusJson() + "\n")
+  }
+
+  onActivePlayerChanged: root.flushMediaState()
+
+  Timer {
+    interval: 500
+    running: root.activePlayer !== null
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.flushMediaState()
+  }
+
+  FileView {
+    id: mediaStateFile
+    path: root.mediaStatePath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
+  }
+
+  Process {
+    id: mediaEnsureDirProc
+    command: ["mkdir", "-p", root.mediaStateHome + "/.local/state/ruixen"]
+    running: false
+  }
 
   Instantiator {
     model: root.players
@@ -479,10 +534,32 @@ Item {
       title: p ? (p.trackTitle || "") : "",
       artist: p ? (p.trackArtist || "") : "",
       album: p && p.trackAlbum ? p.trackAlbum : "",
-      artUrl: p && p.trackArtUrl ? p.trackArtUrl : "",
+      // Gated on hasMedia, not just p.trackArtUrl -- a closed app can
+      // leave a zombie MPRIS registration behind (confirmed: chromium
+      // after quitting still owns org.mpris.MediaPlayer2.chromium.* on
+      // the session bus, PlaybackStatus "Stopped", with a stale
+      // mpris:artUrl but no title/artist) -- this is the same gate
+      // ruixen.notch's own consuming code used to apply itself before
+      // it started reading this JSON directly (see ruixen-shell issue
+      // #39), moved here so every consumer of this status gets it, not
+      // just that one.
+      artUrl: root.hasMedia && p && p.trackArtUrl ? p.trackArtUrl : "",
+      // Added for ruixen-shell issue #39 -- ruixen.notch's own progress
+      // bar reads these off the state file this JSON gets mirrored into
+      // (see flushMediaState() above). Harmless additive fields for any
+      // existing consumer of this same JSON (the public `ruixen-media
+      // status` IPC command included) that only reads keys it knows.
+      length: p ? Math.max(0, Number(p.length || 0)) : 0,
+      position: p ? Math.max(0, Number(p.position || 0)) : 0,
       canGoNext: p ? !!p.canGoNext : false,
       canGoPrevious: p ? !!p.canGoPrevious : false,
-      canTogglePlaying: p ? !!p.canTogglePlaying : false
+      canTogglePlaying: p ? !!p.canTogglePlaying : false,
+      // Added for ruixen-shell issue #39 -- ruixen.media/BarWidget.qml's
+      // own play/pause button enable-state needs these two specifically
+      // (canTogglePlaying alone isn't always set even when one of these
+      // is), see its own MediaModel.js-style canHandleAction checks.
+      canPlay: p ? !!p.canPlay : false,
+      canPause: p ? !!p.canPause : false
     })
   }
 
@@ -492,10 +569,17 @@ Item {
     // of whether its bar widget is enabled/placed. Whichever loads first
     // wins the registration; the other's calls (including our
     // ruixen-specific sourceNext/sourcePrevious/sourceSwitch) silently do
-    // nothing. Bar-widget clicks are unaffected either way -- they call
-    // this service directly via firstPartyServiceFor("ruixen.media"), not
-    // through this IPC target -- but external callers (a keybind calling
-    // `omarchy-shell shell media ...`) need a name that's ours alone.
+    // nothing. External callers (a keybind calling `omarchy-shell shell
+    // media ...`) need a name that's ours alone regardless.
+    //
+    // Bar-widget clicks (ruixen.media/BarWidget.qml, ruixen.notch's own
+    // dashboard buttons) used to call this service directly via
+    // firstPartyServiceFor("ruixen.media") instead of this IPC target --
+    // now they go through this same target too (the parameterized
+    // runAction() below), via a Process running `omarchy-shell
+    // ruixen-media runAction ...`, since Omarchy v4.0.3 restricts that
+    // direct call to a fixed allowlist "ruixen.media" was never going to
+    // be in (see ruixen-shell issue #39).
     target: "ruixen-media"
 
     function status(): string {
@@ -520,6 +604,18 @@ Item {
 
     function pause(): string {
       return root.runAction("pause", true) ? "ok" : "unhandled"
+    }
+
+    // Parameterized variant for in-process callers that need
+    // showFeedback: false -- ruixen-shell issue #39: ruixen.notch's own
+    // dashboard buttons call this (via a Process running `omarchy-shell
+    // ruixen-media runAction <action> false`) instead of playPause()/
+    // next()/previous() above, which hardcode showFeedback: true for
+    // external/keybind callers where an OSD toast is the only feedback.
+    // The notch already shows playing state visually, so a toast on top
+    // of that would be redundant.
+    function runAction(action: string, showFeedback: bool): string {
+      return root.runAction(String(action), showFeedback === true) ? "ok" : "unhandled"
     }
 
     function sourceNext(): string {

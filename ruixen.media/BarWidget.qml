@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Ui
 import qs.Commons
 
@@ -30,19 +31,69 @@ BarWidget {
   readonly property color barForeground: bar ? bar.barForeground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
-  readonly property var mediaService: bar?.shell?.firstPartyServiceFor("ruixen.media")
-  readonly property var activePlayer: mediaService ? mediaService.activePlayer : null
-  readonly property var sourcePlayers: mediaService ? mediaService.sourcePlayers : []
+  // Reads Service.qml's own state file directly instead of
+  // bar.shell.firstPartyServiceFor("ruixen.media") -- ruixen-shell issue
+  // #39/#38: Omarchy v4.0.3 restricts that call to a fixed 4-item
+  // allowlist of Omarchy's own services, which "ruixen.media" was never
+  // going to be in regardless of caller. This widget is a separate QML
+  // instance from Service.qml (only ever handed whatever ruixen.bar's
+  // own ModuleSlot injects via `bar`, never a shell property of its
+  // own), so the two now share state through a plain file instead of an
+  // in-process object reference. The file is refreshed on a 500ms poll
+  // on the writer side (Service.qml's own comment explains why polling,
+  // not a signal, is needed for position specifically), and watched
+  // here (watchChanges: true), which also replaces this widget's own
+  // former "poll position every 500ms while playing" Timer -- the
+  // reload IS the position update now, no separate polling needed on
+  // this side either.
+  readonly property string mediaStateHome: Quickshell.env("HOME")
+  readonly property string mediaStatePath: mediaStateHome + "/.local/state/ruixen/media-state.json"
 
-  // Passive "where you are in the song" display -- no seeking, just a
-  // filled track + elapsed/total time. MPRIS doesn't push position
-  // updates as playback progresses (only on seek/track-change), so it
-  // has to be polled while the popup's actually open to read.
+  property bool hasMedia: false
+  property bool isPlaying: false
+  property string title: ""
+  property string artist: ""
+  property string album: ""
+  property string artUrl: ""
+  property real trackLength: 0
   property real trackPosition: 0
-  readonly property real trackLength: activePlayer ? Math.max(0, Number(activePlayer.length || 0)) : 0
+  property bool canGoNext: false
+  property bool canGoPrevious: false
+  property bool canTogglePlaying: false
+  property bool canPlay: false
+  property bool canPause: false
+  readonly property string playIcon: isPlaying ? "\udb80\udfe4" : "\udb81\udc0a"
 
-  function syncPosition() {
-    trackPosition = activePlayer ? Math.max(0, Number(activePlayer.position || 0)) : 0
+  FileView {
+    id: mediaStateFile
+    path: root.mediaStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.applyMediaState(text())
+    onLoadFailed: root.applyMediaState("")
+  }
+
+  function applyMediaState(raw) {
+    var parsed
+    try {
+      parsed = JSON.parse(String(raw || "").trim() || "{}")
+    } catch (e) {
+      parsed = {}
+    }
+    root.hasMedia = parsed.hasMedia === true
+    root.isPlaying = parsed.playing === true
+    root.title = typeof parsed.title === "string" ? parsed.title : ""
+    root.artist = typeof parsed.artist === "string" ? parsed.artist : ""
+    root.album = typeof parsed.album === "string" ? parsed.album : ""
+    root.artUrl = typeof parsed.artUrl === "string" ? parsed.artUrl : ""
+    root.trackLength = Math.max(0, Number(parsed.length || 0))
+    root.trackPosition = Math.max(0, Number(parsed.position || 0))
+    root.canGoNext = parsed.canGoNext === true
+    root.canGoPrevious = parsed.canGoPrevious === true
+    root.canTogglePlaying = parsed.canTogglePlaying === true
+    root.canPlay = parsed.canPlay === true
+    root.canPause = parsed.canPause === true
   }
 
   function formatTime(seconds) {
@@ -52,23 +103,32 @@ BarWidget {
     return minutes + ":" + String(rest).padStart(2, "0")
   }
 
-  // Runs whenever something's playing, not just while the popup is open --
-  // the mini progress bar in the collapsed bar icon needs live position
-  // too now, not just the popup's own progress bar.
-  Timer {
-    interval: 500
-    repeat: true
-    running: root.activePlayer !== null && root.activePlayer.isPlaying
-    triggeredOnStart: true
-    onTriggered: root.syncPosition()
+  // Fire-and-forget through ruixen.media's own existing "ruixen-media"
+  // IpcHandler target instead of calling a live service object's
+  // runAction() directly -- see Service.qml's own comment on its
+  // parameterized runAction(action, showFeedback) IPC function for why
+  // showFeedback is always false here (this widget already shows
+  // playing state visually). Drops the third targetKey argument the
+  // old direct calls passed (playerKey(activePlayer), pinning the
+  // action to whichever player is currently displayed) -- runAction's
+  // own fallback chain already prefers the service's own activePlayer
+  // when it can handle the action, which is what this widget displays
+  // anyway, so the two resolve to the same player in the cases that
+  // matter.
+  property bool mediaActionPending: false
+
+  function sendMediaAction(action) {
+    if (mediaActionProcess.running) return
+    root.mediaActionPending = true
+    mediaActionProcess.command = ["omarchy-shell", "ruixen-media", "runAction", String(action), "false"]
+    mediaActionProcess.running = true
   }
 
-  onPopupOpenChanged: if (popupOpen) syncPosition()
-
-  readonly property bool hasMedia: activePlayer !== null && (activePlayer.trackTitle || activePlayer.trackArtist)
-  readonly property string playIcon: activePlayer && activePlayer.isPlaying ? "󰏤" : "󰐊"
-  readonly property string title: activePlayer ? (activePlayer.trackTitle || "") : ""
-  readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
+  Process {
+    id: mediaActionProcess
+    running: false
+    onExited: root.mediaActionPending = false
+  }
 
   property bool popupOpen: false
 
@@ -86,25 +146,25 @@ BarWidget {
   MouseArea {
     anchors.fill: parent
     hoverEnabled: true
-    cursorShape: root.activePlayer ? Qt.PointingHandCursor : Qt.ArrowCursor
+    cursorShape: root.hasMedia ? Qt.PointingHandCursor : Qt.ArrowCursor
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 
     onClicked: function(mouse) {
-      if (!root.activePlayer) return
+      if (!root.hasMedia) return
       // Left-clicks on the glyph badge are caught by its own MouseArea
       // (play/pause) before reaching here -- anything that does land here
       // (left elsewhere in the pill, or right-click anywhere) opens the
       // popup instead.
       if (mouse.button === Qt.MiddleButton) {
-        if (root.mediaService) root.mediaService.runAction("next", false)
+        root.sendMediaAction("next")
       } else {
         root.popupOpen = !root.popupOpen
       }
     }
     onWheel: function(wheel) {
-      if (!root.activePlayer) return
-      if (wheel.angleDelta.y > 0 && root.mediaService) root.mediaService.runAction("previous", false)
-      else if (wheel.angleDelta.y < 0 && root.mediaService) root.mediaService.runAction("next", false)
+      if (!root.hasMedia) return
+      if (wheel.angleDelta.y > 0) root.sendMediaAction("previous")
+      else if (wheel.angleDelta.y < 0) root.sendMediaAction("next")
     }
     onEntered: if (root.bar) root.bar.showTooltip(root, root.hasMedia ? (root.title + (root.artist ? " — " + root.artist : "")) : "")
     onExited: if (root.bar) root.bar.hideTooltip(root)
@@ -130,7 +190,7 @@ BarWidget {
       width: Style.space(16)
       height: Style.space(16)
       radius: width / 2
-      color: activePlayer && activePlayer.isPlaying ? "#f5c518" : "#3ecf5b"
+      color: isPlaying ? "#f5c518" : "#3ecf5b"
       Behavior on color {
         enabled: !root.bar || root.bar.foregroundAnimationEnabled
         ColorAnimation { duration: 160 }
@@ -152,7 +212,7 @@ BarWidget {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
         cursorShape: Qt.PointingHandCursor
-        onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
+        onClicked: root.sendMediaAction("playPause")
       }
     }
 
@@ -219,20 +279,20 @@ BarWidget {
             anchors.margins: Style.space(2)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            // Gated on hasMedia, not just activePlayer -- see
-            // ruixen.notch's Overlay.qml for the zombie-MPRIS-
-            // registration case this guards against (harmless here in
-            // practice since the whole widget's visible: hasMedia
-            // already hides this popup, but kept consistent in case that
-            // ever changes).
-            source: root.hasMedia && root.activePlayer && root.activePlayer.trackArtUrl ? root.activePlayer.trackArtUrl : ""
+            // root.artUrl is already gated on hasMedia at the source
+            // (Service.qml's own statusJson(), see its comment for the
+            // zombie-MPRIS-registration case this guards against) --
+            // this widget's own visible: hasMedia already hides this
+            // popup anyway, but the gate stays consistent in case that
+            // ever changes.
+            source: root.artUrl
             visible: source !== ""
           }
 
           Text {
             anchors.centerIn: parent
-            visible: !root.hasMedia || !root.activePlayer || !root.activePlayer.trackArtUrl
-            text: "󰝚"
+            visible: root.artUrl === ""
+            text: "\udb81\udf5a"
             color: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Style.font.displayLarge
@@ -264,7 +324,7 @@ BarWidget {
           }
 
           Text {
-            text: root.activePlayer && root.activePlayer.trackAlbum ? root.activePlayer.trackAlbum : ""
+            text: root.album
             color: Qt.darker(root.foreground, 1.6)
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -324,34 +384,34 @@ BarWidget {
         spacing: Style.space(6)
 
         Button {
-          iconText: "󰒮"
+          iconText: "\udb81\udcae"
           foreground: root.foreground
           horizontalPadding: Style.spacing.controlPaddingX
           verticalPadding: Style.spacing.controlPaddingY
-          enabled: root.activePlayer && root.activePlayer.canGoPrevious
+          enabled: root.canGoPrevious
           opacity: enabled ? 1.0 : 0.4
-          onClicked: if (root.mediaService) root.mediaService.runAction("previous", false, root.mediaService.playerKey(root.activePlayer))
+          onClicked: root.sendMediaAction("previous")
         }
 
         Button {
-          iconText: root.activePlayer && root.activePlayer.isPlaying ? "󰏤" : "󰐊"
+          iconText: root.playIcon
           foreground: root.foreground
           horizontalPadding: Style.spacing.panelGap
           verticalPadding: Style.spacing.controlPaddingY
           iconSize: Style.font.iconLarge
-          enabled: root.activePlayer && (root.activePlayer.canTogglePlaying || root.activePlayer.canPlay || root.activePlayer.canPause)
+          enabled: root.canTogglePlaying || root.canPlay || root.canPause
           opacity: enabled ? 1.0 : 0.4
-          onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false, root.mediaService.playerKey(root.activePlayer))
+          onClicked: root.sendMediaAction("playPause")
         }
 
         Button {
-          iconText: "󰒭"
+          iconText: "\udb81\udcad"
           foreground: root.foreground
           horizontalPadding: Style.spacing.controlPaddingX
           verticalPadding: Style.spacing.controlPaddingY
-          enabled: root.activePlayer && root.activePlayer.canGoNext
+          enabled: root.canGoNext
           opacity: enabled ? 1.0 : 0.4
-          onClicked: if (root.mediaService) root.mediaService.runAction("next", false, root.mediaService.playerKey(root.activePlayer))
+          onClicked: root.sendMediaAction("next")
         }
       }
     }

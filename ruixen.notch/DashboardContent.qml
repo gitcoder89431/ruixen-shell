@@ -32,9 +32,12 @@ Item {
 
   // Media passthrough -- reads the same root-level properties Overlay.qml
   // itself already computes from ruixen.media, just handed down instead
-  // of recomputed here.
-  property var mediaService: null
-  property var activePlayer: null
+  // of recomputed here. sendMediaAction is a plain function reference
+  // (Overlay.qml's own root.sendMediaAction), not a live service object
+  // -- see that file's own comment for why (ruixen-shell issue #39:
+  // Omarchy v4.0.3 restricts shell.firstPartyServiceFor() to a fixed
+  // allowlist "ruixen.media" was never going to be in).
+  property var sendMediaAction: null
   property bool hasMedia: false
   property bool isPlaying: false
   property string playIcon: ""
@@ -59,9 +62,8 @@ Item {
   // notch's own bell already makes.
   property var notificationService: null
   // The notch's own notification-history service (Overlay.qml's own
-  // NotificationService instance), handed down whole -- same pattern
-  // mediaService above already uses, since Column 3 below calls
-  // clearAll()/activate() on it directly, not just reads flattened
+  // NotificationService instance), handed down whole -- Column 3 below
+  // calls clearAll()/activate() on it directly, not just reads flattened
   // values off it.
   property var notificationHistory: null
   // Real brightness passthrough -- Overlay.qml owns the actual
@@ -637,7 +639,7 @@ Item {
               anchors.fill: parent
               anchors.margins: -6
               cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.mediaService) root.mediaService.runAction("previous", false)
+              onClicked: if (root.sendMediaAction) root.sendMediaAction("previous")
             }
           }
 
@@ -673,7 +675,7 @@ Item {
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
+              onClicked: if (root.sendMediaAction) root.sendMediaAction("playPause")
             }
           }
 
@@ -687,7 +689,7 @@ Item {
               anchors.fill: parent
               anchors.margins: -6
               cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.mediaService) root.mediaService.runAction("next", false)
+              onClicked: if (root.sendMediaAction) root.sendMediaAction("next")
             }
           }
         }

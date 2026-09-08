@@ -92,7 +92,75 @@ Item {
   // why this is a "#" fragment, not a "?" query string.
   property int avatarCacheBust: 0
 
-  readonly property var mediaService: shell ? shell.firstPartyServiceFor("ruixen.media") : null
+  // Reads ruixen.media/Service.qml's own state file directly instead of
+  // shell.firstPartyServiceFor("ruixen.media") -- ruixen-shell issue
+  // #39/#38: Omarchy v4.0.3 restricts that call to a fixed 4-item
+  // allowlist of Omarchy's own services, which "ruixen.media" was never
+  // going to be in regardless of caller. Control (play/pause/next/
+  // previous) goes the other way -- through ruixen.media's own existing
+  // "ruixen-media" IpcHandler target instead of calling a live service
+  // object's runAction() directly, see sendMediaAction() below.
+  readonly property string mediaStateHome: Quickshell.env("HOME")
+  readonly property string mediaStatePath: mediaStateHome + "/.local/state/ruixen/media-state.json"
+
+  property bool hasMedia: false
+  property bool isPlaying: false
+  property string title: ""
+  property string artist: ""
+  property string album: ""
+  property string artUrl: ""
+  readonly property string playIcon: isPlaying ? "\udb80\udfe4" : "\udb81\udc0a"
+
+  FileView {
+    id: mediaStateFile
+    path: root.mediaStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.applyMediaState(text())
+    onLoadFailed: root.applyMediaState("")
+  }
+
+  function applyMediaState(raw) {
+    var parsed
+    try {
+      parsed = JSON.parse(String(raw || "").trim() || "{}")
+    } catch (e) {
+      parsed = {}
+    }
+    root.hasMedia = parsed.hasMedia === true
+    root.isPlaying = parsed.playing === true
+    root.title = typeof parsed.title === "string" ? parsed.title : ""
+    root.artist = typeof parsed.artist === "string" ? parsed.artist : ""
+    root.album = typeof parsed.album === "string" ? parsed.album : ""
+    root.artUrl = typeof parsed.artUrl === "string" ? parsed.artUrl : ""
+    root.trackLength = Math.max(0, Number(parsed.length || 0))
+    root.trackPosition = Math.max(0, Number(parsed.position || 0))
+  }
+
+  // Fire-and-forget through ruixen.media's own IPC target -- the same
+  // mechanism `omarchy-shell ruixen-media <method>` already uses
+  // externally, just invoked from a Process instead of a shell script.
+  // showFeedback is always false here: the notch already shows playing
+  // state visually, an OSD toast on top of that would be redundant. The
+  // target's own playPause()/next()/previous() convenience functions
+  // hardcode showFeedback: true (for external/keybind callers, where an
+  // OSD is the only feedback), so this calls the parameterized
+  // runAction() instead of those.
+  property bool mediaActionPending: false
+
+  function sendMediaAction(action) {
+    if (mediaActionProcess.running) return
+    root.mediaActionPending = true
+    mediaActionProcess.command = ["omarchy-shell", "ruixen-media", "runAction", String(action), "false"]
+    mediaActionProcess.running = true
+  }
+
+  Process {
+    id: mediaActionProcess
+    running: false
+    onExited: root.mediaActionPending = false
+  }
 
   // Same first-party service ruixen.dnd reads -- the bell here just
   // reflects the real state, doesn't own it.
@@ -175,11 +243,6 @@ Item {
     setBrightnessProc.command = ["omarchy-brightness-display", "--no-osd", "--monitor", root.focusedMonitor, p + "%"]
     setBrightnessProc.running = true
   }
-  readonly property var activePlayer: mediaService ? mediaService.activePlayer : null
-  readonly property bool hasMedia: activePlayer !== null && (activePlayer.trackTitle || activePlayer.trackArtist)
-  readonly property bool isPlaying: activePlayer ? activePlayer.isPlaying === true : false
-  readonly property string playIcon: isPlaying ? "󰏤" : "󰐊"
-
   // The collapsed pill's own "no media" fallback content -- direct
   // request: "when theres no music it just shows active window". Same
   // real Wayland foreign-toplevel data fullscreenActive above already
@@ -189,17 +252,13 @@ Item {
   readonly property var activeToplevel: ToplevelManager.activeToplevel
   readonly property string activeWindowTitle: activeToplevel
     ? (activeToplevel.title || activeToplevel.appId || "") : ""
-  readonly property string title: activePlayer ? (activePlayer.trackTitle || "") : ""
-  readonly property string artist: activePlayer ? (activePlayer.trackArtist || "") : ""
-  readonly property string album: activePlayer ? (activePlayer.trackAlbum || "") : ""
-  // Gated on hasMedia, not just activePlayer -- a closed app can leave a
-  // zombie MPRIS registration behind (confirmed: chromium after quitting
-  // still owns org.mpris.MediaPlayer2.chromium.* on the session bus,
-  // PlaybackStatus "Stopped", with a stale mpris:artUrl but no title/
-  // artist). Without this gate the blurred background art below kept
-  // showing that stale art forever since it only checked "is artUrl
-  // non-empty", not whether there's actually anything playing.
-  readonly property string artUrl: hasMedia && activePlayer && activePlayer.trackArtUrl ? activePlayer.trackArtUrl : ""
+  // title/artist/album/artUrl/hasMedia are now plain properties set by
+  // applyMediaState() above (fed by ruixen.media's own state file) --
+  // the zombie-MPRIS-registration gate that used to live on artUrl's
+  // own binding here (a closed app can leave a stale mpris:artUrl with
+  // no title/artist behind) moved into ruixen.media/Service.qml's own
+  // statusJson() instead (see its own comment), so every consumer of
+  // that status gets the same protection, not just this file.
 
   // Never leave a blank "no media" state -- fall back to something
   // always available instead. A compositor-window-title fallback would
@@ -250,27 +309,23 @@ Item {
     }
   }
 
+  // trackPosition/trackLength are now plain properties set by
+  // applyMediaState() (see the media-state block above) instead of being
+  // read live off activePlayer -- ruixen.media/Service.qml refreshes the
+  // state file on a matching ~500ms cadence while playing (see its own
+  // comment), and this file's own FileView (watchChanges: true) reloads
+  // on every write, so position updates arrive the same way they always
+  // did, just pushed via the file instead of polled off a live object.
+  // No separate syncPosition()/Timer needed here any more.
   property real trackPosition: 0
-  readonly property real trackLength: activePlayer ? Math.max(0, Number(activePlayer.length || 0)) : 0
+  property real trackLength: 0
   readonly property real progressRatio: trackLength > 0 ? Math.min(1, trackPosition / trackLength) : 0
-
-  function syncPosition() {
-    trackPosition = activePlayer ? Math.max(0, Number(activePlayer.position || 0)) : 0
-  }
 
   function formatTime(seconds) {
     var value = Math.max(0, Math.floor(Number(seconds) || 0))
     var minutes = Math.floor(value / 60)
     var rest = value % 60
     return minutes + ":" + String(rest).padStart(2, "0")
-  }
-
-  Timer {
-    interval: 500
-    repeat: true
-    running: root.isPlaying
-    triggeredOnStart: true
-    onTriggered: root.syncPosition()
   }
 
   // Quarter-circle silhouette, one corner at a time -- used as mask
@@ -1126,7 +1181,7 @@ Item {
                   anchors.margins: -6
                   enabled: root.hasMedia
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: if (root.mediaService) root.mediaService.runAction("playPause", false)
+                  onClicked: root.sendMediaAction("playPause")
                 }
               }
 
@@ -1383,8 +1438,7 @@ Item {
                 muted: root.muted
                 accent: root.accent
                 fontFamily: root.fontFamily
-                mediaService: root.mediaService
-                activePlayer: root.activePlayer
+                sendMediaAction: root.sendMediaAction
                 hasMedia: root.hasMedia
                 isPlaying: root.isPlaying
                 playIcon: root.playIcon

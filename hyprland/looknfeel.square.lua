@@ -43,9 +43,24 @@
 -- overridden by this file until now. 1 is the thinnest non-zero
 -- border Hyprland supports; going to 0 would remove the border
 -- entirely, which isn't what was asked for here.
+--
+-- gaps_out: top stays Hyprland's own default (10, confirmed live via
+-- `hyprctl getoption general:gaps_out`), right/bottom/left bumped to
+-- 20 -- direct request, docked mode: a real window's own square
+-- corner (rounding: 0 in this variant) sitting close to
+-- ruixen.bar's own wing decoration (still rounded, ruixen.bar/Bar.qml)
+-- or ruixen.frame-widget's side/bottom border reads as touching/
+-- clipping with no buffer. Top isn't included here -- the bar's own
+-- exclusiveZone already reserves real top space independent of gaps;
+-- side/bottom have no such reservation, so they're the ones that
+-- actually need the extra room. Table form, not a CSS-style string --
+-- confirmed via `hyprctl configerrors` after the string form failed:
+-- "css_gap type requires an integer or a table with optional 'top',
+-- 'right', 'bottom', 'left' fields".
 hl.config({
   general = {
     border_size = 1,
+    gaps_out = { top = 10, right = 20, bottom = 20, left = 20 },
   },
 })
 

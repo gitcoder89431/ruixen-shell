@@ -1683,7 +1683,18 @@ Item {
           visible: root.docked
           x: 0
           y: 0
-          width: settingsPill.x + settingsPill.width
+          // Rounded mode: just the left group's own width, unchanged.
+          // Sharp mode: the FULL window width -- direct request, "make
+          // the topbar a full black strip so it runs under the notch
+          // too" (a traditional single continuous Waybar-style strip,
+          // rather than two separate left/right groups with a gap in
+          // the middle). ruixen.notch is a separate overlay window on
+          // its own layer, already rendered on top of this one
+          // regardless of what's drawn here, so extending underneath it
+          // is safe -- no z-order change needed. rightDockedBg below is
+          // hidden in this mode since this one now covers its entire
+          // area too.
+          width: root.sharpCorners ? parent.width : (settingsPill.x + settingsPill.width)
           // root.barSize, not parent.height -- parent (the outer Item,
           // sized to the whole window) is taller than the pill row when
           // docked, to make room for leftFrameTaper below. This piece is
@@ -1757,7 +1768,9 @@ Item {
 
         Rectangle {
           id: rightDockedBg
-          visible: root.docked
+          // Hidden in sharp mode -- leftDockedBg above already spans the
+          // full window width there, covering this piece's entire area.
+          visible: root.docked && !root.sharpCorners
           x: trayPill.x
           y: 0
           width: parent.width - trayPill.x

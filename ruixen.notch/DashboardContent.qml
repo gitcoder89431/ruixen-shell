@@ -105,7 +105,7 @@ Item {
   readonly property string brailleSpinner: {
     var s = ""
     for (var i = 0; i < brailleCells; i++)
-      s += (i === brailleActiveIndex ? "⣿" : "⠒")
+      s += (i === brailleActiveIndex ? "\u28ff" : "\u2812")
     return s
   }
 
@@ -629,7 +629,7 @@ Item {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "󰒮"
+            text: "\udb81\udcae"
             color: root.textColor
             font.family: root.fontFamily
             font.pixelSize: 18
@@ -664,7 +664,7 @@ Item {
               // direct follow-up ("looks weird with the circle, just
               // use the square icon"), dropped the circle wrapper
               // entirely for a plain hollow square.
-              text: root.hasMedia ? root.playIcon : "󰝣"
+              text: root.hasMedia ? root.playIcon : "\udb81\udf63"
               color: "#000000"
               font.family: root.fontFamily
               font.pixelSize: 20
@@ -679,7 +679,7 @@ Item {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "󰒭"
+            text: "\udb81\udcad"
             color: root.textColor
             font.family: root.fontFamily
             font.pixelSize: 18
@@ -738,14 +738,14 @@ Item {
 
           QuickToggle {
             size: 40
-            glyph: "󰖩"
+            glyph: "\udb81\udda9"
             active: Networking.wifiEnabled
             onActivated: Networking.wifiEnabled = !Networking.wifiEnabled
           }
 
           QuickToggle {
             size: 40
-            glyph: "󰂯"
+            glyph: "\udb80\udcaf"
             active: root.bluetoothAdapter ? root.bluetoothAdapter.enabled : false
             // Not adapter.enabled = !adapter.enabled: that writes BlueZ's
             // Powered directly, which nothing persists, so it comes back
@@ -760,14 +760,14 @@ Item {
 
           QuickToggle {
             size: 40
-            glyph: "󰖨"
+            glyph: "\udb81\udda8"
             active: root.nightlightService ? root.nightlightService.enabled : false
             onActivated: if (root.nightlightService) root.nightlightService.toggle()
           }
 
           QuickToggle {
             size: 40
-            glyph: "󰛊"
+            glyph: "\udb81\udeca"
             active: root.idleService ? root.idleService.stayAwake : false
             // setIdleEnabled(current stayAwake value) IS the toggle --
             // see ruixen.stayawake's own StayAwake.qml for the same
@@ -778,7 +778,7 @@ Item {
 
           QuickToggle {
             size: 40
-            glyph: "󱚣"
+            glyph: "\udb85\udea3"
           }
         }
       }
@@ -898,7 +898,7 @@ Item {
 
               Text {
                 anchors.centerIn: parent
-                text: "󰅁"
+                text: "\udb80\udd41"
                 color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: 16
@@ -919,7 +919,7 @@ Item {
 
               Text {
                 anchors.centerIn: parent
-                text: "󰅂"
+                text: "\udb80\udd42"
                 color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: 16
@@ -1139,7 +1139,7 @@ Item {
 
             Text {
               anchors.centerIn: parent
-              text: "󰂛"
+              text: "\udb80\udc9b"
               color: root.dnd ? "#e05252" : (dndBellArea.containsMouse ? Qt.lighter(root.accent, 1.25) : root.accent)
               font.family: root.fontFamily
               font.pixelSize: 16
@@ -1169,7 +1169,7 @@ Item {
 
             Text {
               anchors.centerIn: parent
-              text: "󰃢"
+              text: "\udb80\udce2"
               color: clearNotificationsArea.containsMouse ? Qt.lighter("#e0a050", 1.25) : "#e0a050"
               font.family: root.fontFamily
               font.pixelSize: 16
@@ -1385,7 +1385,7 @@ Item {
                   Text {
                     anchors.centerIn: parent
                     visible: notificationRowArea.containsMouse
-                    text: "✕"
+                    text: "\u2715"
                     font.pixelSize: 10
                     color: dismissNotificationArea.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
                   }
@@ -1737,7 +1737,7 @@ Item {
 
         Text {
           anchors.centerIn: parent
-          text: "󰃟"
+          text: "\udb80\udcdf"
           color: root.textColor
           font.family: root.fontFamily
           font.pixelSize: 20
@@ -1847,8 +1847,8 @@ Item {
       }
 
       Dial {
-        glyph: "󰕾"
-        mutedGlyph: "󰖁"
+        glyph: "\udb81\udd7e"
+        mutedGlyph: "\udb81\udd81"
         muted: root.audioSink && root.audioSink.audio ? root.audioSink.audio.muted : false
         value: root.speakerVolume
         onActivated: if (root.audioSink && root.audioSink.audio) root.audioSink.audio.muted = !root.audioSink.audio.muted
@@ -1858,8 +1858,8 @@ Item {
         }
       }
       Dial {
-        glyph: "󰍬"
-        mutedGlyph: "󰍭"
+        glyph: "\udb80\udf6c"
+        mutedGlyph: "\udb80\udf6d"
         muted: root.audioSource && root.audioSource.audio ? root.audioSource.audio.muted : false
         value: root.micVolume
         onActivated: if (root.audioSource && root.audioSource.audio) root.audioSource.audio.muted = !root.audioSource.audio.muted

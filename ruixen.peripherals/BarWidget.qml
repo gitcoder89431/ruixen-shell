@@ -40,7 +40,6 @@ BarWidget {
   // already use. No new state file needed.
   readonly property string selectedId: root.setting("selectedId", "")
   readonly property var selectedDevice: root.deviceById(root.selectedId)
-  readonly property bool showPercentage: root.setting("showPercentage", false) === true
 
   function deviceById(id) {
     if (!id) return null
@@ -73,29 +72,12 @@ BarWidget {
     })
   }
 
-  function togglePercentage() {
-    if (!bar || !bar.shell || typeof bar.shell.mutateShellConfig !== "function") return
-    bar.shell.mutateShellConfig(function(config) {
-      if (!config.bar || !config.bar.layout) return
-      var sections = ["left", "center", "right"]
-      for (var i = 0; i < sections.length; i++) {
-        var arr = config.bar.layout[sections[i]]
-        if (!Array.isArray(arr)) continue
-        for (var j = 0; j < arr.length; j++) {
-          var entry = arr[j]
-          if (!entry || entry.id !== root.moduleName) continue
-          entry.showPercentage = !(entry.showPercentage === true)
-          return
-        }
-      }
-    })
-  }
-
   // Font Awesome solid, \u escapes only -- never a pasted glyph, per
   // ruixen.pluginpins' own established reasoning (corrupted-byte issues
-  // hit twice already elsewhere in this repo). Used only for the
-  // dropdown list's own per-row device-kind icon now -- the main bar
-  // icon uses a real battery glyph instead, see batteryGlyph() below.
+  // hit twice already elsewhere in this repo). Used for the dropdown
+  // list's own per-row device-kind icon, and reused by the main bar
+  // icon's own mainText() for the "no fresh reading" and "nothing
+  // selected" cases -- see mainText() below.
   //
   // "mouse" is \uefba, not FA's own standard \uf8cc codepoint for the
   // same computer-mouse icon -- confirmed live by inspecting this
@@ -114,44 +96,21 @@ BarWidget {
     }
   }
 
-  // Real battery-state glyphs, same icon language as omarchy.power's own
-  // Model.js batteryIcon() (10 charge-level icons, a separate 10-level
-  // set while charging, both from Material Design Icons' own "battery"
-  // family) -- confirmed live via fontTools that every codepoint here
-  // exists in this machine's actual font. These all sit above the BMP
-  // (Material Design Icons' supplementary-plane range in this Nerd Font
-  // build), so each needs a real UTF-16 surrogate pair, not a plain
-  // single \uXXXX -- computed directly from each glyph's real codepoint,
-  // not guessed. No precedent for this in the repo before now (every
-  // other glyph anywhere in this codebase happens to fit in a single
-  // \uXXXX), so spelling this out: a surrogate PAIR is still just two
-  // \u escapes back to back, same "never a pasted glyph" rule as always.
-  readonly property var chargingIcons: [
-    "\udb82\udc9c", "\udb80\udc86", "\udb80\udc87", "\udb80\udc88", "\udb82\udc9d",
-    "\udb80\udc89", "\udb82\udc9e", "\udb80\udc8a", "\udb80\udc8b", "\udb80\udc85"
-  ]
-  readonly property var defaultIcons: [
-    "\udb80\udc7a", "\udb80\udc7b", "\udb80\udc7c", "\udb80\udc7d", "\udb80\udc7e",
-    "\udb80\udc7f", "\udb80\udc80", "\udb80\udc81", "\udb80\udc82", "\udb80\udc79"
-  ]
-  function batteryGlyph(device) {
-    // Nothing selected yet -- generic plug, same as the old always-on
-    // trigger icon, now just the empty/unselected state instead of the
-    // only state.
+  // Direct follow-up after shipping the real battery-glyph icon here:
+  // "instead of showing the same battery icon as the laptop power
+  // battery, can be confusing, can it just show the % number." Retired
+  // the whole battery-glyph icon set (both the 10-level default/
+  // charging arrays and the earlier md-battery_unknown fallback) in
+  // favor of plain text -- a real number reads unambiguously as "this
+  // peripheral," where a battery-shaped icon could be mistaken for
+  // omarchy.power's own laptop battery at a glance.
+  function mainText(device) {
+    // Nothing selected yet -- generic plug, same as ever.
     if (!device) return "\uf1e6"
-    // No fresh reading (real, expected HID++ behavior confirmed live:
-    // capacity comes back empty between battery-report events even
-    // though the device is genuinely connected) -- direct follow-up
-    // after shipping the dedicated md-battery_unknown glyph here:
-    // "instead of like a battery with a question mark on it, looks
-    // confusing, maybe just put the icon like mouse or keyboard on it,
-    // these are like usb plugged stuff." The device's own kind icon
-    // (same one the dropdown list already uses) reads as "this is a
-    // mouse, no battery data right now" far more clearly than an
-    // ambiguous battery-with-a-question-mark would.
+    // No fresh reading -- the device's own kind icon (see previous
+    // commit's own reasoning), unchanged by this pass.
     if (!device.available) return root.kindGlyph(device.kind)
-    var index = Math.max(0, Math.min(9, Math.floor(device.level / 10)))
-    return device.charging ? root.chargingIcons[index] : root.defaultIcons[index]
+    return root.percentText(device)
   }
 
   function percentText(device) {
@@ -174,21 +133,22 @@ BarWidget {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  // Same shape as omarchy.power's own BarIconButton: the glyph itself
-  // always reflects real state, right-click adds the percentage next to
-  // it instead of needing a whole separate badge/row for that.
   BarIconButton {
     id: button
     bar: root.bar
-    text: root.showPercentage && root.selectedDevice
-      ? root.percentText(root.selectedDevice) + " " + root.batteryGlyph(root.selectedDevice)
-      : root.batteryGlyph(root.selectedDevice)
-    slotSize: Style.bar.iconSlot * (root.showPercentage && root.selectedDevice && !vertical ? 2 : 1)
+    text: root.mainText(root.selectedDevice)
+    // Fixed width whenever a real percentage is being shown (not
+    // dependent on the number's own digit count) -- direct follow-up:
+    // "make sure the number dont shift between 2 or 3 digits oldly."
+    // The slot's own width only depends on WHETHER a percent is being
+    // displayed at all, never on the current value, so it stays put as
+    // a real device's battery drains from "100%" down through "9%" --
+    // only the icon-vs-percent cases (nothing selected / no reading)
+    // ever actually change width, and those are discrete state changes,
+    // not a live-updating number.
+    slotSize: Style.bar.iconSlot * (root.selectedDevice && root.selectedDevice.available && !vertical ? 2 : 1)
     tooltipText: root.selectedDevice ? root.selectedDevice.name : "Wireless peripherals -- pick one to show here"
-    onPressed: function(mouseButton) {
-      if (mouseButton === Qt.RightButton) root.togglePercentage()
-      else root.popupOpen = !root.popupOpen
-    }
+    onPressed: function() { root.popupOpen = !root.popupOpen }
   }
 
   component DeviceRow: Item {

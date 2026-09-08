@@ -137,23 +137,33 @@ check "manifest's bar-widget entry point is BarWidget.qml" \
 # sucks... can we collapse it into this so the main icon shows the
 # battery icon always" -- one selectedId string (mutateShellConfig, same
 # primitive ruixen.pluginpins already uses for its own pin persistence),
-# not a pinnedIds array, and a real battery glyph on the bar icon itself
-# instead of a generic trigger + separate pinned badges.
+# not a pinnedIds array.
 check "selection persistence uses mutateShellConfig, same primitive ruixen.pluginpins already uses" \
-  "$(grep -c 'bar\.shell\.mutateShellConfig(function' "$widget_qml")" "2"
+  "$(grep -c 'bar\.shell\.mutateShellConfig(function' "$widget_qml")" "1"
 check "selectedId is read back via the stock BarWidget base's own setting() helper" \
   "$(grep -c 'root\.setting("selectedId", "")' "$widget_qml")" "1"
-check "showPercentage is read back via the stock BarWidget base's own setting() helper (right-click toggle, matching omarchy.power's own pattern)" \
-  "$(grep -c 'root\.setting("showPercentage", false)' "$widget_qml")" "1"
 check "no leftover pinnedIds (the retired multi-pin design)" \
   "$(grep -c 'pinnedIds' "$widget_qml" || true)" "0"
 
-# Every kind glyph and the trigger/select glyphs must be QML \u escapes,
-# not pasted Nerd Font characters -- direct precedent: a hidden/corrupted
-# glyph byte has broken this exact thing multiple times already elsewhere
-# in this repo. The generic-device plug glyph legitimately appears twice
-# by design -- once as kindGlyph's own default case, once as
-# batteryGlyph's own "nothing selected yet" fallback.
+# The battery-glyph icon set and its right-click percentage toggle were
+# both retired in a later follow-up: "instead of showing the same
+# battery icon as the laptop power battery, can be confusing, can it
+# just show the % number" -- the main bar icon now shows plain percent
+# text (mainText()) instead of a battery-shaped glyph, so there's
+# nothing left to toggle between icon-only and icon-plus-percent.
+check "no leftover showPercentage/togglePercentage (retired with the battery-glyph icon)" \
+  "$(grep -c 'showPercentage\|togglePercentage' "$widget_qml" || true)" "0"
+check "no leftover battery-glyph arrays/function (retired for plain percent text)" \
+  "$(grep -c 'chargingIcons\|defaultIcons\|batteryGlyph' "$widget_qml" || true)" "0"
+check "the bar icon's own slot width is fixed while a real percentage is showing, independent of the number's own digit count" \
+  "$(grep -c 'root\.selectedDevice && root\.selectedDevice\.available && !vertical ? 2 : 1' "$widget_qml")" "1"
+
+# Every kind glyph and the select glyph must be QML \u escapes, not
+# pasted Nerd Font characters -- direct precedent: a hidden/corrupted
+# glyph byte has broken this exact thing multiple times already
+# elsewhere in this repo. The generic-device plug glyph legitimately
+# appears twice by design -- once as kindGlyph's own default case, once
+# as mainText's own "nothing selected yet" fallback.
 declare -A expected_escape_counts=(
   ['\\uefba']=1 ['\\uf11c']=1 ['\\uf025']=1 ['\\uf11b']=1
   ['\\uf1e6']=2 ['\\uf00c']=1
@@ -163,27 +173,12 @@ for esc in "${!expected_escape_counts[@]}"; do
     "$(grep -c "\"$esc\"" "$widget_qml")" "${expected_escape_counts[$esc]}"
 done
 
-# The battery-state glyphs are all above the BMP (Material Design Icons'
-# supplementary-plane range in this Nerd Font build) -- confirmed live
-# via fontTools against this machine's actual font file before writing
-# these. Each needs a real UTF-16 surrogate PAIR, not a single \uXXXX --
-# spot-check a few of the 20 (10 default + 10 charging) rather than
-# every one, just to catch the pattern breaking wholesale. The old
-# md-battery_unknown glyph (used for a device with no fresh reading) was
-# retired -- direct follow-up ("instead of like a battery with a
-# question mark on it, looks confusing, maybe just put the icon like
-# mouse or keyboard on it") -- batteryGlyph() falls back to kindGlyph()
-# for that case now instead.
-declare -A expected_surrogate_counts=(
-  ['\\udb80\\udc79']=1
-  ['\\udb80\\udc85']=1
-  ['\\udb82\\udc9c']=1
-)
-check "the retired md-battery_unknown surrogate pair is gone, not just unused" \
-  "$(grep -c '\\\\udb80\\\\udc91' "$widget_qml" || true)" "0"
-for esc in "${!expected_surrogate_counts[@]}"; do
-  check "battery glyph surrogate pair $esc is present, not a raw pasted character" \
-    "$(grep -c "\"$esc\"" "$widget_qml")" "${expected_surrogate_counts[$esc]}"
+# All of the old battery-glyph surrogate pairs (both the 10-level
+# default/charging icons and the md-battery_unknown fallback) must be
+# gone entirely now, not just unused.
+for esc in '\\udb80\\udc79' '\\udb80\\udc85' '\\udb82\\udc9c' '\\udb80\\udc91'; do
+  check "retired battery-glyph surrogate pair $esc is gone" \
+    "$(grep -c "$esc" "$widget_qml" || true)" "0"
 done
 
 # No literal multi-byte glyph characters anywhere in the file (the actual

@@ -606,12 +606,17 @@ Item {
         anchors.rightMargin: 8
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 8
-        // Wider than the first cut (280) -- now that the list rows
-        // dropped their own subtitle/kind columns (redundant with this
-        // panel's own "Where" field and the row's icon), this panel is
-        // the featured part of Search Files, not a narrow sidebar next
-        // to the real content.
-        width: 360
+        // Roughly a 1:3 split with the list (list gets the remaining
+        // quarter of the usable width) -- this panel is the featured
+        // part of Search Files, not a narrow sidebar next to the real
+        // content, and the list rows dropped their own subtitle/kind
+        // columns (redundant with this panel's own "Where" field and
+        // the row's icon) so they don't need much width to stay
+        // readable. parent.width - 24 is the usable space once the
+        // card's own left/right margins (8 each) and the gap between
+        // the two panes (8, resultsList's own rightMargin) are
+        // subtracted.
+        width: (parent.width - 24) * 0.75
         radius: 12
         color: Qt.rgba(1, 1, 1, 0.04)
         clip: true

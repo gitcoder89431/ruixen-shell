@@ -74,10 +74,31 @@ Item {
     onTriggered: root.runSearch(root.query.trim())
   }
 
+  // Final displayed cap, applied AFTER our own relevance sort in
+  // onStreamFinished below -- see runSearch()'s own comment for why
+  // that's a different number from fd's own --max-results.
+  readonly property int displayLimit: 30
+
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
-    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--max-results", "50"]
+    // -t f -t d: files AND directories -- fd ORs multiple --type flags
+    // together (confirmed live). fd prints a trailing "/" on directory
+    // matches, which resultFor() below uses to tell them apart without
+    // a separate stat() per result.
+    //
+    // fd's own --max-results is a raw CANDIDATE cap, not a relevance
+    // cap -- fd fills it in directory-traversal order, with no idea
+    // which matches score best. A tight cap here can silently drop a
+    // highly relevant match before scoreFile() ever sees it: confirmed
+    // live, searching "shell" with a 50-candidate cap never even
+    // considered the real folder `dhh-shell` because 50 less-relevant
+    // "shell"-matching files elsewhere filled the quota first. 500 is
+    // a generous safety valve against a truly pathological one-
+    // character query on a huge tree (a full unthrottled $HOME search
+    // already takes ~8ms here), not a meaningful relevance filter --
+    // the real cap is displayLimit, applied after sorting.
+    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--max-results", "500"]
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
     args.push("--", query, root.homeDir)
     searchProc.command = args
@@ -88,13 +109,24 @@ Item {
   // same 0-10000 scale every other provider uses, so Launcher.qml's
   // now-GLOBAL cross-provider sort ("Results", not separate per-source
   // sections -- confirmed against Raycast's own real behavior) stays
-  // meaningful. dirBonus nudges a directory above an otherwise-similar
-  // file ("sort them so folders are higher inside the files group")
-  // without swamping the whole 0-10000 range the way a much larger
-  // bonus would -- that would make every folder outrank every app/
-  // command regardless of actual relevance once sorting is global,
-  // not just within this provider's own results.
-  readonly property int dirBonus: 300
+  // meaningful.
+  //
+  // dirBonus needs to be big enough to close the PREFIX-vs-SUBSTRING
+  // gap within this scale, not just nudge a near-tie -- confirmed
+  // live: searching "shell" with a small bonus (300) still buried the
+  // real folder `dhh-shell` (a substring match, "shell" isn't at
+  // index 0) under files like `shell.qml`/`shell.toml` (prefix
+  // matches, ~8991-9000) even though the user wanted the folder
+  // ranked above them. The prefix/substring tiers span roughly
+  // 5000-9000 within this provider's own base score, so a bonus below
+  // ~4000 can't reliably close that gap. 5000 guarantees any real
+  // directory match outranks any file match at the same or a weaker
+  // match tier, while still landing below a genuinely exact Command/
+  // Application hit (10000) most of the time -- an exact-name folder
+  // match (10000 + 5000) is the one case that outranks even those,
+  // which is the intended behavior: if you typed the folder's actual
+  // name, that folder is almost certainly what you meant.
+  readonly property int dirBonus: 5000
 
   function scoreFile(name, query, isDir) {
     var q = String(query || "").toLowerCase()
@@ -145,7 +177,12 @@ Item {
         var lines = text.split("\n").filter(function(l) { return l.length > 0 })
         var out = []
         for (var i = 0; i < lines.length; i++) out.push(root.resultFor(lines[i], q))
-        root.lastResults = out
+        // Sort by score BEFORE capping -- the whole point of raising
+        // fd's own --max-results above is that truncation has to
+        // happen after ranking, not before it (see runSearch()'s own
+        // comment).
+        out.sort(function(a, b) { return b.score - a.score })
+        root.lastResults = out.slice(0, root.displayLimit)
       }
     }
   }

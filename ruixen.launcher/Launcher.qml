@@ -511,20 +511,29 @@ Item {
             font.pixelSize: 16
           }
 
-          // Label keeps only as much width as it needs (capped so a
-          // long label can't push the subtitle off the row entirely) --
-          // metaText then sits right after it with a small gap, as a
-          // subtitle beside the name, rather than pinned to the row's
-          // far right edge with a dead gap in between for short labels.
-          // In Search Files mode there's no subtitle/kind at all (see
-          // metaText/kindText below), so the label just takes the
-          // whole row.
+          // A fixed cap, not "shrink to the label's own content" --
+          // that version read implicitWidth off a Text that also has
+          // elide set, a real, documented Qt Quick gotcha (confirmed
+          // live: a genuine "Binding loop detected for property width"
+          // warning). Measuring the label separately via a sibling
+          // TextMetrics (the usual fix for that gotcha) traded it for a
+          // worse bug instead: confirmed live, ListView recycles
+          // delegates, and TextMetrics.width lagged a stale
+          // measurement from whatever row PREVIOUSLY occupied this
+          // recycled delegate, truncating every label ("Discord" ->
+          // "Disco…", "Disks" -> "Dis…") regardless of its own actual
+          // length. A fixed cap means short labels leave a small dead
+          // gap before metaText instead of it sitting right beside the
+          // name -- a real but minor cosmetic regression, next to
+          // either bug above. In Search Files mode there's no
+          // subtitle/kind at all (see metaText/kindText below), so the
+          // label just takes the whole row regardless.
           Text {
             id: labelText
             anchors.left: parent.left
             anchors.leftMargin: 44
             anchors.verticalCenter: parent.verticalCenter
-            width: root.filesMode ? (parent.width - 44 - 12) : Math.min(implicitWidth, parent.width * 0.55 - 44)
+            width: root.filesMode ? (parent.width - 44 - 12) : (parent.width * 0.55 - 44)
             elide: Text.ElideRight
             text: row.modelData.label
             color: root.textColor

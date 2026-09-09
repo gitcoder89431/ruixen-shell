@@ -209,6 +209,7 @@ BarWidget {
           // Leave pluginCatalog at its last known value on a transient
           // parse failure rather than blanking the whole dropdown.
         }
+        root.captureDisplayNames()
       }
     }
   }
@@ -217,7 +218,48 @@ BarWidget {
     if (!pluginCatalogProc.running) pluginCatalogProc.running = true
   }
 
-  Component.onCompleted: refreshPluginCatalog()
+  // Captured once per id and kept forever after, rather than read fresh
+  // inside candidates below -- direct report: the label flickered
+  // between the widget registry's own short displayName ("Peripherals",
+  // while registered/pinned) and the catalog's plain name ("Ruixen
+  // Peripherals", the moment a full unpin unregisters the widget -- see
+  // candidates' own comment) every time a row got pinned/unpinned. A
+  // manifest's own barWidget.displayName never actually changes at
+  // runtime, so once seen it can just be trusted from here on --
+  // mutating this from inside candidates' own binding instead would be
+  // the exact read-your-own-write binding-loop anti-pattern this file's
+  // own registerClickTarget comment already warns about, so it updates
+  // here, off the registry's real revision signal, not there.
+  property var displayNameCache: ({})
+
+  function captureDisplayNames() {
+    var reg = root.widgetRegistry
+    if (!reg || !reg.availableIds) return
+    var ids = reg.availableIds()
+    var next = null
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i]
+      var meta = reg.metadataFor(id)
+      if (meta && meta.displayName && root.displayNameCache[id] !== meta.displayName) {
+        if (!next) {
+          next = {}
+          for (var k in root.displayNameCache) next[k] = root.displayNameCache[k]
+        }
+        next[id] = meta.displayName
+      }
+    }
+    if (next) root.displayNameCache = next
+  }
+
+  Connections {
+    target: root.widgetRegistry
+    function onRevisionChanged() { root.captureDisplayNames() }
+  }
+
+  Component.onCompleted: {
+    refreshPluginCatalog()
+    captureDisplayNames()
+  }
 
   // Recomputed whenever the registry mutates (a plugin gets installed,
   // enabled/disabled, or moved) -- revision is read here purely to
@@ -228,6 +270,7 @@ BarWidget {
     var reg = widgetRegistry
     var revision = reg ? reg.revision : 0
     var catalogTick = root.pluginCatalog.length
+    var cacheTick = root.displayNameCache
     var seen = {}
     var out = []
     for (var i = 0; i < root.pluginCatalog.length; i++) {
@@ -237,13 +280,11 @@ BarWidget {
       if (kinds.indexOf("bar-widget") === -1) continue
       if (excludedIds.indexOf(p.id) !== -1) continue
       seen[p.id] = true
-      // Prefer the widget registry's own short displayName (e.g.
-      // "Peripherals") while the widget is actually registered/live --
-      // only fall back to the catalog's own plain name (e.g. "Ruixen
-      // Peripherals") for a currently-unregistered widget, which
-      // otherwise wouldn't have a row here to read a name from at all.
-      var meta = reg && reg.has && reg.has(p.id) ? reg.metadataFor(p.id) : null
-      var name = (meta && meta.displayName) || p.name || p.id
+      // The cached short displayName always wins once captured (see
+      // captureDisplayNames above) -- the catalog's own plain name
+      // ("Ruixen Peripherals") is only ever a first-look fallback for
+      // an id that has never been registered/live in this session yet.
+      var name = root.displayNameCache[p.id] || p.name || p.id
       out.push({ id: p.id, name: name, side: root.currentSide(p.id) })
     }
     out.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)) })

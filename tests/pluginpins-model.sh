@@ -108,14 +108,37 @@ check "candidates are sourced from the real omarchy plugin list --json catalog, 
   "$(grep -c 'command: \["omarchy", "plugin", "list", "--json"\]' "$widget_qml")" "1"
 check "candidates filters the catalog to kind bar-widget only" \
   "$(grep -c 'kinds\.indexOf("bar-widget")' "$widget_qml")" "1"
-check "candidates prefers the widget registry's own short displayName only when the widget is actually registered" \
-  "$(grep -c 'reg && reg\.has && reg\.has(p\.id)' "$widget_qml")" "1"
 check "candidates excludes excludedIds" \
   "$(grep -c 'excludedIds\.indexOf(p\.id)' "$widget_qml")" "1"
 check "candidates re-evaluates on registry changes (revision read for its binding dependency)" \
   "$(grep -c 'reg\.revision' "$widget_qml")" "1"
+
+# Direct follow-up, found live right after the fix above: the label
+# flickered between the registry's own short displayName ("Peripherals")
+# and the catalog's plain name ("Ruixen Peripherals") every time a row
+# got pinned/unpinned, since the old code read the registry fresh inside
+# candidates on every recompute. A manifest's own barWidget.displayName
+# never changes at runtime, so it's captured once per id into
+# displayNameCache and trusted forever after instead of being re-derived
+# each time -- mutating a property read by the SAME binding that reads
+# it back (candidates itself) would be the exact read-your-own-write
+# binding-loop anti-pattern this file's own registerClickTarget comment
+# already warns about, so the cache is populated off the registry's own
+# revision signal in a separate Connections block, not inside candidates.
+check "a captured displayName is cached, not re-read from the registry fresh every time (fixes the pin/unpin name flicker)" \
+  "$(grep -c 'property var displayNameCache' "$widget_qml")" "1"
+check "the cache is populated by its own function, not inside candidates' own binding (avoids a binding loop)" \
+  "$(grep -c 'function captureDisplayNames' "$widget_qml")" "1"
+check "candidates itself only ever READS the cache, never writes it" \
+  "$(grep -A20 'readonly property var candidates:' "$widget_qml" | grep -c 'root\.displayNameCache\[p\.id\]')" "1"
+check "candidates never calls captureDisplayNames from inside its own binding" \
+  "$(grep -A20 'readonly property var candidates:' "$widget_qml" | grep -c 'captureDisplayNames()' || true)" "0"
+check "the cache refreshes off the widget registry's own real revision signal" \
+  "$(grep -c 'function onRevisionChanged() { root\.captureDisplayNames() }' "$widget_qml")" "1"
 check "the plugin catalog is fetched once on startup" \
-  "$(grep -c 'Component\.onCompleted: refreshPluginCatalog()' "$widget_qml")" "1"
+  "$(grep -A3 'Component\.onCompleted: {' "$widget_qml" | grep -c 'refreshPluginCatalog()')" "1"
+check "the displayName cache is also seeded once on startup" \
+  "$(grep -A3 'Component\.onCompleted: {' "$widget_qml" | grep -c 'captureDisplayNames()')" "1"
 check "the plugin catalog also refreshes every time the popup opens (picks up a newly-installed plugin)" \
   "$(grep -A3 'onOpenChanged: if (open)' "$widget_qml" | grep -c 'root\.refreshPluginCatalog()')" "1"
 # Direct follow-up: dragging turned out to have no way to populate an

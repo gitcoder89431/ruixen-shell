@@ -638,23 +638,49 @@ Item {
 
         readonly property var result: root.selectedResult
         readonly property var details: fileSearchProvider.selectedDetails
+        // Still-image formats get a real thumbnail instead of the
+        // generic file glyph -- reuses FileSearchProvider's own
+        // extension-derived "Kind" string (e.g. "PNG Image") rather
+        // than re-deriving the extension here a second time.
+        readonly property bool isImagePreview: detailsPanel.details !== null && detailsPanel.result !== null &&
+          ["PNG Image", "JPEG Image", "GIF Image", "WebP Image", "Bitmap Image", "SVG Image"].indexOf(detailsPanel.details.type) !== -1
 
         Column {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.margins: 20
-          spacing: 14
+          anchors.margins: 24
+          spacing: 18
           visible: detailsPanel.result !== null
 
-          Text {
+          // A real preview pane, not just an icon -- tall enough to
+          // give a still-image thumbnail room to breathe (Raycast's own
+          // Search Files detail view reserves similar space up top).
+          // Non-image results just center the same glyph the list row
+          // already uses, bigger.
+          Item {
             width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: detailsPanel.result ? detailsPanel.result.icon : ""
-            // Same folder-only accent as the list row's own icon.
-            color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 64
+            height: 176
+
+            Image {
+              anchors.fill: parent
+              visible: detailsPanel.isImagePreview
+              source: detailsPanel.isImagePreview ? "file://" + detailsPanel.result.action.path : ""
+              fillMode: Image.PreserveAspectFit
+              asynchronous: true
+              cache: false
+              smooth: true
+            }
+
+            Text {
+              anchors.centerIn: parent
+              visible: !detailsPanel.isImagePreview
+              text: detailsPanel.result ? detailsPanel.result.icon : ""
+              // Same folder-only accent as the list row's own icon.
+              color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 72
+            }
           }
 
           Text {
@@ -672,7 +698,7 @@ Item {
 
           Repeater {
             model: detailsPanel.details ? [
-              { label: "Kind", value: detailsPanel.details.type },
+              { label: "Type", value: detailsPanel.details.type },
               { label: "Size", value: root.formatSize(detailsPanel.details.size) },
               { label: "Where", value: detailsPanel.result ? detailsPanel.result.breadcrumb : "" },
               { label: "Modified", value: root.formatDate(detailsPanel.details.mtime) },

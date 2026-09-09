@@ -259,6 +259,16 @@ Item {
     return tag(all, "Results").concat([root.filesFallbackRow(q)])
   }
 
+  // Empty state -- Search Files has no fallback row of its own to fall
+  // back on, so a query with zero matches is a genuinely bare list;
+  // the main Results view always has the "Use ... with" fallback row
+  // appended (see filesFallbackRow above), so "no real results" there
+  // means exactly one row (the fallback itself), not zero.
+  readonly property bool showNoResults: {
+    if (root.query.trim() === "") return false
+    return root.filesMode ? root.results.length === 0 : root.results.length <= 1
+  }
+
   // Drives the Search Files details panel -- whichever row is
   // currently selected, or null between/at the edges of the list.
   // FileSearchProvider.qml doesn't know about selection at all; this
@@ -589,7 +599,7 @@ Item {
       // for the whole list, so it's cheap regardless of result count.
       Rectangle {
         id: detailsPanel
-        visible: root.filesMode
+        visible: root.filesMode && !root.showNoResults
         anchors.top: searchBox.bottom
         anchors.topMargin: 8
         anchors.right: parent.right
@@ -682,6 +692,24 @@ Item {
             font.pixelSize: 11
           }
         }
+      }
+
+      // Empty state -- centered in the whole content area below the
+      // search box (spans the full card width, not just the list
+      // column, so it reads the same whether or not detailsPanel would
+      // otherwise be showing beside it).
+      Text {
+        visible: root.showNoResults
+        anchors.top: searchBox.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        text: "No Results"
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 14
       }
     }
   }

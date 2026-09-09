@@ -15,6 +15,7 @@ detected note when they differ (see its own `[0/6]` step).
 
 | Ruixen commit | reviewed_omarchy | reviewed_quickshell | date accepted | notes |
 |---|---|---|---|---|
+| `55e9bab` | `4.0.3-1` | (bundled with Omarchy, not independently versioned by this repo) | 2026-09-08 | Issue #38's remediation, all 7 sub-issues (#39-#45): moved every `shell.firstPartyServiceFor()`/`shell.appLibrary`/`bar.shell.pluginRegistry` call site this repo had onto real on-disk state files, the real `omarchy-shell` IPC surface, `bar.barWidgetRegistry`, or `Quickshell.DesktopEntries` instead. Each fix was live-verified twice: once on 4.0.2 before the update existed to test against, and again after actually running `omarchy update` + reboot onto real 4.0.3 on the dev machine — journal clean, state files fresh, bar/notch/pinned-apps/media/DND all screenshotted working. The host contracts this ledger's own review checklist calls out (`ToplevelManager`, `BarWidgetRegistry`, the `omarchy-shell`/`omarchy plugin` CLI surfaces) were re-checked directly on the new version, not assumed carried over. |
 | `a84907e` | `4.0.2-1` | (bundled with Omarchy, not independently versioned by this repo) | 2026-09-05 | Baseline entry — the version this whole session's own work (issue #7 through #36 and their follow-ups) was built and live-verified against on the actual dev machine. |
 | — | `4.0.0-1` | — | — | README's own documented minimum ("targets Omarchy 4.0.0-1, also confirmed working on 4.0.1-1") — carried forward here rather than re-verified fresh, since nothing in this session touched anything that would invalidate it. |
 
@@ -37,11 +38,11 @@ depends on directly still hold on the new version:
 - `WidgetButton.qml`'s own `wheelMoved`/click signal shape (every stock
   bar-widget's scroll-to-adjust behavior depends on this)
 
-## Known incompatible versions
+## Previously incompatible versions (now resolved)
 
 | Omarchy version | Status | Notes |
 |---|---|---|
-| `4.0.3-1` | **Do not update to this** | Confirmed via direct source diff (not just release notes) to break `shell.firstPartyServiceFor`/`shell.appLibrary` for third-party plugins outside a narrow allowlist — breaks the app launcher, notification history, media/dashboard integration, the peripherals battery widget, and the bar↔notch geometry sync in this repo specifically. Omarchy's own manual documents the tradeoff as intended, not a bug. See issue #38 for the full breakdown and remediation plan. Ledger stays pinned at `4.0.2-1` until #38 is resolved and verified. |
+| `4.0.3-1` | **Resolved as of `55e9bab`** | Confirmed via direct source diff (not just release notes) to break `shell.firstPartyServiceFor`/`shell.appLibrary` for third-party plugins outside a narrow allowlist — broke the app launcher, notification history, media/dashboard integration, the peripherals battery widget, plugin pins, idle/nightlight toggles, and the bar↔notch geometry sync in this repo specifically. Omarchy's own manual documents the tradeoff as intended, not a bug. Issue #38 (all 7 sub-issues, #39-#45) replaced every affected call site; live-verified against the real, updated 4.0.3 install, not just the pre-update research. See the ledger entry above and issue #38 for the full breakdown. |
 
 ## Known scope not covered here
 

@@ -501,7 +501,12 @@ Item {
             width: 22
             horizontalAlignment: Text.AlignHCenter
             text: row.modelData.icon
-            color: root.textColor
+            // Folders (Search Files only -- Commands/Applications never
+            // have kind "Folder") pick up the active theme's own accent
+            // color, same as every other accent-colored element in this
+            // repo's own theme convention -- files stay the plain
+            // textColor every other icon uses.
+            color: row.modelData.kind === "Folder" ? root.accent : root.textColor
             font.family: root.fontFamily
             font.pixelSize: 16
           }
@@ -633,7 +638,8 @@ Item {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: detailsPanel.result ? detailsPanel.result.icon : ""
-            color: root.textColor
+            // Same folder-only accent as the list row's own icon.
+            color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor
             font.family: root.fontFamily
             font.pixelSize: 64
           }

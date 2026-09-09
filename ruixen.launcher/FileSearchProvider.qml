@@ -77,7 +77,7 @@ Item {
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
-    var args = ["fd", "--type", "f", "--ignore-case", "--max-results", "50"]
+    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--max-results", "50"]
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
     args.push("--", query, root.homeDir)
     searchProc.command = args
@@ -86,18 +86,32 @@ Item {
 
   // Exact filename match > prefix > substring elsewhere in the name --
   // same 0-10000 scale every other provider uses, so Launcher.qml's
-  // per-section byScoreDesc sort is meaningful here too.
-  function scoreFile(name, query) {
+  // per-section byScoreDesc sort is meaningful here too. dirBonus sits
+  // above the whole 0-10000 range so any directory outranks any plain
+  // file regardless of match quality ("sort them so folders are higher
+  // inside the files group"), while directories still rank amongst
+  // themselves, and files amongst themselves, by how well they match.
+  readonly property int dirBonus: 100000
+
+  function scoreFile(name, query, isDir) {
     var q = String(query || "").toLowerCase()
     var n = String(name || "").toLowerCase()
-    if (n === q) return 10000
-    var idx = n.indexOf(q)
-    if (idx === 0) return 9000 - n.length
-    if (idx > 0) return 7000 - idx * 10 - n.length
-    return 5000 - n.length
+    var base
+    if (n === q) base = 10000
+    else {
+      var idx = n.indexOf(q)
+      if (idx === 0) base = 9000 - n.length
+      else if (idx > 0) base = 7000 - idx * 10 - n.length
+      else base = 5000 - n.length
+    }
+    return isDir ? base + root.dirBonus : base
   }
 
-  function resultFor(path, score) {
+  // rawPath may carry fd's own trailing "/" marking a directory match --
+  // stripped before use as the real name/breadcrumb/action path.
+  function resultFor(rawPath, query) {
+    var isDir = rawPath.length > 0 && rawPath.charAt(rawPath.length - 1) === "/"
+    var path = isDir ? rawPath.substring(0, rawPath.length - 1) : rawPath
     var slash = path.lastIndexOf("/")
     var name = slash === -1 ? path : path.substring(slash + 1)
     var dir = slash === -1 ? "" : path.substring(0, slash)
@@ -105,13 +119,13 @@ Item {
     return {
       id: "file:" + path,
       providerId: "file-search",
-      icon: "",
+      icon: isDir ? "" : "",
       label: name,
       breadcrumb: dir,
-      kind: "File",
+      kind: isDir ? "Folder" : "File",
       providerName: root.providerName,
-      score: score,
-      action: { type: "openFile", path: path }
+      score: root.scoreFile(name, query, isDir),
+      action: { type: "open", path: path }
     }
   }
 
@@ -127,17 +141,20 @@ Item {
         var q = root.pendingQuery
         var lines = text.split("\n").filter(function(l) { return l.length > 0 })
         var out = []
-        for (var i = 0; i < lines.length; i++) {
-          var path = lines[i]
-          var slash = path.lastIndexOf("/")
-          var name = slash === -1 ? path : path.substring(slash + 1)
-          out.push(root.resultFor(path, root.scoreFile(name, q)))
-        }
+        for (var i = 0; i < lines.length; i++) out.push(root.resultFor(lines[i], q))
         root.lastResults = out
       }
     }
   }
 
+  // xdg-open already does the right thing for either path type -- the
+  // default file manager for a directory (opens it in Nautilus/Files
+  // here), the default app for a file -- so this doesn't need to
+  // branch on kind. Opening a terminal cd'd into the folder instead
+  // would need a real secondary-action mechanism this launcher doesn't
+  // have yet (a modifier+Enter, a per-result action menu, ...) -- a
+  // reasonable follow-up if wanted, not folded into the default Enter/
+  // click behavior here.
   function activate(result) {
     Util.execArgv(["xdg-open", result.action.path])
   }

@@ -205,6 +205,50 @@ Item {
   property string pendingDetailsPath: ""
   property var selectedDetails: null
 
+  // stat's own %F only distinguishes Unix-level kinds (regular file vs
+  // directory vs symlink), never file FORMAT -- every plain file reports
+  // as "regular file" regardless of whether it's Markdown or a JPEG.
+  // fileKindFor() below derives the human-readable kind shown in the
+  // details panel from the extension instead, same vocabulary a Finder-
+  // style "Kind" column uses. Not exhaustive -- unknown extensions fall
+  // back to "<EXT> File", and extensionless files to "Document".
+  readonly property var extKindMap: ({
+    md: "Markdown", markdown: "Markdown",
+    json: "JSON", jsonc: "JSON",
+    yaml: "YAML", yml: "YAML",
+    toml: "TOML", ini: "INI Config", conf: "Config", cfg: "Config",
+    js: "JavaScript", mjs: "JavaScript", cjs: "JavaScript",
+    ts: "TypeScript", jsx: "JavaScript (JSX)", tsx: "TypeScript (JSX)",
+    py: "Python", go: "Go", rs: "Rust", java: "Java", rb: "Ruby", php: "PHP",
+    c: "C Source", h: "C Header", cpp: "C++ Source", cc: "C++ Source", hpp: "C++ Header",
+    sh: "Shell Script", bash: "Shell Script", zsh: "Shell Script", fish: "Fish Script",
+    qml: "QML", lua: "Lua", sql: "SQL",
+    html: "HTML", htm: "HTML", css: "CSS", scss: "SCSS", less: "LESS", xml: "XML",
+    txt: "Plain Text", log: "Log File", csv: "CSV",
+    pdf: "PDF Document", doc: "Word Document", docx: "Word Document",
+    xls: "Excel Spreadsheet", xlsx: "Excel Spreadsheet", ppt: "PowerPoint", pptx: "PowerPoint",
+    png: "PNG Image", jpg: "JPEG Image", jpeg: "JPEG Image", gif: "GIF Image",
+    svg: "SVG Image", webp: "WebP Image", bmp: "Bitmap Image",
+    mp3: "Audio", wav: "Audio", flac: "Audio", ogg: "Audio",
+    mp4: "Video", mkv: "Video", webm: "Video", mov: "Video", avi: "Video",
+    zip: "Archive", tar: "Archive", gz: "Archive", xz: "Archive", "7z": "Archive", rar: "Archive"
+  })
+
+  function fileKindFor(path, statType) {
+    // Non-regular-file kinds (directory, symbolic link, socket, ...)
+    // pass through as-is -- only "regular file" is ambiguous enough to
+    // need the extension lookup. "Folder" matches the rest of the UI's
+    // own kind vocabulary (resultFor() above already says "Folder", not
+    // "directory") rather than echoing stat's raw wording.
+    if (statType === "directory") return "Folder"
+    if (statType !== "regular file") return statType.charAt(0).toUpperCase() + statType.slice(1)
+    var name = path.substring(path.lastIndexOf("/") + 1)
+    var dot = name.lastIndexOf(".")
+    if (dot <= 0) return "Document"
+    var ext = name.substring(dot + 1).toLowerCase()
+    return root.extKindMap[ext] || (ext.toUpperCase() + " File")
+  }
+
   function loadDetails(path) {
     root.pendingDetailsPath = path
     root.selectedDetails = null
@@ -232,7 +276,7 @@ Item {
         root.selectedDetails = {
           size: parseInt(parts[0], 10) || 0,
           mtime: parseInt(parts[1], 10) || 0,
-          type: parts[2],
+          type: root.fileKindFor(path, parts[2]),
           permissions: parts[3]
         }
       }

@@ -274,8 +274,18 @@ Item {
   // FileSearchProvider.qml doesn't know about selection at all; this
   // just tells it which path to stat() whenever that changes.
   readonly property var selectedResult: root.results[root.selectedIndex] || null
+  // No `!root.filesMode` early return -- leaving Search Files mode used
+  // to skip this entirely, leaving fileSearchProvider.selectedDetails
+  // (and its thumbnail/type data) stale on whatever the previously-
+  // selected file was. detailsPanel's own bindings then applied that
+  // stale, truthy `details` to whatever non-file result got selected
+  // next (an Omarchy Action's `action.command`, or the Search Files
+  // fallback row's missing `action` entirely) -- confirmed live via a
+  // real "Cannot open: file://undefined" / "Value is undefined" pair of
+  // warnings. Only file-search results ever have `action.path`, so this
+  // handler already no-ops correctly for every other result on its own;
+  // the guard was redundant AND the source of the staleness bug.
   onSelectedResultChanged: {
-    if (!root.filesMode) return
     var path = (root.selectedResult && root.selectedResult.action) ? root.selectedResult.action.path : ""
     if (path && path !== fileSearchProvider.pendingDetailsPath) fileSearchProvider.loadDetails(path)
     else if (!path) fileSearchProvider.selectedDetails = null
@@ -703,13 +713,23 @@ Item {
               { label: "Permissions", value: detailsPanel.details.permissions }
             ] : []
 
-            Column {
+            // One row per field -- label left, value right, elided
+            // rather than wrapped (a "Where" path can be long; a second
+            // wrapped line would break the fixed row height). The value
+            // Text's width comes from anchors between the two siblings
+            // here, not its own implicitWidth, so this doesn't reintroduce
+            // the implicitWidth+elide binding-loop gotcha documented on
+            // the results list's own labelText above.
+            Item {
               id: field
               required property var modelData
               width: parent.width
-              spacing: 3
+              height: 20
 
               Text {
+                id: fieldLabel
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
                 text: field.modelData.label
                 color: root.muted
                 font.family: root.fontFamily
@@ -717,8 +737,12 @@ Item {
                 font.capitalization: Font.AllUppercase
               }
               Text {
-                width: field.width
-                wrapMode: Text.Wrap
+                anchors.left: fieldLabel.right
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignRight
+                elide: Text.ElideMiddle
                 text: field.modelData.value
                 color: root.textColor
                 font.family: root.fontFamily

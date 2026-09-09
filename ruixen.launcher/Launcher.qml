@@ -259,15 +259,15 @@ Item {
     return tag(all, "Results").concat([root.filesFallbackRow(q)])
   }
 
-  // Empty state -- Search Files has no fallback row of its own to fall
-  // back on, so a query with zero matches is a genuinely bare list;
-  // the main Results view always has the "Use ... with" fallback row
-  // appended (see filesFallbackRow above), so "no real results" there
-  // means exactly one row (the fallback itself), not zero.
-  readonly property bool showNoResults: {
-    if (root.query.trim() === "") return false
-    return root.filesMode ? root.results.length === 0 : root.results.length <= 1
-  }
+  // Empty state -- Search Files ONLY, deliberately. It has no fallback
+  // row of its own to fall back on, so zero matches there is a
+  // genuinely bare list with nothing else to do. The main Results view
+  // always has the "Use ... with" fallback row appended (see
+  // filesFallbackRow above) even when Applications/Commands find
+  // nothing -- showing a big "No Results" glyph there on top of that
+  // fallback made it read as a dead end when it isn't one; confirmed
+  // directly, the fallback row was still right there underneath it.
+  readonly property bool showNoResults: root.filesMode && root.query.trim() !== "" && root.results.length === 0
 
   // Drives the Search Files details panel -- whichever row is
   // currently selected, or null between/at the edges of the list.

@@ -45,10 +45,38 @@ Item {
     "ruixen.settings": {
       icon: "",
       label: "Ruixen Settings",
+      category: "Ruixen",
       aliases: ["settings", "preferences"],
       action: "omarchy-shell shell toggle ruixen.settings"
     }
   })
+
+  // A handful of real, always-visible entries picked as the launcher's
+  // empty-query "Suggestions" -- deliberately small and hand-picked
+  // rather than "most frequently used" (no usage tracking exists), so
+  // the palette isn't blank the instant it opens. synthetic entries are
+  // referenced by their syntheticEntries key, real ones by their real
+  // omarchy-menu.jsonc id.
+  readonly property var suggestedIds: [
+    "ruixen.settings",
+    "trigger.capture.screenshot",
+    "system.lock",
+    "style.theme",
+    "style.background"
+  ]
+
+  function resultFor(id, entry, score) {
+    return {
+      id: "omarchy:" + id,
+      providerId: "omarchy-actions",
+      icon: entry.icon || "",
+      label: entry.label || id,
+      category: entry.category || OmarchyMenuParser.categoryFor(root.allEntries, id),
+      providerName: root.providerName,
+      score: score,
+      action: { type: "shell", command: entry.action }
+    }
+  }
 
   function search(query) {
     var q = String(query || "").trim()
@@ -59,31 +87,25 @@ Item {
       if (!OmarchyMenuParser.isVisible(id, entry, root.guardResults)) continue
       var score = OmarchyMenuParser.scoreEntry(entry, q)
       if (score < 0) continue
-      out.push({
-        id: "omarchy:" + id,
-        providerId: "omarchy-actions",
-        icon: entry.icon || "",
-        label: entry.label || id,
-        category: OmarchyMenuParser.categoryFor(root.allEntries, id),
-        providerName: root.providerName,
-        score: score,
-        action: { type: "shell", command: entry.action }
-      })
+      out.push(root.resultFor(id, entry, score))
     }
     for (var sid in root.syntheticEntries) {
       var sentry = root.syntheticEntries[sid]
       var sscore = OmarchyMenuParser.scoreEntry(sentry, q)
       if (sscore < 0) continue
-      out.push({
-        id: "omarchy:" + sid,
-        providerId: "omarchy-actions",
-        icon: sentry.icon,
-        label: sentry.label,
-        category: "Ruixen",
-        providerName: root.providerName,
-        score: sscore,
-        action: { type: "shell", command: sentry.action }
-      })
+      out.push(root.resultFor(sid, sentry, sscore))
+    }
+    return out
+  }
+
+  function suggestions() {
+    var out = []
+    for (var i = 0; i < root.suggestedIds.length; i++) {
+      var id = root.suggestedIds[i]
+      var entry = root.syntheticEntries[id] || root.actionable[id]
+      if (!entry) continue
+      if (!OmarchyMenuParser.isVisible(id, entry, root.guardResults)) continue
+      out.push(root.resultFor(id, entry, 0))
     }
     return out
   }

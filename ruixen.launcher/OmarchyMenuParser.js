@@ -115,10 +115,10 @@ function isVisible(id, entry, guardResults) {
 }
 
 // Scoring against label + aliases, same 0-10000 scale convention
-// AppSearch.js's own fuzzyScore uses so ResultModel.js's cross-provider
-// sort is meaningful. Simpler than AppSearch.js's own algorithm (no
-// acronym fallback) since Omarchy menu labels/aliases are short,
-// curated strings, not free-form app names.
+// AppSearch.js's own fuzzyScore uses so Launcher.qml's per-section
+// sort (byScoreDesc) is meaningful across both providers. Simpler than
+// AppSearch.js's own algorithm (no acronym fallback) since Omarchy menu
+// labels/aliases are short, curated strings, not free-form app names.
 function scoreEntry(entry, query) {
   var q = String(query || "").trim().toLowerCase()
   if (!q) return -1

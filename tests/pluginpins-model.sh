@@ -44,7 +44,7 @@ required_exclusions=(
   "ruixen.applauncher" "ruixen.workspaces" "ruixen.pinnedapps" "ruixen.tray"
   "ruixen.quickactions" "ruixen.settingsbutton"
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
-  "omarchy.system-update" "omarchy.power" "ruixen.peripherals"
+  "omarchy.system-update" "omarchy.power"
   "omarchy.keyboard-layout" "omarchy.indicators" "omarchy.network"
   "omarchy.active-window"
 )
@@ -71,7 +71,13 @@ fi
 # the intended interaction, not something to guard against. A future
 # change accidentally excluding either here should fail loudly, not
 # silently make them unpinnable again.
-must_not_exclude=("ruixen.stayawake" "omarchy.agents")
+#
+# ruixen.peripherals joins this list too now -- it briefly lived in
+# curatedRightIds instead (excluded from here for that reason, see git
+# history), then moved back out to reduce clutter (direct follow-up:
+# "its not that important for me to always see it right now"). Pinnable
+# through here once more, same as stayawake/agents.
+must_not_exclude=("ruixen.stayawake" "omarchy.agents" "ruixen.peripherals")
 wrongly_excluded=0
 for id in "${must_not_exclude[@]}"; do
   if grep -qF "\"$id\"" <<<"$excluded_block"; then
@@ -80,7 +86,7 @@ for id in "${must_not_exclude[@]}"; do
   fi
 done
 if [[ "$wrongly_excluded" -eq 0 ]]; then
-  printf 'ok   - stayawake/agents are NOT excluded (they render in this widget'"'"'s own pill, toggling them through it is the intended interaction)\n'
+  printf 'ok   - stayawake/agents/peripherals are NOT excluded (they render in this widget'"'"'s own pill, toggling them through it is the intended interaction)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))

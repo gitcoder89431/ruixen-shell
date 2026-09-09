@@ -41,17 +41,21 @@
 #      third-party widget). This is the catch-all now: every id in
 #      "right" that's neither tray nor the fixed system four.
 #   3. curatedPill ("SYSTEM") -- system-update, power, quickactions,
-#      settingsbutton, and (a later addition, #6 below) ruixen.
-#      peripherals. An exact id-match list, not a catch-all -- nothing
+#      settingsbutton. An exact id-match list, not a catch-all -- nothing
 #      joins it except by being explicitly added here.
 #   4. clockPill -- weather + clock, unchanged throughout every pass
 #      above.
-#   6. ruixen.peripherals (wireless device battery pins) joined
-#      curatedRightIds after shipping in pill 2 first -- direct
-#      follow-up once it was live: "its kinda crowding to put it in the
-#      pinplugins group, can we move this so it works inside the
-#      setting more actions group instead. we already have a power
-#      there so it kinda make sense."
+#
+# ruixen.peripherals (wireless device battery pins) passed through
+# curatedRightIds for a while (#6, since reverted) -- direct follow-up
+# once it was live: "its kinda crowding to put it in the pinplugins
+# group, can we move this so it works inside the setting more actions
+# group instead. we already have a power there so it kinda make sense."
+# Later moved back out of curatedRightIds and into pill 2 for good
+# (direct follow-up, to reduce clutter: "its not that important for me
+# to always see it right now") -- pinned on demand through
+# ruixen.pluginpins now, same as stayawake/agents, not listed in
+# curatedRightIds at all any more.
 #
 # curatedRightIds is that exact fixed list. There's no third named
 # list (no more "sideRightIds") -- pill 2's own filter is just "not
@@ -81,14 +85,12 @@ check() {
 }
 
 # --- id-membership lists ---------------------------------------------
-# Grew from four to five per a direct follow-up ("its kinda crowding to
-# put it in the pinplugins group, can we move this so it works inside
-# the setting more actions group instead. we already have a power there
-# so it kinda make sense") -- still an exact id-match list, not a
-# catch-all, just one entry longer.
+# Grew from four to five (ruixen.peripherals) then back to four again
+# (see this file's own header for both direct follow-ups) -- still an
+# exact id-match list, not a catch-all.
 curated_ids_line="$(grep -m1 'readonly property var curatedRightIds:' "$bar_qml")"
-check "curatedRightIds is the exact, fixed SYSTEM list: system-update, power, quickactions, settingsbutton, peripherals" \
-  "$curated_ids_line" '  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton", "ruixen.peripherals"]'
+check "curatedRightIds is the exact, fixed SYSTEM list: system-update, power, quickactions, settingsbutton" \
+  "$curated_ids_line" '  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton"]'
 
 check "there is no separate sideRightIds list anymore (pill 2's own filter is inline: not tray, not curatedRightIds)" \
   "$(grep -c 'sideRightIds' "$bar_qml" || true)" "0"

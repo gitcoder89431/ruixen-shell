@@ -100,8 +100,7 @@ protected_bar_ids='[
   "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
   "ruixen.settingsbutton", "ruixen.weather", "omarchy.clock",
   "ruixen.tray", "ruixen.pluginpins",
-  "omarchy.system-update", "omarchy.power", "ruixen.quickactions",
-  "ruixen.peripherals"
+  "omarchy.system-update", "omarchy.power", "ruixen.quickactions"
 ]'
 
 existing_json="$(cat)"
@@ -210,24 +209,28 @@ jq -n \
   # actual files were current, the CONFIG just never caught up.
   #
   # Scoped to exactly these ids on purpose, not a general "structural
-  # widget" concept -- each is brand new as of its own session and none
-  # has any way to be intentionally removed once present (pluginpins IS
-  # the removal mechanism for everything else; pinnedapps is not offered
-  # in its own dropdown; ruixen.peripherals moved into curatedRightIds,
-  # excluded from the pluginpins dropdown for the identical reason -- see
-  # the excludedIds comment in ruixen.pluginpins own BarWidget.qml), so
-  # "missing entirely" can only mean "predates this feature", never "the
-  # user chose to remove it". Inserted at a deterministic canonical
-  # neighbor (right after the anchor id, same section) rather than
-  # rebuilding the region array, so existing order/settings for
-  # everything else are untouched. A user who later actually removes one
-  # of these through means that do not yet exist is a future problem,
-  # not this one -- today, "absent" and "predates this feature" are the
-  # same fact for all three ids.
+  # widget" concept -- each is brand new as of its own session and
+  # neither has any way to be intentionally removed once present
+  # (pluginpins IS the removal mechanism for everything else; pinnedapps
+  # is not offered in its own dropdown), so "missing entirely" can only
+  # mean "predates this feature", never "the user chose to remove it".
+  # Inserted at a deterministic canonical neighbor (right after the
+  # anchor id, same section) rather than rebuilding the region array, so
+  # existing order/settings for everything else are untouched. A user who
+  # later actually removes one of these through means that do not yet
+  # exist is a future problem, not this one -- today, "absent" and
+  # "predates this feature" are the same fact for both ids.
+  #
+  # ruixen.peripherals used to be a third entry here (it was structural
+  # for a while, see git history) -- removed once it became an ordinary
+  # pluginpins-pinnable widget again (direct follow-up, to reduce
+  # clutter: "its not that important for me to always see it right now"),
+  # since force-reinserting it on every install/update is exactly what a
+  # structural entry does and exactly what an intentionally-unpinned
+  # widget must NOT have happen to it.
   | ([
        { id: "ruixen.pinnedapps", section: "left", after: "ruixen.workspaces" },
-       { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" },
-       { id: "ruixen.peripherals", section: "right", after: "omarchy.power" }
+       { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" }
      ]) as $requiredStructural
   | (if ($migratedBar.layout | type) == "object" then
        reduce $requiredStructural[] as $req

@@ -116,18 +116,19 @@ BarWidget {
   // omarchy.system-update and omarchy.power ARE excluded -- both live in
   // curatedPill's own fixed list (Bar.qml's own curatedRightIds: "system
   // is POWER UPDATE MORE ACTIONS AND SETTING"), so unpinning either
-  // through here would break that fixed set. ruixen.peripherals joined
-  // that same curatedRightIds list later (direct follow-up: "its kinda
-  // crowding to put it in the pinplugins group, can we move this so it
-  // works inside the setting more actions group instead") -- excluded
-  // here for the identical reason, not because it stopped being
-  // pinnable, just because pill 3 is its permanent home now instead of
-  // pill 2. ruixen.stayawake and omarchy.agents both stay un-excluded on
-  // purpose, though -- final answer, after a few false starts: they
-  // render in ruixen.pluginpins' OWN pill now (the toggle icon lives
-  // together with whatever it toggles -- "microphone network cofee ai
-  // [are] toggleable from the plugins pin so they stay pinnable or not
-  // in the plugin group"), so pinning/unpinning them through this
+  // through here would break that fixed set. ruixen.peripherals passed
+  // through that same curatedRightIds list once (direct follow-up: "its
+  // kinda crowding to put it in the pinplugins group, can we move this so
+  // it works inside the setting more actions group instead"), then back
+  // out again to reduce clutter (direct follow-up: "its not that
+  // important for me to always see it right now") -- pinnable through
+  // here once more, same as stayawake/agents below, not a permanent
+  // curatedPill fixture any more. ruixen.stayawake and omarchy.agents
+  // stay un-excluded on purpose -- final answer, after a few false
+  // starts: they render in ruixen.pluginpins' OWN pill now (the toggle
+  // icon lives together with whatever it toggles -- "microphone network
+  // cofee ai [are] toggleable from the plugins pin so they stay pinnable
+  // or not in the plugin group"), so pinning/unpinning them through this
   // dropdown is exactly the intended interaction, not something to
   // guard against.
   // omarchy.active-window is also excluded -- ruixen.notch's own
@@ -142,8 +143,7 @@ BarWidget {
     "omarchy.clock", "omarchy.system-update", "omarchy.power",
     "omarchy.keyboard-layout", "omarchy.indicators", "omarchy.network",
     "omarchy.bar", "omarchy.menu", "omarchy.spacer", "omarchy.active-window",
-    "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media",
-    "ruixen.peripherals"
+    "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media"
   ]
 
   // Real per-side lookup against bar.barConfig.layout directly -- the

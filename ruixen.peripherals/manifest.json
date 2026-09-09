@@ -16,7 +16,6 @@
     "displayName": "Peripherals",
     "description": "Battery percentage for wireless peripherals, pinned to the bar.",
     "category": "Hardware",
-    "allowMultiple": false,
-    "defaultSection": "right"
+    "allowMultiple": false
   }
 }

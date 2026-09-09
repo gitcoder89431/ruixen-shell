@@ -346,12 +346,17 @@ Item {
             font.pixelSize: 16
           }
 
+          // Label keeps only as much width as it needs (capped so a
+          // long label can't push the subtitle off the row entirely) --
+          // metaText then sits right after it with a small gap, as a
+          // subtitle beside the name, rather than pinned to the row's
+          // far right edge with a dead gap in between for short labels.
           Text {
+            id: labelText
             anchors.left: parent.left
             anchors.leftMargin: 44
-            anchors.right: metaText.left
-            anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(implicitWidth, parent.width * 0.55 - 44)
             elide: Text.ElideRight
             text: row.modelData.label
             color: root.textColor
@@ -367,12 +372,12 @@ Item {
           // .resultFor()'s own comment for what breadcrumb/kind mean.
           Text {
             id: metaText
+            anchors.left: labelText.right
+            anchors.leftMargin: 8
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
-            width: 200
             text: row.modelData.providerId === "app-search"
               ? row.modelData.category
               : (row.modelData.breadcrumb ? (row.modelData.breadcrumb + "  ·  " + row.modelData.kind) : row.modelData.kind)

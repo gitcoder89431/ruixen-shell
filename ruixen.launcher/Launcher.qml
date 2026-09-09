@@ -13,9 +13,9 @@ import "ResultModel.js" as ResultModel
 // notch-embedded and animate their own size. That combination
 // (WlrKeyboardFocus.Exclusive + a resizing/masked silhouette) caused a
 // real, non-deterministic MultiEffect masking bug there before -- this
-// card is a plain rounded rectangle (shadow only, no silhouette mask),
-// so that specific risk doesn't apply even though this card's own
-// height does change with the result count.
+// card is a plain rounded rectangle (shadow only, no silhouette mask).
+// Card height is fixed (see visibleRowCount below) rather than driven
+// by the result count, so that risk doesn't apply here anyway.
 //
 // Providers (OmarchyActionsProvider, AppSearchProvider) are the only
 // two built so far, on purpose -- direct instruction not to build every
@@ -50,6 +50,13 @@ Item {
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
 
+  // Fixed-size "tray" card -- always reserves room for this many rows
+  // regardless of how many results actually match, so the panel doesn't
+  // grow/shrink/jump as the query changes (Raycast keeps its own window
+  // size fixed the same way).
+  readonly property int visibleRowCount: 10
+  readonly property int rowHeight: 44
+
   function open(payloadJson) {
     root.opened = true
     Qt.callLater(function() { searchInput.forceActiveFocus() })
@@ -83,7 +90,7 @@ Item {
 
   AppLibrary { id: appLibrary }
   OmarchyActionsProvider { id: omarchyActionsProvider }
-  AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary }
+  AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary; maxResults: root.visibleRowCount }
 
   readonly property var providers: [
     { id: "omarchy-actions", item: omarchyActionsProvider },
@@ -98,7 +105,7 @@ Item {
       var rows = root.providers[i].item.search(q)
       for (var j = 0; j < rows.length; j++) collected.push(rows[j])
     }
-    return ResultModel.mergeResults(collected, 9)
+    return ResultModel.mergeResults(collected, root.visibleRowCount)
   }
 
   function providerFor(id) {
@@ -145,7 +152,7 @@ Item {
       anchors.top: parent.top
       anchors.topMargin: parent.height * 0.22
       width: 640
-      height: 64 + (root.results.length > 0 ? (root.results.length * 48 + 8) : 0)
+      height: 64 + root.visibleRowCount * root.rowHeight + 8
       radius: 16
       color: root.panelBackground
       clip: true
@@ -233,7 +240,7 @@ Item {
             required property var modelData
             required property int index
             width: resultsColumn.width
-            height: 44
+            height: root.rowHeight
             radius: 10
             color: row.index === root.selectedIndex ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
 

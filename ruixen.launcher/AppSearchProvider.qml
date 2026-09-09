@@ -10,6 +10,9 @@ Item {
 
   readonly property string providerName: "Applications"
   property var appLibrary: null
+  // Matches Launcher.qml's own visibleRowCount -- no point returning
+  // more rows than the fixed-height card can ever show.
+  property int maxResults: 10
   readonly property bool ready: root.appLibrary !== null
 
   function search(query) {
@@ -18,7 +21,7 @@ Item {
     if (!q) return []
     var rows = root.appLibrary.sortedEntries(q)
     var out = []
-    for (var i = 0; i < rows.length && out.length < 9; i++) {
+    for (var i = 0; i < rows.length && out.length < root.maxResults; i++) {
       var entry = rows[i].entry
       var name = root.appLibrary.entryName(entry)
       out.push({

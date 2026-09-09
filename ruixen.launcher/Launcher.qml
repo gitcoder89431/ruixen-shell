@@ -364,23 +364,42 @@ Item {
             font.pixelSize: 13
           }
 
-          // Applications: AppSearchProvider's own category (the app's
-          // genericName, e.g. "Web Browser", falling back to a bare
-          // "Application"). Omarchy Actions / any future native Ruixen
-          // provider: "Breadcrumb · Kind" (e.g. "Remove › Development
-          // · Command", "Ruixen · Command") -- see OmarchyActionsProvider
-          // .resultFor()'s own comment for what breadcrumb/kind mean.
+          // Subtitle beside the name -- Applications: AppSearchProvider's
+          // own category (the app's genericName, e.g. "Web Browser",
+          // falling back to a bare "Application"). Omarchy Actions / any
+          // future native Ruixen provider: the full breadcrumb (e.g.
+          // "Remove › Development", "Ruixen" for the synthetic Ruixen
+          // Settings row). Bounded on the right by kindText below, not
+          // the row's own edge, so the two never overlap.
           Text {
             id: metaText
             anchors.left: labelText.right
             anchors.leftMargin: 8
+            anchors.right: kindText.left
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            elide: Text.ElideRight
+            text: row.modelData.providerId === "app-search" ? row.modelData.category : row.modelData.breadcrumb
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+          }
+
+          // Kind tag -- "Command" for every Omarchy Actions/native
+          // Ruixen row, "Application" for App Search -- pinned to the
+          // row's own right edge, kept separate from the breadcrumb/
+          // category subtitle above rather than folded into one string,
+          // so it stays in a stable, scannable column even as the
+          // subtitle's own length varies row to row.
+          Text {
+            id: kindText
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
-            text: row.modelData.providerId === "app-search"
-              ? row.modelData.category
-              : (row.modelData.breadcrumb ? (row.modelData.breadcrumb + "  ·  " + row.modelData.kind) : row.modelData.kind)
+            width: 72
+            text: row.modelData.providerId === "app-search" ? "Application" : row.modelData.kind
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 10

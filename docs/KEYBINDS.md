@@ -7,10 +7,19 @@ your Hyprland config. Add whichever of these you actually want to your own
 `omarchy menu keybindings --print` lists what's already bound, so you don't
 clobber an existing key.
 
+## Ruixen Launcher
+
+Raycast/Spotlight-style command palette — searches Omarchy menu actions and
+installed apps from one overlay:
+
+```lua
+o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")
+```
+
 ## Ruixen Settings
 
 ```lua
-o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
+o.bind("SUPER + SHIFT + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
 ```
 
 Want a keybind that jumps straight to one settings page instead of always

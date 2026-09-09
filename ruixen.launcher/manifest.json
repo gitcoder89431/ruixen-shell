@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.launcher",
+  "name": "Ruixen Launcher",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Raycast/Spotlight-style command palette -- search Omarchy menu actions and installed apps from one overlay.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Launcher.qml"
+  }
+}

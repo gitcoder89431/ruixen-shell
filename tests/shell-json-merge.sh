@@ -28,9 +28,9 @@ check() {
 out1="$(printf '{}' | "$build")"
 check "no existing config: bar.id is ruixen.bar" \
   "$(jq -r '.bar.id' <<<"$out1")" "ruixen.bar"
-check "no existing config: plugins has exactly the 5 ruixen ids" \
+check "no existing config: plugins has exactly the 6 ruixen ids" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out1")" \
-  '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
+  '["ruixen.frame-widget","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
 check "no existing config: default idle applied" \
   "$(jq -c '.idle' <<<"$out1")" '{"lock":300,"screensaver":150}'
 
@@ -53,7 +53,7 @@ check "customized: unrelated plugin entry survives with its own fields" \
   '{"id":"third-party.widget","hidden":[]}'
 check "customized: ruixen plugin ids present exactly once each (idempotent, not duplicated)" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out2")" \
-  '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper","third-party.widget"]'
+  '["ruixen.frame-widget","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper","third-party.widget"]'
 check "customized: user's own idle values are preserved, not overwritten" \
   "$(jq -c '.idle' <<<"$out2")" '{"lock":900,"screensaver":600}'
 check "customized: bar is replaced with ruixen's own (some OTHER bar was active -- installing ruixen.bar means owning the bar slot)" \
@@ -97,9 +97,9 @@ check "already ruixen.bar: reordered/hidden layout survives a reinstall (pinneda
 check "already ruixen.bar: existing ruixen plugin entry's extra field survives" \
   "$(jq -c '.plugins[] | select(.id == "ruixen.notch")' <<<"$out5")" \
   '{"id":"ruixen.notch","someFutureField":true}'
-check "already ruixen.bar: missing ruixen ids (frame-widget, wallpaper, media) still get appended" \
+check "already ruixen.bar: missing ruixen ids (frame-widget, wallpaper, media, launcher) still get appended" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out5")" \
-  '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
+  '["ruixen.frame-widget","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
 
 # --- Case 6: real regression -- an existing install (bar.id already
 # "ruixen.bar") with a stale ruixen.media entry in its own bar.layout
@@ -129,7 +129,7 @@ check "existing install with stale ruixen.media in layout: stripped from every s
   '{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[{"id":"omarchy.clock"},{"id":"ruixen.weather"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]}'
 check "existing install with stale ruixen.media in layout: still gets the plugins[] entry" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out6")" \
-  '["ruixen.frame-widget","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
+  '["ruixen.frame-widget","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
 
 # --- Case 7 (issue #36): legacy foreign/optional bar-widgets stuck in
 # "center" from before ruixen.pluginpins existed get migrated into
@@ -303,7 +303,7 @@ check "structural gap: ruixen.pluginpins inserted right after ruixen.tray on the
   '[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"},{"id":"ruixen.stayawake"},{"id":"ruixen.settingsbutton"}]'
 check "structural gap: unrelated entries/settings/order elsewhere survive untouched (docked, center, plugins)" \
   "$(jq -c '{docked: .bar.docked, center: .bar.layout.center, plugins: [.plugins[].id]}' <<<"$out11")" \
-  '{"docked":true,"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock","format":"HH:mm"}],"plugins":["ruixen.notch","ruixen.frame-widget","ruixen.settings","ruixen.wallpaper","ruixen.media"]}'
+  '{"docked":true,"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock","format":"HH:mm"}],"plugins":["ruixen.notch","ruixen.frame-widget","ruixen.settings","ruixen.wallpaper","ruixen.media","ruixen.launcher"]}'
 check "structural gap: re-running on its own output is idempotent (already present, not inserted twice)" \
   "$(printf '%s' "$out11" | "$build")" "$out11"
 

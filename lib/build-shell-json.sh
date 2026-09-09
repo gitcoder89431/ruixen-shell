@@ -86,7 +86,15 @@ ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 # plugin this way, instead of through the layout, does not place it on
 # the bar -- placement is layout-driven only -- confirmed live on this
 # dev machine's own shell.json.
-ruixen_plugin_ids='["ruixen.frame-widget", "ruixen.notch", "ruixen.settings", "ruixen.wallpaper", "ruixen.media"]'
+#
+# ruixen.launcher (kind "overlay", same as ruixen.settings) needed the
+# identical fix live on this dev machine before it worked at all:
+# `omarchy-shell shell summon` refused it outright ("plugin not
+# enabled, not summoning") until it had a bare {id} entry here --
+# isEnabled() for a non-Omarchy-first-party, non-bar-widget plugin is
+# just "found somewhere in bar.layout or plugins[]", and this file's
+# own bar.layout has no slot for an overlay-only plugin at all.
+ruixen_plugin_ids='["ruixen.frame-widget", "ruixen.notch", "ruixen.settings", "ruixen.wallpaper", "ruixen.media", "ruixen.launcher"]'
 default_idle_json='{"lock": 300, "screensaver": 150}'
 
 # Issue #36: bar.layout ids with a dedicated, intentional pill of their

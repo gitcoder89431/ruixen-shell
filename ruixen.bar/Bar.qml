@@ -2006,7 +2006,13 @@ Item {
           // guessing a new number.
           anchors.leftMargin: root.docked ? 20 : 12
           anchors.verticalCenter: parent.verticalCenter
-          width: menuContent.width + 8 * 2
+          // Side padding trimmed from 8 to 4 per direct request ("making
+          // the canvas pill thing a bit less wide? more rounded?") --
+          // GroupPill's own radius is already height/2 (the max stadium
+          // curve), so there was no more roundness to add directly; a
+          // single-icon pill this close to square just reads rounder at
+          // the same radius as its width shrinks toward its own height.
+          width: menuContent.width + 4 * 2
           height: root.barSize - Style.space(2)
 
           // Hidden (not just repositioned) when docked -- the merged

@@ -87,13 +87,29 @@ Item {
     if (!root.opened) {
       searchInput.text = ""
       root.query = ""
+      root.filesMode = false
     }
   }
 
   property string query: ""
   property int selectedIndex: 0
+  // Raycast's own real behavior, checked live: plain files don't mix
+  // into the main result list at all (too spammy once a query matches
+  // hundreds of them) -- instead there's a permanent "Use ... with"
+  // fallback row (Search Files, Search Google, Define word, ...) that
+  // switches the whole view into that provider's own dedicated search.
+  // filesMode is that switch here -- Applications/Commands/Folders
+  // stay in the main "Results" list always (folders are relatively
+  // rare/meaningful, not the spammy part), plain Files only appear
+  // once this fallback row is actually activated.
+  property bool filesMode: false
+  onFilesModeChanged: {
+    root.selectedIndex = 0
+    Qt.callLater(function() { resultsList.positionViewAtBeginning() })
+  }
   onQueryChanged: {
     root.selectedIndex = 0
+    if (root.query.trim() === "") root.filesMode = false
     // Qt.callLater so this runs after selectedIndex's own change
     // already scrolled toward index 0 -- positionViewAtBeginning
     // additionally clears the top section header into view, which
@@ -119,6 +135,30 @@ Item {
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
 
+  // The single synthetic "Use ... with" fallback row -- not a real
+  // provider result (there's no search() behind it, just a switch).
+  // providerId "files-fallback" is special-cased in activateSelected()
+  // below: activating it flips filesMode on instead of running
+  // anything. This is meant to generalize the same way the other
+  // "add a provider" extension points already do -- a future "Search
+  // Files" for CONTENT (not just names) or a dictionary-style fallback
+  // would each be one more entry in a fallbacks array here, not a
+  // structural change -- deliberately not built yet, out of scope for
+  // this pass.
+  function filesFallbackRow(q) {
+    return {
+      id: "fallback:files",
+      providerId: "files-fallback",
+      icon: "",
+      label: "Search Files",
+      breadcrumb: "for \"" + q + "\"",
+      kind: "",
+      providerName: "",
+      score: 0,
+      sectionLabel: "Use \"" + q + "\" with"
+    }
+  }
+
   // A single flat list, each row tagged with its own sectionLabel --
   // fed straight into the results ListView's section.property below,
   // which draws the group headers and keeps the list virtualized (real
@@ -129,14 +169,16 @@ Item {
   // curated defaults plus the full command list below them, distinct
   // groups because there's no query to rank them against each other by.
   //
-  // A non-empty query collapses to ONE "Results" section instead,
-  // globally sorted by score across all three providers -- confirmed
-  // directly against Raycast's own actual behavior (checked live, not
-  // assumed): typing a query drops its own per-source headers and
-  // shows one flat, relevance-ranked list. An earlier version of this
-  // file grouped by provider even while searching, reasoning (wrongly)
-  // that Raycast kept per-source groups visible at all times -- fixed
-  // once the real behavior was pointed out directly.
+  // A non-empty query collapses Applications/Commands/Folders into ONE
+  // "Results" section, globally sorted by score -- confirmed directly
+  // against Raycast's own actual behavior (checked live): typing a
+  // query drops per-source headers and shows one flat, relevance-
+  // ranked list. Plain Files are deliberately NOT mixed in here --
+  // also confirmed directly against Raycast's own real behavior: it
+  // doesn't inline file results either (too spammy once a query
+  // matches hundreds of them), offering a "Use ... with" fallback row
+  // instead. filesMode (flipped by activating that row) switches the
+  // whole list over to file-only results for the same query.
   readonly property var results: {
     var q = root.query.trim()
     function tag(rows, label) {
@@ -148,8 +190,6 @@ Item {
       var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
       return sug.concat(browse)
     }
-    var cmds = omarchyActionsProvider.search(q)
-    var apps = appSearchProvider.search(q)
     // FileSearchProvider is asynchronous (a real fd subprocess, not a
     // synchronous scan) -- its own query property is bound directly to
     // root.query (see its instantiation above), and it kicks off a
@@ -160,9 +200,13 @@ Item {
     // whatever its last completed search found; reading lastResults
     // (indirectly, through search()) still makes this binding depend
     // on it, so results updates automatically once fd's output lands.
-    var files = fileSearchProvider.search(q)
-    var all = cmds.concat(apps).concat(files).sort(root.byScoreDesc)
-    return tag(all, "Results")
+    var fileHits = fileSearchProvider.search(q)
+    if (root.filesMode) return tag(fileHits.sort(root.byScoreDesc), "Search Files")
+    var cmds = omarchyActionsProvider.search(q)
+    var apps = appSearchProvider.search(q)
+    var folders = fileHits.filter(function(r) { return r.kind === "Folder" })
+    var all = cmds.concat(apps).concat(folders).sort(root.byScoreDesc)
+    return tag(all, "Results").concat([root.filesFallbackRow(q)])
   }
 
   function providerFor(id) {
@@ -174,6 +218,14 @@ Item {
   function activateSelected() {
     var result = root.results[root.selectedIndex]
     if (!result) return
+    // Not a real provider result -- switches the view into file
+    // search instead of running anything, and deliberately doesn't
+    // dismiss (same as picking a folder to browse further would feel,
+    // not like running a command).
+    if (result.providerId === "files-fallback") {
+      root.filesMode = true
+      return
+    }
     var provider = root.providerFor(result.providerId)
     if (provider) provider.activate(result)
     root.dismiss()
@@ -256,7 +308,7 @@ Item {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "Search actions and apps..."
+            text: root.filesMode ? "Search files..." : "Search actions and apps..."
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 16
@@ -264,11 +316,15 @@ Item {
           }
 
           // Same Escape/Up/Down/Enter shape LauncherContent.qml's own
-          // launcherSearchInput already proves out.
+          // launcherSearchInput already proves out -- Escape now drills
+          // up one level (out of Search Files, back to the main
+          // Results view) before it dismisses the whole palette,
+          // rather than always dismissing outright.
           Keys.onPressed: function(event) {
             var count = root.results.length
             if (event.key === Qt.Key_Escape) {
-              root.dismiss()
+              if (root.filesMode) root.filesMode = false
+              else root.dismiss()
               event.accepted = true
             } else if (event.key === Qt.Key_Up) {
               if (root.selectedIndex > 0) root.selectedIndex--

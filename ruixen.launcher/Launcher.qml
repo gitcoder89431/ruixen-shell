@@ -118,6 +118,11 @@ Item {
     if (q === "") {
       var sug = omarchyActionsProvider.suggestions()
       if (sug.length > 0) out.push({ label: "Suggestions", rows: tag(sug) })
+      var browseRemaining = root.visibleRowCount - sug.length
+      if (browseRemaining > 0) {
+        var browse = omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds, browseRemaining)
+        if (browse.length > 0) out.push({ label: "Commands", rows: tag(browse) })
+      }
       return out
     }
     var cmds = omarchyActionsProvider.search(q).sort(root.byScoreDesc)

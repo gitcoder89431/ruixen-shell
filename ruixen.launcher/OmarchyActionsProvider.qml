@@ -110,6 +110,26 @@ Item {
     return out
   }
 
+  // The rest of the empty-query tray, below Suggestions -- every other
+  // actionable entry (real ones only, no synthetic rows), alphabetical
+  // by label since there's no query to score against. excludeIds keeps
+  // whatever's already shown in Suggestions from appearing twice;
+  // limit keeps this to whatever room is left in the fixed-height tray
+  // (see Launcher.qml's own sections property).
+  function browse(excludeIds, limit) {
+    var exclude = {}
+    for (var i = 0; i < excludeIds.length; i++) exclude[excludeIds[i]] = true
+    var out = []
+    for (var id in root.actionable) {
+      if (exclude[id]) continue
+      var entry = root.actionable[id]
+      if (!OmarchyMenuParser.isVisible(id, entry, root.guardResults)) continue
+      out.push(root.resultFor(id, entry, 0))
+    }
+    out.sort(function(a, b) { return a.label.localeCompare(b.label) })
+    return typeof limit === "number" ? out.slice(0, limit) : out
+  }
+
   function activate(result) {
     Util.execDetached(result.action.command)
   }

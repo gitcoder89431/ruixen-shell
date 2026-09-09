@@ -134,6 +134,59 @@ if [[ "$mismatch_count" -eq 0 ]]; then
 fi
 printf '\n'
 
+# --- Hyprland look'n'feel FILES vs this checkout own source -----------
+# Same real gap the plugin-files section above was built to catch, for
+# a completely separate deploy path: hyprland/*.lua ships via
+# ruixen-lookfeel.sh/install.sh into
+# ~/.local/share/ruixen-shell/hyprland/, never through plugins_dir --
+# nothing in the section above would ever flag this directory as stale,
+# even though a shared value living here (gaps_out, border_size, an
+# animation curve) silently not reaching a real machine looks
+# identical to a real bug from the outside ("it works here, not on his
+# machine"). This at least rules staleness in or out directly instead
+# of guessing.
+#
+# *.lua only, not a plain dir_hash() of the whole directory -- this
+# folder also holds ruixen-lookfeel.sh itself (a helper meant to be run
+# FROM the checkout, never copied to the deployed directory at all, see
+# its own comment), which would otherwise permanently read as a false
+# "mismatch" for every single install regardless of the real .lua
+# content, defeating the whole point of this check. Caught live on
+# this exact machine before it shipped: the very first real run of this
+# new section reported a mismatch that turned out to be exactly this.
+lua_dir_hash() {
+  local dir="$1"
+  [[ -d "$dir" ]] || { echo "(missing)"; return; }
+  (cd "$dir" && find . -maxdepth 1 -type f -name '*.lua' -print0 | sort -z | xargs -0 sha256sum 2>/dev/null) | sha256sum | awk '{print $1}'
+}
+looknfeel_dir="$HOME/.local/share/ruixen-shell/hyprland"
+printf -- '-- Hyprland look'"'"'n'"'"'feel files (source in this checkout vs deployed, by content hash) --\n'
+if [[ -d "$script_dir/hyprland" ]]; then
+  looknfeel_source_hash="$(lua_dir_hash "$script_dir/hyprland")"
+  looknfeel_deployed_hash="$(lua_dir_hash "$looknfeel_dir")"
+  if [[ "$looknfeel_deployed_hash" == "(missing)" ]]; then
+    printf 'hyprland/*.lua deployed MISSING (never installed here)\n'
+  elif [[ "$looknfeel_source_hash" == "$looknfeel_deployed_hash" ]]; then
+    printf 'hyprland/*.lua -- OK, file contents match exactly\n'
+  else
+    printf 'hyprland/*.lua -- CONTENT MISMATCH (deployed files differ from this checkout -- install.sh/ruixen-lookfeel.sh did not update this)\n'
+  fi
+else
+  printf '(this checkout has no hyprland/ directory)\n'
+fi
+
+# Informational, not a pass/fail -- confirms which of the three
+# variants (ruixen.lua "Rounded", square.lua "Sharp", default.lua
+# "Off") is actually active, independent of whether its own file
+# content is current.
+active_looknfeel_target="$(readlink "$HOME/.config/hypr/looknfeel.lua" 2>/dev/null || echo "")"
+if [[ -z "$active_looknfeel_target" ]]; then
+  printf 'active variant: no symlink found at ~/.config/hypr/looknfeel.lua\n'
+else
+  printf 'active variant: %s\n' "$(basename "$active_looknfeel_target")"
+fi
+printf '\n'
+
 # --- Backups -- presence proves whether install.sh own copy step ever
 # ran for a given plugin at all, regardless of what version it left
 # behind. -----------------------------------------------------------

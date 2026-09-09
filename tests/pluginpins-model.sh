@@ -92,20 +92,32 @@ else
   fail_count=$((fail_count + 1))
 fi
 
-# ruixen-shell issue #45/#38: Omarchy v4.0.3 removed bar.shell.pluginRegistry
-# (the old candidate source, which needed its own kind:"bar-widget"
-# filter since it enumerated every installed plugin). Candidates are now
-# read from bar.barWidgetRegistry instead -- unaffected by the
-# restriction, a separate injection straight onto ruixen.bar's own root
-# -- whose widgets map the host already pre-filters to kind:"bar-widget"
-# plugins before anything is registered into it, so there is no manifest
-# kind check left to make here.
-check "candidates enumerate the real widget registry's own availableIds(), not a re-filtered plugin list" \
-  "$(grep -c 'reg\.availableIds()' "$widget_qml")" "1"
+# Real, live bug found after issue #45/#38's own fix: bar.barWidgetRegistry
+# (the fix's own replacement for the broken bar.shell.pluginRegistry)
+# shrinks the moment a non-Omarchy-first-party widget (every ruixen.* one)
+# is fully unpinned -- Omarchy's own isEnabled() treats it as "disabled"
+# once it's found nowhere in bar.layout, unregistering its widget
+# component entirely, with no row left in this dropdown to pin it back
+# from (confirmed live, reproduced on ruixen.stayawake independently of
+# ruixen.peripherals). Candidates are now sourced from the real `omarchy
+# plugin list --json` catalog instead (scanned from disk, confirmed live
+# it keeps listing a plugin with enabled:false rather than omitting it)
+# -- bar.barWidgetRegistry is only consulted afterward, for a currently-
+# registered widget's own shorter displayName.
+check "candidates are sourced from the real omarchy plugin list --json catalog, not the shrinking widget registry" \
+  "$(grep -c 'command: \["omarchy", "plugin", "list", "--json"\]' "$widget_qml")" "1"
+check "candidates filters the catalog to kind bar-widget only" \
+  "$(grep -c 'kinds\.indexOf("bar-widget")' "$widget_qml")" "1"
+check "candidates prefers the widget registry's own short displayName only when the widget is actually registered" \
+  "$(grep -c 'reg && reg\.has && reg\.has(p\.id)' "$widget_qml")" "1"
 check "candidates excludes excludedIds" \
-  "$(grep -c 'excludedIds\.indexOf(id)' "$widget_qml")" "1"
+  "$(grep -c 'excludedIds\.indexOf(p\.id)' "$widget_qml")" "1"
 check "candidates re-evaluates on registry changes (revision read for its binding dependency)" \
   "$(grep -c 'reg\.revision' "$widget_qml")" "1"
+check "the plugin catalog is fetched once on startup" \
+  "$(grep -c 'Component\.onCompleted: refreshPluginCatalog()' "$widget_qml")" "1"
+check "the plugin catalog also refreshes every time the popup opens (picks up a newly-installed plugin)" \
+  "$(grep -A3 'onOpenChanged: if (open)' "$widget_qml" | grep -c 'root\.refreshPluginCatalog()')" "1"
 # Direct follow-up: dragging turned out to have no way to populate an
 # initially-empty left-side group at all (ModuleList only registers a
 # real drop-target slot for entries that already exist), so pin/unpin

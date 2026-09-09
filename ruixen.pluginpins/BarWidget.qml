@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -168,21 +169,82 @@ BarWidget {
     return null
   }
 
+  // Real, live bug found: bar.barWidgetRegistry.availableIds() shrinks
+  // the moment a widget is fully unpinned -- Omarchy's own isEnabled()
+  // treats any non-first-party plugin (every ruixen.* one included,
+  // firstParty here means "ships with Omarchy itself", not "first-party
+  // to this repo") as enabled purely by being found somewhere in
+  // bar.layout, so removing the last section it occupied makes the
+  // real service think it's disabled and unregisters its component
+  // entirely. Direct report, reproduced live on this exact mechanism
+  // (not guessed): unpin ruixen.peripherals (or ruixen.stayawake, found
+  // already stuck this way independently) and it vanishes from this
+  // very dropdown, with no row left to click it back on -- the only way
+  // back was re-enabling from Settings' own Plugins page, which goes
+  // through the real omarchy plugin enable path instead.
+  //
+  // The underlying pin data was never broken, though -- setPinSide
+  // below (a plain bar.layout edit) was confirmed live to correctly
+  // restore and re-register an already-vanished widget the moment its
+  // entry reappears anywhere in bar.layout. The only broken piece was
+  // this candidate list itself going empty and leaving nothing to
+  // click. Fixed by sourcing the id/kind list from `omarchy plugin list
+  // --json` instead (the real CLI's own installed-plugin catalog,
+  // scanned from disk -- confirmed live it keeps listing a plugin with
+  // enabled:false rather than omitting it, unlike the widget registry).
+  // bar.barConfig.layout (via currentSide) stays the source for a
+  // widget's current side -- that was never the broken part.
+  property var pluginCatalog: []
+
+  Process {
+    id: pluginCatalogProc
+    command: ["omarchy", "plugin", "list", "--json"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var parsed = JSON.parse(text || "[]")
+          root.pluginCatalog = Array.isArray(parsed) ? parsed : []
+        } catch (e) {
+          // Leave pluginCatalog at its last known value on a transient
+          // parse failure rather than blanking the whole dropdown.
+        }
+      }
+    }
+  }
+
+  function refreshPluginCatalog() {
+    if (!pluginCatalogProc.running) pluginCatalogProc.running = true
+  }
+
+  Component.onCompleted: refreshPluginCatalog()
+
   // Recomputed whenever the registry mutates (a plugin gets installed,
   // enabled/disabled, or moved) -- revision is read here purely to
   // create that binding dependency, same pattern shell.qml's own
-  // selectedBarAvailable/activeBarManifest already use.
+  // selectedBarAvailable/activeBarManifest already use. Also
+  // recomputes on every pluginCatalog refresh (see above).
   readonly property var candidates: {
     var reg = widgetRegistry
-    if (!reg) return []
-    var revision = reg.revision
-    var ids = reg.availableIds ? reg.availableIds() : []
+    var revision = reg ? reg.revision : 0
+    var catalogTick = root.pluginCatalog.length
+    var seen = {}
     var out = []
-    for (var i = 0; i < ids.length; i++) {
-      var id = ids[i]
-      if (excludedIds.indexOf(id) !== -1) continue
-      var meta = reg.metadataFor(id) || {}
-      out.push({ id: id, name: meta.displayName || id, side: root.currentSide(id) })
+    for (var i = 0; i < root.pluginCatalog.length; i++) {
+      var p = root.pluginCatalog[i]
+      if (!p || !p.id || seen[p.id]) continue
+      var kinds = Array.isArray(p.kinds) ? p.kinds : []
+      if (kinds.indexOf("bar-widget") === -1) continue
+      if (excludedIds.indexOf(p.id) !== -1) continue
+      seen[p.id] = true
+      // Prefer the widget registry's own short displayName (e.g.
+      // "Peripherals") while the widget is actually registered/live --
+      // only fall back to the catalog's own plain name (e.g. "Ruixen
+      // Peripherals") for a currently-unregistered widget, which
+      // otherwise wouldn't have a row here to read a name from at all.
+      var meta = reg && reg.has && reg.has(p.id) ? reg.metadataFor(p.id) : null
+      var name = (meta && meta.displayName) || p.name || p.id
+      out.push({ id: p.id, name: name, side: root.currentSide(p.id) })
     }
     out.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)) })
     return out
@@ -326,7 +388,10 @@ BarWidget {
       focus: true
       Keys.onEscapePressed: root.close()
     }
-    onOpenChanged: if (open) Qt.callLater(function() { escapeCatcher.forceActiveFocus() })
+    onOpenChanged: if (open) {
+      root.refreshPluginCatalog()
+      Qt.callLater(function() { escapeCatcher.forceActiveFocus() })
+    }
 
     Text {
       visible: root.candidates.length === 0

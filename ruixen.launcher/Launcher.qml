@@ -697,19 +697,37 @@ Item {
       // Empty state -- centered in the whole content area below the
       // search box (spans the full card width, not just the list
       // column, so it reads the same whether or not detailsPanel would
-      // otherwise be showing beside it).
-      Text {
+      // otherwise be showing beside it). Same magnifying-glass glyph
+      // (fa-search, U+F002) as the Search Files fallback row's own
+      // icon, just large -- a found-nothing state reading as "the
+      // search itself" rather than needing a distinct icon of its own.
+      Item {
         visible: root.showNoResults
         anchors.top: searchBox.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
-        text: "No Results"
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 14
+
+        Column {
+          anchors.centerIn: parent
+          spacing: 10
+
+          Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: ""
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 40
+          }
+
+          Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "No Results"
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 14
+          }
+        }
       }
     }
   }

@@ -82,6 +82,10 @@ Item {
       // no omarchy-menu.jsonc chain to walk for a synthetic entry),
       // just plain text describing what this opens.
       breadcrumb: "Shell Control",
+      // Opens a panel rather than firing a one-shot action like
+      // Screenshot/Lock/Theme -- "Application" fits what this actually
+      // is better than the provider's own default "Command".
+      kind: "Application",
       aliases: ["settings", "preferences"],
       action: "omarchy-shell shell toggle ruixen.settings"
     }
@@ -104,11 +108,14 @@ Item {
   // breadcrumb is the launcher's per-row subtitle (e.g. "Remove ›
   // Development", "Setup › Defaults › Editor") -- the entry's full
   // ancestor chain via breadcrumbFor(), root down to its immediate
-  // parent. syntheticEntries override it outright (e.g. "Ruixen" --
-  // not part of the real omarchy-menu.jsonc tree, so there's no chain
-  // to walk). kind is a fixed "Command" for every row this provider
-  // produces -- see Launcher.qml's own row delegate for how the two
-  // combine ("Remove › Development  ·  Command").
+  // parent. syntheticEntries override it outright (e.g. "Shell
+  // Control" -- not part of the real omarchy-menu.jsonc tree, so
+  // there's no chain to walk). kind defaults to "Command" (every real
+  // omarchy-menu.jsonc entry fires a one-shot action), but a synthetic
+  // entry can override it (Ruixen Settings says "Application" -- it
+  // opens a panel, not a command) -- see Launcher.qml's own row
+  // delegate for how breadcrumb/kind combine ("Remove › Development ·
+  // Command").
   function resultFor(id, entry, score) {
     return {
       id: "omarchy:" + id,
@@ -116,7 +123,7 @@ Item {
       icon: entry.icon || "",
       label: entry.label || id,
       breadcrumb: entry.breadcrumb || OmarchyMenuParser.breadcrumbFor(root.allEntries, id),
-      kind: "Command",
+      kind: entry.kind || "Command",
       providerName: root.providerName,
       score: score,
       action: { type: "shell", command: entry.action }

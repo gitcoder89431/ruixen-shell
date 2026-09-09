@@ -111,22 +111,26 @@ Item {
   // sections -- confirmed against Raycast's own real behavior) stays
   // meaningful.
   //
-  // dirBonus needs to be big enough to close the PREFIX-vs-SUBSTRING
-  // gap within this scale, not just nudge a near-tie -- confirmed
-  // live: searching "shell" with a small bonus (300) still buried the
-  // real folder `dhh-shell` (a substring match, "shell" isn't at
-  // index 0) under files like `shell.qml`/`shell.toml` (prefix
-  // matches, ~8991-9000) even though the user wanted the folder
-  // ranked above them. The prefix/substring tiers span roughly
-  // 5000-9000 within this provider's own base score, so a bonus below
-  // ~4000 can't reliably close that gap. 5000 guarantees any real
-  // directory match outranks any file match at the same or a weaker
-  // match tier, while still landing below a genuinely exact Command/
-  // Application hit (10000) most of the time -- an exact-name folder
-  // match (10000 + 5000) is the one case that outranks even those,
-  // which is the intended behavior: if you typed the folder's actual
-  // name, that folder is almost certainly what you meant.
-  readonly property int dirBonus: 5000
+  // dirBonus is deliberately modest -- a large one (5000, tried and
+  // reverted) closes the prefix-vs-substring gap for a specific,
+  // longer query ("shell" surfacing the substring match `dhh-shell`
+  // above prefix-matching files), but breaks far more common SHORT
+  // queries: confirmed live, searching "di" buried "Discord" (a real
+  // app, scored 9993 by AppSearch.js's own 10000-name.length prefix
+  // formula) under every folder that trivially prefix-matches two
+  // characters (e.g. "dialog" at 8994 base + 5000 = 13994) -- short
+  // queries make coincidental folder-name prefix matches extremely
+  // common, so a big flat bonus turns those into permanent noise.
+  // Application/Command prefix matches already outscore an equivalent
+  // File prefix match by ~1000 points structurally (10000-len vs.
+  // 9000-len -- two independently-written formulas that happen to
+  // agree apps deserve a real head start), which is exactly the margin
+  // that protects short queries -- a bonus above roughly that margin
+  // defeats it. A smaller bonus can't guarantee a substring match like
+  // `dhh-shell` beats every prefix-matching file for "shell" (it won't
+  // always), but that's the right tradeoff: don't let a rarer, longer-
+  // query nicety break the common, short-query case.
+  readonly property int dirBonus: 400
 
   function scoreFile(name, query, isDir) {
     var q = String(query || "").toLowerCase()

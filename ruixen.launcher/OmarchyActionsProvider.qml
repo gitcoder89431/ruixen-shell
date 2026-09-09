@@ -76,11 +76,12 @@ Item {
       // and what it opens read as the same thing.
       icon: "",
       label: "Ruixen Settings",
-      // A short description, same idea as AppSearchProvider's own
-      // subtitleFor() pulling a real app's Comment= -- not a
-      // breadcrumb (there's no omarchy-menu.jsonc chain to walk for a
-      // synthetic entry), just plain text describing what this opens.
-      breadcrumb: "Appearance, audio, network, and plugin settings",
+      // A short tagline, same spirit as a .desktop file's own
+      // GenericName= (e.g. "Streaming/Recording Software") -- a
+      // couple of words, not a feature list. Not a breadcrumb (there's
+      // no omarchy-menu.jsonc chain to walk for a synthetic entry),
+      // just plain text describing what this opens.
+      breadcrumb: "Shell Control",
       aliases: ["settings", "preferences"],
       action: "omarchy-shell shell toggle ruixen.settings"
     }

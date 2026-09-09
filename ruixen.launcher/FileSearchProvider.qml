@@ -106,31 +106,25 @@ Item {
   }
 
   // Exact filename match > prefix > substring elsewhere in the name --
-  // same 0-10000 scale every other provider uses, so Launcher.qml's
-  // now-GLOBAL cross-provider sort ("Results", not separate per-source
-  // sections -- confirmed against Raycast's own real behavior) stays
-  // meaningful.
+  // same 0-10000 scale every other provider uses.
   //
-  // dirBonus is deliberately modest -- a large one (5000, tried and
-  // reverted) closes the prefix-vs-substring gap for a specific,
-  // longer query ("shell" surfacing the substring match `dhh-shell`
-  // above prefix-matching files), but breaks far more common SHORT
-  // queries: confirmed live, searching "di" buried "Discord" (a real
-  // app, scored 9993 by AppSearch.js's own 10000-name.length prefix
-  // formula) under every folder that trivially prefix-matches two
-  // characters (e.g. "dialog" at 8994 base + 5000 = 13994) -- short
-  // queries make coincidental folder-name prefix matches extremely
-  // common, so a big flat bonus turns those into permanent noise.
-  // Application/Command prefix matches already outscore an equivalent
-  // File prefix match by ~1000 points structurally (10000-len vs.
-  // 9000-len -- two independently-written formulas that happen to
-  // agree apps deserve a real head start), which is exactly the margin
-  // that protects short queries -- a bonus above roughly that margin
-  // defeats it. A smaller bonus can't guarantee a substring match like
-  // `dhh-shell` beats every prefix-matching file for "shell" (it won't
-  // always), but that's the right tradeoff: don't let a rarer, longer-
-  // query nicety break the common, short-query case.
-  readonly property int dirBonus: 400
+  // dirBonus's history: a large bonus (5000) reliably surfaced a
+  // substring match like `dhh-shell` above prefix-matching files for
+  // "shell", but broke short queries badly -- back when Files/Folders
+  // were merged into the same globally-sorted list as Applications/
+  // Commands, searching "di" buried the real app "Discord" (scored
+  // 9993 by AppSearch.js's own formula) under every folder that
+  // trivially prefix-matches two characters. That risk is gone now
+  // that Folders/Files only ever compete against EACH OTHER, inside
+  // Search Files mode -- Applications/Commands live in a separate list
+  // entirely (Launcher.qml's own "Results", never mixed with
+  // filesystem matches at all). 2100 is calibrated to close the real
+  // prefix-vs-substring gap this provider's own scoreFile() produces
+  // (~2000-2050 between a short substring match and a short prefix
+  // match), so a real directory hit like `dhh-shell` reliably outranks
+  // prefix-matching files for "shell" again, without needing to worry
+  // about Application/Command relevance at all in this view.
+  readonly property int dirBonus: 2100
 
   function scoreFile(name, query, isDir) {
     var q = String(query || "").toLowerCase()

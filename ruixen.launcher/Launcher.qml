@@ -169,16 +169,23 @@ Item {
   // curated defaults plus the full command list below them, distinct
   // groups because there's no query to rank them against each other by.
   //
-  // A non-empty query collapses Applications/Commands/Folders into ONE
+  // A non-empty query collapses Applications/Commands into ONE
   // "Results" section, globally sorted by score -- confirmed directly
   // against Raycast's own actual behavior (checked live): typing a
   // query drops per-source headers and shows one flat, relevance-
-  // ranked list. Plain Files are deliberately NOT mixed in here --
-  // also confirmed directly against Raycast's own real behavior: it
-  // doesn't inline file results either (too spammy once a query
-  // matches hundreds of them), offering a "Use ... with" fallback row
-  // instead. filesMode (flipped by activating that row) switches the
-  // whole list over to file-only results for the same query.
+  // ranked list. Files AND Folders both stay out of this list entirely
+  // (folders used to be the one exception, merged in here -- moved
+  // into Search Files alongside files instead, so growing the Commands
+  // list later, e.g. a Kanban "Create Task"/"Update Task Status", never
+  // has to compete against filesystem noise for space here) -- also
+  // confirmed directly against Raycast's own real behavior: it doesn't
+  // inline file results either (too spammy once a query matches
+  // hundreds of them), offering a "Use ... with" fallback row instead.
+  // filesMode (flipped by activating that row) switches the whole list
+  // over to file+folder results for the same query, folders ranked
+  // above files there (FileSearchProvider's own dirBonus) -- that
+  // priority only has to make sense against other filesystem results
+  // now, not against Applications/Commands too.
   readonly property var results: {
     var q = root.query.trim()
     function tag(rows, label) {
@@ -200,12 +207,10 @@ Item {
     // whatever its last completed search found; reading lastResults
     // (indirectly, through search()) still makes this binding depend
     // on it, so results updates automatically once fd's output lands.
-    var fileHits = fileSearchProvider.search(q)
-    if (root.filesMode) return tag(fileHits.sort(root.byScoreDesc), "Search Files")
+    if (root.filesMode) return tag(fileSearchProvider.search(q).sort(root.byScoreDesc), "Search Files")
     var cmds = omarchyActionsProvider.search(q)
     var apps = appSearchProvider.search(q)
-    var folders = fileHits.filter(function(r) { return r.kind === "Folder" })
-    var all = cmds.concat(apps).concat(folders).sort(root.byScoreDesc)
+    var all = cmds.concat(apps).sort(root.byScoreDesc)
     return tag(all, "Results").concat([root.filesFallbackRow(q)])
   }
 

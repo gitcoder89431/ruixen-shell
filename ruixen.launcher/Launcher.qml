@@ -154,7 +154,7 @@ Item {
     // (indirectly, through search()) still makes this binding depend
     // on it, so results updates automatically once fd's output lands.
     var files = tag(fileSearchProvider.search(q).sort(root.byScoreDesc), "Files")
-    return cmds.concat(apps).concat(files)
+    return apps.concat(cmds).concat(files)
   }
 
   function providerFor(id) {

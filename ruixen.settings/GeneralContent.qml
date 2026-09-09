@@ -291,85 +291,8 @@ ColumnLayout {
     }
   }
 
-  // Animation Style -- own card, same segmented-button treatment as
-  // Bar Layout right above it. Direct request ("its the hyprland
-  // windows that needs it... bubbly, calm, snappy seems to be
-  // enough") -- this only ever switches Hyprland's own window
-  // animations (see hyprland/looknfeel.ruixen.lua), nothing on the
-  // Quickshell/plugin side changes; deliberately not called "Window
-  // Animations" though, since "the plug ins dont need animations, its
-  // fine the way it is" was explicit -- this card's own placement on
-  // the same page as Bar Layout (a Hyprland-side setting too) is
-  // enough context for what it actually controls.
-  Rectangle {
-    Layout.fillWidth: true
-    Layout.preferredHeight: animationCardContent.implicitHeight + 24
-    radius: 10
-    color: "#000000"
-
-    ColumnLayout {
-      id: animationCardContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Animation Style"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        font.weight: Font.DemiBold
-        color: settingsRoot.muted
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 6
-
-        Repeater {
-          // Calm first (the new default), then Bubbly, then Snappy --
-          // direct request ("switch the order so we start with calm
-          // by default and then user can pick next toggle as Bubbly
-          // then Snappy last").
-          model: [
-            { id: "calm", label: "Calm" },
-            { id: "bubbly", label: "Bubbly" },
-            { id: "snappy", label: "Snappy" }
-          ]
-
-          Rectangle {
-            id: animBtn
-            required property var modelData
-            readonly property bool isCurrent: settingsRoot.animationProfile === animBtn.modelData.id
-
-            Layout.fillWidth: true
-            Layout.preferredHeight: 28
-            radius: 6
-            color: animBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-            border.width: 1
-            border.color: animBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              anchors.centerIn: parent
-              text: animBtn.modelData.label
-              font.family: settingsRoot.fontFamily
-              font.pixelSize: 11
-              font.weight: animBtn.isCurrent ? Font.DemiBold : Font.Normal
-              color: animBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: settingsRoot.setAnimationProfile(animBtn.modelData.id)
-            }
-          }
-        }
-      }
-    }
-  }
-
   // Window Curvature -- own card, same segmented-button treatment as
-  // Bar Layout/Animation Style above. Direct request: a Settings UI
+  // Bar Layout above. Direct request: a Settings UI
   // for the on/square split hyprland/ruixen-lookfeel.sh already has.
   // "Off" (stock Omarchy, no border/blur/shadow either) isn't offered
   // here -- a much bigger toggle than just corner shape, stays
@@ -451,7 +374,7 @@ ColumnLayout {
   }
 
   // Window Spacing -- own card, same segmented-button treatment as
-  // Animation Style/Window Curvature above. Direct follow-up after
+  // Bar Layout/Window Curvature above. Direct follow-up after
   // live-testing gaps_in 0 with `hyprctl eval`: "with the round
   // curvature on the window the tight spacing looks kinda bad, on
   // sharp it might be fine... its probably easier if its just a
@@ -517,6 +440,87 @@ ColumnLayout {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: settingsRoot.setSpacingProfile(spacingBtn.modelData.id)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Animation Style -- own card, same segmented-button treatment as
+  // Bar Layout/Window Curvature/Window Spacing above -- moved to last
+  // per direct request (reordering the page: "Bar Layout is the first
+  // profile setting after the avatar stuff, then after bar layout lets
+  // do the Window Curve and then Window Spacing, then last is the
+  // Animation Style"). Direct request ("its the hyprland windows that
+  // needs it... bubbly, calm, snappy seems to be enough") -- this only
+  // ever switches Hyprland's own window animations (see
+  // hyprland/looknfeel.ruixen.lua), nothing on the Quickshell/plugin
+  // side changes; deliberately not called "Window Animations" though,
+  // since "the plug ins dont need animations, its fine the way it is"
+  // was explicit -- this card's own placement on the same page as Bar
+  // Layout (a Hyprland-side setting too) is enough context for what it
+  // actually controls.
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: animationCardContent.implicitHeight + 24
+    radius: 10
+    color: "#000000"
+
+    ColumnLayout {
+      id: animationCardContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Animation Style"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 11
+        font.weight: Font.DemiBold
+        color: settingsRoot.muted
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Repeater {
+          // Calm first (the new default), then Bubbly, then Snappy --
+          // direct request ("switch the order so we start with calm
+          // by default and then user can pick next toggle as Bubbly
+          // then Snappy last").
+          model: [
+            { id: "calm", label: "Calm" },
+            { id: "bubbly", label: "Bubbly" },
+            { id: "snappy", label: "Snappy" }
+          ]
+
+          Rectangle {
+            id: animBtn
+            required property var modelData
+            readonly property bool isCurrent: settingsRoot.animationProfile === animBtn.modelData.id
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            radius: 6
+            color: animBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: animBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: animBtn.modelData.label
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 11
+              font.weight: animBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: animBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.setAnimationProfile(animBtn.modelData.id)
             }
           }
         }

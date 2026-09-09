@@ -19,14 +19,15 @@ import qs.Commons
 // a plain Column+clip like the very first cut of this file), so the
 // full command list is reachable, not just whatever fits on screen.
 //
-// Providers (OmarchyActionsProvider, AppSearchProvider) are the only
-// two built so far, on purpose -- direct instruction not to build every
-// provider at once. Each is a small QML Item exposing providerName/
-// ready/search(query)/activate(result); Launcher.qml never inspects a
-// result to decide how to run it, always provider.activate(result)
-// looked up by result.providerId. Adding a future provider (Kanban
-// capture, calculator, ...) is one new file + one entry in
-// root.providers below -- nothing else here changes.
+// Providers (OmarchyActionsProvider, AppSearchProvider,
+// FileSearchProvider) are the only three built so far, on purpose --
+// direct instruction not to build every provider at once. Each is a
+// small QML Item exposing providerName/ready/search(query)/
+// activate(result); Launcher.qml never inspects a result to decide how
+// to run it, always provider.activate(result) looked up by
+// result.providerId. Adding a future provider (Kanban capture,
+// calculator, ...) is one new file + one entry in root.providers below
+// -- nothing else here changes.
 Item {
   id: root
   property var shell: null
@@ -108,10 +109,12 @@ Item {
   // results list scrolls now, so this no longer needs to track the
   // fixed card's own visibleRowCount.
   AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary }
+  FileSearchProvider { id: fileSearchProvider; query: root.query }
 
   readonly property var providers: [
     { id: "omarchy-actions", item: omarchyActionsProvider },
-    { id: "app-search", item: appSearchProvider }
+    { id: "app-search", item: appSearchProvider },
+    { id: "file-search", item: fileSearchProvider }
   ]
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
@@ -140,7 +143,18 @@ Item {
     }
     var cmds = tag(omarchyActionsProvider.search(q).sort(root.byScoreDesc), "Commands")
     var apps = tag(appSearchProvider.search(q).sort(root.byScoreDesc), "Applications")
-    return cmds.concat(apps)
+    // FileSearchProvider is asynchronous (a real fd subprocess, not a
+    // synchronous scan) -- its own query property is bound directly to
+    // root.query (see its instantiation above), and it kicks off a
+    // debounced re-search from its own onQueryChanged, not from
+    // search() itself (a property WRITE as a side effect of THIS
+    // binding's own evaluation caused a real "Binding loop detected"
+    // warning, confirmed live). search(q) here is a pure read of
+    // whatever its last completed search found; reading lastResults
+    // (indirectly, through search()) still makes this binding depend
+    // on it, so results updates automatically once fd's output lands.
+    var files = tag(fileSearchProvider.search(q).sort(root.byScoreDesc), "Files")
+    return cmds.concat(apps).concat(files)
   }
 
   function providerFor(id) {

@@ -642,7 +642,12 @@ Item {
         // generic file glyph -- reuses FileSearchProvider's own
         // extension-derived "Kind" string (e.g. "PNG Image") rather
         // than re-deriving the extension here a second time.
-        readonly property bool isImagePreview: detailsPanel.details !== null && detailsPanel.result !== null &&
+        // Plain truthiness, not `!== null` -- selectedResult/selectedDetails
+        // can transiently be `undefined` rather than `null` between
+        // selections, which `!== null` doesn't catch and which tripped a
+        // real "Value is undefined and could not be converted to an
+        // object" warning from the Image source binding below.
+        readonly property bool isImagePreview: !!detailsPanel.details && !!detailsPanel.result &&
           ["PNG Image", "JPEG Image", "GIF Image", "WebP Image", "Bitmap Image", "SVG Image"].indexOf(detailsPanel.details.type) !== -1
 
         Column {
@@ -653,19 +658,22 @@ Item {
           spacing: 18
           visible: detailsPanel.result !== null
 
-          // A real preview pane, not just an icon -- tall enough to
-          // give a still-image thumbnail room to breathe (Raycast's own
+          // A real preview pane, not just an icon -- tall enough to give
+          // a still-image thumbnail room to breathe (Raycast's own
           // Search Files detail view reserves similar space up top).
-          // Non-image results just center the same glyph the list row
-          // already uses, bigger.
+          // The name used to live in its own Text below this pane; it's
+          // now the first metadata field instead (see Repeater below),
+          // so this pane gets that space too -- non-image results (most
+          // prominently folders, which never get a thumbnail) just show
+          // the same glyph the list row already uses, bigger still.
           Item {
             width: parent.width
-            height: 176
+            height: 210
 
             Image {
               anchors.fill: parent
               visible: detailsPanel.isImagePreview
-              source: detailsPanel.isImagePreview ? "file://" + detailsPanel.result.action.path : ""
+              source: detailsPanel.isImagePreview && detailsPanel.result ? "file://" + detailsPanel.result.action.path : ""
               fillMode: Image.PreserveAspectFit
               asynchronous: true
               cache: false
@@ -679,25 +687,15 @@ Item {
               // Same folder-only accent as the list row's own icon.
               color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 72
+              font.pixelSize: 88
             }
-          }
-
-          Text {
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.Wrap
-            text: detailsPanel.result ? detailsPanel.result.label : ""
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 17
-            font.bold: true
           }
 
           Rectangle { width: parent.width; height: 1; color: Qt.rgba(1, 1, 1, 0.08) }
 
           Repeater {
             model: detailsPanel.details ? [
+              { label: "Name", value: detailsPanel.result ? detailsPanel.result.label : "" },
               { label: "Type", value: detailsPanel.details.type },
               { label: "Size", value: root.formatSize(detailsPanel.details.size) },
               { label: "Where", value: detailsPanel.result ? detailsPanel.result.breadcrumb : "" },

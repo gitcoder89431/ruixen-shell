@@ -86,12 +86,15 @@ Item {
 
   // Exact filename match > prefix > substring elsewhere in the name --
   // same 0-10000 scale every other provider uses, so Launcher.qml's
-  // per-section byScoreDesc sort is meaningful here too. dirBonus sits
-  // above the whole 0-10000 range so any directory outranks any plain
-  // file regardless of match quality ("sort them so folders are higher
-  // inside the files group"), while directories still rank amongst
-  // themselves, and files amongst themselves, by how well they match.
-  readonly property int dirBonus: 100000
+  // now-GLOBAL cross-provider sort ("Results", not separate per-source
+  // sections -- confirmed against Raycast's own real behavior) stays
+  // meaningful. dirBonus nudges a directory above an otherwise-similar
+  // file ("sort them so folders are higher inside the files group")
+  // without swamping the whole 0-10000 range the way a much larger
+  // bonus would -- that would make every folder outrank every app/
+  // command regardless of actual relevance once sorting is global,
+  // not just within this provider's own results.
+  readonly property int dirBonus: 300
 
   function scoreFile(name, query, isDir) {
     var q = String(query || "").toLowerCase()

@@ -119,19 +119,26 @@ Item {
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
 
-  // A single flat list, each row tagged with its own sectionLabel
-  // ("Suggestions"/"Commands"/"Applications") -- fed straight into the
-  // results ListView's section.property below, which draws the group
-  // headers and keeps the list virtualized (real perf concern once
-  // Commands lists every actionable entry, not just a handful).
-  // Grouped rather than one globally-interleaved sort -- Raycast keeps
-  // its own "Suggestions"/command groups visually distinct rather than
-  // scrambling providers together by score -- and an empty query gets
-  // real curated suggestions plus the full command list below them
-  // (scrollable) instead of a near-empty palette.
+  // A single flat list, each row tagged with its own sectionLabel --
+  // fed straight into the results ListView's section.property below,
+  // which draws the group headers and keeps the list virtualized (real
+  // perf concern once Commands lists every actionable entry, not just
+  // a handful).
+  //
+  // Empty query keeps real, separate "Suggestions"/"Commands" groups --
+  // curated defaults plus the full command list below them, distinct
+  // groups because there's no query to rank them against each other by.
+  //
+  // A non-empty query collapses to ONE "Results" section instead,
+  // globally sorted by score across all three providers -- confirmed
+  // directly against Raycast's own actual behavior (checked live, not
+  // assumed): typing a query drops its own per-source headers and
+  // shows one flat, relevance-ranked list. An earlier version of this
+  // file grouped by provider even while searching, reasoning (wrongly)
+  // that Raycast kept per-source groups visible at all times -- fixed
+  // once the real behavior was pointed out directly.
   readonly property var results: {
     var q = root.query.trim()
-    var out = []
     function tag(rows, label) {
       for (var i = 0; i < rows.length; i++) rows[i].sectionLabel = label
       return rows
@@ -141,8 +148,8 @@ Item {
       var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
       return sug.concat(browse)
     }
-    var cmds = tag(omarchyActionsProvider.search(q).sort(root.byScoreDesc), "Commands")
-    var apps = tag(appSearchProvider.search(q).sort(root.byScoreDesc), "Applications")
+    var cmds = omarchyActionsProvider.search(q)
+    var apps = appSearchProvider.search(q)
     // FileSearchProvider is asynchronous (a real fd subprocess, not a
     // synchronous scan) -- its own query property is bound directly to
     // root.query (see its instantiation above), and it kicks off a
@@ -153,8 +160,9 @@ Item {
     // whatever its last completed search found; reading lastResults
     // (indirectly, through search()) still makes this binding depend
     // on it, so results updates automatically once fd's output lands.
-    var files = tag(fileSearchProvider.search(q).sort(root.byScoreDesc), "Files")
-    return apps.concat(cmds).concat(files)
+    var files = fileSearchProvider.search(q)
+    var all = cmds.concat(apps).concat(files).sort(root.byScoreDesc)
+    return tag(all, "Results")
   }
 
   function providerFor(id) {

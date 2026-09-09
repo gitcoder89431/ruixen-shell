@@ -476,12 +476,15 @@ Item {
           // metaText then sits right after it with a small gap, as a
           // subtitle beside the name, rather than pinned to the row's
           // far right edge with a dead gap in between for short labels.
+          // In Search Files mode there's no subtitle/kind at all (see
+          // metaText/kindText below), so the label just takes the
+          // whole row.
           Text {
             id: labelText
             anchors.left: parent.left
             anchors.leftMargin: 44
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(implicitWidth, parent.width * 0.55 - 44)
+            width: root.filesMode ? (parent.width - 44 - 12) : Math.min(implicitWidth, parent.width * 0.55 - 44)
             elide: Text.ElideRight
             text: row.modelData.label
             color: root.textColor
@@ -495,9 +498,17 @@ Item {
           // future native Ruixen provider: the full breadcrumb (e.g.
           // "Remove › Development", "Ruixen" for the synthetic Ruixen
           // Settings row). Bounded on the right by kindText below, not
-          // the row's own edge, so the two never overlap.
+          // the row's own edge, so the two never overlap. Hidden in
+          // Search Files mode -- the details panel's own "Where" field
+          // already shows the path, so repeating it here (and the
+          // Folder/File kind tag below, already obvious from the row's
+          // own icon) would just be noise; the row is just an icon +
+          // name there, on purpose, so the details panel is the
+          // featured part of that view, not a third column squeezed
+          // beside it.
           Text {
             id: metaText
+            visible: !root.filesMode
             anchors.left: labelText.right
             anchors.leftMargin: 8
             anchors.right: kindText.left
@@ -515,9 +526,11 @@ Item {
           // row's own right edge, kept separate from the breadcrumb/
           // category subtitle above rather than folded into one string,
           // so it stays in a stable, scannable column even as the
-          // subtitle's own length varies row to row.
+          // subtitle's own length varies row to row. Hidden in Search
+          // Files mode -- see metaText's own comment above.
           Text {
             id: kindText
+            visible: !root.filesMode
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
@@ -558,7 +571,12 @@ Item {
         anchors.rightMargin: 8
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 8
-        width: 280
+        // Wider than the first cut (280) -- now that the list rows
+        // dropped their own subtitle/kind columns (redundant with this
+        // panel's own "Where" field and the row's icon), this panel is
+        // the featured part of Search Files, not a narrow sidebar next
+        // to the real content.
+        width: 360
         radius: 12
         color: Qt.rgba(1, 1, 1, 0.04)
         clip: true
@@ -570,8 +588,8 @@ Item {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.margins: 16
-          spacing: 12
+          anchors.margins: 20
+          spacing: 14
           visible: detailsPanel.result !== null
 
           Text {
@@ -580,7 +598,7 @@ Item {
             text: detailsPanel.result ? detailsPanel.result.icon : ""
             color: root.textColor
             font.family: root.fontFamily
-            font.pixelSize: 40
+            font.pixelSize: 64
           }
 
           Text {
@@ -590,7 +608,7 @@ Item {
             text: detailsPanel.result ? detailsPanel.result.label : ""
             color: root.textColor
             font.family: root.fontFamily
-            font.pixelSize: 14
+            font.pixelSize: 17
             font.bold: true
           }
 
@@ -609,13 +627,13 @@ Item {
               id: field
               required property var modelData
               width: parent.width
-              spacing: 2
+              spacing: 3
 
               Text {
                 text: field.modelData.label
                 color: root.muted
                 font.family: root.fontFamily
-                font.pixelSize: 10
+                font.pixelSize: 11
                 font.capitalization: Font.AllUppercase
               }
               Text {
@@ -624,7 +642,7 @@ Item {
                 text: field.modelData.value
                 color: root.textColor
                 font.family: root.fontFamily
-                font.pixelSize: 12
+                font.pixelSize: 13
               }
             }
           }

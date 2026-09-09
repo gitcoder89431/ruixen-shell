@@ -135,24 +135,44 @@ Item {
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
 
+  function formatSize(bytes) {
+    var n = Number(bytes) || 0
+    if (n < 1024) return n + " B"
+    var units = ["KB", "MB", "GB", "TB"]
+    var v = n / 1024
+    for (var i = 0; i < units.length; i++) {
+      if (v < 1024 || i === units.length - 1) return v.toFixed(1) + " " + units[i]
+      v /= 1024
+    }
+  }
+
+  function formatDate(epochSeconds) {
+    if (!epochSeconds) return ""
+    return Qt.formatDateTime(new Date(epochSeconds * 1000), "MMM d, yyyy  h:mm AP")
+  }
+
   // The single synthetic "Use ... with" fallback row -- not a real
   // provider result (there's no search() behind it, just a switch).
   // providerId "files-fallback" is special-cased in activateSelected()
   // below: activating it flips filesMode on instead of running
-  // anything. This is meant to generalize the same way the other
-  // "add a provider" extension points already do -- a future "Search
-  // Files" for CONTENT (not just names) or a dictionary-style fallback
-  // would each be one more entry in a fallbacks array here, not a
-  // structural change -- deliberately not built yet, out of scope for
-  // this pass.
+  // anything.
+  //
+  // "File Search" as the subtitle (not "for '<query>'") and "Command"
+  // as the kind are deliberate: a future content-search fallback
+  // ("Search File Contents", discussed but not built) is meant to read
+  // as a SECOND command from that same "File Search" extension, the
+  // way Raycast shows one extension's name as the shared subtitle
+  // across each of its own commands -- not a third unrelated provider.
+  // Adding it later is one more object here (same subtitle, different
+  // label/id), not a structural change.
   function filesFallbackRow(q) {
     return {
       id: "fallback:files",
       providerId: "files-fallback",
       icon: "",
       label: "Search Files",
-      breadcrumb: "for \"" + q + "\"",
-      kind: "",
+      breadcrumb: "File Search",
+      kind: "Command",
       providerName: "",
       score: 0,
       sectionLabel: "Use \"" + q + "\" with"
@@ -214,6 +234,18 @@ Item {
     return tag(all, "Results").concat([root.filesFallbackRow(q)])
   }
 
+  // Drives the Search Files details panel -- whichever row is
+  // currently selected, or null between/at the edges of the list.
+  // FileSearchProvider.qml doesn't know about selection at all; this
+  // just tells it which path to stat() whenever that changes.
+  readonly property var selectedResult: root.results[root.selectedIndex] || null
+  onSelectedResultChanged: {
+    if (!root.filesMode) return
+    var path = (root.selectedResult && root.selectedResult.action) ? root.selectedResult.action.path : ""
+    if (path && path !== fileSearchProvider.pendingDetailsPath) fileSearchProvider.loadDetails(path)
+    else if (!path) fileSearchProvider.selectedDetails = null
+  }
+
   function providerFor(id) {
     for (var i = 0; i < root.providers.length; i++)
       if (root.providers[i].id === id) return root.providers[i].item
@@ -265,7 +297,12 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
       anchors.topMargin: parent.height * 0.22
-      width: 640
+      // Wider in Search Files mode only -- a details panel sits beside
+      // the result list there (Raycast's own real Search Files does
+      // the same split). Still not resizing per result COUNT (the
+      // "fixed tray" property that matters), just per deliberate mode.
+      width: root.filesMode ? 920 : 640
+      Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
       // A fixed viewport height, not a function of the result count --
       // still a constant, so the card never grows/shrinks per state.
       // Extra content (more rows than fit, or more than 2 headers)
@@ -359,9 +396,14 @@ Item {
         anchors.top: searchBox.bottom
         anchors.topMargin: 8
         anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.leftMargin: 8
+        // Search Files mode splits the card: this list keeps the left
+        // side, detailsPanel (below) takes the right -- Raycast's own
+        // real Search Files layout, list left / metadata right.
+        anchors.right: root.filesMode ? detailsPanel.left : parent.right
+        anchors.rightMargin: 8
         anchors.bottom: parent.bottom
-        anchors.margins: 8
+        anchors.bottomMargin: 8
         clip: true
         spacing: 0
         // Same fix as ruixen.settings' own detail panel Flickable /
@@ -497,6 +539,104 @@ Item {
               root.selectedIndex = row.index
               root.activateSelected()
             }
+          }
+        }
+      }
+
+      // Search Files' own metadata sidebar -- Raycast's real Search
+      // Files splits the same way, list left / details right. Only
+      // ever shows the CURRENTLY SELECTED file's info (fetched via
+      // FileSearchProvider.loadDetails(), a real `stat` call -- fd
+      // itself doesn't return size/type/modified time), not anything
+      // for the whole list, so it's cheap regardless of result count.
+      Rectangle {
+        id: detailsPanel
+        visible: root.filesMode
+        anchors.top: searchBox.bottom
+        anchors.topMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        width: 280
+        radius: 12
+        color: Qt.rgba(1, 1, 1, 0.04)
+        clip: true
+
+        readonly property var result: root.selectedResult
+        readonly property var details: fileSearchProvider.selectedDetails
+
+        Column {
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.margins: 16
+          spacing: 12
+          visible: detailsPanel.result !== null
+
+          Text {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: detailsPanel.result ? detailsPanel.result.icon : ""
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 40
+          }
+
+          Text {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.Wrap
+            text: detailsPanel.result ? detailsPanel.result.label : ""
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 14
+            font.bold: true
+          }
+
+          Rectangle { width: parent.width; height: 1; color: Qt.rgba(1, 1, 1, 0.08) }
+
+          Repeater {
+            model: detailsPanel.details ? [
+              { label: "Kind", value: detailsPanel.details.type },
+              { label: "Size", value: root.formatSize(detailsPanel.details.size) },
+              { label: "Where", value: detailsPanel.result ? detailsPanel.result.breadcrumb : "" },
+              { label: "Modified", value: root.formatDate(detailsPanel.details.mtime) },
+              { label: "Permissions", value: detailsPanel.details.permissions }
+            ] : []
+
+            Column {
+              id: field
+              required property var modelData
+              width: parent.width
+              spacing: 2
+
+              Text {
+                text: field.modelData.label
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 10
+                font.capitalization: Font.AllUppercase
+              }
+              Text {
+                width: field.width
+                wrapMode: Text.Wrap
+                text: field.modelData.value
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 12
+              }
+            }
+          }
+
+          Text {
+            visible: !detailsPanel.details
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: "Loading…"
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 11
           }
         }
       }

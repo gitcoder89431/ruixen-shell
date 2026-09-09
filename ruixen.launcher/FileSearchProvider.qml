@@ -196,4 +196,46 @@ Item {
   function activate(result) {
     Util.execArgv(["xdg-open", result.action.path])
   }
+
+  // Details for the currently-selected row in Search Files mode --
+  // fetched on demand for ONE path at a time (whichever is selected),
+  // not for every result, since fd itself only ever returns paths, not
+  // size/type/modified time. Launcher.qml calls this whenever its own
+  // selectedResult changes while filesMode is on.
+  property string pendingDetailsPath: ""
+  property var selectedDetails: null
+
+  function loadDetails(path) {
+    root.pendingDetailsPath = path
+    root.selectedDetails = null
+    if (!path) return
+    statProc.command = ["stat", "--format=%s|%Y|%F|%A|%n", "--", path]
+    statProc.running = true
+  }
+
+  Process {
+    id: statProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var parts = text.trim().split("|")
+        if (parts.length < 5) return
+        // %n (the path) is last and may itself contain "|" in a
+        // pathological filename -- rejoin everything after the first
+        // 4 fields rather than assuming exactly 5 parts.
+        var path = parts.slice(4).join("|")
+        // A slower stat() for a path the user has already navigated
+        // away from -- drop it rather than showing stale details for
+        // the wrong row (same staleness guard runSearch() already
+        // uses for search results).
+        if (path !== root.pendingDetailsPath) return
+        root.selectedDetails = {
+          size: parseInt(parts[0], 10) || 0,
+          mtime: parseInt(parts[1], 10) || 0,
+          type: parts[2],
+          permissions: parts[3]
+        }
+      }
+    }
+  }
 }

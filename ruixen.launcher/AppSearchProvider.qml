@@ -10,9 +10,10 @@ Item {
 
   readonly property string providerName: "Applications"
   property var appLibrary: null
-  // Matches Launcher.qml's own visibleRowCount -- no point returning
-  // more rows than the fixed-height card can ever show.
-  property int maxResults: 10
+  // A sanity cap, not a display limit -- Launcher.qml's results list
+  // scrolls, so this just guards against sortedEntries() ever handing
+  // back an unreasonably long tail.
+  property int maxResults: 40
   readonly property bool ready: root.appLibrary !== null
 
   function search(query) {

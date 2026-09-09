@@ -23,13 +23,36 @@ check("parseMenuEntries: invalid JSON returns an empty object, not a throw",
 check("parseMenuEntries: empty input returns an empty object",
   M.parseMenuEntries(""), {});
 
+// ---- isExcludedFromLauncher ------------------------------------------------
+
+check("isExcludedFromLauncher: an install.* id is excluded",
+  M.isExcludedFromLauncher("install.development.go"), true);
+check("isExcludedFromLauncher: a remove.* id is excluded",
+  M.isExcludedFromLauncher("remove.development.go"), true);
+check("isExcludedFromLauncher: update.config.* (resets a real config file) is excluded",
+  M.isExcludedFromLauncher("update.config.shell"), true);
+check("isExcludedFromLauncher: setup.default.* (sets a system default) is excluded",
+  M.isExcludedFromLauncher("setup.default.editor.neovim"), true);
+check("isExcludedFromLauncher: shutdown/reboot/logout are excluded (end the whole session)",
+  M.isExcludedFromLauncher("system.shutdown") && M.isExcludedFromLauncher("system.reboot") && M.isExcludedFromLauncher("system.logout"),
+  true);
+check("isExcludedFromLauncher: lock/suspend/hibernate/screensaver stay -- they pause, not end, the session",
+  M.isExcludedFromLauncher("system.lock") || M.isExcludedFromLauncher("system.suspend")
+    || M.isExcludedFromLauncher("system.hibernate") || M.isExcludedFromLauncher("system.screensaver"),
+  false);
+check("isExcludedFromLauncher: an ordinary id is not excluded",
+  M.isExcludedFromLauncher("trigger.capture.screenshot"), false);
+check("isExcludedFromLauncher: an excluded prefix only matches at the very start, not anywhere in the id",
+  M.isExcludedFromLauncher("some.install.thing"), false);
+
 // ---- actionableEntries --------------------------------------------------
 
 const mixedEntries = {
   "system": { label: "System" },
   "system.lock": { label: "Lock", action: "omarchy-system-lock" },
   "apps": { label: "Apps", provider: "apps" },
-  "style.bar": { label: "Menu Bar" }
+  "style.bar": { label: "Menu Bar" },
+  "remove.development.go": { label: "Go", action: "omarchy-remove-dev-env go" }
 };
 check("actionableEntries: keeps only entries with a real action string",
   M.actionableEntries(mixedEntries), { "system.lock": { label: "Lock", action: "omarchy-system-lock" } });
@@ -37,26 +60,22 @@ check("actionableEntries: a provider-kind entry is excluded (out of scope for th
   Object.keys(M.actionableEntries(mixedEntries)).indexOf("apps"), -1);
 check("actionableEntries: a pure category node (no action, no provider) is excluded",
   Object.keys(M.actionableEntries(mixedEntries)).indexOf("system"), -1);
+check("actionableEntries: an otherwise-actionable excluded-subtree entry is dropped too",
+  Object.keys(M.actionableEntries(mixedEntries)).indexOf("remove.development.go"), -1);
 
-// ---- parentIdOf / categoryFor -------------------------------------------
+// ---- rootLabelFor -----------------------------------------------------------
 
-check("parentIdOf: a nested id returns its immediate parent",
-  M.parentIdOf("style.bar.position.top"), "style.bar.position");
-check("parentIdOf: a one-level id returns its root", M.parentIdOf("system.lock"), "system");
-check("parentIdOf: a root-level id (no dot) returns null", M.parentIdOf("system"), null);
-check("parentIdOf: empty/missing id returns null", M.parentIdOf(""), null);
-
-const categoryEntries = {
-  "style": { label: "Style" },
-  "style.bar": { label: "Menu Bar" },
-  "style.bar.position": { label: "Position" },
-  "style.bar.position.top": { label: "Top", action: "omarchy-bar position top" }
+const rootLabelEntries = {
+  "trigger": { label: "Trigger" },
+  "trigger.capture": { label: "Capture" },
+  "trigger.capture.screenshot": { label: "Screenshot", action: "omarchy-capture-screenshot" }
 };
-check("categoryFor: uses the immediate parent's own label, not the root ancestor's",
-  M.categoryFor(categoryEntries, "style.bar.position.top"), "Position");
-check("categoryFor: a root-level id has no category", M.categoryFor(categoryEntries, "style"), "");
-check("categoryFor: a missing parent yields an empty category, not a crash",
-  M.categoryFor({}, "a.b"), "");
+check("rootLabelFor: the entry's own top-level root label, not its immediate parent's",
+  M.rootLabelFor(rootLabelEntries, "trigger.capture.screenshot"), "Trigger");
+check("rootLabelFor: a root-level id is its own root",
+  M.rootLabelFor(rootLabelEntries, "trigger"), "Trigger");
+check("rootLabelFor: a missing root yields an empty string, not a crash",
+  M.rootLabelFor({}, "a.b.c"), "");
 
 // ---- guard batching -------------------------------------------------------
 

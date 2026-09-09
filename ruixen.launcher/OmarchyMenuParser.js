@@ -33,36 +33,73 @@ function parseMenuEntries(raw) {
   return (parsed && typeof parsed === "object") ? parsed : {}
 }
 
+// Whole subtrees deliberately kept OUT of the launcher, left to the
+// native Omarchy root menu (SUPER+SPACE) instead -- direct feedback
+// after live-testing found these too easy to fire by accident from a
+// fast, fuzzy-matched, flat list with no per-action confirmation of
+// their own:
+//   - "install."/"remove." -- installs or uninstalls real software
+//     (confirmed live: activating "remove.development.go" ran `mise
+//     uninstall go --all` on a real installed toolchain, no prompt).
+//   - "update.config." -- omarchy-refresh-shell and its siblings reset
+//     a real config file (shell.json, hyprland.lua, ...) to Omarchy's
+//     stock default, instantly (it does keep a .bak copy, but the live
+//     shell still reverts on the spot).
+//   - "setup.default." -- sets a system default (editor/browser/
+//     terminal/agent) under a plain product-name label (e.g. "Neovim")
+//     that reads exactly like "launch this app" -- surprised a real
+//     user live ("neovim didnt open neovim it just sets it as the
+//     default editor"). Low-risk/reversible, but still not what a
+//     quick command palette should be doing on one Enter press --
+//     neither macOS Spotlight nor Raycast expose this kind of action.
+//   - "system.shutdown"/"system.reboot"/"system.logout" -- end the
+//     whole session (closes every app, no confirmation of their own
+//     either). "system.lock"/"system.suspend"/"system.hibernate"/
+//     "system.screensaver" stay -- they pause rather than end it.
+var EXCLUDED_ID_PREFIXES = [
+  "install.",
+  "remove.",
+  "update.config.",
+  "setup.default.",
+  "system.shutdown",
+  "system.reboot",
+  "system.logout"
+]
+
+function isExcludedFromLauncher(id) {
+  var s = String(id || "")
+  for (var i = 0; i < EXCLUDED_ID_PREFIXES.length; i++) {
+    if (s.indexOf(EXCLUDED_ID_PREFIXES[i]) === 0) return true
+  }
+  return false
+}
+
 // Only entries with a literal, directly-runnable "action" string --
 // skips "provider"-kind entries (dynamic Omarchy-internal submenus like
-// "apps"/"fonts", out of scope for this plugin) and pure category/
-// folder nodes (children only, no action of their own).
+// "apps"/"fonts", out of scope for this plugin), pure category/folder
+// nodes (children only, no action of their own), and anything under
+// EXCLUDED_ID_PREFIXES.
 function actionableEntries(allEntries) {
   var out = {}
   for (var id in allEntries) {
     var entry = allEntries[id]
-    if (entry && typeof entry.action === "string" && entry.action.length > 0)
+    if (entry && typeof entry.action === "string" && entry.action.length > 0 && !isExcludedFromLauncher(id))
       out[id] = entry
   }
   return out
 }
 
-// "style.bar.position.top" -> "style.bar.position"; "system.lock" ->
-// "system"; no dot -> null (a root-level entry, no category).
-function parentIdOf(id) {
-  var i = String(id || "").lastIndexOf(".")
-  return i === -1 ? null : id.substring(0, i)
-}
-
-// The immediate parent's own label, read from the FULL entry map (not
-// just the actionable subset -- a parent is very often a pure category
-// node with no action of its own, e.g. "style.bar.position" itself has
-// no "action", just a label and children).
-function categoryFor(allEntries, id) {
-  var parentId = parentIdOf(id)
-  if (!parentId) return ""
-  var parent = allEntries[parentId]
-  return (parent && parent.label) ? String(parent.label) : ""
+// The entry's own top-level root label -- one of Omarchy's own fixed,
+// real menu categories (Apps, Learn, Trigger, Style, Setup, Update,
+// About, System -- Install/Remove never reach here, filtered out by
+// actionableEntries above). Used as the launcher's per-row "kind" tag:
+// a single mechanical lookup is enough since the ids that used to need
+// deeper disambiguation (install vs. remove, "Default Editor" vs. a
+// bare "Editor") are exactly the ones now excluded entirely.
+function rootLabelFor(allEntries, id) {
+  var rootId = String(id || "").split(".")[0]
+  var root = allEntries[rootId]
+  return (root && root.label) ? String(root.label) : ""
 }
 
 // Batches every when/checked shell expression into ONE bash script

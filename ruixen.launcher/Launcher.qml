@@ -13,8 +13,11 @@ import qs.Commons
 // (WlrKeyboardFocus.Exclusive + a resizing/masked silhouette) caused a
 // real, non-deterministic MultiEffect masking bug there before -- this
 // card is a plain rounded rectangle (shadow only, no silhouette mask).
-// Card height is fixed (see visibleRowCount below) rather than driven
-// by the result count, so that risk doesn't apply here anyway.
+// Card height is a fixed viewport (see visibleRowCount below) rather
+// than driven by the result count, so that risk doesn't apply here
+// anyway -- content beyond the viewport scrolls (a real ListView, not
+// a plain Column+clip like the very first cut of this file), so the
+// full command list is reachable, not just whatever fits on screen.
 //
 // Providers (OmarchyActionsProvider, AppSearchProvider) are the only
 // two built so far, on purpose -- direct instruction not to build every
@@ -49,10 +52,12 @@ Item {
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
 
-  // Fixed-size "tray" card -- always reserves room for this many rows
+  // Fixed-size "tray" card -- always sized for this many visible rows
   // regardless of how many results actually match, so the panel doesn't
   // grow/shrink/jump as the query changes (Raycast keeps its own window
-  // size fixed the same way).
+  // size fixed the same way). This is a viewport size, not a result
+  // cap -- extra results scroll instead of being cut off, so the full
+  // command list is always reachable.
   readonly property int visibleRowCount: 10
   readonly property int rowHeight: 44
   readonly property int headerHeight: 26
@@ -86,11 +91,23 @@ Item {
 
   property string query: ""
   property int selectedIndex: 0
-  onQueryChanged: root.selectedIndex = 0
+  onQueryChanged: {
+    root.selectedIndex = 0
+    // Qt.callLater so this runs after selectedIndex's own change
+    // already scrolled toward index 0 -- positionViewAtBeginning
+    // additionally clears the top section header into view, which
+    // ListView.Contain alone (from the selectedIndex handler below)
+    // doesn't guarantee.
+    Qt.callLater(function() { resultsList.positionViewAtBeginning() })
+  }
+  onSelectedIndexChanged: resultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
 
   AppLibrary { id: appLibrary }
   OmarchyActionsProvider { id: omarchyActionsProvider }
-  AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary; maxResults: root.visibleRowCount }
+  // maxResults is a sanity cap on matches, not a display limit -- the
+  // results list scrolls now, so this no longer needs to track the
+  // fixed card's own visibleRowCount.
+  AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary }
 
   readonly property var providers: [
     { id: "omarchy-actions", item: omarchyActionsProvider },
@@ -99,47 +116,31 @@ Item {
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
 
-  // Grouped into labeled sections rather than one globally-interleaved
-  // sorted list -- Raycast keeps its own "Suggestions"/command groups
-  // visually distinct rather than scrambling providers together by
-  // score, and an empty query gets real curated suggestions instead of
-  // an empty palette. Each row is tagged with its own flat index into
-  // root.results (rowIndex) so header rows can sit in the same layout
-  // without breaking keyboard/click selection math, which stays keyed
-  // to the flat, header-free root.results list below.
-  readonly property var sections: {
+  // A single flat list, each row tagged with its own sectionLabel
+  // ("Suggestions"/"Commands"/"Applications") -- fed straight into the
+  // results ListView's section.property below, which draws the group
+  // headers and keeps the list virtualized (real perf concern once
+  // Commands lists every actionable entry, not just a handful).
+  // Grouped rather than one globally-interleaved sort -- Raycast keeps
+  // its own "Suggestions"/command groups visually distinct rather than
+  // scrambling providers together by score -- and an empty query gets
+  // real curated suggestions plus the full command list below them
+  // (scrollable) instead of a near-empty palette.
+  readonly property var results: {
     var q = root.query.trim()
     var out = []
-    var gi = 0
-    function tag(rows) {
-      for (var i = 0; i < rows.length; i++) rows[i].rowIndex = gi++
+    function tag(rows, label) {
+      for (var i = 0; i < rows.length; i++) rows[i].sectionLabel = label
       return rows
     }
     if (q === "") {
-      var sug = omarchyActionsProvider.suggestions()
-      if (sug.length > 0) out.push({ label: "Suggestions", rows: tag(sug) })
-      var browseRemaining = root.visibleRowCount - sug.length
-      if (browseRemaining > 0) {
-        var browse = omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds, browseRemaining)
-        if (browse.length > 0) out.push({ label: "Commands", rows: tag(browse) })
-      }
-      return out
+      var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
+      var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
+      return sug.concat(browse)
     }
-    var cmds = omarchyActionsProvider.search(q).sort(root.byScoreDesc)
-    var remaining = root.visibleRowCount
-    var cmdSlice = cmds.slice(0, remaining)
-    remaining -= cmdSlice.length
-    var apps = appSearchProvider.search(q).sort(root.byScoreDesc)
-    var appSlice = apps.slice(0, Math.max(remaining, 0))
-    if (cmdSlice.length > 0) out.push({ label: "Commands", rows: tag(cmdSlice) })
-    if (appSlice.length > 0) out.push({ label: "Applications", rows: tag(appSlice) })
-    return out
-  }
-
-  readonly property var results: {
-    var out = []
-    for (var i = 0; i < root.sections.length; i++) out = out.concat(root.sections[i].rows)
-    return out
+    var cmds = tag(omarchyActionsProvider.search(q).sort(root.byScoreDesc), "Commands")
+    var apps = tag(appSearchProvider.search(q).sort(root.byScoreDesc), "Applications")
+    return cmds.concat(apps)
   }
 
   function providerFor(id) {
@@ -186,9 +187,10 @@ Item {
       anchors.top: parent.top
       anchors.topMargin: parent.height * 0.22
       width: 640
-      // Room for up to 2 section headers (Commands/Applications, or
-      // just Suggestions) on top of the fixed row budget -- still a
-      // constant, so the card never grows/shrinks per state.
+      // A fixed viewport height, not a function of the result count --
+      // still a constant, so the card never grows/shrinks per state.
+      // Extra content (more rows than fit, or more than 2 headers)
+      // scrolls inside resultsList below rather than needing to fit.
       height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8
       radius: 16
       color: root.panelBackground
@@ -260,125 +262,132 @@ Item {
         }
       }
 
-      Column {
-        id: resultsColumn
+      // A real ListView, not a Column+Repeater -- once Commands lists
+      // every actionable entry (not just a handful), the row count can
+      // run into the hundreds, so this needs actual virtualization
+      // (only visible delegates exist) and real scrolling, not a
+      // clip:true Column that silently truncated. section.property
+      // groups by each row's own sectionLabel (set in root.results)
+      // and draws its own header, so there's no manual nesting to keep
+      // selection math in sync with -- this delegate's own `index` is
+      // already the same flat index as root.selectedIndex.
+      ListView {
+        id: resultsList
         anchors.top: searchBox.bottom
         anchors.topMargin: 8
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.bottom: parent.bottom
         anchors.margins: 8
-        spacing: 4
+        clip: true
+        spacing: 0
+        // Same fix as ruixen.settings' own detail panel Flickable /
+        // DashboardContent.qml's notification ListView -- no overscroll
+        // bounce.
+        boundsBehavior: Flickable.StopAtBounds
+        model: root.results
 
-        // One section per group (Suggestions, or Commands/Applications
-        // once there's a query) -- each with its own header so the
-        // empty-query state shows curated defaults instead of a blank
-        // tray, and a query's results read as two labeled groups rather
-        // than one scrambled, cross-provider sort. Selection/activation
-        // stays keyed to the flat root.results list via each row's own
-        // rowIndex (assigned in root.sections), not this Repeater's own
-        // per-section index.
-        Repeater {
-          model: root.sections
+        section.property: "sectionLabel"
+        section.criteria: ViewSection.FullString
+        section.delegate: Item {
+          width: resultsList.width
+          height: root.headerHeight
 
-          Column {
-            id: sectionColumn
-            required property var modelData
-            width: resultsColumn.width
-            spacing: 0
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: 4
+            anchors.verticalCenter: parent.verticalCenter
+            text: section
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            font.capitalization: Font.AllUppercase
+            font.bold: true
+          }
+        }
 
-            Text {
-              width: parent.width
-              height: root.headerHeight
-              verticalAlignment: Text.AlignVCenter
-              leftPadding: 4
-              text: sectionColumn.modelData.label
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: 10
-              font.capitalization: Font.AllUppercase
-              font.bold: true
-            }
+        delegate: Rectangle {
+          id: row
+          required property var modelData
+          required property int index
+          width: resultsList.width
+          height: root.rowHeight
+          radius: 10
+          color: row.index === root.selectedIndex ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
 
-            Repeater {
-              model: sectionColumn.modelData.rows
+          // Omarchy Actions: a Nerd Font glyph. Applications: a real
+          // icon via the shared AppLibrary instance -- same branch-on-
+          // provider split LauncherContent.qml's own tilesAreApps
+          // already uses for the identical reason (two different icon
+          // sources, one Image + one fallback Text).
+          Image {
+            id: appIcon
+            visible: row.modelData.providerId === "app-search" && status === Image.Ready
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            width: 22
+            height: 22
+            sourceSize: Qt.size(22, 22)
+            asynchronous: true
+            source: row.modelData.providerId === "app-search" ? appLibrary.iconSource(row.modelData.icon) : ""
+          }
 
-              Rectangle {
-                id: row
-                required property var modelData
-                width: sectionColumn.width
-                height: root.rowHeight
-                radius: 10
-                color: row.modelData.rowIndex === root.selectedIndex ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+          Text {
+            visible: row.modelData.providerId !== "app-search"
+            anchors.left: parent.left
+            anchors.leftMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            width: 22
+            horizontalAlignment: Text.AlignHCenter
+            text: row.modelData.icon
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 16
+          }
 
-                // Omarchy Actions: a Nerd Font glyph. Applications: a real
-                // icon via the shared AppLibrary instance -- same branch-on-
-                // provider split LauncherContent.qml's own tilesAreApps
-                // already uses for the identical reason (two different icon
-                // sources, one Image + one fallback Text).
-                Image {
-                  id: appIcon
-                  visible: row.modelData.providerId === "app-search" && status === Image.Ready
-                  anchors.left: parent.left
-                  anchors.leftMargin: 12
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: 22
-                  height: 22
-                  sourceSize: Qt.size(22, 22)
-                  asynchronous: true
-                  source: row.modelData.providerId === "app-search" ? appLibrary.iconSource(row.modelData.icon) : ""
-                }
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: 44
+            anchors.right: metaText.left
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            elide: Text.ElideRight
+            text: row.modelData.label
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 13
+          }
 
-                Text {
-                  visible: row.modelData.providerId !== "app-search"
-                  anchors.left: parent.left
-                  anchors.leftMargin: 12
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: 22
-                  horizontalAlignment: Text.AlignHCenter
-                  text: row.modelData.icon
-                  color: root.textColor
-                  font.family: root.fontFamily
-                  font.pixelSize: 16
-                }
+          // Applications get no subtitle at all -- same as Raycast's own
+          // convention for a plain app launch (there's nothing useful
+          // to qualify it with). Omarchy Actions and any future native
+          // Ruixen provider show "Domain · Kind" instead (e.g. "Omarchy
+          // · Setup", "Ruixen · Command") -- see OmarchyActionsProvider
+          // .resultFor()'s own comment for what domain/kind mean.
+          Text {
+            id: metaText
+            visible: row.modelData.providerId !== "app-search"
+            anchors.right: parent.right
+            anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight
+            elide: Text.ElideRight
+            width: 160
+            text: row.modelData.kind ? (row.modelData.domain + "  ·  " + row.modelData.kind) : row.modelData.domain
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+          }
 
-                Text {
-                  anchors.left: parent.left
-                  anchors.leftMargin: 44
-                  anchors.right: metaText.left
-                  anchors.rightMargin: 8
-                  anchors.verticalCenter: parent.verticalCenter
-                  elide: Text.ElideRight
-                  text: row.modelData.label
-                  color: root.textColor
-                  font.family: root.fontFamily
-                  font.pixelSize: 13
-                }
-
-                Text {
-                  id: metaText
-                  anchors.right: parent.right
-                  anchors.rightMargin: 12
-                  anchors.verticalCenter: parent.verticalCenter
-                  horizontalAlignment: Text.AlignRight
-                  elide: Text.ElideRight
-                  width: 180
-                  text: row.modelData.category ? (row.modelData.category + "  ·  " + row.modelData.providerName) : row.modelData.providerName
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: 10
-                }
-
-                MouseArea {
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onEntered: root.selectedIndex = row.modelData.rowIndex
-                  onClicked: {
-                    root.selectedIndex = row.modelData.rowIndex
-                    root.activateSelected()
-                  }
-                }
-              }
+          MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onEntered: root.selectedIndex = row.index
+            onClicked: {
+              root.selectedIndex = row.index
+              root.activateSelected()
             }
           }
         }

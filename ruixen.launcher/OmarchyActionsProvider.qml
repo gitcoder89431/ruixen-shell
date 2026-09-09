@@ -19,7 +19,7 @@ Item {
   readonly property string menuPath: (Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy") + "/default/omarchy/omarchy-menu.jsonc"
 
   // Full flat {id: entry} map (every entry, actionable or not -- needed
-  // so categoryFor() can look up a pure-category parent's own label).
+  // so rootLabelFor() can look up a top-level root's own label).
   property var allEntries: ({})
   // Subset of allEntries with a real "action" string -- what search()
   // actually offers as results.
@@ -45,7 +45,8 @@ Item {
     "ruixen.settings": {
       icon: "",
       label: "Ruixen Settings",
-      category: "Ruixen",
+      domain: "Ruixen",
+      kind: "Command",
       aliases: ["settings", "preferences"],
       action: "omarchy-shell shell toggle ruixen.settings"
     }
@@ -65,13 +66,20 @@ Item {
     "style.background"
   ]
 
+  // domain/kind are the launcher's per-row right-side tag (e.g. "Omarchy
+  // · Install", "Ruixen · Command") -- domain defaults to "Omarchy" for
+  // every real menu entry (syntheticEntries override it, e.g. "Ruixen"),
+  // kind is the entry's own top-level root label via rootLabelFor()
+  // unless the entry supplies its own (again, syntheticEntries only --
+  // "Command" has no real omarchy-menu.jsonc root of its own).
   function resultFor(id, entry, score) {
     return {
       id: "omarchy:" + id,
       providerId: "omarchy-actions",
       icon: entry.icon || "",
       label: entry.label || id,
-      category: entry.category || OmarchyMenuParser.categoryFor(root.allEntries, id),
+      domain: entry.domain || "Omarchy",
+      kind: entry.kind || OmarchyMenuParser.rootLabelFor(root.allEntries, id),
       providerName: root.providerName,
       score: score,
       action: { type: "shell", command: entry.action }

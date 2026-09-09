@@ -220,6 +220,16 @@ Item {
     id: kanbanService
   }
 
+  // ruixen-shell issue #44/#38: shell.appLibrary only populates for a
+  // plugin declaring manifest kind "menu" -- this file has no reason to
+  // claim that kind, so LauncherContent.qml's own search/launch/icons
+  // now go through this instead. See AppLibrary.qml's own header for
+  // the full design and its deliberately narrower scope than Omarchy's
+  // own real AppLibrary.qml.
+  AppLibrary {
+    id: appLibrary
+  }
+
   // Real brightness control, per direct request ("can this actually
   // control the brightness?") -- omarchy.monitor (the real Display
   // settings panel this mirrors visually) only declares kind
@@ -1544,6 +1554,7 @@ Item {
         LauncherContent {
           overlayRoot: root
           panel: panel
+          appLibrary: appLibrary
         }
       }
     }

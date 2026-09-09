@@ -20,9 +20,13 @@ import Quickshell.Io
 // /usr/share/omarchy/default/omarchy/omarchy-menu.jsonc, so this
 // can never drift out of sync with Omarchy's real menu. Edit
 // pinnedActions below to change which ones show. App search reads
-// shell.appLibrary.sortedEntries() -- real ranking (prefix match
-// highest, then substring, then a bounded acronym fallback), not
-// fuzzy/subsequence matching, confirmed by reading AppSearch.js.
+// appLibrary.sortedEntries() -- this plugin's own AppLibrary.qml
+// (ruixen-shell issue #44/#38: shell.appLibrary is gated behind
+// manifest kind "menu" under Omarchy v4.0.3, which this file has no
+// reason to declare) -- real ranking (prefix match highest, then
+// substring, then a bounded acronym fallback), not fuzzy/subsequence
+// matching, ported verbatim from Omarchy's own real AppSearch.js (MIT)
+// into this plugin's own copy alongside AppLibrary.qml.
 //
 // Both states share one Grid + Repeater (model swaps, tile visual
 // stays identical) capped to a single row (6 tiles) -- deliberately
@@ -35,6 +39,11 @@ Item {
 
   property var overlayRoot: null
   property var panel: null
+  // ruixen-shell issue #44/#38: was overlayRoot.shell.appLibrary
+  // (gated behind manifest kind "menu" under Omarchy v4.0.3) -- now
+  // Overlay.qml's own local AppLibrary instance, threaded down the
+  // same way notificationHistory/kanbanService already are.
+  property var appLibrary: null
   visible: panel.launcherOpen
   opacity: panel.launcherOpen ? 1 : 0
   anchors.centerIn: parent
@@ -94,8 +103,8 @@ Item {
   ]
 
   readonly property var searchResults: {
-    if (!showingSearch || !overlayRoot.shell || !overlayRoot.shell.appLibrary) return []
-    var rows = overlayRoot.shell.appLibrary.sortedEntries(searchText)
+    if (!showingSearch || !launcherContent.appLibrary) return []
+    var rows = launcherContent.appLibrary.sortedEntries(searchText)
     var picked = []
     for (var i = 0; i < rows.length && picked.length < 6; i++) picked.push(rows[i].entry)
     return picked
@@ -168,8 +177,8 @@ Item {
   }
 
   function resolveEntries(ids) {
-    if (!overlayRoot.shell || !overlayRoot.shell.appLibrary) return []
-    var all = overlayRoot.shell.appLibrary.sortedEntries("")
+    if (!launcherContent.appLibrary) return []
+    var all = launcherContent.appLibrary.sortedEntries("")
     var byId = {}
     for (var i = 0; i < all.length; i++) byId[all[i].entry.id] = all[i].entry
     var picked = []
@@ -234,7 +243,7 @@ Item {
   function activateTile(data) {
     if (!data) return
     if (tilesAreApps) {
-      overlayRoot.shell.appLibrary.launch(data.id, overlayRoot.shell.appLibrary.entryName(data))
+      launcherContent.appLibrary.launch(data.id, launcherContent.appLibrary.entryName(data))
     } else {
       launcherActionProc.command = ["omarchy", "menu", "summon", data.id]
       launcherActionProc.running = true
@@ -447,8 +456,8 @@ Item {
             height: 26
             sourceSize: Qt.size(26, 26)
             asynchronous: true
-            source: launcherContent.tilesAreApps && overlayRoot.shell && overlayRoot.shell.appLibrary
-              ? overlayRoot.shell.appLibrary.iconSource(tile.modelData.icon) : ""
+            source: launcherContent.tilesAreApps && launcherContent.appLibrary
+              ? launcherContent.appLibrary.iconSource(tile.modelData.icon) : ""
           }
 
           // Generic app glyph -- shown once loading has settled
@@ -505,8 +514,8 @@ Item {
           width: parent.width
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
-          text: launcherContent.tilesAreApps && overlayRoot.shell && overlayRoot.shell.appLibrary
-            ? overlayRoot.shell.appLibrary.entryName(tile.modelData) : (tile.modelData.label || "")
+          text: launcherContent.tilesAreApps && launcherContent.appLibrary
+            ? launcherContent.appLibrary.entryName(tile.modelData) : (tile.modelData.label || "")
           color: overlayRoot.muted
           font.family: overlayRoot.fontFamily
           font.pixelSize: 9

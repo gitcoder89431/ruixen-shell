@@ -23,7 +23,15 @@ BarWidget {
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property var appLibrary: bar && bar.shell ? bar.shell.appLibrary : null
+
+  // ruixen-shell issue #44/#38: was bar.shell.appLibrary, gated behind
+  // manifest kind "menu" under Omarchy v4.0.3 (this plugin declares
+  // "bar-widget", not "menu"). Own local instance of this plugin's own
+  // AppLibrary.qml instead -- see its header for the full design (a
+  // thin Quickshell.DesktopEntries wrapper, unaffected by that
+  // restriction).
+  readonly property alias appLibrary: appLibraryImpl
+  AppLibrary { id: appLibraryImpl }
 
   readonly property string favoritesPath: Quickshell.env("HOME") + "/.local/state/ruixen/launcher-favorites.json"
   property var favoriteAppIds: []

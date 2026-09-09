@@ -135,6 +135,28 @@ Item {
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
 
+  // Search Files rows dropped their own path subtitle (see labelText's
+  // own comment), so two folders/files that happen to share a bare
+  // name (e.g. a "projects-plans" under both "dog" and "cats") would
+  // otherwise render as identical, unlabeled rows with no way to tell
+  // them apart. Prefixes the immediate PARENT folder's own name (not
+  // the whole path -- that's what the details panel's own "Where"
+  // field is for) only onto labels that actually collide within the
+  // current result set, e.g. "dog/projects-plans" and
+  // "cats/projects-plans" -- a name with no duplicate stays untouched.
+  function disambiguateLabels(rows) {
+    var counts = {}
+    for (var i = 0; i < rows.length; i++) counts[rows[i].label] = (counts[rows[i].label] || 0) + 1
+    for (var j = 0; j < rows.length; j++) {
+      if (counts[rows[j].label] > 1) {
+        var dir = String(rows[j].breadcrumb || "")
+        var parent = dir.substring(dir.lastIndexOf("/") + 1) || dir
+        if (parent) rows[j].label = parent + "/" + rows[j].label
+      }
+    }
+    return rows
+  }
+
   function formatSize(bytes) {
     var n = Number(bytes) || 0
     if (n < 1024) return n + " B"
@@ -227,7 +249,10 @@ Item {
     // whatever its last completed search found; reading lastResults
     // (indirectly, through search()) still makes this binding depend
     // on it, so results updates automatically once fd's output lands.
-    if (root.filesMode) return tag(fileSearchProvider.search(q).sort(root.byScoreDesc), "Search Files")
+    if (root.filesMode) {
+      var fileRows = root.disambiguateLabels(fileSearchProvider.search(q).sort(root.byScoreDesc))
+      return tag(fileRows, "Search Files")
+    }
     var cmds = omarchyActionsProvider.search(q)
     var apps = appSearchProvider.search(q)
     var all = cmds.concat(apps).sort(root.byScoreDesc)

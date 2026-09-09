@@ -17,9 +17,21 @@ Item {
   property bool ready: false
 
   readonly property string menuPath: (Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy") + "/default/omarchy/omarchy-menu.jsonc"
+  // Real, documented, hot-reloading user customization point (confirmed
+  // in Omarchy's own SKILL.md config-path table and the native
+  // Menu.qml) -- entries added here merge on top of the packaged
+  // defaults via OmarchyMenuParser.mergeUserOverrides, same as the
+  // native menu's own mergeMenuSources. Missing entirely is the normal
+  // case (most users never touch it), not an error.
+  readonly property string userMenuPath: Quickshell.env("HOME") + "/.config/omarchy/extensions/omarchy-menu.jsonc"
 
-  // Full flat {id: entry} map (every entry, actionable or not -- needed
-  // so rootLabelFor() can look up a top-level root's own label).
+  // Raw parsed maps from each source, before merging -- kept separate
+  // so either file can finish loading (or fail) independently and
+  // rebuildEntries() below just re-merges whatever's currently known.
+  property var defaultEntries: ({})
+  property var userEntries: ({})
+  // Full flat {id: entry} map, defaults merged with user overrides --
+  // needed so breadcrumbFor() can look up any ancestor's own label.
   property var allEntries: ({})
   // Subset of allEntries with a real "action" string -- what search()
   // actually offers as results.
@@ -27,14 +39,30 @@ Item {
   // {id: {when, checked}} -- see OmarchyMenuParser.parseGuardOutput.
   property var guardResults: ({})
 
-  // FileView can fire onLoaded more than once during startup -- the
-  // implicit preload when `path` resolves, plus the explicit
-  // menuFile.reload() in Component.onCompleted, can both end up calling
-  // here (same double-fire already documented in
-  // ruixen.notch/NotificationService.qml's own loadStore()). Without
-  // this guard the jsonc gets re-parsed and the guard script re-run
-  // twice on every startup.
-  property bool loaded: false
+  // Both FileViews' own onLoaded can fire more than once during startup
+  // (the implicit preload when `path` resolves, plus the explicit
+  // .reload() call in Component.onCompleted -- same double-fire already
+  // documented in ruixen.notch/NotificationService.qml's own
+  // loadStore()) and each needs the OTHER to have at least settled
+  // (loaded or failed) once before the first real merge+guard-evaluate
+  // pass. defaultSettled/userSettled track that; rebuildEntries() is a
+  // no-op until both are true, and safely re-runs (parsing is cheap,
+  // idempotent) on any later change to either file.
+  property bool defaultSettled: false
+  property bool userSettled: false
+
+  function rebuildEntries() {
+    if (!root.defaultSettled || !root.userSettled) return
+    root.allEntries = OmarchyMenuParser.mergeUserOverrides(root.defaultEntries, root.userEntries)
+    root.actionable = OmarchyMenuParser.actionableEntries(root.allEntries)
+    var script = OmarchyMenuParser.buildGuardScript(root.actionable)
+    if (script.length === 0) {
+      root.ready = true
+      return
+    }
+    guardProc.command = ["bash", "-c", script]
+    guardProc.running = true
+  }
 
   // Ruixen Settings has no manifest kind "menu" entry of its own, and
   // Super+R no longer opens it directly once this plugin owns that key
@@ -45,8 +73,7 @@ Item {
     "ruixen.settings": {
       icon: "",
       label: "Ruixen Settings",
-      domain: "Ruixen",
-      kind: "Command",
+      breadcrumb: "Ruixen",
       aliases: ["settings", "preferences"],
       action: "omarchy-shell shell toggle ruixen.settings"
     }
@@ -66,20 +93,22 @@ Item {
     "style.background"
   ]
 
-  // domain/kind are the launcher's per-row right-side tag (e.g. "Omarchy
-  // · Install", "Ruixen · Command") -- domain defaults to "Omarchy" for
-  // every real menu entry (syntheticEntries override it, e.g. "Ruixen"),
-  // kind is the entry's own top-level root label via rootLabelFor()
-  // unless the entry supplies its own (again, syntheticEntries only --
-  // "Command" has no real omarchy-menu.jsonc root of its own).
+  // breadcrumb is the launcher's per-row subtitle (e.g. "Remove ›
+  // Development", "Setup › Defaults › Editor") -- the entry's full
+  // ancestor chain via breadcrumbFor(), root down to its immediate
+  // parent. syntheticEntries override it outright (e.g. "Ruixen" --
+  // not part of the real omarchy-menu.jsonc tree, so there's no chain
+  // to walk). kind is a fixed "Command" for every row this provider
+  // produces -- see Launcher.qml's own row delegate for how the two
+  // combine ("Remove › Development  ·  Command").
   function resultFor(id, entry, score) {
     return {
       id: "omarchy:" + id,
       providerId: "omarchy-actions",
       icon: entry.icon || "",
       label: entry.label || id,
-      domain: entry.domain || "Omarchy",
-      kind: entry.kind || OmarchyMenuParser.rootLabelFor(root.allEntries, id),
+      breadcrumb: entry.breadcrumb || OmarchyMenuParser.breadcrumbFor(root.allEntries, id),
+      kind: "Command",
       providerName: root.providerName,
       score: score,
       action: { type: "shell", command: entry.action }
@@ -148,19 +177,40 @@ Item {
     watchChanges: false
     printErrors: false
     onLoaded: {
-      if (root.loaded) return
-      root.loaded = true
-      root.allEntries = OmarchyMenuParser.parseMenuEntries(text())
-      root.actionable = OmarchyMenuParser.actionableEntries(root.allEntries)
-      var script = OmarchyMenuParser.buildGuardScript(root.actionable)
-      if (script.length === 0) {
-        root.ready = true
-        return
-      }
-      guardProc.command = ["bash", "-c", script]
-      guardProc.running = true
+      if (root.defaultSettled) return
+      root.defaultSettled = true
+      root.defaultEntries = OmarchyMenuParser.parseMenuEntries(text())
+      root.rebuildEntries()
     }
-    onLoadFailed: root.ready = true
+    // The packaged default is expected to always exist -- a failure
+    // here is real (Omarchy itself missing/broken), not the normal
+    // "no user file" case userMenuFile's own onLoadFailed handles.
+    onLoadFailed: {
+      if (root.defaultSettled) return
+      root.defaultSettled = true
+      root.ready = true
+    }
+  }
+
+  FileView {
+    id: userMenuFile
+    path: root.userMenuPath
+    watchChanges: false
+    printErrors: false
+    onLoaded: {
+      if (root.userSettled) return
+      root.userSettled = true
+      root.userEntries = OmarchyMenuParser.parseMenuEntries(text())
+      root.rebuildEntries()
+    }
+    // No ~/.config/omarchy/extensions/omarchy-menu.jsonc at all is the
+    // normal case (most users never touch it) -- not an error, just an
+    // empty override map.
+    onLoadFailed: {
+      if (root.userSettled) return
+      root.userSettled = true
+      root.rebuildEntries()
+    }
   }
 
   Process {
@@ -175,5 +225,8 @@ Item {
     }
   }
 
-  Component.onCompleted: menuFile.reload()
+  Component.onCompleted: {
+    menuFile.reload()
+    userMenuFile.reload()
+  }
 }

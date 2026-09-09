@@ -359,22 +359,23 @@ Item {
             font.pixelSize: 13
           }
 
-          // Applications get no subtitle at all -- same as Raycast's own
-          // convention for a plain app launch (there's nothing useful
-          // to qualify it with). Omarchy Actions and any future native
-          // Ruixen provider show "Domain · Kind" instead (e.g. "Omarchy
-          // · Setup", "Ruixen · Command") -- see OmarchyActionsProvider
-          // .resultFor()'s own comment for what domain/kind mean.
+          // Applications: AppSearchProvider's own category (the app's
+          // genericName, e.g. "Web Browser", falling back to a bare
+          // "Application"). Omarchy Actions / any future native Ruixen
+          // provider: "Breadcrumb · Kind" (e.g. "Remove › Development
+          // · Command", "Ruixen · Command") -- see OmarchyActionsProvider
+          // .resultFor()'s own comment for what breadcrumb/kind mean.
           Text {
             id: metaText
-            visible: row.modelData.providerId !== "app-search"
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
-            width: 160
-            text: row.modelData.kind ? (row.modelData.domain + "  ·  " + row.modelData.kind) : row.modelData.domain
+            width: 200
+            text: row.modelData.providerId === "app-search"
+              ? row.modelData.category
+              : (row.modelData.breadcrumb ? (row.modelData.breadcrumb + "  ·  " + row.modelData.kind) : row.modelData.kind)
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 10

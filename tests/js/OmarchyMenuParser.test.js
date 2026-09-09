@@ -25,14 +25,6 @@ check("parseMenuEntries: empty input returns an empty object",
 
 // ---- isExcludedFromLauncher ------------------------------------------------
 
-check("isExcludedFromLauncher: an install.* id is excluded",
-  M.isExcludedFromLauncher("install.development.go"), true);
-check("isExcludedFromLauncher: a remove.* id is excluded",
-  M.isExcludedFromLauncher("remove.development.go"), true);
-check("isExcludedFromLauncher: update.config.* (resets a real config file) is excluded",
-  M.isExcludedFromLauncher("update.config.shell"), true);
-check("isExcludedFromLauncher: setup.default.* (sets a system default) is excluded",
-  M.isExcludedFromLauncher("setup.default.editor.neovim"), true);
 check("isExcludedFromLauncher: shutdown/reboot/logout are excluded (end the whole session)",
   M.isExcludedFromLauncher("system.shutdown") && M.isExcludedFromLauncher("system.reboot") && M.isExcludedFromLauncher("system.logout"),
   true);
@@ -40,19 +32,23 @@ check("isExcludedFromLauncher: lock/suspend/hibernate/screensaver stay -- they p
   M.isExcludedFromLauncher("system.lock") || M.isExcludedFromLauncher("system.suspend")
     || M.isExcludedFromLauncher("system.hibernate") || M.isExcludedFromLauncher("system.screensaver"),
   false);
+check("isExcludedFromLauncher: install./remove./setup.default. are NOT excluded (breadcrumbFor spells them out instead)",
+  M.isExcludedFromLauncher("install.development.go") || M.isExcludedFromLauncher("remove.development.go")
+    || M.isExcludedFromLauncher("setup.default.editor.neovim") || M.isExcludedFromLauncher("update.config.shell"),
+  false);
 check("isExcludedFromLauncher: an ordinary id is not excluded",
   M.isExcludedFromLauncher("trigger.capture.screenshot"), false);
 check("isExcludedFromLauncher: an excluded prefix only matches at the very start, not anywhere in the id",
-  M.isExcludedFromLauncher("some.install.thing"), false);
+  M.isExcludedFromLauncher("some.system.shutdown.thing"), false);
 
 // ---- actionableEntries --------------------------------------------------
 
 const mixedEntries = {
   "system": { label: "System" },
   "system.lock": { label: "Lock", action: "omarchy-system-lock" },
+  "system.shutdown": { label: "Shutdown", action: "omarchy-system-shutdown" },
   "apps": { label: "Apps", provider: "apps" },
-  "style.bar": { label: "Menu Bar" },
-  "remove.development.go": { label: "Go", action: "omarchy-remove-dev-env go" }
+  "style.bar": { label: "Menu Bar" }
 };
 check("actionableEntries: keeps only entries with a real action string",
   M.actionableEntries(mixedEntries), { "system.lock": { label: "Lock", action: "omarchy-system-lock" } });
@@ -60,22 +56,43 @@ check("actionableEntries: a provider-kind entry is excluded (out of scope for th
   Object.keys(M.actionableEntries(mixedEntries)).indexOf("apps"), -1);
 check("actionableEntries: a pure category node (no action, no provider) is excluded",
   Object.keys(M.actionableEntries(mixedEntries)).indexOf("system"), -1);
-check("actionableEntries: an otherwise-actionable excluded-subtree entry is dropped too",
-  Object.keys(M.actionableEntries(mixedEntries)).indexOf("remove.development.go"), -1);
+check("actionableEntries: an otherwise-actionable excluded id (session-ender) is dropped too",
+  Object.keys(M.actionableEntries(mixedEntries)).indexOf("system.shutdown"), -1);
 
-// ---- rootLabelFor -----------------------------------------------------------
+// ---- breadcrumbFor ----------------------------------------------------------
 
-const rootLabelEntries = {
+const breadcrumbEntries = {
   "trigger": { label: "Trigger" },
   "trigger.capture": { label: "Capture" },
-  "trigger.capture.screenshot": { label: "Screenshot", action: "omarchy-capture-screenshot" }
+  "trigger.capture.screenshot": { label: "Screenshot", action: "omarchy-capture-screenshot" },
+  "install": { label: "Install" },
+  "install.development": { label: "Development" },
+  "remove": { label: "Remove", aliases: ["uninstall"] },
+  "remove.development": { label: "Development" }
 };
-check("rootLabelFor: the entry's own top-level root label, not its immediate parent's",
-  M.rootLabelFor(rootLabelEntries, "trigger.capture.screenshot"), "Trigger");
-check("rootLabelFor: a root-level id is its own root",
-  M.rootLabelFor(rootLabelEntries, "trigger"), "Trigger");
-check("rootLabelFor: a missing root yields an empty string, not a crash",
-  M.rootLabelFor({}, "a.b.c"), "");
+check("breadcrumbFor: a 2-deep id returns its full root-to-parent chain, not just the immediate parent",
+  M.breadcrumbFor(breadcrumbEntries, "trigger.capture.screenshot"), "Trigger › Capture");
+check("breadcrumbFor: an install/remove pair sharing one parent label reads unambiguous either way",
+  M.breadcrumbFor(breadcrumbEntries, "install.development.go"), "Install › Development");
+check("breadcrumbFor: ...and the remove side clearly says Remove, no title-override lookup needed",
+  M.breadcrumbFor(breadcrumbEntries, "remove.development.go"), "Remove › Development");
+check("breadcrumbFor: a root-level id has an empty breadcrumb",
+  M.breadcrumbFor(breadcrumbEntries, "trigger"), "");
+check("breadcrumbFor: a missing ancestor is skipped rather than crashing or inserting a blank segment",
+  M.breadcrumbFor({}, "a.b.c"), "");
+
+// ---- mergeUserOverrides -------------------------------------------------
+
+check("mergeUserOverrides: a user-only id is added outright",
+  M.mergeUserOverrides({ "a": { label: "A" } }, { "b": { label: "B" } }),
+  { "a": { label: "A" }, "b": { label: "B" } });
+check("mergeUserOverrides: a user field overrides the matching default field, others survive",
+  M.mergeUserOverrides({ "a": { label: "A", icon: "x", action: "run-a" } }, { "a": { label: "A2" } }),
+  { "a": { label: "A2", icon: "x", action: "run-a" } });
+check("mergeUserOverrides: no user entries at all leaves the defaults untouched",
+  M.mergeUserOverrides({ "a": { label: "A" } }, {}), { "a": { label: "A" } });
+check("mergeUserOverrides: no defaults at all still picks up user-only entries",
+  M.mergeUserOverrides({}, { "a": { label: "A" } }), { "a": { label: "A" } });
 
 // ---- guard batching -------------------------------------------------------
 

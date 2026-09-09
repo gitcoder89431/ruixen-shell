@@ -33,34 +33,24 @@ function parseMenuEntries(raw) {
   return (parsed && typeof parsed === "object") ? parsed : {}
 }
 
-// Whole subtrees deliberately kept OUT of the launcher, left to the
-// native Omarchy root menu (SUPER+SPACE) instead -- direct feedback
-// after live-testing found these too easy to fire by accident from a
-// fast, fuzzy-matched, flat list with no per-action confirmation of
-// their own:
-//   - "install."/"remove." -- installs or uninstalls real software
-//     (confirmed live: activating "remove.development.go" ran `mise
-//     uninstall go --all` on a real installed toolchain, no prompt).
-//   - "update.config." -- omarchy-refresh-shell and its siblings reset
-//     a real config file (shell.json, hyprland.lua, ...) to Omarchy's
-//     stock default, instantly (it does keep a .bak copy, but the live
-//     shell still reverts on the spot).
-//   - "setup.default." -- sets a system default (editor/browser/
-//     terminal/agent) under a plain product-name label (e.g. "Neovim")
-//     that reads exactly like "launch this app" -- surprised a real
-//     user live ("neovim didnt open neovim it just sets it as the
-//     default editor"). Low-risk/reversible, but still not what a
-//     quick command palette should be doing on one Enter press --
-//     neither macOS Spotlight nor Raycast expose this kind of action.
-//   - "system.shutdown"/"system.reboot"/"system.logout" -- end the
-//     whole session (closes every app, no confirmation of their own
-//     either). "system.lock"/"system.suspend"/"system.hibernate"/
-//     "system.screensaver" stay -- they pause rather than end it.
+// Only "ends the whole session outright" actions are excluded now --
+// closes every app with no confirmation of its own, and no breadcrumb
+// wording could make that less abrupt. "system.lock"/"suspend"/
+// "hibernate"/"screensaver" stay -- they pause rather than end it.
+//
+// install./remove./update.config./setup.default. used to be excluded
+// too (installs/removes real software, resets a real config file,
+// sets a system default under a bare product-name label) -- reversed
+// once breadcrumbFor() below started spelling out the full ancestor
+// path instead of a single truncated category level. The actual
+// reported confusion (a live Go uninstall from one Enter press,
+// Neovim silently becoming the default editor) was a LABELING problem
+// -- "Remove › Development" and "Setup › Defaults › Editor" say
+// plainly what they do, matching the confirmed real-world precedent of
+// Vicinae's own omarchy-menu extension, which shows exactly this full
+// breadcrumb and nothing else (no confirm step, no exclusion) and
+// still reads as clear rather than confusing.
 var EXCLUDED_ID_PREFIXES = [
-  "install.",
-  "remove.",
-  "update.config.",
-  "setup.default.",
   "system.shutdown",
   "system.reboot",
   "system.logout"
@@ -89,17 +79,52 @@ function actionableEntries(allEntries) {
   return out
 }
 
-// The entry's own top-level root label -- one of Omarchy's own fixed,
-// real menu categories (Apps, Learn, Trigger, Style, Setup, Update,
-// About, System -- Install/Remove never reach here, filtered out by
-// actionableEntries above). Used as the launcher's per-row "kind" tag:
-// a single mechanical lookup is enough since the ids that used to need
-// deeper disambiguation (install vs. remove, "Default Editor" vs. a
-// bare "Editor") are exactly the ones now excluded entirely.
-function rootLabelFor(allEntries, id) {
-  var rootId = String(id || "").split(".")[0]
-  var root = allEntries[rootId]
-  return (root && root.label) ? String(root.label) : ""
+// Every ancestor's own label, root down to the immediate parent, joined
+// "Root › ... › Parent" -- e.g. "remove.development.go" ->
+// "Remove › Development", "setup.default.editor.neovim" ->
+// "Setup › Defaults › Editor". Confirmed live nesting never exceeds 3
+// levels (70 of ~275 actionable entries sit at depth 3, none deeper),
+// so this never grows unreasonably long. Deliberately the FULL chain,
+// not just the immediate parent -- Vicinae's own omarchy-menu
+// extension does exactly this (their pathFor) and it's what makes
+// "Remove › Development" read as obviously a removal without any
+// separate title-override lookup; a single truncated level ("just
+// "Development") is what caused the original confusion.
+function breadcrumbFor(allEntries, id) {
+  var labels = []
+  var current = String(id || "")
+  while (true) {
+    var dot = current.lastIndexOf(".")
+    if (dot === -1) break
+    current = current.substring(0, dot)
+    var node = allEntries[current]
+    if (node && node.label) labels.unshift(String(node.label))
+  }
+  return labels.join(" › ")
+}
+
+// Same per-id shallow-merge semantics as Omarchy's own real
+// mergeMenuSources (studied directly, not imported -- see this file's
+// own header for why): defaults first, then userEntries -- a field the
+// user's own entry supplies overrides the matching default field, an
+// id-only-in-userEntries is added outright, everything else from the
+// default survives untouched. ~/.config/omarchy/extensions/omarchy-
+// menu.jsonc is a real, documented, hot-reloading Omarchy user
+// customization point (confirmed in Omarchy's own SKILL.md config-path
+// table and the native Menu.qml, not a Vicinae invention) -- entries
+// added there should be just as searchable here as the packaged
+// defaults.
+function mergeUserOverrides(defaultEntries, userEntries) {
+  var merged = {}
+  for (var id in defaultEntries) merged[id] = defaultEntries[id]
+  for (var uid in userEntries) {
+    var prior = merged[uid] || {}
+    var next = {}
+    for (var k in prior) next[k] = prior[k]
+    for (var k2 in userEntries[uid]) next[k2] = userEntries[uid][k2]
+    merged[uid] = next
+  }
+  return merged
 }
 
 // Batches every when/checked shell expression into ONE bash script

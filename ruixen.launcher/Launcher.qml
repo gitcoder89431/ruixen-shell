@@ -511,29 +511,33 @@ Item {
             font.pixelSize: 16
           }
 
-          // A fixed cap, not "shrink to the label's own content" --
-          // that version read implicitWidth off a Text that also has
-          // elide set, a real, documented Qt Quick gotcha (confirmed
-          // live: a genuine "Binding loop detected for property width"
-          // warning). Measuring the label separately via a sibling
-          // TextMetrics (the usual fix for that gotcha) traded it for a
-          // worse bug instead: confirmed live, ListView recycles
-          // delegates, and TextMetrics.width lagged a stale
-          // measurement from whatever row PREVIOUSLY occupied this
-          // recycled delegate, truncating every label ("Discord" ->
-          // "Disco…", "Disks" -> "Dis…") regardless of its own actual
-          // length. A fixed cap means short labels leave a small dead
-          // gap before metaText instead of it sitting right beside the
-          // name -- a real but minor cosmetic regression, next to
-          // either bug above. In Search Files mode there's no
-          // subtitle/kind at all (see metaText/kindText below), so the
-          // label just takes the whole row regardless.
+          // Shrinks to the label's own content again, but WITHOUT
+          // measuring rendered text at all this time -- both earlier
+          // attempts did that and both broke: implicitWidth off a Text
+          // that also elides is a real, documented Qt Quick "Binding
+          // loop detected for property width" gotcha, and a sibling
+          // TextMetrics (the usual fix for that gotcha) hit a worse
+          // bug -- ListView recycles delegates, and TextMetrics.width
+          // lagged a stale measurement from whatever row PREVIOUSLY
+          // occupied this recycled delegate, truncating every label
+          // regardless of its own actual length. Since the font here
+          // is monospace (JetBrainsMono Nerd Font), label.length times
+          // a fixed per-character advance is a good enough estimate of
+          // the real rendered width -- pure arithmetic on a string, no
+          // layout-engine measurement involved, so neither bug can
+          // recur. elide still absorbs any small over/under-estimate.
+          // In Search Files mode there's no subtitle/kind at all (see
+          // metaText/kindText below), so the label just takes the
+          // whole row regardless.
+          readonly property real charWidth: 8
           Text {
             id: labelText
             anchors.left: parent.left
             anchors.leftMargin: 44
             anchors.verticalCenter: parent.verticalCenter
-            width: root.filesMode ? (parent.width - 44 - 12) : (parent.width * 0.55 - 44)
+            width: root.filesMode
+              ? (parent.width - 44 - 12)
+              : Math.min(row.modelData.label.length * row.charWidth + 4, parent.width * 0.55 - 44)
             elide: Text.ElideRight
             text: row.modelData.label
             color: root.textColor

@@ -96,6 +96,9 @@ check "NotificationService.qml reads the real live-popup directory" \
   "$(grep -c 'omarchyStateDir: home + "/\.local/state/omarchy/notifications/"' "$service_qml")" "1"
 check "NotificationService.qml reads the real history directory, derived from the live-popup one" \
   "$(grep -c 'historyDir: omarchyStateDir + "history/"' "$service_qml")" "1"
+# shellcheck disable=SC2016 # deliberately literal: this is the exact,
+# unexpanded $1/$2 bash-positional-parameter text grepped for inside the
+# QML source below, not something meant to expand in this test script.
 check "the sweep reads both directories in one pass" \
   "$(grep -cF 'awk 1 \"$1\"/*.json \"$2\"/*.json' "$service_qml")" "1"
 check "the sweep runs on a recurring timer, not gated on a broken doNotDisturb read" \

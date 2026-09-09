@@ -450,6 +450,80 @@ ColumnLayout {
     }
   }
 
+  // Window Spacing -- own card, same segmented-button treatment as
+  // Animation Style/Window Curvature above. Direct follow-up after
+  // live-testing gaps_in 0 with `hyprctl eval`: "with the round
+  // curvature on the window the tight spacing looks kinda bad, on
+  // sharp it might be fine... its probably easier if its just a
+  // setting". Unlike Window Curvature, this doesn't shell out to a
+  // real script or need a repo checkout -- same plain-text-file +
+  // hyprctl reload mechanism as Animation Style, so no ruixenRepoPath
+  // guard here either. Applies under both Sharp and Rounded (direct
+  // instruction: "if its tight then both round and sharp will get no
+  // inner padding") -- both looknfeel.ruixen.lua and
+  // looknfeel.square.lua read the same file.
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: spacingCardContent.implicitHeight + 24
+    radius: 10
+    color: "#000000"
+
+    ColumnLayout {
+      id: spacingCardContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Window Spacing"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 11
+        font.weight: Font.DemiBold
+        color: settingsRoot.muted
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Repeater {
+          model: [
+            { id: "comfy", label: "Comfy" },
+            { id: "tight", label: "Tight" }
+          ]
+
+          Rectangle {
+            id: spacingBtn
+            required property var modelData
+            readonly property bool isCurrent: settingsRoot.spacingProfile === spacingBtn.modelData.id
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            radius: 6
+            color: spacingBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: spacingBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: spacingBtn.modelData.label
+              font.family: settingsRoot.fontFamily
+              font.pixelSize: 11
+              font.weight: spacingBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: spacingBtn.isCurrent ? settingsRoot.textColor : settingsRoot.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: settingsRoot.setSpacingProfile(spacingBtn.modelData.id)
+            }
+          }
+        }
+      }
+    }
+  }
+
   // No more trailing fillHeight spacer -- direct follow-up ("nothing
   // is sticky... everything in the page scroll"): this page's own
   // ColumnLayout is naturally sized inside Settings.qml's shared

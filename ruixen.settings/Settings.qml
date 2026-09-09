@@ -349,6 +349,44 @@ Item {
     cornerCurvatureWriteProc.running = true
   }
 
+  // Window Spacing (Comfy/Tight) -- direct follow-up after live-testing
+  // gaps_in 0 with `hyprctl eval`: "with the round curvature on the
+  // window the tight spacing looks kinda bad, on sharp it might be
+  // fine... its probably easier if its just a setting". Same plain-
+  // text-file convention as animationProfile above -- the actual
+  // gaps_in value lives in both hyprland/looknfeel.ruixen.lua and
+  // looknfeel.square.lua (see either's own comment), which read this
+  // same file directly so a Window Curvature switch never resets this
+  // choice. This side's only job is writing the chosen profile and
+  // telling Hyprland to reload.
+  property string spacingProfile: "comfy"
+  readonly property string spacingProfilePath: Quickshell.env("HOME") + "/.local/state/ruixen/spacing-profile"
+
+  Process {
+    id: spacingProfileReadProc
+    command: ["bash", "-c", "cat \"" + root.spacingProfilePath + "\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var v = String(text || "").trim()
+        root.spacingProfile = (v === "tight") ? v : "comfy"
+      }
+    }
+  }
+
+  Process {
+    id: spacingProfileWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setSpacingProfile(profile) {
+    if (profile !== "comfy" && profile !== "tight") return
+    root.spacingProfile = profile
+    spacingProfileWriteProc.command = ["bash", "-c",
+      "printf '%s' '" + profile + "' > \"" + root.spacingProfilePath + "\" && hyprctl reload"]
+    spacingProfileWriteProc.running = true
+  }
+
   // Avatar -- ~/.face.icon, same convention/gradient-fallback mechanism
   // ruixen.notch's own UserAvatar component already uses. "gradient" is
   // just another entry in avatarCollections, not a separate Reset
@@ -941,6 +979,7 @@ Item {
       barModeReadProc.running = true
       animationProfileReadProc.running = true
       cornerCurvatureReadProc.running = true
+      spacingProfileReadProc.running = true
       if (root.hardwareName === "") identityProc.running = true
     }
   }

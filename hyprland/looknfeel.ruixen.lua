@@ -35,9 +35,35 @@
 -- gaps, so top never had this problem to begin with. Deliberately NOT
 -- applied to looknfeel.default.lua -- stock Omarchy-look mode stays
 -- exactly what Omarchy itself intended, untouched by this repo.
+--
+-- gaps_in (Comfy/Tight) -- direct follow-up after live-testing gaps_in
+-- 0 with `hyprctl eval`: "with the round curvature on the window the
+-- tight spacing looks kinda bad, on sharp it might be fine... its
+-- probably easier if its just a setting". Same plain-text-file
+-- convention as animationProfile below (ruixen.settings' own General
+-- page writes it), read here so `hyprctl reload` alone picks up
+-- whichever was last chosen. Comfy (default) keeps Hyprland's own
+-- stock 5; Tight goes to 0. This file and looknfeel.square.lua both
+-- read the same file -- direct instruction ("if its tight then both
+-- round and sharp will get no inner padding") -- so switching Window
+-- Curvature elsewhere never resets this choice.
+local function readSpacingProfile()
+  local path = (os.getenv("HOME") or "") .. "/.local/state/ruixen/spacing-profile"
+  local f = io.open(path, "r")
+  if not f then return "comfy" end
+  local line = f:read("*l") or "comfy"
+  f:close()
+  line = line:gsub("%s+", "")
+  if line == "tight" then return line end
+  return "comfy"
+end
+
+local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
+
 hl.config({
   general = {
     border_size = 1,
+    gaps_in = ruixenGapsIn,
     gaps_out = { top = 10, right = 20, bottom = 20, left = 20 },
   },
 })

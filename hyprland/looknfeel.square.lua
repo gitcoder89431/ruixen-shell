@@ -57,9 +57,30 @@
 -- confirmed via `hyprctl configerrors` after the string form failed:
 -- "css_gap type requires an integer or a table with optional 'top',
 -- 'right', 'bottom', 'left' fields".
+--
+-- gaps_in (Comfy/Tight) -- same shared spacing-profile file
+-- looknfeel.ruixen.lua reads (see its own comment for the full "why")
+-- -- direct instruction ("if its tight then both round and sharp will
+-- get no inner padding") -- so this variant honors the same choice
+-- rather than always sitting at the stock 5 regardless of what the
+-- user picked.
+local function readSpacingProfile()
+  local path = (os.getenv("HOME") or "") .. "/.local/state/ruixen/spacing-profile"
+  local f = io.open(path, "r")
+  if not f then return "comfy" end
+  local line = f:read("*l") or "comfy"
+  f:close()
+  line = line:gsub("%s+", "")
+  if line == "tight" then return line end
+  return "comfy"
+end
+
+local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
+
 hl.config({
   general = {
     border_size = 1,
+    gaps_in = ruixenGapsIn,
     gaps_out = { top = 10, right = 20, bottom = 20, left = 20 },
   },
 })

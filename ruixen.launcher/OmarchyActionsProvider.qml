@@ -71,9 +71,16 @@ Item {
   // provider, just one more entry alongside the real Omarchy ones.
   readonly property var syntheticEntries: ({
     "ruixen.settings": {
-      icon: "",
+      // fa-gear (U+F013) -- matches ruixen.settingsbutton's own bar
+      // icon and Settings.qml's own panel header, so the palette row
+      // and what it opens read as the same thing.
+      icon: "",
       label: "Ruixen Settings",
-      breadcrumb: "Ruixen",
+      // A short description, same idea as AppSearchProvider's own
+      // subtitleFor() pulling a real app's Comment= -- not a
+      // breadcrumb (there's no omarchy-menu.jsonc chain to walk for a
+      // synthetic entry), just plain text describing what this opens.
+      breadcrumb: "Appearance, audio, network, and plugin settings",
       aliases: ["settings", "preferences"],
       action: "omarchy-shell shell toggle ruixen.settings"
     }

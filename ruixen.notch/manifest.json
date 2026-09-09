@@ -6,10 +6,9 @@
   "author": "ruixen",
   "license": "MIT",
   "description": "Hover-expanding media notch at bar-center, floating above windows independent of the bar's own window.",
-  "kinds": ["overlay", "service"],
+  "kinds": ["overlay"],
   "keepLoaded": true,
   "entryPoints": {
-    "overlay": "Overlay.qml",
-    "service": "NotchGeometry.qml"
+    "overlay": "Overlay.qml"
   }
 }

@@ -28,9 +28,14 @@
 # own NotchGeometry.qml service via shell.firstPartyServiceFor(); Omarchy
 # v4.0.3 restricts that call to a fixed allowlist "ruixen.notch" was never
 # going to be in (ruixen-shell issue #41/#38), so this is now a plain
-# constant, manually kept in sync with NotchGeometry.qml's own real
-# numbers instead (same convention this file's own cornerSize already
-# uses for a different pair of plugins' shared numbers). Docked keeps a
+# constant, manually kept in sync with Overlay.qml's own real numbers
+# instead (same convention this file's own cornerSize already uses for a
+# different pair of plugins' shared numbers). NotchGeometry.qml itself --
+# the now-unconsumed service this used to read live -- was deleted
+# entirely once ruixen.bar became its last reader (ruixen-shell issue
+# #38's own cleanup pass); Overlay.qml was always the real source of
+# truth these numbers mirrored, so this file reads directly from there
+# now instead of through a middleman nothing else uses. Docked keeps a
 # higher floor
 # (barSize + shoulderWingSize) regardless of the Notch's numbers:
 # leftFrameHemWing/rightFrameHemWing (the frame-hem corner wing graphics,
@@ -76,7 +81,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/ruixen.bar/Bar.qml"
-notch_geometry_qml="$repo_dir/ruixen.notch/NotchGeometry.qml"
+notch_overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
 
 pass=0
 fail_count=0
@@ -93,42 +98,44 @@ check() {
 
 bar_size="$(grep -oP 'readonly property int barSize:\s*\K[0-9]+' "$bar_qml")"
 shoulder_wing_size="$(grep -oP 'property int shoulderWingSize:\s*\K[0-9]+' "$bar_qml")"
-notch_top_margin="$(grep -oP 'readonly property int collapsedTopMargin:\s*\K[0-9]+' "$notch_geometry_qml")"
-notch_collapsed_height="$(grep -oP 'readonly property int collapsedHeight:\s*\K[0-9]+' "$notch_geometry_qml")"
-notch_body_width="$(grep -oP 'readonly property int collapsedBodyWidth:\s*\K[0-9]+' "$notch_geometry_qml")"
-notch_corner_size="$(grep -oP 'readonly property int cornerSize:\s*\K[0-9]+' "$notch_geometry_qml")"
+notch_top_margin="$(grep -oP 'margins\.top:\s*\K[0-9]+' "$notch_overlay_qml")"
+notch_collapsed_height="$(grep -oP 'panel\.pinnedOpen \? 400 : \K[0-9]+' "$notch_overlay_qml")"
+notch_body_width="$(grep -oP 'panel\.pinnedOpen \? 900 : \K[0-9]+' "$notch_overlay_qml")"
+notch_corner_size="$(grep -oP 'readonly property int cornerSize:\s*\K[0-9]+' "$notch_overlay_qml")"
 
 check "barSize is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$bar_size" | wc -l | tr -d ' ')" "0"
 check "shoulderWingSize is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$shoulder_wing_size" | wc -l | tr -d ' ')" "0"
-check "NotchGeometry's collapsedTopMargin is a single, real value (not empty/multiple matches)" \
+check "Overlay.qml's own collapsed margins.top is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$notch_top_margin" | wc -l | tr -d ' ')" "0"
-check "NotchGeometry's collapsedHeight is a single, real value (not empty/multiple matches)" \
+check "Overlay.qml's own collapsed notchOuter height is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$notch_collapsed_height" | wc -l | tr -d ' ')" "0"
 
-# ruixen.bar's own manually-synced constant has to track NotchGeometry's
+# ruixen.bar's own manually-synced constant has to track Overlay.qml's
 # real numbers, or a future change to either file silently drifts the two
 # out of sync (see ruixen-shell issue #41: this was a live service read
 # with a fallback constant before Omarchy v4.0.3 broke that read; now it
 # is just the constant, so this check matters more than it used to, not
-# less -- there is no live path left to mask a drift).
+# less -- there is no live path left to mask a drift). NotchGeometry.qml,
+# the service this used to read live through, was deleted once ruixen.bar
+# became its last consumer -- Overlay.qml was always the real source of
+# truth those numbers mirrored, so this reads it directly now.
 notch_bottom_edge_fallback="$(grep -oP 'readonly property int notchCollapsedBottomEdge: \K[0-9]+' "$bar_qml")"
-check "ruixen.bar's own notchCollapsedBottomEdge matches NotchGeometry's real collapsedTopMargin + collapsedHeight" \
+check "ruixen.bar's own notchCollapsedBottomEdge matches Overlay.qml's real collapsed margins.top + notchOuter height" \
   "$notch_bottom_edge_fallback" "$((notch_top_margin + notch_collapsed_height))"
 
 # Same drift risk, same fix, for the OTHER constant ruixen.bar used to
 # read live from NotchGeometry.qml (issue #28's own horizontal-space
 # reservation, not this file's own popup-clearance feature, but broken
 # by the exact same v4.0.3 change and fixed the exact same way -- worth
-# checking here since this file already parses NotchGeometry.qml's own
-# values).
-check "NotchGeometry's collapsedBodyWidth is a single, real value (not empty/multiple matches)" \
+# checking here since this file already parses Overlay.qml's own values).
+check "Overlay.qml's own collapsed bodyWidth is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$notch_body_width" | wc -l | tr -d ' ')" "0"
-check "NotchGeometry's cornerSize is a single, real value (not empty/multiple matches)" \
+check "Overlay.qml's own notchOuter cornerSize is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$notch_corner_size" | wc -l | tr -d ' ')" "0"
 notch_reserved_width="$(grep -oP 'readonly property int notchReservedWidth:\s*\K[0-9]+' "$bar_qml")"
-check "ruixen.bar's own notchReservedWidth matches NotchGeometry's real collapsedBodyWidth + cornerSize * 2" \
+check "ruixen.bar's own notchReservedWidth matches Overlay.qml's real collapsed bodyWidth + cornerSize * 2" \
   "$notch_reserved_width" "$((notch_body_width + notch_corner_size * 2))"
 
 # Same floor in BOTH modes now (see this file's own header for why the

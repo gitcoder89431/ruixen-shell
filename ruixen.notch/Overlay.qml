@@ -664,8 +664,9 @@ Item {
     // implicitHeight; exclusionMode stays Ignore so this never reserves
     // screen space the way ruixen.bar's own window does.
     anchors { top: true; left: true; right: true; bottom: true }
-    // Mirrored in this same plugin's own NotchGeometry.qml service as
-    // collapsedTopMargin -- change this value, change that one too.
+    // ruixen.bar's own notchCollapsedBottomEdge constant manually mirrors
+    // this value (ruixen-shell issue #41/#38) -- change this, change that
+    // one too.
     margins.top: 4
     implicitHeight: 220
     exclusionMode: ExclusionMode.Ignore
@@ -960,10 +961,10 @@ Item {
       // radius=roundness+20 -- cornerSize=28, collapsed radius=28 (see centerMask
       // below), expanded radius=44.
       //
-      // Mirrored in this same plugin's own NotchGeometry.qml service
-      // (#28, ruixen.bar's own reserved-space calculation) -- change
-      // this value, change that one too. See that file's own comment
-      // for why it can't just read this property live instead.
+      // Manually mirrored in ruixen.bar's own notchReservedWidth constant
+      // (#28, ruixen.bar's own reserved-space calculation; #41/#38 for
+      // why it's a plain constant there rather than a live read) --
+      // change this value, change that one too.
       readonly property int cornerSize: 28
       // Collapsed width trimmed down from an initial 290 -- this row's
       // actual content (avatar + divider + play glyph/wave + divider +
@@ -999,10 +1000,12 @@ Item {
       // sides again.
       //
       // The collapsed case (284, both launcherOpen/pinnedOpen false) is
-      // mirrored in this same plugin's own NotchGeometry.qml service
-      // (#28) as collapsedBodyWidth -- change this default, change
-      // that one too. The 420/900 expanded cases are deliberately NOT
-      // reflected there -- see that file's own comment for why.
+      // manually mirrored in ruixen.bar's own notchReservedWidth constant
+      // (#28, #41/#38) -- change this default, change that one too. The
+      // 420/900 expanded cases are deliberately NOT reflected there:
+      // ruixen.bar only ever needs to reserve space for the Notch's
+      // always-present collapsed footprint, not its temporary expanded
+      // states.
       readonly property int bodyWidth: panel.launcherOpen ? 420 : (panel.pinnedOpen ? 900 : 284)
       width: bodyWidth + cornerSize * 2
       // 44px collapsed -- ruixen-bar's own reserved screen zone
@@ -1013,8 +1016,8 @@ Item {
       // feedback ("a bit too short") -- past the
       // previously-tested-safe value, so stress-tested 3x (open/close
       // cycles, checking the bottom-corner mask each time) before
-      // keeping it. Collapsed case (44) mirrored in this same plugin's
-      // own NotchGeometry.qml service as collapsedHeight -- change this
+      // keeping it. Collapsed case (44) manually mirrored in ruixen.bar's
+      // own notchCollapsedBottomEdge constant (#41/#38) -- change this
       // value, change that one too.
       height: panel.launcherOpen ? 190 : (panel.pinnedOpen ? 400 : 44)
 

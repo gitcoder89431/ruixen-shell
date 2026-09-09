@@ -833,32 +833,35 @@ Item {
   // not visual bleed-through, but wasted layout space a widget could
   // otherwise occupy somewhere actually visible.
   //
-  // Used to read these live from ruixen.notch/NotchGeometry.qml via
-  // Omarchy's own shell.firstPartyServiceFor("ruixen.notch") -- one
-  // Ruixen plugin reading a constant a DIFFERENT Ruixen plugin owns, so
-  // the two could never drift out of sync with each other's real
-  // numbers. Omarchy v4.0.3 restricts that call to a fixed 4-item
+  // Used to read these live from ruixen.notch's own NotchGeometry.qml
+  // service via Omarchy's own shell.firstPartyServiceFor("ruixen.notch")
+  // -- one Ruixen plugin reading a constant a DIFFERENT Ruixen plugin
+  // owns, so the two could never drift out of sync with each other's
+  // real numbers. Omarchy v4.0.3 restricts that call to a fixed 4-item
   // allowlist of Omarchy's own services, which "ruixen.notch" was never
   // going to be in (ruixen-shell issue #41/#38), so these are now plain
-  // constants, manually kept in sync with NotchGeometry.qml's own
+  // constants, manually kept in sync with ruixen.notch/Overlay.qml's own
   // current values instead -- the exact same convention this file's own
-  // ModuleSlot/cornerSize already uses for a different pair of
-  // plugins' shared numbers (see NotchGeometry.qml's own header for why
-  // these two specifically are the Notch's COLLAPSED footprint only,
-  // not its full live launcher/pinned-expanded width -- a deliberate,
-  // named scope limit, not an oversight). If NotchGeometry.qml's own
-  // reservedWidth/collapsedBottomEdge ever change, these two must
-  // change with them.
+  // ModuleSlot/cornerSize already uses for a different pair of plugins'
+  // shared numbers. NotchGeometry.qml itself was deleted entirely once
+  // this file became its only remaining reader and stopped reading it
+  // live (ruixen-shell issue #38's own cleanup pass) -- Overlay.qml was
+  // always the real source of truth those numbers mirrored anyway. These
+  // two are the Notch's COLLAPSED footprint only, not its full live
+  // launcher/pinned-expanded width -- a deliberate, named scope limit,
+  // not an oversight. If Overlay.qml's own bodyWidth/cornerSize/
+  // margins.top/notchOuter height ever change, these two must change
+  // with them.
   //
-  // 340 matches NotchGeometry.qml's own current collapsedBodyWidth (284)
-  // + cornerSize (28) * 2.
+  // 340 matches Overlay.qml's own current collapsed bodyWidth (284) +
+  // cornerSize (28) * 2.
   readonly property int notchReservedWidth: 340
 
   // Absolute screen Y of the Notch's own collapsed bottom edge -- see
   // implicitHeight's own comment below for what this is for (giving
   // weather/clock's popup enough window height to clear the Notch
-  // without opening underneath it). 48 mirrors NotchGeometry.qml's own
-  // current collapsedTopMargin (4) + collapsedHeight (44).
+  // without opening underneath it). 48 mirrors Overlay.qml's own current
+  // collapsed margins.top (4) + notchOuter height (44).
   readonly property int notchCollapsedBottomEdge: 48
 
   // Screen-space rect the Notch's collapsed footprint occupies, centered

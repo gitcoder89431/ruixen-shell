@@ -19,9 +19,26 @@
 -- overridden by this file until now. 1 is the thinnest non-zero
 -- border Hyprland supports; going to 0 would remove the border
 -- entirely, which isn't what was asked for here.
+--
+-- gaps_out: same right/bottom/left = 20 already proven out in
+-- looknfeel.square.lua, brought over here as the shared baseline
+-- (direct follow-up, after living with square's own bump for a while:
+-- "in the sharp mode we added some padding and it seems to be a much
+-- better baseline for all"). ruixen.frame-widget's own fixed 6px
+-- border frames the screen in every variant, not just square -- the
+-- stock 10px gap it used to leave here read as tight/clipping against
+-- that frame (or ruixen.bar's own wing decoration in docked mode) the
+-- same way it did before square's own fix, just less obviously so with
+-- rounded corners' natural taper softening it. Top stays 10 (Hyprland's
+-- own stock default) -- see square.lua's own comment for why: the
+-- bar's exclusiveZone already reserves real top space independent of
+-- gaps, so top never had this problem to begin with. Deliberately NOT
+-- applied to looknfeel.default.lua -- stock Omarchy-look mode stays
+-- exactly what Omarchy itself intended, untouched by this repo.
 hl.config({
   general = {
     border_size = 1,
+    gaps_out = { top = 10, right = 20, bottom = 20, left = 20 },
   },
 })
 

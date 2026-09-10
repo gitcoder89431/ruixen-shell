@@ -1045,21 +1045,18 @@ Item {
           ? (thumbnailImage.sourceSize.width + " × " + thumbnailImage.sourceSize.height)
           : ""
 
-        // Scrollable -- direct report: with Created/Dimensions/Duration
-        // now able to add up to 3 extra rows on top of the fixed base
-        // set, the metadata list can overflow detailsPanel's own fixed
-        // height for some files, and detailsPanel's own clip:true was
-        // just silently cutting those rows off with no way to reach
-        // them. Flickable gives real mouse-wheel scrolling for free
-        // (built into QtQuick, same as resultsList's own ListView, a
-        // Flickable subclass, already has) -- no extra wheel-handling
-        // code needed.
-        Flickable {
-          id: detailsFlick
+        // No scrolling -- reverted direct follow-up: a Flickable here
+        // gave real mouse-wheel scrolling, but with no keyboard path to
+        // reach it at all (this launcher's own key handling never
+        // touches detailsPanel), that read as a dead end rather than a
+        // real fix ("doesnt seem worth it for durations and size").
+        // Compacting the row height/spacing instead (both below) so
+        // the list fits without needing to scroll in the first place.
+        Column {
+          id: detailsColumn
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.bottom: parent.bottom
           // Top margin separated out from the rest (was 24 on all
           // sides) -- direct report: "the panels are kinda unbalanced,
           // the preview fixed size is taking a bit too much space...
@@ -1074,15 +1071,13 @@ Item {
           anchors.topMargin: 0
           anchors.leftMargin: 24
           anchors.rightMargin: 24
-          clip: true
-          contentWidth: width
-          contentHeight: detailsColumn.height
-          boundsBehavior: Flickable.StopAtBounds
-
-        Column {
-          id: detailsColumn
-          width: parent.width
-          spacing: 18
+          // 18 -> 10 -- direct follow-up after the scrolling attempt
+          // ("doesnt seem worth it... maybe compact row height/spacing
+          // first, see how this looks... make it no scroll then"). This
+          // is the single spacing value between EVERY child here (the
+          // preview and every field row alike), so tightening it once
+          // shrinks the whole list, not just the rows.
+          spacing: 10
           visible: detailsPanel.result !== null
 
           // A real preview pane, not just an icon -- tall enough to give
@@ -1152,18 +1147,6 @@ Item {
             }
           }
 
-          // Same muted/uppercase/bold section-header style as the
-          // results list's own section headers above.
-          Text {
-            visible: detailsPanel.details !== null
-            text: "Metadata"
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            font.capitalization: Font.AllUppercase
-            font.bold: true
-          }
-
           Repeater {
             // Dimensions/Duration/Created only appear when actually
             // available -- an IIFE (same pattern as sourceFilterButton's
@@ -1205,21 +1188,24 @@ Item {
               required property var modelData
               required property int index
               width: parent.width
-              height: 20
+              // 20 -> 18, and the stripe's own vertical outdent below
+              // 4 -> 3 -- direct follow-up compacting the whole list so
+              // it fits without scrolling (Column's own spacing above
+              // dropped 18 -> 10 at the same time, which alone would
+              // have left adjacent stripes only 2px apart otherwise).
+              height: 18
 
               // Zebra striping -- direct request: "dark light dark
               // light kinda tint" so adjacent rows are easier to track.
               // Outdents past the row's own text bounds (a wider band
               // than just the label/value) and a little vertical
-              // padding, both safe here since the outer Column's own
-              // spacing (18) leaves plenty of room before the next
-              // row's stripe.
+              // padding.
               Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: -10
                 anchors.rightMargin: -10
-                anchors.topMargin: -4
-                anchors.bottomMargin: -4
+                anchors.topMargin: -3
+                anchors.bottomMargin: -3
                 radius: 4
                 color: field.index % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
               }
@@ -1258,7 +1244,6 @@ Item {
             font.family: root.fontFamily
             font.pixelSize: 11
           }
-        }
         }
       }
 

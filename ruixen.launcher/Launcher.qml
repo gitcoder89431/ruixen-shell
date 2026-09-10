@@ -62,6 +62,10 @@ Item {
   readonly property int visibleRowCount: 10
   readonly property int rowHeight: 44
   readonly property int headerHeight: 26
+  // Shared by sourceFilterButton (the closed control) and sourceFilterList
+  // (the opened menu) -- same width on both so they read as one dropdown
+  // widget rather than a button with a mismatched panel underneath.
+  readonly property int sourceFilterWidth: 150
 
   function open(payloadJson) {
     root.opened = true
@@ -428,13 +432,18 @@ Item {
         // (filterRow.implicitWidth), not a fixed box, so the label sits
         // right up against the chevron instead of floating inside slack
         // space.
+        // Fixed width shared with sourceFilterList below (sourceFilterWidth)
+        // so the closed control and the opened menu share one width --
+        // reads as a single dropdown widget rather than a button with a
+        // mismatched panel. No hover tint -- the chevron itself flipping
+        // to point up is the only "open" affordance needed.
         Item {
           id: sourceFilterButton
           visible: root.filesMode
           anchors.right: parent.right
           anchors.rightMargin: 12
           anchors.verticalCenter: parent.verticalCenter
-          width: filterRow.implicitWidth
+          width: root.sourceFilterWidth
           height: 28
 
           readonly property string currentLabel: root.selectedSourcePath === "" ? "All" : (function() {
@@ -443,41 +452,38 @@ Item {
             return "All"
           })()
 
-          Rectangle {
-            anchors.fill: parent
-            anchors.margins: -6
-            radius: 6
-            color: sourceFilterArea.containsMouse || sourceFilterList.visible ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+          Text {
+            id: sourceFilterLabel
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            anchors.right: sourceFilterChevron.left
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            elide: Text.ElideRight
+            text: sourceFilterButton.currentLabel
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 12
           }
 
-          Row {
-            id: filterRow
-            anchors.centerIn: parent
-            spacing: 4
-
-            Text {
-              elide: Text.ElideRight
-              width: Math.min(implicitWidth, 90)
-              text: sourceFilterButton.currentLabel
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 12
-            }
-            // fa-chevron-down (U+F078)
-            Text {
-              text: ""
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: 9
-              anchors.verticalCenter: parent.verticalCenter
-            }
+          // fa-chevron-down (U+F078) -- rotates to point up while the
+          // menu is open, same convention as a native <select>.
+          Text {
+            id: sourceFilterChevron
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            text: ""
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 9
+            rotation: sourceFilterList.visible ? 180 : 0
+            transformOrigin: Item.Center
+            Behavior on rotation { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
           }
 
           MouseArea {
-            id: sourceFilterArea
             anchors.fill: parent
-            anchors.margins: -6
-            hoverEnabled: true
             onClicked: sourceFilterList.visible = !sourceFilterList.visible
           }
         }
@@ -487,9 +493,9 @@ Item {
           anchors.fill: parent
           // searchIcon's own leftMargin (12) + width (22) + a 10px gap.
           anchors.leftMargin: 44
-          // sourceFilterButton's own content-sized width + its rightMargin
-          // (12) + a small gap, only while it's actually showing.
-          anchors.rightMargin: root.filesMode ? (sourceFilterButton.width + 12 + 10) : 16
+          // sourceFilterWidth + sourceFilterButton's own rightMargin (12)
+          // + a small gap, only while it's actually showing.
+          anchors.rightMargin: root.filesMode ? (root.sourceFilterWidth + 12 + 10) : 16
           verticalAlignment: TextInput.AlignVCenter
           color: root.textColor
           font.family: root.fontFamily
@@ -552,8 +558,11 @@ Item {
         anchors.top: searchBox.bottom
         anchors.topMargin: 6
         anchors.right: searchBox.right
-        anchors.rightMargin: 8
-        width: 180
+        // Matches sourceFilterButton's own rightMargin (12) exactly, not
+        // an independent value -- its right edge lines up with the
+        // button's right edge, same as this width matches its width.
+        anchors.rightMargin: 12
+        width: root.sourceFilterWidth
         // "All" plus one row per discovered source (Home + every
         // extraRoot) -- height follows that count directly rather than
         // scrolling, since this is at most a small handful of drives.
@@ -594,7 +603,10 @@ Item {
               Text {
                 anchors.left: parent.left
                 anchors.leftMargin: 10
+                anchors.right: parent.right
+                anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
+                elide: Text.ElideRight
                 text: sourceRow.modelData.label
                 color: root.textColor
                 font.family: root.fontFamily

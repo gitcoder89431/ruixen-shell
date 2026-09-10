@@ -298,6 +298,19 @@ Item {
   readonly property var activeToplevel: ToplevelManager.activeToplevel
   readonly property string activeWindowTitle: activeToplevel
     ? (activeToplevel.title || activeToplevel.appId || "") : ""
+  // Terminal emulators commonly set their own window title to a shell
+  // prompt string ("user@host:path"), and once elided (see the Text
+  // below) that format actively fights the fixed-width slot:
+  // Text.ElideRight keeps the FRONT of a string -- a real report
+  // ("arf26@omarchy:~/Docu...") showed the user@host prefix in full
+  // while cutting off the one part that's actually useful once you're
+  // not sitting at bare "~", the path itself. Stripping a detected
+  // "user@host:" prefix outright (not just re-eliding differently)
+  // fixes this without touching any OTHER window's own title format
+  // (a browser tab, an editor's own title) at all -- the regex only
+  // matches this one specific shape, and .replace() is a no-op on
+  // anything that doesn't.
+  readonly property string compactWindowTitle: root.activeWindowTitle.replace(/^[^\s@]+@[^\s:]+:/, "")
   // title/artist/album/artUrl/hasMedia are now plain properties set by
   // applyMediaState() above (fed by ruixen.media's own state file) --
   // the zombie-MPRIS-registration gate that used to live on artUrl's
@@ -1351,7 +1364,7 @@ Item {
                 width: 140
                 height: 20
                 visible: !root.hasMedia
-                text: root.activeWindowTitle !== "" ? root.activeWindowTitle : "~"
+                text: root.compactWindowTitle !== "" ? root.compactWindowTitle : "~"
                 // Direct follow-up ("are the text a bit muted") -- this
                 // is the primary content of the slot now, not a
                 // secondary status readout, so it gets the same full

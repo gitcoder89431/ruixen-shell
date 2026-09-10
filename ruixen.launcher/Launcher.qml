@@ -758,7 +758,11 @@ Item {
       ListView {
         id: resultsList
         anchors.top: searchBox.bottom
-        anchors.topMargin: 8
+        // 8 -> 4 -- direct report: felt like too much empty space now
+        // that the search box's own bottom border separator is gone
+        // (nothing "explains" the gap visually anymore, so it read as
+        // bigger than the same 8px did before).
+        anchors.topMargin: 4
         anchors.left: parent.left
         anchors.leftMargin: 8
         // Search Files mode splits the card: this list keeps the left
@@ -963,7 +967,10 @@ Item {
         id: detailsPanel
         visible: root.filesMode && !root.showNoResults
         anchors.top: searchBox.bottom
-        anchors.topMargin: 8
+        // Matches resultsList's own topMargin (see its comment) --
+        // both panels need the exact same offset from searchBox for
+        // the alignment fix on the inner Column below to actually work.
+        anchors.topMargin: 4
         anchors.right: parent.right
         anchors.rightMargin: 8
         anchors.bottom: parent.bottom
@@ -1008,13 +1015,14 @@ Item {
           // sides) -- direct report: "the panels are kinda unbalanced,
           // the preview fixed size is taking a bit too much space...
           // make sure the thumbnail height starts where the left panel
-          // text Search Files is". resultsList's own section header
-          // sits flush at its own top (no internal inset beyond the
-          // 8px both panels already share via their own anchors.top),
-          // so 8 here lines the preview area's own top up with it
-          // instead of starting 24px further down. Left/right/bottom
-          // padding stays 24 for the panel's own internal breathing room.
-          anchors.topMargin: 8
+          // text search files is". 0 here, not a further inset on top
+          // of detailsPanel's own topMargin above -- resultsList's own
+          // header has no internal inset beyond ITS topMargin either,
+          // so adding another one here (an earlier pass used 8, double-
+          // counting against detailsPanel's own offset) put the preview
+          // 8px lower than actually aligned. Left/right padding stays
+          // 24 for the panel's own internal breathing room.
+          anchors.topMargin: 0
           anchors.leftMargin: 24
           anchors.rightMargin: 24
           spacing: 18

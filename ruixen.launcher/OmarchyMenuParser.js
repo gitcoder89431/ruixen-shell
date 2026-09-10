@@ -219,6 +219,26 @@ function scoreEntry(entry, query, breadcrumb) {
     if (crumbIndex > 0) return 2000 - crumbIndex * 10 - crumb.length
   }
 
+  // Every check above treats the query as ONE literal substring that
+  // has to appear whole in a single field -- real report: "grok
+  // install" found nothing, even though "Grok Bot"'s own label has
+  // "grok" and its own breadcrumb ("Install › AI") has "install", just
+  // never both in the SAME field. For a multi-word query only, require
+  // every word to appear SOMEWHERE across label+aliases+breadcrumb
+  // combined, in any order -- scored below every single-field match
+  // above (a same-category, label-mismatched sibling should never
+  // outrank a real single-field hit), but still positive so this reads
+  // as "found it" instead of "No Results".
+  var terms = q.split(/\s+/).filter(function(t) { return t.length > 0 })
+  if (terms.length > 1) {
+    var haystack = label + " " + aliases.join(" ").toLowerCase() + " " + crumb
+    var allTermsFound = true
+    for (var t = 0; t < terms.length; t++) {
+      if (haystack.indexOf(terms[t]) === -1) { allTermsFound = false; break }
+    }
+    if (allTermsFound) return 1000
+  }
+
   return -1
 }
 

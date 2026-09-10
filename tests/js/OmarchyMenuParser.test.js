@@ -147,6 +147,18 @@ check("scoreEntry: no breadcrumb match either still scores negative",
   M.scoreEntry({ label: "Full Screen" }, "xyz", "Window Management"), -1);
 check("scoreEntry: a missing breadcrumb argument doesn't throw (still label/alias-only, same as before)",
   M.scoreEntry({ label: "Lock" }, "lock"), 10000);
+check("scoreEntry: a multi-word query where different words match different fields still scores -- "
+  + "real report: 'grok install' found nothing ('Grok Bot' label + 'Install › AI' breadcrumb)",
+  M.scoreEntry({ label: "Grok Bot" }, "grok install", "Install › AI") > 0, true);
+check("scoreEntry: multi-word matching is order-agnostic",
+  M.scoreEntry({ label: "Grok Bot" }, "install grok", "Install › AI") > 0, true);
+check("scoreEntry: a multi-word query scores below a real single-field match",
+  M.scoreEntry({ label: "Grok Bot" }, "grok install", "Install › AI")
+    < M.scoreEntry({ label: "Full Screen" }, "window management", "Window Management"), true);
+check("scoreEntry: a multi-word query where one word matches NOTHING anywhere still fails",
+  M.scoreEntry({ label: "Grok Bot" }, "grok xyz", "Install › AI"), -1);
+check("scoreEntry: a single-word query never falls through to multi-word matching (unchanged behavior)",
+  M.scoreEntry({ label: "Grok Bot" }, "xyz", "Install › AI"), -1);
 
 // ---- Keybind hints -----------------------------------------------------
 

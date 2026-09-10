@@ -64,11 +64,34 @@ Item {
     return entry.genericName || "Application"
   }
 
+  // "Application"/"app" describes every single row this provider ever
+  // returns -- it can never actually discriminate between two apps, and
+  // (unlike a genuine genericName/comment) it isn't part of any real
+  // .desktop field AppSearch.js's own entrySearchText already searches
+  // (confirmed: Discord's own .desktop has neither GenericName= nor
+  // Comment=, so the literal word never appears anywhere in its real
+  // search text). Direct report: "application discord"/"discord
+  // application" found nothing even though plain "discord" works.
+  // Dropping it as a no-op filler word (order-agnostic, whole-word only
+  // -- doesn't touch a real app whose own name merely CONTAINS "app",
+  // e.g. WhatsApp) makes the rest of the query behave exactly like the
+  // plain search that already worked. Falls back to the ORIGINAL query
+  // if stripping empties it out (a bare "application" search), rather
+  // than dumping the entire app catalog for one generic word.
+  function stripApplicationKeyword(query) {
+    var words = query.split(/\s+/).filter(function(w) {
+      var lw = w.toLowerCase()
+      return lw !== "application" && lw !== "app"
+    })
+    var stripped = words.join(" ").trim()
+    return stripped.length > 0 ? stripped : query
+  }
+
   function search(query) {
     if (!root.appLibrary) return []
     var q = String(query || "").trim()
     if (!q) return []
-    var rows = root.appLibrary.sortedEntries(q)
+    var rows = root.appLibrary.sortedEntries(root.stripApplicationKeyword(q))
     var out = []
     for (var i = 0; i < rows.length && out.length < root.maxResults; i++) {
       var entry = rows[i].entry

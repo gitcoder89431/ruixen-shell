@@ -1114,8 +1114,26 @@ Item {
             Item {
               id: field
               required property var modelData
+              required property int index
               width: parent.width
               height: 20
+
+              // Zebra striping -- direct request: "dark light dark
+              // light kinda tint" so adjacent rows are easier to track.
+              // Outdents past the row's own text bounds (a wider band
+              // than just the label/value) and a little vertical
+              // padding, both safe here since the outer Column's own
+              // spacing (18) leaves plenty of room before the next
+              // row's stripe.
+              Rectangle {
+                anchors.fill: parent
+                anchors.leftMargin: -10
+                anchors.rightMargin: -10
+                anchors.topMargin: -4
+                anchors.bottomMargin: -4
+                radius: 4
+                color: field.index % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
+              }
 
               Text {
                 id: fieldLabel

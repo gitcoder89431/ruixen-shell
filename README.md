@@ -17,6 +17,10 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   Omarchy's own notification service, adding read/unread tracking and a
   deeper backlog on top of it), and a Kanban board (see below), expanding
   from the bar.
+- **`ruixen.launcher`** — a Raycast/Spotlight-style command palette:
+  fuzzy-searches Omarchy menu actions and installed apps from one overlay,
+  plus a dedicated Search Files mode (auto-discovers mounted drives too —
+  an internal HDD, a USB stick — searchable individually or all at once).
 - **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
   and notch together visually.
 - **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,
@@ -51,8 +55,8 @@ language, so they read as one shell instead of a pile of separate widgets.
 ## Documentation
 
 - [`docs/KEYBINDS.md`](docs/KEYBINDS.md) — ready-to-use Hyprland keybind
-  recipes: Ruixen Settings (and jumping straight to one page), the notch
-  dashboard, the app launcher.
+  recipes: the Ruixen Launcher command palette, Ruixen Settings (and
+  jumping straight to one page), the notch dashboard, the app launcher.
 - [`docs/CONTROL.md`](docs/CONTROL.md) — how every plugin here is
   controllable over a plain CLI call (`omarchy-shell <target> <method>
   [args]`), the same mechanism a keybind, a script, or an AI agent all use
@@ -81,10 +85,15 @@ matching Hyprland window look (rounded corners + blur, see below — also
 backed up if you already have a `looknfeel.lua`), and restarts the Omarchy
 shell.
 
-After installing, add a keybind of your own for opening Ruixen Settings (and
-anything else — the app launcher, jumping straight to one settings page) —
-the installer deliberately doesn't touch your Hyprland config. See
-[`docs/KEYBINDS.md`](docs/KEYBINDS.md) for ready-to-use recipes.
+After installing, add a keybind of your own for opening the Ruixen Launcher
+command palette (nothing opens it out of the box — the installer
+deliberately doesn't touch your Hyprland config), Ruixen Settings, or
+anything else — the app launcher, jumping straight to one settings page. See
+[`docs/KEYBINDS.md`](docs/KEYBINDS.md) for ready-to-use recipes, e.g.:
+
+```lua
+o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")
+```
 
 Want to see exactly what it would do first, without changing anything?
 

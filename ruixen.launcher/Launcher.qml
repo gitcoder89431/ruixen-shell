@@ -45,12 +45,6 @@ Item {
   readonly property color muted: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.5)
   readonly property color accent: Color.accent
 
-  // Hardcoded OLED black, matching ruixen.settings/ruixen.notch/
-  // ruixen.bar's own established convention -- not a theme-driven
-  // token (see Bar.qml's GroupPill comment for the original reasoning).
-  // Still used as-is for secondary surfaces (the source-filter dropdown
-  // list) that should stay solidly legible rather than glass.
-  readonly property color panelBackground: "#000000"
   // The card's own frosted-glass background -- translucent so Hyprland's
   // real compositor blur (a `layer_rule` keyed to this window's own
   // WlrLayershell.namespace, see hyprland/looknfeel.ruixen.lua) has
@@ -382,6 +376,35 @@ Item {
       }
     }
 
+    // Contact shadow -- a second, tighter shadow layered behind the
+    // card's own softer, wider one below (a common "soft ambient +
+    // tight contact" pairing real elevated glass surfaces use for more
+    // perceived depth than either shadow alone gives). Needs its own
+    // proxy Item, not a second shadow on `card` itself -- QML only
+    // allows one layer.effect per Item. Same live-texture-source
+    // pattern already proven in this file (the Search Files thumbnail
+    // mask): an invisible same-shape Rectangle, layer.enabled so its
+    // rendered texture is still captured despite visible:false, feeding
+    // a MultiEffect. shadowOpacity 0.35 stays under the layer_rule's
+    // own ignore_alpha threshold (0.4, see hyprland/looknfeel.ruixen.lua)
+    // same as card's own shadow -- otherwise Hyprland's blur would hit
+    // this one too.
+    Rectangle {
+      anchors.fill: card
+      radius: card.radius
+      color: "#000000"
+      visible: false
+      layer.enabled: true
+      layer.effect: MultiEffect {
+        shadowEnabled: true
+        shadowColor: "#000000"
+        shadowOpacity: 0.35
+        shadowBlur: 0.15
+        shadowHorizontalOffset: 0
+        shadowVerticalOffset: 2
+      }
+    }
+
     Rectangle {
       id: card
       anchors.horizontalCenter: parent.horizontalCenter
@@ -428,6 +451,24 @@ Item {
       // Swallows a click on the card itself so it doesn't fall through
       // to the scrim's own dismiss MouseArea behind it.
       MouseArea { anchors.fill: parent }
+
+      // Top inner highlight -- a common glass/vibrancy trick (macOS,
+      // Raycast v2): the top edge reads a touch brighter than the
+      // sides/bottom, faking a light source from above rather than a
+      // uniformly-lit border on all four sides. Inset by radius so it
+      // only spans the flat top edge, not the rounded corners -- its
+      // own corners are square, and running it full-width would poke
+      // past the card's own curve there.
+      Rectangle {
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: card.radius
+        anchors.rightMargin: card.radius
+        anchors.topMargin: 1
+        height: 1
+        color: Qt.rgba(1, 1, 1, 0.2)
+      }
 
       Rectangle {
         id: searchBox
@@ -622,22 +663,27 @@ Item {
         // scrolling, since this is at most a small handful of drives.
         height: (fileSearchProvider.sources.length + 1) * 32 + 8
         radius: 10
-        color: root.panelBackground
+        // Same glass material as the card itself -- direct report
+        // ("looks solid and out of place with the design"): this used
+        // to be flat opaque panelBackground, the one surface in the
+        // launcher that didn't match the frosted card it pops out of.
+        // Real Hyprland blur applies here too now, for free -- it's
+        // the same layer-shell surface/namespace the card's own
+        // layer_rule already covers, blur just needed something
+        // translucent to actually act on.
+        color: root.glassBackground
         border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.08)
+        border.color: root.glassBorder
         z: 100
 
         layer.enabled: true
         layer.effect: MultiEffect {
           shadowEnabled: true
           shadowColor: "#000000"
-          // Same fix as the card's own shadow above, same reason --
-          // this dropdown's own fill (panelBackground, fully opaque)
-          // is untouched by the frosted-glass layer_rule since a
-          // compositor "blur behind" has no visible effect where alpha
-          // is already 1, but this shadow's semi-transparent falloff
-          // still crossed ignore_alpha's 0.4 threshold and got blurred
-          // a second time same as the card's did.
+          // Same fix as the card's own shadow above, same reason -- this
+          // shadow's own semi-transparent falloff crossed the layer_rule's
+          // ignore_alpha threshold (0.4) and got blurred a second time,
+          // on top of its own already-soft edge.
           shadowOpacity: 0.3
           shadowBlur: 0.4
           shadowVerticalOffset: 3

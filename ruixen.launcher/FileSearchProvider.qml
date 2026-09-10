@@ -48,6 +48,50 @@ Item {
   // .git, .config, ...) by default, no flag needed for those.
   readonly property var excludeDirs: ["node_modules", "vendor", "target", "go/pkg/mod"]
 
+  // Extra fd search roots for mounted secondary drives (an internal
+  // HDD, a plugged-in USB stick, ...) -- auto-discovered rather than
+  // hardcoded, since a mountpoint varies per machine and per drive.
+  // Refreshed on demand (see refreshRoots() below), not on a timer --
+  // Launcher.qml calls it once each time Search Files mode is entered,
+  // which is a natural, low-frequency checkpoint for "did the set of
+  // mounted drives change" without re-running findmnt on every keystroke.
+  property var extraRoots: []
+
+  function refreshRoots() {
+    mountProc.running = true
+  }
+
+  Process {
+    id: mountProc
+    command: ["findmnt", "-P", "-o", "TARGET,FSTYPE"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        // -P (key="value" pairs) rather than the plain columnar output
+        // used elsewhere in this file -- a mount TARGET can contain
+        // spaces (a USB drive labeled "My Files", say), which the
+        // plain format has no safe way to split back apart.
+        var re = /TARGET="([^"]*)" FSTYPE="([^"]*)"/
+        var lines = text.split("\n")
+        var roots = []
+        for (var i = 0; i < lines.length; i++) {
+          var m = re.exec(lines[i])
+          if (!m) continue
+          var target = m[1]
+          // Convention every major desktop file manager already relies
+          // on (Nautilus/udisks2 auto-mounts to /run/media/$USER/<label>,
+          // manual mounts commonly go to /mnt or /media) -- real system
+          // mounts (/, /boot, /var/*, tmpfs, proc, ...) never live under
+          // any of these three prefixes, so this alone is enough to
+          // exclude them without also needing an fstype allowlist.
+          if (target.indexOf("/mnt/") === 0 || target.indexOf("/media/") === 0 || target.indexOf("/run/media/") === 0)
+            roots.push(target)
+        }
+        root.extraRoots = roots
+      }
+    }
+  }
+
   onQueryChanged: {
     var q = root.query.trim()
     if (!q) {
@@ -100,7 +144,13 @@ Item {
     // the real cap is displayLimit, applied after sorting.
     var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--max-results", "500"]
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
+    // fd accepts multiple trailing path roots in one invocation --
+    // confirmed via `fd --help` ([path]...) -- so a mounted secondary
+    // drive (see extraRoots/refreshRoots() above) just rides along as
+    // more positional args, not a second fd process to merge results
+    // from.
     args.push("--", query, root.homeDir)
+    for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i])
     searchProc.command = args
     searchProc.running = true
   }

@@ -104,6 +104,12 @@ Item {
   // once this fallback row is actually activated.
   property bool filesMode: false
   onFilesModeChanged: {
+    // Re-discovers mounted secondary drives (see FileSearchProvider's
+    // own refreshRoots()) each time Search Files is entered, rather
+    // than once at startup or on a timer -- a drive plugged in mid-
+    // session (a USB stick, say) becomes searchable the next time this
+    // view opens, without needing a full shell restart.
+    if (root.filesMode) fileSearchProvider.refreshRoots()
     root.selectedIndex = 0
     Qt.callLater(function() { resultsList.positionViewAtBeginning() })
   }

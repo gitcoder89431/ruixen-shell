@@ -954,7 +954,16 @@ Item {
         anchors.left: resultsList.right
         anchors.leftMargin: 4
         width: 1
-        color: root.glassBorder
+        // Vertical gradient (transparent at both ends, peaking at
+        // glassBorder's own alpha in the middle) rather than a flat
+        // color -- direct request: "fade the top and bottom of the
+        // line for that nicer look". Same technique as the card's own
+        // top highlight above, just oriented vertically.
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0) }
+          GradientStop { position: 0.5; color: root.glassBorder }
+          GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
+        }
       }
 
       // Search Files' own metadata sidebar -- Raycast's real Search

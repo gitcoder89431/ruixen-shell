@@ -1003,10 +1003,20 @@ Item {
             visible: !root.filesMode
             anchors.left: labelText.right
             anchors.leftMargin: 8
-            anchors.right: keybindHint.visible ? keybindHint.left : kindText.left
-            anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
             elide: Text.ElideRight
+            // Hugs its own actual text width (capped to whatever room is
+            // left before kindText, minus keybindHint's own width when
+            // it's showing) instead of stretching all the way to
+            // kindText's own column -- direct request: the keybind chips
+            // should sit right after the visible subtitle text, not
+            // pinned flush against the far-right kind tag with a dead
+            // gap in between for every short subtitle (which is most of
+            // them). Non-circular: keybindHint's own width never depends
+            // on metaText's, only the other way around.
+            width: Math.max(0, Math.min(implicitWidth,
+              kindText.x - (labelText.x + labelText.width) - 8
+                - (keybindHint.visible ? keybindHint.width + 8 : 0) - 8))
             text: row.modelData.providerId === "app-search" ? row.modelData.category : row.modelData.breadcrumb
             color: root.muted
             font.family: root.fontFamily
@@ -1032,8 +1042,8 @@ Item {
           Row {
             id: keybindHint
             visible: !root.filesMode && !!row.modelData.keybind
-            anchors.right: kindText.left
-            anchors.rightMargin: 10
+            anchors.left: metaText.right
+            anchors.leftMargin: 8
             anchors.verticalCenter: parent.verticalCenter
             spacing: 3
             opacity: 0.75

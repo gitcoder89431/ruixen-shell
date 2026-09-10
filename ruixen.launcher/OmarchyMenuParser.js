@@ -331,16 +331,16 @@ function keybindParts(formattedKeybind) {
 }
 
 // A handful of modifier keys get a real symbol instead of their bare
-// name -- the same iconography convention keyboards/keycaps themselves
-// use (a Super/Windows-logo keycap, ⇧/⌃/⌥ for Shift/Ctrl/Alt), so a
-// 3-key combo reads as key CAPS at a glance rather than an acronym to
-// sound out. Everything else (a letter, digit, or named key like SPACE/
-// TAB) passes through as its own uppercase text -- there's no equally
-// universal symbol for those, and spelling them out plainly is already
-// clear.
+// name -- the familiar ⌘/⇧/⌃/⌥ modifier-symbol convention (direct
+// request: the command-key glyph reads cleaner here than a literal
+// Windows-logo one), so a 3-key combo reads as key CAPS at a glance
+// rather than an acronym to sound out. Everything else (a letter,
+// digit, or named key like SPACE/TAB) passes through as its own
+// uppercase text -- there's no equally universal symbol for those, and
+// spelling them out plainly is already clear.
 function keySymbol(part) {
   var p = String(part || "").trim().toUpperCase()
-  if (p === "SUPER") return "" // nf-fa-windows -- the actual Super-key keycap logo
+  if (p === "SUPER") return "⌘"
   if (p === "SHIFT") return "⇧"
   if (p === "CTRL") return "⌃"
   if (p === "ALT") return "⌥"

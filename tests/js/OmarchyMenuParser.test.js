@@ -200,7 +200,7 @@ check("keybindParts: three space-joined modifiers before the final key",
 
 check("keySymbol: SUPER/SHIFT/CTRL/ALT each get their own real symbol",
   [M.keySymbol("SUPER"), M.keySymbol("shift"), M.keySymbol("Ctrl"), M.keySymbol("ALT")],
-  ["", "⇧", "⌃", "⌥"]);
+  ["⌘", "⇧", "⌃", "⌥"]);
 check("keySymbol: a plain letter/digit key passes through unchanged (uppercased)",
   M.keySymbol("z"), "Z");
 check("keySymbol: a named key with no dedicated symbol passes through as-is",

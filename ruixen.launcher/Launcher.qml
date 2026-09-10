@@ -1071,13 +1071,16 @@ Item {
           anchors.topMargin: 0
           anchors.leftMargin: 24
           anchors.rightMargin: 24
-          // 18 -> 10 -- direct follow-up after the scrolling attempt
-          // ("doesnt seem worth it... maybe compact row height/spacing
-          // first, see how this looks... make it no scroll then"). This
-          // is the single spacing value between EVERY child here (the
-          // preview and every field row alike), so tightening it once
-          // shrinks the whole list, not just the rows.
-          spacing: 10
+          // 18 -> 10 -> 14 -> 12 -- first compacted to fit 8 rows
+          // without scrolling, eased back up ("a bit too tight now...
+          // we have alot more space now") once that turned out to
+          // leave slack, but 14 (plus the restored Metadata header)
+          // overflowed again -- confirmed live, an 8-row video's own
+          // Permissions row was genuinely clipped off the bottom, not
+          // just a screenshot crop. This is the single spacing value
+          // between EVERY child here (the preview, the Metadata header,
+          // and every field row alike).
+          spacing: 12
           visible: detailsPanel.result !== null
 
           // A real preview pane, not just an icon -- tall enough to give
@@ -1147,6 +1150,21 @@ Item {
             }
           }
 
+          // Same muted/uppercase/bold section-header style as the
+          // results list's own section headers above. Removed once
+          // during compacting, restored once that compaction turned
+          // out to leave real slack to spare ("we have alot more space
+          // now").
+          Text {
+            visible: detailsPanel.details !== null
+            text: "Metadata"
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            font.capitalization: Font.AllUppercase
+            font.bold: true
+          }
+
           Repeater {
             // Dimensions/Duration/Created only appear when actually
             // available -- an IIFE (same pattern as sourceFilterButton's
@@ -1188,12 +1206,11 @@ Item {
               required property var modelData
               required property int index
               width: parent.width
-              // 20 -> 18, and the stripe's own vertical outdent below
-              // 4 -> 3 -- direct follow-up compacting the whole list so
-              // it fits without scrolling (Column's own spacing above
-              // dropped 18 -> 10 at the same time, which alone would
-              // have left adjacent stripes only 2px apart otherwise).
-              height: 18
+              // 20 -> 18 -> 20 -> 19 -- see Column's own spacing
+              // comment above for why 20 (the fully-eased-back value)
+              // overflowed once the header came back too; split the
+              // difference rather than dropping all the way back to 18.
+              height: 19
 
               // Zebra striping -- direct request: "dark light dark
               // light kinda tint" so adjacent rows are easier to track.
@@ -1204,8 +1221,8 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: -10
                 anchors.rightMargin: -10
-                anchors.topMargin: -3
-                anchors.bottomMargin: -3
+                anchors.topMargin: -4
+                anchors.bottomMargin: -4
                 radius: 4
                 color: field.index % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
               }

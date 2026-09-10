@@ -674,15 +674,16 @@ Item {
         // scrolling, since this is at most a small handful of drives.
         height: (fileSearchProvider.sources.length + 1) * 32 + 8
         radius: 10
-        // Same glass material as the card itself -- direct report
-        // ("looks solid and out of place with the design"): this used
-        // to be flat opaque panelBackground, the one surface in the
-        // launcher that didn't match the frosted card it pops out of.
-        // Real Hyprland blur applies here too now, for free -- it's
-        // the same layer-shell surface/namespace the card's own
-        // layer_rule already covers, blur just needed something
-        // translucent to actually act on.
-        color: root.glassBackground
+        // Genuinely near-opaque, not glassBackground's own translucency
+        // -- direct follow-up after real use: unlike the card (whose
+        // backdrop is the blurred desktop, predictable), this dropdown
+        // floats OVER the card's own content -- most awkwardly, the
+        // details panel's own image thumbnail -- and translucent text
+        // over an arbitrary bright thumbnail is unreadable. Still uses
+        // glassTint (the same theme-accent-tinted black) for hue
+        // consistency with the rest of the card, just far less see-
+        // through.
+        color: Qt.rgba(root.glassTint.r, root.glassTint.g, root.glassTint.b, 0.95)
         border.width: 1
         border.color: root.glassBorder
         z: 100

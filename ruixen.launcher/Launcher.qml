@@ -731,7 +731,7 @@ Item {
               // Same folder-only accent as the list row's own icon.
               color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 88
+              font.pixelSize: 150
             }
           }
 

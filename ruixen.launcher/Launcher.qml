@@ -1082,8 +1082,6 @@ Item {
             }
           }
 
-          Rectangle { width: parent.width; height: 1; color: Qt.rgba(1, 1, 1, 0.08) }
-
           Repeater {
             model: detailsPanel.details ? [
               { label: "Name", value: detailsPanel.result ? detailsPanel.result.label : "" },

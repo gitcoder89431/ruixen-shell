@@ -159,11 +159,23 @@ Item {
   // fixed card's own visibleRowCount.
   AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary }
   FileSearchProvider { id: fileSearchProvider; query: root.query; sourceFilter: root.selectedSourcePath }
+  // homeDir/extraRoots bound straight from fileSearchProvider's own
+  // already-discovered values (see this file's own header comment) --
+  // one mount-discovery pass shared by both providers, not two that
+  // could disagree.
+  FileContentSearchProvider {
+    id: fileContentSearchProvider
+    query: root.query
+    sourceFilter: root.selectedSourcePath
+    homeDir: fileSearchProvider.homeDir
+    extraRoots: fileSearchProvider.extraRoots
+  }
 
   readonly property var providers: [
     { id: "omarchy-actions", item: omarchyActionsProvider },
     { id: "app-search", item: appSearchProvider },
-    { id: "file-search", item: fileSearchProvider }
+    { id: "file-search", item: fileSearchProvider },
+    { id: "file-content-search", item: fileContentSearchProvider }
   ]
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
@@ -204,6 +216,22 @@ Item {
   function formatDate(epochSeconds) {
     if (!epochSeconds) return ""
     return Qt.formatDateTime(new Date(epochSeconds * 1000), "MMM d, yyyy  h:mm AP")
+  }
+
+  // Derives "Where" straight from the real path, generically for any
+  // provider's result -- not a per-provider breadcrumb convention.
+  // Needed once FileContentSearchProvider's own results existed: its
+  // breadcrumb is deliberately the matched LINE snippet (the whole
+  // point of "search by context" -- see its own resultFor() comment),
+  // so reusing that same field for "Where" would show a line of file
+  // content where a folder location belongs. Same ~ abbreviation
+  // FileSearchProvider's own resultFor() already uses.
+  function parentDirOf(path) {
+    var slash = path.lastIndexOf("/")
+    var dir = slash === -1 ? "" : path.substring(0, slash)
+    if (fileSearchProvider.homeDir && dir.indexOf(fileSearchProvider.homeDir) === 0)
+      dir = "~" + dir.substring(fileSearchProvider.homeDir.length)
+    return dir
   }
 
   // The single synthetic "Use ... with" fallback row -- not a real
@@ -272,19 +300,29 @@ Item {
       var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
       return sug.concat(browse)
     }
-    // FileSearchProvider is asynchronous (a real fd subprocess, not a
-    // synchronous scan) -- its own query property is bound directly to
-    // root.query (see its instantiation above), and it kicks off a
-    // debounced re-search from its own onQueryChanged, not from
-    // search() itself (a property WRITE as a side effect of THIS
-    // binding's own evaluation caused a real "Binding loop detected"
-    // warning, confirmed live). search(q) here is a pure read of
-    // whatever its last completed search found; reading lastResults
-    // (indirectly, through search()) still makes this binding depend
-    // on it, so results updates automatically once fd's output lands.
+    // FileSearchProvider/FileContentSearchProvider are both asynchronous
+    // (real fd/ripgrep subprocesses, not a synchronous scan) -- each
+    // one's own query property is bound directly to root.query (see
+    // their instantiation above), and each kicks off its OWN debounced
+    // re-search from its own onQueryChanged, not from search() itself
+    // (a property WRITE as a side effect of THIS binding's own
+    // evaluation caused a real "Binding loop detected" warning,
+    // confirmed live, back when there was only one such provider).
+    // search(q) on each is a pure read of whatever its last completed
+    // search found; reading lastResults (indirectly, through search())
+    // still makes this binding depend on both, so results updates
+    // automatically once either one's output lands -- independently,
+    // not gated on the other. Concatenated BEFORE the shared sort, not
+    // as two separate sections: content matches carry a flat score well
+    // below any real filename match (see FileContentSearchProvider's
+    // own contentMatchScore), so they only ever rank after genuine
+    // filename hits, filling in around them rather than needing a
+    // separate mode -- and turn a query with zero filename matches into
+    // real content-match results instead of "No Results", without ever
+    // skipping the content search itself to get there.
     if (root.filesMode) {
-      var fileRows = root.disambiguateLabels(fileSearchProvider.search(q).sort(root.byScoreDesc))
-      return tag(fileRows, "Search Files")
+      var fileRows = fileSearchProvider.search(q).concat(fileContentSearchProvider.search(q))
+      return tag(root.disambiguateLabels(fileRows.sort(root.byScoreDesc)), "Search Files")
     }
     var cmds = omarchyActionsProvider.search(q)
     var apps = appSearchProvider.search(q)
@@ -1253,7 +1291,18 @@ Item {
               if (detailsPanel.imageDimensions) out.push({ label: "Dimensions", value: detailsPanel.imageDimensions })
               if (fileSearchProvider.videoDuration) out.push({ label: "Duration", value: fileSearchProvider.videoDuration })
               out.push({ label: "Size", value: root.formatSize(detailsPanel.details.size) })
-              out.push({ label: "Where", value: detailsPanel.result ? detailsPanel.result.breadcrumb : "" })
+              out.push({ label: "Where", value: (detailsPanel.result && detailsPanel.result.action && detailsPanel.result.action.path) ? root.parentDirOf(detailsPanel.result.action.path) : "" })
+              // Search Files rows hide their own subtitle text entirely
+              // (see metaText's own visible: !root.filesMode below), so
+              // a content match's own breadcrumb -- the matched LINE
+              // itself, the whole "search by context" feature -- had
+              // nowhere else to surface once "Where" above got fixed to
+              // show the real folder instead of reusing that same
+              // field. This is that field, shown only for content
+              // matches (identified by providerId, not by re-deriving
+              // "does this look like a snippet" from the text itself).
+              if (detailsPanel.result && detailsPanel.result.providerId === "file-content-search")
+                out.push({ label: "Match", value: detailsPanel.result.breadcrumb })
               // 0 means this filesystem doesn't track birth time (see
               // FileSearchProvider's own loadDetails comment) -- omit
               // rather than show a bogus 1970 date.

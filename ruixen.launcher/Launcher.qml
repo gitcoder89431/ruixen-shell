@@ -513,10 +513,26 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           width: 22
           horizontalAlignment: Text.AlignHCenter
-          text: ""
+          // fa-search (U+F002) normally; swaps to fa-arrow-left
+          // (U+F060) in Search Files mode, doubling as a real back
+          // button -- direct request: clicking it there exits Search
+          // Files, same as Escape's own first step (root.filesMode =
+          // false), rather than dismissing the whole palette.
+          text: root.filesMode ? "" : ""
           color: root.muted
           font.family: root.fontFamily
           font.pixelSize: 16
+
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -4
+            // Only interactive in Search Files mode -- there is
+            // nothing to "go back" from otherwise, so the plain
+            // magnifying glass stays decorative the rest of the time.
+            enabled: root.filesMode
+            cursorShape: root.filesMode ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: root.filesMode = false
+          }
         }
 
         // Search Files only -- filters fd's own search roots to just one

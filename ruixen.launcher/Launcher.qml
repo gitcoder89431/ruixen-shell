@@ -1187,9 +1187,14 @@ Item {
             // for having no keyboard path to reach it at all. The
             // Item's own clip below just cuts off whatever doesn't
             // fit, same as an image thumbnail's own crop.
-            Item {
+            Rectangle {
               anchors.fill: parent
               visible: detailsPanel.isTextPreview
+              radius: 12
+              // Same darkened-surface tint as the metadata rows' own
+              // zebra stripe below -- direct request: "for readability
+              // can you make the background of that dark surface".
+              color: Qt.rgba(0, 0, 0, 0.18)
               clip: true
 
               Text {

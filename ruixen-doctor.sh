@@ -36,6 +36,27 @@ else
 fi
 printf '\n'
 
+# --- Dependencies -- confirms the external tools this script and
+# ruixen.launcher's own Search Files rely on are actually present,
+# rather than a missing one silently reading as "no results"/"no
+# thumbnail" with zero diagnostic trail, or (for jq below) a cryptic
+# mid-script crash under this script's own `set -e` instead of a clear
+# answer up front. fd is a real Omarchy base package (confirmed
+# directly against /usr/share/omarchy/install/omarchy-base.packages),
+# so its absence means something removed it, not a stock gap. ffmpeg/
+# ffprobe are pulled in as a dependency of several default Omarchy-
+# adjacent packages (mpv, gpu-screen-recorder, obs-studio) -- same
+# "should always be there" expectation, checked rather than assumed.
+printf -- '-- Dependencies --\n'
+for tool in fd ffmpeg ffprobe jq; do
+  if command -v "$tool" >/dev/null 2>&1; then
+    printf '%-10s found\n' "$tool"
+  else
+    printf '%-10s NOT FOUND\n' "$tool"
+  fi
+done
+printf '\n'
+
 # --- This checkout ---------------------------------------------------
 printf -- '-- This checkout --\n'
 if [[ -d "$script_dir/.git" ]]; then

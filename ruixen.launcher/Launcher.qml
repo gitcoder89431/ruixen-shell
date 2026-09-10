@@ -459,6 +459,12 @@ Item {
       // only spans the flat top edge, not the rounded corners -- its
       // own corners are square, and running it full-width would poke
       // past the card's own curve there.
+      //
+      // A horizontal gradient (fading to fully transparent at both
+      // ends), not a flat color -- a solid-color bar with hard-cut
+      // ends read as a drawn line/rule (direct report: "too thick...
+      // looks like a line on the top edge"), not a soft glint. Peak
+      // alpha also dropped 0.2 -> 0.14 at the same time.
       Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
@@ -467,7 +473,12 @@ Item {
         anchors.rightMargin: card.radius
         anchors.topMargin: 1
         height: 1
-        color: Qt.rgba(1, 1, 1, 0.2)
+        gradient: Gradient {
+          orientation: Gradient.Horizontal
+          GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0) }
+          GradientStop { position: 0.5; color: Qt.rgba(1, 1, 1, 0.14) }
+          GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
+        }
       }
 
       Rectangle {

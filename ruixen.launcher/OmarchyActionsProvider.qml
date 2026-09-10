@@ -88,6 +88,36 @@ Item {
   // -- one synthetic row here keeps it reachable from the palette too,
   // same real toggle command its own keybind already used. Not a third
   // provider, just one more entry alongside the real Omarchy ones.
+  //
+  // The 5 below are real Hyprland window-management binds too -- but
+  // unlike every Command above, they live ONLY in
+  // .../hypr/bindings/tiling.lua as physical keybinds, never in
+  // omarchy-menu.jsonc, so OmarchyActionsProvider's own actionable-entry
+  // scan never sees them. Direct request: "so raycast has this like
+  // window management commands... can we make them show up." A small
+  // curated 5 (not tiling.lua's full ~40 binds -- most of those are
+  // muscle-memory keys like resize-a-little/a-lot or workspace-move, not
+  // "search and fire once" commands): the two real fullscreen modes, the
+  // one plain toggle-tiled-fullscreen script, and the float/pin pair.
+  // Each `action` is the EXACT same command its own real keybind already
+  // runs (copied verbatim from tiling.lua, not reimplemented) --
+  // either a real standalone script, or `hyprctl dispatch '<lua expr>'`
+  // for the ones tiling.lua fires via a Lua dispatch call directly
+  // (confirmed live: this Hyprland build's own `dispatch` subcommand
+  // evaluates its argument as Lua -- `hyprctl dispatch 'hl.dsp...'` is
+  // the real, working shell equivalent of what the keybind itself runs,
+  // not a guess).
+  //
+  // Each also carries its own explicit `keybind` field rather than
+  // relying on keybindFor()'s own label-fuzzy-matching -- "Float & Pin"
+  // and "Toggle Floating/Tiling" are deliberately shorter, nicer labels
+  // than tiling.lua's own ("Pop window out (float & pin)", "Toggle
+  // window floating/tiling"), which don't satisfy keybindFor's own
+  // whole-word-PREFIX rule (see labelsFuzzyMatch's own header for why
+  // that rule is deliberately narrow). Hardcoding the real keybind text
+  // directly (already known, read straight from tiling.lua) sidesteps
+  // that mismatch entirely rather than contorting the shared label
+  // matcher for 2 rows.
   readonly property var syntheticEntries: ({
     "ruixen.settings": {
       // fa-gear (U+F013) -- matches ruixen.settingsbutton's own bar
@@ -107,6 +137,51 @@ Item {
       kind: "Application",
       aliases: ["settings", "preferences"],
       action: "omarchy-shell shell toggle ruixen.settings"
+    },
+    "window.fullscreen": {
+      icon: "", // fa-expand
+      label: "Full Screen",
+      breadcrumb: "Window Management",
+      kind: "Command",
+      aliases: ["maximize"],
+      keybind: "SUPER + F",
+      action: "hyprctl dispatch 'hl.dsp.window.fullscreen({mode=\"fullscreen\"})'"
+    },
+    "window.tiled-fullscreen": {
+      icon: "", // fa-th
+      label: "Tiled Full Screen",
+      breadcrumb: "Window Management",
+      kind: "Command",
+      aliases: [],
+      keybind: "SUPER + CTRL + F",
+      action: "omarchy-hyprland-window-tiled-fullscreen-toggle"
+    },
+    "window.full-width": {
+      icon: "", // fa-window-maximize
+      label: "Full Width",
+      breadcrumb: "Window Management",
+      kind: "Command",
+      aliases: [],
+      keybind: "SUPER + ALT + F",
+      action: "hyprctl dispatch 'hl.dsp.window.fullscreen({mode=\"maximized\"})'"
+    },
+    "window.float-and-pin": {
+      icon: "", // fa-thumbtack
+      label: "Float & Pin",
+      breadcrumb: "Window Management",
+      kind: "Command",
+      aliases: ["pop out", "pip"],
+      keybind: "SUPER + O",
+      action: "omarchy-hyprland-window-pop"
+    },
+    "window.toggle-floating": {
+      icon: "", // fa-window-restore
+      label: "Toggle Floating/Tiling",
+      breadcrumb: "Window Management",
+      kind: "Command",
+      aliases: ["float"],
+      keybind: "SUPER + T",
+      action: "hyprctl dispatch 'hl.dsp.window.float({action=\"toggle\"})'"
     }
   })
 
@@ -145,7 +220,7 @@ Item {
       kind: entry.kind || "Command",
       providerName: root.providerName,
       score: score,
-      keybind: root.keybindFor(entry.label || id),
+      keybind: entry.keybind || root.keybindFor(entry.label || id),
       action: { type: "shell", command: entry.action }
     }
   }

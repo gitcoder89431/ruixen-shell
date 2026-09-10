@@ -381,10 +381,33 @@ Item {
         radius: 12
         color: Qt.rgba(1, 1, 1, 0.06)
 
+        // fa-search (U+F002), same glyph as the Search Files fallback
+        // row's own icon. Positioned with the exact same leftMargin/
+        // width/centering as a result row's own icon Text below
+        // (row.qml's own `appIcon`/icon Text) -- searchBox and
+        // resultsList share the same leftMargin (8) off the card, and
+        // a ListView delegate's own x is that view's x with no further
+        // offset, so matching leftMargin+width here lines this glyph's
+        // column up with every row's icon column exactly, not just
+        // approximately.
+        Text {
+          id: searchIcon
+          anchors.left: parent.left
+          anchors.leftMargin: 12
+          anchors.verticalCenter: parent.verticalCenter
+          width: 22
+          horizontalAlignment: Text.AlignHCenter
+          text: ""
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 16
+        }
+
         TextInput {
           id: searchInput
           anchors.fill: parent
-          anchors.leftMargin: 16
+          // searchIcon's own leftMargin (12) + width (22) + a 10px gap.
+          anchors.leftMargin: 44
           anchors.rightMargin: 16
           verticalAlignment: TextInput.AlignVCenter
           color: root.textColor

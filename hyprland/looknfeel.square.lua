@@ -106,12 +106,14 @@ hl.config({
 
     -- Window blur -- lets transparent surfaces (e.g. Kitty's
     -- background_opacity, see ../kitty.conf) show a blurred desktop
-    -- behind them instead of plain see-through.
+    -- behind them instead of plain see-through. noise: see
+    -- looknfeel.ruixen.lua's own comment on this exact line -- needs
+    -- applying in both files, same as blur/shadow/animation profiles.
     blur = {
       enabled = true,
       size = 7,
       passes = 3,
-      noise = 0.08,
+      noise = 0.01,
     },
 
     -- Direct request ("i feel like this design could do drop shadow
@@ -143,6 +145,15 @@ hl.config({
       offset = { 0, 3 },
     },
   },
+})
+
+-- Frosted glass for ruixen.launcher's own card -- see looknfeel.ruixen.lua's
+-- own comment on this exact block for the full reasoning; needs applying in
+-- both files, same as blur/shadow/animation profiles above.
+hl.layer_rule({
+  match = { namespace = "ruixen-launcher" },
+  blur = true,
+  ignore_alpha = 0.4,
 })
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#animations

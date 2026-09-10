@@ -88,11 +88,21 @@ hl.config({
     -- Window blur -- lets transparent surfaces (e.g. Kitty's
     -- background_opacity, see ../kitty.conf) show a blurred desktop
     -- behind them instead of plain see-through.
+    --
+    -- noise: direct correction after ruixen.launcher's own frosted-
+    -- glass card ("the frost looks grainy... smooth black liquid glass
+    -- kinda thing") -- this file's own original 0.08 is well above
+    -- Hyprland's own stock default (~0.0117) and reads as visible film
+    -- grain once a surface is dark/translucent enough to actually show
+    -- the blur clearly, which nothing here did until the launcher's
+    -- card existed. Global, not launcher-specific (Hyprland has no
+    -- per-layer-rule noise override), so this also smooths Kitty's own
+    -- background blur -- a net improvement there too, not a tradeoff.
     blur = {
       enabled = true,
       size = 7,
       passes = 3,
-      noise = 0.08,
+      noise = 0.01,
     },
 
     -- Direct request ("i feel like this design could do drop shadow
@@ -124,6 +134,34 @@ hl.config({
       offset = { 0, 3 },
     },
   },
+})
+
+-- Frosted glass for ruixen.launcher's own card -- real Hyprland blur
+-- applied to just that one layer-shell surface (matched by its own
+-- WlrLayershell.namespace, "ruixen-launcher"), not a Quickshell effect
+-- (Quickshell can't blur what's behind its own window; only the
+-- compositor can). Ported from maajix/omarchy-spotlight's own README,
+-- which documents this exact technique for the same kind of overlay --
+-- confirmed real, not guessed: `hl.layer_rule` with `match.namespace`
+-- is Omarchy's own stock API, already used this same way in
+-- /usr/share/omarchy/default/hypr/apps/omarchy-shell.lua for
+-- "omarchy-bar"/"omarchy-menu" etc.
+--
+-- ignore_alpha keeps the blur scoped to the card itself: the panel
+-- surface is fullscreen but almost entirely transparent (only the
+-- centered card has real alpha), and without this threshold Hyprland
+-- would try to blur the whole empty surface too. 0.4 matches the
+-- reference plugin's own value; the launcher's own card sits well
+-- above that (see Launcher.qml's panelBackground alpha).
+--
+-- Deliberately NOT added to looknfeel.default.lua -- same "stock
+-- Omarchy-look mode stays untouched" convention as the blur config
+-- above. The card still renders (just plainly translucent, no frost)
+-- under that variant -- graceful, not broken.
+hl.layer_rule({
+  match = { namespace = "ruixen-launcher" },
+  blur = true,
+  ignore_alpha = 0.4,
 })
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#animations

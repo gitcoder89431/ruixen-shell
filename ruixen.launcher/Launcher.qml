@@ -945,6 +945,21 @@ Item {
         }
       }
 
+      // Marks the list/details boundary now that detailsPanel has no
+      // surface of its own to do that job -- centered in the 8px gutter
+      // between resultsList's own right edge and detailsPanel's left
+      // (resultsList.right already accounts for its own rightMargin,
+      // so anchoring off it directly here needs no extra math).
+      Rectangle {
+        visible: root.filesMode && !root.showNoResults
+        anchors.top: resultsList.top
+        anchors.bottom: resultsList.bottom
+        anchors.left: resultsList.right
+        anchors.leftMargin: 4
+        width: 1
+        color: root.glassBorder
+      }
+
       // Search Files' own metadata sidebar -- Raycast's real Search
       // Files splits the same way, list left / details right. Only
       // ever shows the CURRENTLY SELECTED file's info (fetched via
@@ -969,7 +984,13 @@ Item {
         // resultsList's own rightMargin) are subtracted.
         width: (parent.width - 24) * 0.6
         radius: 12
-        color: Qt.rgba(1, 1, 1, 0.04)
+        // Ghost -- no surface of its own (direct request: "ghost it on
+        // the spotlight"), just the card's own frosted background
+        // showing straight through, same treatment already given to
+        // the search input. A line separator (see detailsSeparator
+        // below) takes over marking the boundary with the results
+        // list, instead of a filled panel doing that job.
+        color: "transparent"
         clip: true
 
         readonly property var result: root.selectedResult

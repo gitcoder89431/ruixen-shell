@@ -1002,12 +1002,38 @@ Item {
             visible: !root.filesMode
             anchors.left: labelText.right
             anchors.leftMargin: 8
-            anchors.right: kindText.left
+            anchors.right: keybindText.visible ? keybindText.left : kindText.left
             anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
             elide: Text.ElideRight
             text: row.modelData.providerId === "app-search" ? row.modelData.category : row.modelData.breadcrumb
             color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+          }
+
+          // Existing Omarchy keybind hint, right after the subtitle --
+          // many Omarchy Actions/native Ruixen rows already have a real
+          // Hyprland keybind configured (this launcher's own suggestions
+          // list is itself built from that same catalog), so surfacing
+          // it here saves a trip to Omarchy's own keybindings menu.
+          // OmarchyActionsProvider's own keybindFor() already resolves
+          // personal-vs-stock priority (only one is ever shown -- no
+          // room for both, direct product decision), so this is a plain
+          // display of whatever resultFor() put on the row; App
+          // Search/Search Files rows simply never carry a keybind field.
+          Text {
+            id: keybindText
+            visible: !root.filesMode && !!row.modelData.keybind
+            anchors.right: kindText.left
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight
+            elide: Text.ElideRight
+            width: 90
+            text: row.modelData.keybind || ""
+            color: root.muted
+            opacity: 0.75
             font.family: root.fontFamily
             font.pixelSize: 10
           }

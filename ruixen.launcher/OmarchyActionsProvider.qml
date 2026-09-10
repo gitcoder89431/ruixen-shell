@@ -51,6 +51,25 @@ Item {
   property bool defaultSettled: false
   property bool userSettled: false
 
+  // Existing Omarchy keybind hints, shown after a row's own subtitle --
+  // see keybindFor() and OmarchyMenuParser.js's own "Keybind hints"
+  // section header for the full design. Both loaded ONCE at provider
+  // startup (keybindProc ~200ms measured live, bindingsFile is a plain
+  // local file read), never re-run per keystroke -- rebuildKeybindIndex()
+  // just re-merges whatever's currently known, same settle-independently
+  // pattern as defaultEntries/userEntries above.
+  property var stockKeybindEntries: []
+  property var personalKeybindEntries: []
+  property var keybindIndex: ({})
+
+  function rebuildKeybindIndex() {
+    root.keybindIndex = OmarchyMenuParser.buildKeybindIndex(root.stockKeybindEntries, root.personalKeybindEntries)
+  }
+
+  function keybindFor(label) {
+    return OmarchyMenuParser.keybindFor(label, root.keybindIndex, root.stockKeybindEntries)
+  }
+
   function rebuildEntries() {
     if (!root.defaultSettled || !root.userSettled) return
     root.allEntries = OmarchyMenuParser.mergeUserOverrides(root.defaultEntries, root.userEntries)
@@ -126,6 +145,7 @@ Item {
       kind: entry.kind || "Command",
       providerName: root.providerName,
       score: score,
+      keybind: root.keybindFor(entry.label || id),
       action: { type: "shell", command: entry.action }
     }
   }
@@ -240,8 +260,44 @@ Item {
     }
   }
 
+  // Real, stable, documented Omarchy command -- see OmarchyMenuParser.js's
+  // own "Keybind hints" header for why this and not hyprctl. Fire-and-
+  // forget at startup, same one-shot-Process convention as guardProc
+  // above; keybinds simply aren't shown until this lands (a few hundred
+  // ms), never blocks root.ready.
+  Process {
+    id: keybindProc
+    command: ["omarchy", "menu", "keybindings", "--print"]
+    running: false
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.stockKeybindEntries = OmarchyMenuParser.parseKeybindingsOutput(text)
+        root.rebuildKeybindIndex()
+      }
+    }
+  }
+
+  // The only reliable, text-parseable source of which keybind is the
+  // user's own PERSONAL override (see parsePersonalBindings's own
+  // comment). Missing entirely would be unusual on this setup but is
+  // handled the same "just an empty list" way userMenuFile's own
+  // onLoadFailed treats a missing user menu override file.
+  FileView {
+    id: bindingsFile
+    path: Quickshell.env("HOME") + "/.config/hypr/bindings.lua"
+    watchChanges: false
+    printErrors: false
+    onLoaded: {
+      root.personalKeybindEntries = OmarchyMenuParser.parsePersonalBindings(text())
+      root.rebuildKeybindIndex()
+    }
+  }
+
   Component.onCompleted: {
     menuFile.reload()
     userMenuFile.reload()
+    keybindProc.running = true
+    bindingsFile.reload()
   }
 }

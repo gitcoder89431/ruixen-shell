@@ -138,4 +138,54 @@ check("scoreEntry: no match at all scores negative (excluded by the caller)",
 check("scoreEntry: empty query scores negative (nothing to rank against)",
   M.scoreEntry({ label: "Lock" }, ""), -1);
 
+// ---- Keybind hints -----------------------------------------------------
+
+check("parseKeybindingsOutput: parses '<keybind>→<label>' lines, trims padding",
+  M.parseKeybindingsOutput("SUPER + K                           → Keybindings\nSUPER CTRL + L                      → Lock system"),
+  [{ keybind: "SUPER + K", label: "Keybindings" }, { keybind: "SUPER CTRL + L", label: "Lock system" }]);
+check("parseKeybindingsOutput: a line with no arrow is skipped",
+  M.parseKeybindingsOutput("not a real line\nSUPER + Z → Screenshot"), [{ keybind: "SUPER + Z", label: "Screenshot" }]);
+check("parseKeybindingsOutput: blank input yields an empty list", M.parseKeybindingsOutput(""), []);
+
+check("parsePersonalBindings: parses labeled o.bind() calls",
+  M.parsePersonalBindings('o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")\n' +
+    'o.bind("SUPER + SHIFT + Z", "Screenshot", "omarchy-capture-screenshot")'),
+  [{ keybind: "SUPER + R", label: "Ruixen Launcher" }, { keybind: "SUPER + SHIFT + Z", label: "Screenshot" }]);
+check("parsePersonalBindings: an unlabeled bind (nil, not a quoted string) is skipped",
+  M.parsePersonalBindings('o.bind("SUPER + Q", nil, "some-command")'), []);
+check("parsePersonalBindings: no real o.bind() calls yields an empty list",
+  M.parsePersonalBindings("-- o.bind(\"X\", \"Y\", \"Z\") commented out"), []);
+
+check("formatKeybind: collapses ' + ' spacing to a bare '+'",
+  M.formatKeybind("SUPER + SHIFT + Z"), "SUPER+SHIFT+Z");
+check("formatKeybind: empty input stays empty", M.formatKeybind(""), "");
+
+check("labelsFuzzyMatch: exact match (case-insensitive)", M.labelsFuzzyMatch("Lock", "lock"), true);
+check("labelsFuzzyMatch: a shorter label matches as a whole word inside a longer one",
+  M.labelsFuzzyMatch("Lock", "Lock system") && M.labelsFuzzyMatch("Theme", "Theme menu"), true);
+check("labelsFuzzyMatch: a substring that isn't a whole word does NOT match",
+  M.labelsFuzzyMatch("Lock", "Unlock") || M.labelsFuzzyMatch("Lock", "Clock"), false);
+check("labelsFuzzyMatch: unrelated labels don't match", M.labelsFuzzyMatch("Theme", "Wallpaper"), false);
+
+check("buildKeybindIndex: a personal entry wins over a stock entry sharing the same exact label",
+  M.buildKeybindIndex(
+    [{ keybind: "SUPER + SHIFT + S", label: "Screenshot" }],
+    [{ keybind: "SUPER + SHIFT + Z", label: "Screenshot" }]
+  ),
+  { screenshot: "SUPER+SHIFT+Z" });
+check("buildKeybindIndex: a stock-only label is still indexed",
+  M.buildKeybindIndex([{ keybind: "SUPER + K", label: "Keybindings" }], []),
+  { keybindings: "SUPER+K" });
+check("buildKeybindIndex: no entries at all yields an empty index",
+  M.buildKeybindIndex([], []), {});
+
+check("keybindFor: exact index hit",
+  M.keybindFor("Screenshot", { screenshot: "SUPER+SHIFT+Z" }, []), "SUPER+SHIFT+Z");
+check("keybindFor: falls back to a fuzzy scan of the stock list when the exact index misses",
+  M.keybindFor("Lock", {}, [{ keybind: "SUPER CTRL + L", label: "Lock system" }]), "SUPER CTRL+L");
+check("keybindFor: no match anywhere returns an empty string, not undefined",
+  M.keybindFor("Nonexistent Thing", {}, [{ keybind: "SUPER + K", label: "Keybindings" }]), "");
+check("keybindFor: empty label returns an empty string",
+  M.keybindFor("", {}, []), "");
+
 summary();

@@ -202,3 +202,125 @@ function scoreEntry(entry, query) {
 
   return -1
 }
+
+// ---- Keybind hints --------------------------------------------------------
+//
+// Many Omarchy Actions/Applications rows already have a real Hyprland
+// keybind configured -- surfacing it after the row's own subtitle saves a
+// trip to Omarchy's own keybindings menu. `omarchy menu keybindings
+// --print` is the data source: a real, stable, documented Omarchy command
+// (confirmed live, not an internal implementation detail) that already
+// merges the packaged default binds AND the user's own personal
+// ~/.config/hypr/bindings.lua customizations into one flat list -- one
+// process at provider startup (~200ms measured live), never re-run per
+// keystroke.
+
+// "<keybind, space-padded>→<label>" per line (confirmed live: 227 lines
+// on a real machine) -- split on the arrow, trim both sides.
+function parseKeybindingsOutput(stdout) {
+  var out = []
+  var lines = String(stdout || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    var arrow = lines[i].indexOf("→")
+    if (arrow === -1) continue
+    var keybind = lines[i].substring(0, arrow).trim()
+    var label = lines[i].substring(arrow + 1).trim()
+    if (keybind && label) out.push({ keybind: keybind, label: label })
+  }
+  return out
+}
+
+// Parses the user's own real ~/.config/hypr/bindings.lua for labeled
+// o.bind("<keybind>", "<label>", "<command>") calls. Strips Lua's own
+// "--" line comments first -- this file has real commented-out o.bind()
+// lines on this dev machine (confirmed live: only 3 of several o.bind()
+// calls are actually uncommented), which a bare regex scan would
+// otherwise pick up as real bindings. An unlabeled bind (its label
+// argument is the bare word `nil`, not a quoted string) can't be matched
+// by label at all, so it's skipped rather than guessed at. This is the
+// ONLY reliable, text-parseable source of which keybind is the user's
+// own PERSONAL override -- confirmed live that `hyprctl binds -j` routes
+// every real bind through an opaque internal __lua dispatcher with
+// numeric args, not usable for this.
+function parsePersonalBindings(luaSource) {
+  var out = []
+  var stripped = String(luaSource || "").replace(/--.*$/gm, "")
+  var re = /o\.bind\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,/g
+  var m
+  while ((m = re.exec(stripped)) !== null) {
+    out.push({ keybind: m[1].trim(), label: m[2].trim() })
+  }
+  return out
+}
+
+// "SUPER + SHIFT + Z" -> "SUPER+SHIFT+Z" -- same information without the
+// column-padding-friendly spacing `omarchy menu keybindings --print`'s
+// own layout needs, which reads as wasted width in a single narrow
+// row-trailing hint.
+function formatKeybind(keybind) {
+  return String(keybind || "").replace(/\s*\+\s*/g, "+")
+}
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+// A menu entry's own label and the keybindings list's own label for the
+// SAME action are often not identical (confirmed live: "Lock" vs "Lock
+// system", "Theme" vs "Theme menu") -- exact equality misses real
+// matches. A whole-word containment check in either direction catches
+// both without also matching unrelated labels that merely share a
+// substring (e.g. "Lock" must not match "Unlock" or "Clock").
+function labelsFuzzyMatch(a, b) {
+  var la = String(a || "").toLowerCase().trim()
+  var lb = String(b || "").toLowerCase().trim()
+  if (!la || !lb) return false
+  if (la === lb) return true
+  if (lb.length > la.length && new RegExp("\\b" + escapeRegExp(la) + "\\b").test(lb)) return true
+  if (la.length > lb.length && new RegExp("\\b" + escapeRegExp(lb) + "\\b").test(la)) return true
+  return false
+}
+
+// {labelLower: keybind} exact-match lookup -- personal entries are added
+// FIRST and win outright over a stock entry sharing the same exact label
+// (direct product decision: when both a personal and a stock/default
+// keybind exist for the same action, show ONLY the personal one -- "we
+// def dont have space for both"). Real example on this machine: the
+// packaged default binds Screenshot to one combo, the user's own
+// bindings.lua rebinds it to another under the SAME label "Screenshot" --
+// this index resolves that to the personal one. Fuzzy (non-exact) label
+// matches fall through to keybindFor's own scan of stockEntries below,
+// since the personal list here is small and hand-written to match
+// exactly, not worth fuzzy-matching itself.
+function buildKeybindIndex(stockEntries, personalEntries) {
+  var index = {}
+  var stock = Array.isArray(stockEntries) ? stockEntries : []
+  var personal = Array.isArray(personalEntries) ? personalEntries : []
+  for (var i = 0; i < personal.length; i++) {
+    var key = personal[i].label.toLowerCase()
+    if (!index[key]) index[key] = formatKeybind(personal[i].keybind)
+  }
+  for (var j = 0; j < stock.length; j++) {
+    var key2 = stock[j].label.toLowerCase()
+    if (!index[key2]) index[key2] = formatKeybind(stock[j].keybind)
+  }
+  return index
+}
+
+// Given an entry's own label: exact lookup in `index` first (covers
+// every personal override and any stock label that matched exactly),
+// falling back to a fuzzy scan of the raw stock list only when nothing
+// matched exactly. Returns "" (no hint) rather than undefined/null --
+// Launcher.qml's own row delegate treats a falsy keybind as "don't show
+// this element" either way, but a stable empty string keeps every
+// resultFor() row shape identical.
+function keybindFor(label, index, stockEntries) {
+  var key = String(label || "").toLowerCase().trim()
+  if (!key) return ""
+  if (index && index[key]) return index[key]
+  var stock = Array.isArray(stockEntries) ? stockEntries : []
+  for (var i = 0; i < stock.length; i++) {
+    if (labelsFuzzyMatch(label, stock[i].label)) return formatKeybind(stock[i].keybind)
+  }
+  return ""
+}

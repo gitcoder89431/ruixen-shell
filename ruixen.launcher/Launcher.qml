@@ -1036,6 +1036,15 @@ Item {
         readonly property bool isImagePreview: !!detailsPanel.details && !!detailsPanel.result &&
           ["PNG Image", "JPEG Image", "GIF Image", "WebP Image", "Bitmap Image", "SVG Image"].indexOf(detailsPanel.details.type) !== -1
 
+        // Read straight off the already-loaded thumbnail Image itself
+        // (sourceSize reports the source file's own natural pixel
+        // dimensions once decoded) -- no external tool needed at all,
+        // unlike video duration below which has nothing already loaded
+        // to read this from.
+        readonly property string imageDimensions: (detailsPanel.isImagePreview && thumbnailImage.status === Image.Ready && thumbnailImage.sourceSize.width > 0)
+          ? (thumbnailImage.sourceSize.width + " × " + thumbnailImage.sourceSize.height)
+          : ""
+
         Column {
           anchors.top: parent.top
           anchors.left: parent.left
@@ -1137,14 +1146,33 @@ Item {
           }
 
           Repeater {
-            model: detailsPanel.details ? [
-              { label: "Name", value: detailsPanel.result ? detailsPanel.result.label : "" },
-              { label: "Type", value: detailsPanel.details.type },
-              { label: "Size", value: root.formatSize(detailsPanel.details.size) },
-              { label: "Where", value: detailsPanel.result ? detailsPanel.result.breadcrumb : "" },
-              { label: "Modified", value: root.formatDate(detailsPanel.details.mtime) },
-              { label: "Permissions", value: detailsPanel.details.permissions }
-            ] : []
+            // Dimensions/Duration/Created only appear when actually
+            // available -- an IIFE (same pattern as sourceFilterButton's
+            // own currentLabel above) rather than a flat literal, since
+            // "insert this field only if truthy" isn't expressible as a
+            // single ternary once there are three independent optional
+            // fields instead of one.
+            model: detailsPanel.details ? (function() {
+              var out = [
+                { label: "Name", value: detailsPanel.result ? detailsPanel.result.label : "" },
+                { label: "Type", value: detailsPanel.details.type }
+              ]
+              // Mutually exclusive in practice (isImagePreview's own
+              // type list and videoExtensions never overlap), but
+              // checked independently rather than else-if -- neither
+              // depends on the other being absent.
+              if (detailsPanel.imageDimensions) out.push({ label: "Dimensions", value: detailsPanel.imageDimensions })
+              if (fileSearchProvider.videoDuration) out.push({ label: "Duration", value: fileSearchProvider.videoDuration })
+              out.push({ label: "Size", value: root.formatSize(detailsPanel.details.size) })
+              out.push({ label: "Where", value: detailsPanel.result ? detailsPanel.result.breadcrumb : "" })
+              // 0 means this filesystem doesn't track birth time (see
+              // FileSearchProvider's own loadDetails comment) -- omit
+              // rather than show a bogus 1970 date.
+              if (detailsPanel.details.created) out.push({ label: "Created", value: root.formatDate(detailsPanel.details.created) })
+              out.push({ label: "Modified", value: root.formatDate(detailsPanel.details.mtime) })
+              out.push({ label: "Permissions", value: detailsPanel.details.permissions })
+              return out
+            })() : []
 
             // One row per field -- label left, value right, elided
             // rather than wrapped (a "Where" path can be long; a second

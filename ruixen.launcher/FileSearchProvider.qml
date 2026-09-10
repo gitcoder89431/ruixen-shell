@@ -339,12 +339,43 @@ Item {
     return root.extKindMap[ext] || (ext.toUpperCase() + " File")
   }
 
+  // Video formats get a duration lookup alongside the stat() call below
+  // (see ffprobeProc) -- ffprobe confirmed present on this machine as a
+  // dependency of core Omarchy-adjacent packages (mpv, gpu-screen-
+  // recorder, obs-studio, qt6-multimedia-ffmpeg), not something
+  // specific to this dev setup. Checked by extension directly rather
+  // than waiting on stat's own fileKindFor() result, so both run in
+  // parallel instead of one gating the other.
+  readonly property var videoExtensions: ["mp4", "mkv", "webm", "mov", "avi"]
+  function isVideoPath(path) {
+    var dot = path.lastIndexOf(".")
+    if (dot <= 0) return false
+    return root.videoExtensions.indexOf(path.substring(dot + 1).toLowerCase()) !== -1
+  }
+
+  property string pendingVideoPath: ""
+  property string videoDuration: ""
+
   function loadDetails(path) {
     root.pendingDetailsPath = path
     root.selectedDetails = null
+    root.pendingVideoPath = ""
+    root.videoDuration = ""
     if (!path) return
-    statProc.command = ["stat", "--format=%s|%Y|%F|%A|%n", "--", path]
+    // %W added for a "Created" field -- confirmed live this returns a
+    // real, non-zero birth time on this machine's own btrfs root, not
+    // just the "0 = unsupported" fallback GNU stat's own docs warn
+    // about for filesystems that don't track it. Field order shifted
+    // (%W now sits between %Y and %F), so onStreamFinished's own
+    // parts.slice() index for reassembling a pathological "|"-
+    // containing filename moves from 4 to 5 accordingly.
+    statProc.command = ["stat", "--format=%s|%Y|%W|%F|%A|%n", "--", path]
     statProc.running = true
+    if (root.isVideoPath(path)) {
+      root.pendingVideoPath = path
+      ffprobeProc.command = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", "--", path]
+      ffprobeProc.running = true
+    }
   }
 
   Process {
@@ -353,11 +384,11 @@ Item {
       waitForEnd: true
       onStreamFinished: {
         var parts = text.trim().split("|")
-        if (parts.length < 5) return
+        if (parts.length < 6) return
         // %n (the path) is last and may itself contain "|" in a
         // pathological filename -- rejoin everything after the first
-        // 4 fields rather than assuming exactly 5 parts.
-        var path = parts.slice(4).join("|")
+        // 5 fields rather than assuming exactly 6 parts.
+        var path = parts.slice(5).join("|")
         // A slower stat() for a path the user has already navigated
         // away from -- drop it rather than showing stale details for
         // the wrong row (same staleness guard runSearch() already
@@ -366,9 +397,34 @@ Item {
         root.selectedDetails = {
           size: parseInt(parts[0], 10) || 0,
           mtime: parseInt(parts[1], 10) || 0,
-          type: root.fileKindFor(path, parts[2]),
-          permissions: parts[3]
+          // 0 means this filesystem doesn't track birth time at all --
+          // Launcher.qml's own Repeater model only shows "Created" when
+          // this is truthy, rather than showing a bogus 1970 date.
+          created: parseInt(parts[2], 10) || 0,
+          type: root.fileKindFor(path, parts[3]),
+          permissions: parts[4]
         }
+      }
+    }
+  }
+
+  // Duration for video files -- see isVideoPath() above for why this is
+  // a separate, parallel lookup rather than gated behind statProc's own
+  // result.
+  Process {
+    id: ffprobeProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (root.pendingVideoPath === "" || root.pendingVideoPath !== root.pendingDetailsPath) return
+        var seconds = parseFloat(text.trim())
+        if (isNaN(seconds) || seconds <= 0) return
+        var total = Math.round(seconds)
+        var h = Math.floor(total / 3600)
+        var m = Math.floor((total % 3600) / 60)
+        var s = total % 60
+        var pad = function(n) { return n < 10 ? "0" + n : "" + n }
+        root.videoDuration = h > 0 ? (h + ":" + pad(m) + ":" + pad(s)) : (m + ":" + pad(s))
       }
     }
   }

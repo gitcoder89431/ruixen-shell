@@ -56,11 +56,20 @@ Item {
   // WlrLayershell.namespace, see hyprland/looknfeel.ruixen.lua) has
   // something to actually show through, at 0.4 alpha the panel's own
   // `ignore_alpha` layer-rule threshold would skip blurring it entirely.
-  // A fixed dark rgba, not Color.menu.background at reduced alpha (the
-  // maajix/omarchy-spotlight reference this was ported from uses the
-  // latter) -- direct request: darker and NOT theme-token-influenced,
-  // same reasoning as panelBackground's own hardcoded black above.
-  readonly property color glassBackground: Qt.rgba(0, 0, 0, 0.68)
+  //
+  // Black tinted with a small amount of the active theme's own accent
+  // (Qt.tint blends tintColor over baseColor weighted by the tint's own
+  // alpha -- 0.12 here, so the result is still overwhelmingly black,
+  // not a lighter theme-colored surface) -- direct follow-up after a
+  // reviewer asked for "more of the theme tint... but also has
+  // readability". Black stays dominant on purpose: a full theme
+  // background token (what the maajix/omarchy-spotlight reference this
+  // was ported from actually uses) was already tried and explicitly
+  // rejected earlier as too theme-token-influenced/light; this is a
+  // hint of theme identity on top of that same hardcoded-black
+  // foundation, not a reversal of it.
+  readonly property color glassTint: Qt.tint("#000000", Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.12))
+  readonly property color glassBackground: Qt.rgba(glassTint.r, glassTint.g, glassTint.b, 0.68)
   readonly property color glassBorder: Qt.rgba(1, 1, 1, 0.08)
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"

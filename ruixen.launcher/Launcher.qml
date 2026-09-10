@@ -1011,7 +1011,19 @@ Item {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.margins: 24
+          // Top margin separated out from the rest (was 24 on all
+          // sides) -- direct report: "the panels are kinda unbalanced,
+          // the preview fixed size is taking a bit too much space...
+          // make sure the thumbnail height starts where the left panel
+          // text Search Files is". resultsList's own section header
+          // sits flush at its own top (no internal inset beyond the
+          // 8px both panels already share via their own anchors.top),
+          // so 8 here lines the preview area's own top up with it
+          // instead of starting 24px further down. Left/right/bottom
+          // padding stays 24 for the panel's own internal breathing room.
+          anchors.topMargin: 8
+          anchors.leftMargin: 24
+          anchors.rightMargin: 24
           spacing: 18
           visible: detailsPanel.result !== null
 

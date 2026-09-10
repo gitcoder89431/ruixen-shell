@@ -356,11 +356,28 @@ Item {
   property string pendingVideoPath: ""
   property string videoDuration: ""
 
+  // Video poster (a real extracted still frame, not a generic icon) --
+  // exact same technique ruixen.notch's own wallpaper picker already
+  // uses for its .mp4 wallpaper tiles (list-wallpapers.sh / Service.qml,
+  // both independently duplicate this same three-step recipe rather
+  // than sharing it, "so both sides agree on the same cache file with
+  // neither one telling the other its path" -- same reasoning applies
+  // here, a third independent call site). Cached at the SAME path
+  // ruixen.notch uses (keyed only by an md5 of the file path, not which
+  // plugin asked for it), so a video already thumbnailed once in the
+  // wallpaper picker loads here instantly with no re-encode, and vice
+  // versa.
+  readonly property string posterCacheDir: (root.homeDir || "") + "/.cache/ruixen/wallpaper-posters"
+  property string pendingVideoPosterPath: ""
+  property string videoPosterPath: ""
+
   function loadDetails(path) {
     root.pendingDetailsPath = path
     root.selectedDetails = null
     root.pendingVideoPath = ""
     root.videoDuration = ""
+    root.pendingVideoPosterPath = ""
+    root.videoPosterPath = ""
     if (!path) return
     // %W added for a "Created" field -- confirmed live this returns a
     // real, non-zero birth time on this machine's own btrfs root, not
@@ -375,6 +392,20 @@ Item {
       root.pendingVideoPath = path
       ffprobeProc.command = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", "--", path]
       ffprobeProc.running = true
+
+      root.pendingVideoPosterPath = path
+      // Regenerate only if missing or the source is newer (-nt), same
+      // staleness check as ruixen.notch's own copy -- replacing a video
+      // at the same path invalidates the cache in place, nothing to
+      // prune. Prints the poster path ONLY if it actually exists after
+      // ffmpeg runs -- a corrupt/undecodable video just produces no
+      // output at all (onStreamFinished below then leaves
+      // videoPosterPath empty, same graceful "no thumbnail" fallback
+      // this plugin already uses everywhere else), never a crash.
+      posterProc.command = ["bash", "-c",
+        'mkdir -p "$1" && hash=$(printf "%s" "$2" | md5sum | cut -d" " -f1) && poster="$1/$hash.jpg" && if [ ! -f "$poster" ] || [ "$2" -nt "$poster" ]; then ffmpeg -y -loglevel quiet -i "$2" -vframes 1 -q:v 3 "$poster" 2>/dev/null; fi && if [ -f "$poster" ]; then printf "%s" "$poster"; fi',
+        "--", root.posterCacheDir, path]
+      posterProc.running = true
     }
   }
 
@@ -425,6 +456,18 @@ Item {
         var s = total % 60
         var pad = function(n) { return n < 10 ? "0" + n : "" + n }
         root.videoDuration = h > 0 ? (h + ":" + pad(m) + ":" + pad(s)) : (m + ":" + pad(s))
+      }
+    }
+  }
+
+  Process {
+    id: posterProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (root.pendingVideoPosterPath === "" || root.pendingVideoPosterPath !== root.pendingDetailsPath) return
+        var poster = text.trim()
+        if (poster) root.videoPosterPath = poster
       }
     }
   }

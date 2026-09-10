@@ -1036,6 +1036,21 @@ Item {
         readonly property bool isImagePreview: !!detailsPanel.details && !!detailsPanel.result &&
           ["PNG Image", "JPEG Image", "GIF Image", "WebP Image", "Bitmap Image", "SVG Image"].indexOf(detailsPanel.details.type) !== -1
 
+        // Video gets a real extracted-frame poster instead of the
+        // generic glyph, same as an image gets its own file directly --
+        // see FileSearchProvider's own loadDetails/posterProc (the exact
+        // ffmpeg -vframes 1 technique ruixen.notch's wallpaper picker
+        // already uses for its own .mp4 tiles, sharing that same disk
+        // cache). Poster generation is async and can still be running
+        // (or have failed -- a corrupt video) when this is first
+        // checked, so it's gated on videoPosterPath actually being
+        // populated, not just "this is a video file".
+        readonly property bool isVideoPreview: !!detailsPanel.details && detailsPanel.details.type === "Video" && fileSearchProvider.videoPosterPath !== ""
+        readonly property bool hasThumbnail: detailsPanel.isImagePreview || detailsPanel.isVideoPreview
+        readonly property string thumbnailSource: detailsPanel.isImagePreview && detailsPanel.result ? ("file://" + detailsPanel.result.action.path)
+          : detailsPanel.isVideoPreview ? ("file://" + fileSearchProvider.videoPosterPath)
+          : ""
+
         // Read straight off the already-loaded thumbnail Image itself
         // (sourceSize reports the source file's own natural pixel
         // dimensions once decoded) -- no external tool needed at all,
@@ -1107,12 +1122,12 @@ Item {
             // fills this rect edge-to-edge.
             Item {
               anchors.fill: parent
-              visible: detailsPanel.isImagePreview
+              visible: detailsPanel.hasThumbnail
 
               Image {
                 id: thumbnailImage
                 anchors.fill: parent
-                source: detailsPanel.isImagePreview && detailsPanel.result ? "file://" + detailsPanel.result.action.path : ""
+                source: detailsPanel.thumbnailSource
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: false
@@ -1141,7 +1156,7 @@ Item {
 
             Text {
               anchors.centerIn: parent
-              visible: !detailsPanel.isImagePreview
+              visible: !detailsPanel.hasThumbnail
               text: detailsPanel.result ? detailsPanel.result.icon : ""
               // Same folder-only accent as the list row's own icon.
               color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor

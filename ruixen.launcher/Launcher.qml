@@ -680,26 +680,47 @@ Item {
             width: parent.width
             height: 210
 
-            // clip + radius on the container, not the Image itself --
-            // QML Image has no radius of its own. PreserveAspectCrop
+            // clip on a Rectangle only clips to its plain bounding box --
+            // `radius` never participates in child clipping, confirmed
+            // live (the first attempt still rendered square corners). A
+            // real mask is what actually rounds a child Image's corners
+            // -- same MultiEffect technique already used for the
+            // notification thumbnail in ruixen.notch/DashboardContent.qml
+            // (source Image + an invisible layered mask Rectangle + the
+            // MultiEffect that composites them). PreserveAspectCrop
             // (rather than the Fit used elsewhere) so the image always
-            // fills this rect edge-to-edge -- with Fit's letterboxing,
-            // rounding the container's corners would round empty
-            // transparent space instead of the image.
-            Rectangle {
+            // fills this rect edge-to-edge.
+            Item {
               anchors.fill: parent
               visible: detailsPanel.isImagePreview
-              radius: 12
-              clip: true
-              color: "transparent"
 
               Image {
+                id: thumbnailImage
                 anchors.fill: parent
                 source: detailsPanel.isImagePreview && detailsPanel.result ? "file://" + detailsPanel.result.action.path : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: false
                 smooth: true
+                visible: false
+              }
+
+              Rectangle {
+                id: thumbnailMask
+                anchors.fill: parent
+                radius: 12
+                color: "#ffffff"
+                visible: false
+                layer.enabled: true
+              }
+
+              MultiEffect {
+                anchors.fill: parent
+                source: thumbnailImage
+                maskEnabled: true
+                maskSource: thumbnailMask
+                maskThresholdMin: 0.5
+                maskThresholdMax: 1.0
               }
             }
 

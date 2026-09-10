@@ -79,6 +79,16 @@ Item {
   readonly property int visibleRowCount: 10
   readonly property int rowHeight: 44
   readonly property int headerHeight: 26
+  // "Scrolloff" -- direct request: keyboard nav used to scroll the bare
+  // minimum to keep the selected row in view (Qt's own ListView.Contain
+  // mode), so it could ride flush against the very top/bottom edge with
+  // zero look-ahead until the NEXT press finally triggered a scroll.
+  // This many rows of context stay visible ahead of/behind the
+  // selection instead, the same "scrolloff" idea vim's own scrolloff
+  // setting names -- see onSelectedIndexChanged below for how it's
+  // applied with plain positionViewAtIndex calls (no custom Flickable
+  // math needed).
+  readonly property int scrollOff: 2
   // Shared by sourceFilterButton (the closed control) and sourceFilterList
   // (the opened menu) -- same width on both so they read as one dropdown
   // widget rather than a button with a mismatched panel underneath.
@@ -151,7 +161,22 @@ Item {
     // doesn't guarantee.
     Qt.callLater(function() { resultsList.positionViewAtBeginning() })
   }
-  onSelectedIndexChanged: resultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
+  // Contain-ing a point scrollOff rows AHEAD of (and behind) the actual
+  // selection first means the list scrolls a beat early, revealing that
+  // many rows of what's coming before the selection itself would ever
+  // reach the edge -- Contain only ever scrolls the minimum distance
+  // needed, so this can't overshoot, and clamping both probes to the
+  // real result range means the true start/end of the list still comes
+  // flush against the edge with no artificial padding beyond it. The
+  // plain selectedIndex call last is then always a no-op (already
+  // contained by the wider of the other two), kept only so the very
+  // first selection on a fresh query is still handled the same way.
+  onSelectedIndexChanged: {
+    var lastIndex = root.results.length - 1
+    resultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
+    resultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
+    resultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
+  }
 
   AppLibrary { id: appLibrary }
   OmarchyActionsProvider { id: omarchyActionsProvider }

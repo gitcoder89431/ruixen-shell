@@ -1082,6 +1082,18 @@ Item {
             }
           }
 
+          // Same muted/uppercase/bold section-header style as the
+          // results list's own section headers above.
+          Text {
+            visible: detailsPanel.details !== null
+            text: "Metadata"
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            font.capitalization: Font.AllUppercase
+            font.bold: true
+          }
+
           Repeater {
             model: detailsPanel.details ? [
               { label: "Name", value: detailsPanel.result ? detailsPanel.result.label : "" },

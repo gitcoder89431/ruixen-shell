@@ -1045,10 +1045,21 @@ Item {
           ? (thumbnailImage.sourceSize.width + " × " + thumbnailImage.sourceSize.height)
           : ""
 
-        Column {
+        // Scrollable -- direct report: with Created/Dimensions/Duration
+        // now able to add up to 3 extra rows on top of the fixed base
+        // set, the metadata list can overflow detailsPanel's own fixed
+        // height for some files, and detailsPanel's own clip:true was
+        // just silently cutting those rows off with no way to reach
+        // them. Flickable gives real mouse-wheel scrolling for free
+        // (built into QtQuick, same as resultsList's own ListView, a
+        // Flickable subclass, already has) -- no extra wheel-handling
+        // code needed.
+        Flickable {
+          id: detailsFlick
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
+          anchors.bottom: parent.bottom
           // Top margin separated out from the rest (was 24 on all
           // sides) -- direct report: "the panels are kinda unbalanced,
           // the preview fixed size is taking a bit too much space...
@@ -1063,6 +1074,14 @@ Item {
           anchors.topMargin: 0
           anchors.leftMargin: 24
           anchors.rightMargin: 24
+          clip: true
+          contentWidth: width
+          contentHeight: detailsColumn.height
+          boundsBehavior: Flickable.StopAtBounds
+
+        Column {
+          id: detailsColumn
+          width: parent.width
           spacing: 18
           visible: detailsPanel.result !== null
 
@@ -1239,6 +1258,7 @@ Item {
             font.family: root.fontFamily
             font.pixelSize: 11
           }
+        }
         }
       }
 

@@ -17,10 +17,16 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   Omarchy's own notification service, adding read/unread tracking and a
   deeper backlog on top of it), and a Kanban board (see below), expanding
   from the bar.
-- **`ruixen.launcher`** — a Raycast/Spotlight-style command palette:
+- **`ruixen.launcher`** — a Raycast/Spotlight-style command palette in a
+  frosted-glass card (real Hyprland compositor blur, not a fake overlay):
   fuzzy-searches Omarchy menu actions and installed apps from one overlay,
-  plus a dedicated Search Files mode (auto-discovers mounted drives too —
-  an internal HDD, a USB stick — searchable individually or all at once).
+  plus a dedicated Search Files mode. Searches both filenames and file
+  *contents* (ripgrep-powered, ranked together — content matches fill in
+  around real filename hits rather than needing a separate mode), across
+  every auto-discovered drive (an internal HDD, a USB stick) individually
+  or all at once. Selecting a file shows a real preview — an extracted
+  video frame, an image thumbnail, or a text/markdown/JSON snippet — plus
+  metadata (type, dimensions/duration, created/modified, permissions).
 - **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
   and notch together visually.
 - **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,

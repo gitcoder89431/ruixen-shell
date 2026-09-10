@@ -137,6 +137,16 @@ check("scoreEntry: no match at all scores negative (excluded by the caller)",
   M.scoreEntry({ label: "Lock" }, "xyz"), -1);
 check("scoreEntry: empty query scores negative (nothing to rank against)",
   M.scoreEntry({ label: "Lock" }, ""), -1);
+check("scoreEntry: a query matching only the breadcrumb/subtitle still scores (positive) -- "
+  + "real request: typing 'window management' should surface Full Screen/Float & Pin/etc",
+  M.scoreEntry({ label: "Full Screen" }, "window management", "Window Management") > 0, true);
+check("scoreEntry: a breadcrumb-only match scores below every real label/alias match",
+  M.scoreEntry({ label: "Full Screen" }, "window management", "Window Management")
+    < M.scoreEntry({ label: "Setup", aliases: ["settings"] }, "settings"), true);
+check("scoreEntry: no breadcrumb match either still scores negative",
+  M.scoreEntry({ label: "Full Screen" }, "xyz", "Window Management"), -1);
+check("scoreEntry: a missing breadcrumb argument doesn't throw (still label/alias-only, same as before)",
+  M.scoreEntry({ label: "Lock" }, "lock"), 10000);
 
 // ---- Keybind hints -----------------------------------------------------
 

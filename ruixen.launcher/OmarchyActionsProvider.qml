@@ -210,13 +210,17 @@ Item {
   // opens a panel, not a command) -- see Launcher.qml's own row
   // delegate for how breadcrumb/kind combine ("Remove › Development ·
   // Command").
+  function breadcrumbFor(id, entry) {
+    return entry.breadcrumb || OmarchyMenuParser.breadcrumbFor(root.allEntries, id)
+  }
+
   function resultFor(id, entry, score) {
     return {
       id: "omarchy:" + id,
       providerId: "omarchy-actions",
       icon: entry.icon || "",
       label: entry.label || id,
-      breadcrumb: entry.breadcrumb || OmarchyMenuParser.breadcrumbFor(root.allEntries, id),
+      breadcrumb: root.breadcrumbFor(id, entry),
       kind: entry.kind || "Command",
       providerName: root.providerName,
       score: score,
@@ -232,13 +236,13 @@ Item {
     for (var id in root.actionable) {
       var entry = root.actionable[id]
       if (!OmarchyMenuParser.isVisible(id, entry, root.guardResults)) continue
-      var score = OmarchyMenuParser.scoreEntry(entry, q)
+      var score = OmarchyMenuParser.scoreEntry(entry, q, root.breadcrumbFor(id, entry))
       if (score < 0) continue
       out.push(root.resultFor(id, entry, score))
     }
     for (var sid in root.syntheticEntries) {
       var sentry = root.syntheticEntries[sid]
-      var sscore = OmarchyMenuParser.scoreEntry(sentry, q)
+      var sscore = OmarchyMenuParser.scoreEntry(sentry, q, root.breadcrumbFor(sid, sentry))
       if (sscore < 0) continue
       out.push(root.resultFor(sid, sentry, sscore))
     }

@@ -181,7 +181,19 @@ function isVisible(id, entry, guardResults) {
 // sort (byScoreDesc) is meaningful across both providers. Simpler than
 // AppSearch.js's own algorithm (no acronym fallback) since Omarchy menu
 // labels/aliases are short, curated strings, not free-form app names.
-function scoreEntry(entry, query) {
+// `breadcrumb` is optional (the caller already has to compute it for
+// resultFor()'s own subtitle anyway -- see OmarchyActionsProvider's own
+// search(), which now passes the same value through here rather than
+// computing it twice). Direct request: typing "window management"
+// should surface Full Screen/Float & Pin/etc -- their own LABELS don't
+// contain that text at all, only their subtitle does, and a query that
+// matches nothing in label/aliases used to just score -1 (invisible)
+// regardless of how well it matched the visible subtitle underneath. A
+// breadcrumb match is scored well below every real label/alias match
+// (a same-category sibling should never outrank the action you actually
+// typed) but still positive, so results that only match the shown
+// subtitle work like a category browse rather than "No Results".
+function scoreEntry(entry, query, breadcrumb) {
   var q = String(query || "").trim().toLowerCase()
   if (!q) return -1
   var label = String(entry.label || "").toLowerCase()
@@ -198,6 +210,13 @@ function scoreEntry(entry, query) {
     var aliasIndex = alias.indexOf(q)
     if (aliasIndex === 0) return 7500 - alias.length
     if (aliasIndex > 0) return 6000 - aliasIndex * 10 - alias.length
+  }
+
+  var crumb = String(breadcrumb || "").toLowerCase()
+  if (crumb) {
+    var crumbIndex = crumb.indexOf(q)
+    if (crumbIndex === 0) return 3500 - crumb.length
+    if (crumbIndex > 0) return 2000 - crumbIndex * 10 - crumb.length
   }
 
   return -1

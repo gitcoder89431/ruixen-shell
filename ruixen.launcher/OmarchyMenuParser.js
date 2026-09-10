@@ -261,23 +261,26 @@ function formatKeybind(keybind) {
   return String(keybind || "").replace(/\s*\+\s*/g, "+")
 }
 
-function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
 // A menu entry's own label and the keybindings list's own label for the
 // SAME action are often not identical (confirmed live: "Lock" vs "Lock
 // system", "Theme" vs "Theme menu") -- exact equality misses real
-// matches. A whole-word containment check in either direction catches
-// both without also matching unrelated labels that merely share a
-// substring (e.g. "Lock" must not match "Unlock" or "Clock").
-function labelsFuzzyMatch(a, b) {
-  var la = String(a || "").toLowerCase().trim()
-  var lb = String(b || "").toLowerCase().trim()
+// matches. entryLabel must be a whole-word PREFIX of stockLabel --
+// deliberately one-directional and prefix-only, not "appears anywhere as
+// a whole word": an earlier bidirectional/anywhere version matched
+// "Docker DB" and "Sudoless Docker" (both real, UNRELATED omarchy-menu
+// Commands that merely contain the word "Docker") against the real
+// Docker APPLICATION's own stock keybind, caught live via screenshot --
+// wrongly showing the same keybind hint on three different rows. The
+// verified-good cases (Lock/Theme) are both shaped as "stock label =
+// entry label + one trailing clarifying word", never the reverse and
+// never a word inserted before it, so restricting to that one shape
+// fixes the false positives without losing the real matches.
+function labelsFuzzyMatch(entryLabel, stockLabel) {
+  var la = String(entryLabel || "").toLowerCase().trim()
+  var lb = String(stockLabel || "").toLowerCase().trim()
   if (!la || !lb) return false
   if (la === lb) return true
-  if (lb.length > la.length && new RegExp("\\b" + escapeRegExp(la) + "\\b").test(lb)) return true
-  if (la.length > lb.length && new RegExp("\\b" + escapeRegExp(lb) + "\\b").test(la)) return true
+  if (lb.length > la.length && lb.indexOf(la) === 0 && /^\s/.test(lb.charAt(la.length))) return true
   return false
 }
 
@@ -354,6 +357,78 @@ function keybindFor(label, index, stockEntries) {
   var stock = Array.isArray(stockEntries) ? stockEntries : []
   for (var i = 0; i < stock.length; i++) {
     if (labelsFuzzyMatch(label, stock[i].label)) return formatKeybind(stock[i].keybind)
+  }
+  return ""
+}
+
+// ---- Application keybind hints --------------------------------------------
+//
+// Real request: "on omarchy if i press super shift d it opens docker,
+// super shift m for spotify... can we make them show up for
+// applications?" -- Omarchy's own default app-launch binds live in a
+// real Omarchy config file (.../hypr/bindings/applications.lua), using a
+// small table shape instead of a plain shell-command string:
+// o.bind("SUPER + SHIFT + M", "Music", { omarchy = "spotify" }). The
+// label there ("Music") doesn't match the app's own real name
+// ("Spotify") at all, so keybindFor's own label-matching approach
+// (built for Omarchy Actions rows, where the label IS the action)
+// doesn't apply here. What DOES carry over reliably, confirmed live
+// against this machine's own real installed apps: the table's own
+// string value shows up literally inside the matching app's own real
+// Exec= line -- Spotify's Exec is "spotify --uri=%u" (target "spotify"),
+// Docker's own .desktop Exec is "xdg-terminal-exec --app-id=TUI.tile -e
+// omarchy-launch-docker-tui" (target "omarchy-launch-docker-tui", an
+// exact match, not a guess). appKeybindFor below uses that substring
+// relationship directly instead of trying to resolve Omarchy's own
+// label choices.
+
+// "terminal"/"browser"/"browser --private"/"editor" resolve to whatever
+// app the user configured as their OS default (via Omarchy's own
+// default-apps mechanism), not one fixed app -- there's no single real
+// installed app whose Exec should "own" that hint, and matching by such
+// a short generic word risks a false-positive substring hit against an
+// unrelated app's own Exec line. Excluded outright rather than guessed
+// at.
+var GENERIC_APP_ALIASES = ["terminal", "browser", "browser --private", "editor"]
+
+// Parses labeled o.bind("<keybind>", "<label>", { <type> = "<target>", ...})
+// calls from a real applications.lua-shaped file -- same "--"-comment
+// stripping as parsePersonalBindings (this file has real commented-out
+// entries too, e.g. every preinstalled-app bind when
+// preinstalled_bindings_enabled() is off). "webapp" entries are skipped
+// -- their target is a URL, not something a normal installed app's own
+// Exec= line would literally contain, so appKeybindFor could never
+// match one anyway.
+function parseApplicationBindings(luaSource) {
+  var out = []
+  var stripped = String(luaSource || "").replace(/--.*$/gm, "")
+  var re = /o\.bind\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*\{\s*(\w+)\s*=\s*"([^"]+)"/g
+  var m
+  while ((m = re.exec(stripped)) !== null) {
+    var type = m[3]
+    var target = m[4].trim()
+    if (type === "webapp") continue
+    if (GENERIC_APP_ALIASES.indexOf(target.toLowerCase()) !== -1) continue
+    out.push({ keybind: m[1].trim(), label: m[2].trim(), target: target })
+  }
+  return out
+}
+
+// Given an installed app's own real Exec= line (Quickshell's own
+// DesktopEntry.execString, unparsed): the first parseApplicationBindings
+// entry whose own target string appears literally inside it, formatted
+// the same way keybindFor's own matches are. Order matters only when
+// more than one target could theoretically match the same exec line
+// (not the normal case -- these targets are specific binary/wrapper
+// names, not generic words, by construction of the exclusion list
+// above); first hit wins, same "" -for-no-match convention as
+// keybindFor.
+function appKeybindFor(execString, entries) {
+  var exec = String(execString || "")
+  if (!exec) return ""
+  var list = Array.isArray(entries) ? entries : []
+  for (var i = 0; i < list.length; i++) {
+    if (exec.indexOf(list[i].target) !== -1) return formatKeybind(list[i].keybind)
   }
   return ""
 }

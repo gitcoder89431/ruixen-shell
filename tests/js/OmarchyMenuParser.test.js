@@ -161,11 +161,16 @@ check("formatKeybind: collapses ' + ' spacing to a bare '+'",
 check("formatKeybind: empty input stays empty", M.formatKeybind(""), "");
 
 check("labelsFuzzyMatch: exact match (case-insensitive)", M.labelsFuzzyMatch("Lock", "lock"), true);
-check("labelsFuzzyMatch: a shorter label matches as a whole word inside a longer one",
+check("labelsFuzzyMatch: the entry label matches as a whole-word PREFIX of a longer stock label",
   M.labelsFuzzyMatch("Lock", "Lock system") && M.labelsFuzzyMatch("Theme", "Theme menu"), true);
-check("labelsFuzzyMatch: a substring that isn't a whole word does NOT match",
+check("labelsFuzzyMatch: a substring that isn't a whole-word prefix does NOT match",
   M.labelsFuzzyMatch("Lock", "Unlock") || M.labelsFuzzyMatch("Lock", "Clock"), false);
 check("labelsFuzzyMatch: unrelated labels don't match", M.labelsFuzzyMatch("Theme", "Wallpaper"), false);
+check("labelsFuzzyMatch: a whole word appearing MID-label (not as a prefix) does not match -- real bug caught live: "
+  + "'Docker DB' and 'Sudoless Docker' (unrelated Commands) wrongly inherited the real Docker app's own stock keybind",
+  M.labelsFuzzyMatch("Docker DB", "Docker") || M.labelsFuzzyMatch("Sudoless Docker", "Docker"), false);
+check("labelsFuzzyMatch: the reverse direction (stock label shorter, entry label a longer completion) does not match either",
+  M.labelsFuzzyMatch("Docker", "Doc"), false);
 
 check("buildKeybindIndex: a personal entry wins over a stock entry sharing the same exact label",
   M.buildKeybindIndex(
@@ -205,5 +210,39 @@ check("keySymbol: a plain letter/digit key passes through unchanged (uppercased)
   M.keySymbol("z"), "Z");
 check("keySymbol: a named key with no dedicated symbol passes through as-is",
   M.keySymbol("SPACE"), "SPACE");
+
+// ---- Application keybind hints -------------------------------------------
+
+const applicationsLuaSample =
+  'o.bind("SUPER + RETURN", "Terminal", { omarchy = "terminal" })\n' +
+  'o.bind("SUPER + SHIFT + F", "File manager", { omarchy = "nautilus" })\n' +
+  'o.bind("SUPER + SHIFT + M", "Music", { omarchy = "spotify" })\n' +
+  'o.bind("SUPER + SHIFT + D", "Docker", { tui = "omarchy-launch-docker-tui" })\n' +
+  'o.bind("SUPER + SHIFT + O", "Obsidian", { launch = "obsidian", focus = "^obsidian$" })\n' +
+  'o.bind("SUPER + SHIFT + A", "ChatGPT", { webapp = "https://chatgpt.com" })\n' +
+  '-- o.bind("SUPER + SHIFT + Q", "Disabled", { omarchy = "should-not-parse" })\n';
+
+check("parseApplicationBindings: parses a real table-shaped o.bind() call",
+  M.parseApplicationBindings('o.bind("SUPER + SHIFT + M", "Music", { omarchy = "spotify" })'),
+  [{ keybind: "SUPER + SHIFT + M", label: "Music", target: "spotify" }]);
+check("parseApplicationBindings: a generic default-app alias (terminal/browser/editor) is excluded",
+  M.parseApplicationBindings(applicationsLuaSample).some(function(e) { return e.target === "terminal"; }), false);
+check("parseApplicationBindings: a webapp entry is excluded (its target is a URL, not an Exec substring)",
+  M.parseApplicationBindings(applicationsLuaSample).some(function(e) { return e.label === "ChatGPT"; }), false);
+check("parseApplicationBindings: a commented-out entry is skipped",
+  M.parseApplicationBindings(applicationsLuaSample).some(function(e) { return e.label === "Disabled"; }), false);
+check("parseApplicationBindings: real specific targets (nautilus/spotify/docker/obsidian) all survive",
+  M.parseApplicationBindings(applicationsLuaSample).map(function(e) { return e.target; }),
+  ["nautilus", "spotify", "omarchy-launch-docker-tui", "obsidian"]);
+
+const appBindingEntries = M.parseApplicationBindings(applicationsLuaSample);
+
+check("appKeybindFor: matches Spotify's own real Exec= line via the 'spotify' target",
+  M.appKeybindFor("spotify --uri=%u", appBindingEntries), "SUPER+SHIFT+M");
+check("appKeybindFor: matches Docker's own real Exec= line via the full tui target string",
+  M.appKeybindFor("xdg-terminal-exec --app-id=TUI.tile -e omarchy-launch-docker-tui", appBindingEntries), "SUPER+SHIFT+D");
+check("appKeybindFor: an unrelated app's Exec line matches nothing",
+  M.appKeybindFor("firefox --new-window", appBindingEntries), "");
+check("appKeybindFor: an empty Exec string matches nothing", M.appKeybindFor("", appBindingEntries), "");
 
 summary();

@@ -1,4 +1,7 @@
 import QtQuick
+import Quickshell
+import Quickshell.Io
+import "OmarchyMenuParser.js" as OmarchyMenuParser
 
 // Provider: installed applications, via a local AppLibrary instance
 // (see AppLibrary.qml's own header -- wraps Quickshell.DesktopEntries
@@ -15,6 +18,33 @@ Item {
   // back an unreasonably long tail.
   property int maxResults: 40
   readonly property bool ready: root.appLibrary !== null
+
+  // Omarchy's own default app-launch keybinds (Docker, Spotify via its
+  // own "Music" label, ...) -- real request: "these were set by
+  // omarchy... can we make them show up for applications?" See
+  // OmarchyMenuParser.js's own "Application keybind hints" header for
+  // why this is matched by Exec= substring rather than by label the way
+  // Omarchy Actions rows are. Loaded once at provider startup (a small
+  // local config file), never re-parsed per keystroke. Only the
+  // packaged default file is read -- none of this dev machine's own 3
+  // real personal bindings.lua overrides target an app this way (see
+  // OmarchyActionsProvider's own parsePersonalBindings usage), so
+  // there's nothing to merge yet; revisit if that ever changes.
+  property var appBindingEntries: []
+
+  function keybindFor(entry) {
+    return OmarchyMenuParser.appKeybindFor(entry.execString || "", root.appBindingEntries)
+  }
+
+  FileView {
+    id: applicationBindingsFile
+    path: (Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy") + "/default/hypr/bindings/applications.lua"
+    watchChanges: false
+    printErrors: false
+    onLoaded: root.appBindingEntries = OmarchyMenuParser.parseApplicationBindings(text())
+  }
+
+  Component.onCompleted: applicationBindingsFile.reload()
 
   // The real .desktop file's own "Comment=" (a one-line description,
   // e.g. OBS Studio's "Free and Open Source Streaming/Recording
@@ -51,6 +81,7 @@ Item {
         category: root.subtitleFor(entry, name),
         providerName: root.providerName,
         score: rows[i].score,
+        keybind: root.keybindFor(entry),
         action: { type: "launchApp", desktopId: entry.id, name: name }
       })
     }

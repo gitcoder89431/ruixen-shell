@@ -314,6 +314,39 @@ function buildKeybindIndex(stockEntries, personalEntries) {
 // Launcher.qml's own row delegate treats a falsy keybind as "don't show
 // this element" either way, but a stable empty string keeps every
 // resultFor() row shape identical.
+// "SUPER+SHIFT+Z" -> ["SUPER", "SHIFT", "Z"] -- one array entry per key
+// cap Launcher.qml's own row delegate renders as its own small bordered
+// chip (see keySymbol below for what goes inside each one). Splits on
+// ANY run of spaces or "+", not just "+" -- confirmed live the two real
+// sources format multi-modifier combos differently: bindings.lua's own
+// o.bind() spells every key " + "-joined ("SUPER + SHIFT + Z"), but
+// `omarchy menu keybindings --print`'s own stock list only puts a "+"
+// before the FINAL key, space-joining multiple modifiers before it
+// ("SUPER CTRL + L") -- a plain split("+") left "SUPER CTRL" as one
+// unrecognized chip instead of two real keycaps, caught live via
+// screenshot.
+function keybindParts(formattedKeybind) {
+  var s = String(formattedKeybind || "").trim()
+  return s ? s.split(/[\s+]+/).filter(function(part) { return part.length > 0 }) : []
+}
+
+// A handful of modifier keys get a real symbol instead of their bare
+// name -- the same iconography convention keyboards/keycaps themselves
+// use (a Super/Windows-logo keycap, ⇧/⌃/⌥ for Shift/Ctrl/Alt), so a
+// 3-key combo reads as key CAPS at a glance rather than an acronym to
+// sound out. Everything else (a letter, digit, or named key like SPACE/
+// TAB) passes through as its own uppercase text -- there's no equally
+// universal symbol for those, and spelling them out plainly is already
+// clear.
+function keySymbol(part) {
+  var p = String(part || "").trim().toUpperCase()
+  if (p === "SUPER") return "" // nf-fa-windows -- the actual Super-key keycap logo
+  if (p === "SHIFT") return "⇧"
+  if (p === "CTRL") return "⌃"
+  if (p === "ALT") return "⌥"
+  return p
+}
+
 function keybindFor(label, index, stockEntries) {
   var key = String(label || "").toLowerCase().trim()
   if (!key) return ""

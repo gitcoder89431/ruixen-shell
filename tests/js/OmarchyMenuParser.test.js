@@ -188,4 +188,22 @@ check("keybindFor: no match anywhere returns an empty string, not undefined",
 check("keybindFor: empty label returns an empty string",
   M.keybindFor("", {}, []), "");
 
+check("keybindParts: splits a formatted keybind into one entry per key",
+  M.keybindParts("SUPER+SHIFT+Z"), ["SUPER", "SHIFT", "Z"]);
+check("keybindParts: a single-key bind is a one-element array",
+  M.keybindParts("K"), ["K"]);
+check("keybindParts: empty input yields an empty array", M.keybindParts(""), []);
+check("keybindParts: the stock list's own space-joined-modifiers, '+'-only-before-final-key shape splits into separate keys too",
+  M.keybindParts("SUPER CTRL+L"), ["SUPER", "CTRL", "L"]);
+check("keybindParts: three space-joined modifiers before the final key",
+  M.keybindParts("SUPER SHIFT CTRL+SPACE"), ["SUPER", "SHIFT", "CTRL", "SPACE"]);
+
+check("keySymbol: SUPER/SHIFT/CTRL/ALT each get their own real symbol",
+  [M.keySymbol("SUPER"), M.keySymbol("shift"), M.keySymbol("Ctrl"), M.keySymbol("ALT")],
+  ["", "⇧", "⌃", "⌥"]);
+check("keySymbol: a plain letter/digit key passes through unchanged (uppercased)",
+  M.keySymbol("z"), "Z");
+check("keySymbol: a named key with no dedicated symbol passes through as-is",
+  M.keySymbol("SPACE"), "SPACE");
+
 summary();

@@ -3,6 +3,7 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
+import "OmarchyMenuParser.js" as OmarchyMenuParser
 
 // Raycast/Spotlight-style command palette. Root contract copied from
 // ruixen.settings/Settings.qml (confirmed by reading it directly --
@@ -1002,7 +1003,7 @@ Item {
             visible: !root.filesMode
             anchors.left: labelText.right
             anchors.leftMargin: 8
-            anchors.right: keybindText.visible ? keybindText.left : kindText.left
+            anchors.right: keybindHint.visible ? keybindHint.left : kindText.left
             anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
             elide: Text.ElideRight
@@ -1019,23 +1020,47 @@ Item {
           // it here saves a trip to Omarchy's own keybindings menu.
           // OmarchyActionsProvider's own keybindFor() already resolves
           // personal-vs-stock priority (only one is ever shown -- no
-          // room for both, direct product decision), so this is a plain
-          // display of whatever resultFor() put on the row; App
-          // Search/Search Files rows simply never carry a keybind field.
-          Text {
-            id: keybindText
+          // room for both, direct product decision). Rendered as actual
+          // key-cap chips (one small bordered chip per key, same visual
+          // as the search box's own Enter-hint chip above) rather than
+          // spelled-out text ("SUPER + SHIFT + Z") -- direct request:
+          // "[KBD] + [KBD] + [A] or something". SUPER/SHIFT/CTRL/ALT get
+          // their own real keycap symbol via keySymbol(); everything
+          // else (a letter, digit, or named key) shows as its own plain
+          // uppercase chip. App Search/Search Files rows simply never
+          // carry a keybind field, so this renders nothing for them.
+          Row {
+            id: keybindHint
             visible: !root.filesMode && !!row.modelData.keybind
             anchors.right: kindText.left
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            horizontalAlignment: Text.AlignRight
-            elide: Text.ElideRight
-            width: 90
-            text: row.modelData.keybind || ""
-            color: root.muted
+            spacing: 3
             opacity: 0.75
-            font.family: root.fontFamily
-            font.pixelSize: 10
+
+            Repeater {
+              model: row.modelData.keybind ? OmarchyMenuParser.keybindParts(row.modelData.keybind) : []
+
+              Rectangle {
+                id: keyCap
+                required property string modelData
+                height: 18
+                width: Math.max(18, capText.implicitWidth + 9)
+                radius: 5
+                color: Qt.rgba(1, 1, 1, 0.06)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.12)
+
+                Text {
+                  id: capText
+                  anchors.centerIn: parent
+                  text: OmarchyMenuParser.keySymbol(keyCap.modelData)
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: 9
+                }
+              }
+            }
           }
 
           // Kind tag -- "Command" for every Omarchy Actions/native

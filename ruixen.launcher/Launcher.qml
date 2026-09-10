@@ -48,8 +48,20 @@ Item {
   // Hardcoded OLED black, matching ruixen.settings/ruixen.notch/
   // ruixen.bar's own established convention -- not a theme-driven
   // token (see Bar.qml's GroupPill comment for the original reasoning).
+  // Still used as-is for secondary surfaces (the source-filter dropdown
+  // list) that should stay solidly legible rather than glass.
   readonly property color panelBackground: "#000000"
-  readonly property color scrim: Color.menu.scrim
+  // The card's own frosted-glass background -- translucent so Hyprland's
+  // real compositor blur (a `layer_rule` keyed to this window's own
+  // WlrLayershell.namespace, see hyprland/looknfeel.ruixen.lua) has
+  // something to actually show through, at 0.4 alpha the panel's own
+  // `ignore_alpha` layer-rule threshold would skip blurring it entirely.
+  // A fixed dark rgba, not Color.menu.background at reduced alpha (the
+  // maajix/omarchy-spotlight reference this was ported from uses the
+  // latter) -- direct request: darker and NOT theme-token-influenced,
+  // same reasoning as panelBackground's own hardcoded black above.
+  readonly property color glassBackground: Qt.rgba(0, 0, 0, 0.72)
+  readonly property color glassBorder: Qt.rgba(1, 1, 1, 0.08)
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
 
@@ -344,10 +356,16 @@ Item {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // Backdrop -- click anywhere outside the card to dismiss.
+    // Backdrop -- click anywhere outside the card to dismiss. No dim
+    // wash of its own (transparent, not root.scrim) -- direct request
+    // ("we dont need the black drop... thing, just the pop up
+    // spotlight"): with the card's own frosted glass, the blurred
+    // desktop itself already reads as the backdrop; a separate
+    // darkening layer over the whole screen fought with that rather
+    // than complementing it.
     Rectangle {
       anchors.fill: parent
-      color: root.scrim
+      color: "transparent"
       MouseArea {
         anchors.fill: parent
         onClicked: root.dismiss()
@@ -371,7 +389,9 @@ Item {
       // scrolls inside resultsList below rather than needing to fit.
       height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8
       radius: 16
-      color: root.panelBackground
+      color: root.glassBackground
+      border.width: 1
+      border.color: root.glassBorder
       clip: true
 
       layer.enabled: true

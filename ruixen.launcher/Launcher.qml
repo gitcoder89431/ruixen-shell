@@ -672,7 +672,8 @@ Item {
         // "All Sources" plus one row per discovered source (Home + every
         // extraRoot) -- height follows that count directly rather than
         // scrolling, since this is at most a small handful of drives.
-        height: (fileSearchProvider.sources.length + 1) * 32 + 8
+        // 28 matches sourceRow's own height below.
+        height: (fileSearchProvider.sources.length + 1) * 28 + 8
         radius: 10
         // Genuinely near-opaque, not glassBackground's own translucency
         // -- direct follow-up after real use: unlike the card (whose
@@ -714,9 +715,13 @@ Item {
             delegate: Rectangle {
               id: sourceRow
               required property var modelData
+              // Height/radius both dialed down a notch -- direct report
+              // ("the on hover focus highlight is bit too big for the
+              // dropdown"): 32/6 read as chunky in a compact 150px-wide
+              // menu. 28/5 keeps it proportional.
               width: sourceFilterList.width - 8
-              height: 32
-              radius: 6
+              height: 28
+              radius: 5
               color: sourceRow.modelData.path === root.selectedSourcePath ? Qt.rgba(1, 1, 1, 0.12) : (sourceRowArea.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
 
               Text {

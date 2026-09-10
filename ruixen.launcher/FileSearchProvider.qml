@@ -371,6 +371,32 @@ Item {
   property string pendingVideoPosterPath: ""
   property string videoPosterPath: ""
 
+  // Text preview -- fills the same fixed preview footprint an image/
+  // video thumbnail uses, but with the file's own leading content
+  // instead. Explicit extension allowlist (not "anything that isn't
+  // an image/video"), same reasoning as videoExtensions above -- a
+  // wrongly-guessed binary file read as text would render as garbage,
+  // not crash, but there's no reason to risk it when the real set of
+  // "this is source/config/prose" extensions is easy to just list.
+  // head -c (not the whole file) keeps this flat-cost regardless of
+  // file size -- a multi-GB log matching by name costs the exact same
+  // few KB read as a one-line README, since head stops as soon as it
+  // has enough bytes rather than reading to EOF first.
+  readonly property var textExtensions: [
+    "md", "markdown", "json", "jsonc", "yaml", "yml", "toml", "ini", "conf", "cfg",
+    "js", "mjs", "cjs", "ts", "jsx", "tsx", "py", "go", "rs", "java", "rb", "php",
+    "c", "h", "cpp", "cc", "hpp", "sh", "bash", "zsh", "fish", "qml", "lua", "sql",
+    "html", "htm", "css", "scss", "less", "xml", "txt", "log", "csv"
+  ]
+  function isTextPath(path) {
+    var dot = path.lastIndexOf(".")
+    if (dot <= 0) return false
+    return root.textExtensions.indexOf(path.substring(dot + 1).toLowerCase()) !== -1
+  }
+
+  property string pendingTextPreviewPath: ""
+  property string textPreviewContent: ""
+
   function loadDetails(path) {
     root.pendingDetailsPath = path
     root.selectedDetails = null
@@ -378,7 +404,18 @@ Item {
     root.videoDuration = ""
     root.pendingVideoPosterPath = ""
     root.videoPosterPath = ""
+    root.pendingTextPreviewPath = ""
+    root.textPreviewContent = ""
     if (!path) return
+    if (root.isTextPath(path)) {
+      root.pendingTextPreviewPath = path
+      // ~4000 bytes -- comfortably more than the fixed preview pane can
+      // ever actually display (well past a screenful of wrapped lines
+      // at the preview's own font size), so it never needs to be tuned
+      // per-file; the pane's own clip does the rest, no scrolling.
+      textPreviewProc.command = ["head", "-c", "4000", "--", path]
+      textPreviewProc.running = true
+    }
     // %W added for a "Created" field -- confirmed live this returns a
     // real, non-zero birth time on this machine's own btrfs root, not
     // just the "0 = unsupported" fallback GNU stat's own docs warn
@@ -468,6 +505,20 @@ Item {
         if (root.pendingVideoPosterPath === "" || root.pendingVideoPosterPath !== root.pendingDetailsPath) return
         var poster = text.trim()
         if (poster) root.videoPosterPath = poster
+      }
+    }
+  }
+
+  Process {
+    id: textPreviewProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (root.pendingTextPreviewPath === "" || root.pendingTextPreviewPath !== root.pendingDetailsPath) return
+        // No .trim() -- would strip real leading/trailing whitespace
+        // (YAML/Python indentation on the first or last captured line)
+        // that's part of the file's own actual content, not padding.
+        root.textPreviewContent = text
       }
     }
   }

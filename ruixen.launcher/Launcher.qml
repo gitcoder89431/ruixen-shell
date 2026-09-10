@@ -1067,6 +1067,15 @@ Item {
           : detailsPanel.isVideoPreview ? ("file://" + fileSearchProvider.videoPosterPath)
           : ""
 
+        // Text preview -- same fixed preview footprint an image/video
+        // thumbnail fills, just with the file's own leading content
+        // instead of a picture. Gated on textPreviewContent actually
+        // having arrived (same pattern as isVideoPreview above gating
+        // on videoPosterPath), not just "this looks like a text
+        // extension" -- the read can still be in flight, or (though
+        // unlikely for an explicit extension allowlist) come back empty.
+        readonly property bool isTextPreview: !detailsPanel.hasThumbnail && fileSearchProvider.textPreviewContent !== ""
+
         // Read straight off the already-loaded thumbnail Image itself
         // (sourceSize reports the source file's own natural pixel
         // dimensions once decoded) -- no external tool needed at all,
@@ -1170,9 +1179,33 @@ Item {
               }
             }
 
+            // Text preview -- same footprint as the image/video
+            // thumbnail above, filled with the file's own leading
+            // content instead. No scroll on purpose (direct request:
+            // "we dont need it scrollable") -- same lesson as the
+            // details panel's own earlier Flickable attempt, reverted
+            // for having no keyboard path to reach it at all. The
+            // Item's own clip below just cuts off whatever doesn't
+            // fit, same as an image thumbnail's own crop.
+            Item {
+              anchors.fill: parent
+              visible: detailsPanel.isTextPreview
+              clip: true
+
+              Text {
+                anchors.fill: parent
+                anchors.margins: 10
+                text: fileSearchProvider.textPreviewContent
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 11
+                wrapMode: Text.Wrap
+              }
+            }
+
             Text {
               anchors.centerIn: parent
-              visible: !detailsPanel.hasThumbnail
+              visible: !detailsPanel.hasThumbnail && !detailsPanel.isTextPreview
               text: detailsPanel.result ? detailsPanel.result.icon : ""
               // Same folder-only accent as the list row's own icon.
               color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor

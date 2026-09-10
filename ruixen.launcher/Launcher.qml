@@ -490,19 +490,12 @@ Item {
         height: 48
         // Ghost -- no pill surface of its own (direct request: "put it
         // on the glass so its ghost"), just the card's own frosted
-        // background showing straight through. A thin bottom border
-        // takes over separating it from the results below, instead of
-        // a filled box doing that job.
+        // background showing straight through. No bottom border either
+        // now -- direct follow-up ("we dont need this separator
+        // anymore") -- the search box just flows straight into the
+        // results below.
         radius: 0
         color: "transparent"
-
-        Rectangle {
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.bottom: parent.bottom
-          height: 1
-          color: root.glassBorder
-        }
 
         // fa-search (U+F002), same glyph as the Search Files fallback
         // row's own icon. Positioned with the exact same leftMargin/

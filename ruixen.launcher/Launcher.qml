@@ -911,7 +911,19 @@ Item {
             anchors.leftMargin: 6
             anchors.rightMargin: 6
             radius: row.radius
-            color: row.index === root.selectedIndex ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+            // Direct feedback: a flat white fill reads fine over a dark
+            // backdrop but gets too bright over a lighter one -- alpha
+            // blending with white always brightens by a fixed amount
+            // regardless of what's underneath, so it can't help swinging
+            // wildly with whatever's behind the glass. A themed accent
+            // tint (same hue the whole card's own glassTint already
+            // uses) at a lower fill alpha, PLUS a crisp accent border,
+            // keeps the row clearly legible via its own edge/hue rather
+            // than leaning on raw brightness -- steadier across
+            // backdrops than a brightness-only highlight can be.
+            color: row.index === root.selectedIndex ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14) : "transparent"
+            border.width: row.index === root.selectedIndex ? 1 : 0
+            border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
           }
 
           // Omarchy Actions: a Nerd Font glyph. Applications: a real

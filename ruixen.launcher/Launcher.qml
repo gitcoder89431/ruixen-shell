@@ -107,7 +107,7 @@ Item {
   // rare/meaningful, not the spammy part), plain Files only appear
   // once this fallback row is actually activated.
   property bool filesMode: false
-  // "" means every known root (the source-filter dropdown's own "All"
+  // "" means every known root (the source-filter dropdown's own "All Sources"
   // entry); a specific path restricts Search Files to just that drive.
   // Reset to "" on every fresh entry into Search Files -- "defaults to
   // All" should mean that literally each time, not just the first time.
@@ -446,10 +446,10 @@ Item {
           width: root.sourceFilterWidth
           height: 28
 
-          readonly property string currentLabel: root.selectedSourcePath === "" ? "All" : (function() {
+          readonly property string currentLabel: root.selectedSourcePath === "" ? "All Sources" : (function() {
             var srcs = fileSearchProvider.sources
             for (var i = 0; i < srcs.length; i++) if (srcs[i].path === root.selectedSourcePath) return srcs[i].label
-            return "All"
+            return "All Sources"
           })()
 
           Text {
@@ -563,7 +563,7 @@ Item {
         // button's right edge, same as this width matches its width.
         anchors.rightMargin: 12
         width: root.sourceFilterWidth
-        // "All" plus one row per discovered source (Home + every
+        // "All Sources" plus one row per discovered source (Home + every
         // extraRoot) -- height follows that count directly rather than
         // scrolling, since this is at most a small handful of drives.
         height: (fileSearchProvider.sources.length + 1) * 32 + 8
@@ -587,10 +587,10 @@ Item {
           anchors.margins: 4
 
           Repeater {
-            // "All" (path "") first, then every real source -- same
+            // "All Sources" (path "") first, then every real source -- same
             // shape sourceFilterButton.currentLabel above already
             // expects (an empty path means All).
-            model: [{ id: "", label: "All", path: "" }].concat(fileSearchProvider.sources)
+            model: [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
 
             delegate: Rectangle {
               id: sourceRow

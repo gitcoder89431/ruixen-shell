@@ -55,7 +55,42 @@ Item {
   // Launcher.qml calls it once each time Search Files mode is entered,
   // which is a natural, low-frequency checkpoint for "did the set of
   // mounted drives change" without re-running findmnt on every keystroke.
+  //
+  // onExtraRootsChanged re-triggers a search the same way sourceFilter's
+  // own handler below does, and for the same reason: refreshRoots() is
+  // async (a real findmnt subprocess), so it commonly resolves AFTER a
+  // query already finished being typed and searched -- confirmed live,
+  // searching a query that only matches a file on a just-discovered USB
+  // drive returned "No Results" because THIS handler didn't exist yet:
+  // the search that ran used the still-empty extraRoots from before
+  // refreshRoots() had a chance to respond, and nothing ever re-ran it
+  // once the real roots came in.
   property var extraRoots: []
+  onExtraRootsChanged: if (root.query.trim()) debounceTimer.restart()
+
+  // Set externally (Launcher.qml's own source-filter dropdown): "" means
+  // search every known root (Home + every extraRoot), same as before this
+  // existed; a specific path restricts fd to just that one root. Changing
+  // this needs to re-trigger a search the same way a query edit does --
+  // see onSourceFilterChanged below -- since the query text itself may
+  // not have changed at all when someone just switches the drive filter.
+  property string sourceFilter: ""
+  onSourceFilterChanged: if (root.query.trim()) debounceTimer.restart()
+
+  // Populates the source-filter dropdown -- Home plus one entry per
+  // discovered extraRoot, labelled by its own last path segment (a
+  // mount's own volume-label folder name, e.g. "OMARCHY_202607") rather
+  // than the full path, matching how a file manager's own sidebar
+  // already labels a mounted drive.
+  readonly property var sources: {
+    var out = [{ id: root.homeDir, label: "Home", path: root.homeDir }]
+    for (var i = 0; i < root.extraRoots.length; i++) {
+      var p = root.extraRoots[i]
+      var slash = p.lastIndexOf("/")
+      out.push({ id: p, label: slash === -1 ? p : p.substring(slash + 1), path: p })
+    }
+    return out
+  }
 
   function refreshRoots() {
     mountProc.running = true
@@ -145,12 +180,17 @@ Item {
     var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--max-results", "500"]
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
     // fd accepts multiple trailing path roots in one invocation --
-    // confirmed via `fd --help` ([path]...) -- so a mounted secondary
-    // drive (see extraRoots/refreshRoots() above) just rides along as
-    // more positional args, not a second fd process to merge results
-    // from.
-    args.push("--", query, root.homeDir)
-    for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i])
+    // confirmed via `fd --help` ([path]...) -- so every known root (or,
+    // with sourceFilter set, just the one the dropdown picked) rides
+    // along as positional args in the same call, not separate fd
+    // processes to merge results from.
+    args.push("--", query)
+    if (root.sourceFilter) {
+      args.push(root.sourceFilter)
+    } else {
+      args.push(root.homeDir)
+      for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i])
+    }
     searchProc.command = args
     searchProc.running = true
   }

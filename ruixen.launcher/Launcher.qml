@@ -103,6 +103,11 @@ Item {
   // rare/meaningful, not the spammy part), plain Files only appear
   // once this fallback row is actually activated.
   property bool filesMode: false
+  // "" means every known root (the source-filter dropdown's own "All"
+  // entry); a specific path restricts Search Files to just that drive.
+  // Reset to "" on every fresh entry into Search Files -- "defaults to
+  // All" should mean that literally each time, not just the first time.
+  property string selectedSourcePath: ""
   onFilesModeChanged: {
     // Re-discovers mounted secondary drives (see FileSearchProvider's
     // own refreshRoots()) each time Search Files is entered, rather
@@ -110,6 +115,8 @@ Item {
     // session (a USB stick, say) becomes searchable the next time this
     // view opens, without needing a full shell restart.
     if (root.filesMode) fileSearchProvider.refreshRoots()
+    root.selectedSourcePath = ""
+    sourceFilterList.visible = false
     root.selectedIndex = 0
     Qt.callLater(function() { resultsList.positionViewAtBeginning() })
   }
@@ -131,7 +138,7 @@ Item {
   // results list scrolls now, so this no longer needs to track the
   // fixed card's own visibleRowCount.
   AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary }
-  FileSearchProvider { id: fileSearchProvider; query: root.query }
+  FileSearchProvider { id: fileSearchProvider; query: root.query; sourceFilter: root.selectedSourcePath }
 
   readonly property var providers: [
     { id: "omarchy-actions", item: omarchyActionsProvider },
@@ -409,12 +416,80 @@ Item {
           font.pixelSize: 16
         }
 
+        // Search Files only -- filters fd's own search roots to just one
+        // drive (see FileSearchProvider's own sources/sourceFilter).
+        // Meaningless outside Search Files (Applications/Commands have
+        // no "drive"), so hidden the rest of the time -- TextInput's own
+        // rightMargin below only makes room for it while it's visible.
+        // Ghost trigger, not a nested pill -- no background surface of
+        // its own (a faint hover/open tint is the only visual affordance),
+        // so it reads as part of the search input rather than a separate
+        // control sitting on top of it. Sized to its own content
+        // (filterRow.implicitWidth), not a fixed box, so the label sits
+        // right up against the chevron instead of floating inside slack
+        // space.
+        Item {
+          id: sourceFilterButton
+          visible: root.filesMode
+          anchors.right: parent.right
+          anchors.rightMargin: 12
+          anchors.verticalCenter: parent.verticalCenter
+          width: filterRow.implicitWidth
+          height: 28
+
+          readonly property string currentLabel: root.selectedSourcePath === "" ? "All" : (function() {
+            var srcs = fileSearchProvider.sources
+            for (var i = 0; i < srcs.length; i++) if (srcs[i].path === root.selectedSourcePath) return srcs[i].label
+            return "All"
+          })()
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: -6
+            radius: 6
+            color: sourceFilterArea.containsMouse || sourceFilterList.visible ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+          }
+
+          Row {
+            id: filterRow
+            anchors.centerIn: parent
+            spacing: 4
+
+            Text {
+              elide: Text.ElideRight
+              width: Math.min(implicitWidth, 90)
+              text: sourceFilterButton.currentLabel
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 12
+            }
+            // fa-chevron-down (U+F078)
+            Text {
+              text: ""
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: 9
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+
+          MouseArea {
+            id: sourceFilterArea
+            anchors.fill: parent
+            anchors.margins: -6
+            hoverEnabled: true
+            onClicked: sourceFilterList.visible = !sourceFilterList.visible
+          }
+        }
+
         TextInput {
           id: searchInput
           anchors.fill: parent
           // searchIcon's own leftMargin (12) + width (22) + a 10px gap.
           anchors.leftMargin: 44
-          anchors.rightMargin: 16
+          // sourceFilterButton's own content-sized width + its rightMargin
+          // (12) + a small gap, only while it's actually showing.
+          anchors.rightMargin: root.filesMode ? (sourceFilterButton.width + 12 + 10) : 16
           verticalAlignment: TextInput.AlignVCenter
           color: root.textColor
           font.family: root.fontFamily
@@ -439,7 +514,8 @@ Item {
           Keys.onPressed: function(event) {
             var count = root.results.length
             if (event.key === Qt.Key_Escape) {
-              if (root.filesMode) root.filesMode = false
+              if (sourceFilterList.visible) sourceFilterList.visible = false
+              else if (root.filesMode) root.filesMode = false
               else root.dismiss()
               event.accepted = true
             } else if (event.key === Qt.Key_Up) {
@@ -451,6 +527,89 @@ Item {
             } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
               root.activateSelected()
               event.accepted = true
+            }
+          }
+        }
+      }
+
+      // Closes the dropdown on any click elsewhere on the card (rows,
+      // the details panel, ...) -- only present while the list is open,
+      // and z-ordered between searchBox (default z:0) and the list
+      // itself (z:100) so it can't intercept normal clicks the rest of
+      // the time. The outside click is consumed here rather than also
+      // passed through to whatever's underneath -- a common, expected
+      // dropdown convention (the first click away just dismisses).
+      MouseArea {
+        anchors.fill: parent
+        visible: sourceFilterList.visible
+        z: 50
+        onClicked: sourceFilterList.visible = false
+      }
+
+      Rectangle {
+        id: sourceFilterList
+        visible: false
+        anchors.top: searchBox.bottom
+        anchors.topMargin: 6
+        anchors.right: searchBox.right
+        anchors.rightMargin: 8
+        width: 180
+        // "All" plus one row per discovered source (Home + every
+        // extraRoot) -- height follows that count directly rather than
+        // scrolling, since this is at most a small handful of drives.
+        height: (fileSearchProvider.sources.length + 1) * 32 + 8
+        radius: 10
+        color: root.panelBackground
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.08)
+        z: 100
+
+        layer.enabled: true
+        layer.effect: MultiEffect {
+          shadowEnabled: true
+          shadowColor: "#000000"
+          shadowOpacity: 0.5
+          shadowBlur: 0.4
+          shadowVerticalOffset: 3
+        }
+
+        Column {
+          anchors.fill: parent
+          anchors.margins: 4
+
+          Repeater {
+            // "All" (path "") first, then every real source -- same
+            // shape sourceFilterButton.currentLabel above already
+            // expects (an empty path means All).
+            model: [{ id: "", label: "All", path: "" }].concat(fileSearchProvider.sources)
+
+            delegate: Rectangle {
+              id: sourceRow
+              required property var modelData
+              width: sourceFilterList.width - 8
+              height: 32
+              radius: 6
+              color: sourceRow.modelData.path === root.selectedSourcePath ? Qt.rgba(1, 1, 1, 0.12) : (sourceRowArea.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+
+              Text {
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                text: sourceRow.modelData.label
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 12
+              }
+
+              MouseArea {
+                id: sourceRowArea
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: {
+                  root.selectedSourcePath = sourceRow.modelData.path
+                  sourceFilterList.visible = false
+                }
+              }
             }
           }
         }

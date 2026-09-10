@@ -60,7 +60,7 @@ Item {
   // maajix/omarchy-spotlight reference this was ported from uses the
   // latter) -- direct request: darker and NOT theme-token-influenced,
   // same reasoning as panelBackground's own hardcoded black above.
-  readonly property color glassBackground: Qt.rgba(0, 0, 0, 0.72)
+  readonly property color glassBackground: Qt.rgba(0, 0, 0, 0.68)
   readonly property color glassBorder: Qt.rgba(1, 1, 1, 0.08)
 
   readonly property string fontFamily: "JetBrainsMono Nerd Font"
@@ -398,7 +398,18 @@ Item {
       layer.effect: MultiEffect {
         shadowEnabled: true
         shadowColor: "#000000"
-        shadowOpacity: 0.7
+        // 0.7 (its original value, from before the frosted-glass
+        // layer_rule existed) peaks above both glassBackground's own
+        // alpha (0.68) and the layer_rule's ignore_alpha threshold
+        // (0.4, see hyprland/looknfeel.ruixen.lua) right at the card's
+        // edge -- Hyprland's own compositor blur doesn't know "this is
+        // a rendered shadow, don't touch it," it just blurs every
+        // pixel whose alpha clears that threshold, so the already-soft
+        // shadow was getting blurred a second time. Direct report
+        // ("the drop shadow looks a bit blurry or faded") confirmed
+        // live. 0.3 keeps its peak comfortably under ignore_alpha, so
+        // Hyprland leaves it alone -- crisp again, just a touch lighter.
+        shadowOpacity: 0.3
         shadowBlur: 0.4
         shadowHorizontalOffset: 0
         shadowVerticalOffset: 6
@@ -597,7 +608,14 @@ Item {
         layer.effect: MultiEffect {
           shadowEnabled: true
           shadowColor: "#000000"
-          shadowOpacity: 0.5
+          // Same fix as the card's own shadow above, same reason --
+          // this dropdown's own fill (panelBackground, fully opaque)
+          // is untouched by the frosted-glass layer_rule since a
+          // compositor "blur behind" has no visible effect where alpha
+          // is already 1, but this shadow's semi-transparent falloff
+          // still crossed ignore_alpha's 0.4 threshold and got blurred
+          // a second time same as the card's did.
+          shadowOpacity: 0.3
           shadowBlur: 0.4
           shadowVerticalOffset: 3
         }

@@ -1264,6 +1264,40 @@ Item {
         }
       }
 
+      // Bottom fade on both panels -- a static decorative hint that
+      // content could keep going below ("infinite flow"), not tied to
+      // actual scroll position at all. Direct request: no smart scroll-
+      // position detection needed if this just sits in a good spot
+      // regardless of whether there's actually more to see. Anchored
+      // off each panel's own resolved edges (resultsList.right is
+      // itself conditional on root.filesMode, so anchoring here needs
+      // no separate logic to stay in sync) rather than duplicating
+      // their geometry. A plain Rectangle with no MouseArea doesn't
+      // intercept clicks to whatever row sits underneath it.
+      Rectangle {
+        visible: !root.showNoResults
+        anchors.left: resultsList.left
+        anchors.right: resultsList.right
+        anchors.bottom: resultsList.bottom
+        height: 36
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: Qt.rgba(root.glassBackground.r, root.glassBackground.g, root.glassBackground.b, 0) }
+          GradientStop { position: 1.0; color: root.glassBackground }
+        }
+      }
+
+      Rectangle {
+        visible: root.filesMode && !root.showNoResults
+        anchors.left: detailsPanel.left
+        anchors.right: detailsPanel.right
+        anchors.bottom: detailsPanel.bottom
+        height: 36
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: Qt.rgba(root.glassBackground.r, root.glassBackground.g, root.glassBackground.b, 0) }
+          GradientStop { position: 1.0; color: root.glassBackground }
+        }
+      }
+
       // Empty state -- centered in the whole content area below the
       // search box (spans the full card width, not just the list
       // column, so it reads the same whether or not detailsPanel would

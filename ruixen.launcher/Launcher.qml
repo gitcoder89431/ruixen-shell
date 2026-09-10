@@ -954,14 +954,18 @@ Item {
         anchors.left: resultsList.right
         anchors.leftMargin: 4
         width: 1
-        // Vertical gradient (transparent at both ends, peaking at
-        // glassBorder's own alpha in the middle) rather than a flat
-        // color -- direct request: "fade the top and bottom of the
-        // line for that nicer look". Same technique as the card's own
-        // top highlight above, just oriented vertically.
+        // Vertical gradient, transparent at both ends -- direct
+        // follow-up ("maybe a bit much? yea smaller tips"): the first
+        // pass faded across the line's ENTIRE length (peaking only at
+        // the exact midpoint), so it never really looked solid
+        // anywhere. Four stops instead of three -- short fade-in/out
+        // tips (0-15% and 85-100%) bookending a solid run at full
+        // glassBorder alpha through the middle 70%, rather than one
+        // continuous taper.
         gradient: Gradient {
           GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0) }
-          GradientStop { position: 0.5; color: root.glassBorder }
+          GradientStop { position: 0.15; color: root.glassBorder }
+          GradientStop { position: 0.85; color: root.glassBorder }
           GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
         }
       }

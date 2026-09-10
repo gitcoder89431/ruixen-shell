@@ -680,14 +680,27 @@ Item {
             width: parent.width
             height: 210
 
-            Image {
+            // clip + radius on the container, not the Image itself --
+            // QML Image has no radius of its own. PreserveAspectCrop
+            // (rather than the Fit used elsewhere) so the image always
+            // fills this rect edge-to-edge -- with Fit's letterboxing,
+            // rounding the container's corners would round empty
+            // transparent space instead of the image.
+            Rectangle {
               anchors.fill: parent
               visible: detailsPanel.isImagePreview
-              source: detailsPanel.isImagePreview && detailsPanel.result ? "file://" + detailsPanel.result.action.path : ""
-              fillMode: Image.PreserveAspectFit
-              asynchronous: true
-              cache: false
-              smooth: true
+              radius: 12
+              clip: true
+              color: "transparent"
+
+              Image {
+                anchors.fill: parent
+                source: detailsPanel.isImagePreview && detailsPanel.result ? "file://" + detailsPanel.result.action.path : ""
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: false
+                smooth: true
+              }
             }
 
             Text {

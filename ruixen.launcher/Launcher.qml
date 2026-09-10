@@ -715,14 +715,18 @@ Item {
             delegate: Rectangle {
               id: sourceRow
               required property var modelData
-              // Height/radius both dialed down a notch -- direct report
-              // ("the on hover focus highlight is bit too big for the
-              // dropdown"): 32/6 read as chunky in a compact 150px-wide
-              // menu. 28/5 keeps it proportional.
               width: sourceFilterList.width - 8
               height: 28
               radius: 5
-              color: sourceRow.modelData.path === root.selectedSourcePath ? Qt.rgba(1, 1, 1, 0.12) : (sourceRowArea.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+              // No hover/selected highlight box -- direct follow-up
+              // ("still bigger and overlapping each other, just no
+              // focus hover"): with zero spacing between rows in the
+              // Column above, adjacent rows' own rounded-rect
+              // highlights sat flush against each other with no gap,
+              // reading as one overlapping blob rather than two
+              // distinct rows. Plain text + click is simpler and
+              // doesn't have that problem at all.
+              color: "transparent"
 
               Text {
                 anchors.left: parent.left
@@ -738,9 +742,7 @@ Item {
               }
 
               MouseArea {
-                id: sourceRowArea
                 anchors.fill: parent
-                hoverEnabled: true
                 onClicked: {
                   root.selectedSourcePath = sourceRow.modelData.path
                   sourceFilterList.visible = false

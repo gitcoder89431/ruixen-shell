@@ -641,14 +641,49 @@ Item {
           }
         }
 
+        // Keyboard hint for the primary action -- direct request: "this
+        // space is empty... make it kbd good". Styled like an actual
+        // physical key cap (bordered chip, not just bare text) so it
+        // reads as "press this key" at a glance, same convention every
+        // real Raycast-style launcher uses for its own primary-action
+        // hint. Only where sourceFilterButton isn't already occupying
+        // this same right-aligned spot (Search Files mode), and only
+        // when there's actually something Enter would do -- an empty
+        // results list (no Suggestions, no matches, nothing) has no
+        // primary action to hint at.
+        Rectangle {
+          visible: !root.filesMode && root.results.length > 0
+          anchors.right: parent.right
+          anchors.rightMargin: 12
+          anchors.verticalCenter: parent.verticalCenter
+          width: 28
+          height: 22
+          radius: 6
+          color: Qt.rgba(1, 1, 1, 0.06)
+          border.width: 1
+          border.color: Qt.rgba(1, 1, 1, 0.12)
+
+          Text {
+            anchors.centerIn: parent
+            text: "↵"
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 13
+          }
+        }
+
         TextInput {
           id: searchInput
           anchors.fill: parent
           // searchIcon's own leftMargin (12) + width (22) + a 10px gap.
           anchors.leftMargin: 44
           // sourceFilterWidth + sourceFilterButton's own rightMargin (12)
-          // + a small gap, only while it's actually showing.
-          anchors.rightMargin: root.filesMode ? (root.sourceFilterWidth + 12 + 10) : 16
+          // + a small gap, only while it's actually showing; otherwise
+          // room for the Enter-hint chip (28 wide + 12 rightMargin) once
+          // there's a result for it to hint at, or the plain 16 default
+          // with neither showing.
+          anchors.rightMargin: root.filesMode ? (root.sourceFilterWidth + 12 + 10)
+            : (root.results.length > 0 ? (28 + 12 + 10) : 16)
           verticalAlignment: TextInput.AlignVCenter
           color: root.textColor
           font.family: root.fontFamily

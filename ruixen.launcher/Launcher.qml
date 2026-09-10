@@ -806,7 +806,23 @@ Item {
           width: resultsList.width
           height: root.rowHeight
           radius: 10
-          color: row.index === root.selectedIndex ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+          // Row itself stays a plain transparent hit-box, full width
+          // (icon/text below still anchor off ITS edges, unaffected) --
+          // the actual highlight fill is the separate, inset Rectangle
+          // below instead. Direct report: the highlight used to fill
+          // row's own full width, right up against the list/details
+          // separator (only the resultsList-to-separator 4px gap stood
+          // between them, reading as "too close"). 6px on both sides
+          // now, matching left/right for balance.
+          color: "transparent"
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: 6
+            anchors.rightMargin: 6
+            radius: row.radius
+            color: row.index === root.selectedIndex ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+          }
 
           // Omarchy Actions: a Nerd Font glyph. Applications: a real
           // icon via the shared AppLibrary instance -- same branch-on-
@@ -964,8 +980,8 @@ Item {
         // continuous taper.
         gradient: Gradient {
           GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0) }
-          GradientStop { position: 0.15; color: root.glassBorder }
-          GradientStop { position: 0.85; color: root.glassBorder }
+          GradientStop { position: 0.3; color: root.glassBorder }
+          GradientStop { position: 0.7; color: root.glassBorder }
           GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
         }
       }

@@ -66,7 +66,20 @@ Item {
   // refreshRoots() had a chance to respond, and nothing ever re-ran it
   // once the real roots came in.
   property var extraRoots: []
-  onExtraRootsChanged: if (root.query.trim()) debounceTimer.restart()
+  // Issue #48/#46: query text alone isn't a complete search identity --
+  // switching sourceFilter or having extraRoots change underneath an
+  // in-flight search are both real ways the CURRENT desired result set
+  // can change without the query string itself changing at all.
+  // rootGeneration bumps every time extraRoots is reassigned (below),
+  // and feeds into searchIdentity()'s own composite key alongside query
+  // and sourceFilter, so runSearch()'s staleness guard can catch every
+  // one of these cases with the same single check instead of three
+  // separate ad hoc ones.
+  property int rootGeneration: 0
+  onExtraRootsChanged: {
+    root.rootGeneration++
+    if (root.query.trim()) debounceTimer.restart()
+  }
 
   // Set externally (Launcher.qml's own source-filter dropdown): "" means
   // search every known root (Home + every extraRoot), same as before this
@@ -93,34 +106,59 @@ Item {
   }
 
   function refreshRoots() {
-    mountProc.running = true
+    mountProc.exec(["findmnt", "--json", "-o", "TARGET,FSTYPE"])
+  }
+
+  // findmnt's own tree walked recursively into a flat list -- children
+  // reflect mount hierarchy (a bind mount under another mount, etc.),
+  // not something this provider needs to preserve, just enumerate.
+  function flattenMounts(node, out) {
+    if (node && typeof node.target === "string") out.push(node.target)
+    if (node && Array.isArray(node.children)) {
+      for (var i = 0; i < node.children.length; i++) root.flattenMounts(node.children[i], out)
+    }
   }
 
   Process {
     id: mountProc
-    command: ["findmnt", "-P", "-o", "TARGET,FSTYPE"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        // -P (key="value" pairs) rather than the plain columnar output
-        // used elsewhere in this file -- a mount TARGET can contain
-        // spaces (a USB drive labeled "My Files", say), which the
-        // plain format has no safe way to split back apart.
-        var re = /TARGET="([^"]*)" FSTYPE="([^"]*)"/
-        var lines = text.split("\n")
+        // Issue #48: findmnt's own `-P` (key="value" pairs) format hex-
+        // escapes unsafe characters (findmnt(8): "All potentially unsafe
+        // value characters are hex-escaped (\xNN)"), and the previous
+        // regex parser stored that escaped form verbatim -- a real mount
+        // like "/mnt/Google Drive" would come back as "/mnt/Google\x20Drive"
+        // and get searched as a path that doesn't exist. --json sidesteps
+        // decoding entirely: JSON's own string escaping is unambiguous
+        // and QML's JSON.parse already handles it correctly, so there's
+        // no hand-rolled escape format to keep in sync with findmnt's own.
+        var targets = []
+        try {
+          var data = JSON.parse(text)
+          var top = (data && Array.isArray(data.filesystems)) ? data.filesystems : []
+          for (var i = 0; i < top.length; i++) root.flattenMounts(top[i], targets)
+        } catch (e) {
+          return
+        }
+        var seen = ({})
         var roots = []
-        for (var i = 0; i < lines.length; i++) {
-          var m = re.exec(lines[i])
-          if (!m) continue
-          var target = m[1]
+        for (var j = 0; j < targets.length; j++) {
+          var target = targets[j]
           // Convention every major desktop file manager already relies
           // on (Nautilus/udisks2 auto-mounts to /run/media/$USER/<label>,
           // manual mounts commonly go to /mnt or /media) -- real system
           // mounts (/, /boot, /var/*, tmpfs, proc, ...) never live under
           // any of these three prefixes, so this alone is enough to
           // exclude them without also needing an fstype allowlist.
-          if (target.indexOf("/mnt/") === 0 || target.indexOf("/media/") === 0 || target.indexOf("/run/media/") === 0)
+          var isCandidate = target.indexOf("/mnt/") === 0 || target.indexOf("/media/") === 0 || target.indexOf("/run/media/") === 0
+          // Dedup -- a bind mount or a submount nested under an already-
+          // discovered root would otherwise search the same files twice
+          // and show duplicate rows for them.
+          if (isCandidate && !seen[target]) {
+            seen[target] = true
             roots.push(target)
+          }
         }
         root.extraRoots = roots
       }
@@ -132,6 +170,14 @@ Item {
     if (!q) {
       debounceTimer.stop()
       root.lastResults = []
+      // Issue #49: actually stop in-flight work, not just stop caring
+      // about its result -- a query cleared (or Search Files left, via
+      // Launcher.qml gating this provider's own query to "") while fd is
+      // still walking a slow/unready mount would otherwise keep running
+      // for up to the full timeout for no reason. Safe even if nothing
+      // is running (confirmed live: setting running=false on an idle
+      // Process is a no-op, not an error).
+      searchProc.running = false
       return
     }
     debounceTimer.restart()
@@ -158,9 +204,27 @@ Item {
   // that's a different number from fd's own --max-results.
   readonly property int displayLimit: 30
 
+  // Issue #46: a query string alone is not a complete search identity --
+  // sourceFilter or the discovered root set can each change without the
+  // query text itself changing (switching the source dropdown, a drive
+  // mounting mid-search), and either one changing means an in-flight
+  // search's eventual result no longer belongs to what the UI currently
+  // wants. Snapshotting this into pendingSearchIdentity at launch and
+  // re-deriving it fresh from the same three LIVE properties at
+  // completion time (searchProc's own onStreamFinished) is the same
+  // frozen-snapshot-vs-live-recompute pattern this file already used for
+  // pendingQuery, just extended to cover all three identity-defining
+  // inputs instead of one.
+  function searchIdentity() {
+    return root.query.trim() + "" + root.sourceFilter + "" + root.rootGeneration
+  }
+
+  property string pendingSearchIdentity: ""
+
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
+    root.pendingSearchIdentity = root.searchIdentity()
     // -t f -t d: files AND directories -- fd ORs multiple --type flags
     // together (confirmed live). fd prints a trailing "/" on directory
     // matches, which resultFor() below uses to tell them apart without
@@ -216,8 +280,19 @@ Item {
     // SIGTERM until it returns on its own -- but that's a rarer failure
     // shape than "the mount just needs a few more seconds," which this
     // does fix.
-    searchProc.command = ["timeout", "3"].concat(args)
-    searchProc.running = true
+    // Issue #46: .exec() (not command=...;running=true) -- reassigning
+    // `command` while `running` is already true and then setting
+    // `running` to the SAME value it already holds is a no-op in QML
+    // (equal-value property writes don't re-trigger anything), so a
+    // query typed faster than the previous fd run completes would
+    // silently never actually start a new process, leaving the old
+    // query's own run to finish on its own. Confirmed directly (a
+    // standalone Quickshell harness): calling .exec() while a process is
+    // already running kills it (SIGTERM) and starts the new command
+    // immediately, and the killed process's own already-written stdout
+    // still reaches its StdioCollector rather than being lost -- exactly
+    // "last action wins" instead of "first action wins by accident."
+    searchProc.exec(["timeout", "3"].concat(args))
   }
 
   // Exact filename match > prefix > substring elsewhere in the name --
@@ -282,10 +357,12 @@ Item {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        // A stale response for a query the user has already moved on
-        // from -- drop it rather than overwriting newer (still
-        // pending) results with old ones.
-        if (root.pendingQuery !== root.query.trim()) return
+        // A stale response for a search identity (query + sourceFilter +
+        // root generation) the UI has already moved on from -- drop it
+        // rather than overwriting newer (still pending) results with old
+        // ones. See searchIdentity()'s own comment for why this checks
+        // more than just the query string.
+        if (root.pendingSearchIdentity !== root.searchIdentity()) return
         var q = root.pendingQuery
         var lines = text.split("\n").filter(function(l) { return l.length > 0 })
         var out = []
@@ -431,6 +508,17 @@ Item {
     root.videoPosterPath = ""
     root.pendingTextPreviewPath = ""
     root.textPreviewContent = ""
+    // Issue #46: stop whatever ffprobe/poster/text-preview work was
+    // still running for the PREVIOUS selection outright, not just
+    // disown its eventual result -- the pending-path resets above
+    // already make a late completion harmless (it can't match the new
+    // path), but there's no reason to let a video's ffmpeg poster
+    // extraction keep burning CPU for a row that isn't even selected
+    // anymore. Safe when already idle (confirmed directly: running=false
+    // on an idle Process is a no-op).
+    ffprobeProc.running = false
+    posterProc.running = false
+    textPreviewProc.running = false
     if (!path) return
     if (root.isTextPath(path)) {
       root.pendingTextPreviewPath = path
@@ -438,8 +526,7 @@ Item {
       // ever actually display (well past a screenful of wrapped lines
       // at the preview's own font size), so it never needs to be tuned
       // per-file; the pane's own clip does the rest, no scrolling.
-      textPreviewProc.command = ["head", "-c", "4000", "--", path]
-      textPreviewProc.running = true
+      textPreviewProc.exec(["head", "-c", "4000", "--", path])
     }
     // %W added for a "Created" field -- confirmed live this returns a
     // real, non-zero birth time on this machine's own btrfs root, not
@@ -448,12 +535,17 @@ Item {
     // (%W now sits between %Y and %F), so onStreamFinished's own
     // parts.slice() index for reassembling a pathological "|"-
     // containing filename moves from 4 to 5 accordingly.
-    statProc.command = ["stat", "--format=%s|%Y|%W|%F|%A|%n", "--", path]
-    statProc.running = true
+    //
+    // .exec() (not command=...;running=true) on every one of these four
+    // Process elements -- issue #46: rapid row navigation is exactly
+    // the "next request before the previous one finished" race that
+    // makes an equal-value running=true write a silent no-op, which
+    // would otherwise leave stat/ffprobe/poster/text-preview stuck
+    // showing (or never updating past) an earlier selection.
+    statProc.exec(["stat", "--format=%s|%Y|%W|%F|%A|%n", "--", path])
     if (root.isVideoPath(path)) {
       root.pendingVideoPath = path
-      ffprobeProc.command = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", "--", path]
-      ffprobeProc.running = true
+      ffprobeProc.exec(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", "--", path])
 
       root.pendingVideoPosterPath = path
       // Regenerate only if missing or the source is newer (-nt), same
@@ -464,10 +556,9 @@ Item {
       // output at all (onStreamFinished below then leaves
       // videoPosterPath empty, same graceful "no thumbnail" fallback
       // this plugin already uses everywhere else), never a crash.
-      posterProc.command = ["bash", "-c",
+      posterProc.exec(["bash", "-c",
         'mkdir -p "$1" && hash=$(printf "%s" "$2" | md5sum | cut -d" " -f1) && poster="$1/$hash.jpg" && if [ ! -f "$poster" ] || [ "$2" -nt "$poster" ]; then ffmpeg -y -loglevel quiet -i "$2" -vframes 1 -q:v 3 "$poster" 2>/dev/null; fi && if [ -f "$poster" ]; then printf "%s" "$poster"; fi',
-        "--", root.posterCacheDir, path]
-      posterProc.running = true
+        "--", root.posterCacheDir, path])
     }
   }
 

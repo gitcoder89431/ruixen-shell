@@ -37,9 +37,24 @@ Item {
   property string query: ""
   property string sourceFilter: ""
   property string homeDir: ""
+  // Issue #48: this provider's own extraRoots is a plain externally-
+  // bound property (Launcher.qml wires it straight from
+  // FileSearchProvider's own discovered value), but reassigning it
+  // never re-triggered a search here -- confirmed real: a query typed
+  // before mount discovery resolves would search only Home forever,
+  // never picking up a newly-discovered drive the way FileSearchProvider
+  // itself already does via its own onExtraRootsChanged. rootGeneration
+  // (bumped in the same handler) also feeds searchIdentity() below, the
+  // same composite-identity pattern FileSearchProvider uses for #46.
   property var extraRoots: []
+  property int rootGeneration: 0
+  onExtraRootsChanged: {
+    root.rootGeneration++
+    if (root.query.trim()) debounceTimer.restart()
+  }
 
   property string pendingQuery: ""
+  property string pendingSearchIdentity: ""
   property var lastResults: []
 
   // Confirmed live (this exact query -- rg's own glob semantics differ
@@ -67,6 +82,10 @@ Item {
     if (!q) {
       debounceTimer.stop()
       root.lastResults = []
+      // Issue #49: stop in-flight work outright, not just its eventual
+      // effect on lastResults -- see FileSearchProvider's own
+      // onQueryChanged for the full reasoning (safe no-op when idle).
+      searchProc.running = false
       return
     }
     debounceTimer.restart()
@@ -92,9 +111,17 @@ Item {
   // outranks a filename match, only fills in around/after them.
   readonly property int contentMatchScore: 1500
 
+  // Issue #46 -- same composite-identity pattern as FileSearchProvider's
+  // own searchIdentity(): query text alone misses a sourceFilter switch
+  // or a root-set change with no query edit involved.
+  function searchIdentity() {
+    return root.query.trim() + "" + root.sourceFilter + "" + root.rootGeneration
+  }
+
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
+    root.pendingSearchIdentity = root.searchIdentity()
     // -F/--fixed-strings -- issue #47: rg treats the pattern as a regex
     // by default (same mismatch as fd's own default in
     // FileSearchProvider -- see its own comment), so an ordinary query
@@ -117,8 +144,14 @@ Item {
     // combined invocation, not just that mount's own. rg does more I/O
     // per file than fd's own stat/listing (it reads content), so a
     // slightly longer bound than fd's 3s here.
-    searchProc.command = ["timeout", "4"].concat(args)
-    searchProc.running = true
+    // .exec() (not command=...;running=true) -- issue #46, same fix as
+    // FileSearchProvider's own runSearch(): reassigning command while
+    // running is already true is a silent no-op in QML, which could
+    // leave a query typed while a slow rg run is still in flight never
+    // actually starting its own search. Confirmed directly that .exec()
+    // kills whatever's running first and starts the new command
+    // immediately either way.
+    searchProc.exec(["timeout", "4"].concat(args))
   }
 
   function resultFor(path, lineNumber, lineText) {
@@ -155,7 +188,9 @@ Item {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        if (root.pendingQuery !== root.query.trim()) return
+        // Same composite-identity staleness guard as FileSearchProvider
+        // -- query text alone misses a sourceFilter/root-set change.
+        if (root.pendingSearchIdentity !== root.searchIdentity()) return
         var lines = text.split("\n").filter(function(l) { return l.length > 0 })
         var out = []
         for (var i = 0; i < lines.length && out.length < root.displayLimit; i++) {

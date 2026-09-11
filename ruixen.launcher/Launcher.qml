@@ -184,14 +184,27 @@ Item {
   // results list scrolls now, so this no longer needs to track the
   // fixed card's own visibleRowCount.
   AppSearchProvider { id: appSearchProvider; appLibrary: appLibrary }
-  FileSearchProvider { id: fileSearchProvider; query: root.query; sourceFilter: root.selectedSourcePath }
+  // Issue #49: query bound to "" outside Search Files mode -- both file
+  // providers otherwise ran a real fd/rg subprocess (across every
+  // discovered root, rclone/FUSE mounts included) on every ordinary
+  // Applications/Commands keystroke even though file results are never
+  // shown outside filesMode. onQueryChanged in each provider already
+  // treats an empty query as "stop debouncing, clear results, stop any
+  // in-flight process" (see FileSearchProvider's own handler), so
+  // flipping filesMode off both cancels in-flight work and prevents new
+  // work from starting, with no separate cancellation path needed here.
+  FileSearchProvider {
+    id: fileSearchProvider
+    query: root.filesMode ? root.query : ""
+    sourceFilter: root.selectedSourcePath
+  }
   // homeDir/extraRoots bound straight from fileSearchProvider's own
   // already-discovered values (see this file's own header comment) --
   // one mount-discovery pass shared by both providers, not two that
   // could disagree.
   FileContentSearchProvider {
     id: fileContentSearchProvider
-    query: root.query
+    query: root.filesMode ? root.query : ""
     sourceFilter: root.selectedSourcePath
     homeDir: fileSearchProvider.homeDir
     extraRoots: fileSearchProvider.extraRoots

@@ -25,12 +25,19 @@ Rectangle {
   property color glassTint: "#000000"
   property color glassBorder: "#ffffff"
   property string fontFamily: ""
+  // Matches the row it was opened for -- direct request: the popup
+  // should read as an extension of that row, not an independently
+  // sized floating box. Launcher.qml binds this to resultsList's own
+  // width (the same width every ResultRow already renders at) and
+  // positions the popup at that row's own left edge, so the two align
+  // exactly.
+  property real menuWidth: 240
 
   signal actionHovered(int index)
   signal actionActivated(string id)
 
   visible: root.actions.length > 0
-  width: 240
+  width: root.menuWidth
   height: root.actions.length * 28 + 8
   radius: 10
   // Fully solid, not just "near-opaque" like sourceFilterList's own

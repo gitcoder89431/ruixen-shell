@@ -563,17 +563,20 @@ Item {
   function positionActionsMenuNearSelection() {
     var item = resultsList.itemAtIndex(root.selectedIndex)
     if (!item) return
+    // localPos.x is the row's own LEFT edge in card-local coordinates
+    // (mapping (0, height), not (width, height)) -- direct request:
+    // the popup should match the row's own full width and align with
+    // it exactly, not just sit somewhere near it.
     var scenePos = item.mapToItem(null, 0, item.height)
     var localPos = card.mapFromItem(null, scenePos.x, scenePos.y)
     // Clamped so the popup never renders partly outside the card,
-    // whichever edge the selected row happens to be near. 240/28/8
-    // mirror ResultActionsMenu.qml's own fixed width and per-row/
-    // padding height formula -- duplicated here (not read back from
-    // the component itself) only because the menu's real size needs
-    // to be known BEFORE positioning it, not after.
-    var menuWidth = 240
+    // whichever edge the selected row happens to be near. 28/8 mirror
+    // ResultActionsMenu.qml's own per-row/padding height formula --
+    // duplicated here (not read back from the component itself) only
+    // because the menu's real height needs to be known BEFORE
+    // positioning it, not after.
     var menuHeight = root.resultActions.length * 28 + 8
-    root.actionsMenuX = Math.max(8, Math.min(localPos.x, card.width - menuWidth - 8))
+    root.actionsMenuX = Math.max(8, Math.min(localPos.x, card.width - resultsList.width - 8))
     root.actionsMenuY = Math.max(8, Math.min(localPos.y + 4, card.height - menuHeight - 8))
   }
 
@@ -1207,6 +1210,9 @@ Item {
         // relationship to another element.
         x: root.actionsMenuX
         y: root.actionsMenuY
+        // Direct request: matches the row it's for, same width every
+        // ResultRow already renders at.
+        menuWidth: resultsList.width
         actions: root.actionsMenuOpen ? root.resultActions : []
         selectedIndex: root.actionsSelectedIndex
         textColor: root.textColor

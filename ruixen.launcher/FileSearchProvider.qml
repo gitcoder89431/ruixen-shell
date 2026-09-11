@@ -931,8 +931,14 @@ Item {
       // output at all (onStreamFinished below then leaves
       // videoPosterPath empty, same graceful "no thumbnail" fallback
       // this plugin already uses everywhere else), never a crash.
+      // Issue #66: same ".src" sidecar convention as ruixen.wallpaper/
+      // Service.qml's own poster generation -- records the real source
+      // path next to the poster (written only when actually
+      // regenerated) so ruixen.wallpaper/prune-poster-cache.sh can later
+      // confirm whether it's still referenced instead of guessing from
+      // the one-way md5 hash alone.
       posterProc.exec(["bash", "-c",
-        'mkdir -p "$1" && hash=$(printf "%s" "$2" | md5sum | cut -d" " -f1) && poster="$1/$hash.jpg" && if [ ! -f "$poster" ] || [ "$2" -nt "$poster" ]; then ffmpeg -y -loglevel quiet -i "$2" -vframes 1 -q:v 3 "$poster" 2>/dev/null; fi && if [ -f "$poster" ]; then printf "%s" "$poster"; fi',
+        'mkdir -p "$1" && hash=$(printf "%s" "$2" | md5sum | cut -d" " -f1) && poster="$1/$hash.jpg" && if [ ! -f "$poster" ] || [ "$2" -nt "$poster" ]; then ffmpeg -y -loglevel quiet -i "$2" -vframes 1 -q:v 3 "$poster" 2>/dev/null; [ -f "$poster" ] && printf "%s" "$2" > "$poster.src"; fi && if [ -f "$poster" ]; then printf "%s" "$poster"; fi',
         "--", root.posterCacheDir, path])
     }
     if (root.isImagePath(path)) {

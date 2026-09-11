@@ -163,11 +163,18 @@ Item {
     // convention, see that file's own comment): otherwise replacing
     // a video's content at the same path kept showing the OLD poster
     // indefinitely.
+    // Issue #66: a ".src" sidecar next to the poster, written ONLY when
+    // the poster is actually (re)generated -- records the real source
+    // path directly so ruixen.wallpaper/prune-poster-cache.sh can later
+    // check whether it still exists instead of guessing from the
+    // one-way md5 hash alone. See that script's own header for the full
+    // pruning policy.
     posterAndSetProc.command = ["bash", "-c",
       "hash=$(printf '%s' \"$1\" | md5sum | cut -d' ' -f1); " +
       "poster=\"$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg\"; " +
       "if [[ ! -f \"$poster\" ]] || [[ \"$1\" -nt \"$poster\" ]]; then " +
-      "ffmpeg -y -loglevel quiet -i \"$1\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; fi; " +
+      "ffmpeg -y -loglevel quiet -i \"$1\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; " +
+      "[[ -f \"$poster\" ]] && printf '%s' \"$1\" > \"$poster.src\"; fi; " +
       "if [[ -f \"$poster\" ]]; then omarchy-theme-bg-set \"$poster\"; printf '%s' \"$poster\"; fi",
       "_", path]
     posterAndSetProc.running = true
@@ -214,12 +221,15 @@ Item {
     root.playGeneration += 1
 
     root.posterExpectedFor = path
+    // Issue #66: same ".src" sidecar as playGif()'s own video sibling
+    // above -- see its comment for the full reasoning.
     posterAndSetProc.command = ["bash", "-c",
       "hash=$(printf '%s' \"$1\" | md5sum | cut -d' ' -f1); " +
       "poster=\"$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg\"; " +
       "if command -v ffmpeg >/dev/null 2>&1; then " +
       "if [[ ! -f \"$poster\" ]] || [[ \"$1\" -nt \"$poster\" ]]; then " +
-      "ffmpeg -y -loglevel quiet -i \"$1\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; fi; fi; " +
+      "ffmpeg -y -loglevel quiet -i \"$1\" -vframes 1 -q:v 3 \"$poster\" 2>/dev/null; " +
+      "[[ -f \"$poster\" ]] && printf '%s' \"$1\" > \"$poster.src\"; fi; fi; " +
       "if [[ -f \"$poster\" ]]; then omarchy-theme-bg-set \"$poster\"; printf '%s' \"$poster\"; fi",
       "_", path]
     posterAndSetProc.running = true

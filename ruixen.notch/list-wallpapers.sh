@@ -50,6 +50,17 @@ theme=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null)
 mkdir -p "$HOME/Pictures/ruixen-wallpapers" "$HOME/.cache/ruixen/wallpaper-posters"
 US=$'\x1f'
 
+# Issue #66: conservative disk-cache pruning for the shared poster cache
+# -- see prune-poster-cache.sh's own header for the full policy. Every
+# time the wallpaper picker opens is already an occasional, deliberate
+# checkpoint (never per-keystroke/per-result), and running this in the
+# background with its own output discarded means it can never add
+# latency to -- or, on its own failure, ever break -- the real
+# wallpaper discovery below.
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+"$script_dir/prune-poster-cache.sh" >/dev/null 2>&1 &
+disown 2>/dev/null || true
+
 # Classifies each NUL-delimited path read from stdin: a plain image
 # prints image<US>path<US>path (display and real are the same thing); a
 # gif prints gif<US>path<US>path too (no poster needed -- Image already
@@ -99,6 +110,10 @@ process() {
         poster="$HOME/.cache/ruixen/wallpaper-posters/$hash.jpg"
         if [[ ! -f "$poster" ]] || [[ "$f" -nt "$poster" ]]; then
           ffmpeg -y -loglevel quiet -i "$f" -vframes 1 -q:v 3 "$poster" 2>/dev/null
+          # Issue #66: ".src" sidecar, written only when the poster is
+          # actually (re)generated -- see prune-poster-cache.sh's own
+          # header for the full pruning policy this feeds.
+          [[ -f "$poster" ]] && printf '%s' "$f" > "$poster.src"
         fi
         [[ -f "$poster" ]] && printf 'video%s%s%s%s%s%s\n' "$US" "$poster" "$US" "$f" "$US" "$poster"
         ;;

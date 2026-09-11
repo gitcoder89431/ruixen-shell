@@ -51,6 +51,13 @@ settings_search_config="$repo_dir/ruixen.settings/LauncherSearchConfig.js"
 # green/yellow/red (see ThemeColors.qml's own header for the full "why").
 bar_theme_colors="$repo_dir/ruixen.bar/ThemeColors.qml"
 peripherals_theme_colors="$repo_dir/ruixen.peripherals/ThemeColors.qml"
+# Same byte-identical-duplicate situation, different pair again -- issue
+# #66's own poster-cache pruning needs to run from ruixen.notch's own
+# list-wallpapers.sh (its real, occasional trigger) without depending on
+# ruixen.wallpaper's own plugin folder being deployed/enabled at all.
+wallpaper_prune="$repo_dir/ruixen.wallpaper/prune-poster-cache.sh"
+notch_prune="$repo_dir/ruixen.notch/prune-poster-cache.sh"
+list_wallpapers_sh="$repo_dir/ruixen.notch/list-wallpapers.sh"
 launcher_qml="$repo_dir/ruixen.notch/LauncherContent.qml"
 overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
 pinned_widget="$repo_dir/ruixen.pinnedapps/BarWidget.qml"
@@ -146,6 +153,33 @@ check "FileSearchProvider.qml's runSearch compacts its root list before scheduli
   "$(grep -c 'LauncherSearchConfig\.compactRoots(' "$rfiles_search")" "1"
 check "FileContentSearchProvider.qml's runSearch compacts its root list before scheduling" \
   "$(grep -c 'LauncherSearchConfig\.compactRoots(' "$rcontent_search")" "1"
+
+# --- Issue #66: shared poster cache pruning ------------------------------
+
+check "ruixen.wallpaper/prune-poster-cache.sh exists" "$([[ -f "$wallpaper_prune" ]] && echo yes)" "yes"
+check "ruixen.notch/prune-poster-cache.sh exists" "$([[ -f "$notch_prune" ]] && echo yes)" "yes"
+check "the two prune-poster-cache.sh copies are byte-identical (plugin folders can't share a file)" \
+  "$(diff -q "$wallpaper_prune" "$notch_prune" >/dev/null 2>&1 && echo same || echo different)" "same"
+check "both prune-poster-cache.sh copies are executable" \
+  "$([[ -x "$wallpaper_prune" && -x "$notch_prune" ]] && echo yes)" "yes"
+
+check "list-wallpapers.sh invokes its own local copy of prune-poster-cache.sh" \
+  "$(grep -c 'script_dir/prune-poster-cache\.sh' "$list_wallpapers_sh")" "1"
+# Backgrounded ("&") with output discarded -- issue #66's own explicit
+# "do not prune on every query" and "cleanup failure must never break
+# launcher/wallpaper behavior" requirements: a foreground/blocking call
+# here would add real latency to every wallpaper-picker open, and any
+# non-zero exit from the prune pass must never fail list-wallpapers.sh's
+# own real discovery output.
+check "list-wallpapers.sh backgrounds the prune call, never blocks on it" \
+  "$(grep -c 'prune-poster-cache\.sh" >/dev/null 2>&1 &' "$list_wallpapers_sh")" "1"
+
+check "ruixen.wallpaper/Service.qml's video poster generation writes a .src sidecar" \
+  "$(grep -c 'poster\.src' "$repo_dir/ruixen.wallpaper/Service.qml")" "2"
+check "ruixen.launcher/FileSearchProvider.qml's video poster generation writes a .src sidecar" \
+  "$(grep -c 'poster\.src' "$rfiles_search")" "1"
+check "ruixen.notch/list-wallpapers.sh's own poster generation writes a .src sidecar" \
+  "$(grep -c 'poster\.src' "$list_wallpapers_sh")" "1"
 
 # --- AppLibrary.qml wraps the real, unaffected Quickshell type ----------
 

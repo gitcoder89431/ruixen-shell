@@ -110,6 +110,8 @@ Item {
 
   function open(payloadJson) {
     root.opened = true
+    root.hoverArmed = false
+    root.hoverArmBaseline = Qt.point(-1, -1)
     // Issue #50: this plugin is keepLoaded, so the shell can stay alive
     // for a long session while real system state (an installed package,
     // a user's own menu/keybind edit, a `when` guard's truth value)
@@ -158,6 +160,22 @@ Item {
   // cursor. Keyboard navigation and onRowActivated/onRowActionsRequested
   // (a real click) don't set this, so they keep scrolling as before.
   property bool suppressHoverScroll: false
+  // Direct follow-up, same session as the hover-scroll fix above: "if my
+  // mouse is in the area where the stuff opens too, it goes straight to
+  // where the mouse selection is, can we open it up for KBD and then
+  // after mouse move we use the mouse?" -- a well-known menu/popup
+  // gotcha across every GUI toolkit: the compositor sends a synthetic
+  // pointer-enter the moment this overlay's surface maps under an
+  // already-stationary cursor, which reads identically to a real hover
+  // to a plain MouseArea.onEntered. hoverArmed starts false on every
+  // open() and stays false until hoverArmHandler (below, on `card`)
+  // observes the pointer at a DIFFERENT position than wherever it sat
+  // at that first synthetic event -- only then does mouse hover start
+  // driving selectedIndex again. A real click (onRowActivated/
+  // onRowActionsRequested) is NOT gated by this -- only passive hover-
+  // follow was ever the actual annoyance.
+  property bool hoverArmed: false
+  property point hoverArmBaseline: Qt.point(-1, -1)
   // Raycast's own real behavior, checked live: plain files don't mix
   // into the main result list at all (too spammy once a query matches
   // hundreds of them) -- instead there's a permanent "Use ... with"
@@ -888,6 +906,30 @@ Item {
       // to the scrim's own dismiss MouseArea behind it.
       MouseArea { anchors.fill: parent }
 
+      // Arms hoverArmed (see its own property comment) on the first
+      // REAL pointer movement after open() -- a passive input handler,
+      // not a MouseArea, specifically so it observes every pointer event
+      // over the whole card without stealing anything from the click-
+      // swallowing MouseArea above or any row's own MouseArea beneath
+      // resultsList. onPointChanged fires for the synthetic pointer-
+      // enter too (same event a plain MouseArea.onEntered would have
+      // reacted to), so the first firing after each open() is captured
+      // as a baseline instead of treated as movement -- only a
+      // DIFFERENT position on a later firing counts as the user
+      // actually having moved the mouse.
+      HoverHandler {
+        onPointChanged: {
+          if (root.hoverArmed) return
+          if (root.hoverArmBaseline.x < 0) {
+            root.hoverArmBaseline = point.position
+            return
+          }
+          if (Math.abs(point.position.x - root.hoverArmBaseline.x) > 0.5
+              || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5)
+            root.hoverArmed = true
+        }
+      }
+
       // Top inner highlight -- a common glass/vibrancy trick (macOS,
       // Raycast v2): the top edge reads a touch brighter than the
       // sides/bottom, faking a light source from above rather than a
@@ -1149,6 +1191,7 @@ Item {
         sectionHeaderHeight: root.headerHeight
         appLibrary: appLibrary
         onRowHovered: (idx) => {
+          if (!root.hoverArmed) return
           root.suppressHoverScroll = true
           root.selectedIndex = idx
           root.suppressHoverScroll = false

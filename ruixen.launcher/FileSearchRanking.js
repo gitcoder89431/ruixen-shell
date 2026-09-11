@@ -75,6 +75,15 @@ function matchesCategory(category, filterCategory) {
   return !filterCategory || filterCategory === "All" || category === filterCategory
 }
 
+// Issue #63: a real accessor function for FILE_CATEGORY_NAMES -- a
+// plain top-level `var` isn't reliably exposed through QML's own JS
+// import semantics the same way a function declaration is, so
+// LauncherQueryOperators.js's own resolveCategoryOperator (called from
+// Launcher.qml) goes through this instead of reading the var directly.
+function fileCategoryNames() {
+  return FILE_CATEGORY_NAMES
+}
+
 // Issue #59: splits a query into literal terms for multi-component
 // matching -- plain whitespace tokenization (no shell-style quoting).
 // Every term stays a literal, fixed-string fragment; this function only

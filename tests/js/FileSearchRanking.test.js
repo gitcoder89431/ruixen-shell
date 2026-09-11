@@ -130,6 +130,8 @@ check("matchesCategory: an empty/undefined filter also means no filter, same as 
   [M.matchesCategory("Images", ""), M.matchesCategory("Images", undefined)], [true, true]);
 check("matchesCategory: a specific filter requires an exact category match",
   [M.matchesCategory("Images", "Images"), M.matchesCategory("Documents", "Images")], [true, false]);
+check("fileCategoryNames: exposes the same 7 real category names used throughout this file",
+  M.fileCategoryNames(), ["Folders", "Documents", "Images", "Video", "Audio", "Archives", "Code/Text"]);
 
 // ---- tokenizeQuery / primaryCandidateTerm / pathSatisfiesAllTerms (issue #59) --
 

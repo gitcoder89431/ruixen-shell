@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 import "LauncherHelpers.js" as LauncherHelpers
+import "FileSearchRanking.js" as FileSearchRanking
+import "LauncherQueryOperators.js" as LauncherQueryOperators
 
 // Raycast/Spotlight-style command palette. Root contract copied from
 // ruixen.settings/Settings.qml (confirmed by reading it directly --
@@ -184,6 +186,53 @@ Item {
   // process" in both providers).
   property string searchScope: "both"
   property bool hiddenFilesEnabled: false
+
+  // Issue #63: keyboard-first operators (type:/kind:, in:/source:,
+  // name:/content:, hidden:) parsed straight out of the live query
+  // text -- only meaningful in Search Files mode; outside it the raw
+  // text passes through completely untouched (an Applications/Commands
+  // query like "in the loop" should search for exactly that literal
+  // text, never be reinterpreted).
+  readonly property var parsedFilesQuery: root.filesMode ? LauncherQueryOperators.parseQuery(root.query) : { text: root.query }
+
+  // Precedence per this issue's own acceptance criteria: a recognized
+  // operator overrides the corresponding SESSION filter (the visible
+  // SearchFiltersBar/source-dropdown controls) only for as long as it's
+  // present in the query text -- there is no separate persisted
+  // "override" state to fall out of sync with those controls, this is
+  // recomputed fresh from the current query every time, so removing the
+  // operator (editing it back out) automatically reverts to whatever
+  // the session filter already was. An operator whose value doesn't
+  // resolve to anything real (resolveCategoryOperator/
+  // resolveSourceOperator returning null) falls back to the session
+  // filter too, same as if the operator hadn't been recognized at all
+  // -- never a silent "filter to nothing".
+  //
+  // Deliberately does NOT update the visible filter control labels
+  // (SearchFiltersBar's own Type/Scope/Hidden buttons, the source
+  // dropdown) -- only the actual search behavior. Issue #63's own
+  // acceptance criteria treats that as a "where practical" nice-to-
+  // have, not a hard requirement, and wiring live label feedback
+  // through would mean threading a second, transient value into every
+  // one of those controls alongside the real session state they
+  // already show -- a real complexity/value tradeoff, not free.
+  readonly property string effectiveCategoryFilter: {
+    if (root.parsedFilesQuery.type !== undefined) {
+      var resolved = LauncherQueryOperators.resolveCategoryOperator(root.parsedFilesQuery.type, FileSearchRanking.fileCategoryNames())
+      if (resolved) return resolved
+    }
+    return root.categoryFilter
+  }
+  readonly property string effectiveSearchScope: root.parsedFilesQuery.scope !== undefined ? root.parsedFilesQuery.scope : root.searchScope
+  readonly property bool effectiveHiddenFilesEnabled: root.parsedFilesQuery.hidden !== undefined ? root.parsedFilesQuery.hidden : root.hiddenFilesEnabled
+  readonly property string effectiveSelectedSourcePath: {
+    if (root.parsedFilesQuery.source !== undefined) {
+      var resolved = LauncherQueryOperators.resolveSourceOperator(root.parsedFilesQuery.source, fileSearchProvider.sources)
+      if (resolved !== null) return resolved
+    }
+    return root.selectedSourcePath
+  }
+
   onFilesModeChanged: {
     // Re-discovers mounted secondary drives (see FileSearchProvider's
     // own refreshRoots()) each time Search Files is entered, rather
@@ -253,10 +302,13 @@ Item {
     id: fileSearchProvider
     // Issue #60: "Names"/"Both" run this provider; "Contents" gates it
     // off entirely the same way leaving Search Files already does.
-    query: (root.filesMode && root.searchScope !== "contents") ? root.query : ""
-    sourceFilter: root.selectedSourcePath
-    categoryFilter: root.categoryFilter
-    hiddenEnabled: root.hiddenFilesEnabled
+    // Issue #63: the EFFECTIVE scope/text/source/category (session
+    // filter, unless a query operator overrides it) -- see
+    // effectiveSearchScope's own comment above.
+    query: (root.filesMode && root.effectiveSearchScope !== "contents") ? root.parsedFilesQuery.text : ""
+    sourceFilter: root.effectiveSelectedSourcePath
+    categoryFilter: root.effectiveCategoryFilter
+    hiddenEnabled: root.effectiveHiddenFilesEnabled
   }
   // homeDir/extraRoots bound straight from fileSearchProvider's own
   // already-discovered values (see this file's own header comment) --
@@ -268,11 +320,12 @@ Item {
     // off, same mechanism. A "Folders" category filter ALSO gates it
     // off outright -- rg never matches a directory, so running it at
     // all when only folders are wanted could only ever waste a real
-    // filesystem walk for zero possible results.
-    query: (root.filesMode && root.searchScope !== "names" && root.categoryFilter !== "Folders") ? root.query : ""
-    sourceFilter: root.selectedSourcePath
-    categoryFilter: root.categoryFilter
-    hiddenEnabled: root.hiddenFilesEnabled
+    // filesystem walk for zero possible results. Issue #63: effective
+    // values, same as FileSearchProvider's own instantiation above.
+    query: (root.filesMode && root.effectiveSearchScope !== "names" && root.effectiveCategoryFilter !== "Folders") ? root.parsedFilesQuery.text : ""
+    sourceFilter: root.effectiveSelectedSourcePath
+    categoryFilter: root.effectiveCategoryFilter
+    hiddenEnabled: root.effectiveHiddenFilesEnabled
     homeDir: fileSearchProvider.homeDir
     // Issue #61: the EFFECTIVE (config-filtered) extra roots, not
     // FileSearchProvider's own raw auto-discovered list -- one place

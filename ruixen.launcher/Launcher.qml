@@ -3,7 +3,6 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
-import "OmarchyMenuParser.js" as OmarchyMenuParser
 import "LauncherHelpers.js" as LauncherHelpers
 
 // Raycast/Spotlight-style command palette. Root contract copied from
@@ -30,6 +29,17 @@ import "LauncherHelpers.js" as LauncherHelpers
 // result.providerId. Adding a future provider (Kanban capture,
 // calculator, ...) is one new file + one entry in root.providers below
 // -- nothing else here changes.
+//
+// Issue #57: this file used to also own every visual detail of the
+// search bar, result rows, the Search Files details/preview panel, and
+// the empty/degraded states inline -- split into SearchHeader.qml,
+// ResultsList.qml/ResultRow.qml, FileDetailsPanel.qml/FilePreview.qml,
+// and EmptyState.qml, each a focused presentational component. This
+// file stays the coordinator: shell lifecycle, query/mode/source
+// state, provider wiring, the merged/ranked results list, selection,
+// and the derived preview/metadata values those components render --
+// no visual/behavior change from the pre-split version, verified live
+// (see this issue's own closing comment for the exact checklist).
 Item {
   id: root
   property var shell: null
@@ -90,9 +100,10 @@ Item {
   // applied with plain positionViewAtIndex calls (no custom Flickable
   // math needed).
   readonly property int scrollOff: 2
-  // Shared by sourceFilterButton (the closed control) and sourceFilterList
-  // (the opened menu) -- same width on both so they read as one dropdown
-  // widget rather than a button with a mismatched panel underneath.
+  // Shared by SearchHeader's own sourceFilterButton (the closed
+  // control) and sourceFilterList below (the opened menu) -- same
+  // width on both so they read as one dropdown widget rather than a
+  // button with a mismatched panel underneath.
   readonly property int sourceFilterWidth: 150
 
   function open(payloadJson) {
@@ -105,7 +116,7 @@ Item {
     // at the LAST full shell restart. Cheap: a few local file reads plus
     // one short bash guard-eval script, not run per keystroke.
     omarchyActionsProvider.refresh()
-    Qt.callLater(function() { searchInput.forceActiveFocus() })
+    Qt.callLater(function() { searchHeader.focusInput() })
   }
 
   function close() {
@@ -125,7 +136,7 @@ Item {
 
   onOpenedChanged: {
     if (!root.opened) {
-      searchInput.text = ""
+      searchHeader.text = ""
       root.query = ""
       root.filesMode = false
     }
@@ -156,7 +167,7 @@ Item {
     // view opens, without needing a full shell restart.
     if (root.filesMode) fileSearchProvider.refreshRoots()
     root.selectedSourcePath = ""
-    sourceFilterList.visible = false
+    searchHeader.dropdownOpen = false
     root.selectedIndex = 0
     Qt.callLater(function() { resultsList.positionViewAtBeginning() })
   }
@@ -228,12 +239,12 @@ Item {
 
   function byScoreDesc(a, b) { return (b.score || 0) - (a.score || 0) }
 
-  // Search Files rows dropped their own path subtitle (see labelText's
-  // own comment), so two folders/files that happen to share a bare
-  // name (e.g. a "projects-plans" under both "dog" and "cats") would
-  // otherwise render as identical, unlabeled rows with no way to tell
-  // them apart. Prefixes the immediate PARENT folder's own name (not
-  // the whole path -- that's what the details panel's own "Where"
+  // Search Files rows dropped their own path subtitle (see ResultRow's
+  // own labelText comment), so two folders/files that happen to share a
+  // bare name (e.g. a "projects-plans" under both "dog" and "cats")
+  // would otherwise render as identical, unlabeled rows with no way to
+  // tell them apart. Prefixes the immediate PARENT folder's own name
+  // (not the whole path -- that's what the details panel's own "Where"
   // field is for) only onto labels that actually collide within the
   // current result set, e.g. "dog/projects-plans" and
   // "cats/projects-plans" -- a name with no duplicate stays untouched.
@@ -279,7 +290,7 @@ Item {
     return {
       id: "fallback:files",
       providerId: "files-fallback",
-      icon: "",
+      icon: "",
       label: "Search Files",
       breadcrumb: "File Search",
       kind: "Command",
@@ -290,10 +301,9 @@ Item {
   }
 
   // A single flat list, each row tagged with its own sectionLabel --
-  // fed straight into the results ListView's section.property below,
-  // which draws the group headers and keeps the list virtualized (real
-  // perf concern once Commands lists every actionable entry, not just
-  // a handful).
+  // fed straight into ResultsList's own model, which draws the group
+  // headers and keeps the list virtualized (real perf concern once
+  // Commands lists every actionable entry, not just a handful).
   //
   // Empty query keeps real, separate "Suggestions"/"Commands" groups --
   // curated defaults plus the full command list below them, distinct
@@ -400,6 +410,92 @@ Item {
     if (path && path !== fileSearchProvider.pendingDetailsPath) fileSearchProvider.loadDetails(path)
     else if (!path) fileSearchProvider.selectedDetails = null
   }
+
+  // Issue #57: the Search Files preview/metadata values FileDetailsPanel/
+  // FilePreview now just render, moved up here from what used to be
+  // detailsPanel's own inline computed properties -- Launcher.qml keeps
+  // owning "what IS the current preview state", the components just
+  // display whatever they're handed. No behavior change: same
+  // conditions, same fallback chain, just named at the coordinator
+  // level instead of on a child Rectangle's own id.
+  //
+  // Still-image formats get a real thumbnail instead of the generic
+  // file glyph -- reuses FileSearchProvider's own extension-derived
+  // "Kind" string (e.g. "PNG Image") rather than re-deriving the
+  // extension here a second time. Plain truthiness, not `!== null` --
+  // selectedResult/selectedDetails can transiently be `undefined`
+  // rather than `null` between selections, which `!== null` doesn't
+  // catch and which tripped a real "Value is undefined and could not be
+  // converted to an object" warning from the Image source binding.
+  readonly property bool isImagePreview: !!fileSearchProvider.selectedDetails && !!root.selectedResult &&
+    ["PNG Image", "JPEG Image", "GIF Image", "WebP Image", "Bitmap Image", "SVG Image"].indexOf(fileSearchProvider.selectedDetails.type) !== -1
+
+  // Video gets a real extracted-frame poster instead of the generic
+  // glyph, same as an image gets its own file directly -- see
+  // FileSearchProvider's own loadDetails/posterProc (the exact ffmpeg
+  // -vframes 1 technique ruixen.notch's wallpaper picker already uses
+  // for its own .mp4 tiles, sharing that same disk cache). Poster
+  // generation is async and can still be running (or have failed -- a
+  // corrupt video) when this is first checked, so it's gated on
+  // videoPosterPath actually being populated, not just "this is a
+  // video file".
+  readonly property bool isVideoPreview: !!fileSearchProvider.selectedDetails && fileSearchProvider.selectedDetails.type === "Video" && fileSearchProvider.videoPosterPath !== ""
+  readonly property bool hasThumbnail: root.isImagePreview || root.isVideoPreview
+  readonly property string thumbnailSource: root.isImagePreview && root.selectedResult ? ("file://" + root.selectedResult.action.path)
+    : root.isVideoPreview ? ("file://" + fileSearchProvider.videoPosterPath)
+    : ""
+
+  // Text preview -- same fixed preview footprint an image/video
+  // thumbnail uses, but with the file's own leading content instead.
+  // Gated on textPreviewContent actually having arrived (same pattern
+  // as isVideoPreview above gating on videoPosterPath), not just "this
+  // looks like a text extension" -- the read can still be in flight, or
+  // (though unlikely for an explicit extension allowlist) come back
+  // empty.
+  readonly property bool isTextPreview: !root.hasThumbnail && fileSearchProvider.textPreviewContent !== ""
+
+  // Issue #56: reads FileSearchProvider's own `file`-based lookup
+  // instead of the preview Image's own sourceSize -- once that Image
+  // has its own sourceSize bound to the small preview box, reading
+  // sourceSize back would report the BOUNDED decode size, not the
+  // source's real dimensions.
+  readonly property string previewImageDimensions: root.isImagePreview ? fileSearchProvider.imageDimensions : ""
+
+  // Dimensions/Duration/Created only appear when actually available --
+  // an IIFE rather than a flat literal, since "insert this field only
+  // if truthy" isn't expressible as a single ternary once there are
+  // three independent optional fields instead of one.
+  readonly property var detailsFields: fileSearchProvider.selectedDetails ? (function() {
+    var d = fileSearchProvider.selectedDetails
+    var out = [
+      { label: "Name", value: root.selectedResult ? root.selectedResult.label : "" },
+      { label: "Type", value: d.type }
+    ]
+    // Mutually exclusive in practice (isImagePreview's own type list
+    // and videoExtensions never overlap), but checked independently
+    // rather than else-if -- neither depends on the other being absent.
+    if (root.previewImageDimensions) out.push({ label: "Dimensions", value: root.previewImageDimensions })
+    if (fileSearchProvider.videoDuration) out.push({ label: "Duration", value: fileSearchProvider.videoDuration })
+    out.push({ label: "Size", value: root.formatSize(d.size) })
+    out.push({ label: "Where", value: (root.selectedResult && root.selectedResult.action && root.selectedResult.action.path) ? root.parentDirOf(root.selectedResult.action.path) : "" })
+    // Search Files rows hide their own subtitle text entirely (see
+    // ResultRow's own metaText visible: !filesMode), so a content
+    // match's own breadcrumb -- the matched LINE itself, the whole
+    // "search by context" feature -- had nowhere else to surface once
+    // "Where" above got fixed to show the real folder instead of
+    // reusing that same field. This is that field, shown only for
+    // content matches (identified by providerId, not by re-deriving
+    // "does this look like a snippet" from the text itself).
+    if (root.selectedResult && root.selectedResult.providerId === "file-content-search")
+      out.push({ label: "Match", value: root.selectedResult.breadcrumb })
+    // 0 means this filesystem doesn't track birth time (see
+    // FileSearchProvider's own loadDetails comment) -- omit rather than
+    // show a bogus 1970 date.
+    if (d.created) out.push({ label: "Created", value: root.formatDate(d.created) })
+    out.push({ label: "Modified", value: root.formatDate(d.mtime) })
+    out.push({ label: "Permissions", value: d.permissions })
+    return out
+  })() : []
 
   function providerFor(id) {
     for (var i = 0; i < root.providers.length; i++)
@@ -558,233 +654,49 @@ Item {
         }
       }
 
-      Rectangle {
-        id: searchBox
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 8
-        height: 48
-        // Ghost -- no pill surface of its own (direct request: "put it
-        // on the glass so its ghost"), just the card's own frosted
-        // background showing straight through. No bottom border either
-        // now -- direct follow-up ("we dont need this separator
-        // anymore") -- the search box just flows straight into the
-        // results below.
-        radius: 0
-        color: "transparent"
-
-        // fa-search (U+F002), same glyph as the Search Files fallback
-        // row's own icon. Positioned with the exact same leftMargin/
-        // width/centering as a result row's own icon Text below
-        // (row.qml's own `appIcon`/icon Text) -- searchBox and
-        // resultsList share the same leftMargin (8) off the card, and
-        // a ListView delegate's own x is that view's x with no further
-        // offset, so matching leftMargin+width here lines this glyph's
-        // column up with every row's icon column exactly, not just
-        // approximately.
-        Text {
-          id: searchIcon
-          anchors.left: parent.left
-          anchors.leftMargin: 12
-          anchors.verticalCenter: parent.verticalCenter
-          width: 22
-          horizontalAlignment: Text.AlignHCenter
-          // fa-search (U+F002) normally; swaps to fa-arrow-left
-          // (U+F060) in Search Files mode, doubling as a real back
-          // button -- direct request: clicking it there exits Search
-          // Files, same as Escape's own first step (root.filesMode =
-          // false), rather than dismissing the whole palette.
-          text: root.filesMode ? "" : ""
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 16
-
-          MouseArea {
-            anchors.fill: parent
-            anchors.margins: -4
-            // Only interactive in Search Files mode -- there is
-            // nothing to "go back" from otherwise, so the plain
-            // magnifying glass stays decorative the rest of the time.
-            enabled: root.filesMode
-            cursorShape: root.filesMode ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: root.filesMode = false
-          }
+      SearchHeader {
+        id: searchHeader
+        filesMode: root.filesMode
+        resultCount: root.results.length
+        selectedSourcePath: root.selectedSourcePath
+        sources: fileSearchProvider.sources
+        sourceFilterWidth: root.sourceFilterWidth
+        textColor: root.textColor
+        mutedColor: root.muted
+        fontFamily: root.fontFamily
+        onTextChanged: root.query = text
+        onUpPressed: if (root.selectedIndex > 0) root.selectedIndex--
+        onDownPressed: if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
+        onEnterPressed: root.activateSelected()
+        onEscapePressed: {
+          if (root.filesMode) root.filesMode = false
+          else root.dismiss()
         }
-
-        // Search Files only -- filters fd's own search roots to just one
-        // drive (see FileSearchProvider's own sources/sourceFilter).
-        // Meaningless outside Search Files (Applications/Commands have
-        // no "drive"), so hidden the rest of the time -- TextInput's own
-        // rightMargin below only makes room for it while it's visible.
-        // Ghost trigger, not a nested pill -- no background surface of
-        // its own (a faint hover/open tint is the only visual affordance),
-        // so it reads as part of the search input rather than a separate
-        // control sitting on top of it. Sized to its own content
-        // (filterRow.implicitWidth), not a fixed box, so the label sits
-        // right up against the chevron instead of floating inside slack
-        // space.
-        // Fixed width shared with sourceFilterList below (sourceFilterWidth)
-        // so the closed control and the opened menu share one width --
-        // reads as a single dropdown widget rather than a button with a
-        // mismatched panel. No hover tint -- the chevron itself flipping
-        // to point up is the only "open" affordance needed.
-        Item {
-          id: sourceFilterButton
-          visible: root.filesMode
-          anchors.right: parent.right
-          anchors.rightMargin: 12
-          anchors.verticalCenter: parent.verticalCenter
-          width: root.sourceFilterWidth
-          height: 28
-
-          readonly property string currentLabel: root.selectedSourcePath === "" ? "All Sources" : (function() {
-            var srcs = fileSearchProvider.sources
-            for (var i = 0; i < srcs.length; i++) if (srcs[i].path === root.selectedSourcePath) return srcs[i].label
-            return "All Sources"
-          })()
-
-          Text {
-            id: sourceFilterLabel
-            anchors.left: parent.left
-            anchors.leftMargin: 10
-            anchors.right: sourceFilterChevron.left
-            anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            elide: Text.ElideRight
-            text: sourceFilterButton.currentLabel
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 12
-          }
-
-          // fa-chevron-down (U+F078) -- rotates to point up while the
-          // menu is open, same convention as a native <select>.
-          Text {
-            id: sourceFilterChevron
-            anchors.right: parent.right
-            anchors.rightMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 9
-            rotation: sourceFilterList.visible ? 180 : 0
-            transformOrigin: Item.Center
-            Behavior on rotation { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            onClicked: sourceFilterList.visible = !sourceFilterList.visible
-          }
-        }
-
-        // Keyboard hint for the primary action -- direct request: "this
-        // space is empty... make it kbd good". Styled like an actual
-        // physical key cap (bordered chip, not just bare text) so it
-        // reads as "press this key" at a glance, same convention every
-        // real Raycast-style launcher uses for its own primary-action
-        // hint. Only where sourceFilterButton isn't already occupying
-        // this same right-aligned spot (Search Files mode), and only
-        // when there's actually something Enter would do -- an empty
-        // results list (no Suggestions, no matches, nothing) has no
-        // primary action to hint at.
-        Rectangle {
-          visible: !root.filesMode && root.results.length > 0
-          anchors.right: parent.right
-          anchors.rightMargin: 12
-          anchors.verticalCenter: parent.verticalCenter
-          width: 28
-          height: 22
-          radius: 6
-          color: Qt.rgba(1, 1, 1, 0.06)
-          border.width: 1
-          border.color: Qt.rgba(1, 1, 1, 0.12)
-
-          Text {
-            anchors.centerIn: parent
-            text: "↵"
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 13
-          }
-        }
-
-        TextInput {
-          id: searchInput
-          anchors.fill: parent
-          // searchIcon's own leftMargin (12) + width (22) + a 10px gap.
-          anchors.leftMargin: 44
-          // sourceFilterWidth + sourceFilterButton's own rightMargin (12)
-          // + a small gap, only while it's actually showing; otherwise
-          // room for the Enter-hint chip (28 wide + 12 rightMargin) once
-          // there's a result for it to hint at, or the plain 16 default
-          // with neither showing.
-          anchors.rightMargin: root.filesMode ? (root.sourceFilterWidth + 12 + 10)
-            : (root.results.length > 0 ? (28 + 12 + 10) : 16)
-          verticalAlignment: TextInput.AlignVCenter
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 16
-          clip: true
-          onTextChanged: root.query = text
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: root.filesMode ? "Search files..." : "Search actions and apps..."
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 16
-            visible: searchInput.text.length === 0
-          }
-
-          // Same Escape/Up/Down/Enter shape LauncherContent.qml's own
-          // launcherSearchInput already proves out -- Escape now drills
-          // up one level (out of Search Files, back to the main
-          // Results view) before it dismisses the whole palette,
-          // rather than always dismissing outright.
-          Keys.onPressed: function(event) {
-            var count = root.results.length
-            if (event.key === Qt.Key_Escape) {
-              if (sourceFilterList.visible) sourceFilterList.visible = false
-              else if (root.filesMode) root.filesMode = false
-              else root.dismiss()
-              event.accepted = true
-            } else if (event.key === Qt.Key_Up) {
-              if (root.selectedIndex > 0) root.selectedIndex--
-              event.accepted = true
-            } else if (event.key === Qt.Key_Down) {
-              if (root.selectedIndex < count - 1) root.selectedIndex++
-              event.accepted = true
-            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-              root.activateSelected()
-              event.accepted = true
-            }
-          }
-        }
+        onBackClicked: root.filesMode = false
       }
 
       // Closes the dropdown on any click elsewhere on the card (rows,
       // the details panel, ...) -- only present while the list is open,
-      // and z-ordered between searchBox (default z:0) and the list
+      // and z-ordered between searchHeader (default z:0) and the list
       // itself (z:100) so it can't intercept normal clicks the rest of
       // the time. The outside click is consumed here rather than also
       // passed through to whatever's underneath -- a common, expected
-      // dropdown convention (the first click away just dismisses).
+      // dropdown convention (the first click away just dismisses). See
+      // SearchHeader.qml's own header comment for why this stays here
+      // rather than nested inside that component.
       MouseArea {
         anchors.fill: parent
-        visible: sourceFilterList.visible
+        visible: searchHeader.dropdownOpen
         z: 50
-        onClicked: sourceFilterList.visible = false
+        onClicked: searchHeader.dropdownOpen = false
       }
 
       Rectangle {
         id: sourceFilterList
-        visible: false
-        anchors.top: searchBox.bottom
+        visible: searchHeader.dropdownOpen
+        anchors.top: searchHeader.bottom
         anchors.topMargin: 6
-        anchors.right: searchBox.right
+        anchors.right: searchHeader.right
         // Matches sourceFilterButton's own rightMargin (12) exactly, not
         // an independent value -- its right edge lines up with the
         // button's right edge, same as this width matches its width.
@@ -866,7 +778,7 @@ Item {
                 anchors.fill: parent
                 onClicked: {
                   root.selectedSourcePath = sourceRow.modelData.path
-                  sourceFilterList.visible = false
+                  searchHeader.dropdownOpen = false
                 }
               }
             }
@@ -881,11 +793,11 @@ Item {
       // clip:true Column that silently truncated. section.property
       // groups by each row's own sectionLabel (set in root.results)
       // and draws its own header, so there's no manual nesting to keep
-      // selection math in sync with -- this delegate's own `index` is
-      // already the same flat index as root.selectedIndex.
-      ListView {
+      // selection math in sync with -- ResultsList's own delegate index
+      // is already the same flat index as root.selectedIndex.
+      ResultsList {
         id: resultsList
-        anchors.top: searchBox.bottom
+        anchors.top: searchHeader.bottom
         // 8 -> 4 -- direct report: felt like too much empty space now
         // that the search box's own bottom border separator is gone
         // (nothing "explains" the gap visually anymore, so it read as
@@ -900,262 +812,18 @@ Item {
         anchors.rightMargin: 8
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 8
-        clip: true
-        spacing: 0
-        // Same fix as ruixen.settings' own detail panel Flickable /
-        // DashboardContent.qml's notification ListView -- no overscroll
-        // bounce.
-        boundsBehavior: Flickable.StopAtBounds
         model: root.results
-
-        section.property: "sectionLabel"
-        section.criteria: ViewSection.FullString
-        section.delegate: Item {
-          width: resultsList.width
-          height: root.headerHeight
-
-          Text {
-            anchors.left: parent.left
-            anchors.leftMargin: 4
-            anchors.verticalCenter: parent.verticalCenter
-            text: section
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            font.capitalization: Font.AllUppercase
-            font.bold: true
-          }
-        }
-
-        delegate: Rectangle {
-          id: row
-          required property var modelData
-          required property int index
-          width: resultsList.width
-          height: root.rowHeight
-          radius: 10
-          // Row itself stays a plain transparent hit-box, full width
-          // (icon/text below still anchor off ITS edges, unaffected) --
-          // the actual highlight fill is the separate, inset Rectangle
-          // below instead. Direct report: the highlight used to fill
-          // row's own full width, right up against the list/details
-          // separator (only the resultsList-to-separator 4px gap stood
-          // between them, reading as "too close"). 6px on both sides
-          // now, matching left/right for balance.
-          color: "transparent"
-
-          Rectangle {
-            anchors.fill: parent
-            anchors.leftMargin: 6
-            anchors.rightMargin: 6
-            radius: row.radius
-            // Direct feedback: a flat white fill reads fine over a dark
-            // backdrop but gets too bright over a lighter one -- alpha
-            // blending with white always brightens by a fixed amount
-            // regardless of what's underneath, so it can't help swinging
-            // wildly with whatever's behind the glass. A themed accent
-            // tint (same hue the whole card's own glassTint already
-            // uses) at a lower fill alpha, PLUS a crisp accent border,
-            // keeps the row clearly legible via its own edge/hue rather
-            // than leaning on raw brightness -- steadier across
-            // backdrops than a brightness-only highlight can be.
-            color: row.index === root.selectedIndex ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14) : "transparent"
-            border.width: row.index === root.selectedIndex ? 1 : 0
-            border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
-          }
-
-          // Omarchy Actions: a Nerd Font glyph. Applications: a real
-          // icon via the shared AppLibrary instance -- same branch-on-
-          // provider split LauncherContent.qml's own tilesAreApps
-          // already uses for the identical reason (two different icon
-          // sources, one Image + one fallback Text).
-          Image {
-            id: appIcon
-            visible: row.modelData.providerId === "app-search" && status === Image.Ready
-            anchors.left: parent.left
-            anchors.leftMargin: 12
-            anchors.verticalCenter: parent.verticalCenter
-            width: 22
-            height: 22
-            sourceSize: Qt.size(22, 22)
-            asynchronous: true
-            source: row.modelData.providerId === "app-search" ? appLibrary.iconSource(row.modelData.icon) : ""
-          }
-
-          Text {
-            visible: row.modelData.providerId !== "app-search"
-            anchors.left: parent.left
-            anchors.leftMargin: 12
-            anchors.verticalCenter: parent.verticalCenter
-            width: 22
-            horizontalAlignment: Text.AlignHCenter
-            text: row.modelData.icon
-            // Folders (Search Files only -- Commands/Applications never
-            // have kind "Folder") pick up the active theme's own accent
-            // color, same as every other accent-colored element in this
-            // repo's own theme convention -- files stay the plain
-            // textColor every other icon uses.
-            color: row.modelData.kind === "Folder" ? root.accent : root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 16
-          }
-
-          // Shrinks to the label's own content again, but WITHOUT
-          // measuring rendered text at all this time -- both earlier
-          // attempts did that and both broke: implicitWidth off a Text
-          // that also elides is a real, documented Qt Quick "Binding
-          // loop detected for property width" gotcha, and a sibling
-          // TextMetrics (the usual fix for that gotcha) hit a worse
-          // bug -- ListView recycles delegates, and TextMetrics.width
-          // lagged a stale measurement from whatever row PREVIOUSLY
-          // occupied this recycled delegate, truncating every label
-          // regardless of its own actual length. Since the font here
-          // is monospace (JetBrainsMono Nerd Font), label.length times
-          // a fixed per-character advance is a good enough estimate of
-          // the real rendered width -- pure arithmetic on a string, no
-          // layout-engine measurement involved, so neither bug can
-          // recur. elide still absorbs any small over/under-estimate.
-          // In Search Files mode there's no subtitle/kind at all (see
-          // metaText/kindText below), so the label just takes the
-          // whole row regardless.
-          readonly property real charWidth: 8
-          Text {
-            id: labelText
-            anchors.left: parent.left
-            anchors.leftMargin: 44
-            anchors.verticalCenter: parent.verticalCenter
-            width: root.filesMode
-              ? (parent.width - 44 - 12)
-              : Math.min(row.modelData.label.length * row.charWidth + 4, parent.width * 0.55 - 44)
-            elide: Text.ElideRight
-            text: row.modelData.label
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 13
-          }
-
-          // Subtitle beside the name -- Applications: AppSearchProvider's
-          // own category (the app's genericName, e.g. "Web Browser",
-          // falling back to a bare "Application"). Omarchy Actions / any
-          // future native Ruixen provider: the full breadcrumb (e.g.
-          // "Remove › Development", "Ruixen" for the synthetic Ruixen
-          // Settings row). Bounded on the right by kindText below, not
-          // the row's own edge, so the two never overlap. Hidden in
-          // Search Files mode -- the details panel's own "Where" field
-          // already shows the path, so repeating it here (and the
-          // Folder/File kind tag below, already obvious from the row's
-          // own icon) would just be noise; the row is just an icon +
-          // name there, on purpose, so the details panel is the
-          // featured part of that view, not a third column squeezed
-          // beside it.
-          Text {
-            id: metaText
-            visible: !root.filesMode
-            anchors.left: labelText.right
-            anchors.leftMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            elide: Text.ElideRight
-            // Hugs its own actual text width (capped to whatever room is
-            // left before kindText, minus keybindHint's own width when
-            // it's showing) instead of stretching all the way to
-            // kindText's own column -- direct request: the keybind chips
-            // should sit right after the visible subtitle text, not
-            // pinned flush against the far-right kind tag with a dead
-            // gap in between for every short subtitle (which is most of
-            // them). Non-circular: keybindHint's own width never depends
-            // on metaText's, only the other way around.
-            width: Math.max(0, Math.min(implicitWidth,
-              kindText.x - (labelText.x + labelText.width) - 8
-                - (keybindHint.visible ? keybindHint.width + 8 : 0) - 8))
-            text: row.modelData.providerId === "app-search" ? row.modelData.category : row.modelData.breadcrumb
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 10
-          }
-
-          // Existing Omarchy keybind hint, right after the subtitle --
-          // many Omarchy Actions/native Ruixen rows already have a real
-          // Hyprland keybind configured (this launcher's own suggestions
-          // list is itself built from that same catalog), so surfacing
-          // it here saves a trip to Omarchy's own keybindings menu.
-          // OmarchyActionsProvider's own keybindFor() already resolves
-          // personal-vs-stock priority (only one is ever shown -- no
-          // room for both, direct product decision). Rendered as actual
-          // key-cap chips (one small bordered chip per key, same visual
-          // as the search box's own Enter-hint chip above) rather than
-          // spelled-out text ("SUPER + SHIFT + Z") -- direct request:
-          // "[KBD] + [KBD] + [A] or something". SUPER/SHIFT/CTRL/ALT get
-          // their own real keycap symbol via keySymbol(); everything
-          // else (a letter, digit, or named key) shows as its own plain
-          // uppercase chip. App Search/Search Files rows simply never
-          // carry a keybind field, so this renders nothing for them.
-          Row {
-            id: keybindHint
-            visible: !root.filesMode && !!row.modelData.keybind
-            anchors.left: metaText.right
-            anchors.leftMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 3
-            opacity: 0.75
-
-            Repeater {
-              model: row.modelData.keybind ? OmarchyMenuParser.keybindParts(row.modelData.keybind) : []
-
-              Rectangle {
-                id: keyCap
-                required property string modelData
-                height: 18
-                width: Math.max(18, capText.implicitWidth + 9)
-                radius: 5
-                color: Qt.rgba(1, 1, 1, 0.06)
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.12)
-
-                Text {
-                  id: capText
-                  anchors.centerIn: parent
-                  text: OmarchyMenuParser.keySymbol(keyCap.modelData)
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: 9
-                }
-              }
-            }
-          }
-
-          // Kind tag -- "Command" for every Omarchy Actions/native
-          // Ruixen row, "Application" for App Search -- pinned to the
-          // row's own right edge, kept separate from the breadcrumb/
-          // category subtitle above rather than folded into one string,
-          // so it stays in a stable, scannable column even as the
-          // subtitle's own length varies row to row. Hidden in Search
-          // Files mode -- see metaText's own comment above.
-          Text {
-            id: kindText
-            visible: !root.filesMode
-            anchors.right: parent.right
-            anchors.rightMargin: 12
-            anchors.verticalCenter: parent.verticalCenter
-            horizontalAlignment: Text.AlignRight
-            elide: Text.ElideRight
-            width: 72
-            text: row.modelData.providerId === "app-search" ? "Application" : row.modelData.kind
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 10
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onEntered: root.selectedIndex = row.index
-            onClicked: {
-              root.selectedIndex = row.index
-              root.activateSelected()
-            }
-          }
-        }
+        fontFamily: root.fontFamily
+        mutedColor: root.muted
+        textColor: root.textColor
+        accentColor: root.accent
+        filesMode: root.filesMode
+        selectedIndex: root.selectedIndex
+        rowHeightPx: root.rowHeight
+        sectionHeaderHeight: root.headerHeight
+        appLibrary: appLibrary
+        onRowHovered: (idx) => root.selectedIndex = idx
+        onRowActivated: (idx) => { root.selectedIndex = idx; root.activateSelected() }
       }
 
       // Marks the list/details boundary now that detailsPanel has no
@@ -1192,417 +860,41 @@ Item {
       // FileSearchProvider.loadDetails(), a real `stat` call -- fd
       // itself doesn't return size/type/modified time), not anything
       // for the whole list, so it's cheap regardless of result count.
-      Rectangle {
+      FileDetailsPanel {
         id: detailsPanel
         visible: root.filesMode && !root.showNoResults
-        anchors.top: searchBox.bottom
+        anchors.top: searchHeader.bottom
         // Matches resultsList's own topMargin (see its comment) --
-        // both panels need the exact same offset from searchBox for
+        // both panels need the exact same offset from searchHeader for
         // the alignment fix on the inner Column below to actually work.
         anchors.topMargin: 4
         anchors.right: parent.right
         anchors.rightMargin: 8
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 8
-        // A real 1:3 split (0.75) turned out too extreme in practice --
-        // this panel started swallowing the whole card and the list
-        // got uncomfortably thin. 0.6 still gives this panel the
-        // larger, featured share without starving the list. parent.width
-        // - 24 is the usable space once the card's own left/right
-        // margins (8 each) and the gap between the two panes (8,
-        // resultsList's own rightMargin) are subtracted.
-        width: (parent.width - 24) * 0.6
-        radius: 12
-        // Ghost -- no surface of its own (direct request: "ghost it on
-        // the spotlight"), just the card's own frosted background
-        // showing straight through, same treatment already given to
-        // the search input. A line separator (see detailsSeparator
-        // below) takes over marking the boundary with the results
-        // list, instead of a filled panel doing that job.
-        color: "transparent"
-        clip: true
-
-        readonly property var result: root.selectedResult
-        readonly property var details: fileSearchProvider.selectedDetails
-        // Still-image formats get a real thumbnail instead of the
-        // generic file glyph -- reuses FileSearchProvider's own
-        // extension-derived "Kind" string (e.g. "PNG Image") rather
-        // than re-deriving the extension here a second time.
-        // Plain truthiness, not `!== null` -- selectedResult/selectedDetails
-        // can transiently be `undefined` rather than `null` between
-        // selections, which `!== null` doesn't catch and which tripped a
-        // real "Value is undefined and could not be converted to an
-        // object" warning from the Image source binding below.
-        readonly property bool isImagePreview: !!detailsPanel.details && !!detailsPanel.result &&
-          ["PNG Image", "JPEG Image", "GIF Image", "WebP Image", "Bitmap Image", "SVG Image"].indexOf(detailsPanel.details.type) !== -1
-
-        // Video gets a real extracted-frame poster instead of the
-        // generic glyph, same as an image gets its own file directly --
-        // see FileSearchProvider's own loadDetails/posterProc (the exact
-        // ffmpeg -vframes 1 technique ruixen.notch's wallpaper picker
-        // already uses for its own .mp4 tiles, sharing that same disk
-        // cache). Poster generation is async and can still be running
-        // (or have failed -- a corrupt video) when this is first
-        // checked, so it's gated on videoPosterPath actually being
-        // populated, not just "this is a video file".
-        readonly property bool isVideoPreview: !!detailsPanel.details && detailsPanel.details.type === "Video" && fileSearchProvider.videoPosterPath !== ""
-        readonly property bool hasThumbnail: detailsPanel.isImagePreview || detailsPanel.isVideoPreview
-        readonly property string thumbnailSource: detailsPanel.isImagePreview && detailsPanel.result ? ("file://" + detailsPanel.result.action.path)
-          : detailsPanel.isVideoPreview ? ("file://" + fileSearchProvider.videoPosterPath)
-          : ""
-
-        // Text preview -- same fixed preview footprint an image/video
-        // thumbnail fills, just with the file's own leading content
-        // instead of a picture. Gated on textPreviewContent actually
-        // having arrived (same pattern as isVideoPreview above gating
-        // on videoPosterPath), not just "this looks like a text
-        // extension" -- the read can still be in flight, or (though
-        // unlikely for an explicit extension allowlist) come back empty.
-        readonly property bool isTextPreview: !detailsPanel.hasThumbnail && fileSearchProvider.textPreviewContent !== ""
-
-        // Issue #56: reads FileSearchProvider's own `file`-based lookup
-        // instead of thumbnailImage.sourceSize -- once that Image gets
-        // its own sourceSize bound to the small preview box (the actual
-        // fix for this issue), reading sourceSize back would report the
-        // BOUNDED decode size, not the source's real dimensions.
-        readonly property string imageDimensions: detailsPanel.isImagePreview ? fileSearchProvider.imageDimensions : ""
-
-        // No scrolling -- reverted direct follow-up: a Flickable here
-        // gave real mouse-wheel scrolling, but with no keyboard path to
-        // reach it at all (this launcher's own key handling never
-        // touches detailsPanel), that read as a dead end rather than a
-        // real fix ("doesnt seem worth it for durations and size").
-        // Compacting the row height/spacing instead (both below) so
-        // the list fits without needing to scroll in the first place.
-        Column {
-          id: detailsColumn
-          anchors.top: parent.top
-          anchors.left: parent.left
-          anchors.right: parent.right
-          // Top margin separated out from the rest (was 24 on all
-          // sides) -- direct report: "the panels are kinda unbalanced,
-          // the preview fixed size is taking a bit too much space...
-          // make sure the thumbnail height starts where the left panel
-          // text search files is". 0 here, not a further inset on top
-          // of detailsPanel's own topMargin above -- resultsList's own
-          // header has no internal inset beyond ITS topMargin either,
-          // so adding another one here (an earlier pass used 8, double-
-          // counting against detailsPanel's own offset) put the preview
-          // 8px lower than actually aligned. Left/right padding stays
-          // 24 for the panel's own internal breathing room.
-          anchors.topMargin: 0
-          anchors.leftMargin: 24
-          anchors.rightMargin: 24
-          // 18 -> 10 -> 14 -> 12 -- first compacted to fit 8 rows
-          // without scrolling, eased back up ("a bit too tight now...
-          // we have alot more space now") once that turned out to
-          // leave slack, but 14 (plus the restored Metadata header)
-          // overflowed again -- confirmed live, an 8-row video's own
-          // Permissions row was genuinely clipped off the bottom, not
-          // just a screenshot crop. This is the single spacing value
-          // between EVERY child here (the preview, the Metadata header,
-          // and every field row alike).
-          spacing: 12
-          visible: detailsPanel.result !== null
-
-          // A real preview pane, not just an icon -- tall enough to give
-          // a still-image thumbnail room to breathe (Raycast's own
-          // Search Files detail view reserves similar space up top).
-          // The name used to live in its own Text below this pane; it's
-          // now the first metadata field instead (see Repeater below),
-          // so this pane gets that space too -- non-image results (most
-          // prominently folders, which never get a thumbnail) just show
-          // the same glyph the list row already uses, bigger still.
-          Item {
-            width: parent.width
-            height: 210
-
-            // clip on a Rectangle only clips to its plain bounding box --
-            // `radius` never participates in child clipping, confirmed
-            // live (the first attempt still rendered square corners). A
-            // real mask is what actually rounds a child Image's corners
-            // -- same MultiEffect technique already used for the
-            // notification thumbnail in ruixen.notch/DashboardContent.qml
-            // (source Image + an invisible layered mask Rectangle + the
-            // MultiEffect that composites them). PreserveAspectCrop
-            // (rather than the Fit used elsewhere) so the image always
-            // fills this rect edge-to-edge.
-            Item {
-              anchors.fill: parent
-              visible: detailsPanel.hasThumbnail
-
-              Image {
-                id: thumbnailImage
-                anchors.fill: parent
-                source: detailsPanel.thumbnailSource
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                cache: false
-                smooth: true
-                visible: false
-                // Issue #56: without this, Qt decodes the ORIGINAL
-                // source at its full native resolution before
-                // PreserveAspectCrop scales it down for this small
-                // preview -- a large photo can decode into hundreds of
-                // MB of raw pixels for a preview a fraction of that
-                // size. Bound to this Image's own actual rendered size
-                // (not a fixed constant, since the real footprint
-                // depends on the card's own width) rather than a
-                // hardcoded guess -- also covers the video-poster path
-                // for free, since this same Image element displays
-                // both. No visible quality loss: nothing bigger than
-                // this box is ever displayed anyway.
-                sourceSize.width: width
-                sourceSize.height: height
-              }
-
-              Rectangle {
-                id: thumbnailMask
-                anchors.fill: parent
-                radius: 12
-                color: "#ffffff"
-                visible: false
-                layer.enabled: true
-              }
-
-              MultiEffect {
-                anchors.fill: parent
-                source: thumbnailImage
-                maskEnabled: true
-                maskSource: thumbnailMask
-                maskThresholdMin: 0.5
-                maskThresholdMax: 1.0
-              }
-            }
-
-            // Text preview -- same footprint as the image/video
-            // thumbnail above, filled with the file's own leading
-            // content instead. No scroll on purpose (direct request:
-            // "we dont need it scrollable") -- same lesson as the
-            // details panel's own earlier Flickable attempt, reverted
-            // for having no keyboard path to reach it at all. The
-            // Item's own clip below just cuts off whatever doesn't
-            // fit, same as an image thumbnail's own crop.
-            Rectangle {
-              anchors.fill: parent
-              visible: detailsPanel.isTextPreview
-              radius: 12
-              // Same darkened-surface tint as the metadata rows' own
-              // zebra stripe below -- direct request: "for readability
-              // can you make the background of that dark surface".
-              color: Qt.rgba(0, 0, 0, 0.18)
-              clip: true
-
-              Text {
-                anchors.fill: parent
-                anchors.margins: 10
-                text: fileSearchProvider.textPreviewContent
-                color: root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: 11
-                wrapMode: Text.Wrap
-              }
-            }
-
-            Text {
-              anchors.centerIn: parent
-              visible: !detailsPanel.hasThumbnail && !detailsPanel.isTextPreview
-              text: detailsPanel.result ? detailsPanel.result.icon : ""
-              // Same folder-only accent as the list row's own icon.
-              color: detailsPanel.result && detailsPanel.result.kind === "Folder" ? root.accent : root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 150
-            }
-          }
-
-          // Same muted/uppercase/bold section-header style as the
-          // results list's own section headers above. Removed once
-          // during compacting, restored once that compaction turned
-          // out to leave real slack to spare ("we have alot more space
-          // now").
-          Text {
-            visible: detailsPanel.details !== null
-            text: "Metadata"
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            font.capitalization: Font.AllUppercase
-            font.bold: true
-          }
-
-          Repeater {
-            // Dimensions/Duration/Created only appear when actually
-            // available -- an IIFE (same pattern as sourceFilterButton's
-            // own currentLabel above) rather than a flat literal, since
-            // "insert this field only if truthy" isn't expressible as a
-            // single ternary once there are three independent optional
-            // fields instead of one.
-            model: detailsPanel.details ? (function() {
-              var out = [
-                { label: "Name", value: detailsPanel.result ? detailsPanel.result.label : "" },
-                { label: "Type", value: detailsPanel.details.type }
-              ]
-              // Mutually exclusive in practice (isImagePreview's own
-              // type list and videoExtensions never overlap), but
-              // checked independently rather than else-if -- neither
-              // depends on the other being absent.
-              if (detailsPanel.imageDimensions) out.push({ label: "Dimensions", value: detailsPanel.imageDimensions })
-              if (fileSearchProvider.videoDuration) out.push({ label: "Duration", value: fileSearchProvider.videoDuration })
-              out.push({ label: "Size", value: root.formatSize(detailsPanel.details.size) })
-              out.push({ label: "Where", value: (detailsPanel.result && detailsPanel.result.action && detailsPanel.result.action.path) ? root.parentDirOf(detailsPanel.result.action.path) : "" })
-              // Search Files rows hide their own subtitle text entirely
-              // (see metaText's own visible: !root.filesMode below), so
-              // a content match's own breadcrumb -- the matched LINE
-              // itself, the whole "search by context" feature -- had
-              // nowhere else to surface once "Where" above got fixed to
-              // show the real folder instead of reusing that same
-              // field. This is that field, shown only for content
-              // matches (identified by providerId, not by re-deriving
-              // "does this look like a snippet" from the text itself).
-              if (detailsPanel.result && detailsPanel.result.providerId === "file-content-search")
-                out.push({ label: "Match", value: detailsPanel.result.breadcrumb })
-              // 0 means this filesystem doesn't track birth time (see
-              // FileSearchProvider's own loadDetails comment) -- omit
-              // rather than show a bogus 1970 date.
-              if (detailsPanel.details.created) out.push({ label: "Created", value: root.formatDate(detailsPanel.details.created) })
-              out.push({ label: "Modified", value: root.formatDate(detailsPanel.details.mtime) })
-              out.push({ label: "Permissions", value: detailsPanel.details.permissions })
-              return out
-            })() : []
-
-            // One row per field -- label left, value right, elided
-            // rather than wrapped (a "Where" path can be long; a second
-            // wrapped line would break the fixed row height). The value
-            // Text's width comes from anchors between the two siblings
-            // here, not its own implicitWidth, so this doesn't reintroduce
-            // the implicitWidth+elide binding-loop gotcha documented on
-            // the results list's own labelText above.
-            Item {
-              id: field
-              required property var modelData
-              required property int index
-              width: parent.width
-              // 20 -> 18 -> 20 -> 19 -- see Column's own spacing
-              // comment above for why 20 (the fully-eased-back value)
-              // overflowed once the header came back too; split the
-              // difference rather than dropping all the way back to 18.
-              height: 19
-
-              // Zebra striping -- direct request: "dark light dark
-              // light kinda tint" so adjacent rows are easier to track.
-              // Outdents past the row's own text bounds (a wider band
-              // than just the label/value) and a little vertical
-              // padding.
-              Rectangle {
-                anchors.fill: parent
-                anchors.leftMargin: -10
-                anchors.rightMargin: -10
-                anchors.topMargin: -4
-                anchors.bottomMargin: -4
-                radius: 4
-                color: field.index % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
-              }
-
-              Text {
-                id: fieldLabel
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                text: field.modelData.label
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: 11
-                font.capitalization: Font.AllUppercase
-              }
-              Text {
-                anchors.left: fieldLabel.right
-                anchors.leftMargin: 12
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                horizontalAlignment: Text.AlignRight
-                elide: Text.ElideMiddle
-                text: field.modelData.value
-                color: root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: 13
-              }
-            }
-          }
-
-          Text {
-            visible: !detailsPanel.details
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: "Loading…"
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 11
-          }
-        }
+        result: root.selectedResult
+        hasThumbnail: root.hasThumbnail
+        thumbnailSource: root.thumbnailSource
+        isTextPreview: root.isTextPreview
+        textPreviewContent: fileSearchProvider.textPreviewContent
+        fields: root.detailsFields
+        detailsPresent: fileSearchProvider.selectedDetails !== null
+        textColor: root.textColor
+        mutedColor: root.muted
+        accentColor: root.accent
+        fontFamily: root.fontFamily
       }
 
-      // Empty state -- centered in the whole content area below the
-      // search box (spans the full card width, not just the list
-      // column, so it reads the same whether or not detailsPanel would
-      // otherwise be showing beside it). Same magnifying-glass glyph
-      // (fa-search, U+F002) as the Search Files fallback row's own
-      // icon, just large -- a found-nothing state reading as "the
-      // search itself" rather than needing a distinct icon of its own.
-      Item {
-        visible: root.showNoResults
-        anchors.top: searchBox.bottom
+      EmptyState {
+        anchors.top: searchHeader.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-
-        Column {
-          anchors.centerIn: parent
-          spacing: 10
-
-          Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: ""
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 40
-          }
-
-          Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            // Issue #55: a genuinely empty result reads as "No Results"
-            // same as always; a result that's empty because a root
-            // timed out or failed says so instead, rather than falsely
-            // implying a successful, complete search found nothing.
-            // "This source" (singular) when one specific source was
-            // selected and it's the one that failed -- "Some sources"
-            // for the All Sources case, where other roots may still
-            // have searched fine.
-            text: root.filesSearchDegraded
-              ? (root.selectedSourcePath !== "" ? "This source could not be searched" : "Some sources could not be searched")
-              : "No Results"
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 14
-          }
-        }
-      }
-
-      // Issue #55: a small, unobtrusive note for the "results exist,
-      // but one source is degraded" case -- the empty-state block above
-      // only covers when there are NO results at all. Direct product
-      // guidance was to keep this minimal (a small note, not an
-      // elaborate status system) -- a corner overlay rather than
-      // reflowing resultsList/detailsPanel to make room for it, so
-      // there's no layout risk to either.
-      Text {
-        visible: root.filesSearchDegraded && !root.showNoResults
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 10
-        anchors.right: parent.right
-        anchors.rightMargin: 16
-        text: root.selectedSourcePath !== "" ? "This source could not be fully searched" : "Some sources could not be searched"
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 10
+        showNoResults: root.showNoResults
+        degraded: root.filesSearchDegraded
+        sourceSelected: root.selectedSourcePath !== ""
+        mutedColor: root.muted
+        fontFamily: root.fontFamily
       }
     }
   }

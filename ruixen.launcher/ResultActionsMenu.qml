@@ -33,7 +33,16 @@ Rectangle {
   width: 240
   height: root.actions.length * 28 + 8
   radius: 10
-  color: Qt.rgba(root.glassTint.r, root.glassTint.g, root.glassTint.b, 0.95)
+  // Fully solid, not just "near-opaque" like sourceFilterList's own
+  // 0.95 -- confirmed live that even 0.98 still let real result-row
+  // text visibly bleed through once this menu started opening directly
+  // over busy rows (a later follow-up to this issue) instead of the
+  // near-empty space below the search bar sourceFilterList itself
+  // always opens over. This is a functional context menu, not a
+  // stylistic glass surface -- there's no real reason for it to stay
+  // translucent at all once it's reliably sitting on top of dense
+  // content.
+  color: Qt.rgba(root.glassTint.r, root.glassTint.g, root.glassTint.b, 1.0)
   border.width: 1
   border.color: root.glassBorder
   z: 100

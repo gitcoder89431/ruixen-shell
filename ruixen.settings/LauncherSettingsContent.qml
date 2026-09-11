@@ -287,14 +287,6 @@ ColumnLayout {
         }
       }
 
-      Text {
-        visible: settingsRoot.launcherSearchConfig.roots.length === 0
-        text: "No custom roots added"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        color: settingsRoot.muted
-      }
-
       Repeater {
         model: settingsRoot.launcherSearchConfig.roots
 
@@ -404,13 +396,6 @@ ColumnLayout {
         }
       }
 
-      Text {
-        visible: settingsRoot.launcherSearchConfig.excludePaths.length === 0
-        text: "No excluded paths"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        color: settingsRoot.muted
-      }
 
       Repeater {
         model: settingsRoot.launcherSearchConfig.excludePaths
@@ -521,13 +506,6 @@ ColumnLayout {
         }
       }
 
-      Text {
-        visible: settingsRoot.launcherSearchConfig.excludeNames.length === 0
-        text: "No excluded names"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        color: settingsRoot.muted
-      }
 
       // Wrapped, not a vertical list -- these are short single-word
       // names (node_modules, .git, ...), a dense wrapped chip layout

@@ -85,18 +85,18 @@ Item {
     // id stays "general" internally throughout all of this (still
     // matches the {"section": "general"} IPC payload convention).
     { id: "general", label: "Profile", glyph: "" },
+    // Direct follow-up: moved up here from the end of this list
+    // ("seems to be important and our feature") -- every
+    // root.selectedSection === N check throughout this file (and every
+    // *Content.qml's visible: line) was renumbered to match, since they
+    // match by bare numeric index, not id.
+    { id: "launcher", label: "Launcher", glyph: "" },
     { id: "audio", label: "Audio", glyph: "" },
     { id: "wifi", label: "Wi-Fi", glyph: "" },
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
     { id: "display", label: "Display", glyph: "" },
     { id: "plugins", label: "Plugins", glyph: "" },
-    { id: "about", label: "About", glyph: "" },
-    // Issue #61: appended at the END rather than in some more "natural"
-    // spot -- every other section is referenced throughout this file by
-    // its own bare numeric index (root.selectedSection === N), and
-    // inserting anywhere but last would silently renumber every one of
-    // those existing checks.
-    { id: "launcher", label: "Launcher", glyph: "" }
+    { id: "about", label: "About", glyph: "" }
   ]
   property int selectedSection: 0
 
@@ -2014,7 +2014,7 @@ Item {
                     // single collapsed name would misrepresent the real
                     // state. Bluetooth keeps its plain label, same as
                     // Audio.
-                    text: root.selectedSection === 2
+                    text: root.selectedSection === 3
                       ? (root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : "Wi-Fi")
                       : root.sections[root.selectedSection].label
                     font.family: root.fontFamily
@@ -2033,7 +2033,7 @@ Item {
                   // exact same real property/function shape as their own
                   // hasOutput/hasInput/anyAudible/toggleAllMuted.
                   Rectangle {
-                    visible: root.selectedSection === 1
+                    visible: root.selectedSection === 2
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 18
@@ -2070,7 +2070,7 @@ Item {
                   // when a wifi connection is known, empty object
                   // otherwise (the QR panel self-detects then).
                   Text {
-                    visible: root.selectedSection === 2
+                    visible: root.selectedSection === 3
                     Layout.alignment: Qt.AlignVCenter
                     text: ""
                     font.family: root.fontFamily
@@ -2089,7 +2089,7 @@ Item {
                   // omarchy.speedtest panel plugin, same summon() API
                   // and payload shape (connection name) as their own.
                   Text {
-                    visible: root.selectedSection === 2
+                    visible: root.selectedSection === 3
                     Layout.alignment: Qt.AlignVCenter
                     text: ""
                     font.family: root.fontFamily
@@ -2109,7 +2109,7 @@ Item {
                   // doesnt have a toggle"), matching exactly where
                   // Audio's own master toggle sits on its header.
                   Rectangle {
-                    visible: root.selectedSection === 2
+                    visible: root.selectedSection === 3
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 18
@@ -2144,7 +2144,7 @@ Item {
                   // same real omarchy-bluetooth-power CLI their own
                   // toggleBluetooth() uses, not a direct property write.
                   Rectangle {
-                    visible: root.selectedSection === 3
+                    visible: root.selectedSection === 4
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 18
@@ -2181,7 +2181,7 @@ Item {
                   // reads pluginChangedIds to show which specific
                   // plugins are part of that pending batch.
                   Text {
-                    visible: root.selectedSection === 5
+                    visible: root.selectedSection === 6
                     Layout.alignment: Qt.AlignVCenter
                     text: ""
                     font.family: root.fontFamily
@@ -2215,7 +2215,7 @@ Item {
                   // mechanism, not a stopgap ("its a good fallback to
                   // update anyways").
                   Text {
-                    visible: root.selectedSection === 5
+                    visible: root.selectedSection === 6
                     Layout.alignment: Qt.AlignVCenter
                     // Refresh glyph at rest, same one Omarchy's own
                     // SystemUpdate.qml bar widget uses (confirmed by
@@ -2270,7 +2270,7 @@ Item {
 
               AudioContent {
                 Layout.fillWidth: true
-                visible: root.selectedSection === 1
+                visible: root.selectedSection === 2
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root
@@ -2278,7 +2278,7 @@ Item {
 
               WifiContent {
                 Layout.fillWidth: true
-                visible: root.selectedSection === 2
+                visible: root.selectedSection === 3
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root
@@ -2286,7 +2286,7 @@ Item {
 
               BluetoothContent {
                 Layout.fillWidth: true
-                visible: root.selectedSection === 3
+                visible: root.selectedSection === 4
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root
@@ -2294,7 +2294,7 @@ Item {
 
               DisplayContent {
                 Layout.fillWidth: true
-                visible: root.selectedSection === 4
+                visible: root.selectedSection === 5
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root
@@ -2302,7 +2302,7 @@ Item {
 
               PluginsContent {
                 Layout.fillWidth: true
-                visible: root.selectedSection === 5
+                visible: root.selectedSection === 6
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root
@@ -2310,7 +2310,7 @@ Item {
 
               AboutContent {
                 Layout.fillWidth: true
-                visible: root.selectedSection === 6
+                visible: root.selectedSection === 7
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root
@@ -2318,7 +2318,7 @@ Item {
 
               LauncherSettingsContent {
                 Layout.fillWidth: true
-                visible: root.selectedSection === 7
+                visible: root.selectedSection === 1
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root

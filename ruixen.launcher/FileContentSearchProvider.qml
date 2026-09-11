@@ -392,7 +392,14 @@ Item {
       kind: "File",
       providerName: root.providerName,
       score: root.contentMatchScore,
-      action: { type: "open", path: path }
+      // Issue #62: the matched line number preserved as structured
+      // action metadata (not just embedded in the breadcrumb string
+      // above) -- Enter's own default behavior stays a plain
+      // `xdg-open path` for now, but a future "open at line" action
+      // (needs a real per-app editor convention this launcher doesn't
+      // have yet) has the data it needs without re-parsing breadcrumb's
+      // own "Line N: <snippet>" text back apart.
+      action: { type: "open", path: path, line: lineNumber }
     }
   }
 

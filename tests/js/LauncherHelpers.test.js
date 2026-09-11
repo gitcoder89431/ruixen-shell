@@ -39,6 +39,15 @@ check("disambiguateLabels: a row with no action.path at all is left untouched ra
   M.disambiguateLabels([{ label: "x" }, { label: "x" }]),
   [{ label: "x" }, { label: "x" }]);
 
+// ---- baseName (issue #62) ---------------------------------------------------
+
+check("baseName: extracts the filename from a full path",
+  M.baseName("/home/dev/notes/todo.md"), "todo.md");
+check("baseName: a bare filename with no '/' returns itself",
+  M.baseName("todo.md"), "todo.md");
+check("baseName: a directory path (no trailing slash) returns its own last segment",
+  M.baseName("/home/dev/Projects"), "Projects");
+
 // ---- formatSize -------------------------------------------------------------
 
 check("formatSize: bytes under 1024 shown as a bare byte count", M.formatSize(512), "512 B");

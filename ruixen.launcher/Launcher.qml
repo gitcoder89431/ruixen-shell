@@ -139,6 +139,8 @@ Item {
       searchHeader.text = ""
       root.query = ""
       root.filesMode = false
+      root.actionsMenuOpen = false
+      root.hasScopeHistory = false
     }
   }
 
@@ -159,6 +161,16 @@ Item {
   // Reset to "" on every fresh entry into Search Files -- "defaults to
   // All" should mean that literally each time, not just the first time.
   property string selectedSourcePath: ""
+  // Issue #62: "Search inside this folder" scopes selectedSourcePath to
+  // an arbitrary folder for the rest of the session -- these two track
+  // the ONE previous value so Escape can restore it (rather than
+  // immediately drilling out of Search Files entirely), per the scope
+  // this feature was folded in under. A plain string alone can't
+  // distinguish "no history" from "history was All Sources" (also "",
+  // the same sentinel selectedSourcePath itself uses), hence the
+  // separate bool.
+  property string scopeHistoryPrevious: ""
+  property bool hasScopeHistory: false
   onFilesModeChanged: {
     // Re-discovers mounted secondary drives (see FileSearchProvider's
     // own refreshRoots()) each time Search Files is entered, rather
@@ -167,12 +179,15 @@ Item {
     // view opens, without needing a full shell restart.
     if (root.filesMode) fileSearchProvider.refreshRoots()
     root.selectedSourcePath = ""
+    root.hasScopeHistory = false
+    root.actionsMenuOpen = false
     searchHeader.dropdownOpen = false
     root.selectedIndex = 0
     Qt.callLater(function() { resultsList.positionViewAtBeginning() })
   }
   onQueryChanged: {
     root.selectedIndex = 0
+    root.actionsMenuOpen = false
     if (root.query.trim() === "") root.filesMode = false
     // Qt.callLater so this runs after selectedIndex's own change
     // already scrolled toward index 0 -- positionViewAtBeginning
@@ -192,6 +207,14 @@ Item {
   // contained by the wider of the other two), kept only so the very
   // first selection on a fresh query is still handled the same way.
   onSelectedIndexChanged: {
+    // The selection moving out from under an open actions menu (mouse
+    // hover, a fresh query/filesMode reset -- see their own handlers
+    // above) would otherwise leave the menu open against a DIFFERENT
+    // result than the one it was opened for. Actions-menu-only
+    // navigation (see openActionsMenu()'s own up/down redirect) moves
+    // actionsSelectedIndex instead, never this property, so it can
+    // never trigger this itself.
+    root.actionsMenuOpen = false
     var lastIndex = root.results.length - 1
     resultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
     resultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
@@ -409,6 +432,96 @@ Item {
     var path = (root.selectedResult && root.selectedResult.action) ? root.selectedResult.action.path : ""
     if (path && path !== fileSearchProvider.pendingDetailsPath) fileSearchProvider.loadDetails(path)
     else if (!path) fileSearchProvider.selectedDetails = null
+  }
+
+  // Issue #62: the contextual action list for whichever Search Files
+  // result is currently selected -- empty (no menu) for anything that
+  // isn't a real file/folder result (Applications/Commands, the Search
+  // Files fallback row itself, or no selection at all), since none of
+  // these actions mean anything for those. "Search Inside This Folder"
+  // only applies to folders; every other action applies to both.
+  readonly property var resultActions: {
+    var r = root.selectedResult
+    if (!root.filesMode || !r || !r.action || !r.action.path) return []
+    var isFolder = r.kind === "Folder"
+    var actions = [{ id: "open", label: isFolder ? "Open Folder" : "Open" }]
+    if (isFolder) actions.push({ id: "search-inside", label: "Search Inside This Folder" })
+    actions.push({ id: "open-containing", label: "Open Containing Folder" })
+    actions.push({ id: "copy-path", label: "Copy Path" })
+    actions.push({ id: "copy-name", label: "Copy Name" })
+    actions.push({ id: "copy-parent", label: "Copy Parent Directory Path" })
+    return actions
+  }
+  property bool actionsMenuOpen: false
+  property int actionsSelectedIndex: 0
+
+  function openActionsMenu() {
+    if (root.resultActions.length === 0) return
+    root.actionsSelectedIndex = 0
+    root.actionsMenuOpen = true
+    searchHeader.dropdownOpen = false
+  }
+
+  function closeActionsMenu() {
+    root.actionsMenuOpen = false
+  }
+
+  // Issue #62: dispatches one contextual action against the LIVE
+  // selectedResult, not any cached copy -- read fresh here rather than
+  // captured when the menu opened, same staleness discipline
+  // onSelectedResultChanged already applies to the details panel.
+  // Safe argv execution throughout (Util.execArgv already runs via
+  // bash's own "$@" expansion, never string interpolation -- see
+  // qs.Commons/Util.qml) -- a path/name with spaces, quotes, Unicode,
+  // or a leading dash is never treated as command syntax.
+  function runResultAction(id) {
+    var result = root.selectedResult
+    if (!result || !result.action || !result.action.path) return
+    var path = result.action.path
+    if (id === "open") {
+      root.actionsMenuOpen = false
+      root.activateSelected()
+      return
+    }
+    if (id === "open-containing") {
+      // The REAL parent path, not root.parentDirOf()'s own ~-abbreviated
+      // display form -- xdg-open has no shell to expand "~" for it, and
+      // a literal "~/notes" path simply wouldn't exist.
+      Util.execArgv(["xdg-open", LauncherHelpers.parentDirOf(path, "")])
+      root.actionsMenuOpen = false
+      root.dismiss()
+      return
+    }
+    if (id === "search-inside") {
+      // Session-only scoping, per this issue's own follow-up note --
+      // remembers the ONE prior source so Escape can restore it (see
+      // onEscapePressed below) instead of immediately drilling all the
+      // way out of Search Files. Query text is deliberately left as-is,
+      // same as switching the source-filter dropdown already does.
+      root.scopeHistoryPrevious = root.selectedSourcePath
+      root.hasScopeHistory = true
+      root.selectedSourcePath = path
+      root.actionsMenuOpen = false
+      return
+    }
+    if (id === "copy-path") {
+      Util.execArgv(["wl-copy", "--", path])
+      root.actionsMenuOpen = false
+      return
+    }
+    if (id === "copy-name") {
+      Util.execArgv(["wl-copy", "--", LauncherHelpers.baseName(path)])
+      root.actionsMenuOpen = false
+      return
+    }
+    if (id === "copy-parent") {
+      // The REAL parent path, never the ~-abbreviated display form --
+      // copy actions must copy the exact real path (direct requirement,
+      // not just the "Where" field's own shorthand).
+      Util.execArgv(["wl-copy", "--", LauncherHelpers.parentDirOf(path, "")])
+      root.actionsMenuOpen = false
+      return
+    }
   }
 
   // Issue #57: the Search Files preview/metadata values FileDetailsPanel/
@@ -665,14 +778,46 @@ Item {
         mutedColor: root.muted
         fontFamily: root.fontFamily
         onTextChanged: root.query = text
-        onUpPressed: if (root.selectedIndex > 0) root.selectedIndex--
-        onDownPressed: if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
-        onEnterPressed: root.activateSelected()
+        // Issue #62: while the actions menu is open, Up/Down/Enter
+        // navigate/run ITS list instead of the results list -- the menu
+        // always operates on whichever result was selected when it was
+        // opened, so there's no reason for these to touch selectedIndex
+        // (and onSelectedIndexChanged would just close the menu right
+        // back out from under itself if they did).
+        onUpPressed: {
+          if (root.actionsMenuOpen) { if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex-- }
+          else if (root.selectedIndex > 0) root.selectedIndex--
+        }
+        onDownPressed: {
+          if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
+          else if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
+        }
+        onEnterPressed: {
+          if (root.actionsMenuOpen) root.runResultAction(root.resultActions[root.actionsSelectedIndex].id)
+          else root.activateSelected()
+        }
         onEscapePressed: {
-          if (root.filesMode) root.filesMode = false
-          else root.dismiss()
+          // Priority order: close an open actions menu, then restore a
+          // "Search Inside This Folder" scope (issue #62's own follow-up
+          // note -- Escape should drill back OUT of that scope, not
+          // straight past it to exiting Search Files entirely), then the
+          // original two steps.
+          if (root.actionsMenuOpen) {
+            root.closeActionsMenu()
+          } else if (root.hasScopeHistory) {
+            root.selectedSourcePath = root.scopeHistoryPrevious
+            root.hasScopeHistory = false
+          } else if (root.filesMode) {
+            root.filesMode = false
+          } else {
+            root.dismiss()
+          }
         }
         onBackClicked: root.filesMode = false
+        onTabPressed: {
+          if (root.actionsMenuOpen) root.closeActionsMenu()
+          else root.openActionsMenu()
+        }
       }
 
       // Closes the dropdown on any click elsewhere on the card (rows,
@@ -689,6 +834,15 @@ Item {
         visible: searchHeader.dropdownOpen
         z: 50
         onClicked: searchHeader.dropdownOpen = false
+      }
+
+      // Issue #62: same outside-click-to-close convention as the
+      // source-filter dropdown above, for the result-actions menu.
+      MouseArea {
+        anchors.fill: parent
+        visible: root.actionsMenuOpen
+        z: 50
+        onClicked: root.closeActionsMenu()
       }
 
       Rectangle {
@@ -895,6 +1049,26 @@ Item {
         sourceSelected: root.selectedSourcePath !== ""
         mutedColor: root.muted
         fontFamily: root.fontFamily
+      }
+
+      // Issue #62: same top-right popup treatment as sourceFilterList
+      // (openActionsMenu() closes that dropdown first, so the two never
+      // show at once) -- a transient overlay over whatever's underneath
+      // while open, same as any dropdown/context menu.
+      ResultActionsMenu {
+        anchors.top: searchHeader.bottom
+        anchors.topMargin: 6
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        actions: root.actionsMenuOpen ? root.resultActions : []
+        selectedIndex: root.actionsSelectedIndex
+        textColor: root.textColor
+        accentColor: root.accent
+        glassTint: root.glassTint
+        glassBorder: root.glassBorder
+        fontFamily: root.fontFamily
+        onActionHovered: (idx) => root.actionsSelectedIndex = idx
+        onActionActivated: (id) => root.runResultAction(id)
       }
     }
   }

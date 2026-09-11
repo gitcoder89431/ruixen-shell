@@ -32,6 +32,16 @@ function disambiguateLabels(rows) {
   return rows
 }
 
+// Issue #62: the real filename off a real path -- used by the
+// contextual "Copy Name" action, which must copy the exact real name,
+// not the disambiguated/prefixed label a duplicate-name row shows in
+// the UI (see disambiguateLabels' own comment for why those can
+// differ).
+function baseName(path) {
+  var slash = path.lastIndexOf("/")
+  return slash === -1 ? path : path.substring(slash + 1)
+}
+
 function formatSize(bytes) {
   var n = Number(bytes) || 0
   if (n < 1024) return n + " B"

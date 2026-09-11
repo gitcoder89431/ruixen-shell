@@ -50,6 +50,10 @@ Item {
   // about that transient state.
   signal escapePressed()
   signal backClicked()
+  // Issue #62: opens/closes the contextual result-actions menu --
+  // Launcher.qml decides what that means (nothing outside Search Files
+  // with a real file selected), this component just forwards the key.
+  signal tabPressed()
 
   function focusInput() { searchInput.forceActiveFocus() }
 
@@ -119,7 +123,13 @@ Item {
 
     readonly property string currentLabel: root.selectedSourcePath === "" ? "All Sources" : (function() {
       for (var i = 0; i < root.sources.length; i++) if (root.sources[i].path === root.selectedSourcePath) return root.sources[i].label
-      return "All Sources"
+      // Issue #62: "Search inside this folder" can scope to an
+      // arbitrary folder that isn't one of the discovered sources
+      // (Home + auto-detected mounts) -- show its own last path
+      // segment rather than silently mislabeling it as "All Sources".
+      var p = root.selectedSourcePath
+      var slash = p.lastIndexOf("/")
+      return slash === -1 ? p : p.substring(slash + 1)
     })()
 
     Text {
@@ -233,6 +243,9 @@ Item {
         event.accepted = true
       } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
         root.enterPressed()
+        event.accepted = true
+      } else if (event.key === Qt.Key_Tab) {
+        root.tabPressed()
         event.accepted = true
       }
     }

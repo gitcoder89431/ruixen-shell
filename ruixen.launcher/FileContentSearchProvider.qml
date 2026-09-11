@@ -95,7 +95,12 @@ Item {
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
-    var args = ["rg", "--json", "-i", "--max-count", "1", "--max-filesize", "5M"]
+    // -F/--fixed-strings -- issue #47: rg treats the pattern as a regex
+    // by default (same mismatch as fd's own default in
+    // FileSearchProvider -- see its own comment), so an ordinary query
+    // like "(notes)" or "*.json" would either match nothing or throw an
+    // invalid-pattern error instead of searching for that literal text.
+    var args = ["rg", "--json", "-i", "-F", "--max-count", "1", "--max-filesize", "5M"]
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("-g", "!" + root.excludeDirs[i])
     args.push("--", query)
     if (root.sourceFilter) {

@@ -177,7 +177,14 @@ Item {
     // character query on a huge tree (a full unthrottled $HOME search
     // already takes ~8ms here), not a meaningful relevance filter --
     // the real cap is displayLimit, applied after sorting.
-    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--max-results", "500"]
+    // --fixed-strings -- issue #47: fd treats the pattern as a regex by
+    // default, which disagrees with this provider's own literal-
+    // substring ranking (scoreFile below) and silently mishandles
+    // ordinary filenames containing regex metacharacters (e.g.
+    // "file[1]", "hello.world", "C++"). Forcing literal matching makes
+    // fd's own interpretation of the query match what the UI already
+    // promises.
+    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--fixed-strings", "--max-results", "500"]
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
     // fd accepts multiple trailing path roots in one invocation --
     // confirmed via `fd --help` ([path]...) -- so every known root (or,

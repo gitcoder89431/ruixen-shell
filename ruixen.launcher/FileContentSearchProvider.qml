@@ -8,6 +8,9 @@ import "ContentSearchRanking.js" as ContentSearchRanking
 // of that policy here -- ONE authoritative classification shared by
 // both providers, not string checks spread across each.
 import "FileSearchRanking.js" as FileSearchRanking
+// Issue #58: same pure worker-pool/reuse-safety logic FileSearchProvider
+// uses -- see WorkerPool.js's own header for the full "why".
+import "WorkerPool.js" as WorkerPool
 
 // Provider: matches INSIDE file contents (ripgrep), not filenames --
 // the "search by context" follow-up to FileSearchProvider's own
@@ -197,20 +200,33 @@ Item {
   // there's no real race between workers touching it concurrently, each
   // onRead callback runs to completion before another can start.
   readonly property var rootWorkers: [contentWorker0, contentWorker1, contentWorker2, contentWorker3]
+  // Issue #58: which root each worker slot is actually processing, and
+  // whether it's safely reusable -- WorkerPool.js's own pure, unit-
+  // tested state machine (tests/js/WorkerPool.test.js), not an ad hoc
+  // per-worker `currentRoot` property. See its own header for the full
+  // "why" (an async kill's own onExited firing after this same slot has
+  // already been reassigned, misattributing a killed invocation's exit
+  // code to whatever it was reassigned to).
+  property var pool: WorkerPool.createPool(4)
   property var rootSearchQueue: []
+
+  // requestStop() marks the slot but does NOT free it -- see
+  // WorkerPool.js's own header and FileSearchProvider's identical
+  // stopWorker() for the full reasoning (same bug, same fix, both
+  // providers).
+  function stopWorker(i) {
+    if (WorkerPool.isBusy(root.pool, i)) {
+      root.rootWorkers[i].running = false
+      WorkerPool.requestStop(root.pool, i)
+    }
+  }
 
   function stopAllRootSearches() {
     root.rootSearchQueue = []
     root.pendingMatches = []
     root.rootStatuses = ({})
     root.hasDegradedRoot = false
-    for (var i = 0; i < root.rootWorkers.length; i++) {
-      var w = root.rootWorkers[i]
-      if (w.currentRoot !== "") {
-        w.running = false
-        w.currentRoot = ""
-      }
-    }
+    for (var i = 0; i < root.rootWorkers.length; i++) root.stopWorker(i)
   }
 
   // -F/--fixed-strings -- issue #47: rg treats the pattern as a regex by
@@ -227,8 +243,7 @@ Item {
 
   function scheduleRootSearches() {
     for (var i = 0; i < root.rootWorkers.length && root.rootSearchQueue.length > 0; i++) {
-      var w = root.rootWorkers[i]
-      if (w.currentRoot !== "") continue
+      if (WorkerPool.isBusy(root.pool, i)) continue
       // The global budget may already be satisfied by roots that
       // finished earlier -- no point starting a whole new rg process
       // for a root whose matches would just be discarded by every
@@ -238,7 +253,8 @@ Item {
         break
       }
       var nextRoot = root.rootSearchQueue.shift()
-      w.currentRoot = nextRoot
+      WorkerPool.assign(root.pool, i, nextRoot)
+      var w = root.rootWorkers[i]
       // Same real-world failure this shares extraRoots with
       // FileSearchProvider to avoid duplicating (see its own runSearch()
       // comment for the full reasoning): a slow/unresponsive root can
@@ -255,6 +271,25 @@ Item {
     }
   }
 
+  // Issue #58: once the shared candidateBudget is reached, every
+  // additional match any OTHER still-running worker might find would
+  // just be discarded anyway (pendingMatches is already full) --
+  // letting them keep walking their own root only burns CPU/IO for a
+  // result nobody will ever see. Stop every other active worker for
+  // this same search generation outright and drop anything still
+  // queued, rather than letting them run to their own natural
+  // completion or 4s timeout. Their own eventual (now early) onExited
+  // still goes through handleRootSearchDone() like any other
+  // completion -- the existing pendingMatches>=candidateBudget check
+  // there already marks a budget-driven stop as "success", not
+  // degraded, regardless of which worker's own stop triggered it.
+  function stopOtherWorkersForBudget(selfIndex) {
+    root.rootSearchQueue = []
+    for (var i = 0; i < root.rootWorkers.length; i++) {
+      if (i !== selfIndex) root.stopWorker(i)
+    }
+  }
+
   // The single place that actually publishes to lastResults -- called
   // after every individual root's own completion (not just once at the
   // very end), so a fast root's matches can appear before a slower
@@ -264,12 +299,15 @@ Item {
   }
 
   // Shared completion handler for every rootWorker -- see
-  // FileSearchProvider's own handleRootSearchDone for why `worker` is
-  // named explicitly by each one's own onExited below rather than this
-  // being one shared Process.
-  function handleRootSearchDone(worker, exitCode) {
-    var rootPath = worker.currentRoot
-    worker.currentRoot = ""
+  // FileSearchProvider's own handleRootSearchDone for why its own fixed
+  // `index` into rootWorkers is named explicitly by each one's own
+  // onExited below rather than this being one shared Process.
+  // WorkerPool.retire() guarantees rootPath is exactly the root THIS
+  // invocation was assigned, never a value a later reassignment might
+  // have overwritten it with (issue #58).
+  function handleRootSearchDone(index, exitCode) {
+    var rootPath = WorkerPool.retire(root.pool, index)
+    if (rootPath === null) { root.scheduleRootSearches(); return }
     // A stale response for a search identity the UI has already moved
     // on from -- drop it entirely (including not scheduling more queued
     // roots for an abandoned search) rather than publishing against
@@ -301,14 +339,10 @@ Item {
     // Stop whatever the previous search's workers were still doing --
     // their own eventual completion would be discarded anyway (the
     // staleness check above), but there's no reason to let them keep
-    // running for an abandoned search. Safe when already idle.
-    for (var i = 0; i < root.rootWorkers.length; i++) {
-      var w = root.rootWorkers[i]
-      if (w.currentRoot !== "") {
-        w.running = false
-        w.currentRoot = ""
-      }
-    }
+    // running for an abandoned search. Safe when already idle. Issue
+    // #58: stopWorker() deliberately does not free the pool slot -- see
+    // stopAllRootSearches()'s own comment above.
+    for (var i = 0; i < root.rootWorkers.length; i++) root.stopWorker(i)
     if (root.sourceFilter) {
       // Issue #53: an explicitly selected source is a deliberate choice
       // -- content-search it regardless of local/remote, existing
@@ -374,7 +408,6 @@ Item {
   // kills cleanly and still lets whatever already ran finish normally).
   Process {
     id: contentWorker0
-    property string currentRoot: ""
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -383,14 +416,16 @@ Item {
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
         root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
-        if (root.pendingMatches.length >= root.candidateBudget) contentWorker0.running = false
+        if (root.pendingMatches.length >= root.candidateBudget) {
+          contentWorker0.running = false
+          root.stopOtherWorkersForBudget(0)
+        }
       }
     }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker0, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(0, exitCode)
   }
   Process {
     id: contentWorker1
-    property string currentRoot: ""
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -399,14 +434,16 @@ Item {
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
         root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
-        if (root.pendingMatches.length >= root.candidateBudget) contentWorker1.running = false
+        if (root.pendingMatches.length >= root.candidateBudget) {
+          contentWorker1.running = false
+          root.stopOtherWorkersForBudget(1)
+        }
       }
     }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker1, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(1, exitCode)
   }
   Process {
     id: contentWorker2
-    property string currentRoot: ""
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -415,14 +452,16 @@ Item {
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
         root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
-        if (root.pendingMatches.length >= root.candidateBudget) contentWorker2.running = false
+        if (root.pendingMatches.length >= root.candidateBudget) {
+          contentWorker2.running = false
+          root.stopOtherWorkersForBudget(2)
+        }
       }
     }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker2, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(2, exitCode)
   }
   Process {
     id: contentWorker3
-    property string currentRoot: ""
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -431,10 +470,13 @@ Item {
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
         root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
-        if (root.pendingMatches.length >= root.candidateBudget) contentWorker3.running = false
+        if (root.pendingMatches.length >= root.candidateBudget) {
+          contentWorker3.running = false
+          root.stopOtherWorkersForBudget(3)
+        }
       }
     }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker3, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(3, exitCode)
   }
 
   // Same as FileSearchProvider's own activate() -- xdg-open already

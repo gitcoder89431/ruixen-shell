@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "FileSearchRanking.js" as FileSearchRanking
+import "WorkerPool.js" as WorkerPool
 
 // Provider: files by name under $HOME, via `fd` (confirmed on this
 // machine per CLAUDE.md's own tool table -- a full $HOME search here
@@ -245,6 +246,13 @@ Item {
   // typically) rarely exceed the pool size anyway, so this is the
   // uncommon path, not the common one.
   readonly property var rootWorkers: [rootWorker0, rootWorker1, rootWorker2, rootWorker3]
+  // Issue #58: which root (if any) each worker slot is actually
+  // processing right now, and whether it's safely reusable -- moved
+  // into WorkerPool.js as pure, unit-tested logic (tests/js/
+  // WorkerPool.test.js) rather than the ad hoc per-worker
+  // `currentRoot` property this used before. See that module's own
+  // header for the full "why".
+  property var pool: WorkerPool.createPool(4)
   property var rootSearchQueue: []
   // { [rootPath]: Array<result> } -- accumulates as each root's own
   // worker finishes; publishRootResults() below merges/ranks/dedupes
@@ -288,18 +296,34 @@ Item {
     return FileSearchRanking.classifyFdExitCode(exitCode)
   }
 
+  // Issue #58: requestStop() marks the pool slot but deliberately does
+  // NOT free it -- running=false is an async kill (confirmed live: the
+  // killed process's own onExited fires LATER, after this function has
+  // already returned), so freeing the slot synchronously would let
+  // scheduleRootSearches() immediately hand this same worker a NEW
+  // root while the OLD process is still dying. That old process's own
+  // eventual onExited would then retire() whatever root the slot had
+  // been reassigned to in the meantime, misattributing its exit code/
+  // output to it -- confirmed live with a standalone harness, and now
+  // enforced by WorkerPool.js's own tested contract (a stopping slot
+  // stays busy until its real completion retires it). handleRootSearchDone()
+  // -- fired by the REAL onExited -- is the only thing that actually
+  // frees a slot, and it does so in the same synchronous call that
+  // hands it back to the scheduler, with no room for another event to
+  // interleave.
+  function stopWorker(i) {
+    if (WorkerPool.isBusy(root.pool, i)) {
+      root.rootWorkers[i].running = false
+      WorkerPool.requestStop(root.pool, i)
+    }
+  }
+
   function stopAllRootSearches() {
     root.rootSearchQueue = []
     root.rootResults = ({})
     root.rootStatuses = ({})
     root.hasDegradedRoot = false
-    for (var i = 0; i < root.rootWorkers.length; i++) {
-      var w = root.rootWorkers[i]
-      if (w.currentRoot !== "") {
-        w.running = false
-        w.currentRoot = ""
-      }
-    }
+    for (var i = 0; i < root.rootWorkers.length; i++) root.stopWorker(i)
   }
 
   // -t f -t d: files AND directories -- fd ORs multiple --type flags
@@ -336,10 +360,10 @@ Item {
   // unbounded process fan-out).
   function scheduleRootSearches() {
     for (var i = 0; i < root.rootWorkers.length && root.rootSearchQueue.length > 0; i++) {
-      var w = root.rootWorkers[i]
-      if (w.currentRoot !== "") continue
+      if (WorkerPool.isBusy(root.pool, i)) continue
       var nextRoot = root.rootSearchQueue.shift()
-      w.currentRoot = nextRoot
+      WorkerPool.assign(root.pool, i, nextRoot)
+      var w = root.rootWorkers[i]
       // Real report: search "stopped working" right after a reboot, for
       // someone with a network mount (rclone) among their own
       // extraRoots, and fixed itself after waiting -- exactly the shape
@@ -374,16 +398,23 @@ Item {
     root.lastResults = FileSearchRanking.mergeRootResults(root.rootResults, root.displayLimit)
   }
 
-  // Shared completion handler for every rootWorker -- `worker` is passed
-  // in explicitly by each one's own onStreamFinished below rather than
-  // this being one shared Process (QML has no direct way for a signal
-  // handler to identify which sender fired it, so each worker's own
-  // handler names itself).
-  function handleRootSearchDone(worker, exitCode) {
-    var rootPath = worker.currentRoot
+  // Shared completion handler for every rootWorker -- `index` (this
+  // worker's own fixed position in rootWorkers, issue #58) is passed in
+  // explicitly by each one's own onExited below rather than this being
+  // one shared Process (QML has no direct way for a signal handler to
+  // identify which sender fired it, so each worker's own handler names
+  // itself). retire() is the ONLY thing that reports which root this
+  // slot was actually processing and frees it for reuse -- guaranteed
+  // by WorkerPool.js's own contract to be the root this exact
+  // invocation was assigned, never a value a later reassignment might
+  // have overwritten it with, because assign() refuses to touch a slot
+  // retire() hasn't freed yet.
+  function handleRootSearchDone(index, exitCode) {
+    var worker = root.rootWorkers[index]
     var output = worker.pendingOutput
-    worker.currentRoot = ""
     worker.pendingOutput = ""
+    var rootPath = WorkerPool.retire(root.pool, index)
+    if (rootPath === null) { root.scheduleRootSearches(); return }
     // A stale response for a search identity (query + sourceFilter +
     // root generation) the UI has already moved on from -- drop it
     // entirely (including not scheduling more queued work for an
@@ -411,14 +442,13 @@ Item {
     // Stop whatever the previous search's workers were still doing --
     // their own eventual completion would be discarded anyway (the
     // staleness check above), but there's no reason to let them keep
-    // running for an abandoned search. Safe when already idle.
-    for (var i = 0; i < root.rootWorkers.length; i++) {
-      var w = root.rootWorkers[i]
-      if (w.currentRoot !== "") {
-        w.running = false
-        w.currentRoot = ""
-      }
-    }
+    // running for an abandoned search. Safe when already idle. Issue
+    // #58: stopWorker() deliberately does NOT free the pool slot -- see
+    // its own comment for why an early free would let
+    // scheduleRootSearches() below reassign this same worker to a NEW
+    // root before the old (still-dying) process's onExited fires,
+    // corrupting that new root's own status/output.
+    for (var i = 0; i < root.rootWorkers.length; i++) root.stopWorker(i)
     // fd accepts multiple trailing path roots in one invocation, but
     // issue #54 deliberately does NOT use that -- one root per process
     // instead, so a slow/unhealthy root can't hold back the others (see
@@ -488,10 +518,14 @@ Item {
   // per discovered root unconditionally (see rootWorkers' own comment
   // above for why a bound matters) or dynamically-created Process
   // objects (a fixed static pool avoids the extra lifecycle complexity
-  // of creating/destroying QML objects on every search). Each declares
-  // its own `currentRoot` -- "" means idle -- and calls the shared
-  // handleRootSearchDone() naming itself explicitly, since a QML signal
-  // handler has no built-in way to identify its own sender.
+  // of creating/destroying QML objects on every search). Each calls the
+  // shared handleRootSearchDone() naming its OWN fixed index into
+  // rootWorkers explicitly, since a QML signal handler has no built-in
+  // way to identify its own sender -- issue #58: which root each
+  // worker's own index is (or was) assigned lives in root.pool
+  // (WorkerPool.js), not a per-worker property, so a stale completion
+  // can never read a value some other, later invocation already
+  // overwrote.
   //
   // Issue #55: completion moved from stdout's own onStreamFinished to
   // the Process's own onExited -- confirmed live (a standalone
@@ -504,31 +538,27 @@ Item {
   // matches" apart from "this root's own search never finished".
   Process {
     id: rootWorker0
-    property string currentRoot: ""
     property string pendingOutput: ""
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker0.pendingOutput = text }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker0, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(0, exitCode)
   }
   Process {
     id: rootWorker1
-    property string currentRoot: ""
     property string pendingOutput: ""
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker1.pendingOutput = text }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker1, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(1, exitCode)
   }
   Process {
     id: rootWorker2
-    property string currentRoot: ""
     property string pendingOutput: ""
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker2.pendingOutput = text }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker2, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(2, exitCode)
   }
   Process {
     id: rootWorker3
-    property string currentRoot: ""
     property string pendingOutput: ""
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker3.pendingOutput = text }
-    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker3, exitCode)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(3, exitCode)
   }
 
   // xdg-open already does the right thing for either path type -- the

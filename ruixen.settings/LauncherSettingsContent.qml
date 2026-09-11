@@ -157,12 +157,37 @@ ColumnLayout {
       anchors.margins: 12
       spacing: 4
 
-      Text {
+      // Centered icon + caption, not a plain left-aligned line -- direct
+      // request ("center the text no drives detected... put an icon
+      // center for like no drive above it"). Same fa-hdd_o (U+F0A0)
+      // glyph over smaller muted text layout as ruixen.launcher's own
+      // EmptyState.qml "No Results" block, written as a \u escape (not
+      // a pasted glyph) matching this repo's own convention for PUA
+      // glyphs (see ruixen.pluginpins/BarWidget.qml's own comment) --
+      // confirmed present in JetBrainsMono Nerd Font's cmap directly,
+      // not guessed.
+      Column {
         visible: root.mountChecklist.length === 0
-        text: "No drives detected"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        color: settingsRoot.muted
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        Layout.bottomMargin: 4
+        spacing: 6
+
+        Text {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: ""
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 24
+          color: settingsRoot.muted
+        }
+
+        Text {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "No drives detected"
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 11
+          color: settingsRoot.muted
+        }
       }
 
       Repeater {

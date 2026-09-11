@@ -536,12 +536,45 @@ Item {
   }
   property bool actionsMenuOpen: false
   property int actionsSelectedIndex: 0
+  // Issue #62 follow-up: positioned next to whichever row the menu was
+  // opened for (see positionActionsMenuNearSelection below) rather than
+  // a fixed card corner -- set once when the menu opens, not re-tracked
+  // afterward (Up/Down while the menu is open navigates ITS OWN list,
+  // never the results list underneath, so the selection this was
+  // computed for can't move out from under it while it's showing).
+  property real actionsMenuX: 0
+  property real actionsMenuY: 0
 
   function openActionsMenu() {
     if (root.resultActions.length === 0) return
     root.actionsSelectedIndex = 0
     root.actionsMenuOpen = true
     searchHeader.dropdownOpen = false
+    root.positionActionsMenuNearSelection()
+  }
+
+  // itemAtIndex() only returns a delegate ListView has actually
+  // instantiated (it virtualizes offscreen rows) -- the existing
+  // scrolloff/positionViewAtIndex navigation already keeps the selected
+  // row's own delegate live in every normal case, so this should always
+  // resolve; if it somehow doesn't (a query that just changed and
+  // hasn't settled yet), the menu simply keeps whatever position it
+  // already had rather than guessing at one.
+  function positionActionsMenuNearSelection() {
+    var item = resultsList.itemAtIndex(root.selectedIndex)
+    if (!item) return
+    var scenePos = item.mapToItem(null, 0, item.height)
+    var localPos = card.mapFromItem(null, scenePos.x, scenePos.y)
+    // Clamped so the popup never renders partly outside the card,
+    // whichever edge the selected row happens to be near. 240/28/8
+    // mirror ResultActionsMenu.qml's own fixed width and per-row/
+    // padding height formula -- duplicated here (not read back from
+    // the component itself) only because the menu's real size needs
+    // to be known BEFORE positioning it, not after.
+    var menuWidth = 240
+    var menuHeight = root.resultActions.length * 28 + 8
+    root.actionsMenuX = Math.max(8, Math.min(localPos.x, card.width - menuWidth - 8))
+    root.actionsMenuY = Math.max(8, Math.min(localPos.y + 4, card.height - menuHeight - 8))
   }
 
   function closeActionsMenu() {
@@ -1088,6 +1121,7 @@ Item {
         appLibrary: appLibrary
         onRowHovered: (idx) => root.selectedIndex = idx
         onRowActivated: (idx) => { root.selectedIndex = idx; root.activateSelected() }
+        onRowActionsRequested: (idx) => { root.selectedIndex = idx; root.openActionsMenu() }
       }
 
       // Marks the list/details boundary now that detailsPanel has no
@@ -1166,10 +1200,13 @@ Item {
       // show at once) -- a transient overlay over whatever's underneath
       // while open, same as any dropdown/context menu.
       ResultActionsMenu {
-        anchors.top: searchHeader.bottom
-        anchors.topMargin: 6
-        anchors.right: parent.right
-        anchors.rightMargin: 8
+        // Issue #62 follow-up: positioned next to the row it was
+        // opened for (root.positionActionsMenuNearSelection) instead of
+        // a fixed card corner -- plain x/y, not anchors, since the
+        // target position is an arbitrary computed point, not a fixed
+        // relationship to another element.
+        x: root.actionsMenuX
+        y: root.actionsMenuY
         actions: root.actionsMenuOpen ? root.resultActions : []
         selectedIndex: root.actionsSelectedIndex
         textColor: root.textColor

@@ -27,6 +27,11 @@ Rectangle {
 
   signal hovered(int index)
   signal activated(int index)
+  // Issue #62 follow-up: right-click opens the contextual actions menu
+  // for this row directly, alongside Tab (which operates on whichever
+  // row is already selected) -- a second, mouse-first path to the same
+  // menu, not a replacement for it.
+  signal actionsRequested(int index)
 
   width: row.rowWidth
   height: row.rowHeightPx
@@ -240,8 +245,12 @@ Rectangle {
   MouseArea {
     anchors.fill: parent
     hoverEnabled: true
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     cursorShape: Qt.PointingHandCursor
     onEntered: row.hovered(row.index)
-    onClicked: row.activated(row.index)
+    onClicked: (mouse) => {
+      if (mouse.button === Qt.RightButton) row.actionsRequested(row.index)
+      else row.activated(row.index)
+    }
   }
 }

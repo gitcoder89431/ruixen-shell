@@ -37,6 +37,7 @@ ListView {
   // its own beyond scroll position.
   signal rowHovered(int index)
   signal rowActivated(int index)
+  signal rowActionsRequested(int index)
 
   clip: true
   spacing: 0
@@ -76,5 +77,6 @@ ListView {
     appLibrary: root.appLibrary
     onHovered: (idx) => root.rowHovered(idx)
     onActivated: (idx) => root.rowActivated(idx)
+    onActionsRequested: (idx) => root.rowActionsRequested(idx)
   }
 }

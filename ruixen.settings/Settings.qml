@@ -1395,9 +1395,18 @@ Item {
       id: card
       // 480x360 -> 680x440 -- the square card had room for a header and
       // one placeholder message, not a sidebar beside real content.
+      // 440 -> 540 -- direct report ("we're starting to have a lot more
+      // options now"), confirmed live: Profile's own Window Curvature
+      // row was cut off at the card's bottom edge. Width stays 680 --
+      // the sidebar's own content (7 rows, ~284px) is short and
+      // borderless (no divider/background box of its own, matching
+      // ruixen.notch's own left-tab/right-content split), so the extra
+      // 100px just becomes more card background under it, not an empty
+      // container; only the detail Flickable on the right actually
+      // benefits from the taller viewport.
       anchors.centerIn: parent
       width: 680
-      height: 440
+      height: 540
       radius: 16
       color: root.panelBackground
       focus: root.opened

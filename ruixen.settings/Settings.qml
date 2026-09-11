@@ -1677,27 +1677,6 @@ Item {
             Layout.alignment: Qt.AlignTop
             spacing: 4
 
-            // QA'd direct follow-up: the sidebar's search box never lines
-            // up with the detail panel's own headerPill on the right --
-            // headerPill sits inside detailPanel's Flickable, which has
-            // its own anchors.margins: 16 before content starts, while
-            // this sidebar ColumnLayout has no equivalent inset before
-            // its own first child. Actually closing that 16px gap would
-            // mean reworking the shared scroll/fade Flickable both
-            // headerPill and every page's content rely on, for a
-            // cosmetic-only win. A "Ruixen Settings" label here was
-            // tried first per that direct guidance, but read as ugly on
-            // its own -- direct follow-up ("just remove Ruixen Setting
-            // text and leave the empty area there, that should be
-            // cleaner") swapped it for a plain spacer instead: no text,
-            // just the same footprint, still enough to keep the search
-            // box from looking like it missed an intended alignment.
-            Item {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 16
-              Layout.bottomMargin: 4
-            }
-
             // Search -- same plain Rectangle + TextInput + placeholder
             // Text primitive already used for WallpapersContent's own
             // search box and About's uninstall-confirm field, just

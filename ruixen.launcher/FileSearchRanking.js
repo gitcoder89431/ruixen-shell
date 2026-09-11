@@ -125,6 +125,69 @@ function mergeRootResults(rootResultsByPath, displayLimit) {
   return merged.slice(0, displayLimit)
 }
 
+// Issue #52: findmnt's own tree walked recursively into a flat list --
+// children reflect mount hierarchy (a bind mount under another mount,
+// etc.), not something this provider needs to preserve, just enumerate.
+// Pulled out of FileSearchProvider.qml alongside discoverExtraRoots
+// below for the same reason every other pure-logic extraction in this
+// file exists: independently testable without a real Quickshell
+// runtime.
+function flattenMountTree(node, out) {
+  if (node && typeof node.target === "string") out.push({ path: node.target, fstype: String(node.fstype || "") })
+  if (node && Array.isArray(node.children)) {
+    for (var i = 0; i < node.children.length; i++) flattenMountTree(node.children[i], out)
+  }
+}
+
+// Convention every major desktop file manager already relies on
+// (Nautilus/udisks2 auto-mounts to /run/media/$USER/<label>, manual
+// mounts commonly go to /mnt or /media) -- real system mounts (/,
+// /boot, /var/*, tmpfs, proc, ...) never live under any of these three
+// prefixes, so a path check alone is enough to tell "a real extra root
+// worth offering at all" from noise -- a SEPARATE question from
+// local-vs-remote (issue #53), which isLocalFstype() above answers
+// downstream from the fstype kept alongside each root.
+function isMountCandidate(path) {
+  return path.indexOf("/mnt/") === 0 || path.indexOf("/media/") === 0 || path.indexOf("/run/media/") === 0
+}
+
+// Issue #48/#52: the full findmnt --json -> extraRoots pipeline, pulled
+// out of FileSearchProvider.qml's own onStreamFinished so it's testable
+// without a real findmnt process or Quickshell runtime. --json
+// sidesteps findmnt's own `-P` hex-escaping of unsafe characters
+// entirely (findmnt(8): "All potentially unsafe value characters are
+// hex-escaped (\xNN)") -- a real mount like "/mnt/Google Drive" used to
+// come back from the old regex-based `-P` parser as
+// "/mnt/Google\x20Drive" and get searched as a path that doesn't exist.
+// JSON's own string escaping is unambiguous and QML/Node's JSON.parse
+// already handles it correctly, so there's no hand-rolled escape format
+// to keep in sync with findmnt's own. Malformed/empty JSON returns an
+// empty list rather than throwing -- a transient findmnt failure should
+// leave extraRoots as "nothing extra found," not crash the provider.
+function discoverExtraRoots(findmntJsonText) {
+  var targets = []
+  try {
+    var data = JSON.parse(findmntJsonText)
+    var top = (data && Array.isArray(data.filesystems)) ? data.filesystems : []
+    for (var i = 0; i < top.length; i++) flattenMountTree(top[i], targets)
+  } catch (e) {
+    return []
+  }
+  var seen = ({})
+  var roots = []
+  for (var j = 0; j < targets.length; j++) {
+    var target = targets[j].path
+    // Dedup -- a bind mount or a submount nested under an already-
+    // discovered root would otherwise search the same files twice and
+    // show duplicate rows for them.
+    if (isMountCandidate(target) && !seen[target]) {
+      seen[target] = true
+      roots.push({ path: target, fstype: targets[j].fstype })
+    }
+  }
+  return roots
+}
+
 // Issue #55: fd's own exit code convention (confirmed live): 0 whether
 // or not anything matched -- zero matches is NOT an error for fd,
 // unlike ripgrep's own different convention (see

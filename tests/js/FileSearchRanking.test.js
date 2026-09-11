@@ -89,6 +89,51 @@ check("parseFileDimensions: no recognizable dimensions (e.g. a non-image file) r
 check("parseFileDimensions: empty/undefined input returns an empty string, not a throw",
   M.parseFileDimensions(undefined), "");
 
+// ---- isMountCandidate / discoverExtraRoots (issue #48/#52) -----------------
+
+check("isMountCandidate: real mount conventions (/mnt, /media, /run/media) are candidates",
+  [M.isMountCandidate("/mnt/usb"), M.isMountCandidate("/media/dev/USB"), M.isMountCandidate("/run/media/dev/USB")],
+  [true, true, true]);
+check("isMountCandidate: real system mounts are never candidates",
+  [M.isMountCandidate("/"), M.isMountCandidate("/boot"), M.isMountCandidate("/var/log"), M.isMountCandidate("/proc")],
+  [false, false, false, false]);
+
+function findmntFixture(filesystems) {
+  return JSON.stringify({ filesystems: filesystems });
+}
+
+check("discoverExtraRoots: a real extra root (with its fstype) is kept",
+  M.discoverExtraRoots(findmntFixture([{ target: "/mnt/usb", fstype: "ext4" }])),
+  [{ path: "/mnt/usb", fstype: "ext4" }]);
+check("discoverExtraRoots: real system mounts (/, /boot, tmpfs, proc) are excluded entirely",
+  M.discoverExtraRoots(findmntFixture([
+    { target: "/", fstype: "btrfs" },
+    { target: "/boot", fstype: "vfat" },
+    { target: "/run", fstype: "tmpfs" },
+    { target: "/proc", fstype: "proc" }
+  ])), []);
+check("discoverExtraRoots: a mount with a space in its path survives real findmnt --json "
+  + "escaping (issue #48 -- the old -P-based parser hex-escaped this and broke it)",
+  M.discoverExtraRoots(findmntFixture([{ target: "/mnt/Google Drive", fstype: "fuse.rclone" }])),
+  [{ path: "/mnt/Google Drive", fstype: "fuse.rclone" }]);
+check("discoverExtraRoots: nested children (a bind mount/submount under an already-listed "
+  + "mount) are walked and included",
+  M.discoverExtraRoots(findmntFixture([
+    { target: "/mnt/usb", fstype: "ext4", children: [{ target: "/mnt/usb/nested", fstype: "ext4" }] }
+  ])),
+  [{ path: "/mnt/usb", fstype: "ext4" }, { path: "/mnt/usb/nested", fstype: "ext4" }]);
+check("discoverExtraRoots: the exact same target appearing twice (a duplicate root) is "
+  + "deduped to one entry, keeping the first-seen copy",
+  M.discoverExtraRoots(findmntFixture([
+    { target: "/mnt/usb", fstype: "ext4" },
+    { target: "/mnt/usb", fstype: "ext4" }
+  ])),
+  [{ path: "/mnt/usb", fstype: "ext4" }]);
+check("discoverExtraRoots: malformed JSON (a real findmnt failure) returns an empty list, not a throw",
+  M.discoverExtraRoots("not json"), []);
+check("discoverExtraRoots: empty/no filesystems returns an empty list",
+  M.discoverExtraRoots(findmntFixture([])), []);
+
 // ---- mergeRootResults (issue #54) ------------------------------------------
 
 function fakeResult(path, score) {

@@ -111,66 +111,16 @@ Item {
     mountProc.exec(["findmnt", "--json", "-o", "TARGET,FSTYPE"])
   }
 
-  // findmnt's own tree walked recursively into a flat list -- children
-  // reflect mount hierarchy (a bind mount under another mount, etc.),
-  // not something this provider needs to preserve, just enumerate.
-  // Issue #53: fstype kept alongside each target now (previously
-  // discarded down to a bare path) -- needed to classify a root as
-  // local vs remote/network-backed, see FileSearchRanking.js's own
-  // isLocalFstype().
-  function flattenMounts(node, out) {
-    if (node && typeof node.target === "string") out.push({ path: node.target, fstype: String(node.fstype || "") })
-    if (node && Array.isArray(node.children)) {
-      for (var i = 0; i < node.children.length; i++) root.flattenMounts(node.children[i], out)
-    }
-  }
-
+  // Issue #52: the findmnt-output-to-extraRoots pipeline (tree
+  // flattening, /mnt//media//run/media candidacy, dedup) lives in
+  // FileSearchRanking.js's own discoverExtraRoots() now -- pure logic,
+  // independently unit-tested (tests/js/FileSearchRanking.test.js)
+  // without needing a real findmnt process or Quickshell runtime.
   Process {
     id: mountProc
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: {
-        // Issue #48: findmnt's own `-P` (key="value" pairs) format hex-
-        // escapes unsafe characters (findmnt(8): "All potentially unsafe
-        // value characters are hex-escaped (\xNN)"), and the previous
-        // regex parser stored that escaped form verbatim -- a real mount
-        // like "/mnt/Google Drive" would come back as "/mnt/Google\x20Drive"
-        // and get searched as a path that doesn't exist. --json sidesteps
-        // decoding entirely: JSON's own string escaping is unambiguous
-        // and QML's JSON.parse already handles it correctly, so there's
-        // no hand-rolled escape format to keep in sync with findmnt's own.
-        var targets = []
-        try {
-          var data = JSON.parse(text)
-          var top = (data && Array.isArray(data.filesystems)) ? data.filesystems : []
-          for (var i = 0; i < top.length; i++) root.flattenMounts(top[i], targets)
-        } catch (e) {
-          return
-        }
-        var seen = ({})
-        var roots = []
-        for (var j = 0; j < targets.length; j++) {
-          var target = targets[j].path
-          // Convention every major desktop file manager already relies
-          // on (Nautilus/udisks2 auto-mounts to /run/media/$USER/<label>,
-          // manual mounts commonly go to /mnt or /media) -- real system
-          // mounts (/, /boot, /var/*, tmpfs, proc, ...) never live under
-          // any of these three prefixes, so a path check alone is enough
-          // to tell "a real extra root worth offering at all" from noise
-          // -- a SEPARATE question from local-vs-remote (issue #53),
-          // which FileSearchRanking.js's own isLocalFstype() answers
-          // downstream from the fstype kept alongside each root below.
-          var isCandidate = target.indexOf("/mnt/") === 0 || target.indexOf("/media/") === 0 || target.indexOf("/run/media/") === 0
-          // Dedup -- a bind mount or a submount nested under an already-
-          // discovered root would otherwise search the same files twice
-          // and show duplicate rows for them.
-          if (isCandidate && !seen[target]) {
-            seen[target] = true
-            roots.push({ path: target, fstype: targets[j].fstype })
-          }
-        }
-        root.extraRoots = roots
-      }
+      onStreamFinished: root.extraRoots = FileSearchRanking.discoverExtraRoots(text)
     }
   }
 

@@ -47,6 +47,30 @@ function abbreviateHome(dir, homeDir) {
   return dir
 }
 
+// Issue #56: extracts real pixel dimensions from `file`'s own plain-text
+// output -- a header parse, not a decode (confirmed live: instant even
+// on an 8000x6000 test JPEG), used instead of reading them off the
+// displayed preview Image's own sourceSize once that gets bounded to
+// the small preview box for the actual fix this issue is about.
+//
+// Takes the LAST "NxN"-shaped match, not the first -- caught live
+// against a real JPEG sample: file(1)'s own JPEG output is "..., density
+// 1x1, ..., precision 8, 8000x6000, components 3" -- the density field
+// (usually a placeholder like "1x1") reliably comes BEFORE the real
+// pixel dimensions in that format's own output, so a first-match regex
+// grabbed "1 × 1" instead of "8000 × 6000". PNG/GIF/WebP/BMP each only
+// ever produce one such match regardless (BMP's own trailing bit-depth
+// number, e.g. "800 x 600 x 24", isn't itself of the "N x N" shape once
+// the first pair is consumed), so taking the last match is a no-op
+// difference for those and the fix that matters for JPEG.
+function parseFileDimensions(fileOutput) {
+  var re = /(\d+)\s*x\s*(\d+)/gi
+  var m
+  var last = null
+  while ((m = re.exec(String(fileOutput || ""))) !== null) last = m
+  return last ? (last[1] + " × " + last[2]) : ""
+}
+
 // Issue #53: findmnt's own fstype classifies a discovered root as local
 // (safe to content-scan automatically) or remote/network-backed (opened
 // per-file, over a network, only when a search deliberately walks its

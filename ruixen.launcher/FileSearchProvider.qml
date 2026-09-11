@@ -455,8 +455,32 @@ Item {
     return root.videoExtensions.indexOf(path.substring(dot + 1).toLowerCase()) !== -1
   }
 
+  // Issue #56: same extension-based check as isVideoPath/isTextPath
+  // above -- kicked off in parallel with stat rather than waiting for
+  // fileKindFor()'s own result (Launcher.qml's own isImagePreview
+  // already recognizes exactly these Kind strings; this list is the
+  // same set by extension instead, so the lookup below can start
+  // immediately).
+  readonly property var imageExtensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"]
+  function isImagePath(path) {
+    var dot = path.lastIndexOf(".")
+    if (dot <= 0) return false
+    return root.imageExtensions.indexOf(path.substring(dot + 1).toLowerCase()) !== -1
+  }
+
   property string pendingVideoPath: ""
   property string videoDuration: ""
+
+  // Issue #56: real pixel dimensions read via `file` (a header parse,
+  // not a decode -- confirmed live: instant even on an 8000x6000 test
+  // JPEG) rather than off the displayed thumbnail's own sourceSize.
+  // That distinction matters once the preview Image below gets its own
+  // sourceSize bound to the small preview box (the actual fix for this
+  // issue's own memory concern) -- reading sourceSize back at that point
+  // would report the BOUNDED decode size, not the source's real
+  // dimensions, silently breaking the "Dimensions" metadata field.
+  property string pendingImageDimensionsPath: ""
+  property string imageDimensions: ""
 
   // Video poster (a real extracted still frame, not a generic icon) --
   // exact same technique ruixen.notch's own wallpaper picker already
@@ -508,6 +532,8 @@ Item {
     root.videoPosterPath = ""
     root.pendingTextPreviewPath = ""
     root.textPreviewContent = ""
+    root.pendingImageDimensionsPath = ""
+    root.imageDimensions = ""
     // Issue #46: stop whatever ffprobe/poster/text-preview work was
     // still running for the PREVIOUS selection outright, not just
     // disown its eventual result -- the pending-path resets above
@@ -519,6 +545,7 @@ Item {
     ffprobeProc.running = false
     posterProc.running = false
     textPreviewProc.running = false
+    imageDimensionsProc.running = false
     if (!path) return
     if (root.isTextPath(path)) {
       root.pendingTextPreviewPath = path
@@ -559,6 +586,10 @@ Item {
       posterProc.exec(["bash", "-c",
         'mkdir -p "$1" && hash=$(printf "%s" "$2" | md5sum | cut -d" " -f1) && poster="$1/$hash.jpg" && if [ ! -f "$poster" ] || [ "$2" -nt "$poster" ]; then ffmpeg -y -loglevel quiet -i "$2" -vframes 1 -q:v 3 "$poster" 2>/dev/null; fi && if [ -f "$poster" ]; then printf "%s" "$poster"; fi',
         "--", root.posterCacheDir, path])
+    }
+    if (root.isImagePath(path)) {
+      root.pendingImageDimensionsPath = path
+      imageDimensionsProc.exec(["file", "--", path])
     }
   }
 
@@ -635,6 +666,24 @@ Item {
         // (YAML/Python indentation on the first or last captured line)
         // that's part of the file's own actual content, not padding.
         root.textPreviewContent = text
+      }
+    }
+  }
+
+  // `file` reads just the format header (JPEG's SOF marker, PNG's IHDR
+  // chunk, ...), not the full pixel data -- confirmed live: instant even
+  // on an 8000x6000 test JPEG, unlike a real decode. Output already
+  // contains the real dimensions in plain text for every format issue
+  // #56 cares about (confirmed against real JPEG/PNG/GIF/WebP/BMP
+  // samples), just formatted slightly differently per format ("WxH" for
+  // JPEG/GIF/WebP, "W x H" for PNG/BMP) -- one regex handles both.
+  Process {
+    id: imageDimensionsProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (root.pendingImageDimensionsPath === "" || root.pendingImageDimensionsPath !== root.pendingDetailsPath) return
+        root.imageDimensions = FileSearchRanking.parseFileDimensions(text)
       }
     }
   }

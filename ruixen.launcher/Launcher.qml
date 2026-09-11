@@ -1248,14 +1248,12 @@ Item {
         // unlikely for an explicit extension allowlist) come back empty.
         readonly property bool isTextPreview: !detailsPanel.hasThumbnail && fileSearchProvider.textPreviewContent !== ""
 
-        // Read straight off the already-loaded thumbnail Image itself
-        // (sourceSize reports the source file's own natural pixel
-        // dimensions once decoded) -- no external tool needed at all,
-        // unlike video duration below which has nothing already loaded
-        // to read this from.
-        readonly property string imageDimensions: (detailsPanel.isImagePreview && thumbnailImage.status === Image.Ready && thumbnailImage.sourceSize.width > 0)
-          ? (thumbnailImage.sourceSize.width + " × " + thumbnailImage.sourceSize.height)
-          : ""
+        // Issue #56: reads FileSearchProvider's own `file`-based lookup
+        // instead of thumbnailImage.sourceSize -- once that Image gets
+        // its own sourceSize bound to the small preview box (the actual
+        // fix for this issue), reading sourceSize back would report the
+        // BOUNDED decode size, not the source's real dimensions.
+        readonly property string imageDimensions: detailsPanel.isImagePreview ? fileSearchProvider.imageDimensions : ""
 
         // No scrolling -- reverted direct follow-up: a Flickable here
         // gave real mouse-wheel scrolling, but with no keyboard path to
@@ -1330,6 +1328,20 @@ Item {
                 cache: false
                 smooth: true
                 visible: false
+                // Issue #56: without this, Qt decodes the ORIGINAL
+                // source at its full native resolution before
+                // PreserveAspectCrop scales it down for this small
+                // preview -- a large photo can decode into hundreds of
+                // MB of raw pixels for a preview a fraction of that
+                // size. Bound to this Image's own actual rendered size
+                // (not a fixed constant, since the real footprint
+                // depends on the card's own width) rather than a
+                // hardcoded guess -- also covers the video-poster path
+                // for free, since this same Image element displays
+                // both. No visible quality loss: nothing bigger than
+                // this box is ever displayed anyway.
+                sourceSize.width: width
+                sourceSize.height: height
               }
 
               Rectangle {

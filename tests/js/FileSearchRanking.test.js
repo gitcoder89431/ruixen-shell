@@ -65,4 +65,28 @@ check("isLocalFstype: an unrecognized/exotic fstype defaults to remote (conserva
 check("isLocalFstype: empty/undefined input defaults to remote, not a throw",
   [M.isLocalFstype(""), M.isLocalFstype(undefined)], [false, false]);
 
+// ---- parseFileDimensions (issue #56) ---------------------------------------
+
+check("parseFileDimensions: JPEG's own real `file` output (no spaces around x)",
+  M.parseFileDimensions("huge.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, baseline, precision 8, 8000x6000, components 3"),
+  "8000 × 6000");
+check("parseFileDimensions: PNG's own real `file` output (spaces around x)",
+  M.parseFileDimensions("test.png: PNG image data, 800 x 600, 1-bit colormap, non-interlaced"),
+  "800 × 600");
+check("parseFileDimensions: GIF's own real `file` output",
+  M.parseFileDimensions("test.gif: GIF image data, version 89a, 800 x 600"),
+  "800 × 600");
+check("parseFileDimensions: WebP's own real `file` output -- must not be confused by "
+  + "the later non-numeric '[none]x[none]' scaling field",
+  M.parseFileDimensions("test.webp: RIFF (little-endian) data, WebP image, VP8 encoding, 800x600, Scaling: [none]x[none], YUV color, decoders should clamp"),
+  "800 × 600");
+check("parseFileDimensions: BMP's own real `file` output -- must stop at the first "
+  + "two numbers, not also swallow the trailing bit-depth number ('800 x 600 x 24')",
+  M.parseFileDimensions("test.bmp: PC bitmap, Windows 98/2000 and newer format, 800 x 600 x 24, cbSize 1440138, bits offset 138"),
+  "800 × 600");
+check("parseFileDimensions: no recognizable dimensions (e.g. a non-image file) returns an empty string",
+  M.parseFileDimensions("notes.txt: ASCII text"), "");
+check("parseFileDimensions: empty/undefined input returns an empty string, not a throw",
+  M.parseFileDimensions(undefined), "");
+
 summary();

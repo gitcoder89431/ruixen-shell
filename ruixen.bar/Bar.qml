@@ -1191,7 +1191,13 @@ Item {
   }
 
   onRequestedTransparentChanged: scheduleTransparentForegroundRefresh()
-  onPositionChanged: scheduleTransparentForegroundRefresh()
+  // Also re-syncs gaps_out.top (see that function's own comment) --
+  // QML only allows one onPositionChanged handler per Item, so this
+  // rides along with the pre-existing one rather than declaring a
+  // second (confirmed live: a second onPositionChanged elsewhere in
+  // this same file failed the whole plugin to load with "Property
+  // value set multiple times").
+  onPositionChanged: { scheduleTransparentForegroundRefresh(); root.syncGapsOutForTopBarVisibility() }
   onThemeForegroundChanged: scheduleTransparentForegroundRefresh()
   onThemeContrastForegroundChanged: scheduleTransparentForegroundRefresh()
 
@@ -1297,6 +1303,41 @@ Item {
     printErrors: false
     onFileChanged: barHiddenProbe.running = true
   }
+
+  // Direct follow-up chain: hyprland/looknfeel.ruixen.lua's own
+  // gaps_out.top (10, both round/square variants) is deliberately
+  // smaller than the other three (20) on the assumption that the bar's
+  // own exclusiveZone reservation already provides real top clearance
+  // independent of gaps -- true only while the bar is actually VISIBLE.
+  // Hiding it (Super+Shift+Space, ExclusionMode.Ignore) drops that
+  // reservation, leaving the bare 10 read as visibly tighter than the
+  // bottom's 20 ("it gets too close to the top edge compare to bottom
+  // edge"). A static bump to 20 fixed that but overcorrected the far
+  // more common bar-visible case instead ("that kinda messed up...
+  // extra padding now the top is more than the bottom") -- no single
+  // static value gets both right, since gaps_out.top sits BELOW the
+  // reservation, not instead of it. This pushes a live override
+  // instead: `hyprctl eval` (not `hyprctl keyword`, confirmed live --
+  // this Hyprland config uses the Lua-based `hl.config` API, and
+  // `keyword` refuses to touch it: "keyword can't work with non-legacy
+  // parsers. Use eval") sets gaps_out.top to 20 for exactly as long as
+  // the bar is actually hidden, and back to 10 the moment it's shown
+  // again. The other three positions never had this asymmetry to begin
+  // with (their own edge's gap was already 20 in the static config,
+  // un-offset by any exclusiveZone reservation) -- top only needs the
+  // override while BOTH root.position === "top" AND root.barHidden are
+  // true, computed as one explicit expression rather than an early
+  // return so this stays correct even if position changes while hidden
+  // (moving the bar away from top while it's toggled off correctly
+  // reverts gaps_out.top to 10, not left stuck at 20 for an edge the
+  // bar no longer occupies).
+  function syncGapsOutForTopBarVisibility() {
+    var top = (root.position === "top" && root.barHidden) ? 20 : 10
+    gapsOutSyncProc.exec(["hyprctl", "eval",
+      "hl.config({general = {gaps_out = {top = " + top + ", right = 20, bottom = 20, left = 20}}})"])
+  }
+  Process { id: gapsOutSyncProc }
+  onBarHiddenChanged: root.syncGapsOutForTopBarVisibility()
 
   Variants {
     model: Quickshell.screens

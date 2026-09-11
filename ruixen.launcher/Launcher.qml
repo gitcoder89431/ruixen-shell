@@ -171,6 +171,19 @@ Item {
   // separate bool.
   property string scopeHistoryPrevious: ""
   property bool hasScopeHistory: false
+  // Issue #60: type/scope/hidden Search Files filters -- deliberately
+  // NOT reset on entering/leaving Search Files (unlike selectedSourcePath
+  // above) or on close/reopen. Session persistence is fine per this
+  // issue's own acceptance criteria; durable cross-session preferences
+  // are a separate, later feature (#61).
+  property string categoryFilter: "All"
+  // "both" | "names" | "contents" -- gates which provider's own query
+  // binding is even live, below, reusing the exact mechanism filesMode
+  // already uses to stop a provider running at all (an empty query
+  // already means "stop debouncing, clear results, stop any in-flight
+  // process" in both providers).
+  property string searchScope: "both"
+  property bool hiddenFilesEnabled: false
   onFilesModeChanged: {
     // Re-discovers mounted secondary drives (see FileSearchProvider's
     // own refreshRoots()) each time Search Files is entered, rather
@@ -238,8 +251,12 @@ Item {
   // work from starting, with no separate cancellation path needed here.
   FileSearchProvider {
     id: fileSearchProvider
-    query: root.filesMode ? root.query : ""
+    // Issue #60: "Names"/"Both" run this provider; "Contents" gates it
+    // off entirely the same way leaving Search Files already does.
+    query: (root.filesMode && root.searchScope !== "contents") ? root.query : ""
     sourceFilter: root.selectedSourcePath
+    categoryFilter: root.categoryFilter
+    hiddenEnabled: root.hiddenFilesEnabled
   }
   // homeDir/extraRoots bound straight from fileSearchProvider's own
   // already-discovered values (see this file's own header comment) --
@@ -247,8 +264,15 @@ Item {
   // could disagree.
   FileContentSearchProvider {
     id: fileContentSearchProvider
-    query: root.filesMode ? root.query : ""
+    // Issue #60: "Contents"/"Both" run this provider; "Names" gates it
+    // off, same mechanism. A "Folders" category filter ALSO gates it
+    // off outright -- rg never matches a directory, so running it at
+    // all when only folders are wanted could only ever waste a real
+    // filesystem walk for zero possible results.
+    query: (root.filesMode && root.searchScope !== "names" && root.categoryFilter !== "Folders") ? root.query : ""
     sourceFilter: root.selectedSourcePath
+    categoryFilter: root.categoryFilter
+    hiddenEnabled: root.hiddenFilesEnabled
     homeDir: fileSearchProvider.homeDir
     extraRoots: fileSearchProvider.extraRoots
   }
@@ -703,10 +727,16 @@ Item {
       width: root.filesMode ? 920 : 640
       Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
       // A fixed viewport height, not a function of the result count --
-      // still a constant, so the card never grows/shrinks per state.
-      // Extra content (more rows than fit, or more than 2 headers)
-      // scrolls inside resultsList below rather than needing to fit.
-      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8
+      // still a constant, so the card never grows/shrinks per state
+      // (Search Files mode is the one deliberate exception, same as
+      // width above -- issue #60's own filtersBar adds a fixed amount
+      // matching its own topMargin+height, so resultsList keeps its
+      // full visibleRowCount viewport rather than losing a row's worth
+      // of space to the new filter controls). Extra content (more rows
+      // than fit, or more than 2 headers) scrolls inside resultsList
+      // below rather than needing to fit.
+      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + (root.filesMode ? 36 : 0)
+      Behavior on height { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
       radius: 16
       color: root.glassBackground
       border.width: 1
@@ -818,6 +848,28 @@ Item {
           if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
         }
+      }
+
+      // Issue #60: collapses to zero height (not just hidden) outside
+      // Search Files -- resultsList/detailsPanel/EmptyState below all
+      // anchor off its bottom edge unconditionally, so the normal
+      // Applications/Commands view's own layout is completely
+      // unaffected when this row isn't showing.
+      SearchFiltersBar {
+        id: filtersBar
+        anchors.top: searchHeader.bottom
+        anchors.topMargin: root.filesMode ? 4 : 0
+        active: root.filesMode
+        categoryFilter: root.categoryFilter
+        searchScope: root.searchScope
+        hiddenEnabled: root.hiddenFilesEnabled
+        textColor: root.textColor
+        mutedColor: root.muted
+        accentColor: root.accent
+        fontFamily: root.fontFamily
+        onCategorySelected: (category) => root.categoryFilter = category
+        onScopeSelected: (scope) => root.searchScope = scope
+        onHiddenToggled: root.hiddenFilesEnabled = !root.hiddenFilesEnabled
       }
 
       // Closes the dropdown on any click elsewhere on the card (rows,
@@ -951,7 +1003,7 @@ Item {
       // is already the same flat index as root.selectedIndex.
       ResultsList {
         id: resultsList
-        anchors.top: searchHeader.bottom
+        anchors.top: filtersBar.bottom
         // 8 -> 4 -- direct report: felt like too much empty space now
         // that the search box's own bottom border separator is gone
         // (nothing "explains" the gap visually anymore, so it read as
@@ -1017,9 +1069,9 @@ Item {
       FileDetailsPanel {
         id: detailsPanel
         visible: root.filesMode && !root.showNoResults
-        anchors.top: searchHeader.bottom
+        anchors.top: filtersBar.bottom
         // Matches resultsList's own topMargin (see its comment) --
-        // both panels need the exact same offset from searchHeader for
+        // both panels need the exact same offset from filtersBar for
         // the alignment fix on the inner Column below to actually work.
         anchors.topMargin: 4
         anchors.right: parent.right
@@ -1040,7 +1092,7 @@ Item {
       }
 
       EmptyState {
-        anchors.top: searchHeader.bottom
+        anchors.top: filtersBar.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right

@@ -99,6 +99,21 @@ Item {
   property string sourceFilter: ""
   onSourceFilterChanged: if (root.query.trim()) debounceTimer.restart()
 
+  // Issue #60: "All" means every category (today's behavior, unchanged);
+  // a specific category (see FileSearchRanking.js's own
+  // FILE_CATEGORY_NAMES) excludes anything else. Same re-trigger
+  // reasoning as sourceFilter above -- the query text itself doesn't
+  // change when someone just switches the type filter.
+  property string categoryFilter: "All"
+  onCategoryFilterChanged: if (root.query.trim()) debounceTimer.restart()
+  // fd skips dotfiles/dotdirs by default -- this opts back in. Confirmed
+  // live (rg --help) that ripgrep's own --hidden explicitly pulls in
+  // .git regardless of --no-ignore-vcs; fd's --exclude below always
+  // includes ".git" too so enabling this can't flood results with
+  // git's own internal object tree either.
+  property bool hiddenEnabled: false
+  onHiddenEnabledChanged: if (root.query.trim()) debounceTimer.restart()
+
   // Populates the source-filter dropdown -- Home plus one entry per
   // discovered extraRoot, labelled by its own last path segment (a
   // mount's own volume-label folder name, e.g. "OMARCHY_202607") rather
@@ -181,8 +196,12 @@ Item {
   // frozen-snapshot-vs-live-recompute pattern this file already used for
   // pendingQuery, just extended to cover all three identity-defining
   // inputs instead of one.
+  // Issue #60 extends this the same way: category/hidden-file
+  // changes are one more way the CURRENT desired result set can change
+  // without the query text itself changing.
   function searchIdentity() {
     return root.query.trim() + "" + root.sourceFilter + "" + root.rootGeneration
+      + "" + root.categoryFilter + "" + root.hiddenEnabled
   }
 
   property string pendingSearchIdentity: ""
@@ -316,7 +335,18 @@ Item {
   // fd invocation or a full unbounded walk.
   function buildFdArgs(candidateTerm, rootPath) {
     var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--fixed-strings", "--full-path", "--max-results", "500"]
+    // Issue #60: fd skips dotfiles/dotdirs by default -- --hidden opts
+    // back in when the user explicitly asks for it. ".git" is always
+    // excluded regardless of hiddenEnabled -- harmless (never reached)
+    // when hidden files are off, since fd wouldn't walk into it anyway,
+    // but required once they're on: confirmed live (rg --help) that a
+    // sibling flag on ripgrep's own --hidden explicitly pulls in .git
+    // regardless of --no-ignore-vcs, and fd's own --hidden works the
+    // same way -- without this, enabling hidden files would flood
+    // results with git's own internal object tree.
+    if (root.hiddenEnabled) args.push("--hidden")
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
+    args.push("--exclude", ".git")
     args.push("--", candidateTerm, rootPath)
     return args
   }
@@ -497,6 +527,9 @@ Item {
   function resultFor(rawPath, terms) {
     var parsed = FileSearchRanking.parseRawPath(rawPath)
     if (terms.length > 1 && !FileSearchRanking.pathSatisfiesAllTerms(parsed.path, terms)) return null
+    // Issue #60: pure extension-based classification (no stat/MIME
+    // subprocess per candidate) -- "All" always passes.
+    if (!FileSearchRanking.matchesCategory(FileSearchRanking.categoryForPath(parsed.name, parsed.isDir), root.categoryFilter)) return null
     var dir = FileSearchRanking.abbreviateHome(parsed.dir, root.homeDir)
     return {
       id: "file:" + parsed.path,

@@ -99,6 +99,38 @@ check("parseFileDimensions: no recognizable dimensions (e.g. a non-image file) r
 check("parseFileDimensions: empty/undefined input returns an empty string, not a throw",
   M.parseFileDimensions(undefined), "");
 
+// ---- categoryForPath / matchesCategory (issue #60) -------------------------
+
+check("categoryForPath: a directory is always Folders regardless of its own name",
+  M.categoryForPath("archive.zip", true), "Folders");
+check("categoryForPath: real document extensions",
+  [M.categoryForPath("notes.md", false), M.categoryForPath("report.pdf", false), M.categoryForPath("sheet.xlsx", false)],
+  ["Documents", "Documents", "Documents"]);
+check("categoryForPath: real image extensions",
+  [M.categoryForPath("photo.png", false), M.categoryForPath("photo.JPG", false)],
+  ["Images", "Images"]);
+check("categoryForPath: real video/audio/archive extensions",
+  [M.categoryForPath("clip.mp4", false), M.categoryForPath("song.mp3", false), M.categoryForPath("bundle.tar.gz", false)],
+  ["Video", "Audio", "Archives"]);
+check("categoryForPath: real code/text extensions",
+  [M.categoryForPath("main.go", false), M.categoryForPath("index.qml", false), M.categoryForPath("data.json", false)],
+  ["Code/Text", "Code/Text", "Code/Text"]);
+check("categoryForPath: case-insensitive extension matching",
+  M.categoryForPath("PHOTO.PNG", false), "Images");
+check("categoryForPath: an extensionless file is Other",
+  M.categoryForPath("Makefile", false), "Other");
+check("categoryForPath: an unrecognized extension is Other, not a throw",
+  M.categoryForPath("data.xyz123", false), "Other");
+check("categoryForPath: empty/undefined name returns Other rather than throwing",
+  [M.categoryForPath("", false), M.categoryForPath(undefined, false)], ["Other", "Other"]);
+
+check("matchesCategory: 'All' (the default, no filter) always matches",
+  [M.matchesCategory("Images", "All"), M.matchesCategory("Other", "All")], [true, true]);
+check("matchesCategory: an empty/undefined filter also means no filter, same as 'All'",
+  [M.matchesCategory("Images", ""), M.matchesCategory("Images", undefined)], [true, true]);
+check("matchesCategory: a specific filter requires an exact category match",
+  [M.matchesCategory("Images", "Images"), M.matchesCategory("Documents", "Images")], [true, false]);
+
 // ---- tokenizeQuery / primaryCandidateTerm / pathSatisfiesAllTerms (issue #59) --
 
 check("tokenizeQuery: splits on whitespace into literal terms",

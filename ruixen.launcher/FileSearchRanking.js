@@ -25,7 +25,57 @@ function scoreFile(name, query, isDir, dirBonus) {
   return isDir ? base + (dirBonus || 0) : base
 }
 
-// Issue #59: splits a query into literal terms for multi-component path
+// Issue #60: extension -> category table for the Search Files type
+// filter -- deliberately extension-based, not a per-candidate stat/MIME
+// subprocess (issue's own guidance: "do not stat/MIME-probe hundreds of
+// candidates merely to decide category"). Grouped to match
+// FileSearchProvider.qml's own extKindMap (the details-panel "Type"
+// field) so the same file always reads as the same kind of thing in
+// both places -- e.g. anything extKindMap calls an "Image" lands in
+// the Images category here too.
+var FILE_CATEGORIES = {
+  Documents: ["md", "markdown", "txt", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"],
+  Images: ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp"],
+  Video: ["mp4", "mkv", "webm", "mov", "avi"],
+  Audio: ["mp3", "wav", "flac", "ogg"],
+  Archives: ["zip", "tar", "gz", "xz", "7z", "rar"],
+  "Code/Text": [
+    "json", "jsonc", "yaml", "yml", "toml", "ini", "conf", "cfg",
+    "js", "mjs", "cjs", "ts", "jsx", "tsx", "py", "go", "rs", "java", "rb", "php",
+    "c", "h", "cpp", "cc", "hpp", "sh", "bash", "zsh", "fish", "qml", "lua", "sql",
+    "html", "htm", "css", "scss", "less", "xml", "log", "csv"
+  ]
+}
+
+// The ordered list of real, selectable categories -- "All" isn't in
+// here (it's the absence of a filter, handled by matchesCategory
+// below), and "Other" (an extensionless file, or an extension none of
+// the tables above recognize) is a real possible classification but
+// deliberately not offered as its own filter option, per the issue's
+// own suggested category list.
+var FILE_CATEGORY_NAMES = ["Folders", "Documents", "Images", "Video", "Audio", "Archives", "Code/Text"]
+
+// A directory is always "Folders" regardless of name -- everything
+// else is classified by extension, falling back to "Other" for an
+// extensionless file or an extension none of the tables above lists.
+function categoryForPath(name, isDir) {
+  if (isDir) return "Folders"
+  var dot = String(name || "").lastIndexOf(".")
+  if (dot <= 0) return "Other"
+  var ext = name.substring(dot + 1).toLowerCase()
+  for (var cat in FILE_CATEGORIES) {
+    if (FILE_CATEGORIES[cat].indexOf(ext) !== -1) return cat
+  }
+  return "Other"
+}
+
+// "All" (the default, no filter) always matches; any other filter
+// value requires an exact category match.
+function matchesCategory(category, filterCategory) {
+  return !filterCategory || filterCategory === "All" || category === filterCategory
+}
+
+// Issue #59: splits a query into literal terms for multi-component
 // matching -- plain whitespace tokenization (no shell-style quoting).
 // Every term stays a literal, fixed-string fragment; this function only
 // ever produces MORE, narrower literal strings from the original query

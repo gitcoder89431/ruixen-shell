@@ -130,6 +130,17 @@ Item {
   }
   onSourceFilterChanged: if (root.query.trim()) debounceTimer.restart()
 
+  // Issue #60: same category/hidden-file filters as FileSearchProvider's
+  // own, reusing its FileSearchRanking.js classification directly --
+  // one shared table so a file always classifies the same way in both
+  // providers. Content matches are always files (rg never matches a
+  // directory), so "Folders" as a category naturally excludes every
+  // real content match rather than needing a special case.
+  property string categoryFilter: "All"
+  onCategoryFilterChanged: if (root.query.trim()) debounceTimer.restart()
+  property bool hiddenEnabled: false
+  onHiddenEnabledChanged: if (root.query.trim()) debounceTimer.restart()
+
   function search(query) {
     return root.query.trim() ? root.lastResults : []
   }
@@ -182,6 +193,7 @@ Item {
   // or a root-set change with no query edit involved.
   function searchIdentity() {
     return root.query.trim() + "" + root.sourceFilter + "" + root.rootGeneration
+      + "" + root.categoryFilter + "" + root.hiddenEnabled
   }
 
   // Issue #54: one rg process per effective root instead of one process
@@ -236,7 +248,15 @@ Item {
   // error instead of searching for that literal text.
   function buildRgArgs(query, rootPath) {
     var args = ["rg", "--json", "-i", "-F", "--max-count", "1", "--max-filesize", "5M"]
+    // Issue #60: rg skips hidden files/dirs by default -- --hidden opts
+    // back in. Confirmed live (rg --help): "-./--hidden will include
+    // files and folders like .git regardless of --no-ignore-vcs", so
+    // ".git" is excluded unconditionally alongside it -- harmless when
+    // hidden files are off (rg wouldn't walk into it anyway), required
+    // once they're on.
+    if (root.hiddenEnabled) args.push("--hidden")
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("-g", "!" + root.excludeDirs[i])
+    args.push("-g", "!.git")
     args.push("--", query, rootPath)
     return args
   }
@@ -369,8 +389,15 @@ Item {
     root.scheduleRootSearches()
   }
 
+  // Issue #60: returns null for a match whose own file doesn't pass the
+  // active category filter -- pure extension-based classification,
+  // shared with FileSearchProvider via FileSearchRanking.js so a file
+  // always classifies the same way in both providers. A content match
+  // is always a real file (rg never matches a directory), so
+  // categoryForPath's own isDir argument is always false here.
   function resultFor(path, lineNumber, lineText) {
     var name = ContentSearchRanking.baseName(path)
+    if (!FileSearchRanking.matchesCategory(FileSearchRanking.categoryForPath(name, false), root.categoryFilter)) return null
     // Collapse the matched line to one clean, trimmed line -- rg's own
     // lines.text carries a trailing newline (and occasionally embedded
     // ones for odd files), neither of which belongs in a single-line
@@ -422,7 +449,8 @@ Item {
         var obj
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
-        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        var r = root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text)
+        if (r) root.pendingMatches.push(r)
         if (root.pendingMatches.length >= root.candidateBudget) {
           contentWorker0.running = false
           root.stopOtherWorkersForBudget(0)
@@ -440,7 +468,8 @@ Item {
         var obj
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
-        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        var r = root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text)
+        if (r) root.pendingMatches.push(r)
         if (root.pendingMatches.length >= root.candidateBudget) {
           contentWorker1.running = false
           root.stopOtherWorkersForBudget(1)
@@ -458,7 +487,8 @@ Item {
         var obj
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
-        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        var r = root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text)
+        if (r) root.pendingMatches.push(r)
         if (root.pendingMatches.length >= root.candidateBudget) {
           contentWorker2.running = false
           root.stopOtherWorkersForBudget(2)
@@ -476,7 +506,8 @@ Item {
         var obj
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
-        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        var r = root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text)
+        if (r) root.pendingMatches.push(r)
         if (root.pendingMatches.length >= root.candidateBudget) {
           contentWorker3.running = false
           root.stopOtherWorkersForBudget(3)

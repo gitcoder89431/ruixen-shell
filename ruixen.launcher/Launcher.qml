@@ -570,12 +570,12 @@ Item {
     var scenePos = item.mapToItem(null, 0, item.height)
     var localPos = card.mapFromItem(null, scenePos.x, scenePos.y)
     // Clamped so the popup never renders partly outside the card,
-    // whichever edge the selected row happens to be near. 28/8 mirror
-    // ResultActionsMenu.qml's own per-row/padding height formula --
+    // whichever edge the selected row happens to be near. 34/8 mirror
+    // ResultActionsMenu.qml's own rowHeight/padding height formula --
     // duplicated here (not read back from the component itself) only
     // because the menu's real height needs to be known BEFORE
     // positioning it, not after.
-    var menuHeight = root.resultActions.length * 28 + 8
+    var menuHeight = root.resultActions.length * 34 + 8
     root.actionsMenuX = Math.max(8, Math.min(localPos.x, card.width - resultsList.width - 8))
     root.actionsMenuY = Math.max(8, Math.min(localPos.y + 4, card.height - menuHeight - 8))
   }

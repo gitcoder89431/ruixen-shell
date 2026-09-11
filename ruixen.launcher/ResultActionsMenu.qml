@@ -32,13 +32,20 @@ Rectangle {
   // positions the popup at that row's own left edge, so the two align
   // exactly.
   property real menuWidth: 240
+  // Direct follow-up: 28 (sourceFilterList's own row height) read as
+  // too compact once this menu started spanning full row width -- its
+  // own bottom edge landed partway through whatever result row sat
+  // behind it, a visibly messy half-covered row rather than a clean
+  // boundary. Taller rows push the whole menu's own height further
+  // down, past that row entirely.
+  readonly property int rowHeight: 34
 
   signal actionHovered(int index)
   signal actionActivated(string id)
 
   visible: root.actions.length > 0
   width: root.menuWidth
-  height: root.actions.length * 28 + 8
+  height: root.actions.length * root.rowHeight + 8
   radius: 10
   // Fully solid, not just "near-opaque" like sourceFilterList's own
   // 0.95 -- confirmed live that even 0.98 still let real result-row
@@ -79,7 +86,7 @@ Rectangle {
         required property var modelData
         required property int index
         width: root.width - 8
-        height: 28
+        height: root.rowHeight
         radius: 5
         color: actionRow.index === root.selectedIndex ? Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.14) : "transparent"
 

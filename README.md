@@ -3,9 +3,33 @@
 A connected bar, notch, and settings app for Omarchy — an OLED-black, unified
 visual layer that runs as plugins inside the Omarchy shell you already use.
 
-![Ruixen Shell — home view](preview/preview_home.png)
-![Ruixen Shell — notch dashboard](preview/preview_notch.png)
-![Ruixen Shell — docked bar mode](preview/preview_dock.png)
+<table>
+<tr>
+<td align="center" width="33%">
+<a href="preview/preview_dock.png"><img src="preview/preview_dock.png" width="270"></a>
+<br><sub><b>Bar — Docked</b></sub>
+</td>
+<td align="center" width="33%">
+<a href="preview/preview_float.png"><img src="preview/preview_float.png" width="270"></a>
+<br><sub><b>Bar — Float</b></sub>
+</td>
+<td align="center" width="33%">
+<a href="preview/preview_notch.png"><img src="preview/preview_notch.png" width="270"></a>
+<br><sub><b>Notch Dashboard</b></sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="33%">
+<a href="preview/preview_launcher.webp"><img src="preview/preview_launcher.webp" width="270"></a>
+<br><sub><b>Launcher</b></sub>
+</td>
+<td align="center" width="33%">
+<a href="preview/preview_settings.png"><img src="preview/preview_settings.png" width="270"></a>
+<br><sub><b>Settings</b></sub>
+</td>
+<td width="33%"></td>
+</tr>
+</table>
 
 ## What's included
 

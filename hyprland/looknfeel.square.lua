@@ -44,19 +44,29 @@
 -- border Hyprland supports; going to 0 would remove the border
 -- entirely, which isn't what was asked for here.
 --
--- gaps_out: top stays Hyprland's own default (10, confirmed live via
--- `hyprctl getoption general:gaps_out`), right/bottom/left bumped to
--- 20 -- direct request, docked mode: a real window's own square
--- corner (rounding: 0 in this variant) sitting close to
--- ruixen.bar's own wing decoration (still rounded, ruixen.bar/Bar.qml)
--- or ruixen.frame-widget's side/bottom border reads as touching/
--- clipping with no buffer. Top isn't included here -- the bar's own
--- exclusiveZone already reserves real top space independent of gaps;
--- side/bottom have no such reservation, so they're the ones that
--- actually need the extra room. Table form, not a CSS-style string --
--- confirmed via `hyprctl configerrors` after the string form failed:
--- "css_gap type requires an integer or a table with optional 'top',
--- 'right', 'bottom', 'left' fields".
+-- gaps_out: right/bottom/left bumped to 20 -- direct request, docked
+-- mode: a real window's own square corner (rounding: 0 in this
+-- variant) sitting close to ruixen.bar's own wing decoration (still
+-- rounded, ruixen.bar/Bar.qml) or ruixen.frame-widget's side/bottom
+-- border reads as touching/clipping with no buffer. Table form, not a
+-- CSS-style string -- confirmed via `hyprctl configerrors` after the
+-- string form failed: "css_gap type requires an integer or a table
+-- with optional 'top', 'right', 'bottom', 'left' fields".
+--
+-- Top now matches the other three (20, not Hyprland's own stock 10) --
+-- direct follow-up ("i do super shift space and the topbar autohides,
+-- however the reserve space is much less than the bottom... it gets
+-- too close to the top edge compare to bottom edge"). The original
+-- reasoning here (the bar's own exclusiveZone already reserves real
+-- top space independent of gaps, so top never had this problem) is
+-- true ONLY while the bar is actually visible -- toggling it off via
+-- Super+Shift+Space (a real, supported Omarchy feature) drops
+-- ExclusionMode to Ignore, so gaps_out.top=10 alone was the only
+-- remaining top margin once the bar's own reservation disappeared --
+-- confirmed live via grim, cropping the top and bottom screen edges
+-- side by side with the bar hidden: top read visibly tighter than
+-- bottom. See looknfeel.ruixen.lua's own identical comment (this
+-- variant shares the exact same fix).
 --
 -- gaps_in (Comfy/Tight) -- same shared spacing-profile file
 -- looknfeel.ruixen.lua reads (see its own comment for the full "why")
@@ -81,7 +91,7 @@ hl.config({
   general = {
     border_size = 1,
     gaps_in = ruixenGapsIn,
-    gaps_out = { top = 10, right = 20, bottom = 20, left = 20 },
+    gaps_out = { top = 20, right = 20, bottom = 20, left = 20 },
   },
 })
 

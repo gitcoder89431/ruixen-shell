@@ -29,12 +29,27 @@
 -- stock 10px gap it used to leave here read as tight/clipping against
 -- that frame (or ruixen.bar's own wing decoration in docked mode) the
 -- same way it did before square's own fix, just less obviously so with
--- rounded corners' natural taper softening it. Top stays 10 (Hyprland's
--- own stock default) -- see square.lua's own comment for why: the
--- bar's exclusiveZone already reserves real top space independent of
--- gaps, so top never had this problem to begin with. Deliberately NOT
--- applied to looknfeel.default.lua -- stock Omarchy-look mode stays
--- exactly what Omarchy itself intended, untouched by this repo.
+-- rounded corners' natural taper softening it.
+--
+-- Top now matches the other three (20, not Hyprland's own stock 10) --
+-- direct follow-up ("i do super shift space and the topbar autohides,
+-- however the reserve space is much less than the bottom... it gets
+-- too close to the top edge compare to bottom edge"). The original
+-- reasoning (the bar's own exclusiveZone already reserves real top
+-- space independent of gaps, so top never had this problem) is true
+-- ONLY while the bar is actually visible -- toggling it off via
+-- Super+Shift+Space (a real, supported Omarchy feature, confirmed
+-- directly: bind_toggle("SUPER + SHIFT + SPACE", ..., "bar")) drops
+-- ExclusionMode to Ignore, so gaps_out.top=10 alone was the only
+-- remaining top margin left once the bar's own reservation disappeared
+-- -- confirmed live via grim, cropping the top and bottom screen edges
+-- side by side: the top gap read visibly tighter than the bottom's
+-- with the bar hidden. With the bar visible this only adds a few extra
+-- pixels of top clearance beyond what the exclusiveZone already gave --
+-- not a regression, just no longer assuming the exclusiveZone is
+-- always there to cover for it. Deliberately NOT applied to
+-- looknfeel.default.lua -- stock Omarchy-look mode stays exactly what
+-- Omarchy itself intended, untouched by this repo.
 --
 -- gaps_in (Comfy/Tight) -- direct follow-up after live-testing gaps_in
 -- 0 with `hyprctl eval`: "with the round curvature on the window the
@@ -64,7 +79,7 @@ hl.config({
   general = {
     border_size = 1,
     gaps_in = ruixenGapsIn,
-    gaps_out = { top = 10, right = 20, bottom = 20, left = 20 },
+    gaps_out = { top = 20, right = 20, bottom = 20, left = 20 },
   },
 })
 

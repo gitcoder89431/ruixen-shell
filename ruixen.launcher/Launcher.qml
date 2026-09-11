@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 import "OmarchyMenuParser.js" as OmarchyMenuParser
+import "LauncherHelpers.js" as LauncherHelpers
 
 // Raycast/Spotlight-style command palette. Root contract copied from
 // ruixen.settings/Settings.qml (confirmed by reading it directly --
@@ -237,27 +238,11 @@ Item {
   // current result set, e.g. "dog/projects-plans" and
   // "cats/projects-plans" -- a name with no duplicate stays untouched.
   function disambiguateLabels(rows) {
-    var counts = {}
-    for (var i = 0; i < rows.length; i++) counts[rows[i].label] = (counts[rows[i].label] || 0) + 1
-    for (var j = 0; j < rows.length; j++) {
-      if (counts[rows[j].label] > 1) {
-        var dir = String(rows[j].breadcrumb || "")
-        var parent = dir.substring(dir.lastIndexOf("/") + 1) || dir
-        if (parent) rows[j].label = parent + "/" + rows[j].label
-      }
-    }
-    return rows
+    return LauncherHelpers.disambiguateLabels(rows)
   }
 
   function formatSize(bytes) {
-    var n = Number(bytes) || 0
-    if (n < 1024) return n + " B"
-    var units = ["KB", "MB", "GB", "TB"]
-    var v = n / 1024
-    for (var i = 0; i < units.length; i++) {
-      if (v < 1024 || i === units.length - 1) return v.toFixed(1) + " " + units[i]
-      v /= 1024
-    }
+    return LauncherHelpers.formatSize(bytes)
   }
 
   function formatDate(epochSeconds) {
@@ -271,14 +256,9 @@ Item {
   // breadcrumb is deliberately the matched LINE snippet (the whole
   // point of "search by context" -- see its own resultFor() comment),
   // so reusing that same field for "Where" would show a line of file
-  // content where a folder location belongs. Same ~ abbreviation
-  // FileSearchProvider's own resultFor() already uses.
+  // content where a folder location belongs.
   function parentDirOf(path) {
-    var slash = path.lastIndexOf("/")
-    var dir = slash === -1 ? "" : path.substring(0, slash)
-    if (fileSearchProvider.homeDir && dir.indexOf(fileSearchProvider.homeDir) === 0)
-      dir = "~" + dir.substring(fileSearchProvider.homeDir.length)
-    return dir
+    return LauncherHelpers.parentDirOf(path, fileSearchProvider.homeDir)
   }
 
   // The single synthetic "Use ... with" fallback row -- not a real

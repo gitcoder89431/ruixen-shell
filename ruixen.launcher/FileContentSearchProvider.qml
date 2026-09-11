@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "ContentSearchRanking.js" as ContentSearchRanking
 
 // Provider: matches INSIDE file contents (ripgrep), not filenames --
 // the "search by context" follow-up to FileSearchProvider's own
@@ -188,14 +189,12 @@ Item {
   }
 
   function resultFor(path, lineNumber, lineText) {
-    var slash = path.lastIndexOf("/")
-    var name = slash === -1 ? path : path.substring(slash + 1)
+    var name = ContentSearchRanking.baseName(path)
     // Collapse the matched line to one clean, trimmed line -- rg's own
     // lines.text carries a trailing newline (and occasionally embedded
     // ones for odd files), neither of which belongs in a single-line
     // row breadcrumb.
-    var snippet = lineText.replace(/\s+/g, " ").trim()
-    if (snippet.length > 80) snippet = snippet.substring(0, 80) + "…"
+    var snippet = ContentSearchRanking.collapseSnippet(lineText, 80)
     return {
       id: "content:" + path + ":" + lineNumber,
       providerId: "file-content-search",
@@ -215,6 +214,7 @@ Item {
       action: { type: "open", path: path }
     }
   }
+
 
   Process {
     id: searchProc

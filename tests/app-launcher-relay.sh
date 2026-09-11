@@ -7,12 +7,14 @@
 # #10876), so adding a fake "menu" kind was never a real fix either way.
 #
 # Quickshell.DesktopEntries is a real, core Quickshell type independent
-# of Omarchy -- ruixen.notch/AppLibrary.qml and
-# ruixen.pinnedapps/AppLibrary.qml (kept byte-identical, since plugin
-# folders can't share a file across install locations) are a from-
-# scratch wrapper around it, with AppSearch.js (ranking algorithm only)
-# ported verbatim from Omarchy's own real
-# /usr/share/omarchy/shell/services/AppSearch.js (MIT).
+# of Omarchy -- ruixen.notch/AppLibrary.qml, ruixen.pinnedapps/AppLibrary.qml,
+# and ruixen.launcher/AppLibrary.qml (issue #52: added to this guard when
+# ruixen.launcher's own copy was discovered NOT covered here, even though
+# it's kept byte-identical to the other two by the same convention -- see
+# ruixen.launcher/AppLibrary.qml's own header) are a from-scratch wrapper
+# around it, with AppSearch.js (ranking algorithm only) ported verbatim
+# from Omarchy's own real /usr/share/omarchy/shell/services/AppSearch.js
+# (MIT).
 #
 # Static QML/JS checks only. Live end-to-end verification (real icons
 # resolved for real installed apps in the pinned-apps row; search
@@ -33,6 +35,10 @@ notch_lib="$repo_dir/ruixen.notch/AppLibrary.qml"
 notch_search="$repo_dir/ruixen.notch/AppSearch.js"
 pinned_lib="$repo_dir/ruixen.pinnedapps/AppLibrary.qml"
 pinned_search="$repo_dir/ruixen.pinnedapps/AppSearch.js"
+# "rlauncher_*", not "launcher_*" -- that name's already taken below by
+# ruixen.notch/LauncherContent.qml, a completely different file.
+rlauncher_lib="$repo_dir/ruixen.launcher/AppLibrary.qml"
+rlauncher_search="$repo_dir/ruixen.launcher/AppSearch.js"
 launcher_qml="$repo_dir/ruixen.notch/LauncherContent.qml"
 overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
 pinned_widget="$repo_dir/ruixen.pinnedapps/BarWidget.qml"
@@ -60,14 +66,15 @@ check "LauncherContent.qml has no leftover REAL shell.appLibrary read" \
 check "BarWidget.qml (pinnedapps) has no leftover REAL bar.shell.appLibrary read" \
   "$(grep -c 'bar\.shell\.appLibrary' "$pinned_widget" || true)" "1"
 
-# --- both copies exist and stay byte-identical --------------------------
+# --- all three copies exist and stay byte-identical ----------------------
 
 check "ruixen.notch/AppLibrary.qml exists" "$([[ -f "$notch_lib" ]] && echo yes)" "yes"
 check "ruixen.pinnedapps/AppLibrary.qml exists" "$([[ -f "$pinned_lib" ]] && echo yes)" "yes"
-check "the two AppLibrary.qml copies are byte-identical (plugin folders can't share a file)" \
-  "$(diff -q "$notch_lib" "$pinned_lib" >/dev/null 2>&1 && echo same || echo different)" "same"
-check "the two AppSearch.js copies are byte-identical" \
-  "$(diff -q "$notch_search" "$pinned_search" >/dev/null 2>&1 && echo same || echo different)" "same"
+check "ruixen.launcher/AppLibrary.qml exists" "$([[ -f "$rlauncher_lib" ]] && echo yes)" "yes"
+check "the three AppLibrary.qml copies are byte-identical (plugin folders can't share a file)" \
+  "$(diff -q "$notch_lib" "$pinned_lib" >/dev/null 2>&1 && diff -q "$notch_lib" "$rlauncher_lib" >/dev/null 2>&1 && echo same || echo different)" "same"
+check "the three AppSearch.js copies are byte-identical" \
+  "$(diff -q "$notch_search" "$pinned_search" >/dev/null 2>&1 && diff -q "$notch_search" "$rlauncher_search" >/dev/null 2>&1 && echo same || echo different)" "same"
 
 # --- AppLibrary.qml wraps the real, unaffected Quickshell type ----------
 

@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "ruixen",
   "license": "MIT",
-  "description": "Raycast/Spotlight-style command palette -- search Omarchy menu actions and installed apps from one overlay.",
+  "description": "Raycast/Spotlight-style command palette -- Omarchy menu actions, installed apps, and Search Files (filenames, file contents, real previews/metadata) from one overlay.",
   "kinds": ["overlay"],
   "keepLoaded": true,
   "entryPoints": {

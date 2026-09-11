@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "FileSearchRanking.js" as FileSearchRanking
 
 // Provider: files by name under $HOME, via `fd` (confirmed on this
 // machine per CLAUDE.md's own tool table -- a full $HOME search here
@@ -317,38 +318,24 @@ Item {
   readonly property int dirBonus: 2100
 
   function scoreFile(name, query, isDir) {
-    var q = String(query || "").toLowerCase()
-    var n = String(name || "").toLowerCase()
-    var base
-    if (n === q) base = 10000
-    else {
-      var idx = n.indexOf(q)
-      if (idx === 0) base = 9000 - n.length
-      else if (idx > 0) base = 7000 - idx * 10 - n.length
-      else base = 5000 - n.length
-    }
-    return isDir ? base + root.dirBonus : base
+    return FileSearchRanking.scoreFile(name, query, isDir, root.dirBonus)
   }
 
   // rawPath may carry fd's own trailing "/" marking a directory match --
   // stripped before use as the real name/breadcrumb/action path.
   function resultFor(rawPath, query) {
-    var isDir = rawPath.length > 0 && rawPath.charAt(rawPath.length - 1) === "/"
-    var path = isDir ? rawPath.substring(0, rawPath.length - 1) : rawPath
-    var slash = path.lastIndexOf("/")
-    var name = slash === -1 ? path : path.substring(slash + 1)
-    var dir = slash === -1 ? "" : path.substring(0, slash)
-    if (root.homeDir && dir.indexOf(root.homeDir) === 0) dir = "~" + dir.substring(root.homeDir.length)
+    var parsed = FileSearchRanking.parseRawPath(rawPath)
+    var dir = FileSearchRanking.abbreviateHome(parsed.dir, root.homeDir)
     return {
-      id: "file:" + path,
+      id: "file:" + parsed.path,
       providerId: "file-search",
-      icon: isDir ? "" : "",
-      label: name,
+      icon: parsed.isDir ? "" : "",
+      label: parsed.name,
       breadcrumb: dir,
-      kind: isDir ? "Folder" : "File",
+      kind: parsed.isDir ? "Folder" : "File",
       providerName: root.providerName,
-      score: root.scoreFile(name, query, isDir),
-      action: { type: "open", path: path }
+      score: root.scoreFile(parsed.name, query, parsed.isDir),
+      action: { type: "open", path: parsed.path }
     }
   }
 

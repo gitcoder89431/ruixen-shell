@@ -19,6 +19,16 @@ check("scoreFile: dirBonus closes the real prefix-vs-substring gap -- a director
   + "substring match (dhh-shell) outranks a file prefix match (shellconfig) for 'shell'",
   M.scoreFile("dhh-shell", "shell", true, 2100) > M.scoreFile("shellconfig", "shell", false, 2100), true);
 check("scoreFile: case-insensitive", M.scoreFile("README.MD", "readme.md", false, 0), 10000);
+// Issue #59: a term found only in the path (not the basename at all)
+// naturally lands in this same "no match in name" tier -- the QML-level
+// wrapper (FileSearchProvider.qml's own scoreFile) relies on exactly
+// this: once fd is matching against the FULL path (--full-path), a
+// candidate whose basename doesn't contain a given term still scores
+// here, below every real basename tier, rather than needing a whole
+// separate "path-only" scoring branch.
+check("scoreFile: a term absent from the basename entirely (a path-only match, "
+  + "once the caller is matching full paths) scores in the same low tier as any other non-match",
+  M.scoreFile("README.md", "ruixen", false, 2100) < M.scoreFile("README.md", "readme", false, 2100), true);
 
 // ---- parseRawPath -----------------------------------------------------------
 
@@ -88,6 +98,38 @@ check("parseFileDimensions: no recognizable dimensions (e.g. a non-image file) r
   M.parseFileDimensions("notes.txt: ASCII text"), "");
 check("parseFileDimensions: empty/undefined input returns an empty string, not a throw",
   M.parseFileDimensions(undefined), "");
+
+// ---- tokenizeQuery / primaryCandidateTerm / pathSatisfiesAllTerms (issue #59) --
+
+check("tokenizeQuery: splits on whitespace into literal terms",
+  M.tokenizeQuery("ruixen readme"), ["ruixen", "readme"]);
+check("tokenizeQuery: collapses repeated/leading/trailing whitespace",
+  M.tokenizeQuery("  ruixen   readme  "), ["ruixen", "readme"]);
+check("tokenizeQuery: a single-word query is a one-element array",
+  M.tokenizeQuery("readme"), ["readme"]);
+check("tokenizeQuery: empty/whitespace-only input returns an empty array",
+  [M.tokenizeQuery(""), M.tokenizeQuery("   ")], [[], []]);
+check("tokenizeQuery: undefined input returns an empty array, not a throw",
+  M.tokenizeQuery(undefined), []);
+
+check("primaryCandidateTerm: picks the single term outright",
+  M.primaryCandidateTerm(["readme"]), "readme");
+check("primaryCandidateTerm: picks the LONGEST term across multiple",
+  M.primaryCandidateTerm(["a", "architecture"]), "architecture");
+check("primaryCandidateTerm: a tie in length keeps the FIRST (leftmost) term",
+  M.primaryCandidateTerm(["ruixen", "readme"]), "ruixen");
+check("primaryCandidateTerm: empty input returns an empty string, not a throw",
+  M.primaryCandidateTerm([]), "");
+
+check("pathSatisfiesAllTerms: every term present somewhere in the path (case-insensitive)",
+  M.pathSatisfiesAllTerms("/home/dev/Projects/ruixen-shell/README.md", ["ruixen", "readme"]), true);
+check("pathSatisfiesAllTerms: a missing term (not anywhere in the path) fails",
+  M.pathSatisfiesAllTerms("/home/dev/Other/README.md", ["ruixen", "readme"]), false);
+check("pathSatisfiesAllTerms: a term satisfied only in the parent directory "
+  + "(not the filename itself) still counts -- this is the whole point of full-path matching",
+  M.pathSatisfiesAllTerms("/home/dev/Projects/ruixen-shell/docs/architecture.md", ["ruixen", "architecture"]), true);
+check("pathSatisfiesAllTerms: an empty terms list is trivially satisfied",
+  M.pathSatisfiesAllTerms("/home/dev/notes.txt", []), true);
 
 // ---- isMountCandidate / discoverExtraRoots (issue #48/#52) -----------------
 

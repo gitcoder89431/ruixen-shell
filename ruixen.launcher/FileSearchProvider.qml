@@ -42,6 +42,13 @@ Item {
   // response to an abandoned query can't clobber a newer one's results
   // (the debounce below makes this rare, not impossible).
   property string pendingQuery: ""
+  // Issue #59: pendingQuery tokenized once per search (not once per
+  // worker/candidate) -- the literal terms a multi-word query gets
+  // split into. A single-term query is just a one-element array here;
+  // buildFdArgs/resultFor treat that case identically to before this
+  // issue, just routed through the same code path instead of a special
+  // case.
+  property var pendingTerms: []
   property var lastResults: []
 
   readonly property string homeDir: Quickshell.env("HOME") || ""
@@ -296,10 +303,21 @@ Item {
   // ~8ms here), not a meaningful relevance filter -- the real cap is
   // displayLimit, applied after sorting the MERGED results across every
   // root.
-  function buildFdArgs(query, rootPath) {
-    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--fixed-strings", "--max-results", "500"]
+  //
+  // Issue #59: --full-path matches the pattern against the WHOLE path,
+  // not just the filename -- a strict superset of the old basename-only
+  // matching (any basename match is trivially still a full-path match),
+  // so this can only ever ADD candidates fd wouldn't have returned
+  // before, never drop ones it already found. Only ONE term (the
+  // caller's own chosen candidate term -- see FileSearchRanking.js's
+  // own primaryCandidateTerm for a multi-word query) is ever handed to
+  // fd itself; requiring every OTHER term is a cheap plain-string check
+  // against paths fd already returned (resultFor() below), not a second
+  // fd invocation or a full unbounded walk.
+  function buildFdArgs(candidateTerm, rootPath) {
+    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--fixed-strings", "--full-path", "--max-results", "500"]
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
-    args.push("--", query, rootPath)
+    args.push("--", candidateTerm, rootPath)
     return args
   }
 
@@ -334,7 +352,7 @@ Item {
       // Confirmed directly: .exec() while running kills the old command
       // and starts the new one immediately, with the killed process's
       // own already-written stdout still delivered.
-      w.exec(["timeout", "3"].concat(root.buildFdArgs(root.pendingQuery, nextRoot)))
+      w.exec(["timeout", "3"].concat(root.buildFdArgs(FileSearchRanking.primaryCandidateTerm(root.pendingTerms), nextRoot)))
     }
   }
 
@@ -374,7 +392,15 @@ Item {
     if (root.pendingSearchIdentity !== root.searchIdentity()) return
     var lines = output.split("\n").filter(function(l) { return l.length > 0 })
     var out = []
-    for (var i = 0; i < lines.length; i++) out.push(root.resultFor(lines[i], root.pendingQuery))
+    // Issue #59: resultFor() returns null for a candidate that matched
+    // fd's own single bounded term but is missing one of the OTHER
+    // query terms anywhere in its path -- fd itself only ever checked
+    // the one term it was given (see buildFdArgs), so this is the only
+    // place the rest are actually enforced.
+    for (var i = 0; i < lines.length; i++) {
+      var r = root.resultFor(lines[i], root.pendingTerms)
+      if (r) out.push(r)
+    }
     root.rootResults[rootPath] = out
     root.rootStatuses[rootPath] = root.classifyExitCode(exitCode)
     root.updateDegradedStatus()
@@ -385,6 +411,7 @@ Item {
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
+    root.pendingTerms = FileSearchRanking.tokenizeQuery(query)
     root.pendingSearchIdentity = root.searchIdentity()
     root.rootResults = ({})
     root.rootStatuses = ({})
@@ -442,14 +469,34 @@ Item {
   // about Application/Command relevance at all in this view.
   readonly property int dirBonus: 2100
 
-  function scoreFile(name, query, isDir) {
-    return FileSearchRanking.scoreFile(name, query, isDir, root.dirBonus)
+  // Issue #59: scored against EVERY term, taking the best result -- not
+  // just the one term fd used for candidate generation. A query like
+  // "ruixen readme" against ~/Projects/ruixen-shell/README.md should
+  // rank as a strong (exact-basename-level) match even though the
+  // LONGER/candidate term ("ruixen") only appears in the parent path,
+  // not the basename -- it's the OTHER term ("readme") that hits the
+  // basename exactly, and the max here surfaces that rather than
+  // scoring against an arbitrarily "primary" term alone.
+  function scoreFile(name, terms, isDir) {
+    var best = -Infinity
+    for (var i = 0; i < terms.length; i++) {
+      var s = FileSearchRanking.scoreFile(name, terms[i], isDir, root.dirBonus)
+      if (s > best) best = s
+    }
+    return best
   }
 
   // rawPath may carry fd's own trailing "/" marking a directory match --
   // stripped before use as the real name/breadcrumb/action path.
-  function resultFor(rawPath, query) {
+  // Returns null for a multi-term query whose OTHER terms (beyond the
+  // one fd itself already matched, see buildFdArgs) aren't found
+  // anywhere in this candidate's own path -- fd only ever checked ONE
+  // term, so anything less than a full pathSatisfiesAllTerms pass here
+  // isn't actually a match for the query as a whole and must not be
+  // shown, not just ranked low.
+  function resultFor(rawPath, terms) {
     var parsed = FileSearchRanking.parseRawPath(rawPath)
+    if (terms.length > 1 && !FileSearchRanking.pathSatisfiesAllTerms(parsed.path, terms)) return null
     var dir = FileSearchRanking.abbreviateHome(parsed.dir, root.homeDir)
     return {
       id: "file:" + parsed.path,
@@ -459,7 +506,7 @@ Item {
       breadcrumb: dir,
       kind: parsed.isDir ? "Folder" : "File",
       providerName: root.providerName,
-      score: root.scoreFile(parsed.name, query, parsed.isDir),
+      score: root.scoreFile(parsed.name, terms, parsed.isDir),
       action: { type: "open", path: parsed.path }
     }
   }

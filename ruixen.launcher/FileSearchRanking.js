@@ -25,6 +25,50 @@ function scoreFile(name, query, isDir, dirBonus) {
   return isDir ? base + (dirBonus || 0) : base
 }
 
+// Issue #59: splits a query into literal terms for multi-component path
+// matching -- plain whitespace tokenization (no shell-style quoting).
+// Every term stays a literal, fixed-string fragment; this function only
+// ever produces MORE, narrower literal strings from the original query
+// text, never a regex or a reinterpretation of it.
+function tokenizeQuery(query) {
+  return String(query || "").trim().split(/\s+/).filter(function(t) { return t.length > 0 })
+}
+
+// The single term handed to fd as its own bounded --full-path
+// --fixed-strings candidate filter (issue #59's own recommended
+// strategy) -- keeps candidate generation to exactly one fd process per
+// root regardless of how many terms the query has, rather than a
+// separate fd invocation per term or (far worse) `fd .` over the whole
+// tree with everything fuzzy-filtered in JS. The LONGEST term is the
+// cheapest available proxy for "most selective" without doing real
+// frequency analysis against the filesystem. Ties keep the FIRST
+// (leftmost) of the equally-long terms, for determinism. Empty input
+// returns "" rather than throwing -- callers only ever reach this with
+// a non-empty query, but it's a plain string op either way.
+function primaryCandidateTerm(terms) {
+  if (!terms || terms.length === 0) return ""
+  var best = terms[0]
+  for (var i = 1; i < terms.length; i++) {
+    if (terms[i].length > best.length) best = terms[i]
+  }
+  return best
+}
+
+// Issue #59: does every term appear SOMEWHERE in the full path
+// (case-insensitively)? fd's own --full-path candidate generation
+// already guarantees this for the single PRIMARY term (see
+// primaryCandidateTerm above) -- this is what catches the OTHER terms,
+// which fd never checked at all. Plain string checks against paths fd
+// already returned, not a second filesystem walk -- called once per
+// candidate, not once per directory entry.
+function pathSatisfiesAllTerms(fullPath, terms) {
+  var lower = String(fullPath || "").toLowerCase()
+  for (var i = 0; i < terms.length; i++) {
+    if (lower.indexOf(terms[i].toLowerCase()) === -1) return false
+  }
+  return true
+}
+
 // rawPath may carry fd's own trailing "/" marking a directory match --
 // stripped before use as the real name/breadcrumb/action path. Returns
 // the plain path split into its parts; homeDir abbreviation (the `~`

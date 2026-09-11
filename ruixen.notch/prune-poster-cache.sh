@@ -75,9 +75,27 @@ while IFS= read -r -d '' poster; do
     # regardless of age. Covers the common case (source untouched) AND
     # a temporarily-unavailable removable/network source that just
     # happens to be reachable again by the time this runs.
-    [[ -e "$source_path" ]] && continue
-    (( mtime < stale_cutoff )) && rm -f -- "$poster" "$sidecar"
+    if [[ -e "$source_path" ]]; then
+      continue
+    fi
+    if (( mtime < stale_cutoff )); then
+      rm -f -- "$poster" "$sidecar"
+    fi
   else
-    (( mtime < legacy_cutoff )) && rm -f -- "$poster"
+    if (( mtime < legacy_cutoff )); then
+      rm -f -- "$poster"
+    fi
   fi
 done
+# A bare `if cond; then action; fi` with no matching clause taken still
+# exits 0 (confirmed live), so this is already safe against the bug
+# that motivated switching away from `cond && action` above -- that
+# form's own exit status IS the condition's, so a false condition on
+# the LAST file `find` happens to hand this loop would otherwise make
+# the whole pipeline (and this script) exit non-zero for doing
+# EXACTLY what it should on a normal pass with nothing left to prune.
+# `find`'s own directory iteration order isn't guaranteed/stable across
+# filesystems, which is exactly why this surfaced as a CI-only flake
+# (a different last-processed file there) despite passing consistently
+# in local testing.
+true

@@ -41,12 +41,51 @@ mkdir -p "$poster_dir" "$work/sources" "$work/outside"
 export RUIXEN_POSTER_STALE_GRACE_DAYS=1
 export RUIXEN_POSTER_LEGACY_GRACE_DAYS=2
 
-run_prune() { "$prune_script" "$poster_dir"; }
+# Direct regression coverage for a real CI-only failure this suite
+# itself originally missed: the script used to end a loop iteration
+# with a bare `cond && action` as its very last statement, whose own
+# exit status IS the condition's -- a FALSE condition (nothing to prune
+# for that file, the ordinary/common case) made the whole script exit
+# 1 for doing exactly what it should, whenever `find`'s own directory
+# iteration order (never guaranteed/stable across filesystems) happened
+# to hand it that file last. Passed consistently in local testing
+# purely by luck of local filesystem ordering, then failed on push --
+# every run_prune call below now asserts the exit code explicitly, not
+# just resulting file state, specifically so this class of bug can
+# never ship unnoticed again.
+run_prune() {
+  local rc=0
+  set +e
+  "$prune_script" "$poster_dir"
+  rc=$?
+  set -e
+  check "prune-poster-cache.sh always exits 0 on a normal pass" "$rc" "0"
+}
 
 # --- exit code / missing dir -------------------------------------------
 
 check "missing poster dir: exits 0, not an error" \
   "$(bash "$prune_script" "$work/does-not-exist" >/dev/null 2>&1; echo $?)" "0"
+
+# Deliberately a SEPARATE, single-file directory (not $poster_dir, which
+# accumulates files across every case in this suite) -- with exactly one
+# candidate file, `find`'s own directory iteration order (never
+# guaranteed/stable across filesystems) can't hide the bug behind
+# "happened to end on a file that took the true branch." This is the
+# exact minimal shape of the real CI failure this suite originally
+# missed: reproduces the exit-1 regression deterministically against
+# the old buggy code, confirmed directly before landing this fix.
+single_file_dir="$work/single-file-check"
+mkdir -p "$single_file_dir"
+touch "$single_file_dir/recent-legacy.jpg"
+single_rc=0
+set +e
+"$prune_script" "$single_file_dir"
+single_rc=$?
+set -e
+check "single recent legacy poster, nothing to prune: script still exits 0" "$single_rc" "0"
+check "single recent legacy poster: kept (can't prove it's stale)" \
+  "$(exists "$single_file_dir/recent-legacy.jpg")" "yes"
 
 # --- new-style poster (has a .src sidecar) ------------------------------
 

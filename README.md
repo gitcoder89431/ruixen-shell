@@ -20,13 +20,21 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
 - **`ruixen.launcher`** — a Raycast/Spotlight-style command palette in a
   frosted-glass card (real Hyprland compositor blur, not a fake overlay):
   fuzzy-searches Omarchy menu actions and installed apps from one overlay,
-  plus a dedicated Search Files mode. Searches both filenames and file
-  *contents* (ripgrep-powered, ranked together — content matches fill in
-  around real filename hits rather than needing a separate mode), across
-  every auto-discovered drive (an internal HDD, a USB stick) individually
-  or all at once. Selecting a file shows a real preview — an extracted
-  video frame, an image thumbnail, or a text/markdown/JSON snippet — plus
-  metadata (type, dimensions/duration, created/modified, permissions).
+  plus a dedicated Search Files mode. Searches both filenames (multi-word
+  queries match across path components, not just the final segment) and
+  file *contents* (ripgrep-powered, ranked together — content matches
+  fill in around real filename hits rather than needing a separate mode),
+  across every auto-discovered drive (an internal HDD, a USB stick)
+  individually or all at once — plus any custom folder you add yourself,
+  or exclude, from Ruixen Settings' own Launcher page. Filter by file
+  type/hidden-files/names-or-contents from a small control row, or type
+  the same filters directly into the query (`type:image`, `in:Home`,
+  `hidden:true`, ...). Selecting a file shows a real preview — an
+  extracted video frame, an image thumbnail, or a text/markdown/JSON
+  snippet — plus metadata (type, dimensions/duration, created/modified,
+  permissions), and a contextual action menu (Tab, or right-click a row)
+  for opening its containing folder or copying its path/name. Full
+  reference: [`docs/LAUNCHER.md`](docs/LAUNCHER.md).
 - **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
   and notch together visually.
 - **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,
@@ -60,6 +68,10 @@ language, so they read as one shell instead of a pile of separate widgets.
 
 ## Documentation
 
+- [`docs/LAUNCHER.md`](docs/LAUNCHER.md) — the Ruixen Launcher command
+  palette in full: Applications/Commands search, Search Files (multi-word
+  matching, filters, keyboard-first query operators), the contextual
+  actions menu, and configuring which folders it actually searches.
 - [`docs/KEYBINDS.md`](docs/KEYBINDS.md) — ready-to-use Hyprland keybind
   recipes: the Ruixen Launcher command palette, Ruixen Settings (and
   jumping straight to one page), the notch dashboard, the app launcher.

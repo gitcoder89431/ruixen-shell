@@ -1685,22 +1685,17 @@ Item {
             // its own first child. Actually closing that 16px gap would
             // mean reworking the shared scroll/fade Flickable both
             // headerPill and every page's content rely on, for a
-            // cosmetic-only win -- direct guidance was simpler: "if
-            // anything i rather have like line of text or a small
-            // wallpaper thumbnail above the setting just to make it not
-            // obvious they dont line up there". A plain label reads as
-            // this column's own header (same role GeneralContent.qml's
-            // relocated "Profile" title plays for the right side), so
-            // the search box no longer looks like it was SUPPOSED to
-            // align with headerPill and simply missed.
-            Text {
+            // cosmetic-only win. A "Ruixen Settings" label here was
+            // tried first per that direct guidance, but read as ugly on
+            // its own -- direct follow-up ("just remove Ruixen Setting
+            // text and leave the empty area there, that should be
+            // cleaner") swapped it for a plain spacer instead: no text,
+            // just the same footprint, still enough to keep the search
+            // box from looking like it missed an intended alignment.
+            Item {
               Layout.fillWidth: true
+              Layout.preferredHeight: 16
               Layout.bottomMargin: 4
-              text: "Ruixen Settings"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              font.weight: Font.DemiBold
-              color: root.textColor
             }
 
             // Search -- same plain Rectangle + TextInput + placeholder

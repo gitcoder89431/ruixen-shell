@@ -104,7 +104,15 @@ Item {
       args.push(root.homeDir)
       for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i])
     }
-    searchProc.command = args
+    // Same real-world failure this shares extraRoots with
+    // FileSearchProvider to avoid duplicating (see its own runSearch()
+    // comment for the full reasoning): a network mount (rclone) among
+    // extraRoots that's still establishing its remote connection right
+    // after boot can stall rg's traversal of EVERY root in this one
+    // combined invocation, not just that mount's own. rg does more I/O
+    // per file than fd's own stat/listing (it reads content), so a
+    // slightly longer bound than fd's 3s here.
+    searchProc.command = ["timeout", "4"].concat(args)
     searchProc.running = true
   }
 

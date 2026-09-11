@@ -191,7 +191,25 @@ Item {
       args.push(root.homeDir)
       for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i])
     }
-    searchProc.command = args
+    // Real report: search "stopped working" right after a reboot, for
+    // someone with a network mount (rclone) among their own extraRoots,
+    // and fixed itself after waiting -- exactly the shape of a FUSE
+    // mount that's still establishing its remote connection (auth
+    // refresh, first network round-trip) right after boot. fd walks
+    // every root in ONE invocation (see this function's own comment
+    // above), so a single slow/unready mount stalls results for every
+    // OTHER root too, including plain local $HOME files that have
+    // nothing to do with it. `timeout` bounds that: whatever fd already
+    // found on the fast roots before the slow one stalled it still
+    // reaches searchProc's own stdout (a killed process's already-
+    // written output isn't lost), so a stuck network mount degrades a
+    // search instead of hanging it outright. Not an absolute guarantee
+    // -- a syscall truly stuck in D-state (uninterruptible sleep, e.g.
+    // the kernel itself still waiting on FUSE) can't be killed by
+    // SIGTERM until it returns on its own -- but that's a rarer failure
+    // shape than "the mount just needs a few more seconds," which this
+    // does fix.
+    searchProc.command = ["timeout", "3"].concat(args)
     searchProc.running = true
   }
 

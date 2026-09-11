@@ -133,6 +133,14 @@ Item {
   property color themeBlue: themeColors.blue
   property color themeMagenta: themeColors.magenta
   property color themeBrown: themeColors.brown
+  // Semantic vocabulary (see ThemeColors.qml's own comment): primary=
+  // green, secondary=blue, mirroring Omarchy's own fastfetch config
+  // (its Arch logo is colored "green", its Software block "blue").
+  // "accent" isn't repeated here -- it's just Color.accent, already
+  // used everywhere else in this file.
+  property color themePrimary: themeColors.primary
+  property color themeSecondary: themeColors.secondary
+  property bool themeMonochrome: themeColors.monochrome
 
   Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
   Behavior on background { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }

@@ -11,6 +11,14 @@ BarWidget {
   id: root
   moduleName: "ruixen.applauncher"
 
+  // See ThemeColors.qml's own comment -- direct request ("the arch logo
+  // on bar should be primary color for any theme switches, except for
+  // black then do the white/or yellow instead"). `foreground` below is
+  // the exact same bar.barForeground/Color.foreground this icon already
+  // rendered in before this change -- the fallback for a monochrome
+  // theme is simply "keep doing what it already did", not a new color.
+  ThemeColors { id: themeColors }
+
   // omarchy-shell, not a raw `qs -p /usr/share/omarchy/shell ipc call`
   // -- direct review finding ("Replace hardcoded /usr/share/omarchy/
   // shell IPC calls with omarchy-shell", #24): see
@@ -43,6 +51,11 @@ BarWidget {
     // repo -- confirmed present in JetBrainsMonoNerdFont's own cmap
     // directly, not guessed.
     text: ""
+    // Primary (theme green, same role fastfetch's own Arch logo uses)
+    // normally; monochrome themes (Vantablack confirmed directly -- see
+    // ThemeColors.qml) have no real green to show, so this falls back
+    // to exactly what the icon already rendered before this change.
+    foreground: themeColors.monochrome ? (root.bar ? root.bar.barForeground : Color.foreground) : themeColors.primary
     tooltipText: "App Launcher"
     onPressed: function() { root.toggleLauncher() }
   }

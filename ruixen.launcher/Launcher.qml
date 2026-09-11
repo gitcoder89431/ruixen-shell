@@ -395,7 +395,22 @@ Item {
     return {
       id: "fallback:files",
       providerId: "files-fallback",
-      icon: "",
+      // fa-folder_open (U+F07C), written as a \u escape (not a pasted
+      // glyph -- this repo's own convention for PUA glyphs, see
+      // ruixen.pluginpins/BarWidget.qml's own comment) so the tool
+      // that wrote this file can't silently drop the raw bytes.
+      // Deliberately NOT fa-search/U+F002 -- direct follow-up ("give
+      // it one but not the magnifying glass by itself cause thats for
+      // launcher/search thing already"): that glyph already means
+      // "search" everywhere else in this file (SearchHeader's own
+      // icon, EmptyState's "No Results" icon), so reusing it here
+      // would read as a duplicate of the search box itself rather
+      // than a distinct row. Plain fa-folder (real folder results'
+      // own icon, see FileSearchProvider.qml) was the other candidate,
+      // but read too much like "this row IS a folder" -- folder_open
+      // reads as "browse/open your files" instead, matching what
+      // activating this row actually does.
+      icon: "",
       label: "Search Files",
       breadcrumb: "File Search",
       kind: "Command",

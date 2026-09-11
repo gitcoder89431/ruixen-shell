@@ -39,6 +39,13 @@ pinned_search="$repo_dir/ruixen.pinnedapps/AppSearch.js"
 # ruixen.notch/LauncherContent.qml, a completely different file.
 rlauncher_lib="$repo_dir/ruixen.launcher/AppLibrary.qml"
 rlauncher_search="$repo_dir/ruixen.launcher/AppSearch.js"
+# Issue #61: same byte-identical-duplicate-across-a-plugin-boundary
+# situation as AppLibrary.qml/AppSearch.js above, just a different pair
+# of plugins (ruixen.launcher consumes it to build the real search root
+# set; ruixen.settings reads/writes it via its own Launcher settings
+# page) -- see LauncherSearchConfig.js's own header for the full "why".
+launcher_search_config="$repo_dir/ruixen.launcher/LauncherSearchConfig.js"
+settings_search_config="$repo_dir/ruixen.settings/LauncherSearchConfig.js"
 launcher_qml="$repo_dir/ruixen.notch/LauncherContent.qml"
 overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
 pinned_widget="$repo_dir/ruixen.pinnedapps/BarWidget.qml"
@@ -75,6 +82,11 @@ check "the three AppLibrary.qml copies are byte-identical (plugin folders can't 
   "$(diff -q "$notch_lib" "$pinned_lib" >/dev/null 2>&1 && diff -q "$notch_lib" "$rlauncher_lib" >/dev/null 2>&1 && echo same || echo different)" "same"
 check "the three AppSearch.js copies are byte-identical" \
   "$(diff -q "$notch_search" "$pinned_search" >/dev/null 2>&1 && diff -q "$notch_search" "$rlauncher_search" >/dev/null 2>&1 && echo same || echo different)" "same"
+
+check "ruixen.launcher/LauncherSearchConfig.js exists" "$([[ -f "$launcher_search_config" ]] && echo yes)" "yes"
+check "ruixen.settings/LauncherSearchConfig.js exists" "$([[ -f "$settings_search_config" ]] && echo yes)" "yes"
+check "the two LauncherSearchConfig.js copies are byte-identical (plugin folders can't share a file)" \
+  "$(diff -q "$launcher_search_config" "$settings_search_config" >/dev/null 2>&1 && echo same || echo different)" "same"
 
 # --- AppLibrary.qml wraps the real, unaffected Quickshell type ----------
 

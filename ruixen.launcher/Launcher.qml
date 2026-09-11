@@ -274,7 +274,12 @@ Item {
     categoryFilter: root.categoryFilter
     hiddenEnabled: root.hiddenFilesEnabled
     homeDir: fileSearchProvider.homeDir
-    extraRoots: fileSearchProvider.extraRoots
+    // Issue #61: the EFFECTIVE (config-filtered) extra roots, not
+    // FileSearchProvider's own raw auto-discovered list -- one place
+    // (FileSearchProvider's own effectiveExtraRoots) decides what the
+    // user's config actually means, this provider just inherits it.
+    extraRoots: fileSearchProvider.effectiveExtraRoots
+    includeHome: fileSearchProvider.searchConfig.includeHome
   }
 
   readonly property var providers: [

@@ -55,9 +55,24 @@ Item {
   // itself already does via its own onExtraRootsChanged. rootGeneration
   // (bumped in the same handler) also feeds searchIdentity() below, the
   // same composite-identity pattern FileSearchProvider uses for #46.
+  //
+  // Issue #61: Launcher.qml now binds this straight from
+  // FileSearchProvider's own EFFECTIVE extra roots (already filtered by
+  // the user's own config -- disabled auto-roots, excluded subtrees),
+  // not its raw auto-discovered list -- this provider doesn't need its
+  // own copy of that config-filtering logic, it just inherits whatever
+  // FileSearchProvider already decided the real root set is.
   property var extraRoots: []
   property int rootGeneration: 0
   onExtraRootsChanged: {
+    root.rootGeneration++
+    if (root.query.trim()) debounceTimer.restart()
+  }
+  // Issue #61: whether Home is searched at all -- bound from
+  // FileSearchProvider's own searchConfig.includeHome, same single
+  // source of truth as extraRoots above.
+  property bool includeHome: true
+  onIncludeHomeChanged: {
     root.rootGeneration++
     if (root.query.trim()) debounceTimer.restart()
   }
@@ -370,7 +385,9 @@ Item {
       // source.
       root.rootSearchQueue = [root.sourceFilter]
     } else {
-      var roots = [root.homeDir]
+      // Issue #61: Home is now conditional on includeHome rather than
+      // always the first root.
+      var roots = root.includeHome ? [root.homeDir] : []
       // "All Sources" excludes remote/network-backed roots from
       // automatic content scanning by default -- recursively opening
       // FILE CONTENTS (not just listing names) over a network mount is
@@ -378,14 +395,23 @@ Item {
       // per file, auth/network wakeups, rate limits), and this is
       // exactly the shape of the real rclone report that motivated the
       // earlier timeout work. Filename search (FileSearchProvider's own
-      // runSearch) still walks every root regardless -- only automatic
-      // content search is scoped down here.
+      // runSearch) still walks every effective root regardless -- only
+      // automatic content search is scoped down here. extraRoots here
+      // is already the config-filtered EFFECTIVE set (issue #61,
+      // disabled auto-roots/excluded subtrees already removed) -- this
+      // loop only adds the remaining local-vs-remote policy on top.
       for (var j = 0; j < root.extraRoots.length; j++) {
         var r = root.extraRoots[j]
         if (FileSearchRanking.isLocalFstype(r.fstype)) roots.push(r.path)
       }
       root.rootSearchQueue = roots
     }
+    // Issue #61: see FileSearchProvider's own identical comment -- an
+    // empty effective root set means no worker starts, so
+    // publishPendingMatches() (normally only reached via a real
+    // worker's own completion) would never run, leaving lastResults
+    // stuck on a previous, differently-configured search.
+    if (root.rootSearchQueue.length === 0) root.publishPendingMatches()
     root.scheduleRootSearches()
   }
 

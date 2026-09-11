@@ -4,6 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import "FileSearchRanking.js" as FileSearchRanking
 import "WorkerPool.js" as WorkerPool
+import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Provider: files by name under $HOME, via `fd` (confirmed on this
 // machine per CLAUDE.md's own tool table -- a full $HOME search here
@@ -90,6 +91,59 @@ Item {
     if (root.query.trim()) debounceTimer.restart()
   }
 
+  // Issue #61: user-configurable search locations/exclusions --
+  // ~/.local/state/ruixen/launcher-search-config.json, the same
+  // convention every other Ruixen plugin's own persisted state already
+  // uses (confirmed directly against ruixen.settings/ruixen.media/
+  // ruixen.peripherals/ruixen.wallpaper/ruixen.notch's own Kanban
+  // service before picking this path -- none of them use ~/.config/
+  // ruixen, despite that being what this issue's own text guessed).
+  // Read/written from ruixen.settings' own "Launcher" page -- watched
+  // here with watchChanges so an edit there takes effect immediately,
+  // no shell restart needed (this issue's own acceptance criterion).
+  readonly property string searchConfigPath: (root.homeDir || "") + "/.local/state/ruixen/launcher-search-config.json"
+  property var searchConfig: LauncherSearchConfig.defaultConfig()
+
+  function loadSearchConfig(raw) {
+    root.searchConfig = LauncherSearchConfig.parseSearchConfig(raw)
+  }
+
+  Process {
+    id: ensureSearchConfigDirProc
+    command: ["mkdir", "-p", (root.homeDir || "") + "/.local/state/ruixen"]
+  }
+  Component.onCompleted: ensureSearchConfigDirProc.running = true
+
+  FileView {
+    id: searchConfigFile
+    path: root.searchConfigPath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.loadSearchConfig(text())
+    onLoadFailed: root.loadSearchConfig("")
+    onFileChanged: reload()
+  }
+
+  // The real, config-filtered extra-root set every "All Sources" search
+  // actually walks -- auto-discovered mounts (minus any individually
+  // disabled, minus config.includeMountedRoots entirely) plus the
+  // user's own custom roots, minus anything under an excluded subtree.
+  // Recomputes automatically whenever EITHER extraRoots (a new mount
+  // appeared) OR searchConfig (the user edited a setting) changes --
+  // both assignments are always a genuinely NEW object (parseSearchConfig/
+  // discoverExtraRoots both build a fresh return value, never mutate an
+  // existing one in place), so this binding's own dependency tracking
+  // fires correctly for both triggers.
+  readonly property var effectiveExtraRoots: LauncherSearchConfig.computeEffectiveExtraRoots(root.searchConfig, root.extraRoots, root.homeDir)
+  // Same reasoning as onExtraRootsChanged above -- effectiveExtraRoots
+  // changing is one more way the CURRENT desired root set can change
+  // without the query text itself changing (a config edit lands here
+  // even when extraRoots itself didn't move at all).
+  onEffectiveExtraRootsChanged: {
+    root.rootGeneration++
+    if (root.query.trim()) debounceTimer.restart()
+  }
+
   // Set externally (Launcher.qml's own source-filter dropdown): "" means
   // search every known root (Home + every extraRoot), same as before this
   // existed; a specific path restricts fd to just that one root. Changing
@@ -114,15 +168,17 @@ Item {
   property bool hiddenEnabled: false
   onHiddenEnabledChanged: if (root.query.trim()) debounceTimer.restart()
 
-  // Populates the source-filter dropdown -- Home plus one entry per
-  // discovered extraRoot, labelled by its own last path segment (a
-  // mount's own volume-label folder name, e.g. "OMARCHY_202607") rather
-  // than the full path, matching how a file manager's own sidebar
-  // already labels a mounted drive.
+  // Populates the source-filter dropdown -- Home (if config.includeHome
+  // hasn't turned it off) plus one entry per effective extra root
+  // (config-filtered, issue #61), labelled by its own last path segment
+  // (a mount's own volume-label folder name, e.g. "OMARCHY_202607")
+  // rather than the full path, matching how a file manager's own
+  // sidebar already labels a mounted drive.
   readonly property var sources: {
-    var out = [{ id: root.homeDir, label: "Home", path: root.homeDir }]
-    for (var i = 0; i < root.extraRoots.length; i++) {
-      var p = root.extraRoots[i].path
+    var out = []
+    if (root.searchConfig.includeHome) out.push({ id: root.homeDir, label: "Home", path: root.homeDir })
+    for (var i = 0; i < root.effectiveExtraRoots.length; i++) {
+      var p = root.effectiveExtraRoots[i].path
       var slash = p.lastIndexOf("/")
       out.push({ id: p, label: slash === -1 ? p : p.substring(slash + 1), path: p })
     }
@@ -465,16 +521,29 @@ Item {
     if (root.sourceFilter) {
       root.rootSearchQueue = [root.sourceFilter]
     } else {
-      var roots = [root.homeDir]
-      // Issue #53: filename/folder search walks EVERY discovered root
+      // Issue #61: Home is now conditional on config.includeHome rather
+      // than always the first root -- a user who's turned it off (and
+      // has other roots configured) shouldn't have it silently
+      // searched anyway.
+      var roots = root.searchConfig.includeHome ? [root.homeDir] : []
+      // Issue #53: filename/folder search walks EVERY effective root
       // regardless of local vs remote -- only automatic CONTENT search
       // (FileContentSearchProvider's own runSearch) excludes remote
       // roots by default, since a plain listing is comparatively
       // lightweight even over a network mount (unlike recursively
-      // opening file contents).
-      for (var j = 0; j < root.extraRoots.length; j++) roots.push(root.extraRoots[j].path)
+      // opening file contents). effectiveExtraRoots is already
+      // config-filtered (issue #61) -- disabled auto-roots and excluded
+      // subtrees never reach here at all.
+      for (var j = 0; j < root.effectiveExtraRoots.length; j++) roots.push(root.effectiveExtraRoots[j].path)
       root.rootSearchQueue = roots
     }
+    // Issue #61: an empty effective root set (Home off, nothing else
+    // configured/enabled) means no worker will ever start, so
+    // publishRootResults() -- normally only called from a real worker's
+    // own completion -- would never run either, leaving lastResults
+    // stuck on whatever a PREVIOUS, differently-configured search last
+    // found. Publish the correctly-empty result immediately instead.
+    if (root.rootSearchQueue.length === 0) root.publishRootResults()
     root.scheduleRootSearches()
   }
 

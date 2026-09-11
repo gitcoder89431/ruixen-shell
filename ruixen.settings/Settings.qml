@@ -9,6 +9,7 @@ import Quickshell.Bluetooth
 import Quickshell.Io
 import qs.Commons
 import "services"
+import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Ruixen Settings -- standalone center-panel settings app. First plugin
 // in the "ruixen apps" family (settings/launcher/AI chat/notepad, per
@@ -89,7 +90,13 @@ Item {
     { id: "bluetooth", label: "Bluetooth", glyph: "" },
     { id: "display", label: "Display", glyph: "" },
     { id: "plugins", label: "Plugins", glyph: "" },
-    { id: "about", label: "About", glyph: "" }
+    { id: "about", label: "About", glyph: "" },
+    // Issue #61: appended at the END rather than in some more "natural"
+    // spot -- every other section is referenced throughout this file by
+    // its own bare numeric index (root.selectedSection === N), and
+    // inserting anywhere but last would silently renumber every one of
+    // those existing checks.
+    { id: "launcher", label: "Launcher", glyph: "" }
   ]
   property int selectedSection: 0
 
@@ -490,7 +497,10 @@ Item {
     onLoadFailed: root.loadAvatarState("")
   }
 
-  Component.onCompleted: ensureAvatarStateDirProc.running = true
+  Component.onCompleted: {
+    ensureAvatarStateDirProc.running = true
+    ensureLauncherSearchConfigDirProc.running = true
+  }
 
   Process {
     id: avatarProc
@@ -521,6 +531,145 @@ Item {
 
   Process {
     id: avatarNotifyProc
+  }
+
+  // Issue #61: configurable Search Files locations/exclusions --
+  // ruixen.launcher/LauncherSearchConfig.js's own header explains why
+  // this is a byte-identical duplicate of that plugin's own copy
+  // (plugin folders can't share a real file across install locations,
+  // same reason AppLibrary.qml/AppSearch.js already exist three times
+  // over). This page is the sole WRITER of the shared config file;
+  // ruixen.launcher watches it for external changes and applies them
+  // live, no shell restart needed.
+  readonly property string launcherSearchConfigPath: Quickshell.env("HOME") + "/.local/state/ruixen/launcher-search-config.json"
+  property var launcherSearchConfig: LauncherSearchConfig.defaultConfig()
+  property bool launcherSearchConfigLoaded: false
+
+  function loadLauncherSearchConfig(raw) {
+    root.launcherSearchConfig = LauncherSearchConfig.parseSearchConfig(raw)
+    root.launcherSearchConfigLoaded = true
+  }
+
+  function saveLauncherSearchConfig() {
+    launcherSearchConfigFile.setText(LauncherSearchConfig.serializeSearchConfig(root.launcherSearchConfig))
+  }
+
+  Process {
+    id: ensureLauncherSearchConfigDirProc
+    command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
+  }
+
+  FileView {
+    id: launcherSearchConfigFile
+    path: root.launcherSearchConfigPath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadLauncherSearchConfig(text())
+    onLoadFailed: root.loadLauncherSearchConfig("")
+  }
+
+  // Every mutation below rebuilds a FRESH config object (Object.assign
+  // into a new {} literal) rather than mutating launcherSearchConfig's
+  // own fields in place -- the same QML property-reactivity rule
+  // covered at length elsewhere in this repo (a mutated-in-place object
+  // does not fire its own property's change notification) applies
+  // here too, even though nothing here reads this property through a
+  // declarative binding chain quite as deep as ruixen.launcher's own
+  // rootStatuses -- reassigning a genuinely new object is simply always
+  // the safe, correct pattern for a property this shape, so every
+  // mutator does it uniformly rather than only where a bug was already
+  // hit.
+  function setLauncherIncludeHome(value) {
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { includeHome: value })
+    root.saveLauncherSearchConfig()
+  }
+
+  function setLauncherIncludeMountedRoots(value) {
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { includeMountedRoots: value })
+    root.saveLauncherSearchConfig()
+  }
+
+  // A mount toggled off here stays remembered (present in
+  // disabledAutoRoots) even after it's physically unmounted -- exactly
+  // the "visible indication when a currently mounted source has been
+  // disabled" this issue asks for; LauncherSettingsContent.qml's own
+  // checklist shows a disabled-but-not-currently-mounted entry too, not
+  // just the live findmnt list.
+  function toggleLauncherAutoRootDisabled(path) {
+    var list = root.launcherSearchConfig.disabledAutoRoots.slice()
+    var idx = list.indexOf(path)
+    if (idx === -1) list.push(path)
+    else list.splice(idx, 1)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { disabledAutoRoots: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function addLauncherRoot(path) {
+    var p = String(path || "").trim()
+    if (!p) return
+    var list = root.launcherSearchConfig.roots.slice()
+    if (list.indexOf(p) === -1) list.push(p)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { roots: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function removeLauncherRoot(path) {
+    var list = root.launcherSearchConfig.roots.filter(function(r) { return r !== path })
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { roots: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function addLauncherExcludePath(path) {
+    var p = String(path || "").trim()
+    if (!p) return
+    var list = root.launcherSearchConfig.excludePaths.slice()
+    if (list.indexOf(p) === -1) list.push(p)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludePaths: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function removeLauncherExcludePath(path) {
+    var list = root.launcherSearchConfig.excludePaths.filter(function(p) { return p !== path })
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludePaths: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function addLauncherExcludeName(name) {
+    var n = String(name || "").trim()
+    if (!n) return
+    var list = root.launcherSearchConfig.excludeNames.slice()
+    if (list.indexOf(n) === -1) list.push(n)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludeNames: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function removeLauncherExcludeName(name) {
+    var list = root.launcherSearchConfig.excludeNames.filter(function(n) { return n !== name })
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludeNames: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  // Live-discovered mounts for the checklist -- same findmnt --json
+  // pipeline FileSearchProvider.qml's own refreshRoots() uses, a
+  // separate small copy per LauncherSearchConfig.js's own header
+  // comment (cross-plugin-boundary constraint -- ruixen.settings has
+  // no access to ruixen.launcher's own live extraRoots, a different
+  // plugin's own Item tree). Refreshed once when the Launcher settings
+  // page is actually opened (LauncherSettingsContent.qml's own
+  // Component.onCompleted), not on a timer.
+  property var launcherDiscoveredMounts: []
+
+  function refreshLauncherDiscoveredMounts() {
+    launcherMountProc.exec(["findmnt", "--json", "-o", "TARGET,FSTYPE"])
+  }
+
+  Process {
+    id: launcherMountProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.launcherDiscoveredMounts = LauncherSearchConfig.discoverMountedRoots(text)
+    }
   }
 
   // Single entry point for every avatar-picker button -- "gradient"
@@ -2162,6 +2311,14 @@ Item {
               AboutContent {
                 Layout.fillWidth: true
                 visible: root.selectedSection === 6
+                Layout.preferredHeight: visible ? -1 : 0
+                Layout.maximumHeight: visible ? Infinity : 0
+                settingsRoot: root
+              }
+
+              LauncherSettingsContent {
+                Layout.fillWidth: true
+                visible: root.selectedSection === 7
                 Layout.preferredHeight: visible ? -1 : 0
                 Layout.maximumHeight: visible ? Infinity : 0
                 settingsRoot: root

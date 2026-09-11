@@ -11,14 +11,6 @@ BarWidget {
   id: root
   moduleName: "ruixen.applauncher"
 
-  // See ThemeColors.qml's own comment -- direct request ("the arch logo
-  // on bar should be primary color for any theme switches, except for
-  // black then do the white/or yellow instead"). `foreground` below is
-  // the exact same bar.barForeground/Color.foreground this icon already
-  // rendered in before this change -- the fallback for a monochrome
-  // theme is simply "keep doing what it already did", not a new color.
-  ThemeColors { id: themeColors }
-
   // omarchy-shell, not a raw `qs -p /usr/share/omarchy/shell ipc call`
   // -- direct review finding ("Replace hardcoded /usr/share/omarchy/
   // shell IPC calls with omarchy-shell", #24): see
@@ -51,11 +43,17 @@ BarWidget {
     // repo -- confirmed present in JetBrainsMonoNerdFont's own cmap
     // directly, not guessed.
     text: ""
-    // Primary (theme green, same role fastfetch's own Arch logo uses)
-    // normally; monochrome themes (Vantablack confirmed directly -- see
-    // ThemeColors.qml) have no real green to show, so this falls back
-    // to exactly what the icon already rendered before this change.
-    foreground: themeColors.monochrome ? (root.bar ? root.bar.barForeground : Color.foreground) : themeColors.primary
+    // Color.accent, not the new primary/themeGreen token -- direct
+    // follow-up after `primary` was confirmed stuck on the PREVIOUS
+    // theme's green through a rapid Ristretto -> Everforest -> Vantablack
+    // switch ("when switching to vanta black its still stuck in green"),
+    // plus a plain taste call once it stopped being stuck ("it feels
+    // wierd staying greenish"). Color.accent already has its own live-
+    // update path baked into the host shell (confirmed: it tracked every
+    // one of those switches correctly, unlike ThemeColors.qml's own
+    // FileView-based reload) and reads as this icon's own natural color
+    // regardless -- same token the workspace switcher's focused dot uses.
+    foreground: Color.accent
     tooltipText: "App Launcher"
     onPressed: function() { root.toggleLauncher() }
   }

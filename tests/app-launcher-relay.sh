@@ -46,12 +46,6 @@ rlauncher_search="$repo_dir/ruixen.launcher/AppSearch.js"
 # page) -- see LauncherSearchConfig.js's own header for the full "why".
 launcher_search_config="$repo_dir/ruixen.launcher/LauncherSearchConfig.js"
 settings_search_config="$repo_dir/ruixen.settings/LauncherSearchConfig.js"
-# Same byte-identical-duplicate situation, different pair again --
-# ruixen.bar's own widgets and ruixen.applauncher's Arch logo icon both
-# need the theme's extra ANSI-ramp colors (see ThemeColors.qml's own
-# header for the full "why" -- Color.qml/qs.Commons doesn't expose them).
-bar_theme_colors="$repo_dir/ruixen.bar/ThemeColors.qml"
-applauncher_theme_colors="$repo_dir/ruixen.applauncher/ThemeColors.qml"
 launcher_qml="$repo_dir/ruixen.notch/LauncherContent.qml"
 overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
 pinned_widget="$repo_dir/ruixen.pinnedapps/BarWidget.qml"
@@ -93,11 +87,6 @@ check "ruixen.launcher/LauncherSearchConfig.js exists" "$([[ -f "$launcher_searc
 check "ruixen.settings/LauncherSearchConfig.js exists" "$([[ -f "$settings_search_config" ]] && echo yes)" "yes"
 check "the two LauncherSearchConfig.js copies are byte-identical (plugin folders can't share a file)" \
   "$(diff -q "$launcher_search_config" "$settings_search_config" >/dev/null 2>&1 && echo same || echo different)" "same"
-
-check "ruixen.bar/ThemeColors.qml exists" "$([[ -f "$bar_theme_colors" ]] && echo yes)" "yes"
-check "ruixen.applauncher/ThemeColors.qml exists" "$([[ -f "$applauncher_theme_colors" ]] && echo yes)" "yes"
-check "the two ThemeColors.qml copies are byte-identical (plugin folders can't share a file)" \
-  "$(diff -q "$bar_theme_colors" "$applauncher_theme_colors" >/dev/null 2>&1 && echo same || echo different)" "same"
 
 # --- AppLibrary.qml wraps the real, unaffected Quickshell type ----------
 

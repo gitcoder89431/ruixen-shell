@@ -61,16 +61,24 @@ QtObject {
   }
 
   property FileView colorsFile: FileView {
-    // Same path Color.qml reads (~/.local/state/omarchy/current/theme is
-    // the symlink Omarchy repoints on every theme switch). watchChanges:
-    // false, matching Color.qml's own choice for this exact file -- a
-    // theme switch restarts the whole shell (same way this plugin's own
-    // colors reload today), so there's nothing this FileView would ever
-    // need to notice mid-session that a restart doesn't already cover.
+    // Same path Color.qml reads. Direct follow-up ("its stuck on
+    // green") caught a wrong assumption here: a theme switch does NOT
+    // restart the whole shell -- confirmed directly, ~/.local/state/
+    // omarchy/current/theme is a real directory Omarchy overwrites in
+    // place (not a symlink it repoints), and Color.qml's own comment
+    // about pushing "through shell IPC" is a SEPARATE live-update path
+    // internal to that singleton, not something this FileView benefits
+    // from just by existing alongside it. watchChanges: true here is
+    // this plugin's own equivalent -- the file genuinely changing
+    // content at a stable path is exactly what inotify-based watching
+    // is for. Confirmed via pixel-sampling a live theme switch
+    // (Aura Soft -> Ristretto): the Arch logo was still rendering exact
+    // Aura Soft green (#54C59F) with watchChanges: false.
     path: root.currentThemePath + "/colors.toml"
-    watchChanges: false
+    watchChanges: true
     printErrors: false
     onLoaded: root.load(text())
+    onFileChanged: reload()
   }
 
   // Semantic vocabulary -- direct request ("i wanna be able to

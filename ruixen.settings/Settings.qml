@@ -1983,7 +1983,15 @@ Item {
                 // special-cases the one page that doesn't. GeneralContent.
                 // qml's own Avatar card carries the "Profile" title now
                 // instead (see its own comment).
-                visible: root.selectedSection !== 0
+                //
+                // Also collapses on the Launcher page (selectedSection
+                // 1) for the same reason, per direct follow-up ("put the
+                // header row launcher with include home toggle group
+                // instead of a pill header by itself") -- its own
+                // Include Home / Auto-include toggles card now carries
+                // the "Launcher" title instead (see LauncherSettingsContent.
+                // qml's own comment).
+                visible: root.selectedSection !== 0 && root.selectedSection !== 1
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? 32 : 0
                 Layout.maximumHeight: visible ? 32 : 0

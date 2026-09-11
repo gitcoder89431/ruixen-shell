@@ -52,6 +52,22 @@ ColumnLayout {
       anchors.margins: 12
       spacing: 8
 
+      // Page title lives here now, not a separate floating headerPill
+      // above this card -- direct follow-up ("put the header row
+      // launcher with include home toggle group instead of a pill
+      // header by itself"), same relocation GeneralContent.qml's own
+      // Avatar card already does for Profile. Settings.qml's own
+      // headerPill collapses to nothing for this page (selectedSection
+      // === 1) since the toggle group already needs a consistently-
+      // positioned card of its own -- see its own comment.
+      Text {
+        text: "Launcher"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 15
+        font.weight: Font.DemiBold
+        color: settingsRoot.textColor
+      }
+
       RowLayout {
         Layout.fillWidth: true
         Text {

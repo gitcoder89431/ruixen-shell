@@ -99,7 +99,7 @@ Item {
   readonly property var sources: {
     var out = [{ id: root.homeDir, label: "Home", path: root.homeDir }]
     for (var i = 0; i < root.extraRoots.length; i++) {
-      var p = root.extraRoots[i]
+      var p = root.extraRoots[i].path
       var slash = p.lastIndexOf("/")
       out.push({ id: p, label: slash === -1 ? p : p.substring(slash + 1), path: p })
     }
@@ -113,8 +113,12 @@ Item {
   // findmnt's own tree walked recursively into a flat list -- children
   // reflect mount hierarchy (a bind mount under another mount, etc.),
   // not something this provider needs to preserve, just enumerate.
+  // Issue #53: fstype kept alongside each target now (previously
+  // discarded down to a bare path) -- needed to classify a root as
+  // local vs remote/network-backed, see FileSearchRanking.js's own
+  // isLocalFstype().
   function flattenMounts(node, out) {
-    if (node && typeof node.target === "string") out.push(node.target)
+    if (node && typeof node.target === "string") out.push({ path: node.target, fstype: String(node.fstype || "") })
     if (node && Array.isArray(node.children)) {
       for (var i = 0; i < node.children.length; i++) root.flattenMounts(node.children[i], out)
     }
@@ -145,20 +149,23 @@ Item {
         var seen = ({})
         var roots = []
         for (var j = 0; j < targets.length; j++) {
-          var target = targets[j]
+          var target = targets[j].path
           // Convention every major desktop file manager already relies
           // on (Nautilus/udisks2 auto-mounts to /run/media/$USER/<label>,
           // manual mounts commonly go to /mnt or /media) -- real system
           // mounts (/, /boot, /var/*, tmpfs, proc, ...) never live under
-          // any of these three prefixes, so this alone is enough to
-          // exclude them without also needing an fstype allowlist.
+          // any of these three prefixes, so a path check alone is enough
+          // to tell "a real extra root worth offering at all" from noise
+          // -- a SEPARATE question from local-vs-remote (issue #53),
+          // which FileSearchRanking.js's own isLocalFstype() answers
+          // downstream from the fstype kept alongside each root below.
           var isCandidate = target.indexOf("/mnt/") === 0 || target.indexOf("/media/") === 0 || target.indexOf("/run/media/") === 0
           // Dedup -- a bind mount or a submount nested under an already-
           // discovered root would otherwise search the same files twice
           // and show duplicate rows for them.
           if (isCandidate && !seen[target]) {
             seen[target] = true
-            roots.push(target)
+            roots.push({ path: target, fstype: targets[j].fstype })
           }
         }
         root.extraRoots = roots
@@ -261,7 +268,13 @@ Item {
       args.push(root.sourceFilter)
     } else {
       args.push(root.homeDir)
-      for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i])
+      // Issue #53: filename/folder search walks EVERY discovered root
+      // regardless of local vs remote -- only automatic CONTENT search
+      // (FileContentSearchProvider's own runSearch) excludes remote
+      // roots by default, since a plain listing is comparatively
+      // lightweight even over a network mount (unlike recursively
+      // opening file contents).
+      for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i].path)
     }
     // Real report: search "stopped working" right after a reboot, for
     // someone with a network mount (rclone) among their own extraRoots,

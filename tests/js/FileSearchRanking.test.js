@@ -41,4 +41,28 @@ check("abbreviateHome: a path NOT under homeDir is left alone (e.g. a mounted US
 check("abbreviateHome: empty homeDir leaves the path untouched",
   M.abbreviateHome("/home/dev/notes", ""), "/home/dev/notes");
 
+// ---- isLocalFstype (issue #53) -----------------------------------------
+
+check("isLocalFstype: real local disk filesystems are local",
+  [M.isLocalFstype("ext4"), M.isLocalFstype("btrfs"), M.isLocalFstype("xfs"),
+    M.isLocalFstype("vfat"), M.isLocalFstype("exfat"), M.isLocalFstype("ntfs3")],
+  [true, true, true, true, true, true]);
+check("isLocalFstype: case-insensitive", M.isLocalFstype("BTRFS"), true);
+check("isLocalFstype: 'fuseblk' (a FUSE filesystem backed by a real local "
+  + "block device -- ntfs-3g, exfat-fuse) is local",
+  M.isLocalFstype("fuseblk"), true);
+check("isLocalFstype: bare 'fuse' and any fuse.<name> variant defaults to "
+  + "remote -- no reliable way to tell a network FUSE mount from a local one "
+  + "by name alone, so the conservative default wins",
+  [M.isLocalFstype("fuse"), M.isLocalFstype("fuse.rclone"), M.isLocalFstype("fuse.sshfs")],
+  [false, false, false]);
+check("isLocalFstype: real network filesystems are remote",
+  [M.isLocalFstype("nfs"), M.isLocalFstype("nfs4"), M.isLocalFstype("cifs"),
+    M.isLocalFstype("smb3"), M.isLocalFstype("davfs")],
+  [false, false, false, false, false]);
+check("isLocalFstype: an unrecognized/exotic fstype defaults to remote (conservative), not local",
+  M.isLocalFstype("some-exotic-future-fs"), false);
+check("isLocalFstype: empty/undefined input defaults to remote, not a throw",
+  [M.isLocalFstype(""), M.isLocalFstype(undefined)], [false, false]);
+
 summary();

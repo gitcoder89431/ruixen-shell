@@ -3,6 +3,11 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "ContentSearchRanking.js" as ContentSearchRanking
+// Issue #53: reuses FileSearchProvider's own local/remote fstype
+// classification (isLocalFstype) rather than duplicating a second copy
+// of that policy here -- ONE authoritative classification shared by
+// both providers, not string checks spread across each.
+import "FileSearchRanking.js" as FileSearchRanking
 
 // Provider: matches INSIDE file contents (ripgrep), not filenames --
 // the "search by context" follow-up to FileSearchProvider's own
@@ -165,19 +170,37 @@ Item {
     for (var i = 0; i < root.excludeDirs.length; i++) args.push("-g", "!" + root.excludeDirs[i])
     args.push("--", query)
     if (root.sourceFilter) {
+      // Issue #53: an explicitly selected source is a deliberate choice
+      // -- content-search it regardless of local/remote, existing
+      // timeout/candidateBudget still apply exactly as for any other
+      // source.
       args.push(root.sourceFilter)
     } else {
       args.push(root.homeDir)
-      for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i])
+      // "All Sources" excludes remote/network-backed roots from
+      // automatic content scanning by default -- recursively opening
+      // FILE CONTENTS (not just listing names) over a network mount is
+      // meaningfully riskier than a filename walk (latency amplified
+      // per file, auth/network wakeups, rate limits), and this is
+      // exactly the shape of the real rclone report that motivated the
+      // earlier timeout work. Filename search (FileSearchProvider's own
+      // runSearch) still walks every root regardless -- only automatic
+      // content search is scoped down here.
+      for (var i = 0; i < root.extraRoots.length; i++) {
+        var r = root.extraRoots[i]
+        if (FileSearchRanking.isLocalFstype(r.fstype)) args.push(r.path)
+      }
     }
     // Same real-world failure this shares extraRoots with
     // FileSearchProvider to avoid duplicating (see its own runSearch()
-    // comment for the full reasoning): a network mount (rclone) among
-    // extraRoots that's still establishing its remote connection right
-    // after boot can stall rg's traversal of EVERY root in this one
-    // combined invocation, not just that mount's own. rg does more I/O
-    // per file than fd's own stat/listing (it reads content), so a
-    // slightly longer bound than fd's 3s here.
+    // comment for the full reasoning): a slow/unresponsive root (still
+    // establishing a connection, a degraded local disk, ...) can stall
+    // rg's traversal of EVERY root in this one combined invocation, not
+    // just that root's own -- still a real risk even with issue #53's
+    // own remote-exclusion above, since a sourceFilter can deliberately
+    // target a remote root, and a LOCAL root can still be slow. rg does
+    // more I/O per file than fd's own stat/listing (it reads content),
+    // so a slightly longer bound than fd's 3s here.
     // .exec() (not command=...;running=true) -- issue #46, same fix as
     // FileSearchProvider's own runSearch(): reassigning command while
     // running is already true is a silent no-op in QML, which could

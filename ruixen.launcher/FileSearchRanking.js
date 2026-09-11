@@ -46,3 +46,30 @@ function abbreviateHome(dir, homeDir) {
   if (homeDir && dir.indexOf(homeDir) === 0) return "~" + dir.substring(homeDir.length)
   return dir
 }
+
+// Issue #53: findmnt's own fstype classifies a discovered root as local
+// (safe to content-scan automatically) or remote/network-backed (opened
+// per-file, over a network, only when a search deliberately walks its
+// content -- a much riskier default than a filename listing, and the
+// exact shape of the real rclone report that motivated the earlier
+// timeout work). A conservative ALLOWLIST, not a denylist -- an
+// unrecognized/exotic fstype defaults to "remote" (excluded from
+// automatic content search) rather than risking treating something
+// unknown as safe, per this issue's own "prefer a conservative policy"
+// guidance.
+//
+// "fuseblk" (not bare "fuse") specifically denotes a FUSE filesystem
+// backed by a real local block device -- ntfs-3g, exfat-fuse, hfsplus
+// support -- the one FUSE shape that's genuinely local. Every OTHER
+// fuse.* (fuse.rclone, fuse.sshfs, fuse.gvfsd-fuse, ...) stays excluded
+// by default: it's typically network/remote-backed and there's no
+// reliable way to tell from the fstype string alone, exactly the
+// ambiguity this issue warns about.
+var LOCAL_FSTYPES = [
+  "ext2", "ext3", "ext4", "btrfs", "xfs", "f2fs", "reiserfs", "jfs", "zfs",
+  "vfat", "exfat", "ntfs", "ntfs3", "fuseblk", "iso9660", "udf"
+]
+
+function isLocalFstype(fstype) {
+  return LOCAL_FSTYPES.indexOf(String(fstype || "").toLowerCase()) !== -1
+}

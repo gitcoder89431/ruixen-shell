@@ -95,7 +95,7 @@ Item {
       // Issue #49: stop in-flight work outright, not just its eventual
       // effect on lastResults -- see FileSearchProvider's own
       // onQueryChanged for the full reasoning (safe no-op when idle).
-      searchProc.running = false
+      root.stopAllRootSearches()
       return
     }
     debounceTimer.restart()
@@ -123,7 +123,7 @@ Item {
   // ever slicing it down to displayLimit, so the transient output/
   // memory a broad query could generate was effectively unbounded even
   // though the UI only ever shows a handful of rows. candidateBudget
-  // caps how many REAL match objects get collected (see searchProc's
+  // caps how many REAL match objects get collected (see each rootWorker's
   // own SplitParser below) before the process is stopped outright --
   // a small multiple of displayLimit, generous enough that ranking
   // still has more than the bare minimum to work with, small enough
@@ -156,27 +156,128 @@ Item {
     return root.query.trim() + "" + root.sourceFilter + "" + root.rootGeneration
   }
 
+  // Issue #54: one rg process per effective root instead of one process
+  // walking every root together, same reasoning and same confirmed-live
+  // mechanism as FileSearchProvider's own runSearch() (see its header
+  // comment) -- a slow/unresponsive root can no longer stall every other
+  // root's own results in this one combined invocation. Same small
+  // fixed worker pool, same reason (avoid unbounded process fan-out on a
+  // machine with many mounts).
+  //
+  // Unlike FileSearchProvider's own per-root rootResults map, this
+  // provider keeps ONE shared pendingMatches array across every worker
+  // -- candidateBudget (issue #51) is a GLOBAL bound on total matches
+  // collected, not a per-root one, so every worker's own onRead checks
+  // and appends to the SAME array. JS's single-threaded event loop means
+  // there's no real race between workers touching it concurrently, each
+  // onRead callback runs to completion before another can start.
+  readonly property var rootWorkers: [contentWorker0, contentWorker1, contentWorker2, contentWorker3]
+  property var rootSearchQueue: []
+
+  function stopAllRootSearches() {
+    root.rootSearchQueue = []
+    root.pendingMatches = []
+    for (var i = 0; i < root.rootWorkers.length; i++) {
+      var w = root.rootWorkers[i]
+      if (w.currentRoot !== "") {
+        w.running = false
+        w.currentRoot = ""
+      }
+    }
+  }
+
+  // -F/--fixed-strings -- issue #47: rg treats the pattern as a regex by
+  // default (same mismatch as fd's own default in FileSearchProvider --
+  // see its own comment), so an ordinary query like "(notes)" or
+  // "*.json" would either match nothing or throw an invalid-pattern
+  // error instead of searching for that literal text.
+  function buildRgArgs(query, rootPath) {
+    var args = ["rg", "--json", "-i", "-F", "--max-count", "1", "--max-filesize", "5M"]
+    for (var i = 0; i < root.excludeDirs.length; i++) args.push("-g", "!" + root.excludeDirs[i])
+    args.push("--", query, rootPath)
+    return args
+  }
+
+  function scheduleRootSearches() {
+    for (var i = 0; i < root.rootWorkers.length && root.rootSearchQueue.length > 0; i++) {
+      var w = root.rootWorkers[i]
+      if (w.currentRoot !== "") continue
+      // The global budget may already be satisfied by roots that
+      // finished earlier -- no point starting a whole new rg process
+      // for a root whose matches would just be discarded by every
+      // worker's own onRead guard anyway.
+      if (root.pendingMatches.length >= root.candidateBudget) {
+        root.rootSearchQueue = []
+        break
+      }
+      var nextRoot = root.rootSearchQueue.shift()
+      w.currentRoot = nextRoot
+      // Same real-world failure this shares extraRoots with
+      // FileSearchProvider to avoid duplicating (see its own runSearch()
+      // comment for the full reasoning): a slow/unresponsive root can
+      // stall a search -- bounded per root now via `timeout`, same as
+      // before this issue's own per-root split. rg does more I/O per
+      // file than fd's own stat/listing (it reads content), so a
+      // slightly longer bound than fd's 3s here.
+      //
+      // .exec() (not command=...;running=true) -- issue #46: reassigning
+      // command while running is already true is a silent no-op in QML.
+      // Confirmed directly that .exec() kills whatever's running first
+      // and starts the new command immediately either way.
+      w.exec(["timeout", "4"].concat(root.buildRgArgs(root.pendingQuery, nextRoot)))
+    }
+  }
+
+  // The single place that actually publishes to lastResults -- called
+  // after every individual root's own completion (not just once at the
+  // very end), so a fast root's matches can appear before a slower
+  // one's own rg process finishes.
+  function publishPendingMatches() {
+    root.lastResults = ContentSearchRanking.dedupeByPath(root.pendingMatches).slice(0, root.displayLimit)
+  }
+
+  // Shared completion handler for every rootWorker -- see
+  // FileSearchProvider's own handleRootSearchDone for why `worker` is
+  // named explicitly by each one's own onExited below rather than this
+  // being one shared Process.
+  function handleRootSearchDone(worker) {
+    worker.currentRoot = ""
+    // A stale response for a search identity the UI has already moved
+    // on from -- drop it entirely (including not scheduling more queued
+    // roots for an abandoned search) rather than publishing against
+    // newer state. See searchIdentity()'s own comment.
+    if (root.pendingSearchIdentity !== root.searchIdentity()) {
+      root.pendingMatches = []
+      return
+    }
+    root.publishPendingMatches()
+    root.scheduleRootSearches()
+  }
+
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
     root.pendingSearchIdentity = root.searchIdentity()
     root.pendingMatches = []
-    // -F/--fixed-strings -- issue #47: rg treats the pattern as a regex
-    // by default (same mismatch as fd's own default in
-    // FileSearchProvider -- see its own comment), so an ordinary query
-    // like "(notes)" or "*.json" would either match nothing or throw an
-    // invalid-pattern error instead of searching for that literal text.
-    var args = ["rg", "--json", "-i", "-F", "--max-count", "1", "--max-filesize", "5M"]
-    for (var i = 0; i < root.excludeDirs.length; i++) args.push("-g", "!" + root.excludeDirs[i])
-    args.push("--", query)
+    // Stop whatever the previous search's workers were still doing --
+    // their own eventual completion would be discarded anyway (the
+    // staleness check above), but there's no reason to let them keep
+    // running for an abandoned search. Safe when already idle.
+    for (var i = 0; i < root.rootWorkers.length; i++) {
+      var w = root.rootWorkers[i]
+      if (w.currentRoot !== "") {
+        w.running = false
+        w.currentRoot = ""
+      }
+    }
     if (root.sourceFilter) {
       // Issue #53: an explicitly selected source is a deliberate choice
       // -- content-search it regardless of local/remote, existing
       // timeout/candidateBudget still apply exactly as for any other
       // source.
-      args.push(root.sourceFilter)
+      root.rootSearchQueue = [root.sourceFilter]
     } else {
-      args.push(root.homeDir)
+      var roots = [root.homeDir]
       // "All Sources" excludes remote/network-backed roots from
       // automatic content scanning by default -- recursively opening
       // FILE CONTENTS (not just listing names) over a network mount is
@@ -186,29 +287,13 @@ Item {
       // earlier timeout work. Filename search (FileSearchProvider's own
       // runSearch) still walks every root regardless -- only automatic
       // content search is scoped down here.
-      for (var i = 0; i < root.extraRoots.length; i++) {
-        var r = root.extraRoots[i]
-        if (FileSearchRanking.isLocalFstype(r.fstype)) args.push(r.path)
+      for (var j = 0; j < root.extraRoots.length; j++) {
+        var r = root.extraRoots[j]
+        if (FileSearchRanking.isLocalFstype(r.fstype)) roots.push(r.path)
       }
+      root.rootSearchQueue = roots
     }
-    // Same real-world failure this shares extraRoots with
-    // FileSearchProvider to avoid duplicating (see its own runSearch()
-    // comment for the full reasoning): a slow/unresponsive root (still
-    // establishing a connection, a degraded local disk, ...) can stall
-    // rg's traversal of EVERY root in this one combined invocation, not
-    // just that root's own -- still a real risk even with issue #53's
-    // own remote-exclusion above, since a sourceFilter can deliberately
-    // target a remote root, and a LOCAL root can still be slow. rg does
-    // more I/O per file than fd's own stat/listing (it reads content),
-    // so a slightly longer bound than fd's 3s here.
-    // .exec() (not command=...;running=true) -- issue #46, same fix as
-    // FileSearchProvider's own runSearch(): reassigning command while
-    // running is already true is a silent no-op in QML, which could
-    // leave a query typed while a slow rg run is still in flight never
-    // actually starting its own search. Confirmed directly that .exec()
-    // kills whatever's running first and starts the new command
-    // immediately either way.
-    searchProc.exec(["timeout", "4"].concat(args))
+    root.scheduleRootSearches()
   }
 
   function resultFor(path, lineNumber, lineText) {
@@ -239,18 +324,18 @@ Item {
   }
 
 
+  // Issue #54: four workers, a small fixed pool per root (see
+  // rootWorkers' own comment above) -- same reasoning and same static-
+  // pool-over-dynamic-objects tradeoff as FileSearchProvider's own
+  // rootWorker0-3. SplitParser (issue #51, line-by-line as rg's own
+  // stdout streams in) instead of StdioCollector on each -- every real
+  // match is pushed onto the SHARED pendingMatches as it arrives; once
+  // the GLOBAL candidateBudget is reached, THIS worker stops itself
+  // outright (confirmed elsewhere in this codebase: running = false
+  // kills cleanly and still lets whatever already ran finish normally).
   Process {
-    id: searchProc
-    // Issue #51: SplitParser (line-by-line, as rg's own stdout streams
-    // in) instead of StdioCollector (buffers the ENTIRE output as one
-    // string, only usable once the stream closes) -- see
-    // candidateBudget's own comment for why buffering everything first
-    // is exactly the unbounded-output problem being fixed here. Each
-    // real match is pushed onto pendingMatches as it arrives; once
-    // candidateBudget is reached the process is stopped outright
-    // (running = false, confirmed elsewhere in this codebase to kill
-    // cleanly and still let whatever already ran finish normally) --
-    // rg does no more work and produces no more output past that point.
+    id: contentWorker0
+    property string currentRoot: ""
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -259,19 +344,58 @@ Item {
         try { obj = JSON.parse(line) } catch (e) { return }
         if (!obj || obj.type !== "match") return
         root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
-        if (root.pendingMatches.length >= root.candidateBudget) searchProc.running = false
+        if (root.pendingMatches.length >= root.candidateBudget) contentWorker0.running = false
       }
     }
-    // The single place that actually publishes to lastResults -- fires
-    // whether rg exited on its own (query too specific to hit the
-    // budget) or was stopped above once the budget was reached, so
-    // there's only one finalization path to keep in sync rather than
-    // duplicating it in onRead too.
-    onExited: {
-      if (root.pendingSearchIdentity === root.searchIdentity())
-        root.lastResults = root.pendingMatches.slice(0, root.displayLimit)
-      root.pendingMatches = []
+    onExited: root.handleRootSearchDone(contentWorker0)
+  }
+  Process {
+    id: contentWorker1
+    property string currentRoot: ""
+    stdout: SplitParser {
+      onRead: function(line) {
+        if (root.pendingSearchIdentity !== root.searchIdentity()) return
+        if (root.pendingMatches.length >= root.candidateBudget) return
+        var obj
+        try { obj = JSON.parse(line) } catch (e) { return }
+        if (!obj || obj.type !== "match") return
+        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        if (root.pendingMatches.length >= root.candidateBudget) contentWorker1.running = false
+      }
     }
+    onExited: root.handleRootSearchDone(contentWorker1)
+  }
+  Process {
+    id: contentWorker2
+    property string currentRoot: ""
+    stdout: SplitParser {
+      onRead: function(line) {
+        if (root.pendingSearchIdentity !== root.searchIdentity()) return
+        if (root.pendingMatches.length >= root.candidateBudget) return
+        var obj
+        try { obj = JSON.parse(line) } catch (e) { return }
+        if (!obj || obj.type !== "match") return
+        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        if (root.pendingMatches.length >= root.candidateBudget) contentWorker2.running = false
+      }
+    }
+    onExited: root.handleRootSearchDone(contentWorker2)
+  }
+  Process {
+    id: contentWorker3
+    property string currentRoot: ""
+    stdout: SplitParser {
+      onRead: function(line) {
+        if (root.pendingSearchIdentity !== root.searchIdentity()) return
+        if (root.pendingMatches.length >= root.candidateBudget) return
+        var obj
+        try { obj = JSON.parse(line) } catch (e) { return }
+        if (!obj || obj.type !== "match") return
+        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        if (root.pendingMatches.length >= root.candidateBudget) contentWorker3.running = false
+      }
+    }
+    onExited: root.handleRootSearchDone(contentWorker3)
   }
 
   // Same as FileSearchProvider's own activate() -- xdg-open already

@@ -185,7 +185,7 @@ Item {
       // for up to the full timeout for no reason. Safe even if nothing
       // is running (confirmed live: setting running=false on an idle
       // Process is a no-op, not an error).
-      searchProc.running = false
+      root.stopAllRootSearches()
       return
     }
     debounceTimer.restart()
@@ -219,7 +219,7 @@ Item {
   // search's eventual result no longer belongs to what the UI currently
   // wants. Snapshotting this into pendingSearchIdentity at launch and
   // re-deriving it fresh from the same three LIVE properties at
-  // completion time (searchProc's own onStreamFinished) is the same
+  // completion time (handleRootSearchDone below, issue #54) is the same
   // frozen-snapshot-vs-live-recompute pattern this file already used for
   // pendingQuery, just extended to cover all three identity-defining
   // inputs instead of one.
@@ -229,84 +229,174 @@ Item {
 
   property string pendingSearchIdentity: ""
 
+  // Issue #54: one fd process per EFFECTIVE root instead of one process
+  // walking every root together -- a single combined invocation coupled
+  // the whole "All Sources" result set to whichever root was slowest,
+  // confirmed live (a standalone Quickshell harness) that this isn't
+  // theoretical: two independent Process objects launched together
+  // finish completely independently (a fast one reported in 0.02s while
+  // a deliberately slow one was still running at 3s), so per-root
+  // processes really do let Home's own fast results land immediately
+  // regardless of another root's own health.
+  //
+  // A small fixed worker pool (rootWorkers below), not one process per
+  // root unconditionally -- avoids unbounded process fan-out on a
+  // machine with many mounts. Real-world root counts (0-3 extra roots
+  // typically) rarely exceed the pool size anyway, so this is the
+  // uncommon path, not the common one.
+  readonly property var rootWorkers: [rootWorker0, rootWorker1, rootWorker2, rootWorker3]
+  property var rootSearchQueue: []
+  // { [rootPath]: Array<result> } -- accumulates as each root's own
+  // worker finishes; publishRootResults() below merges/ranks/dedupes
+  // whatever's in here so far, called after every individual root
+  // completes (not just once at the very end), which is what actually
+  // lets Home's own results appear before a slow root's own eventually
+  // do.
+  property var rootResults: ({})
+
+  function stopAllRootSearches() {
+    root.rootSearchQueue = []
+    root.rootResults = ({})
+    for (var i = 0; i < root.rootWorkers.length; i++) {
+      var w = root.rootWorkers[i]
+      if (w.currentRoot !== "") {
+        w.running = false
+        w.currentRoot = ""
+      }
+    }
+  }
+
+  // -t f -t d: files AND directories -- fd ORs multiple --type flags
+  // together (confirmed live). fd prints a trailing "/" on directory
+  // matches, which resultFor() below uses to tell them apart without a
+  // separate stat() per result. --fixed-strings -- issue #47: fd treats
+  // the pattern as a regex by default, which disagrees with this
+  // provider's own literal-substring ranking (scoreFile) and silently
+  // mishandles ordinary filenames containing regex metacharacters.
+  //
+  // fd's own --max-results is a raw CANDIDATE cap per root, not a
+  // relevance cap -- fd fills it in directory-traversal order, with no
+  // idea which matches score best. A tight cap here can silently drop a
+  // highly relevant match before scoreFile() ever sees it: confirmed
+  // live, searching "shell" with a 50-candidate cap never even
+  // considered the real folder `dhh-shell` because 50 less-relevant
+  // "shell"-matching files elsewhere filled the quota first. 500 is a
+  // generous safety valve against a truly pathological one-character
+  // query on a huge tree (a full unthrottled $HOME search already takes
+  // ~8ms here), not a meaningful relevance filter -- the real cap is
+  // displayLimit, applied after sorting the MERGED results across every
+  // root.
+  function buildFdArgs(query, rootPath) {
+    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--fixed-strings", "--max-results", "500"]
+    for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
+    args.push("--", query, rootPath)
+    return args
+  }
+
+  // Pulls queued roots into any currently-idle worker -- called once
+  // when a new search starts (queue freshly populated) and again every
+  // time a worker finishes (queue may still have more roots waiting,
+  // issue #54's own "small concurrency limit/queue" rather than an
+  // unbounded process fan-out).
+  function scheduleRootSearches() {
+    for (var i = 0; i < root.rootWorkers.length && root.rootSearchQueue.length > 0; i++) {
+      var w = root.rootWorkers[i]
+      if (w.currentRoot !== "") continue
+      var nextRoot = root.rootSearchQueue.shift()
+      w.currentRoot = nextRoot
+      // Real report: search "stopped working" right after a reboot, for
+      // someone with a network mount (rclone) among their own
+      // extraRoots, and fixed itself after waiting -- exactly the shape
+      // of a FUSE mount still establishing its remote connection right
+      // after boot. `timeout` bounds that per root now, same as before
+      // this issue's own per-root split: whatever fd already found
+      // before a slow root's own timeout fires still reaches this
+      // worker's own stdout (a killed process's already-written output
+      // isn't lost). Not an absolute guarantee -- a syscall truly stuck
+      // in D-state can't be killed by SIGTERM until it returns on its
+      // own -- but that's a rarer failure shape than "needs a few more
+      // seconds," which this does fix.
+      //
+      // .exec() (not command=...;running=true) -- issue #46: reassigning
+      // `command` while `running` is already true is a silent no-op in
+      // QML, which could leave a query typed while this worker's
+      // previous root is still running never actually starting.
+      // Confirmed directly: .exec() while running kills the old command
+      // and starts the new one immediately, with the killed process's
+      // own already-written stdout still delivered.
+      w.exec(["timeout", "3"].concat(root.buildFdArgs(root.pendingQuery, nextRoot)))
+    }
+  }
+
+  // Merges whatever roots have reported back so far (not necessarily
+  // all of them -- see rootResults' own comment), ranks together, dedupes
+  // by real path (a nested/bind mount could in principle surface the
+  // same file under two different roots), and republishes. Called after
+  // EVERY individual root's own completion so a fast root's results
+  // appear without waiting on a slower one still in flight.
+  function publishRootResults() {
+    root.lastResults = FileSearchRanking.mergeRootResults(root.rootResults, root.displayLimit)
+  }
+
+  // Shared completion handler for every rootWorker -- `worker` is passed
+  // in explicitly by each one's own onStreamFinished below rather than
+  // this being one shared Process (QML has no direct way for a signal
+  // handler to identify which sender fired it, so each worker's own
+  // handler names itself).
+  function handleRootSearchDone(worker, output) {
+    var rootPath = worker.currentRoot
+    worker.currentRoot = ""
+    // A stale response for a search identity (query + sourceFilter +
+    // root generation) the UI has already moved on from -- drop it
+    // entirely (including not scheduling more queued work for an
+    // abandoned search) rather than overwriting newer results. See
+    // searchIdentity()'s own comment for why this checks more than just
+    // the query string.
+    if (root.pendingSearchIdentity !== root.searchIdentity()) return
+    var lines = output.split("\n").filter(function(l) { return l.length > 0 })
+    var out = []
+    for (var i = 0; i < lines.length; i++) out.push(root.resultFor(lines[i], root.pendingQuery))
+    root.rootResults[rootPath] = out
+    root.publishRootResults()
+    root.scheduleRootSearches()
+  }
+
   function runSearch(query) {
     if (!root.homeDir) return
     root.pendingQuery = query
     root.pendingSearchIdentity = root.searchIdentity()
-    // -t f -t d: files AND directories -- fd ORs multiple --type flags
-    // together (confirmed live). fd prints a trailing "/" on directory
-    // matches, which resultFor() below uses to tell them apart without
-    // a separate stat() per result.
-    //
-    // fd's own --max-results is a raw CANDIDATE cap, not a relevance
-    // cap -- fd fills it in directory-traversal order, with no idea
-    // which matches score best. A tight cap here can silently drop a
-    // highly relevant match before scoreFile() ever sees it: confirmed
-    // live, searching "shell" with a 50-candidate cap never even
-    // considered the real folder `dhh-shell` because 50 less-relevant
-    // "shell"-matching files elsewhere filled the quota first. 500 is
-    // a generous safety valve against a truly pathological one-
-    // character query on a huge tree (a full unthrottled $HOME search
-    // already takes ~8ms here), not a meaningful relevance filter --
-    // the real cap is displayLimit, applied after sorting.
-    // --fixed-strings -- issue #47: fd treats the pattern as a regex by
-    // default, which disagrees with this provider's own literal-
-    // substring ranking (scoreFile below) and silently mishandles
-    // ordinary filenames containing regex metacharacters (e.g.
-    // "file[1]", "hello.world", "C++"). Forcing literal matching makes
-    // fd's own interpretation of the query match what the UI already
-    // promises.
-    var args = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--fixed-strings", "--max-results", "500"]
-    for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
-    // fd accepts multiple trailing path roots in one invocation --
-    // confirmed via `fd --help` ([path]...) -- so every known root (or,
-    // with sourceFilter set, just the one the dropdown picked) rides
-    // along as positional args in the same call, not separate fd
-    // processes to merge results from.
-    args.push("--", query)
+    root.rootResults = ({})
+    // Stop whatever the previous search's workers were still doing --
+    // their own eventual completion would be discarded anyway (the
+    // staleness check above), but there's no reason to let them keep
+    // running for an abandoned search. Safe when already idle.
+    for (var i = 0; i < root.rootWorkers.length; i++) {
+      var w = root.rootWorkers[i]
+      if (w.currentRoot !== "") {
+        w.running = false
+        w.currentRoot = ""
+      }
+    }
+    // fd accepts multiple trailing path roots in one invocation, but
+    // issue #54 deliberately does NOT use that -- one root per process
+    // instead, so a slow/unhealthy root can't hold back the others (see
+    // this provider's own header comment above for the confirmed
+    // measurement backing that). If sourceFilter picked exactly one
+    // root, only that one is ever queued.
     if (root.sourceFilter) {
-      args.push(root.sourceFilter)
+      root.rootSearchQueue = [root.sourceFilter]
     } else {
-      args.push(root.homeDir)
+      var roots = [root.homeDir]
       // Issue #53: filename/folder search walks EVERY discovered root
       // regardless of local vs remote -- only automatic CONTENT search
       // (FileContentSearchProvider's own runSearch) excludes remote
       // roots by default, since a plain listing is comparatively
       // lightweight even over a network mount (unlike recursively
       // opening file contents).
-      for (var i = 0; i < root.extraRoots.length; i++) args.push(root.extraRoots[i].path)
+      for (var j = 0; j < root.extraRoots.length; j++) roots.push(root.extraRoots[j].path)
+      root.rootSearchQueue = roots
     }
-    // Real report: search "stopped working" right after a reboot, for
-    // someone with a network mount (rclone) among their own extraRoots,
-    // and fixed itself after waiting -- exactly the shape of a FUSE
-    // mount that's still establishing its remote connection (auth
-    // refresh, first network round-trip) right after boot. fd walks
-    // every root in ONE invocation (see this function's own comment
-    // above), so a single slow/unready mount stalls results for every
-    // OTHER root too, including plain local $HOME files that have
-    // nothing to do with it. `timeout` bounds that: whatever fd already
-    // found on the fast roots before the slow one stalled it still
-    // reaches searchProc's own stdout (a killed process's already-
-    // written output isn't lost), so a stuck network mount degrades a
-    // search instead of hanging it outright. Not an absolute guarantee
-    // -- a syscall truly stuck in D-state (uninterruptible sleep, e.g.
-    // the kernel itself still waiting on FUSE) can't be killed by
-    // SIGTERM until it returns on its own -- but that's a rarer failure
-    // shape than "the mount just needs a few more seconds," which this
-    // does fix.
-    // Issue #46: .exec() (not command=...;running=true) -- reassigning
-    // `command` while `running` is already true and then setting
-    // `running` to the SAME value it already holds is a no-op in QML
-    // (equal-value property writes don't re-trigger anything), so a
-    // query typed faster than the previous fd run completes would
-    // silently never actually start a new process, leaving the old
-    // query's own run to finish on its own. Confirmed directly (a
-    // standalone Quickshell harness): calling .exec() while a process is
-    // already running kills it (SIGTERM) and starts the new command
-    // immediately, and the killed process's own already-written stdout
-    // still reaches its StdioCollector rather than being lost -- exactly
-    // "last action wins" instead of "first action wins by accident."
-    searchProc.exec(["timeout", "3"].concat(args))
+    root.scheduleRootSearches()
   }
 
   // Exact filename match > prefix > substring elsewhere in the name --
@@ -352,29 +442,33 @@ Item {
     }
   }
 
+  // Issue #54: four workers, a small fixed pool rather than one process
+  // per discovered root unconditionally (see rootWorkers' own comment
+  // above for why a bound matters) or dynamically-created Process
+  // objects (a fixed static pool avoids the extra lifecycle complexity
+  // of creating/destroying QML objects on every search). Each declares
+  // its own `currentRoot` -- "" means idle -- and calls the shared
+  // handleRootSearchDone() naming itself explicitly, since a QML signal
+  // handler has no built-in way to identify its own sender.
   Process {
-    id: searchProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        // A stale response for a search identity (query + sourceFilter +
-        // root generation) the UI has already moved on from -- drop it
-        // rather than overwriting newer (still pending) results with old
-        // ones. See searchIdentity()'s own comment for why this checks
-        // more than just the query string.
-        if (root.pendingSearchIdentity !== root.searchIdentity()) return
-        var q = root.pendingQuery
-        var lines = text.split("\n").filter(function(l) { return l.length > 0 })
-        var out = []
-        for (var i = 0; i < lines.length; i++) out.push(root.resultFor(lines[i], q))
-        // Sort by score BEFORE capping -- the whole point of raising
-        // fd's own --max-results above is that truncation has to
-        // happen after ranking, not before it (see runSearch()'s own
-        // comment).
-        out.sort(function(a, b) { return b.score - a.score })
-        root.lastResults = out.slice(0, root.displayLimit)
-      }
-    }
+    id: rootWorker0
+    property string currentRoot: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker0, text) }
+  }
+  Process {
+    id: rootWorker1
+    property string currentRoot: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker1, text) }
+  }
+  Process {
+    id: rootWorker2
+    property string currentRoot: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker2, text) }
+  }
+  Process {
+    id: rootWorker3
+    property string currentRoot: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker3, text) }
   }
 
   // xdg-open already does the right thing for either path type -- the

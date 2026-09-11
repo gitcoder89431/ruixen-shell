@@ -89,4 +89,41 @@ check("parseFileDimensions: no recognizable dimensions (e.g. a non-image file) r
 check("parseFileDimensions: empty/undefined input returns an empty string, not a throw",
   M.parseFileDimensions(undefined), "");
 
+// ---- mergeRootResults (issue #54) ------------------------------------------
+
+function fakeResult(path, score) {
+  return { label: path, score: score, action: { path: path } }
+}
+
+check("mergeRootResults: merges results from multiple roots into one ranked list",
+  M.mergeRootResults({
+    "/home/dev": [fakeResult("/home/dev/a.txt", 100), fakeResult("/home/dev/b.txt", 50)],
+    "/mnt/usb": [fakeResult("/mnt/usb/c.txt", 200)]
+  }, 30),
+  [fakeResult("/mnt/usb/c.txt", 200), fakeResult("/home/dev/a.txt", 100), fakeResult("/home/dev/b.txt", 50)]);
+
+check("mergeRootResults: a root that hasn't reported yet (not present as a key) contributes nothing -- "
+  + "this is exactly what lets a fast root's results show before a slow one finishes",
+  M.mergeRootResults({ "/home/dev": [fakeResult("/home/dev/a.txt", 100)] }, 30),
+  [fakeResult("/home/dev/a.txt", 100)]);
+
+check("mergeRootResults: a root reporting an empty array (genuinely no matches there) doesn't break the merge",
+  M.mergeRootResults({ "/home/dev": [fakeResult("/home/dev/a.txt", 100)], "/mnt/usb": [] }, 30),
+  [fakeResult("/home/dev/a.txt", 100)]);
+
+check("mergeRootResults: duplicate real paths across two roots are deduped, keeping the first-seen copy",
+  M.mergeRootResults({
+    "/home/dev": [fakeResult("/shared/x.txt", 100)],
+    "/mnt/bind": [fakeResult("/shared/x.txt", 100)]
+  }, 30).length, 1);
+
+check("mergeRootResults: sorts by score BEFORE capping to displayLimit, not the other way around",
+  M.mergeRootResults({
+    "/home/dev": [fakeResult("/home/dev/low.txt", 1), fakeResult("/home/dev/high.txt", 9999)]
+  }, 1),
+  [fakeResult("/home/dev/high.txt", 9999)]);
+
+check("mergeRootResults: no roots at all yields an empty list, not a throw",
+  M.mergeRootResults({}, 30), []);
+
 summary();

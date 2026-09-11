@@ -97,3 +97,30 @@ var LOCAL_FSTYPES = [
 function isLocalFstype(fstype) {
   return LOCAL_FSTYPES.indexOf(String(fstype || "").toLowerCase()) !== -1
 }
+
+// Issue #54: merges per-root result arrays (keyed by root path) into
+// one ranked, deduped list -- called after every individual root's own
+// completion (not just once at the very end), which is what actually
+// lets a fast root's results appear before a slower one still in
+// flight finishes, rather than the whole "All Sources" result set being
+// coupled to whichever root is slowest. Dedupes by the result's own
+// real path -- a nested/bind mount could in principle surface the same
+// file under two different discovered roots. Sort happens BEFORE
+// capping to displayLimit, same reasoning as fd's own generous
+// --max-results per root: truncation has to happen after ranking, not
+// before it.
+function mergeRootResults(rootResultsByPath, displayLimit) {
+  var merged = []
+  var seen = ({})
+  for (var rootPath in rootResultsByPath) {
+    var items = rootResultsByPath[rootPath]
+    for (var i = 0; i < items.length; i++) {
+      var key = items[i].action.path
+      if (seen[key]) continue
+      seen[key] = true
+      merged.push(items[i])
+    }
+  }
+  merged.sort(function(a, b) { return b.score - a.score })
+  return merged.slice(0, displayLimit)
+}

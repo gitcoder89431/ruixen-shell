@@ -26,4 +26,20 @@ check("collapseSnippet: defaults to an 80-char limit when none is given",
 check("collapseSnippet: empty/undefined input returns an empty string, not a throw",
   M.collapseSnippet(undefined, 80), "");
 
+// ---- dedupeByPath (issue #54) -----------------------------------------
+
+function fakeMatch(path) {
+  return { label: path, action: { path: path } }
+}
+
+check("dedupeByPath: no duplicates leaves the list untouched",
+  M.dedupeByPath([fakeMatch("/a.txt"), fakeMatch("/b.txt")]),
+  [fakeMatch("/a.txt"), fakeMatch("/b.txt")]);
+check("dedupeByPath: the same real path from two different roots is deduped to one, "
+  + "keeping the first-seen copy (order-preserving, not a re-sort)",
+  M.dedupeByPath([fakeMatch("/shared/x.txt"), fakeMatch("/a.txt"), fakeMatch("/shared/x.txt")]),
+  [fakeMatch("/shared/x.txt"), fakeMatch("/a.txt")]);
+check("dedupeByPath: empty input returns an empty list, not a throw",
+  M.dedupeByPath([]), []);
+
 summary();

@@ -20,3 +20,19 @@ function collapseSnippet(lineText, maxLen) {
   if (snippet.length > limit) snippet = snippet.substring(0, limit) + "…"
   return snippet
 }
+
+// Issue #54: per-root content search could in principle surface the
+// same real file twice (a nested/bind mount reachable through two
+// different discovered roots) -- dedupes by the result's own real path,
+// keeping the first-seen copy. Order-preserving, not a re-sort.
+function dedupeByPath(items) {
+  var out = []
+  var seen = ({})
+  for (var i = 0; i < items.length; i++) {
+    var key = items[i].action.path
+    if (seen[key]) continue
+    seen[key] = true
+    out.push(items[i])
+  }
+  return out
+}

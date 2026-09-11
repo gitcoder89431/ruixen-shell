@@ -118,6 +118,22 @@ Item {
   property color background: Color.bar.background
   property color urgent: Color.bar.active
 
+  // Extra theme-palette roles beyond what Color.qml (qs.Commons) itself
+  // exposes -- see ThemeColors.qml's own comment for why this needs its
+  // own reader instead of just adding properties to that singleton
+  // (Omarchy-owned, wiped on every omarchy-update). Read once here so any
+  // widget in this file can reference root.themeGreen/root.themeMagenta/
+  // etc directly instead of instantiating its own copy.
+  ThemeColors { id: themeColors }
+  property color themeRed: themeColors.red
+  property color themeYellow: themeColors.yellow
+  property color themeOrange: themeColors.orange
+  property color themeGreen: themeColors.green
+  property color themeCyan: themeColors.cyan
+  property color themeBlue: themeColors.blue
+  property color themeMagenta: themeColors.magenta
+  property color themeBrown: themeColors.brown
+
   Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
   Behavior on background { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
   Behavior on urgent { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }

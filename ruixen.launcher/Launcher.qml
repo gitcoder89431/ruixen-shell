@@ -148,6 +148,16 @@ Item {
 
   property string query: ""
   property int selectedIndex: 0
+  // Direct request: "my mouse on hover can scroll the list... can we do
+  // no hover scroll. so using keyboard or middle wheel scroll only".
+  // Mouse hover still moves selectedIndex (the row highlight itself
+  // should keep following the cursor, same as ever) -- this only
+  // suppresses onSelectedIndexChanged's own positionViewAtIndex calls
+  // for that ONE assignment, so hovering near the top/bottom edge of the
+  // visible rows can no longer auto-scroll the list out from under the
+  // cursor. Keyboard navigation and onRowActivated/onRowActionsRequested
+  // (a real click) don't set this, so they keep scrolling as before.
+  property bool suppressHoverScroll: false
   // Raycast's own real behavior, checked live: plain files don't mix
   // into the main result list at all (too spammy once a query matches
   // hundreds of them) -- instead there's a permanent "Use ... with"
@@ -277,6 +287,7 @@ Item {
     // actionsSelectedIndex instead, never this property, so it can
     // never trigger this itself.
     root.actionsMenuOpen = false
+    if (root.suppressHoverScroll) return
     var lastIndex = root.results.length - 1
     resultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
     resultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
@@ -1137,7 +1148,11 @@ Item {
         rowHeightPx: root.rowHeight
         sectionHeaderHeight: root.headerHeight
         appLibrary: appLibrary
-        onRowHovered: (idx) => root.selectedIndex = idx
+        onRowHovered: (idx) => {
+          root.suppressHoverScroll = true
+          root.selectedIndex = idx
+          root.suppressHoverScroll = false
+        }
         onRowActivated: (idx) => { root.selectedIndex = idx; root.activateSelected() }
         onRowActionsRequested: (idx) => { root.selectedIndex = idx; root.openActionsMenu() }
       }

@@ -253,10 +253,46 @@ Item {
   // lets Home's own results appear before a slow root's own eventually
   // do.
   property var rootResults: ({})
+  // Issue #55: { [rootPath]: "success"|"timeout"|"error" }, populated
+  // alongside rootResults so the UI can tell "this root genuinely has
+  // zero matches" apart from "this root's own search never actually
+  // completed" -- both used to look identical (an empty results list),
+  // which made real field reports hard to diagnose (this project's own
+  // "No Results for ruixen-doctor" investigation turned out to be
+  // unrelated, but a degraded/error indicator would have ruled that out
+  // in seconds instead of a live debugging session). hasDegradedRoot is
+  // the simple aggregate Launcher.qml actually reads -- a full per-root
+  // breakdown isn't surfaced in the UI, kept deliberately minimal per
+  // direct product guidance ("a small note, not an elaborate status
+  // system").
+  property var rootStatuses: ({})
+  // Plain property, explicitly assigned (see updateDegradedStatus()
+  // below) rather than a declarative binding over rootStatuses --
+  // confirmed live (a standalone QML harness) that mutating an object
+  // referenced by a property, or even reassigning the SAME object
+  // reference back to it, does NOT trigger that property's own change
+  // notification, so a binding reading rootStatuses in place would
+  // silently never re-evaluate after the in-place updates
+  // handleRootSearchDone() below actually does.
+  property bool hasDegradedRoot: false
+
+  function updateDegradedStatus() {
+    var degraded = false
+    for (var path in root.rootStatuses) {
+      if (root.rootStatuses[path] !== "success") { degraded = true; break }
+    }
+    root.hasDegradedRoot = degraded
+  }
+
+  function classifyExitCode(exitCode) {
+    return FileSearchRanking.classifyFdExitCode(exitCode)
+  }
 
   function stopAllRootSearches() {
     root.rootSearchQueue = []
     root.rootResults = ({})
+    root.rootStatuses = ({})
+    root.hasDegradedRoot = false
     for (var i = 0; i < root.rootWorkers.length; i++) {
       var w = root.rootWorkers[i]
       if (w.currentRoot !== "") {
@@ -343,9 +379,11 @@ Item {
   // this being one shared Process (QML has no direct way for a signal
   // handler to identify which sender fired it, so each worker's own
   // handler names itself).
-  function handleRootSearchDone(worker, output) {
+  function handleRootSearchDone(worker, exitCode) {
     var rootPath = worker.currentRoot
+    var output = worker.pendingOutput
     worker.currentRoot = ""
+    worker.pendingOutput = ""
     // A stale response for a search identity (query + sourceFilter +
     // root generation) the UI has already moved on from -- drop it
     // entirely (including not scheduling more queued work for an
@@ -357,6 +395,8 @@ Item {
     var out = []
     for (var i = 0; i < lines.length; i++) out.push(root.resultFor(lines[i], root.pendingQuery))
     root.rootResults[rootPath] = out
+    root.rootStatuses[rootPath] = root.classifyExitCode(exitCode)
+    root.updateDegradedStatus()
     root.publishRootResults()
     root.scheduleRootSearches()
   }
@@ -366,6 +406,8 @@ Item {
     root.pendingQuery = query
     root.pendingSearchIdentity = root.searchIdentity()
     root.rootResults = ({})
+    root.rootStatuses = ({})
+    root.hasDegradedRoot = false
     // Stop whatever the previous search's workers were still doing --
     // their own eventual completion would be discarded anyway (the
     // staleness check above), but there's no reason to let them keep
@@ -450,25 +492,43 @@ Item {
   // its own `currentRoot` -- "" means idle -- and calls the shared
   // handleRootSearchDone() naming itself explicitly, since a QML signal
   // handler has no built-in way to identify its own sender.
+  //
+  // Issue #55: completion moved from stdout's own onStreamFinished to
+  // the Process's own onExited -- confirmed live (a standalone
+  // Quickshell harness) that onStreamFinished always fires BEFORE
+  // onExited, for both a normal exit and a `timeout`-killed one, so
+  // stashing the collected text into pendingOutput there and finalizing
+  // in onExited (which alone carries the real exit code) reliably
+  // combines both pieces of information the status classification
+  // needs -- text-only completion had no way to tell "genuinely zero
+  // matches" apart from "this root's own search never finished".
   Process {
     id: rootWorker0
     property string currentRoot: ""
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker0, text) }
+    property string pendingOutput: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker0.pendingOutput = text }
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker0, exitCode)
   }
   Process {
     id: rootWorker1
     property string currentRoot: ""
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker1, text) }
+    property string pendingOutput: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker1.pendingOutput = text }
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker1, exitCode)
   }
   Process {
     id: rootWorker2
     property string currentRoot: ""
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker2, text) }
+    property string pendingOutput: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker2.pendingOutput = text }
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker2, exitCode)
   }
   Process {
     id: rootWorker3
     property string currentRoot: ""
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.handleRootSearchDone(rootWorker3, text) }
+    property string pendingOutput: ""
+    stdout: StdioCollector { waitForEnd: true; onStreamFinished: rootWorker3.pendingOutput = text }
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(rootWorker3, exitCode)
   }
 
   // xdg-open already does the right thing for either path type -- the

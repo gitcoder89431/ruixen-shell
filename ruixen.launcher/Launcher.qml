@@ -367,6 +367,18 @@ Item {
   // directly, the fallback row was still right there underneath it.
   readonly property bool showNoResults: root.filesMode && root.query.trim() !== "" && root.results.length === 0
 
+  // Issue #55: a genuinely empty result and a search that never
+  // actually finished (a timed-out or failed root) used to render
+  // identically -- both just an empty results list -- which made real
+  // field reports hard to diagnose (this project's own "No Results for
+  // ruixen-doctor" investigation turned out to be a stale checkout, not
+  // a real bug, but a degraded indicator would have ruled that out in
+  // seconds). Deliberately minimal: one combined boolean, not a full
+  // per-root breakdown surfaced in the UI, per direct product guidance
+  // ("a small note, not an elaborate status system").
+  readonly property bool filesSearchDegraded: root.filesMode && root.query.trim() !== ""
+    && (fileSearchProvider.hasDegradedRoot || fileContentSearchProvider.hasDegradedRoot)
+
   // Drives the Search Files details panel -- whichever row is
   // currently selected, or null between/at the edges of the list.
   // FileSearchProvider.qml doesn't know about selection at all; this
@@ -1556,12 +1568,41 @@ Item {
 
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "No Results"
+            // Issue #55: a genuinely empty result reads as "No Results"
+            // same as always; a result that's empty because a root
+            // timed out or failed says so instead, rather than falsely
+            // implying a successful, complete search found nothing.
+            // "This source" (singular) when one specific source was
+            // selected and it's the one that failed -- "Some sources"
+            // for the All Sources case, where other roots may still
+            // have searched fine.
+            text: root.filesSearchDegraded
+              ? (root.selectedSourcePath !== "" ? "This source could not be searched" : "Some sources could not be searched")
+              : "No Results"
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 14
           }
         }
+      }
+
+      // Issue #55: a small, unobtrusive note for the "results exist,
+      // but one source is degraded" case -- the empty-state block above
+      // only covers when there are NO results at all. Direct product
+      // guidance was to keep this minimal (a small note, not an
+      // elaborate status system) -- a corner overlay rather than
+      // reflowing resultsList/detailsPanel to make room for it, so
+      // there's no layout risk to either.
+      Text {
+        visible: root.filesSearchDegraded && !root.showNoResults
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 10
+        anchors.right: parent.right
+        anchors.rightMargin: 16
+        text: root.selectedSourcePath !== "" ? "This source could not be fully searched" : "Some sources could not be searched"
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 10
       }
     }
   }

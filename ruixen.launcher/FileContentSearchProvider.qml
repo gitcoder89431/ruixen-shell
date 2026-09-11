@@ -67,6 +67,31 @@ Item {
   // instead of buffering everything then slicing.
   property var pendingMatches: []
 
+  // Issue #55: { [rootPath]: "success"|"timeout"|"error" } -- see
+  // FileSearchProvider's own rootStatuses for the full "why" (tells a
+  // genuinely empty result apart from a search that never finished).
+  // hasDegradedRoot is a plain property explicitly assigned by
+  // updateDegradedStatus() below, NOT a declarative binding over
+  // rootStatuses -- confirmed live (a standalone QML harness) that
+  // mutating an object referenced by a property doesn't trigger that
+  // property's own change notification, so a binding would silently
+  // never re-evaluate after handleRootSearchDone()'s own in-place
+  // update.
+  property var rootStatuses: ({})
+  property bool hasDegradedRoot: false
+
+  function updateDegradedStatus() {
+    var degraded = false
+    for (var path in root.rootStatuses) {
+      if (root.rootStatuses[path] !== "success") { degraded = true; break }
+    }
+    root.hasDegradedRoot = degraded
+  }
+
+  function classifyExitCode(exitCode) {
+    return ContentSearchRanking.classifyRgExitCode(exitCode)
+  }
+
   // Confirmed live (this exact query -- rg's own glob semantics differ
   // from fd's): a bare directory name ("go") excludes it at ANY depth,
   // gitignore-style, but a multi-segment pattern ("go/pkg/mod" or
@@ -177,6 +202,8 @@ Item {
   function stopAllRootSearches() {
     root.rootSearchQueue = []
     root.pendingMatches = []
+    root.rootStatuses = ({})
+    root.hasDegradedRoot = false
     for (var i = 0; i < root.rootWorkers.length; i++) {
       var w = root.rootWorkers[i]
       if (w.currentRoot !== "") {
@@ -240,7 +267,8 @@ Item {
   // FileSearchProvider's own handleRootSearchDone for why `worker` is
   // named explicitly by each one's own onExited below rather than this
   // being one shared Process.
-  function handleRootSearchDone(worker) {
+  function handleRootSearchDone(worker, exitCode) {
+    var rootPath = worker.currentRoot
     worker.currentRoot = ""
     // A stale response for a search identity the UI has already moved
     // on from -- drop it entirely (including not scheduling more queued
@@ -250,6 +278,15 @@ Item {
       root.pendingMatches = []
       return
     }
+    // Hitting the global candidateBudget deliberately self-stops a
+    // worker early (see onRead's own running=false below) -- that's a
+    // form of SUCCESS (already found more than enough matches), not a
+    // failure, even though the resulting exit code looks identical to
+    // any other killed process.
+    root.rootStatuses[rootPath] = (root.pendingMatches.length >= root.candidateBudget)
+      ? "success"
+      : root.classifyExitCode(exitCode)
+    root.updateDegradedStatus()
     root.publishPendingMatches()
     root.scheduleRootSearches()
   }
@@ -259,6 +296,8 @@ Item {
     root.pendingQuery = query
     root.pendingSearchIdentity = root.searchIdentity()
     root.pendingMatches = []
+    root.rootStatuses = ({})
+    root.hasDegradedRoot = false
     // Stop whatever the previous search's workers were still doing --
     // their own eventual completion would be discarded anyway (the
     // staleness check above), but there's no reason to let them keep
@@ -347,7 +386,7 @@ Item {
         if (root.pendingMatches.length >= root.candidateBudget) contentWorker0.running = false
       }
     }
-    onExited: root.handleRootSearchDone(contentWorker0)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker0, exitCode)
   }
   Process {
     id: contentWorker1
@@ -363,7 +402,7 @@ Item {
         if (root.pendingMatches.length >= root.candidateBudget) contentWorker1.running = false
       }
     }
-    onExited: root.handleRootSearchDone(contentWorker1)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker1, exitCode)
   }
   Process {
     id: contentWorker2
@@ -379,7 +418,7 @@ Item {
         if (root.pendingMatches.length >= root.candidateBudget) contentWorker2.running = false
       }
     }
-    onExited: root.handleRootSearchDone(contentWorker2)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker2, exitCode)
   }
   Process {
     id: contentWorker3
@@ -395,7 +434,7 @@ Item {
         if (root.pendingMatches.length >= root.candidateBudget) contentWorker3.running = false
       }
     }
-    onExited: root.handleRootSearchDone(contentWorker3)
+    onExited: (exitCode, exitStatus) => root.handleRootSearchDone(contentWorker3, exitCode)
   }
 
   // Same as FileSearchProvider's own activate() -- xdg-open already

@@ -124,3 +124,18 @@ function mergeRootResults(rootResultsByPath, displayLimit) {
   merged.sort(function(a, b) { return b.score - a.score })
   return merged.slice(0, displayLimit)
 }
+
+// Issue #55: fd's own exit code convention (confirmed live): 0 whether
+// or not anything matched -- zero matches is NOT an error for fd,
+// unlike ripgrep's own different convention (see
+// ContentSearchRanking.js's own classifyRgExitCode). `timeout <n> fd
+// ...` passes fd's own real exit code through when it completes in
+// time, and returns 124 itself only when IT had to kill fd -- confirmed
+// live. Anything else non-zero is fd's own real failure for that
+// specific root (a bad/vanished path, most commonly a root that
+// unmounted mid-search).
+function classifyFdExitCode(exitCode) {
+  if (exitCode === 0) return "success"
+  if (exitCode === 124) return "timeout"
+  return "error"
+}

@@ -36,3 +36,15 @@ function dedupeByPath(items) {
   }
   return out
 }
+
+// Issue #55: rg's own exit code convention is DIFFERENT from fd's
+// (confirmed live, see FileSearchRanking.js's own classifyFdExitCode)
+// -- 0 means at least one match, 1 means it ran fine but found ZERO
+// matches (not an error), anything else is a real failure. `timeout <n>
+// rg ...` passes rg's own real exit code through when it completes in
+// time, and returns 124 itself only when IT had to kill rg.
+function classifyRgExitCode(exitCode) {
+  if (exitCode === 0 || exitCode === 1) return "success"
+  if (exitCode === 124) return "timeout"
+  return "error"
+}

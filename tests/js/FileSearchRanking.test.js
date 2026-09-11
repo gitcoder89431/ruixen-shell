@@ -126,4 +126,13 @@ check("mergeRootResults: sorts by score BEFORE capping to displayLimit, not the 
 check("mergeRootResults: no roots at all yields an empty list, not a throw",
   M.mergeRootResults({}, 30), []);
 
+// ---- classifyFdExitCode (issue #55) -----------------------------------
+
+check("classifyFdExitCode: exit 0 is success even with zero matches -- fd's own convention",
+  M.classifyFdExitCode(0), "success");
+check("classifyFdExitCode: exit 124 (our own `timeout` wrapper) is a timeout",
+  M.classifyFdExitCode(124), "timeout");
+check("classifyFdExitCode: any other non-zero exit is a real fd error (e.g. a vanished root path)",
+  [M.classifyFdExitCode(1), M.classifyFdExitCode(2)], ["error", "error"]);
+
 summary();

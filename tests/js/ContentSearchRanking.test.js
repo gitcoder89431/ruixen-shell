@@ -42,4 +42,16 @@ check("dedupeByPath: the same real path from two different roots is deduped to o
 check("dedupeByPath: empty input returns an empty list, not a throw",
   M.dedupeByPath([]), []);
 
+// ---- classifyRgExitCode (issue #55) ------------------------------------
+
+check("classifyRgExitCode: exit 0 (at least one match) is success",
+  M.classifyRgExitCode(0), "success");
+check("classifyRgExitCode: exit 1 is ALSO success -- rg's own convention for "
+  + "'ran fine, zero matches', not an error (unlike fd's own different convention)",
+  M.classifyRgExitCode(1), "success");
+check("classifyRgExitCode: exit 124 (our own `timeout` wrapper) is a timeout",
+  M.classifyRgExitCode(124), "timeout");
+check("classifyRgExitCode: exit 2 (rg's own real error convention) is an error",
+  M.classifyRgExitCode(2), "error");
+
 summary();

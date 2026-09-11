@@ -56,6 +56,10 @@ Item {
   property string pendingQuery: ""
   property string pendingSearchIdentity: ""
   property var lastResults: []
+  // Real match rows collected incrementally as rg's own stdout streams
+  // in -- see candidateBudget's own comment below for why this exists
+  // instead of buffering everything then slicing.
+  property var pendingMatches: []
 
   // Confirmed live (this exact query -- rg's own glob semantics differ
   // from fd's): a bare directory name ("go") excludes it at ANY depth,
@@ -105,6 +109,34 @@ Item {
 
   readonly property int displayLimit: 15
 
+  // Issue #51: `--max-count 1` below bounds matches PER FILE, not
+  // total -- a broad query (e.g. "the", "config") can still match
+  // thousands of files, and rg emits a full JSON object (match, plus
+  // begin/end/summary framing) for every one of them. The previous
+  // StdioCollector buffered ALL of that into one giant string before
+  // ever slicing it down to displayLimit, so the transient output/
+  // memory a broad query could generate was effectively unbounded even
+  // though the UI only ever shows a handful of rows. candidateBudget
+  // caps how many REAL match objects get collected (see searchProc's
+  // own SplitParser below) before the process is stopped outright --
+  // a small multiple of displayLimit, generous enough that ranking
+  // still has more than the bare minimum to work with, small enough
+  // that the bound is meaningful.
+  //
+  // What's actually guaranteed, confirmed with a standalone harness:
+  // pendingMatches itself never grows past candidateBudget regardless of
+  // how much more rg has already written by the time the budget is hit
+  // (onRead's own early-return makes every line past it a cheap no-op,
+  // not a discarded-but-still-allocated object) -- that JS-side bound is
+  // unconditional. Actually stopping rg itself (running = false once the
+  // budget is reached) is a real, additional saving for the normal case
+  // (a real filesystem walk is throttled by disk I/O, not a tight loop),
+  // but isn't a hard guarantee against a producer so fast that its own
+  // output is already fully written/exited before the kill lands --
+  // same "not absolute, but fixes the realistic case" caveat as the
+  // existing rg `timeout` already carries.
+  readonly property int candidateBudget: 60
+
   // Flat, deliberately below FileSearchProvider's own scoreFile() floor
   // (its weakest real match -- a long filename matching nowhere near
   // the start -- still lands well above this) so a content match NEVER
@@ -122,6 +154,7 @@ Item {
     if (!root.homeDir) return
     root.pendingQuery = query
     root.pendingSearchIdentity = root.searchIdentity()
+    root.pendingMatches = []
     // -F/--fixed-strings -- issue #47: rg treats the pattern as a regex
     // by default (same mismatch as fd's own default in
     // FileSearchProvider -- see its own comment), so an ordinary query
@@ -185,22 +218,36 @@ Item {
 
   Process {
     id: searchProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        // Same composite-identity staleness guard as FileSearchProvider
-        // -- query text alone misses a sourceFilter/root-set change.
+    // Issue #51: SplitParser (line-by-line, as rg's own stdout streams
+    // in) instead of StdioCollector (buffers the ENTIRE output as one
+    // string, only usable once the stream closes) -- see
+    // candidateBudget's own comment for why buffering everything first
+    // is exactly the unbounded-output problem being fixed here. Each
+    // real match is pushed onto pendingMatches as it arrives; once
+    // candidateBudget is reached the process is stopped outright
+    // (running = false, confirmed elsewhere in this codebase to kill
+    // cleanly and still let whatever already ran finish normally) --
+    // rg does no more work and produces no more output past that point.
+    stdout: SplitParser {
+      onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
-        var lines = text.split("\n").filter(function(l) { return l.length > 0 })
-        var out = []
-        for (var i = 0; i < lines.length && out.length < root.displayLimit; i++) {
-          var obj
-          try { obj = JSON.parse(lines[i]) } catch (e) { continue }
-          if (!obj || obj.type !== "match") continue
-          out.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
-        }
-        root.lastResults = out
+        if (root.pendingMatches.length >= root.candidateBudget) return
+        var obj
+        try { obj = JSON.parse(line) } catch (e) { return }
+        if (!obj || obj.type !== "match") return
+        root.pendingMatches.push(root.resultFor(obj.data.path.text, obj.data.line_number, obj.data.lines.text))
+        if (root.pendingMatches.length >= root.candidateBudget) searchProc.running = false
       }
+    }
+    // The single place that actually publishes to lastResults -- fires
+    // whether rg exited on its own (query too specific to hit the
+    // budget) or was stopped above once the budget was reached, so
+    // there's only one finalization path to keep in sync rather than
+    // duplicating it in onRead too.
+    onExited: {
+      if (root.pendingSearchIdentity === root.searchIdentity())
+        root.lastResults = root.pendingMatches.slice(0, root.displayLimit)
+      root.pendingMatches = []
     }
   }
 

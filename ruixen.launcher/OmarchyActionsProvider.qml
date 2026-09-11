@@ -79,8 +79,12 @@ Item {
       root.ready = true
       return
     }
-    guardProc.command = ["bash", "-c", script]
-    guardProc.running = true
+    // .exec(), not command=...;running=true -- issue #46's own fix
+    // applies here too: refresh() (issue #50) can call rebuildEntries()
+    // again while a previous guard-eval run is still in flight (rapid
+    // launcher open/close), and the old command=...;running=true pattern
+    // would silently no-op a re-run in that case.
+    guardProc.exec(["bash", "-c", script])
   }
 
   // Ruixen Settings has no manifest kind "menu" entry of its own, and
@@ -285,13 +289,21 @@ Item {
     Util.execDetached(result.action.command)
   }
 
+  // onLoaded/onLoadFailed below used to early-return once
+  // defaultSettled/userSettled was already true -- fine for the startup
+  // double-fire they were built for (the implicit preload plus the
+  // explicit Component.onCompleted reload always load the SAME content,
+  // so processing it twice was only ever wasted, not wrong), but issue
+  // #50 needs a DELIBERATE later reload (refresh(), below) to actually
+  // reprocess, which that same guard would silently swallow. Settled
+  // flags still get set (rebuildEntries() itself stays gated on both
+  // being true at least once), just never block reprocessing again.
   FileView {
     id: menuFile
     path: root.menuPath
     watchChanges: false
     printErrors: false
     onLoaded: {
-      if (root.defaultSettled) return
       root.defaultSettled = true
       root.defaultEntries = OmarchyMenuParser.parseMenuEntries(text())
       root.rebuildEntries()
@@ -300,7 +312,6 @@ Item {
     // here is real (Omarchy itself missing/broken), not the normal
     // "no user file" case userMenuFile's own onLoadFailed handles.
     onLoadFailed: {
-      if (root.defaultSettled) return
       root.defaultSettled = true
       root.ready = true
     }
@@ -312,17 +323,19 @@ Item {
     watchChanges: false
     printErrors: false
     onLoaded: {
-      if (root.userSettled) return
       root.userSettled = true
       root.userEntries = OmarchyMenuParser.parseMenuEntries(text())
       root.rebuildEntries()
     }
     // No ~/.config/omarchy/extensions/omarchy-menu.jsonc at all is the
     // normal case (most users never touch it) -- not an error, just an
-    // empty override map.
+    // empty override map. Also reached on refresh() if the user deletes
+    // their override file after it once existed -- userEntries reset to
+    // empty rather than left stale, so a removed override actually
+    // disappears on the next launcher open instead of lingering forever.
     onLoadFailed: {
-      if (root.userSettled) return
       root.userSettled = true
+      root.userEntries = ({})
       root.rebuildEntries()
     }
   }
@@ -343,10 +356,12 @@ Item {
   // own "Keybind hints" header for why this and not hyprctl. Fire-and-
   // forget at startup, same one-shot-Process convention as guardProc
   // above; keybinds simply aren't shown until this lands (a few hundred
-  // ms), never blocks root.ready.
+  // ms), never blocks root.ready. Re-run via .exec() from refresh()
+  // below (issue #50) -- a personal keybind changed since startup should
+  // show up the next time the launcher opens, not only after a full
+  // shell restart.
   Process {
     id: keybindProc
-    command: ["omarchy", "menu", "keybindings", "--print"]
     running: false
     stdout: StdioCollector {
       waitForEnd: true
@@ -373,10 +388,23 @@ Item {
     }
   }
 
-  Component.onCompleted: {
+  // Issue #50: re-evaluates guard/visibility state and reloads every
+  // user-owned override source, called from Launcher.qml's own open()
+  // path (an open/session boundary, not per-keystroke). Cheap: FileView
+  // reloads are local file reads, keybindProc/guardProc both replace-
+  // safely via .exec() (see their own comments), and rebuildEntries()/
+  // rebuildKeybindIndex() are idempotent -- calling this on every open,
+  // including rapid open/close cycles, never spawns overlapping stale
+  // work since each .exec() call replaces whatever it might have still
+  // been running. The packaged default (menuFile) is included too, not
+  // skipped as a micro-optimization -- it's still just one small local
+  // file read, and correctness matters more here than saving it.
+  function refresh() {
     menuFile.reload()
     userMenuFile.reload()
-    keybindProc.running = true
+    keybindProc.exec(["omarchy", "menu", "keybindings", "--print"])
     bindingsFile.reload()
   }
+
+  Component.onCompleted: root.refresh()
 }

@@ -96,6 +96,14 @@ Item {
 
   function open(payloadJson) {
     root.opened = true
+    // Issue #50: this plugin is keepLoaded, so the shell can stay alive
+    // for a long session while real system state (an installed package,
+    // a user's own menu/keybind edit, a `when` guard's truth value)
+    // changes underneath it -- without this, the action catalog/
+    // visibility/keybind hints could only ever reflect whatever was true
+    // at the LAST full shell restart. Cheap: a few local file reads plus
+    // one short bash guard-eval script, not run per keystroke.
+    omarchyActionsProvider.refresh()
     Qt.callLater(function() { searchInput.forceActiveFocus() })
   }
 

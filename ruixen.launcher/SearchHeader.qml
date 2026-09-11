@@ -78,7 +78,7 @@ Item {
     // Search Files mode, doubling as a real back button -- direct
     // request: clicking it there exits Search Files, same as Escape's
     // own first step, rather than dismissing the whole palette.
-    text: root.filesMode ? "" : ""
+    text: root.filesMode ? "" : ""
     color: root.mutedColor
     font.family: root.fontFamily
     font.pixelSize: 16
@@ -143,7 +143,7 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 10
       anchors.verticalCenter: parent.verticalCenter
-      text: ""
+      text: ""
       color: root.mutedColor
       font.family: root.fontFamily
       font.pixelSize: 9

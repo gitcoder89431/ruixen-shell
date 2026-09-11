@@ -42,7 +42,7 @@ Item {
 
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: ""
+        text: ""
         color: root.mutedColor
         font.family: root.fontFamily
         font.pixelSize: 40

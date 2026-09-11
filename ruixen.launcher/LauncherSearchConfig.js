@@ -184,6 +184,111 @@ function rootExactlyExcluded(path, excludePaths, homeDir) {
   return false
 }
 
+// Issue #65: Search Files can end up scheduling both a broad root and a
+// narrower root nested inside it (Home enabled alongside a custom root
+// that's really just one of Home's own subdirectories) -- the final
+// result merge already dedupes by path, so this isn't a correctness bug,
+// but it's wasted filesystem work, and for content search specifically,
+// duplicate matches from the nested root can consume part of the global
+// candidateBudget before that final dedupe ever runs.
+//
+// Component-boundary-safe: plain string prefix matching would wrongly
+// treat "/home/user/Work" as covering "/home/user/Workspace" -- this
+// requires an exact path-SEGMENT match, not just a shared string prefix.
+function isPathUnderOrEqual(child, parent) {
+  return child === parent || child.indexOf(parent + "/") === 0
+}
+
+// Whether a configured exclusion breaks what would otherwise be real
+// coverage of `candidatePath` by `parentPath` -- true when some
+// exclusion applies WITHIN parent's own traversal (is parent itself or
+// a subtree of it) AND candidate lies at-or-under that excluded
+// subtree, meaning parent's search doesn't actually reach candidate at
+// all despite geometrically containing it. This is exactly the
+// scenario issue #65 itself calls out: "~/VMs" excluded from Home's own
+// traversal but ALSO separately added as its own custom root needs to
+// stay a real, separate root -- Home no longer covers it once excluded.
+function isCoverageBrokenByExclusion(candidatePath, parentPath, excludePaths, homeDir) {
+  for (var i = 0; i < excludePaths.length; i++) {
+    var ex = normalizePath(excludePaths[i], homeDir)
+    if (!ex) continue
+    if (!isPathUnderOrEqual(ex, parentPath)) continue
+    if (isPathUnderOrEqual(candidatePath, ex)) return true
+  }
+  return false
+}
+
+// Reduces `roots` (each `{ path, policyKey }`, policyKey opaque to this
+// function -- see below) to the minimal non-overlapping set that still
+// covers everything the caller wants searched. Exact duplicates
+// (identical normalized path) are always deduped first, regardless of
+// policyKey. A remaining root is dropped only when an already-accepted
+// root both contains it AND shares its exact policyKey -- two roots
+// with DIFFERENT policyKeys are never merged, no matter how they nest.
+//
+// policyKey is caller-supplied rather than computed here from a real
+// filesystem type on purpose: this file (LauncherSearchConfig.js) is
+// duplicated byte-identical into ruixen.settings (see this file's own
+// header), which has no access to FileSearchRanking.js's own
+// isLocalFstype classification and shouldn't need to -- each of the two
+// real search providers already knows its own policy (FileSearchProvider's
+// filename search doesn't distinguish local/remote at all, so it can
+// pass one constant key for every root; FileContentSearchProvider's own
+// root list is already local-only BY THE TIME it gets here, #53's own
+// isLocalFstype filtering having already run first, so it's likewise
+// safe to pass one constant key). A future caller with a genuinely
+// mixed-policy list can pass real distinct keys and this function
+// already refuses to merge across them -- "preserve the policy boundary
+// rather than merging it under a parent in a way that changes whether
+// rg is allowed to scan it," directly per this issue's own wording.
+//
+// Callers should apply this AFTER rootExactlyExcluded filtering, not
+// before -- compacting first could keep a doomed-to-be-dropped root as
+// some other root's own "covering parent," silently losing coverage of
+// legitimate siblings once that parent is removed a step later.
+function compactRoots(roots, options) {
+  var opts = options || {}
+  var excludePaths = opts.excludePaths || []
+  var homeDir = opts.homeDir || ""
+
+  var seen = ({})
+  var unique = []
+  for (var i = 0; i < (roots || []).length; i++) {
+    var r = roots[i]
+    if (!r || !r.path) continue
+    var norm = normalizePath(r.path, homeDir)
+    if (!norm || seen[norm]) continue
+    seen[norm] = true
+    unique.push({ path: norm, policyKey: r.policyKey })
+  }
+
+  // Shortest path first -- a root can only ever be "covered" by
+  // something that CONTAINS it, so accepting shorter (higher-level)
+  // roots into `accepted` before longer ones are even considered means
+  // every later candidate only ever needs to check already-decided,
+  // necessarily-shorter-or-equal roots -- never a not-yet-decided
+  // sibling, and never a root that will itself turn out to be covered
+  // by something even higher up.
+  unique.sort(function(a, b) { return a.path.length - b.path.length })
+
+  var accepted = []
+  for (var j = 0; j < unique.length; j++) {
+    var candidate = unique[j]
+    var covered = false
+    for (var k = 0; k < accepted.length; k++) {
+      var parent = accepted[k]
+      if (parent.policyKey !== candidate.policyKey) continue
+      if (candidate.path === parent.path) continue
+      if (!isPathUnderOrEqual(candidate.path, parent.path)) continue
+      if (isCoverageBrokenByExclusion(candidate.path, parent.path, excludePaths, homeDir)) continue
+      covered = true
+      break
+    }
+    if (!covered) accepted.push(candidate)
+  }
+  return accepted
+}
+
 // The one function both search providers actually consume (via
 // FileSearchProvider.qml's own effectiveExtraRoots) -- everything
 // EXCEPT Home: enabled auto-discovered mounts (skipping anything in

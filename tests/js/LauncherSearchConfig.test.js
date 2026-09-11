@@ -222,4 +222,87 @@ check("rootExactlyExcluded: false for a root with no matching exclusion at all",
 check("rootExactlyExcluded: false when excludePaths is empty",
   M.rootExactlyExcluded("/home/dev", [], "/home/dev"), false);
 
+// ---- compactRoots / isPathUnderOrEqual / isCoverageBrokenByExclusion (issue #65) --
+
+function key(path, policyKey) { return { path: path, policyKey: policyKey || "any" }; }
+function paths(compacted) { return compacted.map(function(r) { return r.path; }); }
+
+check("isPathUnderOrEqual: a path equal to the parent is under-or-equal",
+  M.isPathUnderOrEqual("/home/dev", "/home/dev"), true);
+check("isPathUnderOrEqual: a real subtree is under-or-equal",
+  M.isPathUnderOrEqual("/home/dev/Work/deep", "/home/dev/Work"), true);
+check("isPathUnderOrEqual: a sibling sharing a name PREFIX is NOT under-or-equal -- "
+  + "/home/dev/Work must not be treated as a parent of /home/dev/Workspace",
+  M.isPathUnderOrEqual("/home/dev/Workspace", "/home/dev/Work"), false);
+check("isPathUnderOrEqual: an unrelated path is not under-or-equal",
+  M.isPathUnderOrEqual("/mnt/USB", "/home/dev"), false);
+
+check("isCoverageBrokenByExclusion: an exclusion inside the parent that contains the "
+  + "candidate breaks coverage",
+  M.isCoverageBrokenByExclusion("/home/dev/VMs/disk.img", "/home/dev", ["/home/dev/VMs"], "/home/dev"),
+  true);
+check("isCoverageBrokenByExclusion: an exclusion outside the parent has no bearing on it",
+  M.isCoverageBrokenByExclusion("/home/dev/Work/file", "/home/dev/Work", ["/mnt/USB"], "/home/dev"),
+  false);
+check("isCoverageBrokenByExclusion: an exclusion inside the parent but NOT covering this "
+  + "candidate (a sibling subtree) doesn't break THIS candidate's own coverage",
+  M.isCoverageBrokenByExclusion("/home/dev/Work/file", "/home/dev", ["/home/dev/VMs"], "/home/dev"),
+  false);
+check("isCoverageBrokenByExclusion: no exclusions configured never breaks coverage",
+  M.isCoverageBrokenByExclusion("/home/dev/Work", "/home/dev", [], "/home/dev"), false);
+
+check("compactRoots: a custom root that's really a subtree of Home is dropped, keeping Home",
+  paths(M.compactRoots([key("/home/dev"), key("/home/dev/Projects")], { homeDir: "/home/dev" })),
+  ["/home/dev"]);
+check("compactRoots: unrelated separate mounts all survive independently",
+  paths(M.compactRoots([key("/home/dev"), key("/mnt/USB"), key("/mnt/Work")], { homeDir: "/home/dev" })).sort(),
+  ["/home/dev", "/mnt/USB", "/mnt/Work"].sort());
+check("compactRoots: a sibling sharing a name prefix is NOT absorbed -- "
+  + "/home/dev/Work must not swallow /home/dev/Workspace",
+  paths(M.compactRoots([key("/home/dev/Work"), key("/home/dev/Workspace")], { homeDir: "/home/dev" })).sort(),
+  ["/home/dev/Work", "/home/dev/Workspace"].sort());
+check("compactRoots: exact duplicate roots are deduped to one",
+  paths(M.compactRoots([key("/home/dev"), key("/home/dev"), key("/home/dev")], { homeDir: "/home/dev" })),
+  ["/home/dev"]);
+check("compactRoots: input order doesn't matter -- child-before-parent still compacts correctly",
+  paths(M.compactRoots([key("/home/dev/Projects"), key("/home/dev")], { homeDir: "/home/dev" })),
+  ["/home/dev"]);
+check("compactRoots: a single root is returned unchanged (the explicit-source-filter case -- "
+  + "nothing to compact against)",
+  paths(M.compactRoots([key("/home/dev/Projects")], { homeDir: "/home/dev" })),
+  ["/home/dev/Projects"]);
+check("compactRoots: an empty list returns an empty list",
+  paths(M.compactRoots([], { homeDir: "/home/dev" })), []);
+check("compactRoots: two roots with DIFFERENT policyKeys never merge even when one nests "
+  + "inside the other -- preserves the local/remote policy boundary",
+  paths(M.compactRoots(
+    [key("/home/dev", "local"), key("/home/dev/rclone-mount", "remote")],
+    { homeDir: "/home/dev" }
+  )).sort(),
+  ["/home/dev", "/home/dev/rclone-mount"].sort());
+check("compactRoots: a nested custom root that's excluded from its own parent's traversal "
+  + "stays a real, separate root -- the parent no longer actually covers it (issue #65's "
+  + "own explicit example)",
+  paths(M.compactRoots(
+    [key("/home/dev"), key("/home/dev/VMs")],
+    { excludePaths: ["/home/dev/VMs"], homeDir: "/home/dev" }
+  )).sort(),
+  ["/home/dev", "/home/dev/VMs"].sort());
+check("compactRoots: transitive coverage -- a deeply nested root is absorbed by the "
+  + "top-level ancestor even with an unrelated middle root in between",
+  paths(M.compactRoots(
+    [key("/home/dev"), key("/home/dev/a/b/c"), key("/mnt/USB")],
+    { homeDir: "/home/dev" }
+  )).sort(),
+  ["/home/dev", "/mnt/USB"].sort());
+check("compactRoots: paths with spaces and Unicode compact correctly",
+  paths(M.compactRoots(
+    [key("/home/dev/My Documents"), key("/home/dev/My Documents/résumé café")],
+    { homeDir: "/home/dev" }
+  )),
+  ["/home/dev/My Documents"]);
+check("compactRoots: ~ expansion is applied before comparing paths",
+  paths(M.compactRoots([key("~"), key("~/Projects")], { homeDir: "/home/dev" })),
+  ["/home/dev"]);
+
 summary();

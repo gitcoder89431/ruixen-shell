@@ -456,6 +456,16 @@ Item {
     root.rootSearchQueue = root.rootSearchQueue.filter(function(r) {
       return !LauncherSearchConfig.rootExactlyExcluded(r, root.excludePaths, root.homeDir)
     })
+    // Issue #65: same compaction as FileSearchProvider's own -- see its
+    // comment for the full reasoning. One constant policyKey is safe
+    // here too: every root remaining in this queue is already local-only
+    // by this point (the isLocalFstype filtering above already ran), so
+    // there's no remote root left that compaction could accidentally
+    // widen content-search policy for by merging it under a local parent.
+    root.rootSearchQueue = LauncherSearchConfig.compactRoots(
+      root.rootSearchQueue.map(function(p) { return { path: p, policyKey: "local" } }),
+      { excludePaths: root.excludePaths, homeDir: root.homeDir }
+    ).map(function(r) { return r.path })
     // Issue #61: see FileSearchProvider's own identical comment -- an
     // empty effective root set means no worker starts, so
     // publishPendingMatches() (normally only reached via a real

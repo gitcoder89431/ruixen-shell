@@ -587,6 +587,21 @@ Item {
     root.rootSearchQueue = root.rootSearchQueue.filter(function(r) {
       return !LauncherSearchConfig.rootExactlyExcluded(r, root.searchConfig.excludePaths, root.homeDir)
     })
+    // Issue #65: compact overlapping/nested roots (e.g. Home enabled
+    // alongside a custom root that's really just one of Home's own
+    // subdirectories) into the minimal covering set before scheduling
+    // workers -- the covering root's own traversal already reaches
+    // everything a nested one would, so searching both is pure wasted
+    // filesystem work. One constant policyKey for every root here --
+    // filename search doesn't distinguish local/remote at all (#53's own
+    // policy split only applies to automatic CONTENT search), so nothing
+    // stops any two roots here from compacting together regardless of
+    // fstype. Applied AFTER the rootExactlyExcluded filter above, not
+    // before -- see compactRoots' own comment for why the order matters.
+    root.rootSearchQueue = LauncherSearchConfig.compactRoots(
+      root.rootSearchQueue.map(function(p) { return { path: p, policyKey: "any" } }),
+      { excludePaths: root.searchConfig.excludePaths, homeDir: root.homeDir }
+    ).map(function(r) { return r.path })
     // Issue #61: an empty effective root set (Home off, nothing else
     // configured/enabled) means no worker will ever start, so
     // publishRootResults() -- normally only called from a real worker's

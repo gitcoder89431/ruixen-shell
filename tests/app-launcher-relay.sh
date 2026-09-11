@@ -140,6 +140,13 @@ check "FileContentSearchProvider.qml's runSearch skips a root that exactly match
 check "FileContentSearchProvider.qml forces workingDirectory \"/\" on all 4 worker Process objects" \
   "$(grep -c 'workingDirectory: "/"' "$rcontent_search")" "4"
 
+# --- Issue #65: overlapping/nested roots compacted before scheduling ----
+
+check "FileSearchProvider.qml's runSearch compacts its root list before scheduling" \
+  "$(grep -c 'LauncherSearchConfig\.compactRoots(' "$rfiles_search")" "1"
+check "FileContentSearchProvider.qml's runSearch compacts its root list before scheduling" \
+  "$(grep -c 'LauncherSearchConfig\.compactRoots(' "$rcontent_search")" "1"
+
 # --- AppLibrary.qml wraps the real, unaffected Quickshell type ----------
 
 check "sortedEntries reads Quickshell's own DesktopEntries singleton" \

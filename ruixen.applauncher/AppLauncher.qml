@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Ui
-import qs.Commons
 
 // Separate from omarchy.menu's own icon on purpose -- that one stays wired
 // to Super+Space via the stock omarchy-menu CLI (can't be touched, see
@@ -43,17 +42,15 @@ BarWidget {
     // repo -- confirmed present in JetBrainsMonoNerdFont's own cmap
     // directly, not guessed.
     text: ""
-    // Color.accent, not the new primary/themeGreen token -- direct
-    // follow-up after `primary` was confirmed stuck on the PREVIOUS
-    // theme's green through a rapid Ristretto -> Everforest -> Vantablack
-    // switch ("when switching to vanta black its still stuck in green"),
-    // plus a plain taste call once it stopped being stuck ("it feels
-    // wierd staying greenish"). Color.accent already has its own live-
-    // update path baked into the host shell (confirmed: it tracked every
-    // one of those switches correctly, unlike ThemeColors.qml's own
-    // FileView-based reload) and reads as this icon's own natural color
-    // regardless -- same token the workspace switcher's focused dot uses.
-    foreground: Color.accent
+    // No custom `foreground` override -- back to BarIconButton's own
+    // plain default (bar.barForeground/Color.foreground), same as every
+    // other static bar icon. Direct follow-up after trying both
+    // primary/themeGreen and Color.accent here: coloring every always-on
+    // decorative icon (this one, plugins, settings, info) would turn
+    // accent into visual noise instead of a real signal -- "i feel like
+    // thats a bit too much accent... maybe best arch just stays surface
+    // white or yellow? seems most balance". Accent stays reserved for
+    // actual state (the workspace switcher's focused dot).
     tooltipText: "App Launcher"
     onPressed: function() { root.toggleLauncher() }
   }

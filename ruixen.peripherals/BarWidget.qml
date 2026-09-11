@@ -32,6 +32,16 @@ BarWidget {
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
+  // See ThemeColors.qml's own comment -- direct request, following the
+  // primary/accent-on-every-icon discussion: static decorative icons
+  // (Arch logo, plugins, settings, info) stay plain foreground, but
+  // battery level is real state, the one place a semantic color
+  // genuinely earns its keep ("the exception of battery being the
+  // colortheme we use for green yellow and red"). Uses this theme's OWN
+  // red/yellow/green (not fixed hex values) so a critically-low reading
+  // still looks like THIS theme's red, not a hardcoded clash.
+  ThemeColors { id: themeColors }
+
   // Reads Service.qml's own state file directly instead of
   // bar.shell.firstPartyServiceFor("ruixen.peripherals") -- ruixen-shell
   // issue #40/#38: Omarchy v4.0.3 restricts that call to a fixed 4-item
@@ -154,10 +164,17 @@ BarWidget {
   // charged," not a configurable-threshold/notification system (that's
   // the source plugin's own separate feature, not asked for here).
   readonly property int lowBatteryPercent: 20
+  // Same convention as most OS battery indicators (a two-way red/not-red
+  // cue read as too coarse once this became a real 3-tier scheme) --
+  // below lowBatteryPercent is red, below this is yellow, everything
+  // above reads as green/healthy.
+  readonly property int mediumBatteryPercent: 50
 
   function percentColor(device) {
     if (!device || !device.available) return Color.muted
-    return device.level < root.lowBatteryPercent ? Color.urgent : root.foreground
+    if (device.level < root.lowBatteryPercent) return themeColors.red
+    if (device.level < root.mediumBatteryPercent) return themeColors.yellow
+    return themeColors.green
   }
 
   property bool popupOpen: false
@@ -170,6 +187,11 @@ BarWidget {
     id: button
     bar: root.bar
     text: root.mainText(root.selectedDevice)
+    // Same theme-green/yellow/red tiers as the dropdown row's own
+    // percentage text -- the main bar icon is the one most people
+    // actually glance at, so it should carry the same at-a-glance charge
+    // cue the dropdown already had, not just the popup.
+    foreground: root.percentColor(root.selectedDevice)
     // Smaller than the default icon font (13px) -- direct follow-up:
     // "the numbers are kinda big, maybe abit smaller font size and more
     // compact." Only actually matters for the percent-text case; a

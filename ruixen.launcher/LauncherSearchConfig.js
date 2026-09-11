@@ -112,6 +112,78 @@ function isUnderAnyExcludedPath(path, excludePaths, homeDir) {
   return false
 }
 
+// Issue #64: isUnderAnyExcludedPath above only ever filtered the ROOT
+// LIST itself (a whole mount/custom root that IS or is under an
+// exclusion never gets added as a root at all) -- it says nothing about
+// constraining fd/rg's own traversal WITHIN a root that stays active,
+// e.g. excluding "~/VMs" while Home ("~") is still an enabled root.
+// Filtering only the root list is insufficient for that case: Home
+// remains a valid, still-searched root, and fd/rg can freely recurse
+// into ~/VMs unless told not to.
+//
+// fd and rg's own glob-exclude semantics were confirmed live to NOT be
+// interchangeable for anchoring an absolute subtree (the issue's own
+// explicit warning, verified rather than assumed):
+//   - fd's `--exclude` with a leading "/" anchors to the SEARCH ROOT
+//     argument itself, independent of the process's own cwd --
+//     `fd --exclude '/VMs' . /tmp/x` only ever excludes /tmp/x/VMs, never
+//     /tmp/x/keep/VMs, regardless of which directory fd was launched from.
+//   - rg's `-g` glob anchoring instead follows plain gitignore semantics
+//     relative to the PROCESS's own cwd, NOT the search-root positional
+//     argument -- the identical pattern `-g '!/VMs'` given the exact same
+//     root argument matched nothing at all when rg's cwd differed from
+//     that root. Pairing an ABSOLUTE glob (the full escaped path) with
+//     cwd forced to "/" made it anchor correctly regardless of which
+//     root is being searched -- see FileContentSearchProvider.qml's own
+//     comment on its worker Process objects for where that cwd is set.
+var GLOB_SPECIAL_RE = /[\\*?\[\]]/g
+
+// Escapes fd/ripgrep's shared gitignore-style glob metacharacters (\, *,
+// ?, [, ]) so a literal excluded name/path segment that happens to
+// contain one of them can't be misread as glob syntax -- e.g. a real
+// directory literally named "foo[bar]" must exclude exactly that, not
+// match "foo" followed by a single character from the class "bar".
+function escapeGlobLiteral(text) {
+  return String(text || "").replace(GLOB_SPECIAL_RE, "\\$&")
+}
+
+// Translates ONE configured excludePaths entry into what it means for
+// ONE specific worker root -- null if the exclusion has no bearing on
+// this root at all (lies outside it entirely, so this worker needs no
+// extra argument for it), { skip: true } if the exclusion IS this root
+// exactly (the caller should skip launching a worker for it altogether
+// rather than spawning fd/rg only to exclude everything beneath it --
+// see runSearch()'s own use of rootExactlyExcluded below), or glob-
+// escaped fragments for a genuine subtree exclusion under this root:
+// `relative` (fd's own anchoring input, leading "/", root-relative) and
+// `absolute` (rg's own anchoring input, paired with cwd "/") are both
+// derived from the same containment check so the two providers can
+// never disagree about which paths are actually excluded.
+function excludeInfoForRoot(excludedPath, rootPath, homeDir) {
+  var ex = normalizePath(excludedPath, homeDir)
+  var rootNorm = normalizePath(rootPath, homeDir)
+  if (!ex || !rootNorm) return null
+  if (ex === rootNorm) return { skip: true }
+  if (ex.indexOf(rootNorm + "/") !== 0) return null
+  return {
+    skip: false,
+    relative: escapeGlobLiteral(ex.substring(rootNorm.length)),
+    absolute: escapeGlobLiteral(ex)
+  }
+}
+
+// Whether `path`, about to be searched as a WHOLE worker root, exactly
+// matches one of the configured excludePaths entries -- reuses
+// excludeInfoForRoot's own normalization so this can never disagree with
+// the per-root subtree logic above about what "exactly excluded" means.
+function rootExactlyExcluded(path, excludePaths, homeDir) {
+  for (var i = 0; i < excludePaths.length; i++) {
+    var info = excludeInfoForRoot(excludePaths[i], path, homeDir)
+    if (info && info.skip) return true
+  }
+  return false
+}
+
 // The one function both search providers actually consume (via
 // FileSearchProvider.qml's own effectiveExtraRoots) -- everything
 // EXCEPT Home: enabled auto-discovered mounts (skipping anything in

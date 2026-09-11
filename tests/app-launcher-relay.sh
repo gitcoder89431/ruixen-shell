@@ -54,6 +54,15 @@ peripherals_theme_colors="$repo_dir/ruixen.peripherals/ThemeColors.qml"
 launcher_qml="$repo_dir/ruixen.notch/LauncherContent.qml"
 overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
 pinned_widget="$repo_dir/ruixen.pinnedapps/BarWidget.qml"
+# Issue #64: static/provider-level coverage that configured exclusions
+# actually reach fd/rg's own argv, alongside LauncherSearchConfig.test.js's
+# own pure unit tests for the underlying normalization logic -- neither
+# provider's own buildFdArgs/buildRgArgs is a plain JS module `require()`
+# can load (both live inside a QML Item), so this is a grep-based static
+# check on the real source instead, same convention this file's own
+# "no leftover restricted API calls" section above already uses.
+rfiles_search="$repo_dir/ruixen.launcher/FileSearchProvider.qml"
+rcontent_search="$repo_dir/ruixen.launcher/FileContentSearchProvider.qml"
 
 pass=0
 fail_count=0
@@ -97,6 +106,39 @@ check "ruixen.bar/ThemeColors.qml exists" "$([[ -f "$bar_theme_colors" ]] && ech
 check "ruixen.peripherals/ThemeColors.qml exists" "$([[ -f "$peripherals_theme_colors" ]] && echo yes)" "yes"
 check "the two ThemeColors.qml copies are byte-identical (plugin folders can't share a file)" \
   "$(diff -q "$bar_theme_colors" "$peripherals_theme_colors" >/dev/null 2>&1 && echo same || echo different)" "same"
+
+# --- Issue #64: configured exclusions actually reach fd/rg argv ---------
+
+# The old hardcoded lists must be GONE, not just supplemented -- a
+# leftover excludeDirs property reading would mean buildFdArgs/buildRgArgs
+# could still silently ignore the shared config for names.
+check "FileSearchProvider.qml has no leftover hardcoded excludeDirs property" \
+  "$(grep -c 'property var excludeDirs' "$rfiles_search" || true)" "0"
+check "FileContentSearchProvider.qml has no leftover hardcoded excludeDirs property" \
+  "$(grep -c 'property var excludeDirs' "$rcontent_search" || true)" "0"
+
+check "FileSearchProvider.qml's buildFdArgs reads config.excludeNames, not a hardcoded list" \
+  "$(grep -c 'searchConfig\.excludeNames' "$rfiles_search")" "1"
+check "FileContentSearchProvider.qml's buildRgArgs reads config.excludeNames via its own bound property" \
+  "$(grep -c 'root\.excludeNames' "$rcontent_search")" "1"
+
+check "FileSearchProvider.qml's buildFdArgs applies excludeInfoForRoot for subtree excludePaths" \
+  "$(grep -c 'LauncherSearchConfig\.excludeInfoForRoot' "$rfiles_search")" "1"
+check "FileContentSearchProvider.qml's buildRgArgs applies excludeInfoForRoot for subtree excludePaths" \
+  "$(grep -c 'LauncherSearchConfig\.excludeInfoForRoot' "$rcontent_search")" "1"
+
+check "FileSearchProvider.qml's runSearch skips a root that exactly matches an exclusion" \
+  "$(grep -c 'LauncherSearchConfig\.rootExactlyExcluded(' "$rfiles_search")" "1"
+check "FileContentSearchProvider.qml's runSearch skips a root that exactly matches an exclusion" \
+  "$(grep -c 'LauncherSearchConfig\.rootExactlyExcluded(' "$rcontent_search")" "1"
+
+# Confirmed live (see LauncherSearchConfig.js's own excludeInfoForRoot
+# comment): rg's own -g glob anchoring follows the PROCESS's cwd, not the
+# search-root argument the way fd's --exclude does -- every one of the 4
+# worker Process objects must force cwd to "/" for an absolute exclude
+# glob to anchor correctly regardless of which root is being searched.
+check "FileContentSearchProvider.qml forces workingDirectory \"/\" on all 4 worker Process objects" \
+  "$(grep -c 'workingDirectory: "/"' "$rcontent_search")" "4"
 
 # --- AppLibrary.qml wraps the real, unaffected Quickshell type ----------
 

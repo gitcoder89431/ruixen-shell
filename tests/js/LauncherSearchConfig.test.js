@@ -176,4 +176,50 @@ check("discoverMountedRoots: real system mounts (/, /boot) are excluded",
 check("discoverMountedRoots: malformed JSON returns an empty list, not a throw",
   M.discoverMountedRoots("not json"), []);
 
+// ---- escapeGlobLiteral (issue #64) ------------------------------------------
+
+check("escapeGlobLiteral: a plain name with no special characters is unchanged",
+  M.escapeGlobLiteral("node_modules"), "node_modules");
+check("escapeGlobLiteral: glob metacharacters (\\, *, ?, [, ]) are each backslash-escaped",
+  M.escapeGlobLiteral("foo[bar]*?\\baz"), "foo\\[bar\\]\\*\\?\\\\baz");
+check("escapeGlobLiteral: a leading ! is left alone -- only * ? [ ] \\ are glob-special here",
+  M.escapeGlobLiteral("!important"), "!important");
+check("escapeGlobLiteral: null/undefined is treated as an empty string, not a throw",
+  M.escapeGlobLiteral(undefined), "");
+
+// ---- excludeInfoForRoot / rootExactlyExcluded (issue #64) -------------------
+
+check("excludeInfoForRoot: an exclusion equal to the worker root itself is a full skip",
+  M.excludeInfoForRoot("/home/dev/VMs", "/home/dev/VMs", "/home/dev"),
+  { skip: true });
+check("excludeInfoForRoot: ~ expansion applies before the equality check",
+  M.excludeInfoForRoot("~/VMs", "/home/dev/VMs", "/home/dev"),
+  { skip: true });
+check("excludeInfoForRoot: a genuine subtree under the root returns root-relative and "
+  + "absolute glob fragments",
+  M.excludeInfoForRoot("/home/dev/VMs", "/home/dev", "/home/dev"),
+  { skip: false, relative: "/VMs", absolute: "/home/dev/VMs" });
+check("excludeInfoForRoot: an exclusion outside this root entirely has no effect on it",
+  M.excludeInfoForRoot("/mnt/USB/VMs", "/home/dev", "/home/dev"), null);
+check("excludeInfoForRoot: a sibling directory sharing a name PREFIX is not treated as "
+  + "under the root -- /home/dev/Work must not swallow /home/dev/Workspace",
+  M.excludeInfoForRoot("/home/dev/Workspace", "/home/dev/Work", "/home/dev"), null);
+check("excludeInfoForRoot: the returned fragments are glob-escaped, not just substringed",
+  M.excludeInfoForRoot("/home/dev/foo[bar]", "/home/dev", "/home/dev"),
+  { skip: false, relative: "/foo\\[bar\\]", absolute: "/home/dev/foo\\[bar\\]" });
+check("excludeInfoForRoot: a trailing slash on either input doesn't change the outcome",
+  M.excludeInfoForRoot("/home/dev/VMs/", "/home/dev/", "/home/dev"),
+  { skip: false, relative: "/VMs", absolute: "/home/dev/VMs" });
+
+check("rootExactlyExcluded: true when the root exactly matches a configured exclusion",
+  M.rootExactlyExcluded("/home/dev/VMs", ["/home/dev/VMs"], "/home/dev"), true);
+check("rootExactlyExcluded: false for a root that's merely a PARENT of an exclusion "
+  + "(the exclusion is a subtree of it, not equal to it -- this root should still run, "
+  + "just with that subtree excluded)",
+  M.rootExactlyExcluded("/home/dev", ["/home/dev/VMs"], "/home/dev"), false);
+check("rootExactlyExcluded: false for a root with no matching exclusion at all",
+  M.rootExactlyExcluded("/home/dev", ["/mnt/USB"], "/home/dev"), false);
+check("rootExactlyExcluded: false when excludePaths is empty",
+  M.rootExactlyExcluded("/home/dev", [], "/home/dev"), false);
+
 summary();

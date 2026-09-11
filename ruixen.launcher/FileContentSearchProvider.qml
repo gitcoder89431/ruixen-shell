@@ -11,6 +11,9 @@ import "FileSearchRanking.js" as FileSearchRanking
 // Issue #58: same pure worker-pool/reuse-safety logic FileSearchProvider
 // uses -- see WorkerPool.js's own header for the full "why".
 import "WorkerPool.js" as WorkerPool
+// Issue #64: excludeInfoForRoot/escapeGlobLiteral -- the same shared
+// exclusion-translation logic FileSearchProvider's own buildFdArgs uses.
+import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Provider: matches INSIDE file contents (ripgrep), not filenames --
 // the "search by context" follow-up to FileSearchProvider's own
@@ -76,6 +79,23 @@ Item {
     root.rootGeneration++
     if (root.query.trim()) debounceTimer.restart()
   }
+  // Issue #64: same single-source-of-truth convention as extraRoots/
+  // includeHome above -- bound from FileSearchProvider's own
+  // searchConfig.excludeNames/.excludePaths rather than this provider
+  // maintaining a second copy of the config-loading FileView. Feed
+  // directly into buildRgArgs below; the onChanged handlers mirror
+  // includeHome's own reasoning -- either can change what an ACTIVE
+  // search should exclude even when the root SET itself doesn't move.
+  property var excludeNames: []
+  onExcludeNamesChanged: {
+    root.rootGeneration++
+    if (root.query.trim()) debounceTimer.restart()
+  }
+  property var excludePaths: []
+  onExcludePathsChanged: {
+    root.rootGeneration++
+    if (root.query.trim()) debounceTimer.restart()
+  }
 
   property string pendingQuery: ""
   property string pendingSearchIdentity: ""
@@ -110,17 +130,16 @@ Item {
     return ContentSearchRanking.classifyRgExitCode(exitCode)
   }
 
-  // Confirmed live (this exact query -- rg's own glob semantics differ
-  // from fd's): a bare directory name ("go") excludes it at ANY depth,
-  // gitignore-style, but a multi-segment pattern ("go/pkg/mod" or
-  // "go/pkg/mod/**", fd's own excludeDirs entry) silently matches
-  // NOTHING for rg -- confirmed both forms leaked real go/pkg/mod
-  // results through before landing on this. Excluding the whole go/
-  // tree here (not just pkg/mod) is deliberately broader than
-  // FileSearchProvider's own list -- vendored Go module source is
-  // exactly the kind of noisy, non-personal content nobody wants
-  // surfacing in a content search, more so than in a filename search.
-  readonly property var excludeDirs: ["node_modules", "vendor", "target", "go"]
+  // Issue #64: this provider's own separate excludeDirs (deliberately
+  // BROADER than FileSearchProvider's pre-#64 list -- excluding the
+  // whole "go" tree, not just "go/pkg/mod", since a multi-segment
+  // pattern silently matches nothing for rg's own gitignore-style globs,
+  // confirmed live) is retired in favor of the single shared
+  // config.excludeNames both providers now read -- see buildRgArgs
+  // below. Its default value ("go", not "go/pkg/mod") already matches
+  // this provider's own former broader policy, so unifying the two
+  // providers under one config didn't narrow anything -- see
+  // LauncherSearchConfig.js's own defaultConfig() comment.
 
   // Debounced separately from (and longer than) FileSearchProvider's
   // own 150ms -- measured directly, not guessed: ripgrep content-
@@ -270,8 +289,32 @@ Item {
     // hidden files are off (rg wouldn't walk into it anyway), required
     // once they're on.
     if (root.hiddenEnabled) args.push("--hidden")
-    for (var i = 0; i < root.excludeDirs.length; i++) args.push("-g", "!" + root.excludeDirs[i])
+    // Issue #64: config.excludeNames is now the single authoritative
+    // name-exclusion list shared with FileSearchProvider -- see this
+    // provider's own retired excludeDirs comment above. ".git" stays
+    // forced on separately, unconditionally, same reasoning as
+    // FileSearchProvider's own identical line.
+    var names = root.excludeNames
+    for (var i = 0; i < names.length; i++) args.push("-g", "!" + LauncherSearchConfig.escapeGlobLiteral(names[i]))
     args.push("-g", "!.git")
+    // Issue #64: config.excludePaths subtree exclusions. Confirmed live
+    // that rg's own `-g` glob anchoring is relative to the PROCESS's cwd,
+    // NOT the search-root positional argument the way fd's `--exclude`
+    // is -- the identical pattern `-g '!/VMs'` given the exact same root
+    // argument matched nothing when rg's cwd differed from that root.
+    // excludeInfoForRoot's own `absolute` field (the full escaped path,
+    // not a root-relative fragment) is paired with cwd forced to "/" on
+    // this provider's own worker Process objects below, so the anchor
+    // point is always the real filesystem root regardless of which
+    // search root is being walked. The "exclusion equals this whole
+    // root" case is handled in runSearch()'s own rootExactlyExcluded
+    // filter -- a root that would hit `skip: true` here never reaches
+    // buildRgArgs at all.
+    var paths = root.excludePaths
+    for (var j = 0; j < paths.length; j++) {
+      var info = LauncherSearchConfig.excludeInfoForRoot(paths[j], rootPath, root.homeDir)
+      if (info && !info.skip) args.push("-g", "!" + info.absolute)
+    }
     args.push("--", query, rootPath)
     return args
   }
@@ -406,6 +449,13 @@ Item {
       }
       root.rootSearchQueue = roots
     }
+    // Issue #64: see FileSearchProvider's own identical filter -- Home
+    // exactly matching a configured excludePaths entry is the one case
+    // the extraRoots/isLocalFstype filtering above can't already catch
+    // (a fully-excluded custom root never reaches extraRoots at all).
+    root.rootSearchQueue = root.rootSearchQueue.filter(function(r) {
+      return !LauncherSearchConfig.rootExactlyExcluded(r, root.excludePaths, root.homeDir)
+    })
     // Issue #61: see FileSearchProvider's own identical comment -- an
     // empty effective root set means no worker starts, so
     // publishPendingMatches() (normally only reached via a real
@@ -468,6 +518,16 @@ Item {
   // kills cleanly and still lets whatever already ran finish normally).
   Process {
     id: contentWorker0
+    // Issue #64: forced to filesystem root, not left at the shell's own
+    // default cwd -- required for buildRgArgs' own absolute-path glob
+    // excludes (excludeInfoForRoot's `absolute` field) to anchor
+    // correctly. Confirmed live: rg's own `-g` glob anchoring is
+    // relative to the PROCESS's cwd, not the search-root positional
+    // argument the way fd's `--exclude` is, so without this an
+    // absolute-looking exclude pattern would silently anchor to
+    // whatever cwd this Process happened to inherit instead of "/".
+    // Same on all four worker Process objects below.
+    workingDirectory: "/"
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -487,6 +547,7 @@ Item {
   }
   Process {
     id: contentWorker1
+    workingDirectory: "/"
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -506,6 +567,7 @@ Item {
   }
   Process {
     id: contentWorker2
+    workingDirectory: "/"
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return
@@ -525,6 +587,7 @@ Item {
   }
   Process {
     id: contentWorker3
+    workingDirectory: "/"
     stdout: SplitParser {
       onRead: function(line) {
         if (root.pendingSearchIdentity !== root.searchIdentity()) return

@@ -362,6 +362,12 @@ Item {
     // user's config actually means, this provider just inherits it.
     extraRoots: fileSearchProvider.effectiveExtraRoots
     includeHome: fileSearchProvider.searchConfig.includeHome
+    // Issue #64: same single-source-of-truth reasoning as extraRoots/
+    // includeHome above -- FileSearchProvider already owns the config
+    // FileView, this provider just inherits the same excludeNames/
+    // excludePaths it reads rather than loading a second copy.
+    excludeNames: fileSearchProvider.searchConfig.excludeNames
+    excludePaths: fileSearchProvider.searchConfig.excludePaths
   }
 
   readonly property var providers: [

@@ -53,10 +53,6 @@ Item {
   property var lastResults: []
 
   readonly property string homeDir: Quickshell.env("HOME") || ""
-  // Heavy, rarely-what-you-want directories worth skipping even though
-  // they're not dotfiles -- fd already skips hidden dirs (.cache,
-  // .git, .config, ...) by default, no flag needed for those.
-  readonly property var excludeDirs: ["node_modules", "vendor", "target", "go/pkg/mod"]
 
   // Extra fd search roots for mounted secondary drives (an internal
   // HDD, a plugged-in USB stick, ...) -- auto-discovered rather than
@@ -140,6 +136,19 @@ Item {
   // without the query text itself changing (a config edit lands here
   // even when extraRoots itself didn't move at all).
   onEffectiveExtraRootsChanged: {
+    root.rootGeneration++
+    if (root.query.trim()) debounceTimer.restart()
+  }
+  // Issue #64: excludeNames/excludePaths feed directly into buildFdArgs
+  // (constraining traversal WITHIN a root, not just which roots exist at
+  // all) -- editing either in Ruixen Settings can change what an ACTIVE
+  // search should return even when effectiveExtraRoots itself doesn't
+  // move at all (e.g. adding "~/VMs" to excludePaths while Home stays
+  // the same enabled root throughout). Without this, that edit would
+  // only take effect on the NEXT query typed from scratch, not the
+  // current in-flight/just-completed one -- the issue's own explicit
+  // acceptance criterion is that it takes effect immediately.
+  onSearchConfigChanged: {
     root.rootGeneration++
     if (root.query.trim()) debounceTimer.restart()
   }
@@ -401,8 +410,37 @@ Item {
     // same way -- without this, enabling hidden files would flood
     // results with git's own internal object tree.
     if (root.hiddenEnabled) args.push("--hidden")
-    for (var i = 0; i < root.excludeDirs.length; i++) args.push("--exclude", root.excludeDirs[i])
+    // Issue #64: config.excludeNames (Ruixen Settings' own Launcher page)
+    // is now the single authoritative name-exclusion list for both this
+    // provider and FileContentSearchProvider -- no more separate
+    // hardcoded excludeDirs of its own. Escaped per name (see
+    // LauncherSearchConfig.js's own escapeGlobLiteral) so a literal
+    // directory name containing a glob metacharacter can't be misread as
+    // glob syntax. ".git" stays forced on separately, unconditionally --
+    // a user removing it from their own excludeNames must not reopen the
+    // "hidden files flood results with git's own internal object tree"
+    // bug this already protects against.
+    var names = root.searchConfig.excludeNames
+    for (var i = 0; i < names.length; i++) args.push("--exclude", LauncherSearchConfig.escapeGlobLiteral(names[i]))
     args.push("--exclude", ".git")
+    // Issue #64: config.excludePaths used to only filter the ROOT LIST
+    // (computeEffectiveExtraRoots, for a mount/custom root that IS or is
+    // under an exclusion) -- it never actually constrained traversal
+    // WITHIN a root that stays active, e.g. excluding "~/VMs" while Home
+    // is still enabled. excludeInfoForRoot translates each configured
+    // exclusion into what THIS specific root needs: nothing if the
+    // exclusion lies outside this root entirely, or a root-relative,
+    // leading-"/" anchored --exclude pattern for a genuine subtree under
+    // it (confirmed live: fd anchors a leading-"/" --exclude to the
+    // SEARCH ROOT argument itself, not the process's own cwd). The
+    // "exclusion equals this whole root" case is handled earlier, in
+    // runSearch()'s own rootExactlyExcluded filter -- a root that would
+    // hit `skip: true` here never reaches buildFdArgs at all.
+    var paths = root.searchConfig.excludePaths
+    for (var j = 0; j < paths.length; j++) {
+      var info = LauncherSearchConfig.excludeInfoForRoot(paths[j], rootPath, root.homeDir)
+      if (info && !info.skip) args.push("--exclude", info.relative)
+    }
     args.push("--", candidateTerm, rootPath)
     return args
   }
@@ -537,6 +575,18 @@ Item {
       for (var j = 0; j < root.effectiveExtraRoots.length; j++) roots.push(root.effectiveExtraRoots[j].path)
       root.rootSearchQueue = roots
     }
+    // Issue #64: a mount/custom root that IS (not merely under) an
+    // exclusion already never reaches effectiveExtraRoots at all (see
+    // computeEffectiveExtraRoots' own isUnderAnyExcludedPath check) --
+    // this covers the one remaining case that filter can't: Home itself
+    // exactly matching a configured excludePaths entry. "Where the
+    // exclusion is equal to the worker root itself, skip that root
+    // entirely instead of launching a process only to exclude everything
+    // beneath it" -- applied uniformly here (covers the sourceFilter
+    // branch above too) rather than duplicated per branch.
+    root.rootSearchQueue = root.rootSearchQueue.filter(function(r) {
+      return !LauncherSearchConfig.rootExactlyExcluded(r, root.searchConfig.excludePaths, root.homeDir)
+    })
     // Issue #61: an empty effective root set (Home off, nothing else
     // configured/enabled) means no worker will ever start, so
     // publishRootResults() -- normally only called from a real worker's

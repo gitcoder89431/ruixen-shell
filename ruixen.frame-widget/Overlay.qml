@@ -70,6 +70,56 @@ Item {
         }
     }
 
+    // ruixen.sidepanel's own left-edge exclusive zone -- this frame is a
+    // separate full-screen overlay with no knowledge of that reservation
+    // on its own, so its border/curve stayed put at the physical screen
+    // edge while the panel pushed everything else in. Direct report from
+    // trying that live: "that fucked up our frame pretty badly... can
+    // the frame move in too?" Reads the same on-disk flag
+    // ruixen.sidepanel writes on every toggle (same shared-flag-file
+    // convention as barHidden between ruixen.bar/ruixen.notch, not a
+    // direct cross-plugin call) and runs its OWN local animation off it,
+    // timed to match ruixen.sidepanel's own Behavior (280ms/OutCubic) so
+    // the two edges appear to move together.
+    readonly property string sidepanelStateDir: Quickshell.env("HOME") + "/.local/state/ruixen"
+    readonly property string sidepanelStatePath: root.sidepanelStateDir + "/sidepanel-open"
+    // Mirrors ruixen.sidepanel/Overlay.qml's own panelWidth -- keep in
+    // sync if that one ever changes.
+    readonly property int sidepanelWidth: 320
+    property bool sidepanelOpen: false
+    property real leftInset: 0
+    Behavior on leftInset {
+        // Matches ruixen.sidepanel's own Behavior duration -- keep in
+        // sync if that one changes (direct follow-up after the first
+        // 280ms pass read as stuttery: animating a real exclusive-zone
+        // reservation forces Hyprland to reflow tiled windows on every
+        // step, so fewer/faster steps reads snappier rather than
+        // smoother -- there's no tuning that makes it buttery on top of
+        // real relayout work).
+        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+    }
+    onSidepanelOpenChanged: root.leftInset = root.sidepanelOpen ? root.sidepanelWidth : 0
+
+    // Watches the FILE directly, not its parent directory -- direct bug
+    // hit live ("when i dismiss the panel the desktop frame... stuck in
+    // the middle, it didnt move back out"). barHidden's own directory-
+    // watch trick (see the comment above) only exists because that flag
+    // is a file that gets CREATED/DELETED (touch/rm) -- a directory
+    // watch reliably catches entries appearing/disappearing but not a
+    // plain content overwrite of a file that already exists, which is
+    // exactly what ruixen.sidepanel's toggle does here (same inode,
+    // rewritten 1/0 each time). Watching the file's own path is the
+    // right tool for that -- same reactive FileView convention already
+    // used for dashboardStyle/animationProfile/etc.
+    FileView {
+        path: root.sidepanelStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.sidepanelOpen = text().trim() === "1"
+        onLoadFailed: root.sidepanelOpen = false
+        onFileChanged: reload()
+    }
+
     Component.onCompleted: {
         readLookAndFeelVariant.running = true
         readBarMode.running = true
@@ -93,6 +143,16 @@ Item {
         id: panel
         visible: !root.fullscreenActive
         anchors { top: true; bottom: true; left: true; right: true }
+        // Shrinks this surface's own left edge inward to match
+        // ruixen.sidepanel's reservation, instead of painting over it --
+        // this window's canvas simply doesn't extend into that region
+        // any more, same technique ruixen.bar/ruixen.sidepanel already
+        // use to move their own edges (a live layer-shell margin), not a
+        // second hole punched into this one's own opaque fill (that
+        // approach painted a big solid rectangle straight over the
+        // panel's content instead, since this surface sits on
+        // WlrLayer.Overlay, above the panel's own WlrLayer.Top).
+        margins.left: root.leftInset
         color: "transparent"
 
         WlrLayershell.namespace: "ruixen-frame-widget"
@@ -149,6 +209,10 @@ Item {
                 ctx.fillRect(0, 0, width, height);
 
                 ctx.globalCompositeOperation = "destination-out";
+                // No leftInset term here -- the PanelWindow's own
+                // margins.left (see above) already moved this whole
+                // surface's local (0,0) in to match, so plain
+                // root.thickness on every side is still correct.
                 roundedRect(
                     ctx,
                     root.thickness,

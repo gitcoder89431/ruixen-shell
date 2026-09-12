@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.sidepanel",
+  "name": "Ruixen Side Panel",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Prototype: a left-edge workspace-monitor panel that reserves real screen space (windows resize away from it) and slides in/out on a keybind, eDEX-style, instead of floating above windows like the notch.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Overlay.qml"
+  }
+}

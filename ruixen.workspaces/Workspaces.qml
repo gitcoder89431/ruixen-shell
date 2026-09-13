@@ -1,5 +1,7 @@
 import QtQuick
+import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -21,6 +23,27 @@ import qs.Ui
 BarWidget {
   id: root
   moduleName: "ruixen.workspaces"
+
+  // White-theme-only override for the focused pill (see its own color
+  // binding below) -- direct report after shipping that hardcoded
+  // everywhere: "i switch backed to aura and the workspace slider is
+  // stuck on white now... it should still be accent color from theme
+  // except for that white theme." Watches the same plain-slug state
+  // file `omarchy theme current` itself reads
+  // (~/.local/state/omarchy/current/theme.name), not colors.toml's own
+  // mode -- Rose Pine is dark-mode but shares White's own low-contrast-
+  // accent-on-black-pill problem, but nothing else reported that one
+  // broken yet, so this stays scoped to the one theme actually reported
+  // instead of guessing at a second.
+  property string themeSlug: "unknown"
+  FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.themeSlug = text().trim()
+    onLoadFailed: root.themeSlug = "unknown"
+    onFileChanged: reload()
+  }
 
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
@@ -113,16 +136,18 @@ BarWidget {
           // workspace is also showing black dot on the workspace
           // slider... it should be white here."
           //
-          // Focused pill hardcoded white, not Color.accent -- direct
-          // follow-up ("the active workspace slider the fat one, can
-          // you make this white instead of grey"): accent reads as a
-          // muted grey on White specifically (#6e6e6e), and this dot
-          // sits on the same permanently-black pill every other token
-          // here already accounts for, so a plain white is always
-          // readable regardless of theme, same reasoning as
-          // notch/settings/launcher's own hardcoded OLED-black-and-
-          // white pairing.
-          color: indicator.focused ? "#ffffff" : (indicator.occupied ? root.bar.foreground : Color.muted)
+          // Focused pill white ONLY on the White theme, not a blanket
+          // override -- first pass hardcoded "#ffffff" unconditionally,
+          // which broke every other theme's own accent ("i switch
+          // backed to aura and the workspace slider is stuck on white
+          // now... it should still be accent color from theme except
+          // for that white theme"). Color.accent reads as a muted grey
+          // on White specifically (#6e6e6e); everywhere else, accent is
+          // each theme's own deliberate "pop" color and should stay
+          // exactly that.
+          color: indicator.focused
+            ? (root.themeSlug === "white" ? "#ffffff" : Color.accent)
+            : (indicator.occupied ? root.bar.foreground : Color.muted)
           opacity: indicator.focused ? 1 : (indicator.occupied ? 0.85 : 0.7)
           Behavior on color { ColorAnimation { duration: 180 } }
           Behavior on opacity { NumberAnimation { duration: 180 } }

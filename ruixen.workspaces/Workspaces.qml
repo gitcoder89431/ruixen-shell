@@ -112,7 +112,17 @@ BarWidget {
           // foreground is near-black there): "the open but inactive
           // workspace is also showing black dot on the workspace
           // slider... it should be white here."
-          color: indicator.focused ? Color.accent : (indicator.occupied ? root.bar.foreground : Color.muted)
+          //
+          // Focused pill hardcoded white, not Color.accent -- direct
+          // follow-up ("the active workspace slider the fat one, can
+          // you make this white instead of grey"): accent reads as a
+          // muted grey on White specifically (#6e6e6e), and this dot
+          // sits on the same permanently-black pill every other token
+          // here already accounts for, so a plain white is always
+          // readable regardless of theme, same reasoning as
+          // notch/settings/launcher's own hardcoded OLED-black-and-
+          // white pairing.
+          color: indicator.focused ? "#ffffff" : (indicator.occupied ? root.bar.foreground : Color.muted)
           opacity: indicator.focused ? 1 : (indicator.occupied ? 0.85 : 0.7)
           Behavior on color { ColorAnimation { duration: 180 } }
           Behavior on opacity { NumberAnimation { duration: 180 } }

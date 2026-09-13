@@ -356,7 +356,7 @@ BarWidget {
     Rectangle {
       anchors.fill: parent
       radius: Style.cornerRadius
-      color: mouse.containsMouse ? Style.hoverFillFor(root.foreground, root.foreground) : "transparent"
+      color: mouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.popups.text) : "transparent"
     }
 
     Text {
@@ -367,7 +367,7 @@ BarWidget {
       anchors.rightMargin: Style.space(6)
       elide: Text.ElideRight
       text: rowRoot.pluginName
-      color: root.foreground
+      color: Color.popups.text
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
@@ -439,7 +439,7 @@ BarWidget {
       anchors.centerIn: parent
       width: parent.width
       text: "No other plugins installed"
-      color: Qt.darker(root.foreground, 1.4)
+      color: Util.alpha(Color.popups.text, 0.75)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
       horizontalAlignment: Text.AlignHCenter

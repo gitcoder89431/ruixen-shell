@@ -101,7 +101,18 @@ BarWidget {
           // Occupied dots now use foreground near-full-strength (they
           // represent real content, should read clearly); only
           // genuinely empty ones use muted.
-          color: indicator.focused ? Color.accent : (indicator.occupied ? Color.foreground : Color.muted)
+          //
+          // root.bar.foreground, NOT the raw Color.foreground -- this
+          // dot sits on the bar's own permanently-black GroupPill, not
+          // the theme's own background, same mirror-image mismatch as
+          // ruixen.weather's dropdown (bar.foreground's pill-safe
+          // fallback vs. the theme's own token, just backwards: that
+          // bug was pill-safe-on-theme-surface, this one was raw-theme-
+          // on-pill-surface). Direct report on the White theme (raw
+          // foreground is near-black there): "the open but inactive
+          // workspace is also showing black dot on the workspace
+          // slider... it should be white here."
+          color: indicator.focused ? Color.accent : (indicator.occupied ? root.bar.foreground : Color.muted)
           opacity: indicator.focused ? 1 : (indicator.occupied ? 0.85 : 0.7)
           Behavior on color { ColorAnimation { duration: 180 } }
           Behavior on opacity { NumberAnimation { duration: 180 } }

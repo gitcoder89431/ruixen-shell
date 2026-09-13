@@ -126,7 +126,7 @@ BarWidget {
     Rectangle {
       anchors.fill: parent
       radius: Style.cornerRadius
-      color: mouse.containsMouse ? Style.hoverFillFor(root.foreground, root.foreground) : "transparent"
+      color: mouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.popups.text) : "transparent"
     }
 
     Text {
@@ -137,7 +137,7 @@ BarWidget {
       width: Style.space(22)
       horizontalAlignment: Text.AlignHCenter
       text: rowRoot.glyph
-      color: rowRoot.active ? root.foreground : Qt.darker(root.foreground, 1.4)
+      color: rowRoot.active ? Color.popups.text : Util.alpha(Color.popups.text, 0.75)
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
     }
@@ -147,7 +147,7 @@ BarWidget {
       anchors.left: iconText.right
       anchors.leftMargin: Style.space(8)
       text: rowRoot.label
-      color: root.foreground
+      color: Color.popups.text
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
@@ -157,8 +157,14 @@ BarWidget {
       anchors.verticalCenter: parent.verticalCenter
       anchors.right: parent.right
       anchors.rightMargin: Style.space(10)
-      text: rowRoot.statusText
-      color: Qt.darker(root.foreground, 1.4)
+      // Full strength, not muted -- direct report: status text (the
+      // actual state being reported, e.g. "Enabled"/"Connected") was
+      // reading as "disabled" simply for being dimmed like a secondary
+      // label. Muting stays for genuinely secondary text (empty-state
+      // copy, the icon glyph's own unfocused-tab dimming above); a
+      // status value is the answer to the row's own question, not
+      // decoration.
+      color: Color.popups.text
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption
     }

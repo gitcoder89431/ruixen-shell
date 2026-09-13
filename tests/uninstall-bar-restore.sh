@@ -49,7 +49,19 @@ else
   pass=$((pass + 1))
 fi
 
-# --- Case 3: snapshot missing entirely (pre-dates #1's own fix) ----
+# --- Case 3: stock Omarchy bar can omit bar.id entirely -------------
+stock_no_id="$work/stock-no-id.json"
+printf '%s' '{"bar":{"position":"top","transparent":false,"layout":{"left":[{"id":"omarchy.menu"}],"center":[{"id":"omarchy.clock"}],"right":[{"id":"omarchy.tray"},{"id":"omarchy.dropbox"}]}}}' > "$stock_no_id"
+if out3="$("$pick" "$stock_no_id")"; then
+  check "stock pre-Ruixen bar without bar.id: exit 0" "0" "0"
+  check "stock pre-Ruixen bar without bar.id: prints the exact original bar object" \
+    "$out3" '{"position":"top","transparent":false,"layout":{"left":[{"id":"omarchy.menu"}],"center":[{"id":"omarchy.clock"}],"right":[{"id":"omarchy.tray"},{"id":"omarchy.dropbox"}]}}'
+else
+  printf 'FAIL - stock pre-Ruixen bar without bar.id should have exited 0\n'
+  fail_count=$((fail_count + 1))
+fi
+
+# --- Case 4: snapshot missing entirely (pre-dates #1's own fix) ----
 missing="$work/does-not-exist.json"
 if "$pick" "$missing" >/dev/null 2>&1; then
   printf 'FAIL - a missing snapshot file should not be usable\n'
@@ -59,7 +71,7 @@ else
   pass=$((pass + 1))
 fi
 
-# --- Case 4: snapshot recorded bar.id already as ruixen.bar (should
+# --- Case 5: snapshot recorded bar.id already as ruixen.bar (should
 # never restore Ruixen's own bar as if it were "the original") ------
 already_ruixen="$work/already-ruixen.json"
 printf '%s' '{"bar":{"id":"ruixen.bar","position":"top"}}' > "$already_ruixen"
@@ -71,7 +83,7 @@ else
   pass=$((pass + 1))
 fi
 
-# --- Case 5: corrupt/invalid JSON snapshot fails safely, not loudly
+# --- Case 6: corrupt/invalid JSON snapshot fails safely, not loudly
 corrupt="$work/corrupt.json"
 printf 'not json at all' > "$corrupt"
 if "$pick" "$corrupt" >/dev/null 2>&1; then

@@ -15,7 +15,6 @@ BarWidget {
   id: root
   moduleName: "ruixen.quickactions"
 
-  readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   property bool popupOpen: false

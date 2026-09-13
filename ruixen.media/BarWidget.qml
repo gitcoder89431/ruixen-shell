@@ -271,8 +271,8 @@ BarWidget {
           width: Style.space(64)
           height: Style.space(64)
           radius: Style.spacing.labelGap
-          color: Style.normalFillFor(root.foreground, Color.accent)
-          borderSpec: Border.controlSpec("normal", root.foreground, Color.accent)
+          color: Style.normalFillFor(Color.popups.text, Color.accent)
+          borderSpec: Border.controlSpec("normal", Color.popups.text, Color.accent)
 
           Image {
             anchors.fill: parent
@@ -293,7 +293,7 @@ BarWidget {
             anchors.centerIn: parent
             visible: root.artUrl === ""
             text: "\udb81\udf5a"
-            color: root.foreground
+            color: Color.popups.text
             font.family: root.fontFamily
             font.pixelSize: Style.font.displayLarge
           }
@@ -305,7 +305,7 @@ BarWidget {
 
           Text {
             text: root.title || "Nothing playing"
-            color: root.foreground
+            color: Color.popups.text
             font.family: root.fontFamily
             font.pixelSize: Style.font.subtitle
             font.bold: true
@@ -315,7 +315,7 @@ BarWidget {
 
           Text {
             text: root.artist
-            color: Qt.darker(root.foreground, 1.3)
+            color: Util.alpha(Color.popups.text, 0.8)
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
             elide: Text.ElideRight
@@ -325,7 +325,7 @@ BarWidget {
 
           Text {
             text: root.album
-            color: Qt.darker(root.foreground, 1.6)
+            color: Util.alpha(Color.popups.text, 0.6)
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
             elide: Text.ElideRight
@@ -347,7 +347,7 @@ BarWidget {
           anchors.top: parent.top
           height: Style.space(4)
           radius: height / 2
-          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.12)
+          color: Util.alpha(Color.popups.text, 0.12)
 
           Rectangle {
             height: parent.height
@@ -363,7 +363,7 @@ BarWidget {
           anchors.top: progressTrack.bottom
           anchors.topMargin: 2
           text: root.formatTime(root.trackPosition)
-          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.58)
+          color: Util.alpha(Color.popups.text, 0.58)
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
         }
@@ -373,7 +373,7 @@ BarWidget {
           anchors.top: progressTrack.bottom
           anchors.topMargin: 2
           text: root.formatTime(root.trackLength)
-          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.58)
+          color: Util.alpha(Color.popups.text, 0.58)
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
         }
@@ -385,7 +385,7 @@ BarWidget {
 
         Button {
           iconText: "\udb81\udcae"
-          foreground: root.foreground
+          foreground: Color.popups.text
           horizontalPadding: Style.spacing.controlPaddingX
           verticalPadding: Style.spacing.controlPaddingY
           enabled: root.canGoPrevious
@@ -395,7 +395,7 @@ BarWidget {
 
         Button {
           iconText: root.playIcon
-          foreground: root.foreground
+          foreground: Color.popups.text
           horizontalPadding: Style.spacing.panelGap
           verticalPadding: Style.spacing.controlPaddingY
           iconSize: Style.font.iconLarge
@@ -406,7 +406,7 @@ BarWidget {
 
         Button {
           iconText: "\udb81\udcad"
-          foreground: root.foreground
+          foreground: Color.popups.text
           horizontalPadding: Style.spacing.controlPaddingX
           verticalPadding: Style.spacing.controlPaddingY
           enabled: root.canGoNext

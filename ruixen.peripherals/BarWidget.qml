@@ -29,7 +29,6 @@ BarWidget {
   id: root
   moduleName: "ruixen.peripherals"
 
-  readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   // See ThemeColors.qml's own comment -- direct request, following the
@@ -224,7 +223,7 @@ BarWidget {
     Rectangle {
       anchors.fill: parent
       radius: Style.cornerRadius
-      color: mouse.containsMouse ? Style.hoverFillFor(root.foreground, root.foreground) : "transparent"
+      color: mouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.popups.text) : "transparent"
     }
 
     // One slot, not two -- direct follow-up ("the popup is a bit too
@@ -245,7 +244,7 @@ BarWidget {
       width: Style.space(16)
       horizontalAlignment: Text.AlignHCenter
       text: rowRoot.isSelected ? "\uf00c" : root.kindGlyph(rowRoot.device.kind)
-      color: rowRoot.isSelected ? Color.accent : root.foreground
+      color: rowRoot.isSelected ? Color.accent : Color.popups.text
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
     }
@@ -258,7 +257,7 @@ BarWidget {
       anchors.rightMargin: Style.space(6)
       elide: Text.ElideRight
       text: rowRoot.device.name || (rowRoot.device.brand + " " + rowRoot.device.kind)
-      color: root.foreground
+      color: Color.popups.text
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
@@ -311,7 +310,7 @@ BarWidget {
       anchors.centerIn: parent
       width: parent.width
       text: root.lastError ? root.lastError : "No wireless peripherals found"
-      color: Qt.darker(root.foreground, 1.4)
+      color: Util.alpha(Color.popups.text, 0.75)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
       horizontalAlignment: Text.AlignHCenter

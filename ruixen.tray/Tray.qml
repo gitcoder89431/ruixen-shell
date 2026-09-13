@@ -238,7 +238,7 @@ BarWidget {
     // still resets immediately, from openTrayMenu() itself.
     onVisibleChanged: if (!visible) root.resetTrayMenu()
     padding: Style.space(8)
-    borderColor: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.45)
+    borderColor: Util.alpha(Color.popups.text, 0.45)
     contentWidth: trayMenuPopup.fittedContentWidth(Style.space(232))
     contentHeight: trayMenuPopup.fittedContentHeight(menuHeaderHeight + trayMenuColumn.implicitHeight, Style.space(420))
 
@@ -283,7 +283,7 @@ BarWidget {
           Rectangle {
             anchors.fill: parent
             radius: Math.max(2, Style.cornerRadius)
-            color: backMouse.containsMouse ? Style.hoverFillFor(root.foreground, root.foreground) : "transparent"
+            color: backMouse.containsMouse ? Style.hoverFillFor(Color.popups.text, Color.popups.text) : "transparent"
           }
 
           Text {
@@ -292,7 +292,7 @@ BarWidget {
             width: Style.space(22)
             horizontalAlignment: Text.AlignHCenter
             text: "\u2039"
-            color: root.foreground
+            color: Color.popups.text
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
           }
@@ -304,7 +304,7 @@ BarWidget {
             anchors.right: parent.right
             anchors.rightMargin: Style.space(10)
             text: root.currentTitle
-            color: root.foreground
+            color: Color.popups.text
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
             elide: Text.ElideRight
@@ -398,7 +398,7 @@ BarWidget {
                 visible: !menuRow.modelData.isSeparator
                 anchors.fill: parent
                 radius: Math.max(2, Style.cornerRadius)
-                color: rowMouse.containsMouse && menuRow.modelData.enabled ? Style.hoverFillFor(root.foreground, root.foreground) : "transparent"
+                color: rowMouse.containsMouse && menuRow.modelData.enabled ? Style.hoverFillFor(Color.popups.text, Color.popups.text) : "transparent"
               }
 
               Text {
@@ -408,7 +408,7 @@ BarWidget {
                 width: Style.space(22)
                 horizontalAlignment: Text.AlignHCenter
                 text: menuRow.modelData.checkState === Qt.Checked ? "\uf00c" : ""
-                color: root.foreground
+                color: Color.popups.text
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
               }
@@ -437,7 +437,7 @@ BarWidget {
                 anchors.right: submenuGlyph.left
                 anchors.rightMargin: Style.space(8)
                 text: menuRow.rowText
-                color: root.foreground
+                color: Color.popups.text
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
                 elide: Text.ElideRight
@@ -450,7 +450,7 @@ BarWidget {
                 anchors.right: parent.right
                 anchors.rightMargin: Style.space(10)
                 text: "\u203a"
-                color: root.foreground
+                color: Color.popups.text
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
               }

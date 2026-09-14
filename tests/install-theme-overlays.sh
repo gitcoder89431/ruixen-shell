@@ -143,6 +143,8 @@ out3="$(run_install "$home3" 2>&1)"
 check "no active theme recorded at all: install still exits 0" "$?" "0"
 check "no active theme recorded at all: overlay still deployed" \
   "$([[ -L "$home3/.config/omarchy/themes/white/shell.toml" ]] && echo yes || echo no)" "yes"
+check "no active theme recorded at all: no re-apply-live attempt (nothing IS active)" \
+  "$(grep -c 're-apply the active theme' <<<"$out3")" "0"
 
 # --- Case 4a: a user's own real file gets backed up, not discarded ----
 home4a="$(mktemp -d)"

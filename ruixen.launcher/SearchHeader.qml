@@ -30,6 +30,11 @@ Item {
   // that text was the ONE piece of filesMode-specific copy baked
   // directly into this component instead of taken from a prop.
   property string placeholderOverride: ""
+  // Same reasoning as placeholderOverride -- the "All Sources"/`sources`
+  // filter dropdown is generic enough to reuse for an extension's own
+  // filter (Wallpapers' All Types/Images/Video/Gif) as long as its "all"
+  // sentinel label isn't hardcoded to a file-search-specific word.
+  property string allOptionLabel: "All Sources"
   property int resultCount: 0
   property string selectedSourcePath: ""
   property var sources: []
@@ -129,7 +134,7 @@ Item {
     width: root.sourceFilterWidth
     height: 28
 
-    readonly property string currentLabel: root.selectedSourcePath === "" ? "All Sources" : (function() {
+    readonly property string currentLabel: root.selectedSourcePath === "" ? root.allOptionLabel : (function() {
       for (var i = 0; i < root.sources.length; i++) if (root.sources[i].path === root.selectedSourcePath) return root.sources[i].label
       // Issue #62: "Search inside this folder" can scope to an
       // arbitrary folder that isn't one of the discovered sources

@@ -1,4 +1,4 @@
-// Verbatim copy of bars/v1/ruixen.notch/WallpapersContent.qml -- same
+// Ported from bars/v1/ruixen.notch/WallpapersContent.qml -- same
 // "plugin folders can't share a file" convention already used for
 // AppLibrary.qml/AppSearch.js across ruixen.notch/ruixen.pinnedapps/
 // ruixen.launcher. Direct request: a "Wallpapers" extension in the
@@ -6,8 +6,11 @@
 // of a port job, both can work and do the same thing for now") -- the
 // notch's own copy is untouched, this is a second front door onto the
 // exact same real omarchy-theme-bg-set/ruixen.wallpaper mechanism, not
-// a fork of the logic itself. Keep both copies in sync by hand if this
-// file's own picker logic changes.
+// a fork of the underlying picker LOGIC (kindFilter, searchText,
+// discovery, poster generation -- all identical). The one deliberate
+// presentation difference is the removed right sidebar (see its own
+// removal comment further down) -- keep both copies in sync by hand
+// for everything else if this file's own picker logic changes.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -411,16 +414,18 @@ Item {
     // exist) -- that's the "space left" the sidebar fills instead of
     // leaving it empty.
     RowLayout {
-      // Layout.maximumWidth freed for the same reason as the sidebar's
-      // own comment below -- a nested RowLayout/ColumnLayout's
-      // maximumWidth defaults to its own implicitWidth (here, the
-      // wrapper's fixed 680 + the sidebar's natural content width +
-      // spacing), not unbounded, so without this the RowLayout itself
-      // never actually reached the outer ColumnLayout's real 790px and
-      // the sidebar had no genuine leftover space to grow into no
-      // matter what its own fillWidth/maximumWidth said.
-      Layout.fillWidth: true
-      Layout.maximumWidth: Number.POSITIVE_INFINITY
+      // No sidebar to share this row with anymore in the launcher's own
+      // copy (see the removed ColumnLayout's own former comment, right
+      // before the grid wrapper below) -- fillWidth/maximumWidth existed
+      // ONLY to give that sidebar real leftover space to grow into, so
+      // both are gone too. Centered instead of stretched: the grid
+      // wrapper below stays a fixed 680px (same 4-column content as the
+      // notch's own copy), and this row now just wraps tightly around
+      // it, so Qt.AlignHCenter on this row is what keeps it centered
+      // within the launcher's own wider (920px) extension card instead
+      // of sitting flush left with a bare gap where the sidebar used to
+      // be.
+      Layout.alignment: Qt.AlignHCenter
       Layout.fillHeight: true
       spacing: 10
 
@@ -656,168 +661,18 @@ Item {
     }
   }
 
-  // Right sidebar -- narrowed 92 -> 68, and Layout.fillWidth: false
-  // added explicitly -- direct follow-up ("can we make the right
-  // panel narrower? theres a gap of 1 column between right panel
-  // stats and wallpapaper"). Real cause of the gap, confirmed live
-  // via a debug width readout, not guessed: a ColumnLayout child
-  // defaults Layout.fillWidth to true even when never set (unlike a
-  // plain Item/Rectangle, which default it false -- the exact same
-  // gotcha this repo has hit before). So this sidebar was ALSO
-  // competing for the RowLayout's leftover space alongside the grid's
-  // own explicit fillWidth, not just taking its 92px preferredWidth
-  // and stopping -- it had actually grown to 189px, leaving the grid
-  // with only 591px (591/170 = 3 columns, not 4), which is exactly
-  // the "gap of 1 column" reported. IMAGE/VIDEO/GIF, each a real
-  // toggle (click again to clear back to "all", not a fixed always-
-  // one-active segmented group -- there's a genuine "show everything"
-  // state here that a plain radio-button set doesn't have). Centered
-  // number-then-label per direct request ("we can do like center
-  // kinda design so number of images and then label IMAGE etc").
-  //
-  // Follow-up fix ("theres still a bit of a gap between where the
-  // stats are and the last wallpaper column, i think try and center
-  // middle the three stats, so its not too leaning to the right edge
-  // of the notch"): narrowing this sidebar to a fixed 68px left the
-  // RowLayout's real leftover space (everything past the grid's own
-  // fixed 680px content, see the two ColumnLayout/GridView comments
-  // above) unclaimed by anyone -- it just sat as a gap in front of
-  // the sidebar, which was itself still pinned to the panel's right
-  // edge. Fixed at the source instead of by nudging this element:
-  // this sidebar goes back to fillWidth: true (now safe, since the
-  // grid's own wrapper no longer over-claims), so it legitimately
-  // spans the whole leftover region: and each chip below switches
-  // from fillWidth (which would stretch it edge-to-edge across that
-  // now-wider region) to a fixed width + Qt.AlignHCenter, so the chip
-  // stack renders as a centered column within the sidebar's real
-  // space instead of stretching or sitting flush right.
-  ColumnLayout {
-    id: sidebar
-    // Layout.maximumWidth explicitly freed -- a nested RowLayout/
-    // ColumnLayout child has its OWN Layout.maximumWidth implicitly
-    // bound to its implicitWidth by default (unlike a plain Item/
-    // Rectangle, whose maximumWidth defaults to unbounded), so
-    // fillWidth alone is a no-op here: without this, the sidebar
-    // stayed pinned to its content's own natural width (76px, the
-    // chip width below) instead of stretching into the real leftover
-    // RowLayout space, leaving the same unclaimed gap this whole fix
-    // is meant to close.
-    Layout.fillWidth: true
-    Layout.maximumWidth: Number.POSITIVE_INFINITY
-    Layout.fillHeight: true
-    Layout.alignment: Qt.AlignTop
-    spacing: 8
-
-    Repeater {
-      model: [
-        { kind: "image", label: "IMAGE", count: root.imageCount },
-        { kind: "video", label: "VIDEO", count: root.videoCount },
-        { kind: "gif", label: "GIF", count: root.gifCount }
-      ]
-
-      Rectangle {
-        id: filterChip
-        required property var modelData
-        readonly property bool selected: root.kindFilter === modelData.kind
-
-        Layout.preferredWidth: 76
-        Layout.alignment: Qt.AlignHCenter
-        Layout.preferredHeight: 64
-        radius: 10
-        color: filterChip.selected ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
-        border.width: 1
-        border.color: filterChip.selected ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-        ColumnLayout {
-          anchors.centerIn: parent
-          spacing: 2
-
-          Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: filterChip.modelData.count
-            font.family: root.fontFamily
-            font.pixelSize: 18
-            font.weight: Font.DemiBold
-            color: filterChip.selected ? root.accent : root.textColor
-          }
-
-          Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: filterChip.modelData.label
-            font.family: root.fontFamily
-            font.pixelSize: 9
-            color: root.muted
-          }
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.kindFilter = filterChip.selected ? "all" : filterChip.modelData.kind
-        }
-      }
-    }
-
-    // Back to top -- direct follow-up ("theres still some room left
-    // under the gif stat, you think we can do a back to top button, i
-    // feel like when im all the way scrolled down, theres no way back
-    // up to the top of the list"). Only shown once there's actually
-    // somewhere to go back to (grid.contentY > 0) -- GridView is
-    // itself a Flickable, so its own contentY is the real scroll
-    // position, no separate tracking needed. Plain contentY
-    // assignment on click, matching this repo's own existing
-    // scroll-to-top convention (ruixen.tray's trayMenuFlick.contentY
-    // = 0), not a new animated-scroll pattern.
-    Rectangle {
-      id: backToTopButton
-      visible: grid.contentY > 0
-      Layout.preferredWidth: 76
-      Layout.alignment: Qt.AlignHCenter
-      // Same 64px height as the filter chips above, not a smaller
-      // 36px -- direct follow-up ("try and make it consistenly the
-      // same size stat card") -- and the same number-then-label
-      // two-line layout, with the arrow standing in for the number
-      // and TOP standing in for the kind label, rather than a single
-      // centered line.
-      Layout.preferredHeight: 64
-      radius: 10
-      color: backToTopArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
-      border.width: 1
-      border.color: Qt.rgba(1, 1, 1, 0.12)
-
-      ColumnLayout {
-        anchors.centerIn: parent
-        spacing: 2
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "↑"
-          font.family: root.fontFamily
-          font.pixelSize: 18
-          font.weight: Font.DemiBold
-          color: backToTopArea.containsMouse ? root.accent : root.textColor
-        }
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "TOP"
-          font.family: root.fontFamily
-          font.pixelSize: 9
-          color: root.muted
-        }
-      }
-
-      MouseArea {
-        id: backToTopArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: grid.contentY = 0
-      }
-    }
-
-    Item { Layout.fillHeight: true }
-  }
+  // No right sidebar here, unlike the notch's own copy of this file --
+  // direct report once this was live in the launcher's own wider card:
+  // "instead of IMAGE GIF VIDEO AND TOP put these into the top part for
+  // sources instead... make it drop down from All Types to Images
+  // Video Gif picker instead." kindFilter (the property those chips
+  // used to write) is unchanged and still the real filter -- Launcher.qml
+  // now drives it through the same top-right dropdown Search Files uses
+  // for its own source filter (see wallpaperTypeOptions there), reading
+  // wallpapersContent.kindFilter directly by id. The notch's own
+  // dashboard has no such dropdown to reuse and genuinely has "space
+  // left... like a right panel" (its own original request), so its
+  // copy keeps the sidebar as-is.
   }
   }
 }

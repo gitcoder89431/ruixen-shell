@@ -199,6 +199,20 @@ Item {
   // activateSelected()'s own dispatch below for both.
   property string activeExtensionId: ""
   readonly property bool inExtensionMode: root.activeExtensionId !== ""
+  // Wallpapers' own type filter, shown through the exact same top-right
+  // dropdown Search Files uses for its source filter -- direct report:
+  // "instead of IMAGE GIF VIDEO AND TOP put these into the top part for
+  // sources instead... we dont need [All Sources] as we only read from
+  // ruixen-wallpaper, so make it drop down from All Types to Images
+  // Video Gif picker instead." Same {label, path} shape sources' own
+  // entries use so sourceFilterList's existing Repeater/delegate needs
+  // no changes, just a different model + a click handler that writes
+  // wallpapersContent.kindFilter instead of root.selectedSourcePath.
+  readonly property var wallpaperTypeOptions: [
+    { id: "image", label: "Images", path: "image" },
+    { id: "video", label: "Video", path: "video" },
+    { id: "gif", label: "Gif", path: "gif" }
+  ]
   // "" means every known root (the source-filter dropdown's own "All Sources"
   // entry); a specific path restricts Search Files to just that drive.
   // Reset to "" on every fresh entry into Search Files -- "defaults to
@@ -1035,8 +1049,16 @@ Item {
         // it's just not read by anything visible right now).
         placeholderOverride: root.activeExtensionId === "wallpapers" ? "Wallpapers" : ""
         resultCount: root.results.length
-        selectedSourcePath: root.selectedSourcePath
-        sources: fileSearchProvider.sources
+        // Wallpapers mode feeds this same button/dropdown its own type
+        // options instead of real Search Files sources -- see
+        // wallpaperTypeOptions' own comment. wallpapersContent.kindFilter
+        // is "all"/"image"/"video"/"gif"; "" (this control's own "no
+        // selection" sentinel) maps to "all" both ways below.
+        selectedSourcePath: root.activeExtensionId === "wallpapers"
+          ? (wallpapersContent.kindFilter === "all" ? "" : wallpapersContent.kindFilter)
+          : root.selectedSourcePath
+        sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions : fileSearchProvider.sources
+        allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types" : "All Sources"
         sourceFilterWidth: root.sourceFilterWidth
         textColor: root.textColor
         mutedColor: root.muted
@@ -1147,11 +1169,12 @@ Item {
         // button's right edge, same as this width matches its width.
         anchors.rightMargin: 12
         width: root.sourceFilterWidth
-        // "All Sources" plus one row per discovered source (Home + every
-        // extraRoot) -- height follows that count directly rather than
-        // scrolling, since this is at most a small handful of drives.
-        // 28 matches sourceRow's own height below.
-        height: (fileSearchProvider.sources.length + 1) * 28 + 8
+        // "All Sources"/"All Types" plus one row per real option (file
+        // search's own discovered sources, or Wallpapers' fixed 3 types)
+        // -- height follows that count directly rather than scrolling,
+        // since either list is at most a small handful of rows. 28
+        // matches sourceRow's own height below.
+        height: ((root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions.length : fileSearchProvider.sources.length) + 1) * 28 + 8
         radius: 10
         // Genuinely near-opaque, not glassBackground's own translucency
         // -- direct follow-up after real use: unlike the card (whose
@@ -1185,10 +1208,12 @@ Item {
           anchors.margins: 4
 
           Repeater {
-            // "All Sources" (path "") first, then every real source -- same
-            // shape sourceFilterButton.currentLabel above already
-            // expects (an empty path means All).
-            model: [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
+            // "All Sources"/"All Types" (path "") first, then every real
+            // option -- same shape sourceFilterButton.currentLabel above
+            // already expects (an empty path means All).
+            model: root.activeExtensionId === "wallpapers"
+              ? [{ id: "", label: "All Types", path: "" }].concat(root.wallpaperTypeOptions)
+              : [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
 
             delegate: Rectangle {
               id: sourceRow
@@ -1222,7 +1247,11 @@ Item {
               MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                  root.selectedSourcePath = sourceRow.modelData.path
+                  if (root.activeExtensionId === "wallpapers") {
+                    wallpapersContent.kindFilter = sourceRow.modelData.path === "" ? "all" : sourceRow.modelData.path
+                  } else {
+                    root.selectedSourcePath = sourceRow.modelData.path
+                  }
                   searchHeader.dropdownOpen = false
                 }
               }
@@ -1361,6 +1390,7 @@ Item {
       // already takes from ruixen.notch/Overlay.qml, so its own
       // refresh-while-shown behavior needs no changes here.
       WallpapersContent {
+        id: wallpapersContent
         anchors.top: filtersBar.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left

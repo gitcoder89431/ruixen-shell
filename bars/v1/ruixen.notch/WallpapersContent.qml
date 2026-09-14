@@ -4,11 +4,17 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
 
-// A second, byte-for-byte copy of this file lives at
+// A second copy of this file's own picker LOGIC lives at
 // ruixen.launcher/WallpapersContent.qml (a launcher "Wallpapers"
 // extension, same "plugin folders can't share a file" reason
 // AppLibrary.qml is copied per-plugin too) -- keep both in sync by
-// hand if this file's own picker logic changes.
+// hand if kindFilter/searchText/discovery/poster generation change
+// here. Not byte-for-byte anymore: that copy drops this file's own
+// right sidebar (direct report once it shipped in the launcher's wider
+// card -- its filter chips are redundant with a proper dropdown there,
+// see that copy's own removal comment), since this dashboard's own
+// tab genuinely has "space left... like a right panel" (this
+// sidebar's own original request) that the launcher's card doesn't.
 //
 // Real wallpaper picker for the notch dashboard's own "Wallpapers" tab,
 // replacing the "coming soon" stub. Reads from the exact same two

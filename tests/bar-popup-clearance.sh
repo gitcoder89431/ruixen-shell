@@ -80,8 +80,8 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-bar_qml="$repo_dir/ruixen.bar/Bar.qml"
-notch_overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
+bar_qml="$repo_dir/bars/v1/ruixen.bar/Bar.qml"
+notch_overlay_qml="$repo_dir/bars/v1/ruixen.notch/Overlay.qml"
 
 pass=0
 fail_count=0
@@ -195,7 +195,7 @@ check "screenMarginTop is docked ? frameInset : topInset (mirrors margins.top's 
 # ruixen.quickactions' own popup is back to PopupCard's plain defaults
 # -- no centerOnBar, no margin override -- matching "below the icon"
 # again, same as before e0429b7/61ef0bd ever touched it.
-qa_qml="$repo_dir/ruixen.quickactions/QuickActions.qml"
+qa_qml="$repo_dir/bars/v1/ruixen.quickactions/QuickActions.qml"
 check "ruixen.quickactions' own popup no longer overrides centerOnBar" \
   "$(grep -c 'centerOnBar:' "$qa_qml" || true)" "0"
 check "ruixen.quickactions' own popup no longer overrides margin" \

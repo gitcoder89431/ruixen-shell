@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "ruixen.bar", "BarModel.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "bars", "v1", "ruixen.bar", "BarModel.js"));
 
 check("isPlainObject: a real object", M.isPlainObject({ id: "x" }), true);
 check("isPlainObject: an array is not a plain object", M.isPlainObject([1, 2]), false);

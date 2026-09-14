@@ -14,6 +14,9 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 state_dir="$HOME/.local/state/ruixen"
+# Same shared-array reasoning as install.sh's own plugin_source_dirs --
+# bar-family plugins live under bars/v1/, the rest at the root.
+plugin_source_dirs=("$script_dir"/ruixen.*/ "$script_dir"/bars/*/ruixen.*/)
 
 human_ago() {
   local seconds="$1"
@@ -131,7 +134,7 @@ dir_hash() {
 }
 printf -- '-- Plugin files (source in this checkout vs deployed, by content hash) --\n'
 mismatch_count=0
-for dir in "$script_dir"/ruixen.*/; do
+for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
   source_version="$(jq -r '.version // "?"' "$dir/manifest.json" 2>/dev/null || echo "?")"
@@ -213,7 +216,7 @@ printf '\n'
 # behind. -----------------------------------------------------------
 printf -- '-- Plugin backups (proves whether a reinstall/update actually touched each one) --\n'
 any_backup=0
-for dir in "$script_dir"/ruixen.*/; do
+for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
   count=0

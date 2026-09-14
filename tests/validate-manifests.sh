@@ -37,7 +37,7 @@ required_fields=(author description entryPoints id kinds name schemaVersion vers
 
 declare -A seen_ids
 
-plugin_dirs=("$repo_dir"/ruixen.*/ "$repo_dir"/tests/fixtures/plugins/test.thirdparty.*/)
+plugin_dirs=("$repo_dir"/ruixen.*/ "$repo_dir"/bars/*/ruixen.*/ "$repo_dir"/tests/fixtures/plugins/test.thirdparty.*/)
 
 for dir in "${plugin_dirs[@]}"; do
   [[ -d "$dir" ]] || continue

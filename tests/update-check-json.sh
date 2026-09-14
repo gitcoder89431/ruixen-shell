@@ -67,6 +67,28 @@ check "one plugin changed: HEAD is unchanged (no pull happened)" \
 printf 'local edit\n' >>"$checkout/ruixen.notch/VERSION"
 out3="$(HOME="$fake_home" "$checkout/update.sh" --check-json 2>&1)"
 check "dirty checkout: reported as an error" "$out3" '{"error":"dirty checkout"}'
+git -C "$checkout" checkout -q -- ruixen.notch/VERSION
+
+# --- Case 4: a change under bars/v1/<plugin>/ is still correctly
+# reported by its own bare plugin id, not missed entirely -- direct
+# regression coverage for the real ruixen-shell repo's own layout
+# (bar-family plugins live under bars/v1/, not flat at the root; this
+# fixture's cases 1-3 above predate that move and stay flat on purpose,
+# proving the still-supported flat shape keeps working too). -----------
+mkdir -p "$other_clone/bars/v1/ruixen.weather"
+printf 'v1\n' >"$other_clone/bars/v1/ruixen.weather/VERSION"
+git -C "$other_clone" add bars
+git -C "$other_clone" commit -q -m "add nested bar plugin"
+git -C "$other_clone" push -q origin master
+
+out4="$(HOME="$fake_home" "$checkout/update.sh" --check-json 2>&1)"
+check "nested bars/v1/ plugin: upToDate is false" "$(grep -c '"upToDate": false' <<<"$out4")" "1"
+check "nested bars/v1/ plugin: names ruixen.weather (id only, no bars/v1/ prefix)" \
+  "$(grep -c '"ruixen.weather"' <<<"$out4")" "1"
+# Not "does not also name ruixen.notch" -- case 2's own notch change was
+# never pulled into $checkout, so it's still legitimately part of the
+# accumulated diff by this point too. That's expected, not a leak from
+# this case's own change.
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

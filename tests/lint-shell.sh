@@ -19,8 +19,8 @@ targets=(
   "$repo_dir/ruixen-repair.sh"
   "$repo_dir/ruixen-bar-mode.sh"
   "$repo_dir/hyprland/ruixen-lookfeel.sh"
-  "$repo_dir/ruixen.notch/list-wallpapers.sh"
-  "$repo_dir/ruixen.notch/prune-poster-cache.sh"
+  "$repo_dir/bars/v1/ruixen.notch/list-wallpapers.sh"
+  "$repo_dir/bars/v1/ruixen.notch/prune-poster-cache.sh"
   "$repo_dir/ruixen.wallpaper/prune-poster-cache.sh"
 )
 targets+=("$repo_dir"/lib/*.sh)

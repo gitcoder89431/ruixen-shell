@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "ruixen.notch", "NotificationModel.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "bars", "v1", "ruixen.notch", "NotificationModel.js"));
 
 // ---- identity / entryFromRow ----------------------------------------
 

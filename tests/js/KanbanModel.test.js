@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "ruixen.notch", "KanbanModel.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "bars", "v1", "ruixen.notch", "KanbanModel.js"));
 
 // ---- columns --------------------------------------------------------
 

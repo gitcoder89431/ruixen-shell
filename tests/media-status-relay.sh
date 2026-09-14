@@ -28,10 +28,10 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-service_qml="$repo_dir/ruixen.media/Service.qml"
-media_widget_qml="$repo_dir/ruixen.media/BarWidget.qml"
-overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
-dashboard_qml="$repo_dir/ruixen.notch/DashboardContent.qml"
+service_qml="$repo_dir/bars/v1/ruixen.media/Service.qml"
+media_widget_qml="$repo_dir/bars/v1/ruixen.media/BarWidget.qml"
+overlay_qml="$repo_dir/bars/v1/ruixen.notch/Overlay.qml"
+dashboard_qml="$repo_dir/bars/v1/ruixen.notch/DashboardContent.qml"
 
 pass=0
 fail_count=0

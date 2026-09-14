@@ -69,7 +69,7 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-bar_qml="$repo_dir/ruixen.bar/Bar.qml"
+bar_qml="$repo_dir/bars/v1/ruixen.bar/Bar.qml"
 
 pass=0
 fail_count=0

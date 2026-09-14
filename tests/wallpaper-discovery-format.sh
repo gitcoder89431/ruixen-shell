@@ -16,7 +16,7 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-list_wallpapers="$repo_dir/ruixen.notch/list-wallpapers.sh"
+list_wallpapers="$repo_dir/bars/v1/ruixen.notch/list-wallpapers.sh"
 
 command -v ffmpeg >/dev/null 2>&1 || {
   printf 'wallpaper-discovery-format: ffmpeg is required (command "ffmpeg" not found)\n' >&2

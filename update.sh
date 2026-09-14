@@ -89,10 +89,19 @@ if [[ "${1:-}" == "--check-json" ]]; then
     exit 0
   fi
 
-  # Top-level ruixen.* directory names only, deduped -- a plugin
-  # touched by more than one changed file must only show up once.
+  # ruixen.* directory names only, deduped -- a plugin touched by more
+  # than one changed file must only show up once. Matches a ruixen.*
+  # path SEGMENT wherever it sits, not just at the very start of the
+  # path -- bar-family plugins live under bars/v1/ruixen.X/... now, not
+  # only flat ruixen.X/... at the repo root, so an anchor tied to the
+  # start of the path would silently stop reporting every bar plugin's
+  # own changes here. Requires a trailing "/" (it's a directory
+  # component, never the last segment of a real file path) so a
+  # same-named FILE could never be mistaken for a plugin id; the
+  # leading "(^|/)" / trailing "/" delimiters themselves are stripped
+  # by sed, not part of the id.
   changed_plugins="$(git -C "$script_dir" diff --name-only "$current_sha..$candidate_sha" \
-    | grep -oE '^ruixen\.[^/]+' | sort -u || true)"
+    | grep -oE '(^|/)ruixen\.[^/]+/' | sed -E 's#^/##; s#/$##' | sort -u || true)"
   changed_json="$(printf '%s\n' "$changed_plugins" | awk 'NF{printf "%s\"%s\"", (NR>1?",":""), $0}')"
   printf '{"upToDate": false, "changedPlugins": [%s]}\n' "$changed_json"
   exit 0

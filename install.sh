@@ -4,6 +4,18 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 plugins_dir="$HOME/.config/omarchy/plugins"
 shell_json="$HOME/.config/omarchy/shell.json"
+# Every ruixen.* source directory in this checkout, wherever it actually
+# lives -- bar-family plugins moved under bars/v1/ (a clean split from
+# the repo root for a future bars/v2/, per direct request: "instead of
+# having them on root, can we put them in bars and then v1 or v2"), the
+# rest (launcher/settings/wallpaper) stay at the root. ONE array, not a
+# literal glob repeated at every call site (5 in this file alone) -- a
+# future bars/v2/ or any other reshuffle only ever needs this one line
+# touched. A glob with no match expands to itself (the literal pattern
+# string) when nullglob is off, so each site below still needs its own
+# `[[ -d "$dir" ]] || continue` guard -- this array can't guarantee
+# every element is real.
+plugin_source_dirs=("$script_dir"/ruixen.*/ "$script_dir"/bars/*/ruixen.*/)
 # Nanosecond, not `date +%s` -- direct review finding ("Add an
 # install/update/uninstall lock and collision-safe run identifiers",
 # #16): plain epoch-seconds backup/run names could collide between two
@@ -63,7 +75,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 
   printf '\nPlugin validation (run for real -- read-only):\n'
   validation_failed=0
-  for dir in "$script_dir"/ruixen.*/; do
+  for dir in "${plugin_source_dirs[@]}"; do
     [[ -d "$dir" ]] || continue
     id="$(basename "$dir")"
     if omarchy plugin validate "$dir" >/dev/null 2>&1; then
@@ -75,7 +87,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   done
 
   printf '\nPlugins that would be installed/replaced:\n'
-  for dir in "$script_dir"/ruixen.*/; do
+  for dir in "${plugin_source_dirs[@]}"; do
     [[ -d "$dir" ]] || continue
     id="$(basename "$dir")"
     if [[ -e "$plugins_dir/$id" ]]; then
@@ -347,6 +359,13 @@ mkdir -p "$theme_overlay_backup_dir"
 # call site in this script gets rollback for free, no per-call-site
 # changes needed.
 DEPLOYED_PLUGIN_IDS=()
+# id -> its own source dir (could be "$script_dir/ruixen.X" or
+# "$script_dir/bars/v1/ruixen.X") -- the post-deploy hash verification
+# below needs the REAL source path back, not "$script_dir/$id" rebuilt
+# from the id alone (that assumption broke the moment bars/v1/ moved
+# plugins out of a flat root layout: every verify would have hashed a
+# now-nonexistent directory and failed every install).
+declare -A PLUGIN_SOURCE_DIR_FOR_ID
 SHELL_JSON_TOUCHED=0
 SHELL_JSON_HAD_BACKUP=0
 LOOKNFEEL_TOUCHED=0
@@ -504,7 +523,7 @@ trap rollback_all ERR
 printf '\n[2/7] Validating plugins\n'
 # Every manifest is checked before ANYTHING is deployed -- a failure
 # here never touches a single already-installed plugin.
-for dir in "$script_dir"/ruixen.*/; do
+for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
   omarchy plugin validate "$dir" || fail "plugin failed validation: $id -- nothing has been changed"
@@ -512,7 +531,7 @@ done
 printf '  all plugins passed validation\n'
 
 printf '\n[3/7] Installing plugins\n'
-for dir in "$script_dir"/ruixen.*/; do
+for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
 
@@ -527,6 +546,7 @@ for dir in "$script_dir"/ruixen.*/; do
   # cleaned up by rollback_plugins, not just the plugins that fully
   # completed before it.
   DEPLOYED_PLUGIN_IDS+=("$id")
+  PLUGIN_SOURCE_DIR_FOR_ID["$id"]="$dir"
   cp -r "$dir" "$target"
   printf '  installed %s\n' "$id"
 done
@@ -551,7 +571,7 @@ verify_dir_hash() {
   (cd "$dir" && find . -type f -print0 | sort -z | xargs -0 sha256sum 2>/dev/null) | sha256sum | awk '{print $1}'
 }
 for id in "${DEPLOYED_PLUGIN_IDS[@]}"; do
-  source_hash="$(verify_dir_hash "$script_dir/$id")"
+  source_hash="$(verify_dir_hash "${PLUGIN_SOURCE_DIR_FOR_ID[$id]}")"
   deployed_hash="$(verify_dir_hash "$plugins_dir/$id")"
   [[ "$source_hash" == "$deployed_hash" ]] \
     || fail "$id was deployed but does not match this checkout's own source -- the copy did not complete cleanly (nothing else has been changed; safe to just run this again)"
@@ -864,7 +884,7 @@ prune_backups() {
   done
 }
 backup_retain_count=5
-for dir in "$script_dir"/ruixen.*/; do
+for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   prune_backups "$backup_retain_count" "$plugin_backup_dir/$(basename "$dir").bak.*"
 done

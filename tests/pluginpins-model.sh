@@ -15,8 +15,8 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-widget_qml="$repo_dir/ruixen.pluginpins/BarWidget.qml"
-manifest_json="$repo_dir/ruixen.pluginpins/manifest.json"
+widget_qml="$repo_dir/bars/v1/ruixen.pluginpins/BarWidget.qml"
+manifest_json="$repo_dir/bars/v1/ruixen.pluginpins/manifest.json"
 
 pass=0
 fail_count=0

@@ -36,9 +36,9 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
-dashboard_qml="$repo_dir/ruixen.notch/DashboardContent.qml"
-service_qml="$repo_dir/ruixen.notch/NotificationService.qml"
+overlay_qml="$repo_dir/bars/v1/ruixen.notch/Overlay.qml"
+dashboard_qml="$repo_dir/bars/v1/ruixen.notch/DashboardContent.qml"
+service_qml="$repo_dir/bars/v1/ruixen.notch/NotificationService.qml"
 
 pass=0
 fail_count=0

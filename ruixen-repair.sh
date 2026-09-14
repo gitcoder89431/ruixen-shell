@@ -18,6 +18,9 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 plugins_dir="$HOME/.config/omarchy/plugins"
+# Same shared-array reasoning as install.sh's own plugin_source_dirs --
+# bar-family plugins live under bars/v1/, the rest at the root.
+plugin_source_dirs=("$script_dir"/ruixen.*/ "$script_dir"/bars/*/ruixen.*/)
 dry_run=0
 
 for arg in "$@"; do
@@ -52,7 +55,7 @@ dir_hash() {
 printf '=== Ruixen Repair ===\n\n'
 
 broken_plugins=()
-for dir in "$script_dir"/ruixen.*/; do
+for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
   if [[ ! -e "$plugins_dir/$id" ]] || [[ "$(dir_hash "$dir")" != "$(dir_hash "$plugins_dir/$id")" ]]; then

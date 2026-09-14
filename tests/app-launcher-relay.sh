@@ -31,10 +31,10 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-notch_lib="$repo_dir/ruixen.notch/AppLibrary.qml"
-notch_search="$repo_dir/ruixen.notch/AppSearch.js"
-pinned_lib="$repo_dir/ruixen.pinnedapps/AppLibrary.qml"
-pinned_search="$repo_dir/ruixen.pinnedapps/AppSearch.js"
+notch_lib="$repo_dir/bars/v1/ruixen.notch/AppLibrary.qml"
+notch_search="$repo_dir/bars/v1/ruixen.notch/AppSearch.js"
+pinned_lib="$repo_dir/bars/v1/ruixen.pinnedapps/AppLibrary.qml"
+pinned_search="$repo_dir/bars/v1/ruixen.pinnedapps/AppSearch.js"
 # "rlauncher_*", not "launcher_*" -- that name's already taken below by
 # ruixen.notch/LauncherContent.qml, a completely different file.
 rlauncher_lib="$repo_dir/ruixen.launcher/AppLibrary.qml"
@@ -49,18 +49,18 @@ settings_search_config="$repo_dir/ruixen.settings/LauncherSearchConfig.js"
 # Same byte-identical-duplicate situation, different pair again --
 # ruixen.peripherals' own battery-level coloring needs the theme's
 # green/yellow/red (see ThemeColors.qml's own header for the full "why").
-bar_theme_colors="$repo_dir/ruixen.bar/ThemeColors.qml"
-peripherals_theme_colors="$repo_dir/ruixen.peripherals/ThemeColors.qml"
+bar_theme_colors="$repo_dir/bars/v1/ruixen.bar/ThemeColors.qml"
+peripherals_theme_colors="$repo_dir/bars/v1/ruixen.peripherals/ThemeColors.qml"
 # Same byte-identical-duplicate situation, different pair again -- issue
 # #66's own poster-cache pruning needs to run from ruixen.notch's own
 # list-wallpapers.sh (its real, occasional trigger) without depending on
 # ruixen.wallpaper's own plugin folder being deployed/enabled at all.
 wallpaper_prune="$repo_dir/ruixen.wallpaper/prune-poster-cache.sh"
-notch_prune="$repo_dir/ruixen.notch/prune-poster-cache.sh"
-list_wallpapers_sh="$repo_dir/ruixen.notch/list-wallpapers.sh"
-launcher_qml="$repo_dir/ruixen.notch/LauncherContent.qml"
-overlay_qml="$repo_dir/ruixen.notch/Overlay.qml"
-pinned_widget="$repo_dir/ruixen.pinnedapps/BarWidget.qml"
+notch_prune="$repo_dir/bars/v1/ruixen.notch/prune-poster-cache.sh"
+list_wallpapers_sh="$repo_dir/bars/v1/ruixen.notch/list-wallpapers.sh"
+launcher_qml="$repo_dir/bars/v1/ruixen.notch/LauncherContent.qml"
+overlay_qml="$repo_dir/bars/v1/ruixen.notch/Overlay.qml"
+pinned_widget="$repo_dir/bars/v1/ruixen.pinnedapps/BarWidget.qml"
 # Issue #64: static/provider-level coverage that configured exclusions
 # actually reach fd/rg's own argv, alongside LauncherSearchConfig.test.js's
 # own pure unit tests for the underlying normalization logic -- neither

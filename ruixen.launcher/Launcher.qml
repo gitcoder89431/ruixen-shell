@@ -912,11 +912,18 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
       anchors.topMargin: parent.height * 0.22
-      // Wider in Search Files mode only -- a details panel sits beside
-      // the result list there (Raycast's own real Search Files does
-      // the same split). Still not resizing per result COUNT (the
-      // "fixed tray" property that matters), just per deliberate mode.
-      width: root.filesMode ? 920 : 640
+      // Wider in Search Files mode, and now any extension too -- direct
+      // report after Wallpapers shipped at the plain landing-list width
+      // and felt cramped: "switch the panel so its like file search
+      // size... for the main menu we keep it that smaller narrow side
+      // and then on widgets we can have it wider style like the
+      // filesearch." One shared wide size for both, not a second
+      // magic number -- an extension's own content (a grid, a details
+      // pane, whatever it needs) gets the same real estate Search
+      // Files already established works well for "more than a plain
+      // result list." Still not resizing per result COUNT (the "fixed
+      // tray" property that matters), just per deliberate mode.
+      width: (root.filesMode || root.inExtensionMode) ? 920 : 640
       Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
       // A fixed viewport height, not a function of the result count --
       // still a constant, so the card never grows/shrinks per state

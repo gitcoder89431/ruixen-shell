@@ -323,13 +323,10 @@ Item {
     }
   }
 
-  // Outer ColumnLayout -- direct follow-up ("put the right panel
-  // below the search bar so keep search like before full"): the
-  // search bar moved back out to span the FULL panel width again (it
-  // had shrunk to just the grid column's own width once the sidebar
-  // sat beside it at the same row), with a RowLayout now nested below
-  // it instead of wrapping the whole page -- grid on the left,
-  // sidebar on the right, only for the content BELOW the search bar.
+  // Outer ColumnLayout -- originally wrapped a search bar above a
+  // RowLayout (grid left, filter sidebar right); both the inner search
+  // bar and the sidebar are gone now (see their own removal comments
+  // below), leaving just the GridView filling this whole area directly.
   ColumnLayout {
     anchors.fill: parent
     spacing: 10
@@ -345,48 +342,18 @@ Item {
     // reads it (filteredPaths etc.) are untouched -- only this component's
     // own now-redundant text-entry UI is gone.
 
-    // Grid (left) + filter sidebar (right) -- direct request ("on the
-    // right side of the panel, theres some space left like a right
-    // panel, can we use these to toggle between IMAGE and VIDEO and
-    // then GIF too"), then moved below the search bar per this same
-    // follow-up. The grid's own 170px cells never evenly divide this
-    // panel's real content width (790px -> 4 full columns, 680px
-    // used, ~110px dead on the right no matter how many wallpapers
-    // exist) -- that's the "space left" the sidebar fills instead of
-    // leaving it empty.
-    RowLayout {
-      // No sidebar to share this row with anymore in the launcher's own
-      // copy (see the removed ColumnLayout's own former comment, right
-      // before the grid wrapper below) -- fillWidth/maximumWidth existed
-      // ONLY to give that sidebar real leftover space to grow into, so
-      // both are gone too. Centered instead of stretched: the grid
-      // wrapper below stays a fixed 680px (same 4-column content as the
-      // notch's own copy), and this row now just wraps tightly around
-      // it, so Qt.AlignHCenter on this row is what keeps it centered
-      // within the launcher's own wider (920px) extension card instead
-      // of sitting flush left with a bare gap where the sidebar used to
-      // be.
-      Layout.alignment: Qt.AlignHCenter
-      Layout.fillHeight: true
-      spacing: 10
-
-    ColumnLayout {
-      // Fixed width (matches the grid's own real 4-column content, see
-      // GridView's own comment), not fillWidth -- this wrapper needs
-      // to stop claiming the leftover space too, or the sidebar below
-      // still has nothing real to center within even after the
-      // GridView itself stopped stretching past its own content.
-      // Layout.fillWidth: false is NOT redundant with preferredWidth
-      // here -- a nested ColumnLayout/RowLayout child defaults
-      // Layout.fillWidth to true even when never set (the same gotcha
-      // already hit once on the sidebar itself, see its own comment
-      // below), so leaving this unset would silently keep it
-      // competing for the RowLayout's leftover space regardless of
-      // the preferredWidth given here.
-      Layout.preferredWidth: 680
-      Layout.fillWidth: false
-      Layout.fillHeight: true
-      spacing: 10
+    // Grid -- direct follow-up ("the thumbnails preview are still too
+    // small, it should fill in the space better"). This used to sit in
+    // a RowLayout next to a right-side filter sidebar (see this file's
+    // own "No right sidebar" comment further down); once that sidebar
+    // moved to the top dropdown, the grid stayed pinned to the
+    // sidebar's old fixed 680px width and just centered in the
+    // leftover space instead of using it, which is what read as too
+    // small. No sidebar to share a row with anymore, so no more
+    // RowLayout/fixed-width wrapper either -- the GridView below now
+    // fills the panel's full real width directly, and cellWidth is
+    // computed from that width instead of a hardcoded number (see its
+    // own comment).
 
     // No inline "no results" Text here, unlike the notch's own copy --
     // direct report: "for the empty state instead of no result match
@@ -418,29 +385,28 @@ Item {
     // the library has 4 wallpapers or 4000.
     GridView {
       id: grid
-      // Fixed width (4 columns * 170 cellWidth), not fillWidth --
-      // direct follow-up ("theres still a bit of a gap between where
-      // the stats are and the last wallpaper column, i think try and
-      // center middle the three stats, so its not too leaning to the
-      // right edge"). fillWidth made the grid claim every pixel the
-      // RowLayout gave it, even the ~32px slack past its own real
-      // 4-column content (170 doesn't evenly divide the available
-      // width) -- that slack, plus the RowLayout's own spacing, is
-      // exactly what read as "a gap before the stats". Fixing the
-      // grid's own width to what it actually uses frees that leftover
-      // space for the sidebar to legitimately claim and center within
-      // instead, rather than the sidebar just sitting flush against
-      // the panel's own right edge past an unclaimed gap.
-      Layout.preferredWidth: 680
+      // fillWidth now that there's no sidebar left to reserve space
+      // for -- see this section's own "Grid" comment above.
+      Layout.fillWidth: true
       Layout.fillHeight: true
       visible: root.filteredPaths.length > 0
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       reuseItems: true
-      // 160x100 tile + 10px gap on the right/bottom of each cell --
-      // same visual spacing Flow's own `spacing: 10` produced.
-      cellWidth: 170
-      cellHeight: 110
+      // Always 4 columns (unchanged), but cellWidth is now `width / 4`
+      // instead of a fixed 170 -- direct follow-up ("the thumbnails
+      // preview are still too small, it should fill in the space
+      // better") once the sidebar's removal left real empty space on
+      // both sides of the old fixed-width grid instead of the tiles
+      // just growing into it. tileHeight keeps the original tile's
+      // 160:100 (1.6:1) aspect ratio, just scaled up from the real
+      // cellWidth instead of hardcoded -- and the -10/+10 on each is
+      // the same per-cell gap Flow's own `spacing: 10` produced before
+      // GridView replaced it.
+      readonly property int tileWidth: cellWidth - 10
+      readonly property int tileHeight: Math.round(tileWidth / 1.6)
+      cellWidth: Math.floor(width / 4)
+      cellHeight: tileHeight + 10
       model: root.filteredPaths
 
       // Any deliberate scroll means the user is actively looking for
@@ -498,8 +464,8 @@ Item {
         // lit at rest.
         readonly property bool active: tile.modelData.identity === root.currentBackground
 
-        width: 160
-        height: 100
+        width: grid.tileWidth
+        height: grid.tileHeight
 
         // Image container -- always exactly `width`x`height`, no
         // margins, no border, no animated properties at all. This
@@ -524,7 +490,7 @@ Item {
             source: tile.index <= root.loadGate ? ("file://" + tile.modelData.display) : ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            sourceSize: Qt.size(160, 100)
+            sourceSize: Qt.size(grid.tileWidth, grid.tileHeight)
           }
         }
 
@@ -595,7 +561,6 @@ Item {
         }
       }
     }
-  }
 
   // No right sidebar here, unlike the notch's own copy of this file --
   // direct report once this was live in the launcher's own wider card:
@@ -609,6 +574,5 @@ Item {
   // dashboard has no such dropdown to reuse and genuinely has "space
   // left... like a right panel" (its own original request), so its
   // copy keeps the sidebar as-is.
-  }
   }
 }

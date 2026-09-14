@@ -586,6 +586,13 @@ Item {
   // fallback made it read as a dead end when it isn't one; confirmed
   // directly, the fallback row was still right there underneath it.
   readonly property bool showNoResults: root.filesMode && root.query.trim() !== "" && root.results.length === 0
+  // Same idea, for the Wallpapers extension -- no query-non-empty
+  // guard here (unlike Search Files' own showNoResults above): there's
+  // no permanent fallback row to fall back to once you're already
+  // inside Wallpapers, so a genuinely empty library reads as "No
+  // Results" immediately, not just once you've typed/picked a filter
+  // that narrows it to nothing.
+  readonly property bool wallpapersShowNoResults: root.activeExtensionId === "wallpapers" && wallpapersContent.filteredPaths.length === 0
 
   // Issue #55: a genuinely empty result and a search that never
   // actually finished (a timed-out or failed root) used to render
@@ -1398,9 +1405,35 @@ Item {
         anchors.margins: 8
         visible: root.activeExtensionId === "wallpapers"
         active: root.activeExtensionId === "wallpapers"
+        // Single search box, direct request ("we dont need two search
+        // box, use the launcher for wallpaper search input not what we
+        // ported over") -- this extension's own inner search UI is gone
+        // (see WallpapersContent.qml's own comment where it used to be),
+        // so the outer SearchHeader/root.query drives filtering here
+        // directly instead.
+        searchText: root.activeExtensionId === "wallpapers" ? root.query : ""
         textColor: root.textColor
         muted: root.muted
         accent: root.accent
+        fontFamily: root.fontFamily
+      }
+
+      // Same shared component Search Files' own empty state uses, just
+      // fed the Wallpapers row's own icon instead of the default
+      // magnifying glass -- direct request: "for the empty state
+      // instead of no result match "" can it say like no result with
+      // the wallpaper icon, kinda like the file search empty." No
+      // degraded/sourceSelected concept here (both are Search Files-
+      // specific, see EmptyState's own comments), so those stay at
+      // their plain defaults.
+      EmptyState {
+        anchors.top: filtersBar.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        showNoResults: root.wallpapersShowNoResults
+        icon: ""
+        mutedColor: root.muted
         fontFamily: root.fontFamily
       }
 

@@ -334,75 +334,16 @@ Item {
     anchors.fill: parent
     spacing: 10
 
-    // Search row -- plain TextInput + placeholder overlay, matching
-    // this plugin's existing self-contained style (no qs.Ui.TextField
-    // pulled in here, unlike ruixen.weather's location search -- that
-    // one already has qs.Ui available; this plugin deliberately stays
-    // on plain QML primitives throughout, see DashboardContent.qml).
-    // Full Layout.fillWidth here now spans the whole panel again,
-    // sidebar included -- it's a sibling of the RowLayout below, not
-    // inside it.
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 40
-      radius: 12
-      color: Qt.rgba(1, 1, 1, 0.06)
-
-      TextInput {
-        id: searchInput
-        anchors.fill: parent
-        anchors.leftMargin: 12
-        anchors.rightMargin: 34
-        verticalAlignment: TextInput.AlignVCenter
-        color: root.textColor
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        clip: true
-
-        onTextChanged: root.searchText = text
-
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Search wallpapers..."
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          visible: searchInput.text.length === 0
-        }
-      }
-
-      // Clear button -- direct request ("i type space then select the
-      // wallpaper i like then press the x to clear in the input field
-      // right side to clear it"). Sits in the rightMargin space
-      // reserved above so it never overlaps typed text. Same "✕"
-      // glyph/placement LauncherContent.qml's own app search already
-      // uses, but red per this request rather than muted/textColor --
-      // #e05252 is this plugin's own established red (DashboardContent.qml/
-      // MetricsContent.qml/Overlay.qml all use it for the same
-      // warning-ish/critical-toggle meaning).
-      Text {
-        visible: searchInput.text.length > 0
-        anchors.right: parent.right
-        anchors.rightMargin: 14
-        anchors.verticalCenter: parent.verticalCenter
-        text: "✕"
-        font.pixelSize: 13
-        color: clearSearchMouse.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
-
-        MouseArea {
-          id: clearSearchMouse
-          anchors.centerIn: parent
-          width: 20
-          height: 20
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            searchInput.text = ""
-            searchInput.forceActiveFocus()
-          }
-        }
-      }
-    }
+    // No inner search box here anymore -- direct request ("we dont need
+    // two search box, use the launcher for wallpaper search input not
+    // what we ported over"). Launcher.qml's own outer SearchHeader is
+    // the single search input for this extension; it writes straight
+    // into `searchText` below via a binding on this component's own
+    // instance (`wallpapersContent.searchText: root.query`), the same
+    // conditional-binding pattern already used there for selectedSourcePath/
+    // sources/allOptionLabel. `searchText` itself and everything that
+    // reads it (filteredPaths etc.) are untouched -- only this component's
+    // own now-redundant text-entry UI is gone.
 
     // Grid (left) + filter sidebar (right) -- direct request ("on the
     // right side of the panel, theres some space left like a right
@@ -447,19 +388,14 @@ Item {
       Layout.fillHeight: true
       spacing: 10
 
-    Text {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      visible: root.filteredPaths.length === 0
-      horizontalAlignment: Text.AlignHCenter
-      verticalAlignment: Text.AlignVCenter
-      // Dropped "for this theme" -- no longer accurate on its own now
-      // that ~/Pictures/ruixen-wallpapers is a real second source.
-      text: root.wallpaperPaths.length === 0 ? "No wallpapers found" : "No wallpapers match “" + root.searchText + "”"
-      color: root.muted
-      font.family: root.fontFamily
-      font.pixelSize: 12
-    }
+    // No inline "no results" Text here, unlike the notch's own copy --
+    // direct report: "for the empty state instead of no result match
+    // "" can it say like no result with the wallpaper icon, kinda like
+    // the file search empty." Launcher.qml now overlays its own shared
+    // EmptyState component (same one Search Files uses, just fed the
+    // Wallpapers glyph) when filteredPaths is empty, reading straight
+    // off this file's own filteredPaths/wallpaperPaths via its
+    // wallpapersContent id -- no new property needed here.
 
     // GridView, not Flow+Repeater -- direct follow-up ("theres no
     // preview image, only the first one has preview image... it just

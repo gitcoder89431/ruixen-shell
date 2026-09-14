@@ -24,6 +24,14 @@ Item {
   property bool sourceSelected: false
   property color mutedColor: "#888888"
   property string fontFamily: ""
+  // fa-search (U+F002), Search Files' own icon, by default -- a
+  // found-nothing state reading as "the search itself" there. Direct
+  // request for the Wallpapers extension's own empty state to use this
+  // same component instead of its own inline message: "kinda like the
+  // file search empty but for the wallpaper icon" -- one prop, not a
+  // second component, since the rest (centered icon + "No Results"
+  // text, same layout/sizing) is identical either way.
+  property string icon: ""
 
   // Empty state -- centered in the whole content area below the
   // search box (spans the full card width, not just the list column,
@@ -42,7 +50,7 @@ Item {
 
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: ""
+        text: root.icon
         color: root.mutedColor
         font.family: root.fontFamily
         font.pixelSize: 40

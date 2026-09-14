@@ -171,7 +171,30 @@ Item {
     if (!currentProc.running) currentProc.running = true
   }
 
-  onActiveChanged: if (active) refresh()
+  onActiveChanged: {
+    if (active) {
+      refresh()
+      // Same re-arm-on-(re)open as Launcher.qml's own hoverArmed below.
+      root.hoverArmed = false
+      root.hoverArmBaseline = Qt.point(-1, -1)
+    }
+  }
+
+  // Direct report: "theres two picker now the mouse and the direction,
+  // i think it needs to know if im using the keyboard or mouse not both
+  // at the same time." Launcher.qml's own resultsList already solved
+  // this exact problem once (its own hoverArmed/hoverArmBaseline, see
+  // its header comment there) by making mouse hover and keyboard nav
+  // drive the SAME single index rather than two independent ones --
+  // reusing that here instead of inventing a second "which input mode
+  // am I in" flag. Real mouse movement (gated by hoverArmed, so a
+  // cursor merely resting over a tile when this extension activates
+  // doesn't silently steal the keyboard's own selection) moves
+  // grid.currentIndex exactly like an arrow key does; the ring/label
+  // below reads ONLY GridView.isCurrentItem now, so there is always
+  // exactly one highlighted tile, whichever input moved it last.
+  property bool hoverArmed: false
+  property point hoverArmBaseline: Qt.point(-1, -1)
 
   // Keyboard grid navigation -- direct request ("can i use the up down
   // left right to navigate around here"). Launcher.qml's own outer
@@ -443,6 +466,23 @@ Item {
       // fill.
       onMovementStarted: root.loadGate = root.wallpaperPaths.length
 
+      // Arms root.hoverArmed on the first REAL pointer movement over the
+      // grid, same mechanism/reasoning as Launcher.qml's own card-level
+      // HoverHandler (see its comment there) -- a passive handler so it
+      // never steals a click from any tile's own MouseArea underneath.
+      HoverHandler {
+        onPointChanged: {
+          if (root.hoverArmed) return
+          if (root.hoverArmBaseline.x < 0) {
+            root.hoverArmBaseline = point.position
+            return
+          }
+          if (Math.abs(point.position.x - root.hoverArmBaseline.x) > 0.5
+              || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5)
+            root.hoverArmed = true
+        }
+      }
+
       // Structural rewrite per direct correction: the previous pass
       // put the hover frame's APPEARANCE on the same element that
       // holds the image, without keeping the image container itself
@@ -455,7 +495,7 @@ Item {
       // changing. Fixed by fully separating them: the image sits in
       // its own static, never-animated container; the ring, inner
       // line, and label are separate sibling overlays with fixed
-      // geometry, toggled by plain `visible: tile.hovered` and
+      // geometry, toggled by plain `visible: tile.current` and
       // nothing else -- no Behaviors anywhere in this delegate, so
       // there's no lingering fade after the pointer leaves either.
       delegate: Item {
@@ -466,13 +506,12 @@ Item {
         // Only used to gate the Image source below against
         // root.loadGate -- see its own comment for why.
         required property int index
-        readonly property bool hovered: tileMouse.containsMouse
-        // GridView's own attached property, true for exactly the tile
-        // at grid.currentIndex -- keyboard navigation (see root's own
-        // moveSelectionUp/Down/Left/Right) moves currentIndex, not the
-        // mouse, so the same hover ring/label need a second trigger
-        // besides tile.hovered or an arrow-key selection would be
-        // completely invisible.
+        // GridView's own attached property, true for exactly the tile at
+        // grid.currentIndex -- the SOLE trigger for the ring/label below
+        // now (see root.hoverArmed's own comment for why there's no
+        // separate hover-driven trigger anymore: real mouse movement
+        // moves currentIndex itself instead of fighting it for the
+        // highlight).
         readonly property bool current: GridView.isCurrentItem
         // Compares against identity, not display (#23) -- for a video
         // entry, ruixen.wallpaper's own Service.qml sets
@@ -544,7 +583,7 @@ Item {
           color: "transparent"
           border.width: 2
           border.color: root.accent
-          visible: tile.hovered || tile.current
+          visible: tile.current
           z: 2
 
           Rectangle {
@@ -566,7 +605,7 @@ Item {
           anchors.margins: 5
           height: 26
           color: Qt.rgba(0, 0, 0, 0.82)
-          visible: tile.hovered || tile.current
+          visible: tile.current
           z: 3
 
           Text {
@@ -590,6 +629,12 @@ Item {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
+          // Real hover moves the SAME currentIndex keyboard nav uses --
+          // see root.hoverArmed's own comment for why this is gated
+          // (skipped entirely for a synthetic/stale-position enter that
+          // fires before the grid's own HoverHandler has seen genuine
+          // movement).
+          onEntered: if (root.hoverArmed) grid.currentIndex = tile.index
           onClicked: {
             grid.currentIndex = tile.index
             root.select(tile.modelData)

@@ -143,6 +143,7 @@ Item {
       searchHeader.text = ""
       root.query = ""
       root.filesMode = false
+      root.activeExtensionId = ""
       root.actionsMenuOpen = false
       root.hasScopeHistory = false
     }
@@ -186,6 +187,18 @@ Item {
   // rare/meaningful, not the spammy part), plain Files only appear
   // once this fallback row is actually activated.
   property bool filesMode: false
+  // Same "switch the whole view" shape as filesMode above, generalized
+  // for an extension that isn't a search mode at all -- Wallpapers (the
+  // first one) has its own full picker UI, not a query/results list.
+  // "" means normal search; any other value names which extension's
+  // own content replaces resultsList/detailsPanel below. Direct
+  // request: a landing-list "Extensions" group (Search Files first,
+  // Wallpapers next) as the real front door onto this, activating a
+  // Wallpapers row is `activeExtensionId = "wallpapers"` the same way
+  // activating the Search Files row is `filesMode = true` -- see
+  // activateSelected()'s own dispatch below for both.
+  property string activeExtensionId: ""
+  readonly property bool inExtensionMode: root.activeExtensionId !== ""
   // "" means every known root (the source-filter dropdown's own "All Sources"
   // entry); a specific path restricts Search Files to just that drive.
   // Reset to "" on every fresh entry into Search Files -- "defaults to
@@ -455,6 +468,26 @@ Item {
     }
   }
 
+  // Landing-list-only counterpart to filesFallbackRow above -- see
+  // activeExtensionId's own comment for why this needs a genuinely
+  // different dispatch (a full picker UI, not a search mode). fa-image
+  // (U+F03E), the exact same glyph ruixen.notch's own Wallpapers tab
+  // already uses (confirmed directly against Overlay.qml's own
+  // TabButton, not guessed) -- the row and what it opens read as the
+  // same feature.
+  function wallpapersRow() {
+    return {
+      id: "extension:wallpapers",
+      providerId: "wallpapers-extension",
+      icon: "",
+      label: "Wallpapers",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      providerName: "",
+      score: 0
+    }
+  }
+
   // A single flat list, each row tagged with its own sectionLabel --
   // fed straight into ResultsList's own model, which draws the group
   // headers and keeps the list virtualized (real perf concern once
@@ -488,9 +521,17 @@ Item {
       return rows
     }
     if (q === "") {
+      // Direct request: a permanent "Extensions" group on the landing
+      // list itself (not just Search Files' own query-time "Use ...
+      // with" fallback) -- Search Files first, Wallpapers next, more
+      // landing here later ("Ruixen Settings or ClipBoard Manager etc
+      // when we do them"). First section, ahead of Suggestions -- these
+      // are the launcher's own core surfaces, not one more curated
+      // default alongside Lock/Screenshot/Theme.
+      var ext = tag([root.filesFallbackRow(""), root.wallpapersRow()], "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
       var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
-      return sug.concat(browse)
+      return ext.concat(sug).concat(browse)
     }
     // FileSearchProvider/FileContentSearchProvider are both asynchronous
     // (real fd/ripgrep subprocesses, not a synchronous scan) -- each
@@ -795,6 +836,13 @@ Item {
       root.filesMode = true
       return
     }
+    // Same non-dismissing switch, for an extension with its own full
+    // picker UI instead of a search mode -- see activeExtensionId's
+    // own comment.
+    if (result.providerId === "wallpapers-extension") {
+      root.activeExtensionId = "wallpapers"
+      return
+    }
     var provider = root.providerFor(result.providerId)
     if (provider) provider.activate(result)
     root.dismiss()
@@ -967,7 +1015,18 @@ Item {
 
       SearchHeader {
         id: searchHeader
-        filesMode: root.filesMode
+        // Also true in extension mode -- reuses the exact same back-
+        // arrow/placeholder treatment filesMode already gets rather
+        // than teaching SearchHeader a third distinct visual state for
+        // what is, from its own point of view, the same thing: "not
+        // plain search right now, show a way back."
+        filesMode: root.filesMode || root.inExtensionMode
+        // "Wallpapers", not the generic "Search files..." filesMode
+        // itself would fall back to -- WallpapersContent has its own
+        // internal filter box already, this outer one is inert while
+        // an extension is active (typing still updates root.query,
+        // it's just not read by anything visible right now).
+        placeholderOverride: root.activeExtensionId === "wallpapers" ? "Wallpapers" : ""
         resultCount: root.results.length
         selectedSourcePath: root.selectedSourcePath
         sources: fileSearchProvider.sources
@@ -1007,11 +1066,16 @@ Item {
             root.hasScopeHistory = false
           } else if (root.filesMode) {
             root.filesMode = false
+          } else if (root.inExtensionMode) {
+            root.activeExtensionId = ""
           } else {
             root.dismiss()
           }
         }
-        onBackClicked: root.filesMode = false
+        onBackClicked: {
+          root.filesMode = false
+          root.activeExtensionId = ""
+        }
         onTabPressed: {
           if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
@@ -1171,6 +1235,13 @@ Item {
       // is already the same flat index as root.selectedIndex.
       ResultsList {
         id: resultsList
+        // Extension mode swaps this whole area for the extension's own
+        // content (WallpapersContent below) -- without this, the
+        // landing list activating Wallpapers left behind would still
+        // sit there underneath it (activating the row deliberately
+        // doesn't dismiss or touch root.results, same as filesMode's
+        // own "Use ... with" row).
+        visible: !root.inExtensionMode
         anchors.top: filtersBar.bottom
         // 8 -> 4 -- direct report: felt like too much empty space now
         // that the search box's own bottom border separator is gone
@@ -1274,6 +1345,25 @@ Item {
         degraded: root.filesSearchDegraded
         sourceSelected: root.selectedSourcePath !== ""
         mutedColor: root.muted
+        fontFamily: root.fontFamily
+      }
+
+      // First real extension view -- see activeExtensionId's own
+      // comment. Same fill area resultsList/detailsPanel use; `active`
+      // (not just `visible`) matches the exact prop this same component
+      // already takes from ruixen.notch/Overlay.qml, so its own
+      // refresh-while-shown behavior needs no changes here.
+      WallpapersContent {
+        anchors.top: filtersBar.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: 8
+        visible: root.activeExtensionId === "wallpapers"
+        active: root.activeExtensionId === "wallpapers"
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
         fontFamily: root.fontFamily
       }
 

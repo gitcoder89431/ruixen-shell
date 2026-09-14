@@ -22,6 +22,14 @@ Item {
   id: root
 
   property bool filesMode: false
+  // Non-empty wins over filesMode's own hardcoded "Search files..." --
+  // needed once Launcher.qml started reusing filesMode's back-arrow/
+  // layout treatment for extension mode too (see its own inExtensionMode
+  // comment): without this the placeholder kept reading "Search
+  // files..." while showing the Wallpapers grid underneath it, since
+  // that text was the ONE piece of filesMode-specific copy baked
+  // directly into this component instead of taken from a prop.
+  property string placeholderOverride: ""
   property int resultCount: 0
   property string selectedSourcePath: ""
   property var sources: []
@@ -218,7 +226,8 @@ Item {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
-      text: root.filesMode ? "Search files..." : "Search actions and apps..."
+      text: root.placeholderOverride !== "" ? root.placeholderOverride
+        : (root.filesMode ? "Search files..." : "Search actions and apps...")
       color: root.mutedColor
       font.family: root.fontFamily
       font.pixelSize: 16

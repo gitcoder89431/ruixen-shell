@@ -1,15 +1,19 @@
+// Verbatim copy of bars/v1/ruixen.notch/WallpapersContent.qml -- same
+// "plugin folders can't share a file" convention already used for
+// AppLibrary.qml/AppSearch.js across ruixen.notch/ruixen.pinnedapps/
+// ruixen.launcher. Direct request: a "Wallpapers" extension in the
+// launcher's own landing list, ported rather than rebuilt ("its more
+// of a port job, both can work and do the same thing for now") -- the
+// notch's own copy is untouched, this is a second front door onto the
+// exact same real omarchy-theme-bg-set/ruixen.wallpaper mechanism, not
+// a fork of the logic itself. Keep both copies in sync by hand if this
+// file's own picker logic changes.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
 
-// A second, byte-for-byte copy of this file lives at
-// ruixen.launcher/WallpapersContent.qml (a launcher "Wallpapers"
-// extension, same "plugin folders can't share a file" reason
-// AppLibrary.qml is copied per-plugin too) -- keep both in sync by
-// hand if this file's own picker logic changes.
-//
 // Real wallpaper picker for the notch dashboard's own "Wallpapers" tab,
 // replacing the "coming soon" stub. Reads from the exact same two
 // directories Omarchy's own omarchy-theme-bg-switcher does (confirmed

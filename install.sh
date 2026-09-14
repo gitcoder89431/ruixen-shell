@@ -32,10 +32,10 @@ command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 # remembers to check a flag. Reuses lib/build-shell-json.sh completely
 # as-is -- the exact same pure function [4/6] below calls -- so the
 # shell.json preview and the real merge cannot drift on what would
-# actually change. Plugin manifest validation is run for REAL here
-# (omarchy plugin validate never mutates anything), not simulated, so
-# "invalid configs/manifests still fail validation in dry-run" is
-# literally true rather than approximated.
+# actually change (see [4/7] below). Plugin manifest validation is run
+# for REAL here (omarchy plugin validate never mutates anything), not
+# simulated, so "invalid configs/manifests still fail validation in
+# dry-run" is literally true rather than approximated.
 if [[ "${1:-}" == "--dry-run" ]]; then
   printf '=== Ruixen Install -- dry run, nothing will be changed ===\n\n'
 
@@ -148,6 +148,28 @@ if [[ "${1:-}" == "--dry-run" ]]; then
     printf '  nothing exists yet -- would be created fresh\n'
   fi
 
+  printf '\nTheme overlays:\n'
+  theme_overlay_preview_dirs=("$script_dir"/theme-overlays/*/)
+  if [[ -d "$script_dir/theme-overlays" && -d "${theme_overlay_preview_dirs[0]}" ]]; then
+    dry_run_current_theme_slug="$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || true)"
+    for theme_preview_dir in "${theme_overlay_preview_dirs[@]}"; do
+      [[ -d "$theme_preview_dir" ]] || continue
+      theme_preview_name="$(basename "$theme_preview_dir")"
+      preview_file_list=()
+      for preview_file in "$theme_preview_dir"*; do
+        [[ -f "$preview_file" ]] && preview_file_list+=("$(basename "$preview_file")")
+      done
+      if [[ "$theme_preview_name" == "$dry_run_current_theme_slug" ]]; then
+        printf '  %s: %s -- currently active, would be re-applied immediately\n' \
+          "$theme_preview_name" "${preview_file_list[*]}"
+      else
+        printf '  %s: %s\n' "$theme_preview_name" "${preview_file_list[*]}"
+      fi
+    done
+  else
+    printf '  none in this checkout\n'
+  fi
+
   printf '\nState files:\n'
   [[ -e "$HOME/.local/state/ruixen/shell.json.pre-ruixen" ]] \
     && printf '  pre-Ruixen bar snapshot: already recorded, left untouched\n' \
@@ -213,7 +235,7 @@ acquire_lifecycle_lock "$state_dir" || exit 1
 # them. Everything below is a real feature dependency, not a hard
 # requirement, so a warning here plus the install continuing is the
 # correct behavior, not a failure.
-printf '\n[1/6] Checking optional dependencies\n'
+printf '\n[1/7] Checking optional dependencies\n'
 optional_dep_warned=0
 warn_optional_dep() {
   local cmd="$1" feature="$2"
@@ -287,6 +309,22 @@ mkdir -p "$plugin_backup_dir"
 looknfeel_data_backup_dir="$state_dir/backups/looknfeel-data"
 mkdir -p "$looknfeel_data_backup_dir"
 
+# Same reasoning again, for theme-overlays/<name>/* (per-theme shell.toml/
+# icons.theme/etc. overrides -- see [7/8] below). Direct real-world
+# report: a separate install showed generic "unknown app" box icons for
+# every third-party app in the launcher/pinned-apps ("his icons... show
+# up as square unknown boxes"), on the White theme specifically -- root-
+# caused earlier THIS SAME theme's own icons.theme names an icon-theme
+# variant ("Yaru-grey") that yaru-icon-theme never actually ships,
+# falling back to hicolor's own sparse coverage for anything not built
+# in. Fixed for this dev machine by hand at the time (a symlink straight
+# into the checkout) -- never wired into install/update, so every OTHER
+# install of this repo still has the untouched stock bug. This closes
+# that gap: any theme-overlays/<name>/ directory in this checkout now
+# deploys automatically, the same way plugins/looknfeel already do.
+theme_overlay_backup_dir="$state_dir/backups/theme-overlays"
+mkdir -p "$theme_overlay_backup_dir"
+
 # --------------------------------------------------------------------
 # Rollback -- direct review finding ("Make install/update transactional
 # with validation and rollback"): the old single-pass plugin loop
@@ -328,6 +366,23 @@ LOOKNFEEL_HAD_BACKUP=0
 LOOKNFEEL_DATA_TOUCHED=0
 LOOKNFEEL_DATA_ROOT_PREEXISTED=0
 declare -A LOOKNFEEL_DATA_HAD_BACKUP
+
+# Same shape as LOOKNFEEL_DATA_* above, keyed by "themename/filename"
+# instead of a fixed variant list -- theme-overlays/ can hold any number
+# of themes with any number of files each. THEME_OVERLAY_HAD_BACKUP
+# covers the stable deployed copy under ~/.local/share/ruixen-shell/;
+# THEME_OVERLAY_CONFIG_HAD_BACKUP covers a real (non-ours) pre-existing
+# file at the ~/.config/omarchy/themes/<name>/ target, so a user's own
+# hand-written overlay for the same theme/filename is never silently
+# discarded. THEME_OVERLAY_CONFIG_PREEXISTED_AS_OURS covers the third
+# case -- already our own symlink from a prior run, needing neither a
+# backup NOR "leave it deleted" on rollback, but "recreate the symlink"
+# instead (see its own comment at the deploy site below).
+THEME_OVERLAYS_TOUCHED=0
+THEME_OVERLAY_TOUCHED_KEYS=()
+declare -A THEME_OVERLAY_HAD_BACKUP
+declare -A THEME_OVERLAY_CONFIG_HAD_BACKUP
+declare -A THEME_OVERLAY_CONFIG_PREEXISTED_AS_OURS
 
 rollback_plugins() {
   local idx id target backup
@@ -381,15 +436,63 @@ rollback_looknfeel_data() {
   fi
 }
 
+rollback_theme_overlays() {
+  [[ "$THEME_OVERLAYS_TOUCHED" -eq 1 ]] || return 0
+  local idx key theme_name fname data_target config_target
+  for (( idx=${#THEME_OVERLAY_TOUCHED_KEYS[@]}-1; idx>=0; idx-- )); do
+    key="${THEME_OVERLAY_TOUCHED_KEYS[$idx]}"
+    theme_name="${key%%/*}"
+    fname="${key#*/}"
+    data_target="$HOME/.local/share/ruixen-shell/theme-overlays/$theme_name/$fname"
+    config_target="$HOME/.config/omarchy/themes/$theme_name/$fname"
+
+    # Data copy restored FIRST -- the "already our own symlink" case
+    # below needs it back in place before recreating a symlink to it.
+    rm -f "$data_target"
+    if [[ "${THEME_OVERLAY_HAD_BACKUP[$key]:-0}" -eq 1 ]]; then
+      mv "$theme_overlay_backup_dir/$theme_name/$fname.bak.$stamp" "$data_target" \
+        || printf '  warning: could not restore %s from its backup\n' "$data_target" >&2
+    fi
+
+    rm -f "$config_target"
+    if [[ "${THEME_OVERLAY_CONFIG_HAD_BACKUP[$key]:-0}" -eq 1 ]]; then
+      mv "$theme_overlay_backup_dir/$theme_name/$fname.config.bak.$stamp" "$config_target" \
+        || printf '  warning: could not restore %s from its backup\n' "$config_target" >&2
+    elif [[ "${THEME_OVERLAY_CONFIG_PREEXISTED_AS_OURS[$key]:-0}" -eq 1 && -e "$data_target" ]]; then
+      # Was already our own symlink before this run (no backup taken,
+      # nothing of the user's to lose) -- put that exact symlink back
+      # now that the data copy it points to is restored too, rather
+      # than leaving this theme with no overlay at all.
+      ln -sf "$data_target" "$config_target"
+    fi
+    rmdir "$HOME/.config/omarchy/themes/$theme_name" 2>/dev/null || true
+    rmdir "$HOME/.local/share/ruixen-shell/theme-overlays/$theme_name" 2>/dev/null || true
+  done
+  # Unconditional, not gated on "did this preexist" -- rmdir only ever
+  # succeeds on a genuinely empty directory, so there's no preexistence
+  # tracking actually needed here (unlike a FILE, where "was there
+  # already" decides whether to back up/restore real content). Real
+  # bug, found by this file's own tests/install-theme-overlays.sh (not
+  # guessed): a flag WAS tracked here, but by the time this step's own
+  # deploy runs, ~/.local/share/ruixen-shell already exists almost
+  # every real run -- looknfeel's OWN deploy (the step immediately
+  # before this one) already created it, in THIS SAME run, not some
+  # prior install -- so the flag read "preexisted" even on a genuine
+  # first install, and this cleanup silently never ran at all, leaving
+  # an empty theme-overlays/ directory behind after every rollback.
+  rmdir "$HOME/.local/share/ruixen-shell/theme-overlays" "$HOME/.local/share/ruixen-shell" 2>/dev/null || true
+}
+
 rollback_all() {
   trap - ERR
-  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 ]]; then
+  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 && "$THEME_OVERLAYS_TOUCHED" -eq 0 ]]; then
     # Failed before anything was actually changed (e.g. plugin
     # validation) -- fail()'s own message already explained why,
     # nothing to undo.
     return 0
   fi
   printf '\ninstall failed -- rolling back changes made this run...\n' >&2
+  rollback_theme_overlays
   rollback_looknfeel
   rollback_looknfeel_data
   rollback_shell_json
@@ -398,7 +501,7 @@ rollback_all() {
 }
 trap rollback_all ERR
 
-printf '\n[2/6] Validating plugins\n'
+printf '\n[2/7] Validating plugins\n'
 # Every manifest is checked before ANYTHING is deployed -- a failure
 # here never touches a single already-installed plugin.
 for dir in "$script_dir"/ruixen.*/; do
@@ -408,7 +511,7 @@ for dir in "$script_dir"/ruixen.*/; do
 done
 printf '  all plugins passed validation\n'
 
-printf '\n[3/6] Installing plugins\n'
+printf '\n[3/7] Installing plugins\n'
 for dir in "$script_dir"/ruixen.*/; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
@@ -455,7 +558,7 @@ for id in "${DEPLOYED_PLUGIN_IDS[@]}"; do
 done
 printf '  verified: every deployed plugin exactly matches this checkout\n'
 
-printf '\n[4/6] Applying shell layout\n'
+printf '\n[4/7] Applying shell layout\n'
 # Merged into whatever shell.json already exists (via lib/build-shell-
 # json.sh), not a wholesale `cat > shell.json` overwrite -- direct
 # review finding ("Preserve existing shell.json instead of replacing
@@ -494,7 +597,7 @@ tmp_shell_json="$(mktemp "${shell_json}.XXXXXX")"
 mv "$tmp_shell_json" "$shell_json"
 printf '  wrote %s (unrelated plugins/settings, if any, were preserved)\n' "$shell_json"
 
-printf '\n[5/6] Matching Hyprland window look to the frame/bar\n'
+printf '\n[5/7] Matching Hyprland window look to the frame/bar\n'
 # See lib/apply-looknfeel.sh's own comment for the full "why" -- in
 # short, a pre-existing looknfeel.lua SYMLINK (a dotfiles setup, say)
 # used to get silently overwritten with no backup at all, and a
@@ -588,7 +691,102 @@ case "$looknfeel_current_variant" in
 esac
 printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"
 
-printf '\n[6/6] Restarting Omarchy shell\n'
+printf '\n[6/7] Applying theme overlays\n'
+# Per-theme overrides for stock Omarchy themes that ship a real bug or
+# an assumption ruixen.bar breaks (see theme_overlay_backup_dir's own
+# comment above for the White/icons.theme case this closes). Same
+# deploy-then-symlink shape as looknfeel above: each file is copied to
+# a stable path under ~/.local/share/ruixen-shell/ first, and
+# ~/.config/omarchy/themes/<name>/<file> symlinks there -- never a
+# symlink straight into this checkout, so moving/deleting the clone
+# later can't break a theme apply the way #15 already fixed for
+# looknfeel.lua.
+theme_overlays_data_root="$HOME/.local/share/ruixen-shell/theme-overlays"
+theme_overlays_applied=()
+if [[ -d "$script_dir/theme-overlays" ]]; then
+  for theme_src_dir in "$script_dir/theme-overlays"/*/; do
+    [[ -d "$theme_src_dir" ]] || continue
+    theme_name="$(basename "$theme_src_dir")"
+    data_dir="$theme_overlays_data_root/$theme_name"
+    config_dir="$HOME/.config/omarchy/themes/$theme_name"
+    mkdir -p "$data_dir" "$config_dir" "$theme_overlay_backup_dir/$theme_name"
+
+    for f in "$theme_src_dir"*; do
+      [[ -f "$f" ]] || continue
+      fname="$(basename "$f")"
+      key="$theme_name/$fname"
+      data_target="$data_dir/$fname"
+      config_target="$config_dir/$fname"
+
+      if [[ -e "$data_target" ]]; then
+        cp "$data_target" "$theme_overlay_backup_dir/$theme_name/$fname.bak.$stamp"
+        THEME_OVERLAY_HAD_BACKUP["$key"]=1
+      fi
+      # A real, non-Ruixen file already at the config target (a user's
+      # own hand-written overlay for this exact theme/filename) is
+      # backed up, never silently clobbered -- our own symlink from a
+      # previous run just gets replaced, nothing of the user's to lose.
+      if [[ -L "$config_target" && "$(readlink "$config_target")" == "$data_target" ]]; then
+        # Already our own symlink from a prior run -- no backup needed,
+        # but rollback still has to know a symlink belongs here at all
+        # (not "nothing did"), or a failure later in THIS run would
+        # roll the stable data copy back correctly while leaving the
+        # config-side symlink simply deleted -- worse than before this
+        # run started, not merely unchanged.
+        THEME_OVERLAY_CONFIG_PREEXISTED_AS_OURS["$key"]=1
+      elif [[ -e "$config_target" ]]; then
+        cp -P "$config_target" "$theme_overlay_backup_dir/$theme_name/$fname.config.bak.$stamp"
+        THEME_OVERLAY_CONFIG_HAD_BACKUP["$key"]=1
+      fi
+
+      tmp_target="$(mktemp "$data_dir/.${fname}.XXXXXX")"
+      cp "$f" "$tmp_target"
+      mv "$tmp_target" "$data_target"
+      THEME_OVERLAYS_TOUCHED=1
+      THEME_OVERLAY_TOUCHED_KEYS+=("$key")
+
+      ln -sf "$data_target" "$config_target"
+    done
+    theme_overlays_applied+=("$theme_name")
+  done
+fi
+
+if [[ ${#theme_overlays_applied[@]} -eq 0 ]]; then
+  printf '  none in this checkout\n'
+else
+  printf '  applied: %s\n' "${theme_overlays_applied[*]}"
+  # Re-apply the theme LIVE if it's the one currently active, same
+  # immediacy as hyprctl reload above -- otherwise a fix like the White
+  # icons.theme one sits deployed but inert until the user happens to
+  # switch themes away and back. `omarchy theme set` re-reads
+  # ~/.config/omarchy/themes/<name>/ (this run just populated it) and
+  # re-runs every theme-set.d hook (gsettings icon-theme included).
+  current_theme_slug="$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || true)"
+  if [[ -n "$current_theme_slug" ]]; then
+    for theme_name in "${theme_overlays_applied[@]}"; do
+      if [[ "$theme_name" == "$current_theme_slug" ]]; then
+        # Best-effort, not `&& printf ...` -- that bare-statement shape
+        # is exactly the bug #21's own prune-poster-cache.sh CI failure
+        # already taught this project to avoid: under `set -e`, a
+        # failing left side of a top-level `A && B` still trips the ERR
+        # trap and rolls back the ENTIRE install for what should be a
+        # skippable nicety (theme-set can legitimately no-op without a
+        # live D-Bus session, same guard omarchy-theme-set-gnome's own
+        # script already documents). `if` + explicit `|| true`, like
+        # hyprctl reload above, swallows a failure here without ever
+        # being the statement `set -e` reacts to.
+        if omarchy theme set "$theme_name" >/dev/null 2>&1; then
+          printf '  re-applied the active theme (%s) so this takes effect immediately\n' "$theme_name"
+        else
+          printf '  could not re-apply the active theme (%s) live -- will take effect next time it is (re)selected\n' "$theme_name"
+        fi
+        break
+      fi
+    done
+  fi
+fi
+
+printf '\n[7/7] Restarting Omarchy shell\n'
 # Direct real-world report: a tester's install/update completed with
 # every plugin file genuinely deployed and up to date, yet the bar
 # kept rendering old, pre-update layout after the restart -- a
@@ -679,6 +877,13 @@ prune_backups "$backup_retain_count" "${looknfeel_target}.bak.*"
 for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua; do
   prune_backups "$backup_retain_count" "$looknfeel_data_backup_dir/$variant.bak.*"
 done
+# Same bounded retention, for theme-overlays/ backups -- prune_backups
+# already sorts oldest-first and no-ops below the retain count, so a
+# blanket two-level glob across every theme/file this checkout has ever
+# shipped an overlay for is safe even though the exact set can grow or
+# shrink between runs (unlike the fixed looknfeel variant list above).
+prune_backups "$backup_retain_count" "$theme_overlay_backup_dir/*/*.bak.*"
+prune_backups "$backup_retain_count" "$theme_overlay_backup_dir/*/*.config.bak.*"
 
 cat <<EOF
 

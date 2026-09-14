@@ -53,6 +53,16 @@ case "${1:-} ${2:-}" in
   "bar reset" | "bar defaults")
     exit 0
     ;;
+  # Added for install.sh's own theme-overlays step (re-applying the
+  # active theme live after deploying an overlay) -- just needs to
+  # succeed/fail on cue, no real theme-switching side effects to fake.
+  "theme set")
+    if [[ -n "${FAKE_OMARCHY_FAIL_THEME_SET:-}" && "${3:-}" == "$FAKE_OMARCHY_FAIL_THEME_SET" ]]; then
+      echo "fake omarchy: forced theme-set failure for ${3:-}" >&2
+      exit 1
+    fi
+    exit 0
+    ;;
   *)
     echo "fake omarchy stub: unhandled command: $*" >&2
     exit 1

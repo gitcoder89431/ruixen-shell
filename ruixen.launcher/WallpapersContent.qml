@@ -173,6 +173,33 @@ Item {
 
   onActiveChanged: if (active) refresh()
 
+  // Keyboard grid navigation -- direct request ("can i use the up down
+  // left right to navigate around here"). Launcher.qml's own outer
+  // SearchHeader is still the only focused input (see this file's own
+  // "No inner search box" comment above); it forwards arrow keys here
+  // as plain function calls rather than this component ever taking
+  // its own keyboard focus, same as how the landing results list is
+  // navigated by mutating root.selectedIndex from outside rather than
+  // resultsList itself holding focus. GridView already implements
+  // exactly this (moveCurrentIndexUp/Down/Left/Right respect its own
+  // real column count and stop at the edges), so these just forward
+  // to it instead of re-deriving row/column math by hand.
+  function moveSelectionUp() { grid.moveCurrentIndexUp() }
+  function moveSelectionDown() { grid.moveCurrentIndexDown() }
+  function moveSelectionLeft() { grid.moveCurrentIndexLeft() }
+  function moveSelectionRight() { grid.moveCurrentIndexRight() }
+  function activateSelection() {
+    if (grid.currentIndex >= 0 && grid.currentIndex < root.filteredPaths.length)
+      root.select(root.filteredPaths[grid.currentIndex])
+  }
+
+  // Reset to the first tile whenever the visible set changes (kind
+  // filter or search text) -- same convention Launcher.qml's own
+  // onQueryChanged already uses for root.selectedIndex, so a keyboard
+  // selection never silently points at a tile that scrolled out of the
+  // filtered set or, worse, sits past the end of a now-shorter list.
+  onFilteredPathsChanged: grid.currentIndex = filteredPaths.length > 0 ? 0 : -1
+
   // Drives loadGate up a couple tiles at a time -- fast enough that
   // the initial screenful fills in well under half a second, but
   // spaced out enough that each request has time to actually reach
@@ -440,6 +467,13 @@ Item {
         // root.loadGate -- see its own comment for why.
         required property int index
         readonly property bool hovered: tileMouse.containsMouse
+        // GridView's own attached property, true for exactly the tile
+        // at grid.currentIndex -- keyboard navigation (see root's own
+        // moveSelectionUp/Down/Left/Right) moves currentIndex, not the
+        // mouse, so the same hover ring/label need a second trigger
+        // besides tile.hovered or an arrow-key selection would be
+        // completely invisible.
+        readonly property bool current: GridView.isCurrentItem
         // Compares against identity, not display (#23) -- for a video
         // entry, ruixen.wallpaper's own Service.qml sets
         // current/background to the POSTER, which for video already
@@ -510,7 +544,7 @@ Item {
           color: "transparent"
           border.width: 2
           border.color: root.accent
-          visible: tile.hovered
+          visible: tile.hovered || tile.current
           z: 2
 
           Rectangle {
@@ -532,7 +566,7 @@ Item {
           anchors.margins: 5
           height: 26
           color: Qt.rgba(0, 0, 0, 0.82)
-          visible: tile.hovered
+          visible: tile.hovered || tile.current
           z: 3
 
           Text {
@@ -556,7 +590,10 @@ Item {
           anchors.fill: parent
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.select(tile.modelData)
+          onClicked: {
+            grid.currentIndex = tile.index
+            root.select(tile.modelData)
+          }
           z: 4
         }
       }

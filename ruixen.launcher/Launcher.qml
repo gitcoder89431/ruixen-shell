@@ -1067,6 +1067,9 @@ Item {
         sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions : fileSearchProvider.sources
         allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types" : "All Sources"
         sourceFilterWidth: root.sourceFilterWidth
+        // Wallpapers is the only extension so far with anything 2D to
+        // navigate -- see this property's own comment in SearchHeader.qml.
+        interceptArrowKeys: root.activeExtensionId === "wallpapers"
         textColor: root.textColor
         mutedColor: root.muted
         fontFamily: root.fontFamily
@@ -1077,16 +1080,27 @@ Item {
         // opened, so there's no reason for these to touch selectedIndex
         // (and onSelectedIndexChanged would just close the menu right
         // back out from under itself if they did).
+        //
+        // Direct request: "can i use the up down left right to
+        // navigate around here" (the Wallpapers grid) -- checked first
+        // in each handler below, ahead of the actions-menu/results-list
+        // logic, since neither of those exists while an extension owns
+        // the view.
         onUpPressed: {
-          if (root.actionsMenuOpen) { if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex-- }
+          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionUp()
+          else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex-- }
           else if (root.selectedIndex > 0) root.selectedIndex--
         }
         onDownPressed: {
-          if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
+          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionDown()
+          else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
           else if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
         }
+        onLeftPressed: if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionLeft()
+        onRightPressed: if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionRight()
         onEnterPressed: {
-          if (root.actionsMenuOpen) root.runResultAction(root.resultActions[root.actionsSelectedIndex].id)
+          if (root.activeExtensionId === "wallpapers") wallpapersContent.activateSelection()
+          else if (root.actionsMenuOpen) root.runResultAction(root.resultActions[root.actionsSelectedIndex].id)
           else root.activateSelected()
         }
         onEscapePressed: {

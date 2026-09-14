@@ -45,6 +45,14 @@ Item {
   // sides always agree on open/closed state.
   property bool dropdownOpen: false
 
+  // Left/Right normally do their plain TextInput job (move the text
+  // cursor) -- only an extension that actually has something 2D to
+  // navigate (Wallpapers' own grid) needs them repurposed, so this
+  // defaults off rather than always stealing them the way Up/Down
+  // already unconditionally do (a single-line TextInput has no real use
+  // for Up/Down anyway, but DOES for Left/Right while editing a query).
+  property bool interceptArrowKeys: false
+
   property color textColor: "#ffffff"
   property color mutedColor: "#888888"
   property string fontFamily: ""
@@ -56,6 +64,9 @@ Item {
 
   signal upPressed()
   signal downPressed()
+  // Only fired while interceptArrowKeys is true -- see its own comment.
+  signal leftPressed()
+  signal rightPressed()
   signal enterPressed()
   // Fired only once this component's OWN dropdown is already closed --
   // Escape's first priority (closing an open dropdown) is handled
@@ -254,6 +265,12 @@ Item {
         event.accepted = true
       } else if (event.key === Qt.Key_Down) {
         root.downPressed()
+        event.accepted = true
+      } else if (event.key === Qt.Key_Left && root.interceptArrowKeys) {
+        root.leftPressed()
+        event.accepted = true
+      } else if (event.key === Qt.Key_Right && root.interceptArrowKeys) {
+        root.rightPressed()
         event.accepted = true
       } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
         root.enterPressed()

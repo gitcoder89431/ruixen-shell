@@ -170,35 +170,51 @@ Item {
     id: avatarNotifyProc
   }
 
-  // --- Profile: Window Curvature (Sharp/Rounded), ported from
-  // ruixen.settings -- same naming as Settings.qml's own
-  // cornerCurvature/setCornerCurvature/ruixenRepoPath. "Off" (stock
-  // Omarchy, no border/blur/shadow) isn't offered here either, same as
-  // the real page -- a much bigger toggle than corner shape alone,
-  // stays CLI-only.
+  // --- Profile: Window Curvature (Sharp/Rounded). First ported
+  // byte-for-byte from ruixen.settings (cornerCurvature/
+  // setCornerCurvature), which shells out to the real hyprland/
+  // ruixen-lookfeel.sh SCRIPT via a required git checkout path
+  // (ruixenRepoPath) -- direct follow-up caught the real problem with
+  // that: "this makes it not really workable as standalone launcher
+  // right, cause it still relies on the lookandfeel from the
+  // ruixen-shell?"
   //
-  // Clicking either option runs the REAL hyprland/ruixen-lookfeel.sh
-  // script, which ends in a full `omarchy restart shell` -- this
-  // launcher's own process included. That's already-accepted behavior
-  // in the real app (its own settings panel "visibly reopens fresh a
-  // moment after clicking -- expected, not a bug"), not something new
-  // introduced by porting it here; this is a second front door onto
-  // the exact same script, not a lighter/different action.
+  // Fix, not a workaround: ruixen-lookfeel.sh's OWN header comment
+  // (confirmed by reading the real script directly) already documents
+  // that its lua TARGETS live at a stable, install-time-deployed path
+  // -- $HOME/.local/share/ruixen-shell/hyprland -- specifically so
+  // toggling look'n'feel "stopped [working] the moment the checkout
+  // that ran install.sh was moved or deleted" (issue #15). Only the
+  // SCRIPT FILE ITSELF stays checkout-relative; the actual lua content
+  // it symlinks to is already checkout-independent. So this reimplements
+  // just the script's own small symlink-swap+reload sequence directly
+  // (~6 lines, confirmed against the real script's own apply()),
+  // pointed at that same already-stable deployed directory -- no lua
+  // files duplicated (there's exactly one real copy on disk, shared by
+  // both this and the real ruixen.settings page), no ruixenRepoPath,
+  // no git-checkout dependency of any kind. "Off" (stock Omarchy, no
+  // border/blur/shadow) isn't offered here either, same as the real
+  // page -- a much bigger toggle than corner shape alone, stays
+  // CLI-only (`ruixen-lookfeel off`).
+  //
+  // This IS a second, independent copy of the orchestration logic
+  // (matching every other "plugin folders can't share a file" case in
+  // this repo) -- direct follow-up accepted that explicitly: "we can
+  // have two copies... just build 2 for now till we phase out the old
+  // settings, than it should be easier to decide [on one]." Once
+  // ruixen.settings' own General page is retired, this becomes the
+  // only copy left, naturally converging without any migration step --
+  // and even today, the only thing duplicated is this orchestration
+  // sequence, not the real theming data both copies point at.
+  //
+  // Clicking either option ends in a full `omarchy restart shell` --
+  // this launcher's own process included -- same as the real script
+  // always has (ruixen.frame-widget's own corner mask only reads which
+  // variant is active at its own startup, so a plain `hyprctl reload`
+  // alone could never pick up a live switch). Expected, not a bug.
   property string cornerCurvature: "rounded"
-  // install.sh writes its own checkout location here on every install/
-  // update run -- read fresh via bash so a missing file just yields an
-  // empty string instead of a QML file-read error, same as
-  // ruixen.settings/services/PluginService.qml's own repoPathProc.
-  property string ruixenRepoPath: ""
-
-  Process {
-    id: ruixenRepoPathProc
-    command: ["bash", "-c", "cat \"$HOME/.local/state/ruixen/repo-path\" 2>/dev/null"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.ruixenRepoPath = text.trim()
-    }
-  }
+  readonly property string looknfeelTarget: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
+  readonly property string looknfeelDataDir: Quickshell.env("HOME") + "/.local/share/ruixen-shell/hyprland"
 
   Process {
     id: cornerCurvatureReadProc
@@ -218,12 +234,19 @@ Item {
 
   function setCornerCurvature(curvature) {
     if (curvature !== "sharp" && curvature !== "rounded") return
-    if (root.ruixenRepoPath === "") return
     root.cornerCurvature = curvature
-    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
-    var variant = curvature === "sharp" ? "square" : "on"
+    var target = root.looknfeelTarget
+    var src = root.looknfeelDataDir + "/" + (curvature === "sharp" ? "looknfeel.square.lua" : "looknfeel.ruixen.lua")
+    // Same three steps as ruixen-lookfeel.sh's own apply(): back up a
+    // real (non-symlink) file rather than clobber it, swap the symlink
+    // + reload Hyprland, then always attempt the shell restart last
+    // (the trailing `|| true` matches the real script -- a failed
+    // restart shouldn't be treated as this whole action having failed).
     cornerCurvatureWriteProc.command = ["bash", "-c",
-      "cd '" + safePath + "' && ./hyprland/ruixen-lookfeel.sh " + variant]
+      "target='" + target + "'; " +
+      "if [ -e \"$target\" ] && [ ! -L \"$target\" ]; then mv \"$target\" \"$target.bak.$(date +%s)\"; fi; " +
+      "ln -sf '" + src + "' \"$target\" && hyprctl reload >/dev/null; " +
+      "omarchy restart shell >/dev/null 2>&1 || true"]
     cornerCurvatureWriteProc.running = true
   }
 
@@ -404,11 +427,9 @@ Item {
       // Unlike hardwareName above, these two are cheap AND can
       // genuinely change out from under this extension between visits
       // (the real ruixen.settings panel, or a CLI run of
-      // ruixen-lookfeel.sh, changing curvature; a fresh install.sh/
-      // update.sh run changing the repo checkout path) -- refreshed on
-      // every entry, unconditionally, same as ruixen.settings' own
+      // ruixen-lookfeel.sh, changing curvature) -- refreshed on every
+      // entry, unconditionally, same as ruixen.settings' own
       // onOpenedChanged does for both.
-      ruixenRepoPathProc.running = true
       cornerCurvatureReadProc.running = true
       spacingProfileReadProc.running = true
     }
@@ -774,22 +795,11 @@ Item {
 
             MouseArea {
               anchors.fill: parent
-              enabled: root.ruixenRepoPath !== ""
               cursorShape: Qt.PointingHandCursor
               onClicked: root.setCornerCurvature(curvatureBtn.modelData.id)
             }
           }
         }
-      }
-
-      Text {
-        visible: root.ruixenRepoPath === ""
-        width: parent.width
-        text: "Needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable this."
-        wrapMode: Text.WordWrap
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: root.muted
       }
     }
   }

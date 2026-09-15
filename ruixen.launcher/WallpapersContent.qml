@@ -550,37 +550,23 @@ Item {
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       reuseItems: true
-      // Direct follow-up, same "scroll doesn't feel right" report: "the
-      // scroll is not really made for the thumbnail, it scrolls down
-      // but only shows like half of the next row... the best way to
-      // scroll this is like down mean exposing the next row not
-      // halfway scroll through it." NoSnap (the default) lets a wheel
-      // or drag scroll settle at ANY pixel offset, which is what left a
-      // row half-cut-off at the top/bottom edge after scrolling --
-      // SnapToRow is GridView's own built-in fix for exactly this --
-      // kept for genuine drag/flick gestures (touchpad two-finger
-      // scroll, a real flick) -- but a follow-up report ("still not
-      // showing the next row completely, still a little bit left so it
-      // looks jumpy") held even with this set: Qt's own snap-after-
-      // gesture correction is specifically documented as applying
-      // "after a drag or flick" -- a plain mouse-wheel notch just nudges
-      // contentY directly without ever entering that gesture path, so
-      // snapMode's own correction never actually runs for it. rowSnapAnim
-      // below (paired with onMovementEnded further down) is a second,
-      // input-method-agnostic correction that catches the wheel case
-      // SnapToRow itself can't.
-      snapMode: GridView.SnapToRow
-
-      // Animates the row-snap correction below rather than a hard jump
-      // -- a few leftover pixels snapping instantly would itself read
-      // as a small stutter, the exact feeling this is trying to remove.
-      NumberAnimation {
-        id: rowSnapAnim
-        target: grid
-        property: "contentY"
-        duration: 150
-        easing.type: Easing.OutQuad
-      }
+      // Reverted: tried SnapToRow, then a second onMovementEnded
+      // correction on top of it, chasing a "scroll doesn't feel right"
+      // report -- the second attempt introduced a real regression
+      // (reported live: "when it auto scrolls it only shows like 90% of
+      // the next row and then when i hit the scroll again it snap backs
+      // to the row i just tried to move down from"), almost certainly
+      // the custom rowSnapAnim correction fighting the grid's own native
+      // wheel/flick physics for the same contentY property rather than
+      // actually fixing anything -- this session has no way to simulate
+      // a real mouse wheel to verify either attempt before shipping it
+      // (wtype is keyboard-only, wlrctl/ydotool aren't installed), which
+      // is exactly how a second guess landed on top of an already-
+      // unconfirmed first one. Back to plain default scrolling (NoSnap,
+      // no custom correction) -- the same behavior every comparable
+      // photo/thumbnail grid (Pinterest, Google Photos, a file manager's
+      // icon view) already ships with zero special-casing, and the one
+      // Qt itself has actually tested at scale.
       // Always 4 columns (unchanged), but cellWidth is now `width / 4`
       // instead of a fixed 170 -- direct follow-up ("the thumbnails
       // preview are still too small, it should fill in the space
@@ -603,25 +589,6 @@ Item {
       // a drip-feed meant only to smooth out the passive initial
       // fill.
       onMovementStarted: root.loadGate = root.wallpaperPaths.length
-
-      // See rowSnapAnim's own comment above -- this is the actual
-      // correction, for whichever input method left contentY NOT
-      // already on a row boundary once movement genuinely stops
-      // (fires uniformly for a wheel notch settling, a drag release, or
-      // a flick's own deceleration ending, regardless of which one
-      // caused it). A plain animation-driven contentY change like
-      // rowSnapAnim's own doesn't re-trigger movementStarted/Ended
-      // itself -- those only fire for the Flickable's own genuine
-      // interactive drag/flick state -- so this can't loop against its
-      // own correction.
-      onMovementEnded: {
-        var maxY = Math.max(0, contentHeight - height)
-        var target = Math.max(0, Math.min(maxY, Math.round(contentY / cellHeight) * cellHeight))
-        if (Math.abs(target - contentY) > 0.5) {
-          rowSnapAnim.to = target
-          rowSnapAnim.restart()
-        }
-      }
 
       // Arms root.hoverArmed on the first REAL pointer movement over the
       // grid, same mechanism/reasoning as Launcher.qml's own card-level

@@ -226,6 +226,24 @@ Item {
   property bool hoverArmed: false
   property point hoverArmBaseline: Qt.point(-1, -1)
 
+  // Named function (not an inline HoverHandler.onPointChanged body) so
+  // it's independently callable/verifiable -- see the grid-level
+  // HoverHandler's own instantiation, just below the GridView, for
+  // where this is actually wired up.
+  function handleHoverPoint(pos) {
+    if (root.hoverArmBaseline.x < 0) {
+      root.hoverArmBaseline = pos
+      return
+    }
+    if (Math.abs(pos.x - root.hoverArmBaseline.x) > 0.5
+        || Math.abs(pos.y - root.hoverArmBaseline.y) > 0.5) {
+      root.hoverArmed = true
+      root.hoverArmBaseline = pos
+      var idx = grid.indexAt(pos.x + grid.contentX, pos.y + grid.contentY)
+      if (idx >= 0 && !root.isSpacerIndex(idx)) grid.currentIndex = idx
+    }
+  }
+
   // Featured "now showing" hero tile -- direct request ("like a lobby
   // or gallery that is a big one in the grid tile... the tiles are 4x4
   // i want one that is 1x1" -- i.e. one big tile among the small ones,
@@ -314,6 +332,24 @@ Item {
   // built for 300+ wallpaper libraries -- see GridView's own comment).
   function stepTo(newIndex) {
     if (newIndex < 0 || newIndex >= root.gridModel.length) return
+    // Direct report: "the scroll stops working, it snaps back to the
+    // mouse row i had hovering before switching to keyboard... it thinks
+    // im still hovering it with a mouse thats supposed to be inactive."
+    // Resetting the baseline to "unarmed" BEFORE scrolling -- not after
+    // -- is the same fix already proven for the exact same class of bug
+    // in Launcher.qml's own resultsList (see its onSelectedIndexChanged
+    // comment): whatever pointer-position update the scroll below
+    // triggers (genuine or a synthetic one Qt resends after a relayout
+    // to keep hover state consistent -- confirmed live once already for
+    // per-tile onEntered, and evidently not something the grid-level
+    // HoverHandler is actually immune to either, contrary to this file's
+    // own earlier assumption) now gets captured as a FRESH baseline
+    // instead of being treated as "the user moved the mouse" -- see the
+    // HoverHandler's own `hoverArmBaseline.x < 0` branch. Only a genuine
+    // FURTHER move past that fresh point can ever hand control back to
+    // hover again, so a keyboard press can never be immediately undone
+    // by the scroll it itself just caused.
+    root.hoverArmBaseline = Qt.point(-1, -1)
     grid.positionViewAtIndex(newIndex, GridView.Contain)
     grid.currentIndex = newIndex
   }
@@ -671,19 +707,7 @@ Item {
       // counts as the next real movement, indefinitely, not just the
       // first one this component ever saw.
       HoverHandler {
-        onPointChanged: {
-          if (root.hoverArmBaseline.x < 0) {
-            root.hoverArmBaseline = point.position
-            return
-          }
-          if (Math.abs(point.position.x - root.hoverArmBaseline.x) > 0.5
-              || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5) {
-            root.hoverArmed = true
-            root.hoverArmBaseline = point.position
-            var idx = grid.indexAt(point.position.x + grid.contentX, point.position.y + grid.contentY)
-            if (idx >= 0 && !root.isSpacerIndex(idx)) grid.currentIndex = idx
-          }
-        }
+        onPointChanged: root.handleHoverPoint(point.position)
       }
 
       // Structural rewrite per direct correction: the previous pass

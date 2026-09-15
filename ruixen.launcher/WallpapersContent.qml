@@ -785,7 +785,10 @@ Item {
   // delegate. Non-interactive (no MouseArea, no keyboard ring) --
   // it's always already the active wallpaper by definition, so there's
   // nothing a click here would meaningfully do that clicking one of
-  // the small tiles doesn't already cover.
+  // the small tiles doesn't already cover. Just the image itself, no
+  // "CURRENT" badge/label overlay the way a small tile's own hover
+  // state gets one -- direct follow-up ("the hero doesnt need the
+  // current thing shown there inside it, can just be the image").
   Rectangle {
     id: heroTile
     parent: grid.contentItem
@@ -806,24 +809,6 @@ Item {
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       sourceSize: Qt.size(heroTile.width, heroTile.height)
-    }
-
-    Rectangle {
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.bottom: parent.bottom
-      anchors.margins: 5
-      height: 26
-      color: Qt.rgba(0, 0, 0, 0.82)
-      radius: 4
-
-      Text {
-        anchors.centerIn: parent
-        text: "CURRENT"
-        color: root.accent
-        font.family: root.fontFamily
-        font.pixelSize: 10
-      }
     }
   }
 

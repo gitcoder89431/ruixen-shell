@@ -333,6 +333,25 @@ Item {
     // never trigger this itself.
     root.actionsMenuOpen = false
     if (root.suppressHoverScroll) return
+    // Direct report: "if i hit near the end and it auto scrolls, i have
+    // to hit it twice, theres like a snapback where it puts me one row
+    // back up" -- a keyboard move that scrolls the list can bring a
+    // DIFFERENT row into the space under an already-resting mouse
+    // cursor. Qt fires that row's own onEntered simply because ITS
+    // geometry moved into the cursor, not because the user's hand did --
+    // the exact "stale position" problem hoverArmed already exists to
+    // solve once at open() (see its own comment), just recurring on
+    // every scroll instead of only the first. onRowHovered below would
+    // then immediately overwrite the selection this very keypress just
+    // made, right back to whatever row now sits under the mouse -- read
+    // as the reported "snapback." Disarming BEFORE scrolling (not
+    // after) matters: it must already be false by the time any
+    // synchronous onEntered from the positionViewAtIndex calls below
+    // could fire. Skipped entirely for a hover-driven change itself
+    // (the early return above), so this can't disarm hover from under
+    // its own genuine mouse-follow.
+    root.hoverArmed = false
+    root.hoverArmBaseline = Qt.point(-1, -1)
     var lastIndex = root.results.length - 1
     resultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
     resultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)

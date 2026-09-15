@@ -1296,13 +1296,18 @@ Item {
         // it.
         onTabPressed: {
           if (searchHeader.dropdownOpen) return
-          // Settings has no per-result actions menu at all (that
-          // concept only exists for Search Files) -- Tab means
-          // something else entirely here, see settingsContent's own
-          // tabForward() comment: direct request "if i tab in does
-          // that put me on the right panel and i can tab between
-          // cards options".
-          if (root.activeExtensionId === "settings") { settingsContent.tabForward(); return }
+          // Settings doesn't use Tab at all -- an earlier pass had Tab
+          // move focus into its right panel, but that made Enter (to
+          // open a category) and Tab (to actually focus it) two
+          // separate steps for the same drill-in action. Direct
+          // follow-up: "does that make sense to tab between stuff, if
+          // we need to esc to back out of tab wouldnt be just allow up
+          // and down then?" -- Enter now opens AND focuses in one step
+          // (see SettingsContent.qml's own activateSelection()), so
+          // Tab has nothing left to do here; falls through to the
+          // plain actions-menu handling below, same as it already
+          // no-ops for Wallpapers (resultActions is empty in every
+          // extension, gated on root.filesMode).
           if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
         }

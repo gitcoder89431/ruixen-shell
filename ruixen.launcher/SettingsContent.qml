@@ -432,35 +432,42 @@ Item {
   // it's used.
   property int openIndex: 0
 
+  // Up/Down do double duty depending on which level has focus -- direct
+  // follow-up after trying the first version (Tab to enter the right
+  // panel, separate from Enter opening it): "does that make sense to
+  // tab between stuff, if we need to esc to back out of tab wouldnt be
+  // just allow up and down then?" Standard drill-down shape now: Enter
+  // opens a category AND focuses its first item card in one step (see
+  // activateSelection() below), Up/Down walk the category list OR the
+  // item cards depending on rightFocused, Left/Right still cycle the
+  // OPTIONS within whichever card has focus, and Escape steps back out
+  // one level (right panel -> left list -> exit) same as before. No
+  // separate Tab gesture anymore -- it was the redundant middle step.
   function moveSelectionUp() {
-    // Up/Down are the left panel's own keys only -- direct request:
-    // "up down is only used for the left panel". A no-op while the
-    // right panel has focus, rather than also moving the category
-    // cursor invisibly behind it.
-    if (root.rightFocused) return
+    if (root.rightFocused) { root.moveItemFocusUp(); return }
     if (root.selectedIndex > 0) root.selectedIndex--
   }
   function moveSelectionDown() {
-    if (root.rightFocused) return
+    if (root.rightFocused) { root.moveItemFocusDown(); return }
     if (root.selectedIndex < root.filteredSections.length - 1) root.selectedIndex++
   }
   function activateSelection() {
     if (root.rightFocused) { root.activateFocusedOption(); return }
-    if (root.selectedIndex < root.filteredSections.length)
+    if (root.selectedIndex < root.filteredSections.length) {
       root.openIndex = root.filteredSections[root.selectedIndex].originalIndex
+      // Opens AND focuses in the same keypress now -- focusRightPanel()
+      // itself is a no-op for a category with no real items yet (its
+      // own profileOpen guard), so this is harmless for every category
+      // besides Profile.
+      root.focusRightPanel()
+      Qt.callLater(root.scrollToFocusedItem)
+    }
   }
 
-  // --- Right-panel keyboard focus -- direct request: "if i tab in
-  // does that put me on the right panel and i can tab between cards
-  // options and then left or right direction and enter for that
-  // option, and then up down is only used for the left panel or esc
-  // back to left panel?" Tab moves focus into the right panel (and
-  // then cycles between its item cards); Left/Right cycle the OPTIONS
-  // within whichever card is focused; Enter commits the focused
-  // option; Escape returns focus to the left panel instead of exiting
-  // the whole extension. Only meaningful while Profile (the only
-  // category with real items so far) is open -- a plain header+
-  // description category has nothing to Tab into.
+  // --- Right-panel keyboard focus -- see moveSelectionUp's own
+  // comment above for the current interaction shape. Only meaningful
+  // while Profile (the only category with real items so far) is open
+  // -- a plain header+description category has nothing to focus into.
   property bool rightFocused: false
   property int focusedItemIndex: 0
   property int focusedOptionIndex: 0
@@ -520,13 +527,16 @@ Item {
     root.rightFocused = false
   }
 
-  // Tab's only meaning in this extension -- unlike the main launcher/
-  // Search Files, there's no per-result actions menu here for Tab to
-  // open instead. First press moves focus in from the left panel;
-  // every press after that cycles to the next item card, wrapping back
-  // to the first rather than dead-ending at the last.
-  function tabForward() {
-    if (!root.rightFocused) { root.focusRightPanel(); Qt.callLater(root.scrollToFocusedItem); return }
+  // Up/Down between item cards while the right panel has focus --
+  // wraps at either end rather than dead-ending, same as the left
+  // category list already effectively does via filteredSections.
+  function moveItemFocusUp() {
+    if (root.profileItems.length === 0) return
+    root.focusedItemIndex = (root.focusedItemIndex - 1 + root.profileItems.length) % root.profileItems.length
+    root.seedFocusedOption()
+    Qt.callLater(root.scrollToFocusedItem)
+  }
+  function moveItemFocusDown() {
     if (root.profileItems.length === 0) return
     root.focusedItemIndex = (root.focusedItemIndex + 1) % root.profileItems.length
     root.seedFocusedOption()

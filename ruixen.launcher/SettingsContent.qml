@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Pipewire
 import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Layout-only shell for the "Settings" extension -- direct request:
@@ -516,6 +517,107 @@ Item {
     return out
   }
 
+  // --- Audio: real Pipewire volume + output/input device pickers,
+  // ported from ruixen.settings/AudioContent.qml + its Settings.qml
+  // backend (outputSink/outputVolume/outputMuted/outputDevices/
+  // setOutputVolume/toggleOutputMute/setDefaultOutput, and the input
+  // mirror of each). Quickshell.Services.Pipewire is a standard
+  // Quickshell module (not Omarchy-private, confirmed by reading
+  // Omarchy's own audio bar-widget directly for these exact property
+  // paths, same as the real page's own comment already documents) --
+  // no repo-checkout dependency, no shell restart, standalone-safe by
+  // construction the same way Window Spacing/Animation Style already
+  // are.
+  readonly property var outputSink: Pipewire.defaultAudioSink
+  readonly property real outputVolume: outputSink && outputSink.audio ? outputSink.audio.volume : 0
+  readonly property bool outputMuted: outputSink && outputSink.audio ? outputSink.audio.muted : false
+
+  readonly property var outputDevices: {
+    var list = []
+    var all = Pipewire.nodes ? Pipewire.nodes.values : []
+    for (var i = 0; i < all.length; i++) {
+      var n = all[i]
+      if (n && n.isSink && !n.isStream) list.push(n)
+    }
+    return list
+  }
+
+  function setOutputVolume(v) {
+    if (root.outputSink && root.outputSink.audio)
+      root.outputSink.audio.volume = Math.max(0, Math.min(1, v))
+  }
+
+  function toggleOutputMute() {
+    if (root.outputSink && root.outputSink.audio)
+      root.outputSink.audio.muted = !root.outputSink.audio.muted
+  }
+
+  function setDefaultOutput(node) {
+    Pipewire.preferredDefaultAudioSink = node
+  }
+
+  // Input (microphone) -- same real API shape as output, mirrored from
+  // Omarchy's own Panel.qml. isSource's filter is broader than isSink/
+  // isStream alone -- a source node can be a true audio source without
+  // node.isSink ever being set.
+  readonly property var inputSource: Pipewire.defaultAudioSource
+  readonly property real inputVolume: inputSource && inputSource.audio ? inputSource.audio.volume : 0
+  readonly property bool inputMuted: inputSource && inputSource.audio ? inputSource.audio.muted : false
+
+  readonly property var inputDevices: {
+    var list = []
+    var all = Pipewire.nodes ? Pipewire.nodes.values : []
+    for (var i = 0; i < all.length; i++) {
+      var n = all[i]
+      if (!n || n.isSink || n.isStream) continue
+      var mediaClass = String(n.type || "")
+      var isSource = !!n.audio || mediaClass.indexOf("Audio/Source") !== -1
+        || mediaClass.indexOf("AudioSource") !== -1 || mediaClass.indexOf("Source") !== -1
+      if (!isSource) continue
+      if ((n.name || "") === "quickshell") continue
+      list.push(n)
+    }
+    return list
+  }
+
+  function setInputVolume(v) {
+    if (root.inputSource && root.inputSource.audio)
+      root.inputSource.audio.volume = Math.max(0, Math.min(1, v))
+  }
+
+  function toggleInputMute() {
+    if (root.inputSource && root.inputSource.audio)
+      root.inputSource.audio.muted = !root.inputSource.audio.muted
+  }
+
+  function setDefaultInput(node) {
+    Pipewire.preferredDefaultAudioSource = node
+  }
+
+  // Same real property-preference order as Omarchy's own nodeLabel()/
+  // friendlyDeviceLabel(), ported directly: nickname/nick fields
+  // first, falling back to description/name, then trimmed of the same
+  // noisy driver-name prefixes/suffixes and the Microphones->Microphone
+  // normalization real hardware strings carry. Shared by both output
+  // and input rows.
+  function deviceLabel(node) {
+    if (!node) return "Unknown"
+    var props = (node.ready && node.properties) ? node.properties : {}
+    var nickname = node.nickname || node.nick || props["node.nick"] || props["device.profile.description"] || ""
+    var label = String(nickname || node.description || props["node.description"] || node.name || "Unknown").trim()
+    label = label.replace(/^sof-soundwire\s+/i, "")
+    label = label.replace(/^built-?in audio\s+/i, "")
+    label = label.replace(/\s+Output$/i, "")
+    label = label.replace(/\s+Input$/i, "")
+    label = label.replace(/\bMicrophones\b/g, "Microphone")
+    return label
+  }
+
+  // Binds/tracks the candidate output/input nodes so their volume/
+  // muted/name properties actually receive live updates.
+  PwObjectTracker { objects: root.outputDevices }
+  PwObjectTracker { objects: root.inputDevices }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -1029,6 +1131,9 @@ Item {
   readonly property bool launcherOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "launcher"
+  readonly property bool audioOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "audio"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -1582,6 +1687,53 @@ Item {
     onAdded: (value) => root.addLauncherExcludeName(value)
     onRemoved: (value) => root.removeLauncherExcludeName(value)
     onCancelled: root.returnFocusRequested()
+  }
+
+  // Audio's own two items -- Output and Input, both on
+  // SettingsAudioChannelItem.qml (see its own header comment). Mouse/
+  // scroll-wheel only for this pass, same as Profile Picture's own
+  // avatar picker started out -- a continuous slider is a genuinely
+  // different keyboard shape (adjust a value, not cycle/flip/type)
+  // from every item already wired into currentItems, real follow-on
+  // work rather than a same-shape extension of any of them.
+  SettingsAudioChannelItem {
+    id: outputChannelItem
+    label: "Output"
+    volume: root.outputVolume
+    channelMuted: root.outputMuted
+    devices: root.outputDevices
+    defaultDevice: root.outputSink
+    iconMuted: ""
+    iconUnmuted: ""
+    labelFor: root.deviceLabel
+    visible: root.audioOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onMuteToggled: root.toggleOutputMute()
+    onVolumeAdjusted: (value) => root.setOutputVolume(value)
+    onDeviceSelected: (node) => root.setDefaultOutput(node)
+  }
+
+  SettingsAudioChannelItem {
+    id: inputChannelItem
+    label: "Input"
+    volume: root.inputVolume
+    channelMuted: root.inputMuted
+    devices: root.inputDevices
+    defaultDevice: root.inputSource
+    iconMuted: ""
+    iconUnmuted: ""
+    labelFor: root.deviceLabel
+    visible: root.audioOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onMuteToggled: root.toggleInputMute()
+    onVolumeAdjusted: (value) => root.setInputVolume(value)
+    onDeviceSelected: (node) => root.setDefaultInput(node)
   }
     }
   }

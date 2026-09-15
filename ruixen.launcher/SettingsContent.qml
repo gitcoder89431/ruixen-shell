@@ -618,6 +618,83 @@ Item {
   PwObjectTracker { objects: root.outputDevices }
   PwObjectTracker { objects: root.inputDevices }
 
+  // --- Display: real brightness + scale, ported from ruixen.settings/
+  // DisplayContent.qml + its Settings.qml backend (brightnessPercent/
+  // focusedMonitor/brightnessAvailable/setBrightness, scalePresets/
+  // displayScale/setDisplayScale). Same real omarchy-monitor-state
+  // read / omarchy-brightness-display + omarchy-hyprland-monitor-
+  // scaling write mechanism ruixen-notch's own proven brightness
+  // control already uses -- no repo-checkout dependency, no shell
+  // restart, standalone-safe the same way Audio already is.
+  property real brightnessPercent: 50
+  property string focusedMonitor: ""
+  property bool brightnessAvailable: false
+
+  Process {
+    id: brightnessStateProc
+    command: ["omarchy-monitor-state"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").split("\n")
+        var b = String(lines[0] || "").trim()
+        // An empty first line isn't the same as a genuine
+        // "unavailable" response (a real race with ruixen-notch's own
+        // independent poll of the same command, confirmed live in the
+        // real app) -- ignored rather than treated as authoritative,
+        // keeping the last known good state.
+        if (b === "") return
+        root.brightnessAvailable = b !== "unavailable"
+        if (root.brightnessAvailable) root.brightnessPercent = Math.max(0, Math.min(100, parseInt(b, 10)))
+        root.focusedMonitor = String(lines[5] || "").trim()
+        var scaleLine = parseFloat(String(lines[6] || "").trim())
+        if (isFinite(scaleLine)) root.displayScale = String(Math.round(scaleLine * 100) / 100)
+      }
+    }
+  }
+
+  Timer {
+    interval: 5000
+    running: root.active
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!brightnessStateProc.running) brightnessStateProc.running = true
+  }
+
+  Process {
+    id: setBrightnessProc
+    stdout: StdioCollector { waitForEnd: true }
+    // Deliberately does NOT trigger a re-read on completion -- same
+    // reasoning ported from ruixen-notch's own comment: re-reading via
+    // omarchy-monitor-state right after a write races the hardware/
+    // driver and can return an empty string, briefly bouncing the
+    // slider back to 0. The locally-set value is authoritative until
+    // the next periodic poll.
+  }
+
+  function setBrightness(percent) {
+    var p = Math.max(0, Math.min(100, Math.round(percent)))
+    root.brightnessPercent = p
+    setBrightnessProc.command = ["omarchy-brightness-display", "--no-osd", "--monitor", root.focusedMonitor, p + "%"]
+    setBrightnessProc.running = true
+  }
+
+  // Display scale (Hyprland's own per-monitor fractional scaling) --
+  // real presets ported from Omarchy's own scalePresets in Panel.qml.
+  readonly property var scalePresets: ["1", "1.25", "1.6", "2", "3", "4"]
+  property string displayScale: ""
+
+  Process {
+    id: setScaleProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setDisplayScale(scale) {
+    root.displayScale = scale
+    setScaleProc.command = ["bash", "-c", "omarchy-hyprland-monitor-scaling " + scale]
+    setScaleProc.running = true
+  }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -907,6 +984,27 @@ Item {
     }
   }
 
+  // Brightness (kind: "slider" -- Left/Right adjusts, nothing for
+  // Enter to commit since it already applies live) then Display Scale
+  // (a plain segmented item, same shape as Bar Layout/Window
+  // Curvature -- fits the existing model with no new kind needed).
+  // Empty entirely when brightnessAvailable is false, matching both
+  // cards' own visibility gate below -- nothing to navigate to.
+  readonly property var displayItems: {
+    if (!root.brightnessAvailable) return []
+    return [
+      {
+        kind: "slider",
+        adjust: function(delta) { root.setBrightness(root.brightnessPercent + delta * 100) }
+      },
+      {
+        options: root.scalePresets,
+        current: root.displayScale,
+        activate: function(id) { root.setDisplayScale(id) }
+      }
+    ]
+  }
+
   // The single thing every nav function below actually reads --
   // whichever category is open picks its own table, everything else
   // (an empty header+description category) has nothing to navigate.
@@ -915,6 +1013,7 @@ Item {
     if (root.barOpen) return root.barItems
     if (root.launcherOpen) return root.launcherItems
     if (root.audioOpen) return root.audioItems
+    if (root.displayOpen) return root.displayItems
     return []
   }
 
@@ -1007,6 +1106,9 @@ Item {
       if (inputIdx === 0) return inputChannelItem.volumeRowItem
       return inputChannelItem.deviceRowAt(inputIdx - 1)
     }
+    if (root.displayOpen) {
+      return [brightnessItem, displayScaleItem][root.focusedItemIndex]
+    }
     return null
   }
 
@@ -1033,7 +1135,7 @@ Item {
     if (!root.rightFocused) return
     var item = root.currentItems[root.focusedItemIndex]
     if (!item) return
-    if (item.kind === "volumeControl") { item.adjust(-root.volumeStep); return }
+    if (item.kind === "volumeControl" || item.kind === "slider") { item.adjust(-root.volumeStep); return }
     // Toggle/select/textEntry items have nothing to cycle -- a plain
     // no-op, not an error, while one of those is the focused item.
     if (!item.options || item.options.length === 0) return
@@ -1044,7 +1146,7 @@ Item {
     if (!root.rightFocused) return
     var item = root.currentItems[root.focusedItemIndex]
     if (!item) return
-    if (item.kind === "volumeControl") { item.adjust(root.volumeStep); return }
+    if (item.kind === "volumeControl" || item.kind === "slider") { item.adjust(root.volumeStep); return }
     if (!item.options || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex + 1) % item.options.length
   }
@@ -1060,6 +1162,9 @@ Item {
     if (!item) return
     if (item.kind === "toggle" || item.kind === "volumeControl" || item.kind === "select") { item.activate(); return }
     if (item.kind === "textEntry") { item.focus(); return }
+    // A plain slider (Brightness) has nothing for Enter to commit --
+    // Left/Right already applies the value directly, live.
+    if (item.kind === "slider") return
     item.activate(item.options[root.focusedOptionIndex])
   }
 
@@ -1207,6 +1312,9 @@ Item {
   readonly property bool audioOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "audio"
+  readonly property bool displayOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "display"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -1821,6 +1929,64 @@ Item {
     onMuteToggled: root.toggleInputMute()
     onVolumeAdjusted: (value) => root.setInputVolume(value)
     onDeviceSelected: (node) => root.setDefaultInput(node)
+  }
+
+  // Display's own two items -- Brightness (a plain slider, no mute
+  // concept, hence SettingsSliderRow.qml rather than
+  // SettingsAudioChannelItem's own) and Display Scale (a plain
+  // segmented item, same shape as Bar Layout/Window Curvature). Both
+  // gated on brightnessAvailable, same as ruixen.settings' own
+  // DisplayContent.qml -- a laptop-less/headless session has no
+  // backlight to control.
+  Rectangle {
+    id: brightnessItem
+    width: parent.width
+    height: brightnessContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    border.width: (root.displayOpen && root.rightFocused && root.focusedItemIndex === 0) ? 1 : 0
+    border.color: root.accent
+    visible: root.displayOpen && root.brightnessAvailable
+
+    Column {
+      id: brightnessContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Brightness"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsSliderRow {
+        icon: ""
+        value: root.brightnessPercent / 100
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onAdjusted: (value) => root.setBrightness(value * 100)
+      }
+    }
+  }
+
+  SettingsSegmentedItem {
+    id: displayScaleItem
+    label: "Display Scale"
+    options: root.scalePresets.map(function(s) { return { id: s, label: s + "x" } })
+    current: root.displayScale
+    cardFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 1
+    focusedOptionIndex: displayScaleItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.displayOpen && root.brightnessAvailable
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setDisplayScale(id)
   }
     }
   }

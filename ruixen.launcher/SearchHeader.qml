@@ -78,6 +78,15 @@ Item {
   // Launcher.qml decides what that means (nothing outside Search Files
   // with a real file selected), this component just forwards the key.
   signal tabPressed()
+  // Direct request: "this thing uses tab to open the drop down for
+  // file result but we also have the sources and all sources here...
+  // for consistency should we do shift tab for all sources and all
+  // types for the wallpaper? save the tabs for results?" -- plain Tab
+  // stays reserved for the per-result actions menu (its existing
+  // meaning); Shift+Tab is the new, single, consistent way to open the
+  // source/type dropdown in EITHER mode instead of Tab meaning two
+  // different things depending which one's active.
+  signal shiftTabPressed()
 
   function focusInput() { searchInput.forceActiveFocus() }
 
@@ -276,7 +285,8 @@ Item {
         root.enterPressed()
         event.accepted = true
       } else if (event.key === Qt.Key_Tab) {
-        root.tabPressed()
+        if (event.modifiers & Qt.ShiftModifier) root.shiftTabPressed()
+        else root.tabPressed()
         event.accepted = true
       }
     }

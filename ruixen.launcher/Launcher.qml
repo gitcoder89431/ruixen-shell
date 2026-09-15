@@ -224,9 +224,11 @@ Item {
   // the pop up menu to pick type, hit enter... probably tab between
   // input and type dropdown?" None of that existed before (the dropdown
   // was mouse-only; Tab already meant something else, opening the
-  // Search Files actions menu). 0 is "All Types"/"All Sources", 1+ are
-  // the real options in order -- see sourceFilterList's own Repeater
-  // model for the exact same shape.
+  // Search Files actions menu). Now opened via Shift+Tab specifically,
+  // not plain Tab -- see SearchHeader's own shiftTabPressed comment for
+  // the followup that changed that. 0 is "All Types"/"All Sources", 1+
+  // are the real options in order -- see sourceFilterList's own
+  // Repeater model for the exact same shape.
   property int dropdownSelectedIndex: 0
   // Issue #62: "Search inside this folder" scopes selectedSourcePath to
   // an arbitrary folder for the rest of the session -- these two track
@@ -759,7 +761,17 @@ Item {
     // because the menu's real height needs to be known BEFORE
     // positioning it, not after.
     var menuHeight = root.resultActions.length * 34 + 8
-    root.actionsMenuX = Math.max(8, Math.min(localPos.x, card.width - resultsList.width - 8))
+    // +6 / -12, matching ResultRow.qml's own highlight Rectangle
+    // exactly (anchors.leftMargin/rightMargin: 6 there) -- direct
+    // report: "the drop down for the file search is a bit wider now
+    // then the row active focus hover." localPos.x/resultsList.width
+    // are the ROW's own true bounds, not its highlight bubble's (that
+    // bubble is inset 6px on each side from them) -- the menu was
+    // binding straight to the row's raw bounds instead of the visibly
+    // highlighted area it's actually supposed to look like a
+    // continuation of, landing 6px further out on both edges (12px
+    // wider overall) than the highlight it should match.
+    root.actionsMenuX = Math.max(8, Math.min(localPos.x + 6, card.width - resultsList.width - 8))
     root.actionsMenuY = Math.max(8, Math.min(localPos.y + 4, card.height - menuHeight - 8))
   }
 
@@ -1206,19 +1218,31 @@ Item {
           root.filesMode = false
           root.activeExtensionId = ""
         }
-        // Direct request: "if i hit tab does it open the dropdown menu
-        // for all type... probably tab between input and type dropdown?"
-        // Closing an already-open dropdown takes priority regardless of
-        // mode (leaving it the same way it was entered); opening one via
-        // Tab is scoped to Wallpapers specifically -- Search Files
-        // already gives Tab an established meaning (the actions menu),
-        // and its own dropdown still opens by mouse click same as
-        // before, unchanged.
+        // Direct follow-up: "this thing uses tab to open the drop down
+        // for file result but we also have the sources and all
+        // sources here... for consistency should we do shift tab for
+        // all sources and all types for the wallpaper? save the tabs
+        // for results?" -- plain Tab now ONLY ever means the per-result
+        // actions menu (Search Files' own established meaning,
+        // unchanged), in every mode; it never opens the dropdown
+        // anymore, not even in Wallpapers. Inert while the dropdown is
+        // showing -- Shift+Tab (below) owns that popup's own open/close
+        // entirely now, so Tab doesn't need to also know how to close
+        // it.
         onTabPressed: {
-          if (searchHeader.dropdownOpen) searchHeader.dropdownOpen = false
-          else if (root.activeExtensionId === "wallpapers") root.openDropdown()
-          else if (root.actionsMenuOpen) root.closeActionsMenu()
+          if (searchHeader.dropdownOpen) return
+          if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
+        }
+        // The dropdown's own single keyboard entry point now, in EITHER
+        // mode -- Wallpapers' All Types, or Search Files' All Sources
+        // (previously mouse-click-only there). Inert while the actions
+        // menu is showing, so the two popups can never both be trying
+        // to open over each other.
+        onShiftTabPressed: {
+          if (searchHeader.dropdownOpen) { searchHeader.dropdownOpen = false; return }
+          if (root.actionsMenuOpen) return
+          if (root.activeExtensionId === "wallpapers" || root.filesMode) root.openDropdown()
         }
       }
 
@@ -1564,9 +1588,12 @@ Item {
         // relationship to another element.
         x: root.actionsMenuX
         y: root.actionsMenuY
-        // Direct request: matches the row it's for, same width every
-        // ResultRow already renders at.
-        menuWidth: resultsList.width
+        // Direct request: matches the row it's for -- specifically its
+        // own visible HIGHLIGHT bubble (resultsList.width minus the
+        // same 6+6 inset ResultRow.qml's own highlight Rectangle uses),
+        // not resultsList's raw width. See positionActionsMenuNearSelection's
+        // own +6 x-offset for the matching left-edge half of this fix.
+        menuWidth: resultsList.width - 12
         actions: root.actionsMenuOpen ? root.resultActions : []
         selectedIndex: root.actionsSelectedIndex
         textColor: root.textColor

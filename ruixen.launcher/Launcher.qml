@@ -218,6 +218,16 @@ Item {
   // Reset to "" on every fresh entry into Search Files -- "defaults to
   // All" should mean that literally each time, not just the first time.
   property string selectedSourcePath: ""
+  // Which row is keyboard-highlighted while sourceFilterList (the type/
+  // source dropdown) is open -- direct request: "if i hit tab does it
+  // open the dropdown menu for all type then i scroll up and down in
+  // the pop up menu to pick type, hit enter... probably tab between
+  // input and type dropdown?" None of that existed before (the dropdown
+  // was mouse-only; Tab already meant something else, opening the
+  // Search Files actions menu). 0 is "All Types"/"All Sources", 1+ are
+  // the real options in order -- see sourceFilterList's own Repeater
+  // model for the exact same shape.
+  property int dropdownSelectedIndex: 0
   // Issue #62: "Search inside this folder" scopes selectedSourcePath to
   // an arbitrary folder for the rest of the session -- these two track
   // the ONE previous value so Escape can restore it (rather than
@@ -676,6 +686,48 @@ Item {
   property real actionsMenuX: 0
   property real actionsMenuY: 0
 
+  // Same shape sourceFilterList's own Repeater model builds -- shared
+  // here so opening/navigating/confirming the dropdown by keyboard reads
+  // off the exact same list it visually shows, never a second hand-
+  // rolled copy that could drift from it.
+  function dropdownOptions() {
+    return root.activeExtensionId === "wallpapers"
+      ? [{ id: "", label: "All Types", path: "" }].concat(root.wallpaperTypeOptions)
+      : [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
+  }
+
+  // Seeds dropdownSelectedIndex from whatever's ALREADY active
+  // (selectedSourcePath, or wallpapersContent.kindFilter) instead of
+  // always resetting to "All" -- so opening the dropdown lands on the
+  // real current choice, the same way a native <select> highlights its
+  // own current value when opened. Called from a shared
+  // onDropdownOpenChanged below rather than only from a Tab-triggered
+  // open, so a mouse click on the button (which just toggles the plain
+  // boolean directly, unchanged) seeds it exactly the same way.
+  function seedDropdownSelection() {
+    var current = root.activeExtensionId === "wallpapers" ? wallpapersContent.kindFilter : root.selectedSourcePath
+    var options = root.dropdownOptions()
+    var idx = 0
+    for (var i = 0; i < options.length; i++) {
+      var optPath = options[i].path === "" ? (root.activeExtensionId === "wallpapers" ? "all" : "") : options[i].path
+      if (optPath === current) { idx = i; break }
+    }
+    root.dropdownSelectedIndex = idx
+  }
+  function openDropdown() { searchHeader.dropdownOpen = true }
+
+  function confirmDropdownSelection() {
+    var options = root.dropdownOptions()
+    var opt = options[root.dropdownSelectedIndex]
+    if (!opt) { searchHeader.dropdownOpen = false; return }
+    if (root.activeExtensionId === "wallpapers") {
+      wallpapersContent.kindFilter = opt.path === "" ? "all" : opt.path
+    } else {
+      root.selectedSourcePath = opt.path
+    }
+    searchHeader.dropdownOpen = false
+  }
+
   function openActionsMenu() {
     if (root.resultActions.length === 0) return
     root.actionsSelectedIndex = 0
@@ -1093,6 +1145,12 @@ Item {
         mutedColor: root.muted
         fontFamily: root.fontFamily
         onTextChanged: root.query = text
+        // Seeds the keyboard highlight whenever the dropdown opens,
+        // regardless of whether that was a mouse click on the button
+        // (SearchHeader's own onClicked, unchanged) or Tab (see
+        // Launcher.qml's own onTabPressed) -- one shared place instead
+        // of two copies that could drift.
+        onDropdownOpenChanged: if (searchHeader.dropdownOpen) root.seedDropdownSelection()
         // Issue #62: while the actions menu is open, Up/Down/Enter
         // navigate/run ITS list instead of the results list -- the menu
         // always operates on whichever result was selected when it was
@@ -1106,19 +1164,22 @@ Item {
         // logic, since neither of those exists while an extension owns
         // the view.
         onUpPressed: {
-          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionUp()
+          if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex > 0) root.dropdownSelectedIndex-- }
+          else if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionUp()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex-- }
           else if (root.selectedIndex > 0) root.selectedIndex--
         }
         onDownPressed: {
-          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionDown()
+          if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex < root.dropdownOptions().length - 1) root.dropdownSelectedIndex++ }
+          else if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionDown()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
           else if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
         }
         onLeftPressed: if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionLeft()
         onRightPressed: if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionRight()
         onEnterPressed: {
-          if (root.activeExtensionId === "wallpapers") wallpapersContent.activateSelection()
+          if (searchHeader.dropdownOpen) root.confirmDropdownSelection()
+          else if (root.activeExtensionId === "wallpapers") wallpapersContent.activateSelection()
           else if (root.actionsMenuOpen) root.runResultAction(root.resultActions[root.actionsSelectedIndex].id)
           else root.activateSelected()
         }
@@ -1145,8 +1206,18 @@ Item {
           root.filesMode = false
           root.activeExtensionId = ""
         }
+        // Direct request: "if i hit tab does it open the dropdown menu
+        // for all type... probably tab between input and type dropdown?"
+        // Closing an already-open dropdown takes priority regardless of
+        // mode (leaving it the same way it was entered); opening one via
+        // Tab is scoped to Wallpapers specifically -- Search Files
+        // already gives Tab an established meaning (the actions menu),
+        // and its own dropdown still opens by mouse click same as
+        // before, unchanged.
         onTabPressed: {
-          if (root.actionsMenuOpen) root.closeActionsMenu()
+          if (searchHeader.dropdownOpen) searchHeader.dropdownOpen = false
+          else if (root.activeExtensionId === "wallpapers") root.openDropdown()
+          else if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
         }
       }
@@ -1251,25 +1322,37 @@ Item {
             // "All Sources"/"All Types" (path "") first, then every real
             // option -- same shape sourceFilterButton.currentLabel above
             // already expects (an empty path means All).
-            model: root.activeExtensionId === "wallpapers"
-              ? [{ id: "", label: "All Types", path: "" }].concat(root.wallpaperTypeOptions)
-              : [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
+            model: root.dropdownOptions()
 
             delegate: Rectangle {
               id: sourceRow
               required property var modelData
+              required property int index
+              readonly property bool current: index === root.dropdownSelectedIndex
               width: sourceFilterList.width - 8
               height: 28
               radius: 5
-              // No hover/selected highlight box -- direct follow-up
+              // No FILLED hover/selected background -- direct follow-up
               // ("still bigger and overlapping each other, just no
               // focus hover"): with zero spacing between rows in the
-              // Column above, adjacent rows' own rounded-rect
-              // highlights sat flush against each other with no gap,
-              // reading as one overlapping blob rather than two
-              // distinct rows. Plain text + click is simpler and
-              // doesn't have that problem at all.
+              // Column above, adjacent rows' own rounded-rect highlights
+              // sat flush against each other with no gap, reading as one
+              // overlapping blob rather than two distinct rows. A thin
+              // left accent bar (below) doesn't have that problem --
+              // there's nothing for two adjacent bars to visually merge
+              // into the way two full-width fills did.
               color: "transparent"
+
+              Rectangle {
+                visible: sourceRow.current
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.margins: 4
+                width: 3
+                radius: 2
+                color: root.accent
+              }
 
               Text {
                 anchors.left: parent.left
@@ -1279,20 +1362,18 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 elide: Text.ElideRight
                 text: sourceRow.modelData.label
-                color: root.textColor
+                color: sourceRow.current ? root.accent : root.textColor
                 font.family: root.fontFamily
                 font.pixelSize: 12
               }
 
               MouseArea {
                 anchors.fill: parent
+                hoverEnabled: true
+                onEntered: root.dropdownSelectedIndex = sourceRow.index
                 onClicked: {
-                  if (root.activeExtensionId === "wallpapers") {
-                    wallpapersContent.kindFilter = sourceRow.modelData.path === "" ? "all" : sourceRow.modelData.path
-                  } else {
-                    root.selectedSourcePath = sourceRow.modelData.path
-                  }
-                  searchHeader.dropdownOpen = false
+                  root.dropdownSelectedIndex = sourceRow.index
+                  root.confirmDropdownSelection()
                 }
               }
             }

@@ -8,9 +8,10 @@ import QtQuick
 // and options. dont build out the whole thing yet... just start with
 // the layout first then we can work on the panels?" -- deliberately
 // navigation + chrome only: a left category list and a right panel
-// that shows only a "coming soon" placeholder once a category is
-// opened. No toggles/inputs/real per-section content yet -- that's
-// explicit later work.
+// that opens straight onto Profile ("we can land in the profile
+// page"), each category's own header + a short description in place
+// of any real content. No toggles/inputs/real per-section content
+// yet -- that's explicit later work.
 //
 // Direct follow-up chain after the first pass hand-rolled its own row
 // visuals and its own margins: "it looks too much different than the
@@ -44,15 +45,28 @@ Item {
   // Settings.qml's own root.sections -- confirmed by reading that file
   // directly, not guessed, so this list reads as the same feature, not
   // a fork of it. Glyph codepoints copied byte-for-byte from there too.
+  // `description` is this pass's own addition -- direct request:
+  // "instead of coming soon, just add a small one or two line
+  // description for each of the settings? bespoke eloquent tone sounds
+  // nice" -- one line each, replaced with real content once each
+  // section's actual toggles/inputs land.
   readonly property var sections: [
-    { id: "general", label: "Profile", glyph: "" },
-    { id: "launcher", label: "Launcher", glyph: "" },
-    { id: "audio", label: "Audio", glyph: "" },
-    { id: "wifi", label: "Wi-Fi", glyph: "" },
-    { id: "bluetooth", label: "Bluetooth", glyph: "" },
-    { id: "display", label: "Display", glyph: "" },
-    { id: "plugins", label: "Plugins", glyph: "" },
-    { id: "about", label: "About", glyph: "" }
+    { id: "general", label: "Profile", glyph: "",
+      description: "Your identity on this machine — display name, avatar, and the small touches that make Ruixen feel like yours." },
+    { id: "launcher", label: "Launcher", glyph: "",
+      description: "How this very launcher searches, ranks, and remembers what matters most the moment you reach for it." },
+    { id: "audio", label: "Audio", glyph: "",
+      description: "Volume, output routing, and the quieter details of how this machine sounds." },
+    { id: "wifi", label: "Wi-Fi", glyph: "",
+      description: "Known networks and the signal that keeps this machine reliably reachable." },
+    { id: "bluetooth", label: "Bluetooth", glyph: "",
+      description: "Paired devices and the wireless companions currently orbiting this machine." },
+    { id: "display", label: "Display", glyph: "",
+      description: "Bar layout, corner curvature, and the finer points of how this shell presents itself." },
+    { id: "plugins", label: "Plugins", glyph: "",
+      description: "Everything Ruixen has installed, kept updated, and quietly running." },
+    { id: "about", label: "About", glyph: "",
+      description: "Version, update status, and the fine print behind this shell." }
   ]
 
   // Filtered by label, same as ruixen.settings/Settings.qml's own
@@ -109,12 +123,14 @@ Item {
   // below), matching the user's own "then enter to go into the right
   // panel" phrasing rather than a live-preview-on-hover model.
   property int selectedIndex: 0
-  // Index into root.sections (the FULL list, unaffected by filtering)
-  // -- -1 means the right panel shows its own neutral empty state (no
-  // category opened yet this session). Set by activateSelection()
-  // (Enter) or a real row click, matching ResultsList's own
-  // rowActivated meaning everywhere else it's used.
-  property int openIndex: -1
+  // Index into root.sections (the FULL list, unaffected by filtering).
+  // -1 means the right panel shows its own neutral empty state (kept
+  // as a fallback, e.g. an out-of-range value); in practice this
+  // starts on Profile (0) -- direct request: "we can land in the
+  // profile page" -- and Enter/a real row click move it from there,
+  // matching ResultsList's own rowActivated meaning everywhere else
+  // it's used.
+  property int openIndex: 0
 
   function moveSelectionUp() {
     if (root.selectedIndex > 0) root.selectedIndex--
@@ -141,7 +157,7 @@ Item {
   onActiveChanged: {
     if (root.active) {
       root.selectedIndex = 0
-      root.openIndex = -1
+      root.openIndex = 0
     }
   }
 
@@ -193,51 +209,73 @@ Item {
     color: root.muted
   }
 
-  Item {
+  // Fallback only -- openIndex starts on Profile (0) now and every
+  // activation/click keeps it in range, so this shouldn't normally be
+  // reachable, but it's cheap insurance against an out-of-range value
+  // rather than rendering nothing at all.
+  Column {
     parent: panel.rightPane
-    anchors.fill: parent
+    anchors.centerIn: parent
+    spacing: 6
+    visible: root.openIndex < 0 || root.openIndex >= root.sections.length
 
-    Column {
-      anchors.centerIn: parent
-      spacing: 6
-      visible: root.openIndex === -1
-
-      Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: ""
-        font.family: root.fontFamily
-        font.pixelSize: 22
-        color: root.muted
-      }
-      Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: "Select a category and press Enter"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        color: root.muted
-      }
+    Text {
+      anchors.horizontalCenter: parent.horizontalCenter
+      text: ""
+      font.family: root.fontFamily
+      font.pixelSize: 22
+      color: root.muted
     }
+    Text {
+      anchors.horizontalCenter: parent.horizontalCenter
+      text: "Select a category and press Enter"
+      font.family: root.fontFamily
+      font.pixelSize: 12
+      color: root.muted
+    }
+  }
 
-    Column {
-      anchors.top: parent.top
-      anchors.left: parent.left
-      anchors.right: parent.right
-      spacing: 4
-      visible: root.openIndex >= 0
+  // Every category's right-panel content follows this same shape --
+  // a header (its own label) then a short description -- a plain
+  // layout convention every future real panel keeps building on top
+  // of, not a separate component of its own (there's nothing else
+  // here yet to warrant one). Direct note: Profile's own header may
+  // later grow into more of a hero treatment since it's the page you
+  // land on, but every other section's header stays this plain style.
+  //
+  // 20/20/20 inset (top/left/right) -- direct report: "the header are
+  // too close to the seperator" (this pane's own left edge sits right
+  // against ExtensionTwoPanel's divider, and the previous version had
+  // no top/left inset at all).
+  Column {
+    parent: panel.rightPane
+    anchors.top: parent.top
+    anchors.topMargin: 20
+    anchors.left: parent.left
+    anchors.leftMargin: 20
+    anchors.right: parent.right
+    anchors.rightMargin: 20
+    spacing: 6
+    visible: root.openIndex >= 0 && root.openIndex < root.sections.length
 
-      Text {
-        text: root.openIndex >= 0 ? root.sections[root.openIndex].label : ""
-        font.family: root.fontFamily
-        font.pixelSize: 15
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-      Text {
-        text: "Coming soon"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        color: root.muted
-      }
+    Text {
+      width: parent.width
+      text: root.openIndex >= 0 && root.openIndex < root.sections.length
+        ? root.sections[root.openIndex].label : ""
+      font.family: root.fontFamily
+      font.pixelSize: 16
+      font.weight: Font.DemiBold
+      color: root.textColor
+    }
+    Text {
+      width: parent.width
+      text: root.openIndex >= 0 && root.openIndex < root.sections.length
+        ? root.sections[root.openIndex].description : ""
+      wrapMode: Text.WordWrap
+      lineHeight: 1.3
+      font.family: root.fontFamily
+      font.pixelSize: 12
+      color: root.muted
     }
   }
 }

@@ -3,6 +3,7 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import Quickshell.Networking
 import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Layout-only shell for the "Settings" extension -- direct request:
@@ -695,6 +696,242 @@ Item {
     setScaleProc.running = true
   }
 
+  // Real Quickshell.Networking-backed Wi-Fi state -- another standard
+  // Quickshell module, confirmed the same way Audio's own Pipewire
+  // backend was (reading Omarchy's own network bar-widget directly).
+  // Scoped the same as ruixen.settings' own real page: status + known-
+  // network switcher + connect to open/known/new-secured networks, no
+  // WPA-Enterprise flow (rare outside campus/corporate Wi-Fi, a real
+  // separate nmcli-scripted flow their own file documents as its own
+  // out-of-scope case too).
+  readonly property var networkDevices: Networking.devices ? Networking.devices.values : []
+
+  function findWifiDevice() {
+    var devices = root.networkDevices
+    var fallback = null
+    for (var i = 0; i < devices.length; i++) {
+      var d = devices[i]
+      if (!d || d.type !== DeviceType.Wifi) continue
+      if (d.connected) return d
+      if (!fallback) fallback = d
+    }
+    return fallback
+  }
+
+  readonly property var wifiDevice: findWifiDevice()
+  readonly property var wifiNetworkObjects: wifiDevice && wifiDevice.networks ? wifiDevice.networks.values : []
+  property var wifiRows: []
+
+  // Primitives only, not the live WifiNetwork objects -- ported
+  // directly from ruixen.settings/Settings.qml's own syncWifiNetworks()
+  // comment: NetworkManager scan churn can destroy a network object
+  // while a delegate built from it is still incubating, which segfaults
+  // quickshell if a live QObject wrapper sits in list-model data.
+  // Connecting resolves back to the live object via networkForSsid() at
+  // activate time instead.
+  function syncWifiNetworks() {
+    // Skip while a password prompt is open -- a scan tick mid-typing
+    // would replace wifiRows with a brand-new array, tearing down and
+    // recreating every row (including the one whose password field is
+    // focused). Caught up again in closeWifiPasswordPrompt() below.
+    if (root.wifiPasswordSsid !== "") return
+    var nets = []
+    var networks = root.wifiNetworkObjects
+    for (var i = 0; i < networks.length; i++) {
+      var n = networks[i]
+      if (!n) continue
+      nets.push({
+        connected: !!n.connected,
+        known: !!n.known,
+        ssid: n.name || "",
+        signal: Math.round((n.signalStrength || 0) * 100),
+        security: n.security
+      })
+    }
+    nets.sort(function(a, b) {
+      if (a.connected !== b.connected) return a.connected ? -1 : 1
+      if (a.known !== b.known) return a.known ? -1 : 1
+      return b.signal - a.signal
+    })
+    root.wifiRows = nets
+  }
+
+  onWifiNetworkObjectsChanged: root.syncWifiNetworks()
+
+  readonly property var connectedWifiNetwork: {
+    for (var i = 0; i < root.wifiRows.length; i++)
+      if (root.wifiRows[i].connected) return root.wifiRows[i]
+    return null
+  }
+
+  readonly property var knownWifiRows: root.wifiRows.filter(function(r) { return r.known })
+  readonly property var otherWifiRows: root.wifiRows.filter(function(r) { return !r.known })
+
+  function isOpenNetwork(security) {
+    return security === WifiSecurityType.Open
+  }
+
+  function networkForSsid(ssid) {
+    var networks = root.wifiNetworkObjects
+    for (var i = 0; i < networks.length; i++)
+      if (networks[i] && networks[i].name === ssid) return networks[i]
+    return null
+  }
+
+  // Passphrase prompt state for connecting to a new (unknown) protected
+  // network. Unlike the real page's own wifiPasswordAttempt, the typed
+  // password never lives here -- SettingsWifiRow.qml keeps it locally
+  // and hands it over once, via passwordSubmitted(password), since
+  // nothing else in this simpler keyboard-nav model needs to read it
+  // mid-type.
+  property string wifiPasswordSsid: ""
+  property bool wifiConnecting: false
+  property string wifiConnectError: ""
+
+  function openWifiPasswordPrompt(ssid) {
+    root.wifiPasswordSsid = ssid
+    root.wifiConnectError = ""
+    root.wifiConnecting = false
+  }
+
+  function closeWifiPasswordPrompt() {
+    root.wifiPasswordSsid = ""
+    root.wifiConnectError = ""
+    root.wifiConnecting = false
+    root.syncWifiNetworks()
+  }
+
+  function submitWifiPassword(password) {
+    if (root.wifiConnecting || !password || password.length === 0) return
+    var network = root.networkForSsid(root.wifiPasswordSsid)
+    if (!network) { root.wifiConnectError = "Network no longer in range"; return }
+    // Real error hit live on ruixen.settings' own page: "WifiNetwork is
+    // already connected" -- the network can transition to connected on
+    // its own between click and submit (802.11k/v roaming between two
+    // SSIDs off the same router), and connectWithPsk() on an already-
+    // connected network throws that instead of no-op'ing.
+    if (network.connected) { root.closeWifiPasswordPrompt(); return }
+    root.wifiConnectError = ""
+    root.wifiConnecting = true
+    network.connectWithPsk(password)
+  }
+
+  // Scoped to whichever network the open passphrase prompt targets --
+  // connectionFailed(reason)/connectedChanged are the same two signals
+  // ruixen.settings' own page listens to for this exact purpose.
+  Connections {
+    target: root.wifiPasswordSsid !== "" ? root.networkForSsid(root.wifiPasswordSsid) : null
+    function onConnectionFailed(reason) {
+      root.wifiConnecting = false
+      root.wifiConnectError = (reason === ConnectionFailReason.NoSecrets || reason === ConnectionFailReason.WifiAuthTimeout)
+        ? "Wrong password" : "Couldn't connect"
+      // connectWithPsk() creates a full, autoconnect-enabled
+      // NetworkManager profile immediately as part of attempting the
+      // connection -- BEFORE the password is validated. On failure that
+      // broken profile just sits there looking "known" despite never
+      // authenticating, and NM keeps quietly retrying it whenever in
+      // range. This flow only opens for rows that were NOT known when
+      // clicked, so failure here always means the attempt itself
+      // failed -- safe to forget unconditionally.
+      if (target) target.forget()
+    }
+    function onConnectedChanged() {
+      if (target && target.connected) root.closeWifiPasswordPrompt()
+    }
+  }
+
+  // Real click/Enter-to-connect. Known networks and open networks
+  // connect immediately; a new protected network opens the passphrase
+  // prompt instead.
+  function connectToWifi(row) {
+    if (!row || row.connected) return
+    if (!row.known && !root.isOpenNetwork(row.security)) {
+      // Activating the row that's already expanded closes it back up.
+      if (root.wifiPasswordSsid === row.ssid) root.closeWifiPasswordPrompt()
+      else root.openWifiPasswordPrompt(row.ssid)
+      return
+    }
+    var network = root.networkForSsid(row.ssid)
+    if (network && !network.connected) network.connect()
+  }
+
+  // Excludes the connected network (mirrors canForgetNetwork: known &&
+  // !connected on the real page) -- forgetting the network you're
+  // actively using would disconnect you as a side effect of what's
+  // meant to be a plain cleanup click.
+  function forgetWifi(row) {
+    if (!row || row.connected) return
+    var network = root.networkForSsid(row.ssid)
+    if (network) network.forget()
+  }
+
+  function toggleWifiRadio() {
+    Networking.wifiEnabled = !Networking.wifiEnabled
+  }
+
+  // scannerEnabled lives on the shared WifiDevice, not per-instance
+  // state, so it has to be explicitly released -- tracks which device
+  // THIS instance turned scanning on for, same as ruixen.settings' own
+  // setScannerEnabled()/scannerDevice.
+  property var scannerDevice: null
+
+  function setScannerEnabled(enabled) {
+    var nextDevice = root.active ? root.wifiDevice : null
+    if (root.scannerDevice && root.scannerDevice !== nextDevice)
+      root.scannerDevice.scannerEnabled = false
+    root.scannerDevice = nextDevice
+    if (root.scannerDevice)
+      root.scannerDevice.scannerEnabled = enabled
+  }
+
+  // Actual onActiveChanged wiring lives on the existing handler further
+  // down (search for "Fresh state every time the extension is
+  // (re)entered") -- QML only allows one onXChanged per signal per
+  // object, so this call is folded into that one rather than declared
+  // again here.
+  onWifiDeviceChanged: root.setScannerEnabled(true)
+  Component.onDestruction: if (root.scannerDevice) root.scannerDevice.scannerEnabled = false
+
+  // Real connection stats (IP, gateway, ping) via `omarchy-network-
+  // status --verbose` -- a real standalone Omarchy CLI binary, same
+  // class of dependency as omarchy-monitor-state above. Tab-separated
+  // key\tvalue lines, confirmed by running it directly, not guessed.
+  // Display-only, no keyboard target -- same reasoning Profile
+  // Picture's own preview or the mount checklist's "Not currently
+  // connected" subtitle already apply (plain informational text next
+  // to something that IS interactive).
+  property var netInfo: ({})
+
+  function parseNetStatus(raw) {
+    var next = {}
+    var lines = String(raw || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i]
+      if (!line) continue
+      var idx = line.indexOf("\t")
+      if (idx === -1) continue
+      next[line.substring(0, idx)] = line.substring(idx + 1).trim()
+    }
+    return next
+  }
+
+  Process {
+    id: netStatusProc
+    command: ["omarchy-network-status", "--verbose"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.netInfo = root.parseNetStatus(text)
+    }
+  }
+
+  Timer {
+    interval: 2000
+    running: root.active
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!netStatusProc.running) netStatusProc.running = true
+  }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -1005,6 +1242,57 @@ Item {
     ]
   }
 
+  // Wi-Fi's own items -- the radio toggle, then (only while enabled)
+  // one "select" item per known network followed by one per available
+  // (unknown) network. Both row kinds use "select" -- activate() takes
+  // no args either way, same shape "select"/"toggle" already share; the
+  // only difference is what activate() itself does (connect/switch vs.
+  // connect-or-open-the-password-prompt), which is real backend logic,
+  // not a new keyboard-nav shape.
+  readonly property var wifiItems: {
+    var items = [{
+      kind: "toggle",
+      checked: Networking.wifiEnabled,
+      activate: function() { root.toggleWifiRadio() }
+    }]
+    if (!Networking.wifiEnabled) return items
+    for (var i = 0; i < root.knownWifiRows.length; i++) {
+      items.push(root.wifiKnownRowItem(root.knownWifiRows[i]))
+    }
+    for (var j = 0; j < root.otherWifiRows.length; j++) {
+      items.push(root.wifiOtherRowItem(root.otherWifiRows[j], j))
+    }
+    return items
+  }
+
+  // Split out from wifiItems' own loop bodies for the same closure
+  // reason mountToggleItem's own comment explains.
+  function wifiKnownRowItem(row) {
+    return {
+      kind: "select",
+      activate: function() { root.connectToWifi(row) }
+    }
+  }
+
+  // Unknown+secured rows: connectToWifi() itself decides whether this
+  // opens the password prompt or connects immediately (open network) --
+  // this item only needs to hand real Qt focus to the password field
+  // right after, and only when the prompt actually just opened for THIS
+  // row (connectToWifi() also closes an already-open prompt on a second
+  // press of the same row, which must NOT re-focus a field that no
+  // longer exists).
+  function wifiOtherRowItem(row, index) {
+    return {
+      kind: "select",
+      activate: function() {
+        root.connectToWifi(row)
+        if (root.wifiPasswordSsid === row.ssid) {
+          Qt.callLater(function() { otherRepeater.itemAt(index).focusPasswordInput() })
+        }
+      }
+    }
+  }
+
   // The single thing every nav function below actually reads --
   // whichever category is open picks its own table, everything else
   // (an empty header+description category) has nothing to navigate.
@@ -1014,6 +1302,7 @@ Item {
     if (root.launcherOpen) return root.launcherItems
     if (root.audioOpen) return root.audioItems
     if (root.displayOpen) return root.displayItems
+    if (root.wifiOpen) return root.wifiItems
     return []
   }
 
@@ -1108,6 +1397,13 @@ Item {
     }
     if (root.displayOpen) {
       return [brightnessItem, displayScaleItem][root.focusedItemIndex]
+    }
+    if (root.wifiOpen) {
+      if (root.focusedItemIndex === 0) return wifiRadioRow
+      var knownIdx = root.focusedItemIndex - 1
+      if (knownIdx < root.knownWifiRows.length) return knownRepeater.itemAt(knownIdx)
+      var otherIdx = knownIdx - root.knownWifiRows.length
+      return otherRepeater.itemAt(otherIdx)
     }
     return null
   }
@@ -1221,6 +1517,10 @@ Item {
       animationProfileReadProc.running = true
       barModeReadProc.running = true
     }
+    // Releases the Wi-Fi scan radio the moment this extension closes,
+    // same as ruixen.settings' own setScannerEnabled() -- reads
+    // root.active itself to decide the real device vs. null.
+    root.setScannerEnabled(true)
   }
 
   ExtensionTwoPanel {
@@ -1315,6 +1615,9 @@ Item {
   readonly property bool displayOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "display"
+  readonly property bool wifiOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "wifi"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -1987,6 +2290,202 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.setDisplayScale(id)
+  }
+
+  // Wi-Fi's own three items -- the radio toggle (reuses
+  // SettingsToggleRow.qml directly, same as Launcher's own toggles),
+  // then Known Networks and Available Networks, both on
+  // SettingsWifiRow.qml (see its own header comment). Real backend on
+  // root above, ported from ruixen.settings/WifiContent.qml +
+  // Settings.qml -- no QR-share/speed-test buttons (those summon two
+  // separate Omarchy panel plugins, out of scope for this pass).
+  Rectangle {
+    id: wifiRadioItem
+    width: parent.width
+    height: wifiRadioContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.wifiOpen
+
+    Column {
+      id: wifiRadioContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Wi-Fi"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsToggleRow {
+        id: wifiRadioRow
+        label: "Enabled"
+        checked: Networking.wifiEnabled
+        rowFocused: root.wifiOpen && root.rightFocused && root.focusedItemIndex === 0
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: root.toggleWifiRadio()
+      }
+    }
+  }
+
+  Rectangle {
+    id: knownNetworksItem
+    width: parent.width
+    height: knownNetworksContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.wifiOpen && Networking.wifiEnabled
+
+    Column {
+      id: knownNetworksContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Known Networks"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      // Connection stats -- describes whichever known network is
+      // currently active, same placement as the real page.
+      Column {
+        width: parent.width
+        visible: root.connectedWifiNetwork !== null
+        spacing: 2
+
+        Item {
+          width: parent.width
+          height: 16
+          Text { anchors.left: parent.left; text: "IP Address"; font.family: root.fontFamily; font.pixelSize: 11; color: root.muted }
+          Text { anchors.right: parent.right; text: root.netInfo.ip || "--"; font.family: root.fontFamily; font.pixelSize: 11; color: root.textColor; elide: Text.ElideLeft }
+        }
+        Item {
+          width: parent.width
+          height: 16
+          Text { anchors.left: parent.left; text: "Gateway"; font.family: root.fontFamily; font.pixelSize: 11; color: root.muted }
+          Text { anchors.right: parent.right; text: root.netInfo.gateway || "--"; font.family: root.fontFamily; font.pixelSize: 11; color: root.textColor; elide: Text.ElideLeft }
+        }
+        Item {
+          width: parent.width
+          height: 16
+          Text { anchors.left: parent.left; text: "Ping"; font.family: root.fontFamily; font.pixelSize: 11; color: root.muted }
+          Text { anchors.right: parent.right; text: root.netInfo.internet_ping_ms ? Math.round(parseFloat(root.netInfo.internet_ping_ms)) + " ms" : "--"; font.family: root.fontFamily; font.pixelSize: 11; color: root.textColor }
+        }
+      }
+
+      Column {
+        width: parent.width
+        spacing: 4
+
+        Repeater {
+          id: knownRepeater
+          model: root.knownWifiRows
+
+          SettingsWifiRow {
+            required property var modelData
+            required property int index
+            width: parent.width
+            ssid: modelData.ssid
+            connected: modelData.connected
+            signalPercent: modelData.signal
+            secured: !root.isOpenNetwork(modelData.security)
+            showForget: !modelData.connected
+            rowFocused: root.wifiOpen && root.rightFocused && root.focusedItemIndex === (1 + index)
+            textColor: root.textColor
+            muted: root.muted
+            accent: root.accent
+            fontFamily: root.fontFamily
+            onActivated: root.connectToWifi(modelData)
+            onForgetRequested: root.forgetWifi(modelData)
+          }
+        }
+
+        Text {
+          visible: root.knownWifiRows.length === 0
+          text: "No known networks"
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          color: root.muted
+        }
+      }
+    }
+  }
+
+  Rectangle {
+    id: otherNetworksItem
+    width: parent.width
+    height: otherNetworksContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.wifiOpen && Networking.wifiEnabled && root.otherWifiRows.length > 0
+
+    Column {
+      id: otherNetworksContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 10
+
+      Text {
+        text: "Available Networks"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Column {
+        width: parent.width
+        spacing: 4
+
+        Repeater {
+          id: otherRepeater
+          model: root.otherWifiRows
+
+          SettingsWifiRow {
+            required property var modelData
+            required property int index
+            width: parent.width
+            ssid: modelData.ssid
+            connected: modelData.connected
+            signalPercent: modelData.signal
+            secured: !root.isOpenNetwork(modelData.security)
+            expanded: root.wifiPasswordSsid === modelData.ssid
+            connecting: root.wifiConnecting
+            errorText: root.wifiPasswordSsid === modelData.ssid ? root.wifiConnectError : ""
+            rowFocused: root.wifiOpen && root.rightFocused
+              && root.focusedItemIndex === (1 + root.knownWifiRows.length + index)
+            textColor: root.textColor
+            muted: root.muted
+            accent: root.accent
+            fontFamily: root.fontFamily
+            onActivated: root.connectToWifi(modelData)
+            onPasswordSubmitted: (password) => root.submitWifiPassword(password)
+            onCancelled: { root.closeWifiPasswordPrompt(); root.returnFocusRequested() }
+          }
+        }
+      }
+    }
+  }
+
+  Text {
+    visible: root.wifiOpen && !Networking.wifiEnabled
+    width: parent.width
+    horizontalAlignment: Text.AlignHCenter
+    topPadding: 24
+    text: "Turn on Wi-Fi to see nearby networks"
+    font.family: root.fontFamily
+    font.pixelSize: 12
+    color: root.muted
   }
     }
   }

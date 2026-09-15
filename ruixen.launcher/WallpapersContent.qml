@@ -86,6 +86,24 @@ Item {
   property string currentBackground: ""
   property string searchText: ""
 
+  // Direct report: "the first one in the grid... looks like masonry
+  // kinda" -- listProc (below) only populates wallpaperPaths once its
+  // ENTIRE directory scan finishes, so every tile's delegate appears at
+  // once, but loadGate (see its own comment) still only lets the first
+  // couple of Image sources actually resolve -- every other tile sits
+  // fully transparent (ClippingRectangle's own color) until its turn
+  // comes up, which reads as a sparse handful of photos floating on
+  // blank space rather than a grid. currentBackground resolves near-
+  // instantly (a single readlink, not a directory scan+ffmpeg pass), so
+  // it's normally already known before wallpaperPaths ever is -- using
+  // it to fill every not-yet-loaded tile means the WHOLE grid looks
+  // full from the very first frame, with each tile's own real photo
+  // swapping in over it as loadGate reaches it, instead of appearing
+  // out of blank space.
+  readonly property string placeholderSource: root.currentBackground !== ""
+    ? root.currentBackground
+    : (root.wallpaperPaths.length > 0 ? root.wallpaperPaths[0].display : "")
+
   // Bumped on every select() call, passed to ruixen.wallpaper's own
   // playVideo/playGif/stop IPC calls so it can reject an out-of-order
   // arrival -- see that service's own selectGeneration/
@@ -196,6 +214,57 @@ Item {
   property bool hoverArmed: false
   property point hoverArmBaseline: Qt.point(-1, -1)
 
+  // Featured "now showing" hero tile -- direct request ("like a lobby
+  // or gallery that is a big one in the grid tile... the tiles are 4x4
+  // i want one that is 1x1" -- i.e. one big tile among the small ones,
+  // gallery-cover style). Only in the plain unfiltered browse view: a
+  // hero for "here's what's active" makes sense there, but reserving
+  // grid space for it while someone's actively searching/filtering
+  // down to a handful of matches would just look like unexplained
+  // gaps. currentBackground !== "" guards the brief window before that
+  // Process (below) has resolved anything to feature yet.
+  readonly property bool showHero: root.kindFilter === "all" && root.searchText === "" && root.currentBackground !== ""
+
+  // Flat GridView index positions the 2x2 hero occupies in a 4-column
+  // grid: row 0 cols 0-1 (indices 0,1) and row 1 cols 0-1 (indices
+  // 4,5) -- constant regardless of how many wallpapers exist, since
+  // the column count itself is fixed at 4 (see grid's own cellWidth
+  // comment). Real GridView has no concept of a delegate spanning
+  // multiple cells, so these positions are reserved as invisible
+  // spacer entries in gridModel below and the ACTUAL hero image is a
+  // separate overlay drawn on top of that reserved area (see its own
+  // comment) -- this array is what both sides agree the reserved area
+  // actually is.
+  readonly property var heroSpacerIndices: [0, 1, 4, 5]
+  function isSpacerIndex(i) { return root.showHero && root.heroSpacerIndices.indexOf(i) !== -1 }
+  // Where keyboard nav should land when there's no better answer (a
+  // fresh filter/search reset, or getting stuck against a spacer with
+  // nowhere left to escape to -- see escapeSpacers below): the first
+  // real, non-reserved cell, which is index 2 (row 0 col 2) once the
+  // hero has claimed cols 0-1, or plain index 0 with no hero at all.
+  function firstRealIndex() { return root.showHero ? 2 : 0 }
+
+  // GridView's own real model -- interleaves 4 spacer markers at the
+  // hero's reserved flat positions (see heroSpacerIndices) so the
+  // small tiles naturally flow into row 0 cols 2-3 and row 1 cols 2-3
+  // instead of sliding left into the space the hero overlay is
+  // covering, then continue completely normally from row 2 on. Each
+  // entry is {spacer:true} or {spacer:false, entry: <wallpaperPaths
+  // entry>} rather than a bare wallpaper record -- the delegate needs
+  // to tell the two apart, and a wrapper object is simpler than
+  // teaching every existing tile.modelData.xxx reference a second
+  // "or undefined" branch.
+  readonly property var gridModel: {
+    if (!root.showHero) return root.filteredPaths.map(function(e) { return {spacer: false, entry: e} })
+    var real = root.filteredPaths
+    var result = [{spacer: true}, {spacer: true}]
+    if (real.length > 0) result.push({spacer: false, entry: real[0]})
+    if (real.length > 1) result.push({spacer: false, entry: real[1]})
+    result.push({spacer: true}, {spacer: true})
+    for (var i = 2; i < real.length; i++) result.push({spacer: false, entry: real[i]})
+    return result
+  }
+
   // Keyboard grid navigation -- direct request ("can i use the up down
   // left right to navigate around here"). Launcher.qml's own outer
   // SearchHeader is still the only focused input (see this file's own
@@ -206,22 +275,60 @@ Item {
   // resultsList itself holding focus. GridView already implements
   // exactly this (moveCurrentIndexUp/Down/Left/Right respect its own
   // real column count and stop at the edges), so these just forward
-  // to it instead of re-deriving row/column math by hand.
-  function moveSelectionUp() { grid.moveCurrentIndexUp() }
-  function moveSelectionDown() { grid.moveCurrentIndexDown() }
-  function moveSelectionLeft() { grid.moveCurrentIndexLeft() }
-  function moveSelectionRight() { grid.moveCurrentIndexRight() }
+  // to it instead of re-deriving row/column math by hand -- escapeSpacers
+  // below then corrects for the one thing GridView doesn't know about,
+  // the reserved hero cells.
+  //
+  // Keeps moving the SAME direction while still landing on a reserved
+  // cell -- e.g. Right from index 3 (row 0 col 3, real) into row 1 via
+  // Down lands on index 5 (spacer), so Down again continues to index 9
+  // (row 2 col 1, real) rather than stopping on emptiness. Bails out
+  // (falls back to firstRealIndex()) if a direction can't make further
+  // progress at all -- Up from row 0's own spacers has nowhere up to
+  // go, so without this it would loop on index 0 forever.
+  function escapeSpacers(moveFn) {
+    var guard = 0
+    var prev = -1
+    while (root.isSpacerIndex(grid.currentIndex) && grid.currentIndex !== prev && guard < 6) {
+      prev = grid.currentIndex
+      moveFn()
+      guard++
+    }
+    if (root.isSpacerIndex(grid.currentIndex)) grid.currentIndex = root.firstRealIndex()
+  }
+  function moveSelectionUp() { grid.moveCurrentIndexUp(); root.escapeSpacers(function() { grid.moveCurrentIndexUp() }) }
+  function moveSelectionDown() { grid.moveCurrentIndexDown(); root.escapeSpacers(function() { grid.moveCurrentIndexDown() }) }
+  function moveSelectionLeft() { grid.moveCurrentIndexLeft(); root.escapeSpacers(function() { grid.moveCurrentIndexLeft() }) }
+  function moveSelectionRight() { grid.moveCurrentIndexRight(); root.escapeSpacers(function() { grid.moveCurrentIndexRight() }) }
   function activateSelection() {
-    if (grid.currentIndex >= 0 && grid.currentIndex < root.filteredPaths.length)
-      root.select(root.filteredPaths[grid.currentIndex])
+    var cell = root.gridModel[grid.currentIndex]
+    if (cell && !cell.spacer) root.select(cell.entry)
   }
 
-  // Reset to the first tile whenever the visible set changes (kind
-  // filter or search text) -- same convention Launcher.qml's own
-  // onQueryChanged already uses for root.selectedIndex, so a keyboard
-  // selection never silently points at a tile that scrolled out of the
-  // filtered set or, worse, sits past the end of a now-shorter list.
-  onFilteredPathsChanged: grid.currentIndex = filteredPaths.length > 0 ? 0 : -1
+  // Reset to the first REAL tile whenever the visible set changes (kind
+  // filter or search text, or the hero itself appearing/disappearing
+  // and shifting what "first" even means) -- same convention
+  // Launcher.qml's own onQueryChanged already uses for
+  // root.selectedIndex, so a keyboard selection never silently points
+  // at a tile that scrolled out of the filtered set, sits past the end
+  // of a now-shorter list, or lands on a reserved hero cell.
+  //
+  // Qt.callLater, not a direct assignment -- confirmed live: GridView
+  // does its OWN internal currentIndex reset (to plain 0) the moment a
+  // model transitions from empty to non-empty, in the same tick this
+  // handler runs in. Assigning directly here could just get clobbered
+  // right back to 0 by that internal reset landing second, which is
+  // exactly a reserved hero cell -- deferring to the next event loop
+  // tick guarantees this is the LAST write, same trick Launcher.qml's
+  // own open() uses for searchHeader.focusInput() and for the exact
+  // same reason (something else's own internal handling runs first).
+  function resetSelection() {
+    Qt.callLater(function() {
+      grid.currentIndex = root.filteredPaths.length > 0 ? root.firstRealIndex() : -1
+    })
+  }
+  onFilteredPathsChanged: root.resetSelection()
+  onShowHeroChanged: root.resetSelection()
 
   // Drives loadGate up a couple tiles at a time -- fast enough that
   // the initial screenful fills in well under half a second, but
@@ -457,7 +564,7 @@ Item {
       readonly property int tileHeight: Math.round(tileWidth / 1.6)
       cellWidth: Math.floor(width / 4)
       cellHeight: tileHeight + 10
-      model: root.filteredPaths
+      model: root.gridModel
 
       // Any deliberate scroll means the user is actively looking for
       // something further down -- bypass loadGate entirely rather
@@ -513,6 +620,17 @@ Item {
         // moves currentIndex itself instead of fighting it for the
         // highlight).
         readonly property bool current: GridView.isCurrentItem
+        // True for one of the 4 reserved hero cells (see
+        // root.heroSpacerIndices) -- gridModel gives these a bare
+        // {spacer:true} entry with no real wallpaper data at all, so
+        // every other property/binding below that would otherwise read
+        // tile.modelData.entry.xxx branches on this first instead of
+        // dereferencing an entry that doesn't exist. Renders as a
+        // fully empty, non-interactive Item -- the actual hero image is
+        // a separate overlay drawn on top of this reserved area (see
+        // its own comment), not part of this delegate at all.
+        readonly property bool isSpacer: tile.modelData.spacer === true
+        readonly property var entry: tile.isSpacer ? null : tile.modelData.entry
         // Compares against identity, not display (#23) -- for a video
         // entry, ruixen.wallpaper's own Service.qml sets
         // current/background to the POSTER, which for video already
@@ -535,7 +653,7 @@ Item {
         // frame itself (ring/band) stays hover-only regardless,
         // per direct request that active alone shouldn't keep it
         // lit at rest.
-        readonly property bool active: tile.modelData.identity === root.currentBackground
+        readonly property bool active: !tile.isSpacer && tile.entry.identity === root.currentBackground
 
         width: grid.tileWidth
         height: grid.tileHeight
@@ -545,22 +663,29 @@ Item {
         // is the ONLY thing visible at rest. Always a real *image*
         // (display) even for a video entry -- Image can't decode
         // video frames, display is guaranteed to be an actual poster
-        // image file for those.
+        // image file for those. Not created at all for a reserved
+        // hero cell -- see tile.isSpacer's own comment.
         ClippingRectangle {
           anchors.fill: parent
           radius: 10
           color: "transparent"
+          visible: !tile.isSpacer
 
           Image {
             anchors.fill: parent
-            // Empty source until loadGate reaches this tile's index --
-            // see root.loadGate's own comment for why. Once a tile's
+            // Placeholder (see root.placeholderSource's own comment)
+            // until loadGate reaches this tile's index -- see
+            // root.loadGate's own comment for why. Once a tile's REAL
             // source has been set it stays set even if the gate logic
             // changes later (reuseItems recycles this same Image for a
             // different index on scroll, which reassigns source to
             // that new tile's own path directly, gate or not -- see
-            // GridView's onMovementStarted above).
-            source: tile.index <= root.loadGate ? ("file://" + tile.modelData.display) : ""
+            // GridView's onMovementStarted above); it just briefly
+            // renders that new tile's OWN placeholder-or-real state on
+            // reuse, same as any other tile would.
+            source: tile.isSpacer ? "" : (tile.index <= root.loadGate
+              ? ("file://" + tile.entry.display)
+              : (root.placeholderSource !== "" ? ("file://" + root.placeholderSource) : ""))
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             sourceSize: Qt.size(grid.tileWidth, grid.tileHeight)
@@ -583,7 +708,7 @@ Item {
           color: "transparent"
           border.width: 2
           border.color: root.accent
-          visible: tile.current
+          visible: tile.current && !tile.isSpacer
           z: 2
 
           Rectangle {
@@ -605,7 +730,7 @@ Item {
           anchors.margins: 5
           height: 26
           color: Qt.rgba(0, 0, 0, 0.82)
-          visible: tile.current
+          visible: tile.current && !tile.isSpacer
           z: 3
 
           Text {
@@ -617,7 +742,7 @@ Item {
             // actually-active wallpaper -- plain filename otherwise,
             // real's own (the video's real filename for a video
             // entry, not its poster's hashed cache name).
-            text: tile.active ? "CURRENT" : tile.modelData.real.substring(tile.modelData.real.lastIndexOf("/") + 1)
+            text: tile.isSpacer ? "" : (tile.active ? "CURRENT" : tile.entry.real.substring(tile.entry.real.lastIndexOf("/") + 1))
             color: tile.active ? root.accent : root.textColor
             font.family: root.fontFamily
             font.pixelSize: 10
@@ -627,6 +752,7 @@ Item {
         MouseArea {
           id: tileMouse
           anchors.fill: parent
+          enabled: !tile.isSpacer
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
           // Real hover moves the SAME currentIndex keyboard nav uses --
@@ -637,12 +763,69 @@ Item {
           onEntered: if (root.hoverArmed) grid.currentIndex = tile.index
           onClicked: {
             grid.currentIndex = tile.index
-            root.select(tile.modelData)
+            root.select(tile.entry)
           }
           z: 4
         }
       }
     }
+
+  // The actual "now showing" hero image -- direct request ("like a
+  // lobby or gallery that is a big one in the grid tile"). GridView has
+  // no notion of one delegate spanning multiple cells, so the small-
+  // tile grid above just reserves the physical 2x2 area (its own
+  // gridModel/heroSpacerIndices) and this is a separate item drawn on
+  // top of exactly that reserved space. `parent: grid.contentItem`
+  // (not a plain child of this ColumnLayout) is what makes it scroll
+  // together with the small tiles instead of staying pinned while they
+  // scroll underneath it -- contentItem is the actual Flickable content
+  // GridView moves as contentY changes; anything parented into it
+  // tracks that movement for free, and grid's own `clip: true` already
+  // hides it correctly once scrolled out of view, same as any real
+  // delegate. Non-interactive (no MouseArea, no keyboard ring) --
+  // it's always already the active wallpaper by definition, so there's
+  // nothing a click here would meaningfully do that clicking one of
+  // the small tiles doesn't already cover.
+  Rectangle {
+    id: heroTile
+    parent: grid.contentItem
+    visible: root.showHero
+    x: 0
+    y: 0
+    // Same -10 per-cell-gap convention grid.tileWidth/tileHeight use,
+    // just spanning 2 cells instead of 1 on each axis.
+    width: 2 * grid.cellWidth - 10
+    height: 2 * grid.cellHeight - 10
+    radius: 10
+    color: "transparent"
+    clip: true
+
+    Image {
+      anchors.fill: parent
+      source: root.currentBackground !== "" ? ("file://" + root.currentBackground) : ""
+      fillMode: Image.PreserveAspectCrop
+      asynchronous: true
+      sourceSize: Qt.size(heroTile.width, heroTile.height)
+    }
+
+    Rectangle {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.margins: 5
+      height: 26
+      color: Qt.rgba(0, 0, 0, 0.82)
+      radius: 4
+
+      Text {
+        anchors.centerIn: parent
+        text: "CURRENT"
+        color: root.accent
+        font.family: root.fontFamily
+        font.pixelSize: 10
+      }
+    }
+  }
 
   // No right sidebar here, unlike the notch's own copy of this file --
   // direct report once this was live in the launcher's own wider card:

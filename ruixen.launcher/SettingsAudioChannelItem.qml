@@ -33,6 +33,21 @@ Rectangle {
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
+  // Keyboard focus, direct follow-up: "wanna do the tab kbd now?" --
+  // mute+slider is ONE combined keyboard item (Left/Right adjusts,
+  // Enter toggles mute, like a real volume knob: turn to adjust, press
+  // to mute) rather than two separate stops, and each device row is
+  // its own selectable item. Both ring styles mirror
+  // SettingsToggleRow.rowFocused -- a row-level ring, not a whole-card
+  // one, since multiple focusable rows share this one card.
+  property bool volumeFocused: false
+  property int focusedDeviceIndex: -1
+
+  // Exposed so SettingsContent.qml's own scrollToFocusedItem() can
+  // find these nested rows -- ids aren't visible from outside this
+  // file otherwise.
+  property alias volumeRowItem: volumeRow
+  function deviceRowAt(index) { return deviceRepeater.itemAt(index) }
 
   signal muteToggled()
   signal volumeAdjusted(real value)
@@ -58,8 +73,19 @@ Rectangle {
     }
 
     Item {
+      id: volumeRow
       width: parent.width
       height: 20
+
+      Rectangle {
+        visible: root.volumeFocused
+        anchors.fill: parent
+        anchors.margins: -4
+        radius: 6
+        color: "transparent"
+        border.width: 1
+        border.color: root.accent
+      }
 
       Text {
         id: muteGlyph
@@ -155,11 +181,13 @@ Rectangle {
       spacing: 4
 
       Repeater {
+        id: deviceRepeater
         model: root.devices
 
         Rectangle {
           id: deviceRow
           required property var modelData
+          required property int index
           readonly property bool isDefault: root.defaultDevice && deviceRow.modelData
             && root.defaultDevice.id === deviceRow.modelData.id
 
@@ -167,6 +195,8 @@ Rectangle {
           height: 28
           radius: 8
           color: deviceRow.isDefault ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+          border.width: root.focusedDeviceIndex === deviceRow.index ? 1 : 0
+          border.color: root.accent
 
           Item {
             anchors.fill: parent

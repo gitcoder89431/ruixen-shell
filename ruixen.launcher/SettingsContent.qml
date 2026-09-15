@@ -853,6 +853,60 @@ Item {
     }
   }
 
+  // Output's own item count (the combined volume/mute control, plus
+  // one per device) -- Input's items start right after these in
+  // audioItems below, so both this file and the two
+  // SettingsAudioChannelItem instances' own focus bindings need the
+  // exact same offset.
+  readonly property int outputItemCount: 1 + root.outputDevices.length
+
+  // Mute+slider is ONE combined item per channel (Left/Right adjusts
+  // volume, Enter toggles mute -- like a real volume knob: turn to
+  // adjust, press to mute), not two separate stops -- direct follow-
+  // up: "wanna do the tab kbd now?" Each device is its own "select"
+  // item (Enter sets it as the default, no options to cycle -- same
+  // direct-activate() shape "toggle" items already use, just a
+  // different real name so the intent reads clearly).
+  readonly property var audioItems: {
+    var items = [root.volumeControlItem("output")]
+    for (var i = 0; i < root.outputDevices.length; i++) {
+      items.push(root.deviceSelectItem(root.outputDevices[i], "output"))
+    }
+    items.push(root.volumeControlItem("input"))
+    for (var j = 0; j < root.inputDevices.length; j++) {
+      items.push(root.deviceSelectItem(root.inputDevices[j], "input"))
+    }
+    return items
+  }
+
+  function volumeControlItem(channel) {
+    if (channel === "output") {
+      return {
+        kind: "volumeControl",
+        adjust: function(delta) { root.setOutputVolume(root.outputVolume + delta) },
+        activate: function() { root.toggleOutputMute() }
+      }
+    }
+    return {
+      kind: "volumeControl",
+      adjust: function(delta) { root.setInputVolume(root.inputVolume + delta) },
+      activate: function() { root.toggleInputMute() }
+    }
+  }
+
+  // Split out from audioItems' own loop bodies for the same closure
+  // reason mountToggleItem's own comment explains -- a function
+  // declared directly inside a for-loop body closes over the loop
+  // variable itself, not each iteration's value.
+  function deviceSelectItem(node, channel) {
+    return {
+      kind: "select",
+      activate: channel === "output"
+        ? function() { root.setDefaultOutput(node) }
+        : function() { root.setDefaultInput(node) }
+    }
+  }
+
   // The single thing every nav function below actually reads --
   // whichever category is open picks its own table, everything else
   // (an empty header+description category) has nothing to navigate.
@@ -860,6 +914,7 @@ Item {
     if (root.profileOpen) return root.profileItems
     if (root.barOpen) return root.barItems
     if (root.launcherOpen) return root.launcherItems
+    if (root.audioOpen) return root.audioItems
     return []
   }
 
@@ -945,6 +1000,13 @@ Item {
       var textEntryIdx = mountIdx - root.mountChecklist.length
       return [customRootsItem, excludedPathsItem, excludedNamesItem][textEntryIdx]
     }
+    if (root.audioOpen) {
+      if (root.focusedItemIndex === 0) return outputChannelItem.volumeRowItem
+      if (root.focusedItemIndex < root.outputItemCount) return outputChannelItem.deviceRowAt(root.focusedItemIndex - 1)
+      var inputIdx = root.focusedItemIndex - root.outputItemCount
+      if (inputIdx === 0) return inputChannelItem.volumeRowItem
+      return inputChannelItem.deviceRowAt(inputIdx - 1)
+    }
     return null
   }
 
@@ -961,31 +1023,42 @@ Item {
     }
   }
 
+  // 5% per press -- same step the real slider's own scroll-wheel
+  // handler already uses (AudioContent.qml's own wheel step, ported
+  // verbatim), so keyboard and scroll always move volume by the same
+  // amount.
+  readonly property real volumeStep: 0.05
+
   function moveOptionLeft() {
     if (!root.rightFocused) return
     var item = root.currentItems[root.focusedItemIndex]
-    // Toggle/textEntry items have nothing to cycle -- a plain no-op,
-    // not an error, while one of those is the focused item.
-    if (!item || !item.options || item.options.length === 0) return
+    if (!item) return
+    if (item.kind === "volumeControl") { item.adjust(-root.volumeStep); return }
+    // Toggle/select/textEntry items have nothing to cycle -- a plain
+    // no-op, not an error, while one of those is the focused item.
+    if (!item.options || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex - 1 + item.options.length) % item.options.length
   }
 
   function moveOptionRight() {
     if (!root.rightFocused) return
     var item = root.currentItems[root.focusedItemIndex]
-    if (!item || !item.options || item.options.length === 0) return
+    if (!item) return
+    if (item.kind === "volumeControl") { item.adjust(root.volumeStep); return }
+    if (!item.options || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex + 1) % item.options.length
   }
 
-  // Enter's meaning depends on the focused item's own kind -- a toggle
-  // flips directly (no cursor to have pre-positioned), a text entry
-  // hands off real Qt focus so typing works, and everything else
-  // (every segmented item) commits whichever option the cursor
-  // currently sits on, same as always.
+  // Enter's meaning depends on the focused item's own kind -- a
+  // toggle/volume-control/select item all act directly with no args
+  // (flip a switch, toggle mute, or pick this device -- none of them
+  // have a cursor pre-positioned first), a text entry hands off real
+  // Qt focus so typing works, and everything else (every segmented
+  // item) commits whichever option the cursor currently sits on.
   function activateFocusedOption() {
     var item = root.currentItems[root.focusedItemIndex]
     if (!item) return
-    if (item.kind === "toggle") { item.activate(); return }
+    if (item.kind === "toggle" || item.kind === "volumeControl" || item.kind === "select") { item.activate(); return }
     if (item.kind === "textEntry") { item.focus(); return }
     item.activate(item.options[root.focusedOptionIndex])
   }
@@ -1703,6 +1776,12 @@ Item {
     channelMuted: root.outputMuted
     devices: root.outputDevices
     defaultDevice: root.outputSink
+    // Output's own items are index 0 (volume/mute) through
+    // outputDevices.length (the last device) in audioItems above.
+    volumeFocused: root.audioOpen && root.rightFocused && root.focusedItemIndex === 0
+    focusedDeviceIndex: (root.audioOpen && root.rightFocused
+      && root.focusedItemIndex >= 1 && root.focusedItemIndex <= root.outputDevices.length)
+      ? root.focusedItemIndex - 1 : -1
     iconMuted: ""
     iconUnmuted: ""
     labelFor: root.deviceLabel
@@ -1723,6 +1802,14 @@ Item {
     channelMuted: root.inputMuted
     devices: root.inputDevices
     defaultDevice: root.inputSource
+    // Input's items pick up right where Output's own leave off --
+    // root.outputItemCount is exactly the offset both this file and
+    // focusedItemVisual()/audioItems above already agree on.
+    volumeFocused: root.audioOpen && root.rightFocused && root.focusedItemIndex === root.outputItemCount
+    focusedDeviceIndex: (root.audioOpen && root.rightFocused
+      && root.focusedItemIndex > root.outputItemCount
+      && root.focusedItemIndex <= root.outputItemCount + root.inputDevices.length)
+      ? root.focusedItemIndex - root.outputItemCount - 1 : -1
     iconMuted: ""
     iconUnmuted: ""
     labelFor: root.deviceLabel

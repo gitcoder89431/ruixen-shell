@@ -377,17 +377,21 @@ Item {
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "general"
 
-  // Every OTHER category's right-panel content follows this same
-  // shape -- a header (its own label) then a short description -- a
+  // Every category's right-panel content, Profile included, starts
+  // with this same header (its own label) + short description -- a
   // plain layout convention every future real panel keeps building on
   // top of, not a separate component of its own (there's nothing else
-  // here yet to warrant one).
+  // here yet to warrant one). Direct correction: Profile's own real
+  // content (below) had quietly REPLACED this instead of sitting under
+  // it -- "why did you nuke the Profile and description subtitle we
+  // had above it? keep it there please".
   //
   // 20/20/20 inset (top/left/right) -- direct report: "the header are
   // too close to the seperator" (this pane's own left edge sits right
   // against ExtensionTwoPanel's divider, and the previous version had
   // no top/left inset at all).
   Column {
+    id: headerColumn
     parent: panel.rightPane
     anchors.top: parent.top
     anchors.topMargin: 20
@@ -396,7 +400,7 @@ Item {
     anchors.right: parent.right
     anchors.rightMargin: 20
     spacing: 6
-    visible: root.openIndex >= 0 && root.openIndex < root.sections.length && !root.profileOpen
+    visible: root.openIndex >= 0 && root.openIndex < root.sections.length
 
     Text {
       width: parent.width
@@ -422,14 +426,16 @@ Item {
   // Profile's own real content -- centered avatar + username@machine,
   // then the DiceBear collection picker -- ported from ruixen.settings/
   // GeneralContent.qml's own avatar card (see this file's header
-  // comment). No card background/border here (unlike the real app's
-  // own black card) -- this pane is already the ghost/ContentPage
-  // treatment every extension's right side uses, a second nested card
-  // would be a surface-on-a-surface with nothing to visually separate.
+  // comment). Sits BELOW headerColumn (its "Profile" label + subtitle
+  // stay in place), not instead of it. No card background/border here
+  // (unlike the real app's own black card) -- this pane is already the
+  // ghost/ContentPage treatment every extension's right side uses, a
+  // second nested card would be a surface-on-a-surface with nothing to
+  // visually separate.
   Column {
     parent: panel.rightPane
-    anchors.top: parent.top
-    anchors.topMargin: 20
+    anchors.top: headerColumn.bottom
+    anchors.topMargin: 16
     anchors.left: parent.left
     anchors.leftMargin: 20
     anchors.right: parent.right

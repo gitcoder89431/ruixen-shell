@@ -433,14 +433,159 @@ Item {
   property int openIndex: 0
 
   function moveSelectionUp() {
+    // Up/Down are the left panel's own keys only -- direct request:
+    // "up down is only used for the left panel". A no-op while the
+    // right panel has focus, rather than also moving the category
+    // cursor invisibly behind it.
+    if (root.rightFocused) return
     if (root.selectedIndex > 0) root.selectedIndex--
   }
   function moveSelectionDown() {
+    if (root.rightFocused) return
     if (root.selectedIndex < root.filteredSections.length - 1) root.selectedIndex++
   }
   function activateSelection() {
+    if (root.rightFocused) { root.activateFocusedOption(); return }
     if (root.selectedIndex < root.filteredSections.length)
       root.openIndex = root.filteredSections[root.selectedIndex].originalIndex
+  }
+
+  // --- Right-panel keyboard focus -- direct request: "if i tab in
+  // does that put me on the right panel and i can tab between cards
+  // options and then left or right direction and enter for that
+  // option, and then up down is only used for the left panel or esc
+  // back to left panel?" Tab moves focus into the right panel (and
+  // then cycles between its item cards); Left/Right cycle the OPTIONS
+  // within whichever card is focused; Enter commits the focused
+  // option; Escape returns focus to the left panel instead of exiting
+  // the whole extension. Only meaningful while Profile (the only
+  // category with real items so far) is open -- a plain header+
+  // description category has nothing to Tab into.
+  property bool rightFocused: false
+  property int focusedItemIndex: 0
+  property int focusedOptionIndex: 0
+
+  // One entry per Profile item card, in the same top-to-bottom order
+  // they're actually stacked in -- `options` is the plain list of ids
+  // Left/Right cycle through, `current` is whichever one is actually
+  // applied right now (used to seed the keyboard cursor when tabbing
+  // into a card), `activate` calls that item's own real setter. A
+  // plain data table here, not a hardcoded switch in every function
+  // below, so a fifth Profile item later is one more entry, not a
+  // change to the navigation logic itself.
+  readonly property var profileItems: [
+    {
+      options: root.avatarCollections.map(function(c) { return c.id }),
+      current: root.avatarCollection,
+      activate: function(id) { root.selectAvatar(id) }
+    },
+    {
+      options: ["sharp", "rounded"],
+      current: root.cornerCurvature,
+      activate: function(id) { root.setCornerCurvature(id) }
+    },
+    {
+      options: ["comfy", "tight"],
+      current: root.spacingProfile,
+      activate: function(id) { root.setSpacingProfile(id) }
+    },
+    {
+      options: ["calm", "bubbly", "snappy"],
+      current: root.animationProfile,
+      activate: function(id) { root.setAnimationProfile(id) }
+    }
+  ]
+
+  // Seeds the keyboard cursor to wherever the item's own currently
+  // applied option already sits, same "start where you already are"
+  // convention the dropdown's own seedDropdownSelection (Launcher.qml)
+  // established -- landing on option 0 regardless of the real value
+  // would put the cursor somewhere that doesn't match what's actually
+  // highlighted as current.
+  function seedFocusedOption() {
+    var item = root.profileItems[root.focusedItemIndex]
+    if (!item) { root.focusedOptionIndex = 0; return }
+    var idx = item.options.indexOf(item.current)
+    root.focusedOptionIndex = idx >= 0 ? idx : 0
+  }
+
+  function focusRightPanel() {
+    if (!root.profileOpen) return
+    root.rightFocused = true
+    root.focusedItemIndex = 0
+    root.seedFocusedOption()
+  }
+
+  function blurToLeftPanel() {
+    root.rightFocused = false
+  }
+
+  // Tab's only meaning in this extension -- unlike the main launcher/
+  // Search Files, there's no per-result actions menu here for Tab to
+  // open instead. First press moves focus in from the left panel;
+  // every press after that cycles to the next item card, wrapping back
+  // to the first rather than dead-ending at the last.
+  function tabForward() {
+    if (!root.rightFocused) { root.focusRightPanel(); Qt.callLater(root.scrollToFocusedItem); return }
+    if (root.profileItems.length === 0) return
+    root.focusedItemIndex = (root.focusedItemIndex + 1) % root.profileItems.length
+    root.seedFocusedOption()
+    Qt.callLater(root.scrollToFocusedItem)
+  }
+
+  // Direct follow-up: "when i tab to the animation style, can the
+  // panel know to flick up or down depending on where the options
+  // are?" -- Tab can land on a card the Flickable hasn't scrolled to
+  // yet (Animation Style, the last one, sits below the fold at the
+  // panel's normal scroll position). Same "only scroll the minimum
+  // needed" shape a scrolloff implementation uses: nudge up if the
+  // card's top is above the visible top, nudge down if its bottom is
+  // below the visible bottom, otherwise leave contentY alone (a card
+  // already fully in view shouldn't jump for no reason). Qt.callLater
+  // in every caller -- a card's own height can depend on content that
+  // hasn't finished laying out in the same tick focus moved to it.
+  function scrollToFocusedItem() {
+    var items = [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem]
+    var item = items[root.focusedItemIndex]
+    if (!item) return
+    var itemTop = rightContentColumn.y + item.y
+    var itemBottom = itemTop + item.height
+    if (itemTop < rightPaneScroll.contentY) {
+      rightPaneScroll.contentY = Math.max(0, itemTop - 8)
+    } else if (itemBottom > rightPaneScroll.contentY + rightPaneScroll.height) {
+      rightPaneScroll.contentY = Math.min(rightPaneScroll.contentHeight - rightPaneScroll.height, itemBottom + 8 - rightPaneScroll.height)
+    }
+  }
+
+  function moveOptionLeft() {
+    if (!root.rightFocused) return
+    var item = root.profileItems[root.focusedItemIndex]
+    if (!item || item.options.length === 0) return
+    root.focusedOptionIndex = (root.focusedOptionIndex - 1 + item.options.length) % item.options.length
+  }
+
+  function moveOptionRight() {
+    if (!root.rightFocused) return
+    var item = root.profileItems[root.focusedItemIndex]
+    if (!item || item.options.length === 0) return
+    root.focusedOptionIndex = (root.focusedOptionIndex + 1) % item.options.length
+  }
+
+  function activateFocusedOption() {
+    var item = root.profileItems[root.focusedItemIndex]
+    if (!item) return
+    item.activate(item.options[root.focusedOptionIndex])
+  }
+
+  // No stale keyboard focus surviving a category switch -- landing on
+  // a different category (a click, or Enter on a new left-panel row)
+  // always starts back on the left panel's own list, never mid-way
+  // into whatever the PREVIOUS category's right-panel cursor happened
+  // to be on.
+  onOpenIndexChanged: {
+    root.rightFocused = false
+    root.focusedItemIndex = 0
+    rightPaneScroll.contentY = 0
   }
 
   // Fresh cursor on every new query, same as every other search
@@ -458,6 +603,13 @@ Item {
     if (root.active) {
       root.selectedIndex = 0
       root.openIndex = 0
+      // Explicit, not left to onOpenIndexChanged alone -- openIndex
+      // may already BE 0 from a previous visit (no change event to
+      // react to), which would otherwise leave a stale right-panel
+      // focus active the moment this extension reopens.
+      root.rightFocused = false
+      root.focusedItemIndex = 0
+      rightPaneScroll.contentY = 0
       // Same "fetch once" gate ruixen.settings' own onOpenedChanged
       // uses -- fastfetch is not free enough to re-run every time this
       // extension is (re)entered.
@@ -656,6 +808,12 @@ Item {
     height: profilePictureContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
+    // Card-level focus ring -- direct request: "tab between cards...
+    // then left or right direction and enter for that option". Shown
+    // whenever this is the Tab-focused card, regardless of which of
+    // its own options the cursor is on.
+    border.width: root.rightFocused && root.focusedItemIndex === 0 ? 1 : 0
+    border.color: root.accent
     visible: root.profileOpen
 
     Column {
@@ -759,14 +917,24 @@ Item {
           Rectangle {
             id: collectionBtn
             required property var modelData
+            required property int index
             readonly property bool isCurrent: root.avatarCollection === collectionBtn.modelData.id
+            // Keyboard cursor position, distinct from isCurrent (the
+            // actually-applied value) -- direct request: "tab between
+            // cards options and then left or right direction and enter
+            // for that option". White, not accent, specifically so the
+            // cursor stays visible even while sitting on an option that
+            // ISN'T current yet (an all-accent ring there would read as
+            // "already applied", which it isn't until Enter).
+            readonly property bool isFocused: root.rightFocused
+              && root.focusedItemIndex === 0 && root.focusedOptionIndex === collectionBtn.index
 
             width: collectionLabel.implicitWidth + 16
             height: 24
             radius: 6
             color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+            border.color: collectionBtn.isFocused ? "#ffffff" : (collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
             opacity: root.avatarBusy ? 0.5 : 1
 
             Text {
@@ -802,6 +970,8 @@ Item {
     height: windowCurvatureContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
+    border.width: root.rightFocused && root.focusedItemIndex === 1 ? 1 : 0
+    border.color: root.accent
     visible: root.profileOpen
 
     Column {
@@ -831,14 +1001,17 @@ Item {
           Rectangle {
             id: curvatureBtn
             required property var modelData
+            required property int index
             readonly property bool isCurrent: root.cornerCurvature === curvatureBtn.modelData.id
+            readonly property bool isFocused: root.rightFocused
+              && root.focusedItemIndex === 1 && root.focusedOptionIndex === curvatureBtn.index
 
             width: (parent.width - parent.spacing) / 2
             height: 28
             radius: 6
             color: curvatureBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: curvatureBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+            border.color: curvatureBtn.isFocused ? "#ffffff" : (curvatureBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
 
             Text {
               anchors.centerIn: parent
@@ -871,6 +1044,8 @@ Item {
     height: windowSpacingContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
+    border.width: root.rightFocused && root.focusedItemIndex === 2 ? 1 : 0
+    border.color: root.accent
     visible: root.profileOpen
 
     Column {
@@ -900,14 +1075,17 @@ Item {
           Rectangle {
             id: spacingBtn
             required property var modelData
+            required property int index
             readonly property bool isCurrent: root.spacingProfile === spacingBtn.modelData.id
+            readonly property bool isFocused: root.rightFocused
+              && root.focusedItemIndex === 2 && root.focusedOptionIndex === spacingBtn.index
 
             width: (parent.width - parent.spacing) / 2
             height: 28
             radius: 6
             color: spacingBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: spacingBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+            border.color: spacingBtn.isFocused ? "#ffffff" : (spacingBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
 
             Text {
               anchors.centerIn: parent
@@ -940,6 +1118,8 @@ Item {
     height: animationStyleContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
+    border.width: root.rightFocused && root.focusedItemIndex === 3 ? 1 : 0
+    border.color: root.accent
     visible: root.profileOpen
 
     Column {
@@ -973,14 +1153,17 @@ Item {
           Rectangle {
             id: animBtn
             required property var modelData
+            required property int index
             readonly property bool isCurrent: root.animationProfile === animBtn.modelData.id
+            readonly property bool isFocused: root.rightFocused
+              && root.focusedItemIndex === 3 && root.focusedOptionIndex === animBtn.index
 
             width: (parent.width - 2 * parent.spacing) / 3
             height: 28
             radius: 6
             color: animBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: animBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+            border.color: animBtn.isFocused ? "#ffffff" : (animBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
 
             Text {
               anchors.centerIn: parent

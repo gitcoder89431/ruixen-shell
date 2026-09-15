@@ -1192,9 +1192,15 @@ Item {
         sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions : fileSearchProvider.sources
         allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types" : "All Sources"
         sourceFilterWidth: root.sourceFilterWidth
-        // Wallpapers is the only extension so far with anything 2D to
-        // navigate -- see this property's own comment in SearchHeader.qml.
+        // Wallpapers is the only extension with anything 2D to
+        // navigate on its OWN grid -- see this property's own comment
+        // in SearchHeader.qml. Settings' own right panel needs the
+        // same interception too, but only while that panel actually
+        // has keyboard focus (settingsContent.rightFocused) -- with
+        // the left category list focused, Left/Right should still
+        // just move the search box's own text cursor normally.
         interceptArrowKeys: root.activeExtensionId === "wallpapers"
+          || (root.activeExtensionId === "settings" && settingsContent.rightFocused)
         textColor: root.textColor
         mutedColor: root.muted
         fontFamily: root.fontFamily
@@ -1231,8 +1237,14 @@ Item {
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
           else if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
         }
-        onLeftPressed: if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionLeft()
-        onRightPressed: if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionRight()
+        onLeftPressed: {
+          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionLeft()
+          else if (root.activeExtensionId === "settings") settingsContent.moveOptionLeft()
+        }
+        onRightPressed: {
+          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionRight()
+          else if (root.activeExtensionId === "settings") settingsContent.moveOptionRight()
+        }
         onEnterPressed: {
           if (searchHeader.dropdownOpen) root.confirmDropdownSelection()
           else if (root.activeExtensionId === "wallpapers") wallpapersContent.activateSelection()
@@ -1253,6 +1265,14 @@ Item {
             root.hasScopeHistory = false
           } else if (root.filesMode) {
             root.filesMode = false
+          } else if (root.activeExtensionId === "settings" && settingsContent.rightFocused) {
+            // Direct request: "up down is only used for the left panel
+            // or esc back to left panel?" -- Escape backs focus OUT of
+            // the right panel first, same drill-back-out-one-step-at-
+            // a-time shape hasScopeHistory already uses above, rather
+            // than jumping straight past it to exiting the whole
+            // extension.
+            settingsContent.blurToLeftPanel()
           } else if (root.inExtensionMode) {
             root.activeExtensionId = ""
           } else {
@@ -1276,6 +1296,13 @@ Item {
         // it.
         onTabPressed: {
           if (searchHeader.dropdownOpen) return
+          // Settings has no per-result actions menu at all (that
+          // concept only exists for Search Files) -- Tab means
+          // something else entirely here, see settingsContent's own
+          // tabForward() comment: direct request "if i tab in does
+          // that put me on the right panel and i can tab between
+          // cards options".
+          if (root.activeExtensionId === "settings") { settingsContent.tabForward(); return }
           if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
         }

@@ -3,13 +3,12 @@ import Quickshell
 import Quickshell.Io
 import "PluginModel.js" as PluginModel
 
-// Plugins category's own list/toggle/update backend, ported from
-// ruixen.settings/services/PluginService.qml. Full-uninstall (that
-// file's own danger-zone block) is deliberately left out here -- the
-// real page moved that behind its own separate About page precisely
-// because it didn't belong crowded in with the plugin checklist, and
-// this plugin has no About page yet to host it. Add it back if/when one
-// exists, not before.
+// Plugins AND About categories' shared backend, ported from
+// ruixen.settings/services/PluginService.qml -- list/toggle/update/
+// check for Plugins, full-uninstall for About's own danger zone (added
+// back once About actually existed to host it; the same reasoning the
+// real page's own AboutContent.qml documents for keeping it off the
+// Plugins page: "the plugs in list is kinda big").
 Item {
   id: root
 
@@ -163,5 +162,32 @@ Item {
     var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
     checkUpdatesProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh --check-json"]
     checkUpdatesProc.running = true
+  }
+
+  // Full uninstall -- ported back in now that About (its real home,
+  // same as ruixen.settings' own page) exists. Runs this repo's own
+  // uninstall.sh, which reverses everything install.sh did: switches
+  // back to the built-in Omarchy bar, removes every ruixen.* plugin's
+  // files for real (omarchy-plugin-remove itself only backs a cp -r'd
+  // plugin up to a hidden .{id}.bak.<timestamp> folder rather than
+  // deleting it, so uninstall.sh explicitly deletes those backups too
+  // afterward), restores the real pre-install looknfeel.lua (or
+  // Omarchy's own default if there was none), and restarts the shell.
+  //
+  // Deliberately fired via Quickshell.execDetached, not a lifecycle-
+  // bound Process like updateProc above -- the script's own last real
+  // step disables/removes ruixen.launcher itself (this very plugin),
+  // which would tear down this QML instance (and, plausibly, any
+  // Process objects it owns) mid-script if that happened before the
+  // script finished. execDetached exists specifically to survive
+  // exactly that, the same reason Wi-Fi/Bluetooth's own actions
+  // already use it.
+  readonly property string uninstallConfirmPhrase: "CONFIRM UNINSTALL"
+  property string uninstallConfirmInput: ""
+
+  function confirmFullUninstall() {
+    if (root.ruixenRepoPath === "" || root.uninstallConfirmInput !== root.uninstallConfirmPhrase) return
+    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
+    Quickshell.execDetached(["bash", "-c", "cd '" + safePath + "' && ./uninstall.sh"])
   }
 }

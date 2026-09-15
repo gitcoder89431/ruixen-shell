@@ -1114,12 +1114,15 @@ Item {
   property alias pluginCheckError: pluginService.pluginCheckError
   property alias pluginChangedIds: pluginService.pluginChangedIds
   property alias ruixenRepoPath: pluginService.ruixenRepoPath
+  property alias uninstallConfirmPhrase: pluginService.uninstallConfirmPhrase
+  property alias uninstallConfirmInput: pluginService.uninstallConfirmInput
 
   function refreshPlugins() { pluginService.refreshPlugins() }
   function pluginIsProtected(row) { return pluginService.pluginIsProtected(row) }
   function togglePluginEnabled(row) { pluginService.togglePluginEnabled(row) }
   function updateRuixenShell() { pluginService.updateRuixenShell() }
   function checkForUpdates() { pluginService.checkForUpdates() }
+  function confirmFullUninstall() { pluginService.confirmFullUninstall() }
 
   // Keyboard-navigable subset of pluginRows -- protected rows (locked,
   // no toggle to reach) are drawn but deliberately not part of
@@ -1571,6 +1574,27 @@ Item {
     }
   }
 
+  // About's own two items -- the uninstall confirm field (kind
+  // "textEntry", same real Qt focus handoff Launcher's own add-list
+  // boxes use) and the Uninstall button itself ("select", no-op via its
+  // own activate() guard until ready, same disabled-button reasoning
+  // Plugins' own Check/Update items use).
+  readonly property var aboutItems: {
+    return [
+      {
+        kind: "textEntry",
+        focus: function() { uninstallConfirmField.forceActiveFocus() }
+      },
+      {
+        kind: "select",
+        activate: function() {
+          if (root.ruixenRepoPath !== "" && root.uninstallConfirmInput === root.uninstallConfirmPhrase)
+            root.confirmFullUninstall()
+        }
+      }
+    ]
+  }
+
   // The single thing every nav function below actually reads --
   // whichever category is open picks its own table, everything else
   // (an empty header+description category) has nothing to navigate.
@@ -1583,6 +1607,7 @@ Item {
     if (root.wifiOpen) return root.wifiItems
     if (root.btOpen) return root.btItems
     if (root.pluginsOpen) return root.pluginItems
+    if (root.aboutOpen) return root.aboutItems
     return []
   }
 
@@ -1702,6 +1727,9 @@ Item {
         if (root.pluginRows[i].id === target.id) return pluginRepeater.itemAt(i)
       }
       return null
+    }
+    if (root.aboutOpen) {
+      return [uninstallConfirmRow, uninstallButtonRow][root.focusedItemIndex]
     }
     return null
   }
@@ -1925,6 +1953,9 @@ Item {
   readonly property bool pluginsOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "plugins"
+  readonly property bool aboutOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "about"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -3241,6 +3272,166 @@ Item {
               cursorShape: Qt.PointingHandCursor
               onClicked: root.togglePluginEnabled(pluginRow.modelData)
             }
+          }
+        }
+      }
+    }
+  }
+
+  // About's own two items -- the version card (small and static, same
+  // reasoning as ruixen.settings' own: no real version tracking exists
+  // in this repo yet, so this mirrors the one number that does --
+  // ruixen.launcher's own manifest.json "version" field, "Ruixen
+  // Launcher" not "Ruixen Shell" since that's this plugin's own name)
+  // and the danger-zone full uninstall, ported from
+  // ruixen.settings/AboutContent.qml. Gated behind typing an exact
+  // phrase, not just a click-through confirm.
+  Rectangle {
+    id: aboutVersionItem
+    width: parent.width
+    height: aboutVersionContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.aboutOpen
+
+    Column {
+      id: aboutVersionContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 4
+
+      Text {
+        text: "Ruixen Launcher"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Text {
+        text: "v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: root.muted
+      }
+    }
+  }
+
+  Rectangle {
+    id: dangerZoneItem
+    width: parent.width
+    height: dangerZoneContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0.878, 0.322, 0.322, 0.08)
+    border.width: 1
+    border.color: Qt.rgba(0.878, 0.322, 0.322, 0.35)
+    visible: root.aboutOpen
+
+    Column {
+      id: dangerZoneContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 8
+
+      Text {
+        visible: root.ruixenRepoPath === ""
+        width: parent.width
+        text: "Uninstall needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable it here."
+        wrapMode: Text.WordWrap
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: root.muted
+      }
+
+      Item {
+        id: uninstallConfirmRow
+        width: parent.width
+        height: 32
+
+        Rectangle {
+          visible: root.aboutOpen && root.rightFocused && root.focusedItemIndex === 0
+          anchors.fill: parent
+          anchors.margins: -4
+          radius: 10
+          color: "transparent"
+          border.width: 1
+          border.color: root.accent
+        }
+
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: uninstallButtonRow.left
+          anchors.rightMargin: 8
+          anchors.verticalCenter: parent.verticalCenter
+          height: 32
+          radius: 10
+          color: Qt.rgba(1, 1, 1, 0.06)
+
+          TextInput {
+            id: uninstallConfirmField
+            anchors.fill: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 10
+            verticalAlignment: TextInput.AlignVCenter
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 12
+            clip: true
+            text: root.uninstallConfirmInput
+            onTextChanged: root.uninstallConfirmInput = text
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.uninstallConfirmPhrase
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              visible: uninstallConfirmField.text.length === 0
+            }
+
+            Keys.onEscapePressed: root.returnFocusRequested()
+          }
+        }
+
+        Rectangle {
+          id: uninstallButtonRow
+          readonly property bool ready: root.ruixenRepoPath !== "" && root.uninstallConfirmInput === root.uninstallConfirmPhrase
+
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          width: 96
+          height: 32
+          radius: 10
+          color: !uninstallButtonRow.ready ? Qt.rgba(1, 1, 1, 0.06)
+            : (uninstallMouse.containsMouse ? Qt.rgba(0.878, 0.322, 0.322, 0.55) : Qt.rgba(0.878, 0.322, 0.322, 0.4))
+          opacity: uninstallButtonRow.ready ? 1 : 0.5
+
+          Rectangle {
+            visible: root.aboutOpen && root.rightFocused && root.focusedItemIndex === 1
+            anchors.fill: parent
+            anchors.margins: -4
+            radius: 12
+            color: "transparent"
+            border.width: 1
+            border.color: root.accent
+          }
+
+          Text {
+            anchors.centerIn: parent
+            text: "Uninstall"
+            font.family: root.fontFamily
+            font.pixelSize: 12
+            font.weight: Font.DemiBold
+            color: root.textColor
+          }
+
+          MouseArea {
+            id: uninstallMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: uninstallButtonRow.ready
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.confirmFullUninstall()
           }
         }
       }

@@ -1,4 +1,7 @@
 import QtQuick
+import QtQuick.Effects
+import Quickshell
+import Quickshell.Io
 
 // Layout-only shell for the "Settings" extension -- direct request:
 // "lets do the Settings as Extension so Settings 2nd Column Ruixen and
@@ -9,9 +12,19 @@ import QtQuick
 // the layout first then we can work on the panels?" -- deliberately
 // navigation + chrome only: a left category list and a right panel
 // that opens straight onto Profile ("we can land in the profile
-// page"), each category's own header + a short description in place
-// of any real content. No toggles/inputs/real per-section content
-// yet -- that's explicit later work.
+// page"). Direct follow-up landed Profile's own REAL content --
+// avatar/username/DiceBear picker, ported byte-for-byte in spirit from
+// ruixen.settings/GeneralContent.qml + the matching backend block in
+// ruixen.settings/Settings.qml (avatarCollections/selectAvatar/the
+// avatar.json state file) -- plugin folders can't share a file across
+// install locations (same reason AppLibrary.qml/AppSearch.js already
+// exist three times over, and LauncherSearchConfig.js twice), so this
+// is a second, independent copy of that exact same mechanism, reading
+// and writing the exact same real files (~/.face.icon, ~/.local/state/
+// ruixen/avatar.json) -- picking an avatar here is visible in
+// ruixen.notch's own UserAvatar too, same as picking one there is.
+// Every OTHER category still gets the plain header + description
+// treatment -- that's explicit later work, one category at a time.
 //
 // Direct follow-up chain after the first pass hand-rolled its own row
 // visuals and its own margins: "it looks too much different than the
@@ -40,6 +53,124 @@ Item {
   // search box, use the launcher for wallpaper search input") -- direct
   // follow-up: "does search work for menu items on the left too?"
   property string searchText: ""
+
+  // --- Profile: avatar/username, ported from ruixen.settings -- see
+  // this file's own header comment for why this is a second, real copy
+  // rather than a shared import. Every property/function/Process name
+  // below matches ruixen.settings/Settings.qml's own naming exactly,
+  // so the two stay easy to compare/keep in sync by hand.
+  readonly property string username: {
+    var u = Quickshell.env("USER") || "user"
+    return u.charAt(0).toUpperCase() + u.slice(1)
+  }
+  property string hardwareName: ""
+  property int avatarCacheBust: 0
+  property bool avatarBusy: false
+  readonly property var avatarCollections: [
+    { id: "gradient", label: "Gradient" },
+    { id: "bottts-neutral", label: "Bottts", version: "10.x", format: "svg" },
+    { id: "pixel-art", label: "Pixel Art" },
+    { id: "pixelbot", label: "Pixelbot", version: "10.x", format: "svg" },
+    { id: "identicon", label: "Identicon" },
+    { id: "thumbs", label: "Thumbs" },
+    { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
+    { id: "critters", label: "Critters", version: "10.x", format: "svg" },
+    { id: "moods", label: "Moods", version: "10.x", format: "svg" }
+  ]
+  property string avatarCollection: "gradient"
+  property bool avatarStateLoaded: false
+  readonly property string avatarStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.json"
+
+  function loadAvatarState(raw) {
+    if (root.avatarStateLoaded) return
+    try {
+      var parsed = JSON.parse(raw)
+      if (parsed && typeof parsed.collection === "string") {
+        var known = false
+        for (var i = 0; i < root.avatarCollections.length; i++) {
+          if (root.avatarCollections[i].id === parsed.collection) { known = true; break }
+        }
+        if (known) root.avatarCollection = parsed.collection
+      }
+    } catch (e) {}
+    root.avatarStateLoaded = true
+  }
+
+  // Single entry point for every avatar-picker button -- "gradient"
+  // deletes ~/.face.icon, any real DiceBear slug fetches a random
+  // avatar from that collection.
+  function selectAvatar(collection) {
+    if (root.avatarBusy) return
+    root.avatarBusy = true
+    root.avatarCollection = collection
+    var target = Quickshell.env("HOME") + "/.face.icon"
+    if (collection === "gradient") {
+      avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    } else {
+      var seed = Math.random().toString(36).slice(2) + Date.now()
+      var entry = null
+      for (var i = 0; i < root.avatarCollections.length; i++) {
+        if (root.avatarCollections[i].id === collection) { entry = root.avatarCollections[i]; break }
+      }
+      var version = (entry && entry.version) || "9.x"
+      var format = (entry && entry.format) || "png"
+      var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed
+      avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
+    }
+    avatarProc.running = true
+  }
+
+  Process {
+    id: identityProc
+    command: ["fastfetch", "--format", "json", "-s", "Host"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var data = JSON.parse(text)
+          for (var i = 0; i < data.length; i++) {
+            if (data[i].type === "Host") root.hardwareName = data[i].result.name || ""
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  Process {
+    id: ensureAvatarStateDirProc
+    command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
+  }
+
+  FileView {
+    id: avatarStateFile
+    path: root.avatarStatePath
+    watchChanges: false
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadAvatarState(text())
+    onLoadFailed: root.loadAvatarState("")
+  }
+
+  Process {
+    id: avatarProc
+    stdout: StdioCollector { waitForEnd: true }
+    onExited: {
+      root.avatarBusy = false
+      root.avatarCacheBust = root.avatarCacheBust + 1
+      avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection }, null, 2) + "\n")
+      // Tells ruixen.notch's own UserAvatar to re-read the file too --
+      // it's a separate keepLoaded:true plugin process, so it has no
+      // other way to know ~/.face.icon just changed.
+      avatarNotifyProc.command = ["omarchy-shell", "-q", "ruixen.notch", "refreshAvatar"]
+      avatarNotifyProc.running = true
+    }
+  }
+
+  Process {
+    id: avatarNotifyProc
+  }
+
+  Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
   // Settings.qml's own root.sections -- confirmed by reading that file
@@ -158,6 +289,10 @@ Item {
     if (root.active) {
       root.selectedIndex = 0
       root.openIndex = 0
+      // Same "fetch once" gate ruixen.settings' own onOpenedChanged
+      // uses -- fastfetch is not free enough to re-run every time this
+      // extension is (re)entered.
+      if (root.hardwareName === "") identityProc.running = true
     }
   }
 
@@ -235,13 +370,18 @@ Item {
     }
   }
 
-  // Every category's right-panel content follows this same shape --
-  // a header (its own label) then a short description -- a plain
-  // layout convention every future real panel keeps building on top
-  // of, not a separate component of its own (there's nothing else
-  // here yet to warrant one). Direct note: Profile's own header may
-  // later grow into more of a hero treatment since it's the page you
-  // land on, but every other section's header stays this plain style.
+  // True while Profile specifically is open -- checked by id, not the
+  // bare index 0, so this stays correct even if sections' own order
+  // ever changes.
+  readonly property bool profileOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "general"
+
+  // Every OTHER category's right-panel content follows this same
+  // shape -- a header (its own label) then a short description -- a
+  // plain layout convention every future real panel keeps building on
+  // top of, not a separate component of its own (there's nothing else
+  // here yet to warrant one).
   //
   // 20/20/20 inset (top/left/right) -- direct report: "the header are
   // too close to the seperator" (this pane's own left edge sits right
@@ -256,7 +396,7 @@ Item {
     anchors.right: parent.right
     anchors.rightMargin: 20
     spacing: 6
-    visible: root.openIndex >= 0 && root.openIndex < root.sections.length
+    visible: root.openIndex >= 0 && root.openIndex < root.sections.length && !root.profileOpen
 
     Text {
       width: parent.width
@@ -276,6 +416,131 @@ Item {
       font.family: root.fontFamily
       font.pixelSize: 12
       color: root.muted
+    }
+  }
+
+  // Profile's own real content -- centered avatar + username@machine,
+  // then the DiceBear collection picker -- ported from ruixen.settings/
+  // GeneralContent.qml's own avatar card (see this file's header
+  // comment). No card background/border here (unlike the real app's
+  // own black card) -- this pane is already the ghost/ContentPage
+  // treatment every extension's right side uses, a second nested card
+  // would be a surface-on-a-surface with nothing to visually separate.
+  Column {
+    parent: panel.rightPane
+    anchors.top: parent.top
+    anchors.topMargin: 20
+    anchors.left: parent.left
+    anchors.leftMargin: 20
+    anchors.right: parent.right
+    anchors.rightMargin: 20
+    spacing: 12
+    visible: root.profileOpen
+
+    Item {
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: 64
+      height: 64
+
+      // Circular gradient fallback -- explicitly hidden once a real
+      // image is loaded (not just painted over by an assumed-opaque
+      // one), so nothing is left behind for any load-state edge case
+      // to reveal.
+      Rectangle {
+        anchors.fill: parent
+        radius: width / 2
+        visible: avatarPreviewImage.status !== Image.Ready
+        gradient: Gradient {
+          GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
+          GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
+        }
+      }
+
+      // "#" cache-bust fragment, not "?" -- Qt's local file:// loader
+      // can try to resolve a "?"-suffixed string as a literal filename
+      // instead of stripping it, unlike an HTTP server. A URL fragment
+      // is always stripped before path resolution, busting the Image's
+      // own source-string cache (needed since a new avatar overwrites
+      // the exact same path) without that risk.
+      Image {
+        id: avatarPreviewImage
+        anchors.fill: parent
+        source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        cache: false
+        visible: false
+      }
+
+      Rectangle {
+        id: avatarPreviewMask
+        anchors.fill: parent
+        radius: width * 0.2
+        color: "#ffffff"
+        visible: false
+        layer.enabled: true
+      }
+
+      MultiEffect {
+        anchors.fill: parent
+        source: avatarPreviewImage
+        maskEnabled: true
+        maskSource: avatarPreviewMask
+        maskThresholdMin: 0.5
+        maskThresholdMax: 1.0
+      }
+    }
+
+    Text {
+      anchors.horizontalCenter: parent.horizontalCenter
+      text: Quickshell.env("USER") + "@" + root.hardwareName
+      font.family: root.fontFamily
+      font.pixelSize: 11
+      color: root.muted
+    }
+
+    // Selecting one both picks it (highlighted border) AND immediately
+    // applies it -- no separate "pick then press an action button"
+    // step, same as the real picker. Flow, not a Row -- 9 labels don't
+    // reliably fit one line at this panel's width.
+    Flow {
+      width: parent.width
+      spacing: 6
+
+      Repeater {
+        model: root.avatarCollections
+
+        Rectangle {
+          id: collectionBtn
+          required property var modelData
+          readonly property bool isCurrent: root.avatarCollection === collectionBtn.modelData.id
+
+          width: collectionLabel.implicitWidth + 16
+          height: 24
+          radius: 6
+          color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+          border.width: 1
+          border.color: collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+          opacity: root.avatarBusy ? 0.5 : 1
+
+          Text {
+            id: collectionLabel
+            anchors.centerIn: parent
+            text: collectionBtn.modelData.label
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            font.weight: collectionBtn.isCurrent ? Font.DemiBold : Font.Normal
+            color: collectionBtn.isCurrent ? root.textColor : root.muted
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            enabled: !root.avatarBusy
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.selectAvatar(collectionBtn.modelData.id)
+          }
+        }
+      }
     }
   }
 }

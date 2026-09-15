@@ -205,12 +205,24 @@ Item {
   // its header comment there) by making mouse hover and keyboard nav
   // drive the SAME single index rather than two independent ones --
   // reusing that here instead of inventing a second "which input mode
-  // am I in" flag. Real mouse movement (gated by hoverArmed, so a
-  // cursor merely resting over a tile when this extension activates
-  // doesn't silently steal the keyboard's own selection) moves
-  // grid.currentIndex exactly like an arrow key does; the ring/label
-  // below reads ONLY GridView.isCurrentItem now, so there is always
-  // exactly one highlighted tile, whichever input moved it last.
+  // am I in" flag. Real mouse movement moves grid.currentIndex exactly
+  // like an arrow key does; the ring/label below reads ONLY
+  // GridView.isCurrentItem now, so there is always exactly one
+  // highlighted tile, whichever input moved it last.
+  //
+  // hoverArmed itself is read only for logging/clarity at this point --
+  // the actual gate is hoverArmBaseline (see the grid-level HoverHandler
+  // below): a bug that shipped in an earlier pass here treated hoverArmed
+  // as a permanent one-way latch (armed once, ever, then trusted forever
+  // after by each tile's own onEntered), which silently broke KEYBOARD
+  // navigation too, not just mouse/wheel scrolling -- any GridView
+  // content shift, including a plain arrow-key-driven positionViewAtIndex
+  // call, slides delegates under a physically-still cursor, and a latched-
+  // armed onEntered can't tell that apart from a real mouse move. Fixed
+  // by driving currentIndex from the HoverHandler's own position delta
+  // directly (immune to pure content scrolling -- see its comment) and
+  // re-baselining after every confirmed real move, not just the first
+  // one ever seen.
   property bool hoverArmed: false
   property point hoverArmBaseline: Qt.point(-1, -1)
 
@@ -265,6 +277,11 @@ Item {
     return result
   }
 
+  // Number of columns the grid actually lays out -- a named constant
+  // instead of the bare "4" scattered across heroSpacerIndices/gridModel
+  // already, now also needed for the hand-rolled row/column math below.
+  readonly property int columns: 4
+
   // Keyboard grid navigation -- direct request ("can i use the up down
   // left right to navigate around here"). Launcher.qml's own outer
   // SearchHeader is still the only focused input (see this file's own
@@ -272,13 +289,35 @@ Item {
   // as plain function calls rather than this component ever taking
   // its own keyboard focus, same as how the landing results list is
   // navigated by mutating root.selectedIndex from outside rather than
-  // resultsList itself holding focus. GridView already implements
-  // exactly this (moveCurrentIndexUp/Down/Left/Right respect its own
-  // real column count and stop at the edges), so these just forward
-  // to it instead of re-deriving row/column math by hand -- escapeSpacers
-  // below then corrects for the one thing GridView doesn't know about,
-  // the reserved hero cells.
+  // resultsList itself holding focus.
   //
+  // NOT GridView.moveCurrentIndexUp/Down/Left/Right -- direct report
+  // ("i have to literally hit the button twice to get to the next
+  // row"). A temporary debug IPC handler traced every keyboard step
+  // (requested index, currentIndex before/after positionViewAtIndex,
+  // currentIndex after the explicit assignment) and found each single
+  // step DID land correctly at the time -- the actual bug was one level
+  // out: currentIndex was getting silently reassigned again, moments
+  // later, by hoverArmed's own per-tile onEntered handlers (see
+  // tileMouse's own comment) -- ANY GridView content shift, including a
+  // plain keyboard-driven positionViewAtIndex, slides delegates under a
+  // physically-still mouse cursor, and a mouse hover that had ever been
+  // "armed" once stayed trusted forever after, even for a hover that
+  // was really just content moving under a stationary pointer. Fixed at
+  // that root cause (see the grid-level HoverHandler's own comment), not
+  // here -- this hand-rolled stepTo() (replacing the built-in move
+  // functions) turned out not to be the actual fix, but is kept anyway:
+  // explicit index math plus forcing the target into view via
+  // positionViewAtIndex before selecting it is more predictable than
+  // relying on adjacent-item assumptions baked into the built-in
+  // functions, for a grid this heavily virtualized (reuseItems: true,
+  // built for 300+ wallpaper libraries -- see GridView's own comment).
+  function stepTo(newIndex) {
+    if (newIndex < 0 || newIndex >= root.gridModel.length) return
+    grid.positionViewAtIndex(newIndex, GridView.Contain)
+    grid.currentIndex = newIndex
+  }
+
   // Keeps moving the SAME direction while still landing on a reserved
   // cell -- e.g. Right from index 3 (row 0 col 3, real) into row 1 via
   // Down lands on index 5 (spacer), so Down again continues to index 9
@@ -296,10 +335,32 @@ Item {
     }
     if (root.isSpacerIndex(grid.currentIndex)) grid.currentIndex = root.firstRealIndex()
   }
-  function moveSelectionUp() { grid.moveCurrentIndexUp(); root.escapeSpacers(function() { grid.moveCurrentIndexUp() }) }
-  function moveSelectionDown() { grid.moveCurrentIndexDown(); root.escapeSpacers(function() { grid.moveCurrentIndexDown() }) }
-  function moveSelectionLeft() { grid.moveCurrentIndexLeft(); root.escapeSpacers(function() { grid.moveCurrentIndexLeft() }) }
-  function moveSelectionRight() { grid.moveCurrentIndexRight(); root.escapeSpacers(function() { grid.moveCurrentIndexRight() }) }
+  function moveSelectionUp() {
+    root.stepTo(grid.currentIndex - root.columns)
+    root.escapeSpacers(function() { root.stepTo(grid.currentIndex - root.columns) })
+  }
+  function moveSelectionDown() {
+    root.stepTo(grid.currentIndex + root.columns)
+    root.escapeSpacers(function() { root.stepTo(grid.currentIndex + root.columns) })
+  }
+  // Left/Right stay within the current row (no wrap to the row above/
+  // below) -- same real column-position check GridView's own
+  // moveCurrentIndexLeft/Right performed internally, now done by hand
+  // alongside them.
+  function moveSelectionLeft() {
+    var step = function() {
+      if (grid.currentIndex % root.columns > 0) root.stepTo(grid.currentIndex - 1)
+    }
+    step()
+    root.escapeSpacers(step)
+  }
+  function moveSelectionRight() {
+    var step = function() {
+      if (grid.currentIndex % root.columns < root.columns - 1) root.stepTo(grid.currentIndex + 1)
+    }
+    step()
+    root.escapeSpacers(step)
+  }
   function activateSelection() {
     var cell = root.gridModel[grid.currentIndex]
     if (cell && !cell.spacer) root.select(cell.entry)
@@ -579,7 +640,7 @@ Item {
       // GridView replaced it.
       readonly property int tileWidth: cellWidth - 10
       readonly property int tileHeight: Math.round(tileWidth / 1.6)
-      cellWidth: Math.floor(width / 4)
+      cellWidth: Math.floor(width / root.columns)
       cellHeight: tileHeight + 10
       model: root.gridModel
 
@@ -590,20 +651,38 @@ Item {
       // fill.
       onMovementStarted: root.loadGate = root.wallpaperPaths.length
 
-      // Arms root.hoverArmed on the first REAL pointer movement over the
-      // grid, same mechanism/reasoning as Launcher.qml's own card-level
-      // HoverHandler (see its comment there) -- a passive handler so it
-      // never steals a click from any tile's own MouseArea underneath.
+      // Drives currentIndex directly from genuine cursor movement --
+      // same mechanism/reasoning as Launcher.qml's own card-level
+      // HoverHandler for arming (see its comment there), extended here
+      // to also do the actual selection instead of leaving that to each
+      // tile's own onEntered (see tileMouse's own comment for why that
+      // approach was fundamentally broken, not just under-gated).
+      // point.position is relative to this HANDLER's parent (grid
+      // itself, i.e. the viewport), NOT to grid's scrollable content --
+      // a wheel/drag/keyboard-driven scroll moves content underneath a
+      // physically-still cursor without changing that viewport-relative
+      // position at all, so onPointChanged simply never fires from pure
+      // scrolling, only from the cursor genuinely moving. The baseline
+      // is re-set to the CURRENT position after every confirmed move
+      // (not just once, ever) -- hoverArmed used to be a permanent one-
+      // way latch (armed once, then any subsequent tile-level onEntered
+      // was trusted forever after), which was the other half of the bug;
+      // continuously re-baselining means only an ACTUAL further move
+      // counts as the next real movement, indefinitely, not just the
+      // first one this component ever saw.
       HoverHandler {
         onPointChanged: {
-          if (root.hoverArmed) return
           if (root.hoverArmBaseline.x < 0) {
             root.hoverArmBaseline = point.position
             return
           }
           if (Math.abs(point.position.x - root.hoverArmBaseline.x) > 0.5
-              || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5)
+              || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5) {
             root.hoverArmed = true
+            root.hoverArmBaseline = point.position
+            var idx = grid.indexAt(point.position.x + grid.contentX, point.position.y + grid.contentY)
+            if (idx >= 0 && !root.isSpacerIndex(idx)) grid.currentIndex = idx
+          }
         }
       }
 
@@ -772,26 +851,24 @@ Item {
           enabled: !tile.isSpacer
           hoverEnabled: true
           cursorShape: Qt.PointingHandCursor
-          // Real hover moves the SAME currentIndex keyboard nav uses --
-          // see root.hoverArmed's own comment for why this is gated
-          // (skipped entirely for a synthetic/stale-position enter that
-          // fires before the grid's own HoverHandler has seen genuine
-          // movement). ALSO skipped while grid.moving -- direct report
-          // ("the scroll isnt smooth... feels like a hitch or a glitch
-          // where the scroll is kinda fighting with some snappy thing"):
-          // a mouse-wheel scroll moves tile content underneath an
-          // otherwise-STATIONARY cursor, and Qt fires a real onEntered
-          // for every delegate that slides past that fixed screen
-          // point -- with hoverArmed already true from ordinary earlier
-          // mouse use, each one was yanking currentIndex (and the ring/
-          // label it drives) to whatever tile the scroll happened to be
-          // passing under at that instant, reading as the selection
-          // fighting/snapping against the scroll itself rather than the
-          // scroll being smooth. grid.moving is Flickable's own "a flick
-          // or drag is currently in progress" flag -- true for exactly
-          // this case, false again once it settles, so a genuine hover
-          // once scrolling actually stops still updates it as normal.
-          onEntered: if (root.hoverArmed && !grid.moving) grid.currentIndex = tile.index
+          // No onEntered here -- direct report ("i have to literally hit
+          // the button twice to get to the next row"), root-caused via a
+          // temporary debug IPC handler that traced every keyboard step:
+          // ANY GridView content shift -- a wheel scroll, a drag, OR a
+          // plain keyboard-driven positionViewAtIndex call -- slides
+          // delegates underneath an otherwise-stationary mouse cursor,
+          // and Qt fires a genuine onEntered for whatever tile ends up
+          // there. That's true regardless of what actually caused the
+          // shift, so gating it (hoverArmed, grid.moving, whatever) can
+          // only ever cover specific causes, not the underlying problem:
+          // a per-tile onEntered fundamentally can't distinguish "the
+          // mouse moved onto me" from "content moved under the mouse."
+          // currentIndex is now driven entirely from the grid-level
+          // HoverHandler above instead, which checks actual cursor
+          // position deltas directly and is naturally immune to this
+          // (content scrolling doesn't change where the cursor sits
+          // relative to the grid's own viewport, only where it sits
+          // relative to content) -- see its own comment.
           onClicked: {
             grid.currentIndex = tile.index
             root.select(tile.entry)

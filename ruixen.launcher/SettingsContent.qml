@@ -227,6 +227,43 @@ Item {
     cornerCurvatureWriteProc.running = true
   }
 
+  // --- Profile: Window Spacing (Comfy/Tight), ported from
+  // ruixen.settings -- same naming as Settings.qml's own
+  // spacingProfile/setSpacingProfile. Unlike Window Curvature, this
+  // doesn't shell out to a real script or need a repo checkout -- a
+  // plain text file + `hyprctl reload`, so no ruixenRepoPath guard
+  // here either. Applies under both Sharp and Rounded curvature (both
+  // looknfeel.ruixen.lua and looknfeel.square.lua read this same
+  // file), so this card's own availability never depends on
+  // cornerCurvature's current value.
+  property string spacingProfile: "comfy"
+  readonly property string spacingProfilePath: Quickshell.env("HOME") + "/.local/state/ruixen/spacing-profile"
+
+  Process {
+    id: spacingProfileReadProc
+    command: ["bash", "-c", "cat \"" + root.spacingProfilePath + "\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var v = String(text || "").trim()
+        root.spacingProfile = (v === "tight") ? v : "comfy"
+      }
+    }
+  }
+
+  Process {
+    id: spacingProfileWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setSpacingProfile(profile) {
+    if (profile !== "comfy" && profile !== "tight") return
+    root.spacingProfile = profile
+    spacingProfileWriteProc.command = ["bash", "-c",
+      "printf '%s' '" + profile + "' > \"" + root.spacingProfilePath + "\" && hyprctl reload"]
+    spacingProfileWriteProc.running = true
+  }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -373,6 +410,7 @@ Item {
       // onOpenedChanged does for both.
       ruixenRepoPathProc.running = true
       cornerCurvatureReadProc.running = true
+      spacingProfileReadProc.running = true
     }
   }
 
@@ -752,6 +790,81 @@ Item {
         font.family: root.fontFamily
         font.pixelSize: 10
         color: root.muted
+      }
+    }
+  }
+
+  // Third Profile item -- same framed-card convention as the two
+  // above, stacked directly below windowCurvatureItem. Ported from
+  // ruixen.settings/GeneralContent.qml's own Window Spacing card. No
+  // ruixenRepoPath guard here -- see setSpacingProfile's own comment
+  // for why this one's a plain file write, not a real script.
+  Rectangle {
+    id: windowSpacingItem
+    parent: panel.rightPane
+    anchors.top: windowCurvatureItem.bottom
+    anchors.topMargin: 12
+    anchors.left: parent.left
+    anchors.leftMargin: 20
+    anchors.right: parent.right
+    anchors.rightMargin: 20
+    height: windowSpacingContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.profileOpen
+
+    Column {
+      id: windowSpacingContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Window Spacing"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Row {
+        width: parent.width
+        spacing: 6
+
+        Repeater {
+          model: [
+            { id: "comfy", label: "Comfy" },
+            { id: "tight", label: "Tight" }
+          ]
+
+          Rectangle {
+            id: spacingBtn
+            required property var modelData
+            readonly property bool isCurrent: root.spacingProfile === spacingBtn.modelData.id
+
+            width: (parent.width - parent.spacing) / 2
+            height: 28
+            radius: 6
+            color: spacingBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: spacingBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: spacingBtn.modelData.label
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              font.weight: spacingBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: spacingBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.setSpacingProfile(spacingBtn.modelData.id)
+            }
+          }
+        }
       }
     }
   }

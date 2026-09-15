@@ -87,7 +87,22 @@ Rectangle {
   Text {
     visible: row.modelData.providerId !== "app-search"
     anchors.left: parent.left
-    anchors.leftMargin: 12
+    // 8, not 12 like appIcon's own leftMargin above -- direct report
+    // ("theres more left gap padding from left edge to the icon on
+    // that row then these third column text end to the edge of that
+    // focus bubble"). Confirmed live via temporary pixel-exact markers
+    // that the underlying box math was ALREADY symmetric (6px from the
+    // highlight bubble's own edge to both this box and kindText's own
+    // box, on each side) -- the visual gap this reported wasn't a
+    // margin bug at all, it's this glyph's own font-metric bearing:
+    // a Nerd Font icon rarely fills its full em-box the way kindText's
+    // right-ALIGNED real text ink sits flush against its own box edge,
+    // so the same 6px geometric gap reads as visibly bigger on this
+    // side. Nudging just the box in (not appIcon, a real app-icon
+    // Image, which doesn't have the same bearing problem since actual
+    // icon art is drawn to fill its own canvas) is a plain visual
+    // compensation for that, not a claim the boxes were ever unequal.
+    anchors.leftMargin: 8
     anchors.verticalCenter: parent.verticalCenter
     width: 22
     horizontalAlignment: Text.AlignHCenter

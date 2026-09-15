@@ -951,11 +951,25 @@ Item {
               id: collectionLabel
               anchors.centerIn: parent
               text: collectionBtn.modelData.label
-              font.underline: collectionBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 10
               font.weight: collectionBtn.isCurrent ? Font.DemiBold : Font.Normal
               color: collectionBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            // Accent-colored underline, not font.underline -- direct
+            // correction: "the underline kinda hard to see, use the
+            // accent color for the underline?" font.underline always
+            // draws in the text's OWN color (muted when not current),
+            // which is exactly why it read as faint; a separate bar
+            // can be any color regardless of the label's own.
+            Rectangle {
+              visible: collectionBtn.isFocused
+              anchors.top: collectionLabel.bottom
+              anchors.horizontalCenter: collectionLabel.horizontalCenter
+              width: collectionLabel.paintedWidth
+              height: 1
+              color: root.accent
             }
 
             MouseArea {
@@ -1025,13 +1039,25 @@ Item {
             border.color: curvatureBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
 
             Text {
+              id: curvatureLabel
               anchors.centerIn: parent
               text: curvatureBtn.modelData.label
-              font.underline: curvatureBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 11
               font.weight: curvatureBtn.isCurrent ? Font.DemiBold : Font.Normal
               color: curvatureBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            // Accent-colored underline -- see collectionBtn's own
+            // comment above for why this is a real bar, not
+            // font.underline.
+            Rectangle {
+              visible: curvatureBtn.isFocused
+              anchors.top: curvatureLabel.bottom
+              anchors.horizontalCenter: curvatureLabel.horizontalCenter
+              width: curvatureLabel.paintedWidth
+              height: 1
+              color: root.accent
             }
 
             MouseArea {
@@ -1100,13 +1126,25 @@ Item {
             border.color: spacingBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
 
             Text {
+              id: spacingLabel
               anchors.centerIn: parent
               text: spacingBtn.modelData.label
-              font.underline: spacingBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 11
               font.weight: spacingBtn.isCurrent ? Font.DemiBold : Font.Normal
               color: spacingBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            // Accent-colored underline -- see collectionBtn's own
+            // comment above for why this is a real bar, not
+            // font.underline.
+            Rectangle {
+              visible: spacingBtn.isFocused
+              anchors.top: spacingLabel.bottom
+              anchors.horizontalCenter: spacingLabel.horizontalCenter
+              width: spacingLabel.paintedWidth
+              height: 1
+              color: root.accent
             }
 
             MouseArea {
@@ -1179,13 +1217,25 @@ Item {
             border.color: animBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
 
             Text {
+              id: animLabel
               anchors.centerIn: parent
               text: animBtn.modelData.label
-              font.underline: animBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 11
               font.weight: animBtn.isCurrent ? Font.DemiBold : Font.Normal
               color: animBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            // Accent-colored underline -- see collectionBtn's own
+            // comment above for why this is a real bar, not
+            // font.underline.
+            Rectangle {
+              visible: animBtn.isFocused
+              anchors.top: animLabel.bottom
+              anchors.horizontalCenter: animLabel.horizontalCenter
+              width: animLabel.paintedWidth
+              height: 1
+              color: root.accent
             }
 
             MouseArea {

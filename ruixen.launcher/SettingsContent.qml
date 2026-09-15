@@ -170,6 +170,63 @@ Item {
     id: avatarNotifyProc
   }
 
+  // --- Profile: Window Curvature (Sharp/Rounded), ported from
+  // ruixen.settings -- same naming as Settings.qml's own
+  // cornerCurvature/setCornerCurvature/ruixenRepoPath. "Off" (stock
+  // Omarchy, no border/blur/shadow) isn't offered here either, same as
+  // the real page -- a much bigger toggle than corner shape alone,
+  // stays CLI-only.
+  //
+  // Clicking either option runs the REAL hyprland/ruixen-lookfeel.sh
+  // script, which ends in a full `omarchy restart shell` -- this
+  // launcher's own process included. That's already-accepted behavior
+  // in the real app (its own settings panel "visibly reopens fresh a
+  // moment after clicking -- expected, not a bug"), not something new
+  // introduced by porting it here; this is a second front door onto
+  // the exact same script, not a lighter/different action.
+  property string cornerCurvature: "rounded"
+  // install.sh writes its own checkout location here on every install/
+  // update run -- read fresh via bash so a missing file just yields an
+  // empty string instead of a QML file-read error, same as
+  // ruixen.settings/services/PluginService.qml's own repoPathProc.
+  property string ruixenRepoPath: ""
+
+  Process {
+    id: ruixenRepoPathProc
+    command: ["bash", "-c", "cat \"$HOME/.local/state/ruixen/repo-path\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.ruixenRepoPath = text.trim()
+    }
+  }
+
+  Process {
+    id: cornerCurvatureReadProc
+    command: ["bash", "-c", "readlink \"" + Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        root.cornerCurvature = String(text || "").indexOf("looknfeel.square.lua") >= 0 ? "sharp" : "rounded"
+      }
+    }
+  }
+
+  Process {
+    id: cornerCurvatureWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setCornerCurvature(curvature) {
+    if (curvature !== "sharp" && curvature !== "rounded") return
+    if (root.ruixenRepoPath === "") return
+    root.cornerCurvature = curvature
+    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
+    var variant = curvature === "sharp" ? "square" : "on"
+    cornerCurvatureWriteProc.command = ["bash", "-c",
+      "cd '" + safePath + "' && ./hyprland/ruixen-lookfeel.sh " + variant]
+    cornerCurvatureWriteProc.running = true
+  }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -307,6 +364,15 @@ Item {
       // uses -- fastfetch is not free enough to re-run every time this
       // extension is (re)entered.
       if (root.hardwareName === "") identityProc.running = true
+      // Unlike hardwareName above, these two are cheap AND can
+      // genuinely change out from under this extension between visits
+      // (the real ruixen.settings panel, or a CLI run of
+      // ruixen-lookfeel.sh, changing curvature; a fresh install.sh/
+      // update.sh run changing the repo checkout path) -- refreshed on
+      // every entry, unconditionally, same as ruixen.settings' own
+      // onOpenedChanged does for both.
+      ruixenRepoPathProc.running = true
+      cornerCurvatureReadProc.running = true
     }
   }
 
@@ -600,6 +666,92 @@ Item {
             }
           }
         }
+      }
+    }
+  }
+
+  // Second Profile item -- same framed-card convention profilePictureItem
+  // establishes above, stacked directly below it. Ported from
+  // ruixen.settings/GeneralContent.qml's own Window Curvature card (see
+  // setCornerCurvature's own comment for the real mechanism/why
+  // clicking either option restarts the whole shell).
+  Rectangle {
+    id: windowCurvatureItem
+    parent: panel.rightPane
+    anchors.top: profilePictureItem.bottom
+    anchors.topMargin: 12
+    anchors.left: parent.left
+    anchors.leftMargin: 20
+    anchors.right: parent.right
+    anchors.rightMargin: 20
+    height: windowCurvatureContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.profileOpen
+
+    Column {
+      id: windowCurvatureContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Window Curvature"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Row {
+        width: parent.width
+        spacing: 6
+
+        Repeater {
+          model: [
+            { id: "sharp", label: "Sharp" },
+            { id: "rounded", label: "Rounded" }
+          ]
+
+          Rectangle {
+            id: curvatureBtn
+            required property var modelData
+            readonly property bool isCurrent: root.cornerCurvature === curvatureBtn.modelData.id
+
+            width: (parent.width - parent.spacing) / 2
+            height: 28
+            radius: 6
+            color: curvatureBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: curvatureBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: curvatureBtn.modelData.label
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              font.weight: curvatureBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: curvatureBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: root.ruixenRepoPath !== ""
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.setCornerCurvature(curvatureBtn.modelData.id)
+            }
+          }
+        }
+      }
+
+      Text {
+        visible: root.ruixenRepoPath === ""
+        width: parent.width
+        text: "Needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable this."
+        wrapMode: Text.WordWrap
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: root.muted
       }
     }
   }

@@ -284,8 +284,21 @@ Item {
       } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
         root.enterPressed()
         event.accepted = true
-      } else if (event.key === Qt.Key_Tab) {
-        if (event.modifiers & Qt.ShiftModifier) root.shiftTabPressed()
+      } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+        // Qt.Key_Backtab, not just Qt.Key_Tab + ShiftModifier -- direct
+        // report ("shift tab isnt working"): a REAL Shift+Tab is
+        // commonly delivered as the distinct Key_Backtab code on most
+        // platforms/keyboards, not as Key_Tab with a shift modifier
+        // flag set. Checking only the modifier-flag form meant a real
+        // Shift+Tab press matched neither branch here and did nothing
+        // -- confirmed as the actual cause, not a keyboard/compositor
+        // issue: a synthetic Shift+Tab sent via wtype's virtual-
+        // keyboard protocol (used to verify this feature originally)
+        // apparently DOES get reported as Key_Tab+ShiftModifier, unlike
+        // a real keyboard, which is how this passed testing here but
+        // not for the user. Checking both forms is correct regardless
+        // of which one any given input path produces.
+        if (event.key === Qt.Key_Backtab || (event.modifiers & Qt.ShiftModifier)) root.shiftTabPressed()
         else root.tabPressed()
         event.accepted = true
       }

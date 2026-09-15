@@ -932,10 +932,10 @@ Item {
             // Keyboard cursor position, distinct from isCurrent (the
             // actually-applied value) -- direct request: "tab between
             // cards options and then left or right direction and enter
-            // for that option". White, not accent, specifically so the
-            // cursor stays visible even while sitting on an option that
-            // ISN'T current yet (an all-accent ring there would read as
-            // "already applied", which it isn't until Enter).
+            // for that option". Direct correction: an all-white border
+            // here read as bad design, clobbering the accent ring's own
+            // meaning -- shown as an underline on the label instead
+            // (below), leaving border.color alone entirely.
             readonly property bool isFocused: root.rightFocused
               && root.focusedItemIndex === 0 && root.focusedOptionIndex === collectionBtn.index
 
@@ -944,13 +944,14 @@ Item {
             radius: 6
             color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: collectionBtn.isFocused ? "#ffffff" : (collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
+            border.color: collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
             opacity: root.avatarBusy ? 0.5 : 1
 
             Text {
               id: collectionLabel
               anchors.centerIn: parent
               text: collectionBtn.modelData.label
+              font.underline: collectionBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 10
               font.weight: collectionBtn.isCurrent ? Font.DemiBold : Font.Normal
@@ -1021,11 +1022,12 @@ Item {
             radius: 6
             color: curvatureBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: curvatureBtn.isFocused ? "#ffffff" : (curvatureBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
+            border.color: curvatureBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
 
             Text {
               anchors.centerIn: parent
               text: curvatureBtn.modelData.label
+              font.underline: curvatureBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 11
               font.weight: curvatureBtn.isCurrent ? Font.DemiBold : Font.Normal
@@ -1095,11 +1097,12 @@ Item {
             radius: 6
             color: spacingBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: spacingBtn.isFocused ? "#ffffff" : (spacingBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
+            border.color: spacingBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
 
             Text {
               anchors.centerIn: parent
               text: spacingBtn.modelData.label
+              font.underline: spacingBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 11
               font.weight: spacingBtn.isCurrent ? Font.DemiBold : Font.Normal
@@ -1173,11 +1176,12 @@ Item {
             radius: 6
             color: animBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
-            border.color: animBtn.isFocused ? "#ffffff" : (animBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12))
+            border.color: animBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
 
             Text {
               anchors.centerIn: parent
               text: animBtn.modelData.label
+              font.underline: animBtn.isFocused
               font.family: root.fontFamily
               font.pixelSize: 11
               font.weight: animBtn.isCurrent ? Font.DemiBold : Font.Normal

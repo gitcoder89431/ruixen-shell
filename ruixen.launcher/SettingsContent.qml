@@ -443,6 +443,24 @@ Item {
     spacing: 12
     visible: root.profileOpen
 
+    // Each individual setting gets its OWN plain, descriptive label --
+    // no separate subtitle underneath it -- direct correction: "it
+    // looks a bit wierd without a header... for this first setting
+    // option we can put Select Profile Picture. i dont think these
+    // options need subtitle if we make the option... kind a
+    // descriptive? itll be good for searching for them later too."
+    // This is the per-ITEM label (distinct from headerColumn's own
+    // per-PAGE "Profile" title above); every future real setting in
+    // any category follows this same one-line, self-descriptive
+    // convention rather than a title+subtitle pair.
+    Text {
+      text: "Select Profile Picture"
+      font.family: root.fontFamily
+      font.pixelSize: 12
+      font.weight: Font.DemiBold
+      color: root.textColor
+    }
+
     Item {
       anchors.horizontalCenter: parent.horizontalCenter
       width: 64

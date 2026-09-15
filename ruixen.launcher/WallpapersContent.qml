@@ -759,8 +759,22 @@ Item {
           // see root.hoverArmed's own comment for why this is gated
           // (skipped entirely for a synthetic/stale-position enter that
           // fires before the grid's own HoverHandler has seen genuine
-          // movement).
-          onEntered: if (root.hoverArmed) grid.currentIndex = tile.index
+          // movement). ALSO skipped while grid.moving -- direct report
+          // ("the scroll isnt smooth... feels like a hitch or a glitch
+          // where the scroll is kinda fighting with some snappy thing"):
+          // a mouse-wheel scroll moves tile content underneath an
+          // otherwise-STATIONARY cursor, and Qt fires a real onEntered
+          // for every delegate that slides past that fixed screen
+          // point -- with hoverArmed already true from ordinary earlier
+          // mouse use, each one was yanking currentIndex (and the ring/
+          // label it drives) to whatever tile the scroll happened to be
+          // passing under at that instant, reading as the selection
+          // fighting/snapping against the scroll itself rather than the
+          // scroll being smooth. grid.moving is Flickable's own "a flick
+          // or drag is currently in progress" flag -- true for exactly
+          // this case, false again once it settles, so a genuine hover
+          // once scrolling actually stops still updates it as normal.
+          onEntered: if (root.hoverArmed && !grid.moving) grid.currentIndex = tile.index
           onClicked: {
             grid.currentIndex = tile.index
             root.select(tile.entry)

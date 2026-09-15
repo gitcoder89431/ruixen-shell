@@ -203,19 +203,25 @@ Rectangle {
             anchors.leftMargin: 8
             anchors.rightMargin: 8
 
-            Text {
+            // Dot, not the speaker/mic glyph -- direct follow-up:
+            // "keep the speaker and mic icon on the input and output
+            // slider, but the nested one like audio devices, dont use
+            // the icon, just do a dot icon to show the active one in
+            // accent then." Same small-dot convention the wallpaper
+            // type dropdown's own active-row indicator already uses.
+            Rectangle {
               id: deviceIcon
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
-              text: root.iconUnmuted
-              font.family: root.fontFamily
-              font.pixelSize: 13
+              width: 6
+              height: 6
+              radius: 3
               color: deviceRow.isDefault ? root.accent : root.muted
             }
 
             Text {
               anchors.left: deviceIcon.right
-              anchors.leftMargin: 8
+              anchors.leftMargin: 10
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
               text: root.labelFor(deviceRow.modelData)

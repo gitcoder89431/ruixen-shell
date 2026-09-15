@@ -181,9 +181,23 @@ Item {
   // description for each of the settings? bespoke eloquent tone sounds
   // nice" -- one line each, replaced with real content once each
   // section's actual toggles/inputs land.
+  // "Bar" is a deliberate deviation from ruixen.settings' own layout --
+  // direct request: "instead of doing the bar customization here i
+  // might do a left panel for Bar for bar management instead... Window
+  // Curvature, Window Spacing and Animation Style can go here in
+  // Profile but the Bar Layout ill probably save it for its own page."
+  // The real app bundles Bar Layout alongside Window Curvature/Spacing/
+  // Animation Style, all on its own single General/Profile page
+  // (confirmed by reading ruixen.settings/GeneralContent.qml directly)
+  // -- here Bar Layout gets split out into its own category instead,
+  // Profile keeps the rest. No real content for Bar yet, same
+  // plain-header-and-description placeholder every other not-yet-built
+  // category already gets.
   readonly property var sections: [
     { id: "general", label: "Profile", glyph: "",
       description: "Your identity on this machine — display name, avatar, and the small touches that make Ruixen feel like yours." },
+    { id: "bar", label: "Bar", glyph: "",
+      description: "Layout, docking, and how the bar itself sits on your screen." },
     { id: "launcher", label: "Launcher", glyph: "",
       description: "How this very launcher searches, ranks, and remembers what matters most the moment you reach for it." },
     { id: "audio", label: "Audio", glyph: "",
@@ -193,7 +207,7 @@ Item {
     { id: "bluetooth", label: "Bluetooth", glyph: "",
       description: "Paired devices and the wireless companions currently orbiting this machine." },
     { id: "display", label: "Display", glyph: "",
-      description: "Bar layout, corner curvature, and the finer points of how this shell presents itself." },
+      description: "Brightness and display scale, tuned to how you actually look at this screen." },
     { id: "plugins", label: "Plugins", glyph: "",
       description: "Everything Ruixen has installed, kept updated, and quietly running." },
     { id: "about", label: "About", glyph: "",

@@ -86,24 +86,6 @@ Item {
   property string currentBackground: ""
   property string searchText: ""
 
-  // Direct report: "the first one in the grid... looks like masonry
-  // kinda" -- listProc (below) only populates wallpaperPaths once its
-  // ENTIRE directory scan finishes, so every tile's delegate appears at
-  // once, but loadGate (see its own comment) still only lets the first
-  // couple of Image sources actually resolve -- every other tile sits
-  // fully transparent (ClippingRectangle's own color) until its turn
-  // comes up, which reads as a sparse handful of photos floating on
-  // blank space rather than a grid. currentBackground resolves near-
-  // instantly (a single readlink, not a directory scan+ffmpeg pass), so
-  // it's normally already known before wallpaperPaths ever is -- using
-  // it to fill every not-yet-loaded tile means the WHOLE grid looks
-  // full from the very first frame, with each tile's own real photo
-  // swapping in over it as loadGate reaches it, instead of appearing
-  // out of blank space.
-  readonly property string placeholderSource: root.currentBackground !== ""
-    ? root.currentBackground
-    : (root.wallpaperPaths.length > 0 ? root.wallpaperPaths[0].display : "")
-
   // Bumped on every select() call, passed to ruixen.wallpaper's own
   // playVideo/playGif/stop IPC calls so it can reject an out-of-order
   // arrival -- see that service's own selectGeneration/
@@ -822,19 +804,25 @@ Item {
 
           Image {
             anchors.fill: parent
-            // Placeholder (see root.placeholderSource's own comment)
-            // until loadGate reaches this tile's index -- see
-            // root.loadGate's own comment for why. Once a tile's REAL
+            // Empty source until loadGate reaches this tile's index --
+            // see root.loadGate's own comment for why. Once a tile's
             // source has been set it stays set even if the gate logic
             // changes later (reuseItems recycles this same Image for a
             // different index on scroll, which reassigns source to
             // that new tile's own path directly, gate or not -- see
-            // GridView's onMovementStarted above); it just briefly
-            // renders that new tile's OWN placeholder-or-real state on
-            // reuse, same as any other tile would.
-            source: tile.isSpacer ? "" : (tile.index <= root.loadGate
-              ? ("file://" + tile.entry.display)
-              : (root.placeholderSource !== "" ? ("file://" + root.placeholderSource) : ""))
+            // GridView's onMovementStarted above).
+            //
+            // Direct follow-up, reverted: a previous pass filled this
+            // gap with root.currentBackground (the last-used wallpaper)
+            // instead of leaving it blank, so the whole grid looked
+            // "full" from the first frame instead of sparse while
+            // loadGate caught up -- direct correction: "i dont want
+            // that, it looks broken." Showing the SAME image repeated
+            // across every not-yet-loaded tile reads as actually wrong
+            // (like the grid is stuck/duplicated), not just "loading" --
+            // worse than the sparse-but-honest blank state it was meant
+            // to fix.
+            source: tile.isSpacer ? "" : (tile.index <= root.loadGate ? ("file://" + tile.entry.display) : "")
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             sourceSize: Qt.size(grid.tileWidth, grid.tileHeight)

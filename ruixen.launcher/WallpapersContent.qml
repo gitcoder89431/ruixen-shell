@@ -550,6 +550,19 @@ Item {
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       reuseItems: true
+      // Direct follow-up, same "scroll doesn't feel right" report: "the
+      // scroll is not really made for the thumbnail, it scrolls down
+      // but only shows like half of the next row... the best way to
+      // scroll this is like down mean exposing the next row not
+      // halfway scroll through it." NoSnap (the default) lets a wheel
+      // or drag scroll settle at ANY pixel offset, which is what left a
+      // row half-cut-off at the top/bottom edge after scrolling --
+      // SnapToRow is GridView's own built-in fix for exactly this: it
+      // settles wherever a plain pixel scroll would have stopped, then
+      // snaps that position to align a full row flush with the view's
+      // own edge, so scrolling always lands on a clean row boundary
+      // instead of a half-exposed one.
+      snapMode: GridView.SnapToRow
       // Always 4 columns (unchanged), but cellWidth is now `width / 4`
       // instead of a fixed 170 -- direct follow-up ("the thumbnails
       // preview are still too small, it should fill in the space

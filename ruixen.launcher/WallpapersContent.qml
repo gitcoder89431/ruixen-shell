@@ -921,7 +921,16 @@ Item {
   // "CURRENT" badge/label overlay the way a small tile's own hover
   // state gets one -- direct follow-up ("the hero doesnt need the
   // current thing shown there inside it, can just be the image").
-  Rectangle {
+  // ClippingRectangle, not a plain Rectangle -- direct follow-up
+  // ("instead of sharp corners on this, can we put the same curves on
+  // them as all the thumbnail as well"): a plain Rectangle's own
+  // `clip: true` only clips to its rectangular BOUNDING BOX, not to the
+  // rounded shape `radius` actually draws, so the Image inside was
+  // filling the full square and only visually reading as rounded where
+  // it happened to sit over the card's own dark background -- the same
+  // reason every small tile already uses ClippingRectangle (see its own
+  // ClippingRectangle further up) instead of a plain Rectangle here.
+  ClippingRectangle {
     id: heroTile
     parent: grid.contentItem
     visible: root.showHero
@@ -933,7 +942,6 @@ Item {
     height: 2 * grid.cellHeight - 10
     radius: 10
     color: "transparent"
-    clip: true
 
     Image {
       anchors.fill: parent

@@ -54,6 +54,11 @@ Item {
   // search box, use the launcher for wallpaper search input") -- direct
   // follow-up: "does search work for menu items on the left too?"
   property string searchText: ""
+  // Relayed up to Launcher.qml (searchHeader.focusInput()) whenever a
+  // text-entry item's own real Qt focus needs to hand back to the
+  // fake-focus keyboard nav -- see SettingsAddListItem.qml's own
+  // cancelled() comment for the full chain.
+  signal returnFocusRequested()
 
   // --- Profile: avatar/username, ported from ruixen.settings -- see
   // this file's own header comment for why this is a second, real copy
@@ -423,21 +428,6 @@ Item {
     root.saveLauncherSearchConfig()
   }
 
-  // Same real effect as toggleLauncherAutoRootDisabled, but SETS to an
-  // explicit state instead of blindly flipping -- needed for the
-  // keyboard model below, where Enter always means "commit whichever
-  // state the cursor is currently sitting on," not "flip it again".
-  // Blindly toggling there would double-flip back to the original
-  // state if the cursor happened to land back where it started.
-  function setLauncherAutoRootDisabled(path, disabled) {
-    var list = root.launcherSearchConfig.disabledAutoRoots.slice()
-    var idx = list.indexOf(path)
-    if (disabled && idx === -1) list.push(path)
-    else if (!disabled && idx !== -1) list.splice(idx, 1)
-    else return
-    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { disabledAutoRoots: list })
-    root.saveLauncherSearchConfig()
-  }
 
   function addLauncherRoot(path) {
     var p = String(path || "").trim()
@@ -703,33 +693,47 @@ Item {
       activate: function(id) { root.setBarMode(id) }
     }
   ]
-  // Every on/off switch on the Launcher page, in the same order
+  // Every real control on the Launcher page, in the same order
   // they're stacked -- direct report: "the tab kbd stuff not working
   // on launcher setting" (currentItems had no branch for Launcher at
-  // all). Each switch modeled as a 2-option item (off/on), same shape
-  // as every segmented item above -- Left/Right moves the cursor
-  // between the two states, Enter commits whichever one it's on. The
-  // three add+list boxes (Custom Search Roots/Excluded Paths/Excluded
-  // Directory Names) stay mouse-only -- typing into a text field needs
-  // real Qt focus forwarded into that TextInput, a genuinely different
-  // piece of work from cycling between labeled options, not an
-  // extension of this same shape.
+  // all), then "well the togle doesnt work, i think i need to enter to
+  // toggle" (correct -- a first pass modeled each switch as a 2-option
+  // segmented item, which needed Left/Right to move a cursor onto the
+  // OTHER state before Enter would do anything, since Enter there
+  // means "commit whichever option the cursor already sits on," not
+  // "flip"). Two real item `kind`s here now, alongside the segmented
+  // kind profileItems/barItems use (implicit -- anything with an
+  // `options` array):
+  //   "toggle" -- Enter flips it directly, no cursor to pre-position.
+  //   "textEntry" -- Enter hands real Qt focus to the actual TextInput
+  //     (SettingsAddListItem.focusTextInput()) so typing just works
+  //     natively -- direct follow-up: "why wouldnt the text entry
+  //     work... i just tab and go to it with d pad then type and enter
+  //     to add." Left/Right/Up/Down do nothing special for either kind
+  //     while it's merely the highlighted item (see moveOptionLeft/
+  //     Right's own guards) -- a toggle has no options to cycle, and a
+  //     text field's Left/Right only mean anything once it actually
+  //     has real focus, at which point they're plain text-cursor
+  //     movement Qt already handles for free.
   readonly property var launcherItems: {
     var items = [
       {
-        options: ["off", "on"],
-        current: root.launcherSearchConfig.includeHome ? "on" : "off",
-        activate: function(id) { root.setLauncherIncludeHome(id === "on") }
+        kind: "toggle",
+        checked: root.launcherSearchConfig.includeHome,
+        activate: function() { root.setLauncherIncludeHome(!root.launcherSearchConfig.includeHome) }
       },
       {
-        options: ["off", "on"],
-        current: root.launcherSearchConfig.includeMountedRoots ? "on" : "off",
-        activate: function(id) { root.setLauncherIncludeMountedRoots(id === "on") }
+        kind: "toggle",
+        checked: root.launcherSearchConfig.includeMountedRoots,
+        activate: function() { root.setLauncherIncludeMountedRoots(!root.launcherSearchConfig.includeMountedRoots) }
       }
     ]
     for (var i = 0; i < root.mountChecklist.length; i++) {
       items.push(root.mountToggleItem(root.mountChecklist[i]))
     }
+    items.push({ kind: "textEntry", focus: function() { customRootsItem.focusTextInput() } })
+    items.push({ kind: "textEntry", focus: function() { excludedPathsItem.focusTextInput() } })
+    items.push({ kind: "textEntry", focus: function() { excludedNamesItem.focusTextInput() } })
     return items
   }
 
@@ -741,9 +745,9 @@ Item {
   // happened to be last.
   function mountToggleItem(m) {
     return {
-      options: ["off", "on"],
-      current: m.disabled ? "off" : "on",
-      activate: function(id) { root.setLauncherAutoRootDisabled(m.path, id === "off") }
+      kind: "toggle",
+      checked: !m.disabled,
+      activate: function() { root.toggleLauncherAutoRootDisabled(m.path) }
     }
   }
 
@@ -765,7 +769,10 @@ Item {
   // highlighted as current.
   function seedFocusedOption() {
     var item = root.currentItems[root.focusedItemIndex]
-    if (!item) { root.focusedOptionIndex = 0; return }
+    // Toggle/textEntry items have no `options` array at all -- nothing
+    // to seed a cursor position into, so this just stays at its
+    // harmless default.
+    if (!item || !item.options) { root.focusedOptionIndex = 0; return }
     var idx = item.options.indexOf(item.current)
     root.focusedOptionIndex = idx >= 0 ? idx : 0
   }
@@ -831,7 +838,10 @@ Item {
     if (root.launcherOpen) {
       if (root.focusedItemIndex === 0) return includeHomeRow
       if (root.focusedItemIndex === 1) return includeMountedRow
-      return mountRepeater.itemAt(root.focusedItemIndex - 2)
+      var mountIdx = root.focusedItemIndex - 2
+      if (mountIdx < root.mountChecklist.length) return mountRepeater.itemAt(mountIdx)
+      var textEntryIdx = mountIdx - root.mountChecklist.length
+      return [customRootsItem, excludedPathsItem, excludedNamesItem][textEntryIdx]
     }
     return null
   }
@@ -852,20 +862,29 @@ Item {
   function moveOptionLeft() {
     if (!root.rightFocused) return
     var item = root.currentItems[root.focusedItemIndex]
-    if (!item || item.options.length === 0) return
+    // Toggle/textEntry items have nothing to cycle -- a plain no-op,
+    // not an error, while one of those is the focused item.
+    if (!item || !item.options || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex - 1 + item.options.length) % item.options.length
   }
 
   function moveOptionRight() {
     if (!root.rightFocused) return
     var item = root.currentItems[root.focusedItemIndex]
-    if (!item || item.options.length === 0) return
+    if (!item || !item.options || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex + 1) % item.options.length
   }
 
+  // Enter's meaning depends on the focused item's own kind -- a toggle
+  // flips directly (no cursor to have pre-positioned), a text entry
+  // hands off real Qt focus so typing works, and everything else
+  // (every segmented item) commits whichever option the cursor
+  // currently sits on, same as always.
   function activateFocusedOption() {
     var item = root.currentItems[root.focusedItemIndex]
     if (!item) return
+    if (item.kind === "toggle") { item.activate(); return }
+    if (item.kind === "textEntry") { item.focus(); return }
     item.activate(item.options[root.focusedOptionIndex])
   }
 
@@ -1516,6 +1535,10 @@ Item {
     label: "Custom Search Roots"
     placeholder: "~/Work or /mnt/Documents"
     items: root.launcherSearchConfig.roots
+    // launcherItems' own order: 2 fixed toggles, then one per mount,
+    // then these three text-entry cards last.
+    cardFocused: root.launcherOpen && root.rightFocused
+      && root.focusedItemIndex === 2 + root.mountChecklist.length
     visible: root.launcherOpen
     textColor: root.textColor
     muted: root.muted
@@ -1523,6 +1546,7 @@ Item {
     fontFamily: root.fontFamily
     onAdded: (value) => root.addLauncherRoot(value)
     onRemoved: (value) => root.removeLauncherRoot(value)
+    onCancelled: root.returnFocusRequested()
   }
 
   SettingsAddListItem {
@@ -1530,6 +1554,8 @@ Item {
     label: "Excluded Paths"
     placeholder: "~/VMs or ~/Downloads/ISOs"
     items: root.launcherSearchConfig.excludePaths
+    cardFocused: root.launcherOpen && root.rightFocused
+      && root.focusedItemIndex === 3 + root.mountChecklist.length
     visible: root.launcherOpen
     textColor: root.textColor
     muted: root.muted
@@ -1537,6 +1563,7 @@ Item {
     fontFamily: root.fontFamily
     onAdded: (value) => root.addLauncherExcludePath(value)
     onRemoved: (value) => root.removeLauncherExcludePath(value)
+    onCancelled: root.returnFocusRequested()
   }
 
   SettingsAddListItem {
@@ -1545,6 +1572,8 @@ Item {
     placeholder: "e.g. dist or .venv"
     chipMode: true
     items: root.launcherSearchConfig.excludeNames
+    cardFocused: root.launcherOpen && root.rightFocused
+      && root.focusedItemIndex === 4 + root.mountChecklist.length
     visible: root.launcherOpen
     textColor: root.textColor
     muted: root.muted
@@ -1552,6 +1581,7 @@ Item {
     fontFamily: root.fontFamily
     onAdded: (value) => root.addLauncherExcludeName(value)
     onRemoved: (value) => root.removeLauncherExcludeName(value)
+    onCancelled: root.returnFocusRequested()
   }
     }
   }

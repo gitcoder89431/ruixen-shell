@@ -26,14 +26,34 @@ Rectangle {
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
+  // Tab/Up-Down-focused card ring, same convention SettingsSegmentedItem
+  // uses -- direct follow-up: "why wouldnt the text entry work... i
+  // just tab and go to it with d pad then type and enter to add."
+  // Shown as soon as keyboard nav lands here, same moment Enter would
+  // hand this card real Qt focus (see focusTextInput() below).
+  property bool cardFocused: false
 
   signal added(string value)
   signal removed(string value)
+  // Escape while actually typing -- real Qt focus needs somewhere to
+  // go back to (SettingsContent.qml relays this up to Launcher.qml's
+  // own searchHeader.focusInput(), the exact same handoff the search
+  // box itself already uses on open).
+  signal cancelled()
+
+  // Called by SettingsContent.qml's own activateFocusedOption() when
+  // Enter is pressed with this card as the keyboard-focused item --
+  // hands real Qt focus to the actual TextInput, so typing just works
+  // natively (arrow keys move the text cursor, not list navigation)
+  // for as long as it holds focus.
+  function focusTextInput() { input.forceActiveFocus() }
 
   width: parent.width
   height: content.implicitHeight + 24
   radius: 10
   color: Qt.rgba(0, 0, 0, 0.18)
+  border.width: root.cardFocused ? 1 : 0
+  border.color: root.accent
 
   Column {
     id: content
@@ -85,6 +105,11 @@ Rectangle {
           }
 
           Keys.onReturnPressed: { root.added(input.text); input.text = "" }
+          // Hands real focus back out rather than closing anything --
+          // the outer Escape (once real focus is back on the search
+          // box) still backs out of keyboard-focus mode one level at a
+          // time, same as every other item.
+          Keys.onEscapePressed: root.cancelled()
         }
       }
 

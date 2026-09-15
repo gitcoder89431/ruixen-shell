@@ -1671,6 +1671,14 @@ Item {
         muted: root.muted
         accent: root.accent
         fontFamily: root.fontFamily
+        // Direct follow-up: "why wouldnt the text entry work... i just
+        // tab and go to it with d pad then type and enter to add." A
+        // Launcher-category text-entry item hands real Qt focus to its
+        // own TextInput on Enter; Escape there needs the exact same
+        // real-focus handoff back to the search box that already
+        // happens once on open (Qt.callLater(searchHeader.focusInput)
+        // above), so Launcher.qml's own key routing resumes.
+        onReturnFocusRequested: searchHeader.focusInput()
       }
 
       // Same shared component Search Files' own empty state uses, just

@@ -6,22 +6,26 @@ import QtQuick
 // the Profile Launcher Bluetooth menu options on the left panel, then
 // enter to go into the right panel where we have toggles and inputs
 // and options. dont build out the whole thing yet... just start with
-// the layout first then we can work on the panels?" -- so this is
-// deliberately navigation + chrome only: a left category list (same 8
-// sections ruixen.settings/Settings.qml already ships, same ids/
-// labels/glyphs, ported not reinvented) and a right panel that shows
-// only a "coming soon" placeholder once a category is opened. No
-// toggles/inputs/real per-section content yet -- that's explicit
-// later work.
+// the layout first then we can work on the panels?" -- deliberately
+// navigation + chrome only: a left category list and a right panel
+// that shows only a "coming soon" placeholder once a category is
+// opened. No toggles/inputs/real per-section content yet -- that's
+// explicit later work.
 //
-// Deliberately its own list, not a reuse of ResultsList/ResultRow --
-// those are wired to Launcher.qml's own result-row shape (score,
-// sectionLabel grouping, provider dispatch, hover-arm gating) for a
-// flat, virtualized, potentially-hundreds-of-rows list. 8 fixed
-// category rows need none of that; a plain Column mirrors
-// ruixen.settings' own sidebar (Rectangle rows, kbd-focus ring +
-// selected fill, icon-in-a-fixed-width-slot + label) far more directly
-// than bending a virtualized ListView to fit.
+// Direct follow-up chain after the first pass hand-rolled its own row
+// visuals and its own margins: "it looks too much different than the
+// file search, lets have some design consistency"; then, after a
+// Loader/Component-based attempt at sharing that quietly broke font
+// propagation: "why did you port it over from the ruixen settings
+// menu... wouldnt it be a lot easier to just make a list of stuff like
+// a list component from file search thats shared?" -- so the category
+// list below IS ResultsList/ResultRow, the exact same component Search
+// Files itself renders through (filesMode: true, same icon+label-only
+// row), not a second implementation of "a list of rows". Only the
+// outer 2-panel split (list width/detail width/divider) comes from
+// ExtensionTwoPanel.qml, and even that owns geometry only -- every
+// color/font binding below is a plain, direct binding off this file's
+// own root, same as every other file in this plugin.
 Item {
   id: root
 
@@ -46,6 +50,34 @@ Item {
     { id: "about", label: "About", glyph: "" }
   ]
 
+  // Each section reshaped into the exact same result-row object shape
+  // every other ResultsList model in this plugin already uses (id/
+  // providerId/icon/label/breadcrumb/kind/providerName/score/
+  // sectionLabel) -- ResultRow itself never needs to know these came
+  // from Settings rather than a real provider. providerId
+  // "settings-category" isn't dispatched anywhere (this list's own
+  // onRowActivated below handles activation directly, the same way
+  // Launcher.qml's resultsList does for real results), it's just kept
+  // for shape-consistency/future-proofing.
+  readonly property var sectionRows: {
+    var rows = []
+    for (var i = 0; i < root.sections.length; i++) {
+      var s = root.sections[i]
+      rows.push({
+        id: "settings:" + s.id,
+        providerId: "settings-category",
+        icon: s.glyph,
+        label: s.label,
+        breadcrumb: "",
+        kind: "",
+        providerName: "",
+        score: 0,
+        sectionLabel: "Categories"
+      })
+    }
+    return rows
+  }
+
   // Keyboard cursor over the left list -- Up/Down move this; it does
   // NOT by itself change what the right panel shows (see openIndex
   // below), matching the user's own "then enter to go into the right
@@ -53,7 +85,8 @@ Item {
   property int selectedIndex: 0
   // -1 means the right panel shows its own neutral empty state (no
   // category opened yet this session). Set by activateSelection()
-  // (Enter), not by moveSelectionUp/Down.
+  // (Enter) or a real row click, matching ResultsList's own
+  // rowActivated meaning everywhere else it's used.
   property int openIndex: -1
 
   function moveSelectionUp() {
@@ -76,139 +109,81 @@ Item {
     }
   }
 
-  Row {
+  ExtensionTwoPanel {
+    id: panel
     anchors.fill: parent
-    spacing: 8
+  }
+
+  // Reparented into panel's own left slot (see ExtensionTwoPanel.qml's
+  // own header comment for why a slot Item + `parent:` beats a Loader/
+  // Component here) -- every binding below is a plain, direct binding
+  // off this file's own root, exactly like Launcher.qml's real
+  // resultsList instantiation.
+  ResultsList {
+    parent: panel.leftPane
+    anchors.fill: parent
+    model: root.sectionRows
+    // Icon+label only, no meta/kind/keybind columns -- the exact same
+    // reduced row Search Files itself renders through this same flag,
+    // which is the whole point: this isn't a look-alike, it's the same
+    // component in the same mode.
+    filesMode: true
+    selectedIndex: root.selectedIndex
+    textColor: root.textColor
+    mutedColor: root.muted
+    accentColor: root.accent
+    fontFamily: root.fontFamily
+    onRowHovered: (idx) => { root.selectedIndex = idx }
+    onRowActivated: (idx) => {
+      root.selectedIndex = idx
+      root.openIndex = idx
+    }
+  }
+
+  Item {
+    parent: panel.rightPane
+    anchors.fill: parent
 
     Column {
-      id: sidebar
-      width: 180
-      height: parent.height
+      anchors.centerIn: parent
+      spacing: 6
+      visible: root.openIndex === -1
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: ""
+        font.family: root.fontFamily
+        font.pixelSize: 22
+        color: root.muted
+      }
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "Select a category and press Enter"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        color: root.muted
+      }
+    }
+
+    Column {
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
       spacing: 4
+      visible: root.openIndex >= 0
 
-      Repeater {
-        model: root.sections
-
-        Rectangle {
-          id: sectionRow
-          required property var modelData
-          required property int index
-          readonly property bool kbdFocused: root.selectedIndex === sectionRow.index
-          readonly property bool opened: root.openIndex === sectionRow.index
-
-          width: sidebar.width
-          height: 32
-          radius: 8
-          color: sectionRow.opened ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-          border.width: sectionRow.kbdFocused ? 1 : 0
-          border.color: root.accent
-
-          Row {
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
-            spacing: 8
-
-            Item {
-              width: 18
-              height: parent.height
-
-              Text {
-                anchors.centerIn: parent
-                text: sectionRow.modelData.glyph
-                font.family: root.fontFamily
-                font.pixelSize: 13
-                color: sectionRow.opened ? root.accent : root.muted
-              }
-            }
-
-            Text {
-              text: sectionRow.modelData.label
-              font.family: root.fontFamily
-              font.pixelSize: 12
-              font.weight: sectionRow.opened ? Font.DemiBold : Font.Normal
-              color: sectionRow.opened ? root.textColor : root.muted
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              root.selectedIndex = sectionRow.index
-              root.openIndex = sectionRow.index
-            }
-          }
-        }
+      Text {
+        text: root.openIndex >= 0 ? root.sections[root.openIndex].label : ""
+        font.family: root.fontFamily
+        font.pixelSize: 15
+        font.weight: Font.DemiBold
+        color: root.textColor
       }
-    }
-
-    // Divider -- same vertical gradient line Launcher.qml itself draws
-    // between resultsList and detailsPanel in Search Files mode, ported
-    // in place here since this component owns its own two-pane split
-    // rather than anchoring off Launcher.qml's siblings.
-    Rectangle {
-      width: 1
-      height: parent.height
-      gradient: Gradient {
-        GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0) }
-        GradientStop { position: 0.3; color: Qt.rgba(1, 1, 1, 0.12) }
-        GradientStop { position: 0.7; color: Qt.rgba(1, 1, 1, 0.12) }
-        GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0) }
-      }
-    }
-
-    // Right panel -- ghost surface, no fill of its own, same treatment
-    // FileDetailsPanel.qml already gives Search Files' own detail pane
-    // (direct precedent: "ghost it on the spotlight"). Just a
-    // placeholder for now -- no toggles/inputs, per explicit scope.
-    Item {
-      width: parent.width - sidebar.width - 8 - 1
-      height: parent.height
-
-      Column {
-        anchors.centerIn: parent
-        spacing: 6
-        visible: root.openIndex === -1
-
-        Text {
-          anchors.horizontalCenter: parent.horizontalCenter
-          text: ""
-          font.family: root.fontFamily
-          font.pixelSize: 22
-          color: root.muted
-        }
-        Text {
-          anchors.horizontalCenter: parent.horizontalCenter
-          text: "Select a category and press Enter"
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          color: root.muted
-        }
-      }
-
-      Column {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 16
-        spacing: 4
-        visible: root.openIndex >= 0
-
-        Text {
-          text: root.openIndex >= 0 ? root.sections[root.openIndex].label : ""
-          font.family: root.fontFamily
-          font.pixelSize: 15
-          font.weight: Font.DemiBold
-          color: root.textColor
-        }
-        Text {
-          text: "Coming soon"
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          color: root.muted
-        }
+      Text {
+        text: "Coming soon"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        color: root.muted
       }
     }
   }

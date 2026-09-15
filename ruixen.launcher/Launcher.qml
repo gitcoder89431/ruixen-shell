@@ -1060,7 +1060,18 @@ Item {
       // of space to the new filter controls). Extra content (more rows
       // than fit, or more than 2 headers) scrolls inside resultsList
       // below rather than needing to fit.
-      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + (root.filesMode ? 36 : 0)
+      //
+      // root.inExtensionMode gets the same +36 Search Files does now,
+      // not just root.filesMode -- direct report: "file search is
+      // bigger than wallpaper extension wallpaper page and its
+      // bleeding in that design panel inconsistent size now to the
+      // settings as well... stop making new panel page size beyond
+      // launcher main and the file search for now." There are only
+      // ever two real sizes (plain landing, and this wide/tall one) --
+      // every extension shares the second one exactly rather than
+      // quietly landing on a third, slightly-smaller size because its
+      // own mode flag happened not to be the one this formula checked.
+      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || root.inExtensionMode) ? 36 : 0)
       Behavior on height { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
       radius: 16
       color: root.glassBackground
@@ -1570,10 +1581,20 @@ Item {
       WallpapersContent {
         id: wallpapersContent
         anchors.top: filtersBar.bottom
+        // topMargin 4 (not a uniform 8) -- direct follow-up: "similar
+        // spacing with other extensions if possible". Matches
+        // resultsList/detailsPanel's own exact anchors below (their
+        // one shared reference point in this file) so every content
+        // area under the search header starts from the same offset,
+        // regardless of which extension (or plain search/Search
+        // Files) currently occupies it.
+        anchors.topMargin: 4
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
         anchors.left: parent.left
+        anchors.leftMargin: 8
         anchors.right: parent.right
-        anchors.margins: 8
+        anchors.rightMargin: 8
         visible: root.activeExtensionId === "wallpapers"
         active: root.activeExtensionId === "wallpapers"
         // Single search box, direct request ("we dont need two search
@@ -1597,10 +1618,15 @@ Item {
       SettingsContent {
         id: settingsContent
         anchors.top: filtersBar.bottom
+        // Same standardized anchors WallpapersContent uses above --
+        // see its own comment.
+        anchors.topMargin: 4
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
         anchors.left: parent.left
+        anchors.leftMargin: 8
         anchors.right: parent.right
-        anchors.margins: 8
+        anchors.rightMargin: 8
         visible: root.activeExtensionId === "settings"
         active: root.activeExtensionId === "settings"
         textColor: root.textColor

@@ -533,6 +533,24 @@ Item {
     }
   }
 
+  // Same shape/dispatch as wallpapersRow above -- fa-gear (U+F013),
+  // the same glyph OmarchyActionsProvider'''s own synthetic "Ruixen
+  // Settings" row already uses, so this reads as the same feature
+  // everywhere it shows up. Direct request: "lets do the Settings as
+  // Extension so Settings 2nd Column Ruixen and type extension?"
+  function settingsRow() {
+    return {
+      id: "extension:settings",
+      providerId: "settings-extension",
+      icon: "",
+      label: "Settings",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      providerName: "",
+      score: 0
+    }
+  }
+
   // A single flat list, each row tagged with its own sectionLabel --
   // fed straight into ResultsList's own model, which draws the group
   // headers and keeps the list virtualized (real perf concern once
@@ -573,7 +591,7 @@ Item {
       // when we do them"). First section, ahead of Suggestions -- these
       // are the launcher's own core surfaces, not one more curated
       // default alongside Lock/Screenshot/Theme.
-      var ext = tag([root.filesFallbackRow(""), root.wallpapersRow()], "Extensions")
+      var ext = tag([root.filesFallbackRow(""), root.wallpapersRow(), root.settingsRow()], "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
       var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
       return ext.concat(sug).concat(browse)
@@ -947,6 +965,10 @@ Item {
       root.activeExtensionId = "wallpapers"
       return
     }
+    if (result.providerId === "settings-extension") {
+      root.activeExtensionId = "settings"
+      return
+    }
     var provider = root.providerFor(result.providerId)
     if (provider) provider.activate(result)
     root.dismiss()
@@ -1132,12 +1154,19 @@ Item {
         // what is, from its own point of view, the same thing: "not
         // plain search right now, show a way back."
         filesMode: root.filesMode || root.inExtensionMode
+        // Settings has no source/type filter concept at all (unlike
+        // Wallpapers' own All Types dropdown) -- direct QA finding:
+        // reusing filesMode alone here showed "All Sources" floating
+        // over Settings' own detail panel with nothing real for it to
+        // filter.
+        showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers"
         // "Wallpapers", not the generic "Search files..." filesMode
         // itself would fall back to -- WallpapersContent has its own
         // internal filter box already, this outer one is inert while
         // an extension is active (typing still updates root.query,
         // it's just not read by anything visible right now).
-        placeholderOverride: root.activeExtensionId === "wallpapers" ? "Wallpapers" : ""
+        placeholderOverride: root.activeExtensionId === "wallpapers" ? "Wallpapers"
+          : root.activeExtensionId === "settings" ? "Settings" : ""
         resultCount: root.results.length
         // Wallpapers mode feeds this same button/dropdown its own type
         // options instead of real Search Files sources -- see
@@ -1178,12 +1207,14 @@ Item {
         onUpPressed: {
           if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex > 0) root.dropdownSelectedIndex-- }
           else if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionUp()
+          else if (root.activeExtensionId === "settings") settingsContent.moveSelectionUp()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex-- }
           else if (root.selectedIndex > 0) root.selectedIndex--
         }
         onDownPressed: {
           if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex < root.dropdownOptions().length - 1) root.dropdownSelectedIndex++ }
           else if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionDown()
+          else if (root.activeExtensionId === "settings") settingsContent.moveSelectionDown()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
           else if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
         }
@@ -1192,6 +1223,7 @@ Item {
         onEnterPressed: {
           if (searchHeader.dropdownOpen) root.confirmDropdownSelection()
           else if (root.activeExtensionId === "wallpapers") wallpapersContent.activateSelection()
+          else if (root.activeExtensionId === "settings") settingsContent.activateSelection()
           else if (root.actionsMenuOpen) root.runResultAction(root.resultActions[root.actionsSelectedIndex].id)
           else root.activateSelected()
         }
@@ -1551,6 +1583,26 @@ Item {
         // so the outer SearchHeader/root.query drives filtering here
         // directly instead.
         searchText: root.activeExtensionId === "wallpapers" ? root.query : ""
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        fontFamily: root.fontFamily
+      }
+
+      // Second extension view -- layout-only shell for now (a left
+      // category list + a "coming soon" right panel), per direct
+      // request: "just start with the layout first then we can work
+      // on the panels?" -- see SettingsContent.qml's own header
+      // comment for the full scope note.
+      SettingsContent {
+        id: settingsContent
+        anchors.top: filtersBar.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: 8
+        visible: root.activeExtensionId === "settings"
+        active: root.activeExtensionId === "settings"
         textColor: root.textColor
         muted: root.muted
         accent: root.accent

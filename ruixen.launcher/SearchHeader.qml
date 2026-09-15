@@ -35,6 +35,14 @@ Item {
   // filter (Wallpapers' All Types/Images/Video/Gif) as long as its "all"
   // sentinel label isn't hardcoded to a file-search-specific word.
   property string allOptionLabel: "All Sources"
+  // Defaults to filesMode (the original behavior, before any extension
+  // existed), but is its own separate flag now -- direct QA finding:
+  // Settings reuses filesMode's back-arrow/placeholder treatment (like
+  // Wallpapers does) but has no source/type filter concept at all, so
+  // the "All Sources" dropdown button was showing over its own detail
+  // panel with nothing real for it to filter. Launcher.qml overrides
+  // this explicitly per mode instead of it always tracking filesMode.
+  property bool showSourceFilter: root.filesMode
   property int resultCount: 0
   property string selectedSourcePath: ""
   property var sources: []
@@ -147,7 +155,7 @@ Item {
   // affordance needed.
   Item {
     id: sourceFilterButton
-    visible: root.filesMode
+    visible: root.showSourceFilter
     anchors.right: parent.right
     anchors.rightMargin: 12
     anchors.verticalCenter: parent.verticalCenter
@@ -241,7 +249,7 @@ Item {
     // for the Enter-hint chip (28 wide + 12 rightMargin) once there's
     // a result for it to hint at, or the plain 16 default with neither
     // showing.
-    anchors.rightMargin: root.filesMode ? (root.sourceFilterWidth + 12 + 10)
+    anchors.rightMargin: root.showSourceFilter ? (root.sourceFilterWidth + 12 + 10)
       : (root.resultCount > 0 ? (28 + 12 + 10) : 16)
     verticalAlignment: TextInput.AlignVCenter
     color: root.textColor

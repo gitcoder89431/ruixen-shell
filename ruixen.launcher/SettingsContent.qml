@@ -287,6 +287,44 @@ Item {
     spacingProfileWriteProc.running = true
   }
 
+  // --- Profile: Animation Style (Calm/Bubbly/Snappy), ported from
+  // ruixen.settings -- same naming as Settings.qml's own
+  // animationProfile/setAnimationProfile. Same plain-text-file +
+  // `hyprctl reload` shape as Window Spacing, no repo checkout
+  // dependency -- the actual curve/speed values live in
+  // hyprland/looknfeel.ruixen.lua, which reads this same file directly;
+  // this side's only job is writing the chosen profile. Calm first
+  // (the real app's own default), then Bubbly, then Snappy -- matches
+  // ruixen.settings/GeneralContent.qml's own model order exactly, not
+  // alphabetical.
+  property string animationProfile: "calm"
+  readonly property string animationProfilePath: Quickshell.env("HOME") + "/.local/state/ruixen/animation-profile"
+
+  Process {
+    id: animationProfileReadProc
+    command: ["bash", "-c", "cat \"" + root.animationProfilePath + "\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var v = String(text || "").trim()
+        root.animationProfile = (v === "bubbly" || v === "snappy") ? v : "calm"
+      }
+    }
+  }
+
+  Process {
+    id: animationProfileWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setAnimationProfile(profile) {
+    if (profile !== "bubbly" && profile !== "calm" && profile !== "snappy") return
+    root.animationProfile = profile
+    animationProfileWriteProc.command = ["bash", "-c",
+      "printf '%s' '" + profile + "' > \"" + root.animationProfilePath + "\" && hyprctl reload"]
+    animationProfileWriteProc.running = true
+  }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -432,6 +470,7 @@ Item {
       // onOpenedChanged does for both.
       cornerCurvatureReadProc.running = true
       spacingProfileReadProc.running = true
+      animationProfileReadProc.running = true
     }
   }
 
@@ -872,6 +911,85 @@ Item {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: root.setSpacingProfile(spacingBtn.modelData.id)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Fourth Profile item -- same framed-card convention as the three
+  // above, stacked directly below windowSpacingItem. Ported from
+  // ruixen.settings/GeneralContent.qml's own Animation Style card. Same
+  // plain-file-write shape as Window Spacing -- no repo checkout
+  // dependency here either.
+  Rectangle {
+    id: animationStyleItem
+    parent: panel.rightPane
+    anchors.top: windowSpacingItem.bottom
+    anchors.topMargin: 12
+    anchors.left: parent.left
+    anchors.leftMargin: 20
+    anchors.right: parent.right
+    anchors.rightMargin: 20
+    height: animationStyleContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.profileOpen
+
+    Column {
+      id: animationStyleContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Animation Style"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Row {
+        width: parent.width
+        spacing: 6
+
+        Repeater {
+          // Calm first (the real app's own default), then Bubbly, then
+          // Snappy -- matches ruixen.settings/GeneralContent.qml's own
+          // model order exactly, not alphabetical.
+          model: [
+            { id: "calm", label: "Calm" },
+            { id: "bubbly", label: "Bubbly" },
+            { id: "snappy", label: "Snappy" }
+          ]
+
+          Rectangle {
+            id: animBtn
+            required property var modelData
+            readonly property bool isCurrent: root.animationProfile === animBtn.modelData.id
+
+            width: (parent.width - 2 * parent.spacing) / 3
+            height: 28
+            radius: 6
+            color: animBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: animBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              anchors.centerIn: parent
+              text: animBtn.modelData.label
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              font.weight: animBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: animBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.setAnimationProfile(animBtn.modelData.id)
             }
           }
         }

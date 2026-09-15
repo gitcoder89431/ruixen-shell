@@ -120,10 +120,14 @@ Item {
       }
 
       // Swaps to a forget (trash) glyph on hover -- direct port of the
-      // real page's own hover-to-forget affordance.
+      // real page's own hover-to-forget affordance. Visibility is
+      // driven by rowMouse's OWN hover below, not by this icon's own
+      // (initially invisible) MouseArea -- an invisible item can never
+      // receive the hover event that would make it visible, a real
+      // chicken-and-egg bug caught before it shipped.
       Text {
         id: trailingLabel
-        visible: !(root.showForget && forgetArea.containsMouse)
+        visible: !(root.showForget && rowMouse.containsMouse)
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         width: 32
@@ -135,7 +139,13 @@ Item {
       }
 
       Text {
-        visible: root.showForget && forgetArea.containsMouse
+        // z above rowMouse below -- confirmed real bug in
+        // ruixen.settings' own WifiContent.qml/BluetoothContent.qml
+        // without this: a later sibling (the row-wide MouseArea) stacks
+        // on top and swallows the click before it reaches this nested
+        // one, so the forget icon just re-triggers connect instead.
+        z: 1
+        visible: root.showForget && rowMouse.containsMouse
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         width: 32
@@ -156,7 +166,9 @@ Item {
       }
 
       MouseArea {
+        id: rowMouse
         anchors.fill: parent
+        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: root.activated()
       }

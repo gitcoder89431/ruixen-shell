@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import Quickshell.Networking
+import Quickshell.Bluetooth
 import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Layout-only shell for the "Settings" extension -- direct request:
@@ -890,7 +891,8 @@ Item {
   // object, so this call is folded into that one rather than declared
   // again here.
   onWifiDeviceChanged: root.setScannerEnabled(true)
-  Component.onDestruction: if (root.scannerDevice) root.scannerDevice.scannerEnabled = false
+  // Component.onDestruction is folded into the one below (Bluetooth's
+  // own scanner release) -- same one-handler-per-signal reason.
 
   // Real connection stats (IP, gateway, ping) via `omarchy-network-
   // status --verbose` -- a real standalone Omarchy CLI binary, same
@@ -930,6 +932,167 @@ Item {
     repeat: true
     triggeredOnStart: true
     onTriggered: if (!netStatusProc.running) netStatusProc.running = true
+  }
+
+  // Real Quickshell.Bluetooth-backed state -- another standard
+  // Quickshell module, confirmed the same way Wi-Fi's own
+  // Quickshell.Networking backend was. Real mechanism difference from
+  // Wi-Fi/Audio, confirmed directly: the adapter's own `enabled`
+  // property doesn't persist by itself (that only writes BlueZ's
+  // Powered, which nothing persists), so toggling and per-device
+  // actions both go through real external CLIs (omarchy-bluetooth-
+  // power, omarchy-bluetooth-device) via Quickshell.execDetached(), not
+  // direct property writes the way Wi-Fi's own network.connect() was.
+  readonly property var btAdapter: Bluetooth.defaultAdapter
+  readonly property bool btEnabled: !!(btAdapter && btAdapter.enabled)
+  readonly property var btDeviceObjects: Bluetooth.devices ? Bluetooth.devices.values : []
+  property var btRows: []
+
+  function btDeviceLabel(d) {
+    return String((d && (d.deviceName || d.name)) || "").trim()
+  }
+
+  function btIsUuidLike(value) {
+    var text = String(value || "").trim()
+    if (text === "") return false
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)
+      || /^[0-9a-f]{32}$/i.test(text)
+  }
+
+  function btIsAddressLike(value) {
+    return /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(String(value || "").trim())
+  }
+
+  function btHasHumanName(d) {
+    var label = root.btDeviceLabel(d)
+    return label !== "" && !root.btIsUuidLike(label) && !root.btIsAddressLike(label)
+  }
+
+  // Primitives only, not the live Bluetooth device objects -- same
+  // real crash-avoidance reasoning as Wi-Fi's own syncWifiNetworks():
+  // BlueZ churn (discovery timeouts, unpair) can destroy a device
+  // object while a delegate built from it is still incubating. Actions
+  // resolve back to the live object via btDeviceForAddress() at
+  // activate time instead.
+  function syncBtDevices() {
+    var rows = []
+    var devs = root.btDeviceObjects
+    for (var i = 0; i < devs.length; i++) {
+      var d = devs[i]
+      if (!d || !root.btHasHumanName(d)) continue
+      rows.push({
+        address: d.address || "",
+        name: root.btDeviceLabel(d),
+        connected: !!d.connected,
+        known: !!(d.paired || d.bonded || d.trusted),
+        pairedFormally: !!(d.paired || d.bonded)
+      })
+    }
+    rows.sort(function(a, b) {
+      if (a.connected !== b.connected) return a.connected ? -1 : 1
+      if (a.known !== b.known) return a.known ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    root.btRows = rows
+    // Clear a busy marker once the device's real state actually moved
+    // -- without this, "Connecting.../Pairing..." would hang forever if
+    // the CLI's own best-effort connect/pair silently no-ops.
+    if (root.btBusyAddress !== "") {
+      var busy = root.btDeviceForAddress(root.btBusyAddress)
+      if (!busy || busy.connected) root.btBusyAddress = ""
+    }
+  }
+
+  onBtDeviceObjectsChanged: root.syncBtDevices()
+
+  // Busy feedback for an in-flight connect/pair -- a fire-and-forget
+  // CLI call with real ~1-minute BLE connect latency reads as "did
+  // nothing" without this. Cleared above once the device's connected
+  // state moves, or by this timeout as a backstop if it never does.
+  property string btBusyAddress: ""
+
+  Timer {
+    id: btBusyTimeout
+    interval: 20000
+    onTriggered: root.btBusyAddress = ""
+  }
+
+  readonly property var knownBtRows: root.btRows.filter(function(r) { return r.known })
+  readonly property var otherBtRows: root.btRows.filter(function(r) { return !r.known })
+
+  // Confirm-before-pair for unknown devices -- unlike Wi-Fi (picking a
+  // network you already recognize as yours), a nearby Bluetooth device
+  // can easily be someone else's phone/earbuds in a shared space. First
+  // click on an other-device row arms it (Confirm Pair button); the
+  // actual pair command only fires on that second, deliberate action.
+  property string btPairArmedAddress: ""
+
+  function toggleBluetoothRadio() {
+    Quickshell.execDetached(["omarchy-bluetooth-power", root.btEnabled ? "off" : "on"])
+  }
+
+  function btDeviceForAddress(address) {
+    var devs = root.btDeviceObjects
+    for (var i = 0; i < devs.length; i++)
+      if (devs[i] && devs[i].address === address) return devs[i]
+    return null
+  }
+
+  function toggleBtConnection(row) {
+    if (!row || !row.address) return
+    if (row.connected) { Quickshell.execDetached(["omarchy-bluetooth-device", "disconnect", row.address]); return }
+    if (row.known) {
+      root.btBusyAddress = row.address
+      btBusyTimeout.restart()
+      Quickshell.execDetached(["omarchy-bluetooth-device", "connect", row.address])
+      return
+    }
+    // Unknown device -- arms the row instead of pairing immediately.
+    // Clicking the row that's already armed disarms it, same toggle-
+    // closed-on-second-click Wi-Fi's own password prompt uses.
+    root.btPairArmedAddress = (root.btPairArmedAddress === row.address) ? "" : row.address
+  }
+
+  function confirmPairBtDevice(row) {
+    if (!row || !row.address) return
+    root.btPairArmedAddress = ""
+    root.btBusyAddress = row.address
+    btBusyTimeout.restart()
+    Quickshell.execDetached(["omarchy-bluetooth-device", "pair", row.address])
+  }
+
+  // Excludes the connected device -- disconnect first, then forget,
+  // rather than a one-step forget that disconnects as a side effect.
+  function forgetBtDevice(row) {
+    if (!row || !row.address || row.connected) return
+    Quickshell.execDetached(["omarchy-bluetooth-device", "forget", row.address])
+  }
+
+  // scannerEnabled equivalent for BlueZ's discovery session -- same
+  // ownership-release reasoning as Wi-Fi's own scannerDevice, applied
+  // to adapter.discovering instead ("keep nudging it back on so an
+  // enabled adapter is always scanning" while this category is open).
+  property var btScannerAdapter: null
+
+  function setBtScannerEnabled(enabled) {
+    var nextAdapter = root.active ? root.btAdapter : null
+    if (root.btScannerAdapter && root.btScannerAdapter !== nextAdapter)
+      root.btScannerAdapter.discovering = false
+    root.btScannerAdapter = nextAdapter
+    if (root.btScannerAdapter)
+      root.btScannerAdapter.discovering = enabled
+  }
+
+  // Actual onActiveChanged wiring lives on the existing handler (search
+  // for "Fresh state every time the extension is (re)entered") -- QML
+  // only allows one onXChanged per signal per object.
+  onBtAdapterChanged: root.setBtScannerEnabled(true)
+  // Releases both the Wi-Fi scan radio and the Bluetooth discovery
+  // session together -- folded into one handler since QML only allows
+  // a single Component.onDestruction per object.
+  Component.onDestruction: {
+    if (root.scannerDevice) root.scannerDevice.scannerEnabled = false
+    if (root.btScannerAdapter) root.btScannerAdapter.discovering = false
   }
 
   Component.onCompleted: ensureAvatarStateDirProc.running = true
@@ -1293,6 +1456,49 @@ Item {
     }
   }
 
+  // Bluetooth's own items -- the radio toggle, then (only while
+  // enabled) one "select" item per paired device followed by one per
+  // available (unknown) device. Same "select" shape as Wi-Fi's own
+  // rows -- activate() takes no args, connectToWifi()'s Bluetooth
+  // equivalent (toggleBtConnection) decides what actually happens.
+  readonly property var btItems: {
+    var items = [{
+      kind: "toggle",
+      checked: root.btEnabled,
+      activate: function() { root.toggleBluetoothRadio() }
+    }]
+    if (!root.btEnabled) return items
+    for (var i = 0; i < root.knownBtRows.length; i++) {
+      items.push(root.btKnownRowItem(root.knownBtRows[i]))
+    }
+    for (var j = 0; j < root.otherBtRows.length; j++) {
+      items.push(root.btOtherRowItem(root.otherBtRows[j]))
+    }
+    return items
+  }
+
+  function btKnownRowItem(row) {
+    return {
+      kind: "select",
+      activate: function() { root.toggleBtConnection(row) }
+    }
+  }
+
+  // Enter twice pairs: the first arms the row (same as a mouse click),
+  // the second -- while still armed -- confirms the pair directly
+  // rather than mouse-click's own disarm-on-second-click, since Enter
+  // committing something real (not toggling back off) matches every
+  // other item's own keyboard convention in this file.
+  function btOtherRowItem(row) {
+    return {
+      kind: "select",
+      activate: function() {
+        if (root.btPairArmedAddress === row.address) root.confirmPairBtDevice(row)
+        else root.toggleBtConnection(row)
+      }
+    }
+  }
+
   // The single thing every nav function below actually reads --
   // whichever category is open picks its own table, everything else
   // (an empty header+description category) has nothing to navigate.
@@ -1303,6 +1509,7 @@ Item {
     if (root.audioOpen) return root.audioItems
     if (root.displayOpen) return root.displayItems
     if (root.wifiOpen) return root.wifiItems
+    if (root.btOpen) return root.btItems
     return []
   }
 
@@ -1404,6 +1611,13 @@ Item {
       if (knownIdx < root.knownWifiRows.length) return knownRepeater.itemAt(knownIdx)
       var otherIdx = knownIdx - root.knownWifiRows.length
       return otherRepeater.itemAt(otherIdx)
+    }
+    if (root.btOpen) {
+      if (root.focusedItemIndex === 0) return btRadioRow
+      var knownBtIdx = root.focusedItemIndex - 1
+      if (knownBtIdx < root.knownBtRows.length) return knownBtRepeater.itemAt(knownBtIdx)
+      var otherBtIdx = knownBtIdx - root.knownBtRows.length
+      return otherBtRepeater.itemAt(otherBtIdx)
     }
     return null
   }
@@ -1517,10 +1731,11 @@ Item {
       animationProfileReadProc.running = true
       barModeReadProc.running = true
     }
-    // Releases the Wi-Fi scan radio the moment this extension closes,
-    // same as ruixen.settings' own setScannerEnabled() -- reads
-    // root.active itself to decide the real device vs. null.
+    // Releases the Wi-Fi scan radio and Bluetooth discovery the moment
+    // this extension closes -- both read root.active itself to decide
+    // the real device/adapter vs. null.
     root.setScannerEnabled(true)
+    root.setBtScannerEnabled(true)
   }
 
   ExtensionTwoPanel {
@@ -1618,6 +1833,9 @@ Item {
   readonly property bool wifiOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "wifi"
+  readonly property bool btOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "bluetooth"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -2483,6 +2701,170 @@ Item {
     horizontalAlignment: Text.AlignHCenter
     topPadding: 24
     text: "Turn on Wi-Fi to see nearby networks"
+    font.family: root.fontFamily
+    font.pixelSize: 12
+    color: root.muted
+  }
+
+  // Bluetooth's own three items -- radio toggle, then Paired Devices
+  // and Available Devices, both on SettingsBtRow.qml (see its own
+  // header comment). Real backend on root above, ported from
+  // ruixen.settings/BluetoothContent.qml + Settings.qml.
+  Rectangle {
+    id: btRadioItem
+    width: parent.width
+    height: btRadioContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.btOpen
+
+    Column {
+      id: btRadioContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Bluetooth"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsToggleRow {
+        id: btRadioRow
+        label: "Enabled"
+        checked: root.btEnabled
+        rowFocused: root.btOpen && root.rightFocused && root.focusedItemIndex === 0
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: root.toggleBluetoothRadio()
+      }
+    }
+  }
+
+  Rectangle {
+    id: pairedDevicesItem
+    width: parent.width
+    height: pairedDevicesContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.btOpen && root.btEnabled
+
+    Column {
+      id: pairedDevicesContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Paired Devices"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Column {
+        width: parent.width
+        spacing: 4
+
+        Repeater {
+          id: knownBtRepeater
+          model: root.knownBtRows
+
+          SettingsBtRow {
+            required property var modelData
+            required property int index
+            width: parent.width
+            name: modelData.name
+            connected: modelData.connected
+            known: true
+            pairedFormally: modelData.pairedFormally
+            busy: root.btBusyAddress === modelData.address
+            showForget: !modelData.connected
+            rowFocused: root.btOpen && root.rightFocused && root.focusedItemIndex === (1 + index)
+            textColor: root.textColor
+            muted: root.muted
+            accent: root.accent
+            fontFamily: root.fontFamily
+            onActivated: root.toggleBtConnection(modelData)
+            onForgetRequested: root.forgetBtDevice(modelData)
+          }
+        }
+
+        Text {
+          visible: root.knownBtRows.length === 0
+          text: "No paired devices"
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          color: root.muted
+        }
+      }
+    }
+  }
+
+  Rectangle {
+    id: availableDevicesItem
+    width: parent.width
+    height: availableDevicesContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.btOpen && root.btEnabled && root.otherBtRows.length > 0
+
+    Column {
+      id: availableDevicesContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Available Devices"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Column {
+        width: parent.width
+        spacing: 4
+
+        Repeater {
+          id: otherBtRepeater
+          model: root.otherBtRows
+
+          SettingsBtRow {
+            required property var modelData
+            required property int index
+            width: parent.width
+            name: modelData.name
+            connected: false
+            known: false
+            busy: root.btBusyAddress === modelData.address
+            armed: root.btPairArmedAddress === modelData.address
+            rowFocused: root.btOpen && root.rightFocused
+              && root.focusedItemIndex === (1 + root.knownBtRows.length + index)
+            textColor: root.textColor
+            muted: root.muted
+            accent: root.accent
+            fontFamily: root.fontFamily
+            onActivated: root.toggleBtConnection(modelData)
+            onConfirmPair: root.confirmPairBtDevice(modelData)
+          }
+        }
+      }
+    }
+  }
+
+  Text {
+    visible: root.btOpen && !root.btEnabled
+    width: parent.width
+    horizontalAlignment: Text.AlignHCenter
+    topPadding: 24
+    text: "Turn on Bluetooth to see nearby devices"
     font.family: root.fontFamily
     font.pixelSize: 12
     color: root.muted

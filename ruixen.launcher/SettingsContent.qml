@@ -325,6 +325,41 @@ Item {
     animationProfileWriteProc.running = true
   }
 
+  // --- Bar: Bar Layout (Floating/Docked), ported from ruixen.settings
+  // -- same naming as Settings.qml's own barMode/setBarMode. Plain
+  // shell.json read/write via python3 (same mechanism, no repo
+  // checkout dependency -- already standalone-safe as ported). Full
+  // `omarchy restart shell`, not just a config reload -- same real
+  // reason Window Curvature's own restart exists: ruixen.frame-widget
+  // only reads bar.docked once at its own startup, so a plain reload
+  // would leave it stale against a live Floating/Docked switch.
+  property string barMode: "floating"
+
+  Process {
+    id: barModeReadProc
+    command: ["bash", "-c", "python3 -c \"import json; d=json.load(open('" + Quickshell.env("HOME") + "/.config/omarchy/shell.json')); print('docked' if d.get('bar',{}).get('docked') is True else 'floating')\" 2>/dev/null || echo floating"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.barMode = String(text || "floating").trim() === "docked" ? "docked" : "floating"
+    }
+  }
+
+  Process {
+    id: barModeWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setBarMode(mode) {
+    if (mode !== "docked" && mode !== "floating") return
+    root.barMode = mode
+    var home = Quickshell.env("HOME")
+    var path = home + "/.config/omarchy/shell.json"
+    var value = mode === "docked" ? "True" : "False"
+    barModeWriteProc.command = ["bash", "-c",
+      "python3 -c \"import json; p='" + path + "'; d=json.load(open(p)); d.setdefault('bar', {})['docked'] = " + value + "; json.dump(d, open(p, 'w'), indent=2)\" && omarchy restart shell >/dev/null 2>&1 || true"]
+    barModeWriteProc.running = true
+  }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -432,17 +467,17 @@ Item {
   // it's used.
   property int openIndex: 0
 
-  // Up/Down do double duty depending on which level has focus -- direct
-  // follow-up after trying the first version (Tab to enter the right
-  // panel, separate from Enter opening it): "does that make sense to
-  // tab between stuff, if we need to esc to back out of tab wouldnt be
-  // just allow up and down then?" Standard drill-down shape now: Enter
-  // opens a category AND focuses its first item card in one step (see
-  // activateSelection() below), Up/Down walk the category list OR the
-  // item cards depending on rightFocused, Left/Right still cycle the
-  // OPTIONS within whichever card has focus, and Escape steps back out
-  // one level (right panel -> left list -> exit) same as before. No
-  // separate Tab gesture anymore -- it was the redundant middle step.
+  // Up/Down do double duty depending on which level has focus. Enter
+  // OPENS a category (shows its content on the right) without also
+  // focusing it -- direct correction after the previous "Enter opens
+  // AND focuses" pass: "can we not do auto focus on the first item,
+  // sometime i just wanna glance through the menu item and i have to
+  // go down enter esc down enter esc everytime rn." Browsing every
+  // category is now just Down, Enter, Down, Enter... with no Escape
+  // ever required, since nothing auto-focuses while doing that. Tab
+  // is back as its own, single-purpose gesture (see focusRightPanel's
+  // own comment) -- not redundant with Enter this time, since Enter no
+  // longer does what Tab does.
   function moveSelectionUp() {
     if (root.rightFocused) { root.moveItemFocusUp(); return }
     if (root.selectedIndex > 0) root.selectedIndex--
@@ -453,32 +488,25 @@ Item {
   }
   function activateSelection() {
     if (root.rightFocused) { root.activateFocusedOption(); return }
-    if (root.selectedIndex < root.filteredSections.length) {
+    if (root.selectedIndex < root.filteredSections.length)
       root.openIndex = root.filteredSections[root.selectedIndex].originalIndex
-      // Opens AND focuses in the same keypress now -- focusRightPanel()
-      // itself is a no-op for a category with no real items yet (its
-      // own profileOpen guard), so this is harmless for every category
-      // besides Profile.
-      root.focusRightPanel()
-      Qt.callLater(root.scrollToFocusedItem)
-    }
   }
 
   // --- Right-panel keyboard focus -- see moveSelectionUp's own
   // comment above for the current interaction shape. Only meaningful
-  // while Profile (the only category with real items so far) is open
-  // -- a plain header+description category has nothing to focus into.
+  // while the open category actually has real items -- a plain
+  // header+description category has nothing to focus into.
   property bool rightFocused: false
   property int focusedItemIndex: 0
   property int focusedOptionIndex: 0
 
-  // One entry per Profile item card, in the same top-to-bottom order
-  // they're actually stacked in -- `options` is the plain list of ids
-  // Left/Right cycle through, `current` is whichever one is actually
-  // applied right now (used to seed the keyboard cursor when tabbing
-  // into a card), `activate` calls that item's own real setter. A
-  // plain data table here, not a hardcoded switch in every function
-  // below, so a fifth Profile item later is one more entry, not a
+  // One entry per item card in the CURRENTLY OPEN category, top to
+  // bottom -- `options` is the plain list of ids Left/Right cycle
+  // through, `current` is whichever one is actually applied right now
+  // (used to seed the keyboard cursor when focusing a card), `activate`
+  // calls that item's own real setter. A plain data table per category
+  // here, not a hardcoded switch in every nav function below, so a new
+  // item (or a whole new category) is one more table entry, not a
   // change to the navigation logic itself.
   readonly property var profileItems: [
     {
@@ -502,6 +530,21 @@ Item {
       activate: function(id) { root.setAnimationProfile(id) }
     }
   ]
+  readonly property var barItems: [
+    {
+      options: ["floating", "docked"],
+      current: root.barMode,
+      activate: function(id) { root.setBarMode(id) }
+    }
+  ]
+  // The single thing every nav function below actually reads --
+  // whichever category is open picks its own table, everything else
+  // (an empty header+description category) has nothing to navigate.
+  readonly property var currentItems: {
+    if (root.profileOpen) return root.profileItems
+    if (root.barOpen) return root.barItems
+    return []
+  }
 
   // Seeds the keyboard cursor to wherever the item's own currently
   // applied option already sits, same "start where you already are"
@@ -510,17 +553,23 @@ Item {
   // would put the cursor somewhere that doesn't match what's actually
   // highlighted as current.
   function seedFocusedOption() {
-    var item = root.profileItems[root.focusedItemIndex]
+    var item = root.currentItems[root.focusedItemIndex]
     if (!item) { root.focusedOptionIndex = 0; return }
     var idx = item.options.indexOf(item.current)
     root.focusedOptionIndex = idx >= 0 ? idx : 0
   }
 
+  // Tab's own, single job in this extension now -- drills into the
+  // currently-open category's item cards (a no-op via the
+  // currentItems.length guard for a plain header+description category
+  // with nothing to focus). Enter no longer calls this at all; see
+  // activateSelection's own comment.
   function focusRightPanel() {
-    if (!root.profileOpen) return
+    if (root.currentItems.length === 0) return
     root.rightFocused = true
     root.focusedItemIndex = 0
     root.seedFocusedOption()
+    Qt.callLater(root.scrollToFocusedItem)
   }
 
   function blurToLeftPanel() {
@@ -531,14 +580,14 @@ Item {
   // wraps at either end rather than dead-ending, same as the left
   // category list already effectively does via filteredSections.
   function moveItemFocusUp() {
-    if (root.profileItems.length === 0) return
-    root.focusedItemIndex = (root.focusedItemIndex - 1 + root.profileItems.length) % root.profileItems.length
+    if (root.currentItems.length === 0) return
+    root.focusedItemIndex = (root.focusedItemIndex - 1 + root.currentItems.length) % root.currentItems.length
     root.seedFocusedOption()
     Qt.callLater(root.scrollToFocusedItem)
   }
   function moveItemFocusDown() {
-    if (root.profileItems.length === 0) return
-    root.focusedItemIndex = (root.focusedItemIndex + 1) % root.profileItems.length
+    if (root.currentItems.length === 0) return
+    root.focusedItemIndex = (root.focusedItemIndex + 1) % root.currentItems.length
     root.seedFocusedOption()
     Qt.callLater(root.scrollToFocusedItem)
   }
@@ -555,7 +604,9 @@ Item {
   // in every caller -- a card's own height can depend on content that
   // hasn't finished laying out in the same tick focus moved to it.
   function scrollToFocusedItem() {
-    var items = [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem]
+    var items = root.profileOpen
+      ? [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem]
+      : root.barOpen ? [barLayoutItem] : []
     var item = items[root.focusedItemIndex]
     if (!item) return
     var itemTop = rightContentColumn.y + item.y
@@ -569,20 +620,20 @@ Item {
 
   function moveOptionLeft() {
     if (!root.rightFocused) return
-    var item = root.profileItems[root.focusedItemIndex]
+    var item = root.currentItems[root.focusedItemIndex]
     if (!item || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex - 1 + item.options.length) % item.options.length
   }
 
   function moveOptionRight() {
     if (!root.rightFocused) return
-    var item = root.profileItems[root.focusedItemIndex]
+    var item = root.currentItems[root.focusedItemIndex]
     if (!item || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex + 1) % item.options.length
   }
 
   function activateFocusedOption() {
-    var item = root.profileItems[root.focusedItemIndex]
+    var item = root.currentItems[root.focusedItemIndex]
     if (!item) return
     item.activate(item.options[root.focusedOptionIndex])
   }
@@ -633,6 +684,7 @@ Item {
       cornerCurvatureReadProc.running = true
       spacingProfileReadProc.running = true
       animationProfileReadProc.running = true
+      barModeReadProc.running = true
     }
   }
 
@@ -716,6 +768,9 @@ Item {
   readonly property bool profileOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "general"
+  readonly property bool barOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "bar"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -984,269 +1039,94 @@ Item {
     }
   }
 
-  // Second Profile item -- same framed-card convention profilePictureItem
-  // establishes above, stacked directly below it. Ported from
-  // ruixen.settings/GeneralContent.qml's own Window Curvature card (see
-  // setCornerCurvature's own comment for the real mechanism/why
-  // clicking either option restarts the whole shell).
-  Rectangle {
+  // Second/third/fourth Profile items -- SettingsSegmentedItem.qml,
+  // the shared "segmented option" card three near-identical hand-
+  // rolled copies got extracted into: "how do we keep this pattern
+  // going? easy to reuse". Ported values (options/current/activate)
+  // still come from ruixen.settings, unchanged -- only the visual
+  // shell moved into the shared component.
+  SettingsSegmentedItem {
     id: windowCurvatureItem
-    width: parent.width
-    height: windowCurvatureContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: root.rightFocused && root.focusedItemIndex === 1 ? 1 : 0
-    border.color: root.accent
+    label: "Window Curvature"
+    options: [
+      { id: "sharp", label: "Sharp" },
+      { id: "rounded", label: "Rounded" }
+    ]
+    current: root.cornerCurvature
+    cardFocused: root.rightFocused && root.focusedItemIndex === 1
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
-
-    Column {
-      id: windowCurvatureContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Window Curvature"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Row {
-        width: parent.width
-        spacing: 6
-
-        Repeater {
-          model: [
-            { id: "sharp", label: "Sharp" },
-            { id: "rounded", label: "Rounded" }
-          ]
-
-          Rectangle {
-            id: curvatureBtn
-            required property var modelData
-            required property int index
-            readonly property bool isCurrent: root.cornerCurvature === curvatureBtn.modelData.id
-            readonly property bool isFocused: root.rightFocused
-              && root.focusedItemIndex === 1 && root.focusedOptionIndex === curvatureBtn.index
-
-            width: (parent.width - parent.spacing) / 2
-            height: 28
-            radius: 6
-            color: curvatureBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-            border.width: 1
-            border.color: curvatureBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              id: curvatureLabel
-              anchors.centerIn: parent
-              text: curvatureBtn.modelData.label
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              font.weight: curvatureBtn.isCurrent ? Font.DemiBold : Font.Normal
-              color: curvatureBtn.isCurrent ? root.textColor : root.muted
-            }
-
-            // Accent-colored underline -- see collectionBtn's own
-            // comment above for why this is a real bar, not
-            // font.underline.
-            Rectangle {
-              visible: curvatureBtn.isFocused
-              anchors.top: curvatureLabel.bottom
-              anchors.horizontalCenter: curvatureLabel.horizontalCenter
-              width: curvatureLabel.paintedWidth
-              height: 1
-              color: root.accent
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.setCornerCurvature(curvatureBtn.modelData.id)
-            }
-          }
-        }
-      }
-    }
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setCornerCurvature(id)
   }
 
-  // Third Profile item -- same framed-card convention as the two
-  // above, stacked directly below windowCurvatureItem. Ported from
-  // ruixen.settings/GeneralContent.qml's own Window Spacing card. No
-  // ruixenRepoPath guard here -- see setSpacingProfile's own comment
-  // for why this one's a plain file write, not a real script.
-  Rectangle {
+  SettingsSegmentedItem {
     id: windowSpacingItem
-    width: parent.width
-    height: windowSpacingContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: root.rightFocused && root.focusedItemIndex === 2 ? 1 : 0
-    border.color: root.accent
+    label: "Window Spacing"
+    options: [
+      { id: "comfy", label: "Comfy" },
+      { id: "tight", label: "Tight" }
+    ]
+    current: root.spacingProfile
+    cardFocused: root.rightFocused && root.focusedItemIndex === 2
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
-
-    Column {
-      id: windowSpacingContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Window Spacing"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Row {
-        width: parent.width
-        spacing: 6
-
-        Repeater {
-          model: [
-            { id: "comfy", label: "Comfy" },
-            { id: "tight", label: "Tight" }
-          ]
-
-          Rectangle {
-            id: spacingBtn
-            required property var modelData
-            required property int index
-            readonly property bool isCurrent: root.spacingProfile === spacingBtn.modelData.id
-            readonly property bool isFocused: root.rightFocused
-              && root.focusedItemIndex === 2 && root.focusedOptionIndex === spacingBtn.index
-
-            width: (parent.width - parent.spacing) / 2
-            height: 28
-            radius: 6
-            color: spacingBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-            border.width: 1
-            border.color: spacingBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              id: spacingLabel
-              anchors.centerIn: parent
-              text: spacingBtn.modelData.label
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              font.weight: spacingBtn.isCurrent ? Font.DemiBold : Font.Normal
-              color: spacingBtn.isCurrent ? root.textColor : root.muted
-            }
-
-            // Accent-colored underline -- see collectionBtn's own
-            // comment above for why this is a real bar, not
-            // font.underline.
-            Rectangle {
-              visible: spacingBtn.isFocused
-              anchors.top: spacingLabel.bottom
-              anchors.horizontalCenter: spacingLabel.horizontalCenter
-              width: spacingLabel.paintedWidth
-              height: 1
-              color: root.accent
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.setSpacingProfile(spacingBtn.modelData.id)
-            }
-          }
-        }
-      }
-    }
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setSpacingProfile(id)
   }
 
-  // Fourth Profile item -- same framed-card convention as the three
-  // above, stacked directly below windowSpacingItem. Ported from
-  // ruixen.settings/GeneralContent.qml's own Animation Style card. Same
-  // plain-file-write shape as Window Spacing -- no repo checkout
-  // dependency here either.
-  Rectangle {
+  SettingsSegmentedItem {
     id: animationStyleItem
-    width: parent.width
-    height: animationStyleContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: root.rightFocused && root.focusedItemIndex === 3 ? 1 : 0
-    border.color: root.accent
+    label: "Animation Style"
+    // Calm first (the real app's own default), then Bubbly, then
+    // Snappy -- matches ruixen.settings/GeneralContent.qml's own model
+    // order exactly, not alphabetical.
+    options: [
+      { id: "calm", label: "Calm" },
+      { id: "bubbly", label: "Bubbly" },
+      { id: "snappy", label: "Snappy" }
+    ]
+    current: root.animationProfile
+    cardFocused: root.rightFocused && root.focusedItemIndex === 3
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setAnimationProfile(id)
+  }
 
-    Column {
-      id: animationStyleContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Animation Style"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Row {
-        width: parent.width
-        spacing: 6
-
-        Repeater {
-          // Calm first (the real app's own default), then Bubbly, then
-          // Snappy -- matches ruixen.settings/GeneralContent.qml's own
-          // model order exactly, not alphabetical.
-          model: [
-            { id: "calm", label: "Calm" },
-            { id: "bubbly", label: "Bubbly" },
-            { id: "snappy", label: "Snappy" }
-          ]
-
-          Rectangle {
-            id: animBtn
-            required property var modelData
-            required property int index
-            readonly property bool isCurrent: root.animationProfile === animBtn.modelData.id
-            readonly property bool isFocused: root.rightFocused
-              && root.focusedItemIndex === 3 && root.focusedOptionIndex === animBtn.index
-
-            width: (parent.width - 2 * parent.spacing) / 3
-            height: 28
-            radius: 6
-            color: animBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-            border.width: 1
-            border.color: animBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              id: animLabel
-              anchors.centerIn: parent
-              text: animBtn.modelData.label
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              font.weight: animBtn.isCurrent ? Font.DemiBold : Font.Normal
-              color: animBtn.isCurrent ? root.textColor : root.muted
-            }
-
-            // Accent-colored underline -- see collectionBtn's own
-            // comment above for why this is a real bar, not
-            // font.underline.
-            Rectangle {
-              visible: animBtn.isFocused
-              anchors.top: animLabel.bottom
-              anchors.horizontalCenter: animLabel.horizontalCenter
-              width: animLabel.paintedWidth
-              height: 1
-              color: root.accent
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.setAnimationProfile(animBtn.modelData.id)
-            }
-          }
-        }
-      }
-    }
+  // Bar's own single item -- direct request: "think we're ready for
+  // the bar page next, it should just be one setting option there for
+  // bar layout floating or dock." A plain Column child like the three
+  // above, not anchored -- Column already skips every invisible
+  // sibling's space, so with Profile's own four items all hidden while
+  // Bar is open, this naturally lands right after headerColumn with
+  // the Column's own 16px spacing between them, same as every other
+  // item-after-header gap.
+  SettingsSegmentedItem {
+    id: barLayoutItem
+    label: "Bar Layout"
+    options: [
+      { id: "floating", label: "Floating" },
+      { id: "docked", label: "Docked" }
+    ]
+    current: root.barMode
+    cardFocused: root.rightFocused && root.focusedItemIndex === 0
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
+    visible: root.barOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setBarMode(id)
   }
     }
   }

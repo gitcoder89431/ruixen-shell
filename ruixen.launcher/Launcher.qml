@@ -1296,18 +1296,18 @@ Item {
         // it.
         onTabPressed: {
           if (searchHeader.dropdownOpen) return
-          // Settings doesn't use Tab at all -- an earlier pass had Tab
-          // move focus into its right panel, but that made Enter (to
-          // open a category) and Tab (to actually focus it) two
-          // separate steps for the same drill-in action. Direct
-          // follow-up: "does that make sense to tab between stuff, if
-          // we need to esc to back out of tab wouldnt be just allow up
-          // and down then?" -- Enter now opens AND focuses in one step
-          // (see SettingsContent.qml's own activateSelection()), so
-          // Tab has nothing left to do here; falls through to the
-          // plain actions-menu handling below, same as it already
-          // no-ops for Wallpapers (resultActions is empty in every
-          // extension, gated on root.filesMode).
+          // Settings' own single-purpose use of Tab -- direct
+          // follow-up after Enter briefly did both "open" and "focus"
+          // in one step: "can we not do auto focus on the first item,
+          // sometime i just wanna glance through the menu item and i
+          // have to go down enter esc down enter esc everytime rn."
+          // Enter now only opens a category (see SettingsContent.qml's
+          // own activateSelection()); Tab is the deliberate, separate
+          // action that actually focuses its items for interaction --
+          // not redundant with Enter the way it was in the version
+          // that prompted the earlier merge, since the two now do
+          // genuinely different things.
+          if (root.activeExtensionId === "settings") { settingsContent.focusRightPanel(); return }
           if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
         }

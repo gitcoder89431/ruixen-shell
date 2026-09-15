@@ -555,6 +555,38 @@ Item {
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "general"
 
+  // Every category's right-panel content, Profile included, scrolls as
+  // ONE unit -- direct request: "we need the right panel to be able to
+  // scroll down with mouse wheel" (Profile's own 4 stacked item cards
+  // can run past the panel's fixed viewport height). A plain Flickable,
+  // same "no overscroll bounce" convention ResultsList.qml/ruixen.
+  // settings' own detail Flickable already use -- Column, not manual
+  // anchor-chaining between siblings, so contentHeight is just the
+  // Column's own height and a short/plain category (header +
+  // description only, no item cards) needs no special-casing: Column
+  // already skips each `visible: false` item card's own space, exactly
+  // like it did as anchor-chained siblings before.
+  Flickable {
+    id: rightPaneScroll
+    parent: panel.rightPane
+    anchors.fill: parent
+    contentWidth: width
+    contentHeight: rightContentColumn.height
+    boundsBehavior: Flickable.StopAtBounds
+    clip: true
+
+    Column {
+      id: rightContentColumn
+      x: 20
+      y: 20
+      width: parent.width - 40
+      // One uniform gap between every stacked element (header down
+      // through the last item card) -- simpler than the two slightly
+      // different gaps (16 header-to-first-card, 12 card-to-card) the
+      // previous anchor-chained version used, and the difference
+      // wasn't something anyone asked to preserve.
+      spacing: 16
+
   // Every category's right-panel content, Profile included, starts
   // with this same header (its own label) + short description -- a
   // plain layout convention every future real panel keeps building on
@@ -563,20 +595,9 @@ Item {
   // content (below) had quietly REPLACED this instead of sitting under
   // it -- "why did you nuke the Profile and description subtitle we
   // had above it? keep it there please".
-  //
-  // 20/20/20 inset (top/left/right) -- direct report: "the header are
-  // too close to the seperator" (this pane's own left edge sits right
-  // against ExtensionTwoPanel's divider, and the previous version had
-  // no top/left inset at all).
   Column {
     id: headerColumn
-    parent: panel.rightPane
-    anchors.top: parent.top
-    anchors.topMargin: 20
-    anchors.left: parent.left
-    anchors.leftMargin: 20
-    anchors.right: parent.right
-    anchors.rightMargin: 20
+    width: parent.width
     spacing: 6
     visible: root.openIndex >= 0 && root.openIndex < root.sections.length
 
@@ -623,13 +644,7 @@ Item {
   // sibling above -- explicitly not wrapped in this.
   Rectangle {
     id: profilePictureItem
-    parent: panel.rightPane
-    anchors.top: headerColumn.bottom
-    anchors.topMargin: 16
-    anchors.left: parent.left
-    anchors.leftMargin: 20
-    anchors.right: parent.right
-    anchors.rightMargin: 20
+    width: parent.width
     height: profilePictureContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
@@ -775,13 +790,7 @@ Item {
   // clicking either option restarts the whole shell).
   Rectangle {
     id: windowCurvatureItem
-    parent: panel.rightPane
-    anchors.top: profilePictureItem.bottom
-    anchors.topMargin: 12
-    anchors.left: parent.left
-    anchors.leftMargin: 20
-    anchors.right: parent.right
-    anchors.rightMargin: 20
+    width: parent.width
     height: windowCurvatureContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
@@ -850,13 +859,7 @@ Item {
   // for why this one's a plain file write, not a real script.
   Rectangle {
     id: windowSpacingItem
-    parent: panel.rightPane
-    anchors.top: windowCurvatureItem.bottom
-    anchors.topMargin: 12
-    anchors.left: parent.left
-    anchors.leftMargin: 20
-    anchors.right: parent.right
-    anchors.rightMargin: 20
+    width: parent.width
     height: windowSpacingContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
@@ -925,13 +928,7 @@ Item {
   // dependency here either.
   Rectangle {
     id: animationStyleItem
-    parent: panel.rightPane
-    anchors.top: windowSpacingItem.bottom
-    anchors.topMargin: 12
-    anchors.left: parent.left
-    anchors.leftMargin: 20
-    anchors.right: parent.right
-    anchors.rightMargin: 20
+    width: parent.width
     height: animationStyleContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
@@ -994,6 +991,8 @@ Item {
           }
         }
       }
+    }
+  }
     }
   }
 }

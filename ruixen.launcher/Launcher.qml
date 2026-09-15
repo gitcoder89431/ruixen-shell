@@ -1171,13 +1171,15 @@ Item {
         // over Settings' own detail panel with nothing real for it to
         // filter.
         showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers"
-        // "Wallpapers", not the generic "Search files..." filesMode
-        // itself would fall back to -- WallpapersContent has its own
-        // internal filter box already, this outer one is inert while
-        // an extension is active (typing still updates root.query,
-        // it's just not read by anything visible right now).
+        // "Wallpapers"/"Search Settings", not the generic "Search
+        // files..." filesMode itself would fall back to -- both
+        // extensions read this same outer query directly now (see
+        // wallpapersContent/settingsContent's own searchText below),
+        // no second inner search box either one owns. "Search
+        // Settings", not bare "Settings" -- direct follow-up: "lets
+        // make it say Search Settings so later we search for stuff".
         placeholderOverride: root.activeExtensionId === "wallpapers" ? "Wallpapers"
-          : root.activeExtensionId === "settings" ? "Settings" : ""
+          : root.activeExtensionId === "settings" ? "Search Settings" : ""
         resultCount: root.results.length
         // Wallpapers mode feeds this same button/dropdown its own type
         // options instead of real Search Files sources -- see
@@ -1629,6 +1631,10 @@ Item {
         anchors.rightMargin: 8
         visible: root.activeExtensionId === "settings"
         active: root.activeExtensionId === "settings"
+        // Single search box, same convention Wallpapers already
+        // established -- direct follow-up: "does search work for menu
+        // items on the left too?" Filters the category list by label.
+        searchText: root.activeExtensionId === "settings" ? root.query : ""
         textColor: root.textColor
         muted: root.muted
         accent: root.accent

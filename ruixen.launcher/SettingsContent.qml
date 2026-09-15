@@ -34,6 +34,11 @@ Item {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
   property bool active: false
+  // Fed from the outer SearchHeader/root.query, same single-search-box
+  // convention Wallpapers already established ("we dont need two
+  // search box, use the launcher for wallpaper search input") -- direct
+  // follow-up: "does search work for menu items on the left too?"
+  property string searchText: ""
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
   // Settings.qml's own root.sections -- confirmed by reading that file
@@ -50,19 +55,38 @@ Item {
     { id: "about", label: "About", glyph: "" }
   ]
 
-  // Each section reshaped into the exact same result-row object shape
-  // every other ResultsList model in this plugin already uses (id/
-  // providerId/icon/label/breadcrumb/kind/providerName/score/
-  // sectionLabel) -- ResultRow itself never needs to know these came
-  // from Settings rather than a real provider. providerId
-  // "settings-category" isn't dispatched anywhere (this list's own
-  // onRowActivated below handles activation directly, the same way
-  // Launcher.qml's resultsList does for real results), it's just kept
-  // for shape-consistency/future-proofing.
-  readonly property var sectionRows: {
-    var rows = []
+  // Filtered by label, same as ruixen.settings/Settings.qml's own
+  // filteredSections -- ported logic, not reinvented. Keeps each row's
+  // real position in root.sections (originalIndex) rather than the
+  // filtered array's own position, same reasoning as that file's own
+  // comment: openIndex should always point into the full list
+  // underneath, so a since-filtered-out opened category stays correct
+  // (just not visible in the list right now) instead of pointing at
+  // the wrong section entirely.
+  readonly property var filteredSections: {
+    var q = root.searchText.trim().toLowerCase()
+    var out = []
     for (var i = 0; i < root.sections.length; i++) {
       var s = root.sections[i]
+      if (q.length === 0 || s.label.toLowerCase().includes(q))
+        out.push({ id: s.id, label: s.label, glyph: s.glyph, originalIndex: i })
+    }
+    return out
+  }
+
+  // Each VISIBLE (filtered) section reshaped into the exact same
+  // result-row object shape every other ResultsList model in this
+  // plugin already uses (id/providerId/icon/label/breadcrumb/kind/
+  // providerName/score/sectionLabel) -- ResultRow itself never needs to
+  // know these came from Settings rather than a real provider.
+  // providerId "settings-category" isn't dispatched anywhere (this
+  // list's own onRowActivated below handles activation directly, the
+  // same way Launcher.qml's resultsList does for real results), it's
+  // just kept for shape-consistency/future-proofing.
+  readonly property var sectionRows: {
+    var rows = []
+    for (var i = 0; i < root.filteredSections.length; i++) {
+      var s = root.filteredSections[i]
       rows.push({
         id: "settings:" + s.id,
         providerId: "settings-category",
@@ -78,12 +102,15 @@ Item {
     return rows
   }
 
-  // Keyboard cursor over the left list -- Up/Down move this; it does
-  // NOT by itself change what the right panel shows (see openIndex
+  // Keyboard cursor over the left list -- indexes into filteredSections
+  // (the CURRENT visible list), not root.sections, same distinction
+  // ruixen.settings' own sidebarFocusIndex draws. Up/Down move this; it
+  // does NOT by itself change what the right panel shows (see openIndex
   // below), matching the user's own "then enter to go into the right
   // panel" phrasing rather than a live-preview-on-hover model.
   property int selectedIndex: 0
-  // -1 means the right panel shows its own neutral empty state (no
+  // Index into root.sections (the FULL list, unaffected by filtering)
+  // -- -1 means the right panel shows its own neutral empty state (no
   // category opened yet this session). Set by activateSelection()
   // (Enter) or a real row click, matching ResultsList's own
   // rowActivated meaning everywhere else it's used.
@@ -93,11 +120,20 @@ Item {
     if (root.selectedIndex > 0) root.selectedIndex--
   }
   function moveSelectionDown() {
-    if (root.selectedIndex < root.sections.length - 1) root.selectedIndex++
+    if (root.selectedIndex < root.filteredSections.length - 1) root.selectedIndex++
   }
   function activateSelection() {
-    root.openIndex = root.selectedIndex
+    if (root.selectedIndex < root.filteredSections.length)
+      root.openIndex = root.filteredSections[root.selectedIndex].originalIndex
   }
+
+  // Fresh cursor on every new query, same as every other search
+  // surface in this plugin (onQueryChanged/onFilesModeChanged) -- a
+  // stale selectedIndex from before a keystroke could otherwise land
+  // past the end of a now-shorter filtered list, or highlight a
+  // visually different row than the one that was actually highlighted
+  // a moment ago.
+  onSearchTextChanged: root.selectedIndex = 0
 
   // Fresh state every time the extension is (re)entered -- same
   // "no stale cursor from last time" convention onFilesModeChanged/
@@ -136,8 +172,25 @@ Item {
     onRowHovered: (idx) => { root.selectedIndex = idx }
     onRowActivated: (idx) => {
       root.selectedIndex = idx
-      root.openIndex = idx
+      if (idx < root.filteredSections.length)
+        root.openIndex = root.filteredSections[idx].originalIndex
     }
+  }
+
+  // Same "typo'd query, empty sidebar" edge case ruixen.settings' own
+  // empty state covers -- 8 rows is rare to filter down to nothing,
+  // but not impossible.
+  Text {
+    parent: panel.leftPane
+    anchors.centerIn: parent
+    width: parent.width - 16
+    visible: root.filteredSections.length === 0
+    horizontalAlignment: Text.AlignHCenter
+    wrapMode: Text.WordWrap
+    text: "No matches"
+    font.family: root.fontFamily
+    font.pixelSize: 11
+    color: root.muted
   }
 
   Item {

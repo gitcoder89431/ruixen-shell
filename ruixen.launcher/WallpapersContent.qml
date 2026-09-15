@@ -775,8 +775,37 @@ Item {
         // lit at rest.
         readonly property bool active: !tile.isSpacer && tile.entry.identity === root.currentBackground
 
-        width: grid.tileWidth
-        height: grid.tileHeight
+        // Full cell size, not tileWidth/tileHeight directly -- direct
+        // report: "the left and right of the grid table, the border gap
+        // pad not the same, theres more on the right then the left."
+        // GridView positions each delegate at its own cell's top-left
+        // corner; when the delegate itself WAS only tileWidth wide (the
+        // cell minus the 10px gap), that gap only ever existed on the
+        // TRAILING side of every tile (between it and the next one), so
+        // the grid's very first column sat flush against the left edge
+        // (0px before it) while the last column left its own trailing
+        // 10px dangling at the grid's right edge with nothing after it
+        // to visually pair with -- the same 10px gap convention applied
+        // asymmetrically at the two ends. Sizing the delegate to the
+        // FULL cell and centering the actual tileVisual (below) within
+        // it splits that same 10px evenly (5px each side) on every
+        // tile, including the first and last, so both edges end up
+        // matching.
+        width: grid.cellWidth
+        height: grid.cellHeight
+
+        // Every real visual element (image, ring, label, click target)
+        // lives in here now, at the original tileWidth/tileHeight size,
+        // centered within the delegate's own now-larger cell bounds --
+        // every child below keeps its original `anchors.fill: parent`/
+        // relative-anchor code completely unchanged, since "parent" for
+        // all of them is this Item, which is exactly the same size the
+        // delegate itself used to be.
+        Item {
+          id: tileVisual
+          anchors.centerIn: parent
+          width: grid.tileWidth
+          height: grid.tileHeight
 
         // Image container -- always exactly `width`x`height`, no
         // margins, no border, no animated properties at all. This
@@ -899,6 +928,7 @@ Item {
           }
           z: 4
         }
+        }
       }
     }
 
@@ -934,7 +964,12 @@ Item {
     id: heroTile
     parent: grid.contentItem
     visible: root.showHero
-    x: 0
+    // Half the per-cell gap (see the small tiles' own delegate comment
+    // for the full "why") -- matches their own now-centered left inset
+    // exactly, so the hero's own left edge lines up with column 0's
+    // tiles below/right of it instead of sitting flush against the
+    // grid's true edge while they sit inset from it.
+    x: (grid.cellWidth - grid.tileWidth) / 2
     y: 0
     // Same -10 per-cell-gap convention grid.tileWidth/tileHeight use,
     // just spanning 2 cells instead of 1 on each axis.

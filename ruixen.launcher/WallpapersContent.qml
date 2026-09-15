@@ -964,13 +964,16 @@ Item {
     id: heroTile
     parent: grid.contentItem
     visible: root.showHero
-    // Half the per-cell gap (see the small tiles' own delegate comment
-    // for the full "why") -- matches their own now-centered left inset
-    // exactly, so the hero's own left edge lines up with column 0's
-    // tiles below/right of it instead of sitting flush against the
-    // grid's true edge while they sit inset from it.
+    // Half the per-cell gap on BOTH axes (see the small tiles' own
+    // delegate comment for the full "why") -- matches their own now-
+    // centered inset exactly, so the hero's own top-left edge lines up
+    // with the real tiles around it instead of sitting flush against
+    // the grid's true top-left corner while they sit inset from it.
+    // Direct follow-up ("its like a bit higher than the grid flow
+    // around them") caught only the x half of this the first time --
+    // y needs the exact same treatment for the same reason.
     x: (grid.cellWidth - grid.tileWidth) / 2
-    y: 0
+    y: (grid.cellHeight - grid.tileHeight) / 2
     // Same -10 per-cell-gap convention grid.tileWidth/tileHeight use,
     // just spanning 2 cells instead of 1 on each axis.
     width: 2 * grid.cellWidth - 10

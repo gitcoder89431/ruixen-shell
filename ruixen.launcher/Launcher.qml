@@ -1337,26 +1337,27 @@ Item {
               // focus hover"): with zero spacing between rows in the
               // Column above, adjacent rows' own rounded-rect highlights
               // sat flush against each other with no gap, reading as one
-              // overlapping blob rather than two distinct rows. A thin
-              // left accent bar (below) doesn't have that problem --
-              // there's nothing for two adjacent bars to visually merge
-              // into the way two full-width fills did.
+              // overlapping blob rather than two distinct rows. A small
+              // dot (below) doesn't have that problem either, and reads
+              // lighter than the left accent BAR this replaced -- direct
+              // follow-up ("the left side bar design... is a bit big,
+              // can we use a dot instead").
               color: "transparent"
 
               Rectangle {
                 visible: sourceRow.current
                 anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                anchors.margins: 4
-                width: 3
-                radius: 2
+                anchors.leftMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                width: 5
+                height: 5
+                radius: 2.5
                 color: root.accent
               }
 
               Text {
                 anchors.left: parent.left
-                anchors.leftMargin: 10
+                anchors.leftMargin: 20
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter

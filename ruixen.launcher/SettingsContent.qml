@@ -423,6 +423,51 @@ Item {
     root.saveLauncherSearchConfig()
   }
 
+  function addLauncherRoot(path) {
+    var p = String(path || "").trim()
+    if (!p) return
+    var list = root.launcherSearchConfig.roots.slice()
+    if (list.indexOf(p) === -1) list.push(p)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { roots: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function removeLauncherRoot(path) {
+    var list = root.launcherSearchConfig.roots.filter(function(r) { return r !== path })
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { roots: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function addLauncherExcludePath(path) {
+    var p = String(path || "").trim()
+    if (!p) return
+    var list = root.launcherSearchConfig.excludePaths.slice()
+    if (list.indexOf(p) === -1) list.push(p)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludePaths: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function removeLauncherExcludePath(path) {
+    var list = root.launcherSearchConfig.excludePaths.filter(function(p) { return p !== path })
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludePaths: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function addLauncherExcludeName(name) {
+    var n = String(name || "").trim()
+    if (!n) return
+    var list = root.launcherSearchConfig.excludeNames.slice()
+    if (list.indexOf(n) === -1) list.push(n)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludeNames: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  function removeLauncherExcludeName(name) {
+    var list = root.launcherSearchConfig.excludeNames.filter(function(n) { return n !== name })
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { excludeNames: list })
+    root.saveLauncherSearchConfig()
+  }
+
   // Live-discovered mounts for the checklist -- same findmnt --json
   // pipeline FileSearchProvider.qml's own refreshRoots() uses, ported
   // as its own small copy per LauncherSearchConfig.js's own header
@@ -1372,6 +1417,53 @@ Item {
         }
       }
     }
+  }
+
+  // Launcher's third/fourth/fifth items -- the three remaining
+  // sections from ruixen.settings/LauncherSettingsContent.qml, all on
+  // SettingsAddListItem.qml (see its own header comment for why one
+  // component covers all three shapes).
+  SettingsAddListItem {
+    id: customRootsItem
+    label: "Custom Search Roots"
+    placeholder: "~/Work or /mnt/Documents"
+    items: root.launcherSearchConfig.roots
+    visible: root.launcherOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onAdded: (value) => root.addLauncherRoot(value)
+    onRemoved: (value) => root.removeLauncherRoot(value)
+  }
+
+  SettingsAddListItem {
+    id: excludedPathsItem
+    label: "Excluded Paths"
+    placeholder: "~/VMs or ~/Downloads/ISOs"
+    items: root.launcherSearchConfig.excludePaths
+    visible: root.launcherOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onAdded: (value) => root.addLauncherExcludePath(value)
+    onRemoved: (value) => root.removeLauncherExcludePath(value)
+  }
+
+  SettingsAddListItem {
+    id: excludedNamesItem
+    label: "Excluded Directory Names"
+    placeholder: "e.g. dist or .venv"
+    chipMode: true
+    items: root.launcherSearchConfig.excludeNames
+    visible: root.launcherOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onAdded: (value) => root.addLauncherExcludeName(value)
+    onRemoved: (value) => root.removeLauncherExcludeName(value)
   }
     }
   }

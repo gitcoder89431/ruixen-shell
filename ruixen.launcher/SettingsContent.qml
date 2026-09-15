@@ -423,6 +423,22 @@ Item {
     root.saveLauncherSearchConfig()
   }
 
+  // Same real effect as toggleLauncherAutoRootDisabled, but SETS to an
+  // explicit state instead of blindly flipping -- needed for the
+  // keyboard model below, where Enter always means "commit whichever
+  // state the cursor is currently sitting on," not "flip it again".
+  // Blindly toggling there would double-flip back to the original
+  // state if the cursor happened to land back where it started.
+  function setLauncherAutoRootDisabled(path, disabled) {
+    var list = root.launcherSearchConfig.disabledAutoRoots.slice()
+    var idx = list.indexOf(path)
+    if (disabled && idx === -1) list.push(path)
+    else if (!disabled && idx !== -1) list.splice(idx, 1)
+    else return
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { disabledAutoRoots: list })
+    root.saveLauncherSearchConfig()
+  }
+
   function addLauncherRoot(path) {
     var p = String(path || "").trim()
     if (!p) return
@@ -687,12 +703,57 @@ Item {
       activate: function(id) { root.setBarMode(id) }
     }
   ]
+  // Every on/off switch on the Launcher page, in the same order
+  // they're stacked -- direct report: "the tab kbd stuff not working
+  // on launcher setting" (currentItems had no branch for Launcher at
+  // all). Each switch modeled as a 2-option item (off/on), same shape
+  // as every segmented item above -- Left/Right moves the cursor
+  // between the two states, Enter commits whichever one it's on. The
+  // three add+list boxes (Custom Search Roots/Excluded Paths/Excluded
+  // Directory Names) stay mouse-only -- typing into a text field needs
+  // real Qt focus forwarded into that TextInput, a genuinely different
+  // piece of work from cycling between labeled options, not an
+  // extension of this same shape.
+  readonly property var launcherItems: {
+    var items = [
+      {
+        options: ["off", "on"],
+        current: root.launcherSearchConfig.includeHome ? "on" : "off",
+        activate: function(id) { root.setLauncherIncludeHome(id === "on") }
+      },
+      {
+        options: ["off", "on"],
+        current: root.launcherSearchConfig.includeMountedRoots ? "on" : "off",
+        activate: function(id) { root.setLauncherIncludeMountedRoots(id === "on") }
+      }
+    ]
+    for (var i = 0; i < root.mountChecklist.length; i++) {
+      items.push(root.mountToggleItem(root.mountChecklist[i]))
+    }
+    return items
+  }
+
+  // Split out from launcherItems' own loop body so the closure below
+  // captures each mount's own `m.path` correctly -- a function
+  // declared directly inside a for-loop body closes over the loop
+  // variable itself, not its value at that iteration, and every
+  // resulting activate() would silently apply to whichever mount
+  // happened to be last.
+  function mountToggleItem(m) {
+    return {
+      options: ["off", "on"],
+      current: m.disabled ? "off" : "on",
+      activate: function(id) { root.setLauncherAutoRootDisabled(m.path, id === "off") }
+    }
+  }
+
   // The single thing every nav function below actually reads --
   // whichever category is open picks its own table, everything else
   // (an empty header+description category) has nothing to navigate.
   readonly property var currentItems: {
     if (root.profileOpen) return root.profileItems
     if (root.barOpen) return root.barItems
+    if (root.launcherOpen) return root.launcherItems
     return []
   }
 
@@ -753,13 +814,33 @@ Item {
   // already fully in view shouldn't jump for no reason). Qt.callLater
   // in every caller -- a card's own height can depend on content that
   // hasn't finished laying out in the same tick focus moved to it.
+  // Profile/Bar's own items are whole cards, direct children of
+  // rightContentColumn -- plain `.y` was enough. Launcher's items are
+  // individual SettingsToggleRow instances NESTED inside a card
+  // (launcherToggleItem) or a Repeater (mountRepeater), so their
+  // position relative to rightContentColumn has to go through
+  // mapToItem rather than a bare `.y` (which would only ever be
+  // relative to their own immediate parent).
+  function focusedItemVisual() {
+    if (root.profileOpen) {
+      return [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
+    }
+    if (root.barOpen) {
+      return [barLayoutItem][root.focusedItemIndex]
+    }
+    if (root.launcherOpen) {
+      if (root.focusedItemIndex === 0) return includeHomeRow
+      if (root.focusedItemIndex === 1) return includeMountedRow
+      return mountRepeater.itemAt(root.focusedItemIndex - 2)
+    }
+    return null
+  }
+
   function scrollToFocusedItem() {
-    var items = root.profileOpen
-      ? [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem]
-      : root.barOpen ? [barLayoutItem] : []
-    var item = items[root.focusedItemIndex]
+    var item = root.focusedItemVisual()
     if (!item) return
-    var itemTop = rightContentColumn.y + item.y
+    var pos = item.mapToItem(rightContentColumn, 0, 0)
+    var itemTop = rightContentColumn.y + pos.y
     var itemBottom = itemTop + item.height
     if (itemTop < rightPaneScroll.contentY) {
       rightPaneScroll.contentY = Math.max(0, itemTop - 8)
@@ -1321,8 +1402,10 @@ Item {
       }
 
       SettingsToggleRow {
+        id: includeHomeRow
         label: "Include Home"
         checked: root.launcherSearchConfig.includeHome
+        rowFocused: root.launcherOpen && root.rightFocused && root.focusedItemIndex === 0
         textColor: root.textColor
         accent: root.accent
         fontFamily: root.fontFamily
@@ -1330,8 +1413,10 @@ Item {
       }
 
       SettingsToggleRow {
+        id: includeMountedRow
         label: "Auto-include Mounted Drives"
         checked: root.launcherSearchConfig.includeMountedRoots
+        rowFocused: root.launcherOpen && root.rightFocused && root.focusedItemIndex === 1
         textColor: root.textColor
         accent: root.accent
         fontFamily: root.fontFamily
@@ -1399,15 +1484,18 @@ Item {
         spacing: 10
 
         Repeater {
+          id: mountRepeater
           model: root.mountChecklist
 
           SettingsToggleRow {
             required property var modelData
+            required property int index
             width: parent.width
             label: modelData.path
             subtitle: modelData.connected ? "" : "Not currently connected"
             elideLabel: true
             checked: !modelData.disabled
+            rowFocused: root.launcherOpen && root.rightFocused && root.focusedItemIndex === (2 + index)
             textColor: root.textColor
             muted: root.muted
             accent: root.accent

@@ -31,11 +31,28 @@ Item {
   // Path labels can run long -- elided rather than pushed under/behind
   // the switch. Plain short labels (Include Home, ...) never hit this.
   property bool elideLabel: false
+  // Keyboard cursor on THIS row -- direct report: "the tab kbd stuff
+  // not working on launcher setting". Unlike SettingsSegmentedItem's
+  // own card-level ring, this row often shares a card with siblings
+  // (Include Home + Auto-include Mounted Drives both live in one
+  // card), so the ring needs to outline the ROW itself, not whatever
+  // card happens to contain it.
+  property bool rowFocused: false
 
   signal toggled(bool value)
 
   width: parent.width
   height: root.subtitle !== "" ? 28 : 20
+
+  Rectangle {
+    visible: root.rowFocused
+    anchors.fill: parent
+    anchors.margins: -4
+    radius: 6
+    color: "transparent"
+    border.width: 1
+    border.color: root.accent
+  }
 
   Column {
     anchors.left: parent.left

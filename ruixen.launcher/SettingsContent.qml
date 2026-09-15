@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
+import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Layout-only shell for the "Settings" extension -- direct request:
 // "lets do the Settings as Extension so Settings 2nd Column Ruixen and
@@ -360,6 +361,110 @@ Item {
     barModeWriteProc.running = true
   }
 
+  // --- Launcher: Include Home / Auto-include Mounted Drives, ported
+  // from ruixen.settings/Settings.qml's own launcherSearchConfig block
+  // -- same naming (setLauncherIncludeHome/setLauncherIncludeMountedRoots).
+  // Reads/writes the exact same file (~/.local/state/ruixen/
+  // launcher-search-config.json) FileSearchProvider.qml already
+  // watches (watchChanges: true) to build its own real search roots --
+  // no new plumbing needed on that side, a save here just takes effect
+  // the next search. LauncherSearchConfig.js itself is already a
+  // second copy in this exact plugin folder (FileSearchProvider.qml's
+  // own import), not a new one -- this is the first time anything in
+  // ruixen.launcher WRITES that file rather than only reading it.
+  //
+  // Scoped to just the two toggles for this pass, not the full page
+  // (mounted-drives checklist, custom roots, path/name exclusions) --
+  // those are their own, genuinely different list-editing UI, real
+  // follow-on work rather than a same-shape extension of this one.
+  property var launcherSearchConfig: LauncherSearchConfig.defaultConfig()
+  readonly property string launcherSearchConfigPath: Quickshell.env("HOME") + "/.local/state/ruixen/launcher-search-config.json"
+
+  function loadLauncherSearchConfig(raw) {
+    root.launcherSearchConfig = LauncherSearchConfig.parseSearchConfig(raw)
+  }
+
+  function saveLauncherSearchConfig() {
+    launcherSearchConfigFile.setText(LauncherSearchConfig.serializeSearchConfig(root.launcherSearchConfig))
+  }
+
+  FileView {
+    id: launcherSearchConfigFile
+    path: root.launcherSearchConfigPath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadLauncherSearchConfig(text())
+    onLoadFailed: root.loadLauncherSearchConfig("")
+    onFileChanged: reload()
+  }
+
+  function setLauncherIncludeHome(value) {
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { includeHome: value })
+    root.saveLauncherSearchConfig()
+  }
+
+  function setLauncherIncludeMountedRoots(value) {
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { includeMountedRoots: value })
+    root.saveLauncherSearchConfig()
+  }
+
+  // A mount toggled off here stays remembered (present in
+  // disabledAutoRoots) even after it's physically unmounted -- the
+  // checklist below shows a disabled-but-not-currently-mounted entry
+  // too, not just the live findmnt list, so re-plugging the same drive
+  // doesn't silently re-enable it.
+  function toggleLauncherAutoRootDisabled(path) {
+    var list = root.launcherSearchConfig.disabledAutoRoots.slice()
+    var idx = list.indexOf(path)
+    if (idx === -1) list.push(path)
+    else list.splice(idx, 1)
+    root.launcherSearchConfig = Object.assign({}, root.launcherSearchConfig, { disabledAutoRoots: list })
+    root.saveLauncherSearchConfig()
+  }
+
+  // Live-discovered mounts for the checklist -- same findmnt --json
+  // pipeline FileSearchProvider.qml's own refreshRoots() uses, ported
+  // as its own small copy per LauncherSearchConfig.js's own header
+  // comment (this is a different Item tree than FileSearchProvider's,
+  // no way to share the live property directly). Refreshed when the
+  // Launcher category is actually opened (onOpenIndexChanged below),
+  // not on a timer.
+  property var launcherDiscoveredMounts: []
+
+  function refreshLauncherDiscoveredMounts() {
+    launcherMountProc.exec(["findmnt", "--json", "-o", "TARGET,FSTYPE"])
+  }
+
+  Process {
+    id: launcherMountProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.launcherDiscoveredMounts = LauncherSearchConfig.discoverMountedRoots(text)
+    }
+  }
+
+  // Merges the live findmnt-discovered mounts with any remembered
+  // disabled root that ISN'T currently mounted -- ported verbatim from
+  // ruixen.settings/LauncherSettingsContent.qml's own mountChecklist.
+  readonly property var mountChecklist: {
+    var cfg = root.launcherSearchConfig
+    var disabledSet = ({})
+    for (var i = 0; i < cfg.disabledAutoRoots.length; i++) disabledSet[cfg.disabledAutoRoots[i]] = true
+    var seen = ({})
+    var out = []
+    var live = root.launcherDiscoveredMounts
+    for (var j = 0; j < live.length; j++) {
+      seen[live[j].path] = true
+      out.push({ path: live[j].path, fstype: live[j].fstype, disabled: !!disabledSet[live[j].path], connected: true })
+    }
+    for (var k = 0; k < cfg.disabledAutoRoots.length; k++) {
+      if (seen[cfg.disabledAutoRoots[k]]) continue
+      out.push({ path: cfg.disabledAutoRoots[k], fstype: "", disabled: true, connected: false })
+    }
+    return out
+  }
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -647,6 +752,11 @@ Item {
     root.rightFocused = false
     root.focusedItemIndex = 0
     rightPaneScroll.contentY = 0
+    // Fresh mount list every time Launcher is (re)opened -- a drive
+    // plugged in or removed since the last visit should show up
+    // without needing a full shell restart, same reasoning
+    // FileSearchProvider.qml's own refreshRoots() already applies.
+    if (root.launcherOpen) root.refreshLauncherDiscoveredMounts()
   }
 
   // Fresh cursor on every new query, same as every other search
@@ -771,6 +881,9 @@ Item {
   readonly property bool barOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "bar"
+  readonly property bool launcherOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "launcher"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -1127,6 +1240,138 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.setBarMode(id)
+  }
+
+  // Launcher's own first item -- two on/off toggles grouped in one
+  // card, matching ruixen.settings/LauncherSettingsContent.qml's own
+  // "Launcher" card exactly (both toggles together, not one card
+  // each). Mouse-only for this pass, deliberately not wired into the
+  // Tab/Up-Down/Left-Right/Enter keyboard model SettingsSegmentedItem
+  // items use -- a toggle's own natural interaction (flip it directly)
+  // doesn't fit that "cycle between N options" shape, and building a
+  // real keyboard model for it is its own separate piece of work, not
+  // a same-shape extension of this one. The mounted-drives checklist,
+  // custom roots, and path/name exclusions from the real page are
+  // real follow-on work too, not part of this pass.
+  Rectangle {
+    id: launcherToggleItem
+    width: parent.width
+    height: launcherToggleContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.launcherOpen
+
+    Column {
+      id: launcherToggleContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Launcher Search"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsToggleRow {
+        label: "Include Home"
+        checked: root.launcherSearchConfig.includeHome
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: (value) => root.setLauncherIncludeHome(value)
+      }
+
+      SettingsToggleRow {
+        label: "Auto-include Mounted Drives"
+        checked: root.launcherSearchConfig.includeMountedRoots
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: (value) => root.setLauncherIncludeMountedRoots(value)
+      }
+    }
+  }
+
+  // Launcher's second item -- one toggle per discovered mount, ported
+  // from ruixen.settings/LauncherSettingsContent.qml's own "MOUNTED
+  // DRIVES" checklist. A disabled-but-unmounted entry (see
+  // toggleLauncherAutoRootDisabled's own comment) shows its own "Not
+  // currently connected" subtitle via SettingsToggleRow's own
+  // `subtitle` -- the exact shape that prop was added for.
+  Rectangle {
+    id: mountedDrivesItem
+    width: parent.width
+    height: mountedDrivesContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.launcherOpen
+
+    Column {
+      id: mountedDrivesContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 10
+
+      Text {
+        text: "Mounted Drives"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      // Centered icon + caption, matching ruixen.launcher's own
+      // EmptyState.qml "No Results" treatment -- same fa-hdd_o
+      // (U+F0A0) glyph, confirmed present in JetBrainsMono Nerd Font's
+      // cmap directly (same convention as every other \u-escaped glyph
+      // in this file).
+      Column {
+        width: parent.width
+        visible: root.mountChecklist.length === 0
+        spacing: 4
+
+        Text {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 20
+          color: root.muted
+        }
+        Text {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "No drives detected"
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          color: root.muted
+        }
+      }
+
+      Column {
+        width: parent.width
+        spacing: 10
+
+        Repeater {
+          model: root.mountChecklist
+
+          SettingsToggleRow {
+            required property var modelData
+            width: parent.width
+            label: modelData.path
+            subtitle: modelData.connected ? "" : "Not currently connected"
+            elideLabel: true
+            checked: !modelData.disabled
+            textColor: root.textColor
+            muted: root.muted
+            accent: root.accent
+            fontFamily: root.fontFamily
+            onToggled: root.toggleLauncherAutoRootDisabled(modelData.path)
+          }
+        }
+      }
+    }
   }
     }
   }

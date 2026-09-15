@@ -432,7 +432,19 @@ Item {
   // ghost/ContentPage treatment every extension's right side uses, a
   // second nested card would be a surface-on-a-surface with nothing to
   // visually separate.
-  Column {
+  // Frames this one setting as a distinct menu item/option -- direct
+  // follow-up: "this would be considered an option or menu item, how
+  // do we group it as that... put that darker bg tonal we used for
+  // the file picker text or zebra stripe... frame this as a item but
+  // dont frame the header Profile and description in it though." Same
+  // dark tonal FileDetailsPanel.qml's own zebra-striped metadata rows
+  // already use (Qt.rgba(0, 0, 0, 0.18)) -- this is that same"item"
+  // treatment scaled up to a whole option's card instead of one thin
+  // row, not a new color invented for this. headerColumn (the page's
+  // own "Profile" title + description) stays a separate, unframed
+  // sibling above -- explicitly not wrapped in this.
+  Rectangle {
+    id: profilePictureItem
     parent: panel.rightPane
     anchors.top: headerColumn.bottom
     anchors.topMargin: 16
@@ -440,128 +452,138 @@ Item {
     anchors.leftMargin: 20
     anchors.right: parent.right
     anchors.rightMargin: 20
-    spacing: 12
+    height: profilePictureContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
     visible: root.profileOpen
 
-    // Each individual setting gets its OWN plain, descriptive label --
-    // no separate subtitle underneath it -- direct correction: "it
-    // looks a bit wierd without a header... for this first setting
-    // option we can put Select Profile Picture. i dont think these
-    // options need subtitle if we make the option... kind a
-    // descriptive? itll be good for searching for them later too."
-    // This is the per-ITEM label (distinct from headerColumn's own
-    // per-PAGE "Profile" title above); every future real setting in
-    // any category follows this same one-line, self-descriptive
-    // convention rather than a title+subtitle pair.
-    Text {
-      text: "Select Profile Picture"
-      font.family: root.fontFamily
-      font.pixelSize: 12
-      font.weight: Font.DemiBold
-      color: root.textColor
-    }
+    Column {
+      id: profilePictureContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
 
-    Item {
-      anchors.horizontalCenter: parent.horizontalCenter
-      width: 64
-      height: 64
+      // Each individual setting gets its OWN plain, descriptive label
+      // -- no separate subtitle underneath it -- direct correction:
+      // "for this first setting option we can put Select Profile
+      // Picture. i dont think these options need subtitle if we make
+      // the option... kind a descriptive? itll be good for searching
+      // for them later too." This is the per-ITEM label (distinct
+      // from headerColumn's own per-PAGE "Profile" title above); every
+      // future real setting in any category follows this same
+      // one-line, self-descriptive convention rather than a
+      // title+subtitle pair. Shortened to "Profile Picture" per direct
+      // follow-up.
+      Text {
+        text: "Profile Picture"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
 
-      // Circular gradient fallback -- explicitly hidden once a real
-      // image is loaded (not just painted over by an assumed-opaque
-      // one), so nothing is left behind for any load-state edge case
-      // to reveal.
-      Rectangle {
-        anchors.fill: parent
-        radius: width / 2
-        visible: avatarPreviewImage.status !== Image.Ready
-        gradient: Gradient {
-          GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
-          GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
+      Item {
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: 64
+        height: 64
+
+        // Circular gradient fallback -- explicitly hidden once a real
+        // image is loaded (not just painted over by an assumed-opaque
+        // one), so nothing is left behind for any load-state edge case
+        // to reveal.
+        Rectangle {
+          anchors.fill: parent
+          radius: width / 2
+          visible: avatarPreviewImage.status !== Image.Ready
+          gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
+            GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
+          }
+        }
+
+        // "#" cache-bust fragment, not "?" -- Qt's local file:// loader
+        // can try to resolve a "?"-suffixed string as a literal filename
+        // instead of stripping it, unlike an HTTP server. A URL fragment
+        // is always stripped before path resolution, busting the Image's
+        // own source-string cache (needed since a new avatar overwrites
+        // the exact same path) without that risk.
+        Image {
+          id: avatarPreviewImage
+          anchors.fill: parent
+          source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          cache: false
+          visible: false
+        }
+
+        Rectangle {
+          id: avatarPreviewMask
+          anchors.fill: parent
+          radius: width * 0.2
+          color: "#ffffff"
+          visible: false
+          layer.enabled: true
+        }
+
+        MultiEffect {
+          anchors.fill: parent
+          source: avatarPreviewImage
+          maskEnabled: true
+          maskSource: avatarPreviewMask
+          maskThresholdMin: 0.5
+          maskThresholdMax: 1.0
         }
       }
 
-      // "#" cache-bust fragment, not "?" -- Qt's local file:// loader
-      // can try to resolve a "?"-suffixed string as a literal filename
-      // instead of stripping it, unlike an HTTP server. A URL fragment
-      // is always stripped before path resolution, busting the Image's
-      // own source-string cache (needed since a new avatar overwrites
-      // the exact same path) without that risk.
-      Image {
-        id: avatarPreviewImage
-        anchors.fill: parent
-        source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: true
-        cache: false
-        visible: false
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: Quickshell.env("USER") + "@" + root.hardwareName
+        font.family: root.fontFamily
+        font.pixelSize: 11
+        color: root.muted
       }
 
-      Rectangle {
-        id: avatarPreviewMask
-        anchors.fill: parent
-        radius: width * 0.2
-        color: "#ffffff"
-        visible: false
-        layer.enabled: true
-      }
+      // Selecting one both picks it (highlighted border) AND immediately
+      // applies it -- no separate "pick then press an action button"
+      // step, same as the real picker. Flow, not a Row -- 9 labels don't
+      // reliably fit one line at this panel's width.
+      Flow {
+        width: parent.width
+        spacing: 6
 
-      MultiEffect {
-        anchors.fill: parent
-        source: avatarPreviewImage
-        maskEnabled: true
-        maskSource: avatarPreviewMask
-        maskThresholdMin: 0.5
-        maskThresholdMax: 1.0
-      }
-    }
+        Repeater {
+          model: root.avatarCollections
 
-    Text {
-      anchors.horizontalCenter: parent.horizontalCenter
-      text: Quickshell.env("USER") + "@" + root.hardwareName
-      font.family: root.fontFamily
-      font.pixelSize: 11
-      color: root.muted
-    }
+          Rectangle {
+            id: collectionBtn
+            required property var modelData
+            readonly property bool isCurrent: root.avatarCollection === collectionBtn.modelData.id
 
-    // Selecting one both picks it (highlighted border) AND immediately
-    // applies it -- no separate "pick then press an action button"
-    // step, same as the real picker. Flow, not a Row -- 9 labels don't
-    // reliably fit one line at this panel's width.
-    Flow {
-      width: parent.width
-      spacing: 6
+            width: collectionLabel.implicitWidth + 16
+            height: 24
+            radius: 6
+            color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            border.width: 1
+            border.color: collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+            opacity: root.avatarBusy ? 0.5 : 1
 
-      Repeater {
-        model: root.avatarCollections
+            Text {
+              id: collectionLabel
+              anchors.centerIn: parent
+              text: collectionBtn.modelData.label
+              font.family: root.fontFamily
+              font.pixelSize: 10
+              font.weight: collectionBtn.isCurrent ? Font.DemiBold : Font.Normal
+              color: collectionBtn.isCurrent ? root.textColor : root.muted
+            }
 
-        Rectangle {
-          id: collectionBtn
-          required property var modelData
-          readonly property bool isCurrent: root.avatarCollection === collectionBtn.modelData.id
-
-          width: collectionLabel.implicitWidth + 16
-          height: 24
-          radius: 6
-          color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-          border.width: 1
-          border.color: collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-          opacity: root.avatarBusy ? 0.5 : 1
-
-          Text {
-            id: collectionLabel
-            anchors.centerIn: parent
-            text: collectionBtn.modelData.label
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            font.weight: collectionBtn.isCurrent ? Font.DemiBold : Font.Normal
-            color: collectionBtn.isCurrent ? root.textColor : root.muted
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            enabled: !root.avatarBusy
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.selectAvatar(collectionBtn.modelData.id)
+            MouseArea {
+              anchors.fill: parent
+              enabled: !root.avatarBusy
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.selectAvatar(collectionBtn.modelData.id)
+            }
           }
         }
       }

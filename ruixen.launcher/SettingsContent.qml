@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Services.Pipewire
 import Quickshell.Networking
 import Quickshell.Bluetooth
+import "services"
 import "LauncherSearchConfig.js" as LauncherSearchConfig
 
 // Layout-only shell for the "Settings" extension -- direct request:
@@ -1095,6 +1096,40 @@ Item {
     if (root.btScannerAdapter) root.btScannerAdapter.discovering = false
   }
 
+  // Plugins category's own real backend -- list/toggle/update/check,
+  // same PluginService.qml shape as ruixen.settings' own Plugins page
+  // (see services/PluginService.qml's own header comment for the one
+  // deliberate difference: self-lockout here is for ruixen.launcher,
+  // not ruixen.settings). Thin pass-through aliases/wrappers on root,
+  // same convention ruixen.settings' own Settings.qml uses so the rest
+  // of this file's own xxxItems/currentItems plumbing doesn't need to
+  // know a separate service object exists underneath.
+  PluginService { id: pluginService }
+
+  property alias pluginRows: pluginService.pluginRows
+  property alias pluginBusyId: pluginService.pluginBusyId
+  property alias pluginUpdateStatus: pluginService.pluginUpdateStatus
+  property alias pluginUpdateError: pluginService.pluginUpdateError
+  property alias pluginCheckStatus: pluginService.pluginCheckStatus
+  property alias pluginCheckError: pluginService.pluginCheckError
+  property alias pluginChangedIds: pluginService.pluginChangedIds
+  property alias ruixenRepoPath: pluginService.ruixenRepoPath
+
+  function refreshPlugins() { pluginService.refreshPlugins() }
+  function pluginIsProtected(row) { return pluginService.pluginIsProtected(row) }
+  function togglePluginEnabled(row) { pluginService.togglePluginEnabled(row) }
+  function updateRuixenShell() { pluginService.updateRuixenShell() }
+  function checkForUpdates() { pluginService.checkForUpdates() }
+
+  // Keyboard-navigable subset of pluginRows -- protected rows (locked,
+  // no toggle to reach) are drawn but deliberately not part of
+  // currentItems, same "nothing there to interact with" reasoning empty
+  // states elsewhere in this file already use. Matched back to its full
+  // pluginRows position by id (not index) wherever a row visual is
+  // needed, since this list and the Repeater's own full model don't
+  // share indices once protected rows are filtered out.
+  readonly property var togglablePluginRows: root.pluginRows.filter(function(r) { return !root.pluginIsProtected(r) })
+
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -1499,6 +1534,43 @@ Item {
     }
   }
 
+  // Plugins' own items -- Check for Updates and Update (both "select",
+  // no-op via their own activate() guard whenever ruixenRepoPath is
+  // empty or an action is already in flight, same disabled-button
+  // reasoning the real page's own MouseArea.enabled gates use), then
+  // one "toggle" per non-protected plugin row.
+  readonly property var pluginItems: {
+    var items = [
+      {
+        kind: "select",
+        activate: function() {
+          if (root.ruixenRepoPath !== "" && root.pluginCheckStatus !== "checking") root.checkForUpdates()
+        }
+      },
+      {
+        kind: "select",
+        activate: function() {
+          if (root.ruixenRepoPath !== "" && root.pluginUpdateStatus !== "updating") root.updateRuixenShell()
+        }
+      }
+    ]
+    for (var i = 0; i < root.togglablePluginRows.length; i++) {
+      items.push(root.pluginToggleItem(root.togglablePluginRows[i]))
+    }
+    return items
+  }
+
+  function pluginToggleItem(row) {
+    return {
+      kind: "toggle",
+      checked: row.enabled,
+      activate: function() {
+        if (root.pluginBusyId === row.id) return
+        root.togglePluginEnabled(row)
+      }
+    }
+  }
+
   // The single thing every nav function below actually reads --
   // whichever category is open picks its own table, everything else
   // (an empty header+description category) has nothing to navigate.
@@ -1510,6 +1582,7 @@ Item {
     if (root.displayOpen) return root.displayItems
     if (root.wifiOpen) return root.wifiItems
     if (root.btOpen) return root.btItems
+    if (root.pluginsOpen) return root.pluginItems
     return []
   }
 
@@ -1618,6 +1691,17 @@ Item {
       if (knownBtIdx < root.knownBtRows.length) return knownBtRepeater.itemAt(knownBtIdx)
       var otherBtIdx = knownBtIdx - root.knownBtRows.length
       return otherBtRepeater.itemAt(otherBtIdx)
+    }
+    if (root.pluginsOpen) {
+      if (root.focusedItemIndex === 0) return pluginCheckButton
+      if (root.focusedItemIndex === 1) return pluginUpdateButton
+      var togIdx = root.focusedItemIndex - 2
+      var target = root.togglablePluginRows[togIdx]
+      if (!target) return null
+      for (var i = 0; i < root.pluginRows.length; i++) {
+        if (root.pluginRows[i].id === target.id) return pluginRepeater.itemAt(i)
+      }
+      return null
     }
     return null
   }
@@ -1730,6 +1814,8 @@ Item {
       spacingProfileReadProc.running = true
       animationProfileReadProc.running = true
       barModeReadProc.running = true
+      root.refreshPlugins()
+      pluginService.refreshRepoPath()
     }
     // Releases the Wi-Fi scan radio and Bluetooth discovery the moment
     // this extension closes -- both read root.active itself to decide
@@ -1836,6 +1922,9 @@ Item {
   readonly property bool btOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "bluetooth"
+  readonly property bool pluginsOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "plugins"
 
   // Every category's right-panel content, Profile included, scrolls as
   // ONE unit -- direct request: "we need the right panel to be able to
@@ -2868,6 +2957,294 @@ Item {
     font.family: root.fontFamily
     font.pixelSize: 12
     color: root.muted
+  }
+
+  // Plugins' own two items -- Check for Updates and Update actions,
+  // then the checklist. Ported from ruixen.settings/PluginsContent.qml
+  // + Settings.qml's own header-row Check/Update icons -- this plugin
+  // has no shared header-icon chrome to put those in, so they're their
+  // own action rows in a small card instead, same "adapt the chrome,
+  // not the backend" approach Wi-Fi's own dropped QR/speed-test buttons
+  // took the other way (dropped entirely there; kept here since these
+  // two are core to the page, not optional extras).
+  Rectangle {
+    id: pluginActionsItem
+    width: parent.width
+    height: pluginActionsContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.pluginsOpen
+
+    Column {
+      id: pluginActionsContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 10
+
+      Text {
+        visible: root.ruixenRepoPath === ""
+        width: parent.width
+        text: "Update needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable it here."
+        wrapMode: Text.WordWrap
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: root.muted
+      }
+
+      Text {
+        visible: root.pluginUpdateStatus === "error" && root.pluginUpdateError !== ""
+        width: parent.width
+        text: root.pluginUpdateError
+        wrapMode: Text.WordWrap
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: "#e05252"
+      }
+
+      Text {
+        visible: root.pluginCheckStatus === "error" && root.pluginCheckError !== ""
+        width: parent.width
+        text: root.pluginCheckError
+        wrapMode: Text.WordWrap
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: "#e05252"
+      }
+
+      Item {
+        id: pluginCheckButton
+        width: parent.width
+        height: 24
+        readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginCheckStatus !== "checking"
+
+        Rectangle {
+          visible: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 0
+          anchors.fill: parent
+          anchors.margins: -4
+          radius: 6
+          color: "transparent"
+          border.width: 1
+          border.color: root.accent
+        }
+
+        Text {
+          id: checkGlyph
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 14
+          color: pluginCheckButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
+          rotation: root.pluginCheckStatus === "checking" ? checkSpinAngle : 0
+          property real checkSpinAngle: 0
+
+          NumberAnimation on checkSpinAngle {
+            running: root.pluginCheckStatus === "checking"
+            loops: Animation.Infinite
+            from: 0
+            to: 360
+            duration: 900
+          }
+        }
+
+        Text {
+          anchors.left: checkGlyph.right
+          anchors.leftMargin: 10
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Check for Updates"
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: pluginCheckButton.actionEnabled ? root.textColor : root.muted
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: pluginCheckButton.actionEnabled
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.checkForUpdates()
+        }
+      }
+
+      Item {
+        id: pluginUpdateButton
+        width: parent.width
+        height: 24
+        readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginUpdateStatus !== "updating"
+
+        Rectangle {
+          visible: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 1
+          anchors.fill: parent
+          anchors.margins: -4
+          radius: 6
+          color: "transparent"
+          border.width: 1
+          border.color: root.accent
+        }
+
+        Text {
+          id: updateGlyph
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.pluginUpdateStatus === "updating" ? "" : ""
+          font.family: root.fontFamily
+          font.pixelSize: 14
+          color: pluginUpdateButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
+          rotation: root.pluginUpdateStatus === "updating" ? updateSpinAngle : 0
+          property real updateSpinAngle: 0
+
+          NumberAnimation on updateSpinAngle {
+            running: root.pluginUpdateStatus === "updating"
+            loops: Animation.Infinite
+            from: 0
+            to: 360
+            duration: 900
+          }
+        }
+
+        Text {
+          anchors.left: updateGlyph.right
+          anchors.leftMargin: 10
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Update"
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: pluginUpdateButton.actionEnabled ? root.textColor : root.muted
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: pluginUpdateButton.actionEnabled
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.updateRuixenShell()
+        }
+      }
+    }
+  }
+
+  Rectangle {
+    id: pluginListItem
+    width: parent.width
+    height: pluginListContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.pluginsOpen
+
+    Column {
+      id: pluginListContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 4
+
+      Text {
+        visible: root.pluginRows.length === 0
+        text: "No plugins found"
+        font.family: root.fontFamily
+        font.pixelSize: 11
+        color: root.muted
+      }
+
+      Repeater {
+        id: pluginRepeater
+        model: root.pluginRows
+
+        Item {
+          id: pluginRow
+          required property var modelData
+          required property int index
+          readonly property bool isProtected: root.pluginIsProtected(modelData)
+          readonly property bool busy: root.pluginBusyId === modelData.id
+          readonly property int focusIndex: {
+            for (var i = 0; i < root.togglablePluginRows.length; i++)
+              if (root.togglablePluginRows[i].id === modelData.id) return i
+            return -1
+          }
+
+          width: parent.width
+          height: 28
+
+          Rectangle {
+            visible: !pluginRow.isProtected && root.pluginsOpen && root.rightFocused
+              && root.focusedItemIndex === (2 + pluginRow.focusIndex)
+            anchors.fill: parent
+            anchors.margins: -4
+            radius: 6
+            color: "transparent"
+            border.width: 1
+            border.color: root.accent
+          }
+
+          Text {
+            id: pluginNameText
+            anchors.left: parent.left
+            anchors.right: pluginStatusDot.visible ? pluginStatusDot.left : (pluginLock.visible ? pluginLock.left : pluginToggle.left)
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            text: pluginRow.modelData.name
+            font.family: root.fontFamily
+            font.pixelSize: 12
+            color: pluginRow.isProtected ? root.muted : root.textColor
+            elide: Text.ElideRight
+          }
+
+          // Update-status dot -- pending (yellow) if this plugin has
+          // files in the checked batch, up to date (accent) otherwise.
+          // Only shown once a real check has actually run.
+          Rectangle {
+            id: pluginStatusDot
+            visible: root.pluginCheckStatus === "checked"
+            readonly property bool pending: root.pluginChangedIds.indexOf(pluginRow.modelData.id) >= 0
+            anchors.right: pluginLock.visible ? pluginLock.left : pluginToggle.left
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            width: 6
+            height: 6
+            radius: 3
+            color: pending ? "#e8c34a" : "#3ecf5b"
+          }
+
+          Text {
+            id: pluginLock
+            visible: pluginRow.isProtected
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: ""
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: root.muted
+          }
+
+          Rectangle {
+            id: pluginToggle
+            visible: !pluginRow.isProtected
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 32
+            height: 16
+            radius: 8
+            color: pluginRow.modelData.enabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
+            opacity: pluginRow.busy ? 0.5 : 1
+            Behavior on color { ColorAnimation { duration: 120 } }
+
+            Rectangle {
+              width: 12
+              height: 12
+              radius: 6
+              color: "#ffffff"
+              anchors.verticalCenter: parent.verticalCenter
+              x: pluginRow.modelData.enabled ? parent.width - width - 2 : 2
+              Behavior on x { NumberAnimation { duration: 120 } }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: !pluginRow.busy
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.togglePluginEnabled(pluginRow.modelData)
+            }
+          }
+        }
+      }
+    }
   }
     }
   }

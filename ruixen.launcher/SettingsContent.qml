@@ -571,7 +571,15 @@ Item {
     parent: panel.rightPane
     anchors.fill: parent
     contentWidth: width
-    contentHeight: rightContentColumn.height
+    // rightContentColumn's own y (20, matching its x inset) plus a
+    // matching 20 at the bottom -- direct report: "it doesnt scroll
+    // down enough, im only seeeing half of the last item". This was
+    // rightContentColumn.height alone, which is only the COLUMN's own
+    // stacked height -- it doesn't know about the 20px it's offset
+    // down by, so the Flickable thought the content ended 20px (plus,
+    // with no bottom inset at all, the last item sat flush against
+    // that miscalculated edge) before it actually does.
+    contentHeight: rightContentColumn.y + rightContentColumn.height + 20
     boundsBehavior: Flickable.StopAtBounds
     clip: true
 

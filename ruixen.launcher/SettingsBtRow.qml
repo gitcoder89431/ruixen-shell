@@ -112,7 +112,7 @@ Item {
       // (click to arm pairing) -- a different glyph from the plug per
       // direct follow-up ("the reconnect and pair with the plug looks
       // weird, maybe another one for pair so its not too many plugs").
-      Text {
+      Item {
         id: statusGlyph
         // Its own slot to the LEFT of forget's, not the same anchor --
         // real bug hit live: both were separately anchored to
@@ -126,24 +126,30 @@ Item {
         anchors.rightMargin: root.showForget ? 8 : 0
         anchors.verticalCenter: parent.verticalCenter
         width: 16
-        horizontalAlignment: Text.AlignRight
-        text: root.busy ? "" : (root.known ? (root.connected ? "" : "") : "")
-        font.family: root.fontFamily
-        font.pixelSize: root.known && root.connected && !root.busy ? 12 : 13
-        color: root.known && root.connected && !root.busy ? "#e05252" : root.muted
-        // rotation forced to 0 whenever not busy, not left bound
-        // straight to a running RotationAnimation -- that never resets
-        // rotation when it stops, so the glyph could land mid-spin
-        // instead of upright.
-        rotation: root.busy ? spinAngle : 0
-        property real spinAngle: 0
+        height: statusGlyphText.implicitHeight
 
-        NumberAnimation on spinAngle {
-          running: root.busy
-          loops: Animation.Infinite
-          from: 0
-          to: 360
-          duration: 900
+        Text {
+          id: statusGlyphText
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.busy ? "" : (root.known ? (root.connected ? "" : "") : "")
+          font.family: root.fontFamily
+          font.pixelSize: root.known && root.connected && !root.busy ? 12 : 13
+          color: root.known && root.connected && !root.busy ? "#e05252" : root.muted
+          // rotation forced to 0 whenever not busy, not left bound
+          // straight to a running RotationAnimation -- that never resets
+          // rotation when it stops, so the glyph could land mid-spin
+          // instead of upright.
+          rotation: root.busy ? spinAngle : 0
+          property real spinAngle: 0
+
+          NumberAnimation on spinAngle {
+            running: root.busy
+            loops: Animation.Infinite
+            from: 0
+            to: 360
+            duration: 900
+          }
         }
       }
 

@@ -256,53 +256,32 @@ Item {
     }
   }
 
-  // Settings-mode key hints -- Enter (open the highlighted category),
-  // then Tab (drill into its options), same order as the real flow.
-  // Same physical-keycap styling as the Enter-hint chip above, just two
-  // of them side by side -- the Tab one sizes to its own label rather
-  // than a fixed 28px (three letters doesn't compress into a single
-  // glyph the way Enter's ↵ does).
-  Row {
-    id: settingsHintsRow
+  // Settings-mode key hint -- Enter (open the highlighted category)
+  // only, same physical-keycap styling as the other Enter-hint chip
+  // above. A Tab chip sat next to this one briefly -- direct follow-up
+  // ("we cant show the tab, cause then it looks like people need to
+  // click tab and enter at the same time, just show the enter"):
+  // showing both together read as a chord, not two separate, sequenced
+  // actions, so this stays Enter-only.
+  Rectangle {
+    id: settingsEnterHint
     visible: root.showSettingsHints
     anchors.right: parent.right
     anchors.rightMargin: 12
     anchors.verticalCenter: parent.verticalCenter
-    spacing: 6
+    width: 28
+    height: 22
+    radius: 6
+    color: Qt.rgba(1, 1, 1, 0.06)
+    border.width: 1
+    border.color: Qt.rgba(1, 1, 1, 0.12)
 
-    Rectangle {
-      width: 28
-      height: 22
-      radius: 6
-      color: Qt.rgba(1, 1, 1, 0.06)
-      border.width: 1
-      border.color: Qt.rgba(1, 1, 1, 0.12)
-
-      Text {
-        anchors.centerIn: parent
-        text: "↵"
-        color: root.mutedColor
-        font.family: root.fontFamily
-        font.pixelSize: 13
-      }
-    }
-
-    Rectangle {
-      width: tabHintLabel.implicitWidth + 14
-      height: 22
-      radius: 6
-      color: Qt.rgba(1, 1, 1, 0.06)
-      border.width: 1
-      border.color: Qt.rgba(1, 1, 1, 0.12)
-
-      Text {
-        id: tabHintLabel
-        anchors.centerIn: parent
-        text: "Tab"
-        color: root.mutedColor
-        font.family: root.fontFamily
-        font.pixelSize: 11
-      }
+    Text {
+      anchors.centerIn: parent
+      text: "↵"
+      color: root.mutedColor
+      font.family: root.fontFamily
+      font.pixelSize: 13
     }
   }
 
@@ -313,11 +292,11 @@ Item {
     anchors.leftMargin: 44
     // sourceFilterWidth + sourceFilterButton's own rightMargin (12) +
     // a small gap, only while it's actually showing; otherwise room for
-    // the Enter+Tab hint row (Settings mode) or the lone Enter-hint chip
-    // (28 wide + 12 rightMargin) once there's a result for it to hint
-    // at, or the plain 16 default with none of the three showing.
+    // either Enter-hint chip (Settings mode's own, or the search-
+    // results one below, both 28 wide + 12 rightMargin), or the plain
+    // 16 default with neither showing.
     anchors.rightMargin: root.showSourceFilter ? (root.sourceFilterWidth + 12 + 10)
-      : root.showSettingsHints ? (settingsHintsRow.width + 12 + 10)
+      : root.showSettingsHints ? (settingsEnterHint.width + 12 + 10)
       : (root.resultCount > 0 ? (28 + 12 + 10) : 16)
     verticalAlignment: TextInput.AlignVCenter
     color: root.textColor

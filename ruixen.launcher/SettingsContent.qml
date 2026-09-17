@@ -1181,6 +1181,8 @@ Item {
   property alias pluginCheckStatus: pluginService.pluginCheckStatus
   property alias pluginCheckError: pluginService.pluginCheckError
   property alias pluginChangedIds: pluginService.pluginChangedIds
+  property alias pluginsUpToDate: pluginService.pluginsUpToDate
+  property alias pluginLastUpdatedLabel: pluginService.lastUpdatedLabel
   property alias ruixenRepoPath: pluginService.ruixenRepoPath
   property alias uninstallConfirmPhrase: pluginService.uninstallConfirmPhrase
   property alias uninstallConfirmInput: pluginService.uninstallConfirmInput
@@ -1200,6 +1202,29 @@ Item {
   // needed, since this list and the Repeater's own full model don't
   // share indices once protected rows are filtered out.
   readonly property var togglablePluginRows: root.pluginRows.filter(function(r) { return !root.pluginIsProtected(r) })
+
+  // Short status line above the Check/Update buttons -- direct
+  // request: "like a status line but short please... it can say Up to
+  // Date or Update Available and then on load before update check then
+  // Last Updated time or the commit version". Priority order matches
+  // what's actually happening: an in-flight update/check always wins
+  // over a stale prior result; a real check result wins over the
+  // load-time git log guess once one exists; the git log line is the
+  // fallback for "nothing's been checked yet this session".
+  readonly property string pluginStatusLine: {
+    if (root.pluginUpdateStatus === "updating") return "Updating…"
+    if (root.pluginCheckStatus === "checking") return "Checking for updates…"
+    if (root.pluginCheckStatus === "checked") return root.pluginsUpToDate ? "Up to Date" : "Update Available"
+    return root.pluginLastUpdatedLabel
+  }
+
+  // Green/yellow, same real meaning the per-row pending dot already
+  // uses (SettingsContent's own pluginStatusDot below) -- not a new
+  // color invented just for this line.
+  readonly property color pluginStatusLineColor: {
+    if (root.pluginCheckStatus === "checked") return root.pluginsUpToDate ? "#3ecf5b" : "#e8c34a"
+    return root.muted
+  }
 
   Component.onCompleted: ensureAvatarStateDirProc.running = true
 
@@ -3166,6 +3191,17 @@ Item {
       }
 
       Text {
+        visible: root.pluginStatusLine !== ""
+        width: parent.width
+        text: root.pluginStatusLine
+        wrapMode: Text.WordWrap
+        font.family: root.fontFamily
+        font.pixelSize: 11
+        font.weight: Font.DemiBold
+        color: root.pluginStatusLineColor
+      }
+
+      Text {
         visible: root.pluginUpdateStatus === "error" && root.pluginUpdateError !== ""
         width: parent.width
         text: root.pluginUpdateError
@@ -3185,111 +3221,123 @@ Item {
         color: "#e05252"
       }
 
-      Item {
-        id: pluginCheckButton
+      // Two real buttons side by side, not a plain 1-column/2-row list
+      // -- direct follow-up: "the update thing on top the 1 column 2
+      // row doesnt look nice. can they be buttons or something else".
+      // Rest-state light tint (Qt.rgba(1,1,1,0.06)/0.12 hover) is safe
+      // here -- unlike Wi-Fi/Bluetooth's own buttons, these sit
+      // directly on this card's plain dark background, never a
+      // lightened row, so there's no low-contrast risk to design
+      // around (see SettingsWifiRow.qml's own header comment for that
+      // specific bug).
+      Row {
         width: parent.width
-        height: 24
-        readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginCheckStatus !== "checking"
+        spacing: 8
 
         Rectangle {
-          visible: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 0
-          anchors.fill: parent
-          anchors.margins: -4
-          radius: 6
-          color: "transparent"
-          border.width: 1
+          id: pluginCheckButton
+          readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginCheckStatus !== "checking"
+
+          width: (parent.width - 8) / 2
+          height: 36
+          radius: 8
+          color: checkMouse.containsMouse && actionEnabled ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 0 ? 1 : 0
           border.color: root.accent
-        }
 
-        Text {
-          id: checkGlyph
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          text: ""
-          font.family: root.fontFamily
-          font.pixelSize: 14
-          color: pluginCheckButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
-          rotation: root.pluginCheckStatus === "checking" ? checkSpinAngle : 0
-          property real checkSpinAngle: 0
+          Row {
+            anchors.centerIn: parent
+            spacing: 8
 
-          NumberAnimation on checkSpinAngle {
-            running: root.pluginCheckStatus === "checking"
-            loops: Animation.Infinite
-            from: 0
-            to: 360
-            duration: 900
+            Text {
+              id: checkGlyph
+              anchors.verticalCenter: parent.verticalCenter
+              text: "\uf058"
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              color: pluginCheckButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
+              rotation: root.pluginCheckStatus === "checking" ? checkSpinAngle : 0
+              property real checkSpinAngle: 0
+
+              NumberAnimation on checkSpinAngle {
+                running: root.pluginCheckStatus === "checking"
+                loops: Animation.Infinite
+                from: 0
+                to: 360
+                duration: 900
+              }
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Check for Updates"
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              color: pluginCheckButton.actionEnabled ? root.textColor : root.muted
+            }
+          }
+
+          MouseArea {
+            id: checkMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: pluginCheckButton.actionEnabled
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.checkForUpdates()
           }
         }
 
-        Text {
-          anchors.left: checkGlyph.right
-          anchors.leftMargin: 10
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Check for Updates"
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          color: pluginCheckButton.actionEnabled ? root.textColor : root.muted
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          enabled: pluginCheckButton.actionEnabled
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.checkForUpdates()
-        }
-      }
-
-      Item {
-        id: pluginUpdateButton
-        width: parent.width
-        height: 24
-        readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginUpdateStatus !== "updating"
-
         Rectangle {
-          visible: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 1
-          anchors.fill: parent
-          anchors.margins: -4
-          radius: 6
-          color: "transparent"
-          border.width: 1
+          id: pluginUpdateButton
+          readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginUpdateStatus !== "updating"
+
+          width: (parent.width - 8) / 2
+          height: 36
+          radius: 8
+          color: updateMouse.containsMouse && actionEnabled ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 1 ? 1 : 0
           border.color: root.accent
-        }
 
-        Text {
-          id: updateGlyph
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          text: root.pluginUpdateStatus === "updating" ? "" : ""
-          font.family: root.fontFamily
-          font.pixelSize: 14
-          color: pluginUpdateButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
-          rotation: root.pluginUpdateStatus === "updating" ? updateSpinAngle : 0
-          property real updateSpinAngle: 0
+          Row {
+            anchors.centerIn: parent
+            spacing: 8
 
-          NumberAnimation on updateSpinAngle {
-            running: root.pluginUpdateStatus === "updating"
-            loops: Animation.Infinite
-            from: 0
-            to: 360
-            duration: 900
+            Text {
+              id: updateGlyph
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.pluginUpdateStatus === "updating" ? "\uf1ce" : "\uf021"
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              color: pluginUpdateButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
+              rotation: root.pluginUpdateStatus === "updating" ? updateSpinAngle : 0
+              property real updateSpinAngle: 0
+
+              NumberAnimation on updateSpinAngle {
+                running: root.pluginUpdateStatus === "updating"
+                loops: Animation.Infinite
+                from: 0
+                to: 360
+                duration: 900
+              }
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Update"
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              color: pluginUpdateButton.actionEnabled ? root.textColor : root.muted
+            }
           }
-        }
 
-        Text {
-          anchors.left: updateGlyph.right
-          anchors.leftMargin: 10
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Update"
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          color: pluginUpdateButton.actionEnabled ? root.textColor : root.muted
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          enabled: pluginUpdateButton.actionEnabled
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.updateRuixenShell()
+          MouseArea {
+            id: updateMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: pluginUpdateButton.actionEnabled
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.updateRuixenShell()
+          }
         }
       }
     }

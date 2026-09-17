@@ -86,12 +86,45 @@ Item {
     command: ["bash", "-c", "cat \"$HOME/.local/state/ruixen/repo-path\" 2>/dev/null"]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.ruixenRepoPath = text.trim()
+      onStreamFinished: {
+        root.ruixenRepoPath = text.trim()
+        root.refreshLastUpdated()
+      }
     }
   }
 
   function refreshRepoPath() {
     repoPathProc.running = true
+  }
+
+  // "Last updated" label shown before any real Check for Updates has
+  // run this session -- direct request: "on load before update check
+  // then Last Updated time or the commit version". Plain read-only
+  // `git log`, same class of dependency as update.sh's own --check-json
+  // (a real command against the checkout, never mutates it) -- date +
+  // short hash together, since either alone is less useful (a date with
+  // no way to correlate it to a specific commit, or a hash with no
+  // human-readable sense of how stale it might be).
+  property string lastUpdatedLabel: ""
+
+  Process {
+    id: lastUpdatedProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var raw = String(text || "").trim()
+        var parts = raw.split("|")
+        root.lastUpdatedLabel = (parts.length === 2 && parts[0] !== "" && parts[1] !== "")
+          ? "Last updated " + parts[0] + " (" + parts[1] + ")" : ""
+      }
+    }
+  }
+
+  function refreshLastUpdated() {
+    if (root.ruixenRepoPath === "") { root.lastUpdatedLabel = ""; return }
+    var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
+    lastUpdatedProc.command = ["bash", "-c", "git -C '" + safePath + "' log -1 --format='%ad|%h' --date=short 2>/dev/null"]
+    lastUpdatedProc.running = true
   }
 
   Process {

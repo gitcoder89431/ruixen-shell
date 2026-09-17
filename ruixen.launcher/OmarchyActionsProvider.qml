@@ -138,10 +138,15 @@ Item {
       // own "Ruixen" breadcrumb in Launcher.qml, so both extension
       // rows read as the same family of thing.
       breadcrumb: "Ruixen",
-      // Opens a panel rather than firing a one-shot action like
-      // Screenshot/Lock/Theme -- "Application" fits what this actually
-      // is better than the provider's own default "Command".
-      kind: "Application",
+      // "Extension", not "Application" or the provider's own default
+      // "Command" -- direct follow-up: "switch the thrid column
+      // instead of applications just call it extension, its pretty
+      // much the same thing in the extensions group." Matches
+      // settingsRow()/wallpapersRow()'s own kind in Launcher.qml
+      // (both "Extension") -- this row opens the exact same Settings
+      // extension, just reachable by typing "settings"/"preferences"
+      // instead of picking it off the landing list.
+      kind: "Extension",
       aliases: ["settings", "preferences"],
       // Hardcoded, not left to keybindFor()'s own auto lookup -- that
       // only indexes Omarchy's own stock keybinds (omarchy-menu.jsonc),

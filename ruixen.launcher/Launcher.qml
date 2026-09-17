@@ -144,6 +144,18 @@ Item {
           root.suppressResizeAnimation = true
           root.activeExtensionId = "settings"
           opensToExtension = true
+          // Deep-link straight to one settings category too, same
+          // real recipe ruixen.settings' own docs/KEYBINDS.md already
+          // documents (there via `{"section":"wifi"}` against
+          // ruixen.settings itself) -- e.g. `omarchy-shell shell
+          // summon ruixen.launcher
+          // '{"extension":"settings","section":"wifi"}'`. AFTER
+          // activeExtensionId, not before -- setting that property
+          // synchronously fires SettingsContent's own onActiveChanged
+          // reset (openIndex/selectedIndex back to 0, "fresh state
+          // every time this extension is (re)entered"), so this has
+          // to land after that reset already happened, not before it.
+          if (payload.section) settingsContent.openSectionById(payload.section)
         }
       } catch (e) {}
     }

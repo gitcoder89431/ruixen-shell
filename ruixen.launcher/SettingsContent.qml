@@ -1415,6 +1415,32 @@ Item {
       root.openIndex = root.filteredSections[root.selectedIndex].originalIndex
   }
 
+  // Deep-link support -- direct follow-up: "our last setting menu had
+  // keybinds that opens directly to bluetooth wifi audio etc... do we
+  // need to update these doc or backend to support the new setting
+  // launcher?" Same real mechanism ruixen.settings' own Settings.qml
+  // already ports (sectionIndexFor there), so a keybind like
+  // `omarchy-shell shell summon ruixen.launcher
+  // '{"extension":"settings","section":"wifi"}'` keeps working the
+  // same way against this plugin instead. Called from Launcher.qml's
+  // own open(payloadJson) -- see its comment for why AFTER, not
+  // before, activeExtensionId is set (onActiveChanged's own "fresh
+  // state every time this extension is (re)entered" reset would
+  // otherwise stomp this right back to 0 a moment later). Sets both
+  // openIndex (what the right panel shows) and selectedIndex (the
+  // left list's own highlight) so the two agree -- an unmatched id is
+  // a silent no-op, same "malformed payload does nothing" convention
+  // ruixen.settings' own version already uses.
+  function openSectionById(id) {
+    for (var i = 0; i < root.sections.length; i++) {
+      if (root.sections[i].id === id) {
+        root.openIndex = i
+        root.selectedIndex = i
+        return
+      }
+    }
+  }
+
   // --- Right-panel keyboard focus -- see moveSelectionUp's own
   // comment above for the current interaction shape. Only meaningful
   // while the open category actually has real items -- a plain

@@ -53,6 +53,11 @@ Item {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
   property bool active: false
+  // Passed through from Launcher.qml's own root.shell -- needed for
+  // summonWifiQr()/summonSpeedTest() below (root.shell.summon(id,
+  // payloadJson), the same generic host API Launcher.qml's own
+  // dismiss() already calls as shell.hide(id)).
+  property var shell: null
   // Fed from the outer SearchHeader/root.query, same single-search-box
   // convention Wallpapers already established ("we dont need two
   // search box, use the launcher for wallpaper search input") -- direct
@@ -957,6 +962,33 @@ Item {
     Networking.wifiEnabled = !Networking.wifiEnabled
   }
 
+  // Both real Omarchy panel plugins (kind: panel), already enabled in
+  // this shell -- confirmed via omarchy-shell shell listPlugins, not
+  // guessed, same as ruixen.settings' own port of these two. Direct
+  // follow-up: "definitely add the qr and speed test, these should be
+  // easy to do as they are button that calls omarchy overlays".
+  // root.shell.summon(id, payloadJson) is the same generic host API
+  // dismiss() already calls as shell.hide(id) -- just the "open a
+  // panel" verb instead of "close this one". Payload shapes ported
+  // directly from ruixen.settings/Settings.qml's own summonWifiQr()/
+  // summonSpeedTest(), themselves ported from Omarchy's own real
+  // network Panel.qml.
+  function summonWifiQr() {
+    if (!root.shell || typeof root.shell.summon !== "function") return
+    var payload = {}
+    if (root.connectedWifiNetwork) {
+      if (root.netInfo.iface) payload.iface = root.netInfo.iface
+      payload.ssid = root.connectedWifiNetwork.ssid
+    }
+    root.shell.summon("omarchy.wifiqr", JSON.stringify(payload))
+  }
+
+  function summonSpeedTest() {
+    if (!root.shell || typeof root.shell.summon !== "function") return
+    var connection = root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : ""
+    root.shell.summon("omarchy.speedtest", connection ? JSON.stringify({ connection: connection }) : "{}")
+  }
+
   // scannerEnabled lives on the shared WifiDevice, not per-instance
   // state, so it has to be explicitly released -- tracks which device
   // THIS instance turned scanning on for, same as ruixen.settings' own
@@ -1587,11 +1619,21 @@ Item {
   // connect-or-open-the-password-prompt), which is real backend logic,
   // not a new keyboard-nav shape.
   readonly property var wifiItems: {
-    var items = [{
-      kind: "toggle",
-      checked: Networking.wifiEnabled,
-      activate: function() { root.toggleWifiRadio() }
-    }]
+    var items = [
+      {
+        kind: "toggle",
+        checked: Networking.wifiEnabled,
+        activate: function() { root.toggleWifiRadio() }
+      },
+      {
+        kind: "select",
+        activate: function() { root.summonWifiQr() }
+      },
+      {
+        kind: "select",
+        activate: function() { root.summonSpeedTest() }
+      }
+    ]
     if (!Networking.wifiEnabled) return items
     for (var i = 0; i < root.knownWifiRows.length; i++) {
       items.push(root.wifiKnownRowItem(root.knownWifiRows[i]))
@@ -1843,7 +1885,9 @@ Item {
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
-      var knownIdx = root.focusedItemIndex - 1
+      if (root.focusedItemIndex === 1) return wifiQrButton
+      if (root.focusedItemIndex === 2) return wifiSpeedTestButton
+      var knownIdx = root.focusedItemIndex - 3
       if (knownIdx < root.knownWifiRows.length) return knownRepeater.itemAt(knownIdx)
       var otherIdx = knownIdx - root.knownWifiRows.length
       return otherRepeater.itemAt(otherIdx)
@@ -2819,11 +2863,12 @@ Item {
 
   // Wi-Fi's own three items -- the radio toggle (reuses
   // SettingsToggleRow.qml directly, same as Launcher's own toggles),
-  // then Known Networks and Available Networks, both on
-  // SettingsWifiRow.qml (see its own header comment). Real backend on
-  // root above, ported from ruixen.settings/WifiContent.qml +
-  // Settings.qml -- no QR-share/speed-test buttons (those summon two
-  // separate Omarchy panel plugins, out of scope for this pass).
+  // then QR-share and Speed Test buttons (real Omarchy panel plugins,
+  // summoned via root.shell.summon() -- see summonWifiQr()/
+  // summonSpeedTest()'s own comment), then Known Networks and
+  // Available Networks, both on SettingsWifiRow.qml (see its own
+  // header comment). Real backend on root above, ported from
+  // ruixen.settings/WifiContent.qml + Settings.qml.
   Rectangle {
     id: wifiRadioItem
     width: parent.width
@@ -2855,6 +2900,87 @@ Item {
         accent: root.accent
         fontFamily: root.fontFamily
         onToggled: root.toggleWifiRadio()
+      }
+
+      Row {
+        width: parent.width
+        spacing: 8
+
+        Rectangle {
+          id: wifiQrButton
+          width: (parent.width - 8) / 2
+          height: 32
+          radius: 8
+          color: wifiQrMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: root.wifiOpen && root.rightFocused && root.focusedItemIndex === 1 ? 1 : 0
+          border.color: root.accent
+
+          Row {
+            anchors.centerIn: parent
+            spacing: 8
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: ""
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              color: root.textColor
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "QR Code"
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              color: root.textColor
+            }
+          }
+
+          MouseArea {
+            id: wifiQrMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.summonWifiQr()
+          }
+        }
+
+        Rectangle {
+          id: wifiSpeedTestButton
+          width: (parent.width - 8) / 2
+          height: 32
+          radius: 8
+          color: wifiSpeedTestMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: root.wifiOpen && root.rightFocused && root.focusedItemIndex === 2 ? 1 : 0
+          border.color: root.accent
+
+          Row {
+            anchors.centerIn: parent
+            spacing: 8
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: ""
+              font.family: root.fontFamily
+              font.pixelSize: 13
+              color: root.textColor
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Speed Test"
+              font.family: root.fontFamily
+              font.pixelSize: 12
+              color: root.textColor
+            }
+          }
+
+          MouseArea {
+            id: wifiSpeedTestMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.summonSpeedTest()
+          }
+        }
       }
     }
   }
@@ -2925,7 +3051,7 @@ Item {
             signalPercent: modelData.signal
             secured: !root.isOpenNetwork(modelData.security)
             showForget: !modelData.connected
-            rowFocused: root.wifiOpen && root.rightFocused && root.focusedItemIndex === (1 + index)
+            rowFocused: root.wifiOpen && root.rightFocused && root.focusedItemIndex === (3 + index)
             textColor: root.textColor
             muted: root.muted
             accent: root.accent
@@ -2988,7 +3114,7 @@ Item {
             connecting: root.wifiConnecting
             errorText: root.wifiPasswordSsid === modelData.ssid ? root.wifiConnectError : ""
             rowFocused: root.wifiOpen && root.rightFocused
-              && root.focusedItemIndex === (1 + root.knownWifiRows.length + index)
+              && root.focusedItemIndex === (3 + root.knownWifiRows.length + index)
             textColor: root.textColor
             muted: root.muted
             accent: root.accent

@@ -109,17 +109,8 @@ Item {
   readonly property int sourceFilterWidth: 150
 
   function open(payloadJson) {
-    root.opened = true
     root.hoverArmed = false
     root.hoverArmBaseline = Qt.point(-1, -1)
-    // Issue #50: this plugin is keepLoaded, so the shell can stay alive
-    // for a long session while real system state (an installed package,
-    // a user's own menu/keybind edit, a `when` guard's truth value)
-    // changes underneath it -- without this, the action catalog/
-    // visibility/keybind hints could only ever reflect whatever was true
-    // at the LAST full shell restart. Cheap: a few local file reads plus
-    // one short bash guard-eval script, not run per keystroke.
-    omarchyActionsProvider.refresh()
     // Jump straight to the Settings extension when asked -- direct
     // request: phasing out ruixen.settings as the primary entry point
     // in favor of this plugin's own Settings extension, for both the
@@ -128,16 +119,44 @@ Item {
     // when someone picks the in-palette "Ruixen Settings" row by hand
     // (see its own "settings-extension" branch) -- this is just an
     // external, payload-driven way to land on the same screen instead
-    // of the plain search palette. root.opened's own change handler
-    // (onOpenedChanged below) already reset activeExtensionId to ""
-    // by the time this line runs (property assignment above fires it
-    // synchronously) -- this intentionally overrides that reset.
+    // of the plain search palette.
+    //
+    // Set BEFORE root.opened, not after -- direct report: "the icon
+    // ruixen setting in the bar is openning the launcher in the narrow
+    // state before expanding into the correct size, kinda wierd". The
+    // panel's own width/height Behaviors (below) exist so switching
+    // extensions WHILE already open animates smoothly; on a fresh open
+    // they're the actual bug, since activeExtensionId changing AFTER
+    // the window is already visible at the narrow default is exactly
+    // what triggers that animation to play out on screen. Suppressed
+    // for this one synchronous block via suppressResizeAnimation
+    // (re-enabled next frame, once the window's first paint has
+    // already happened at its final, correct size) so this path skips
+    // the animation entirely instead of just reordering around it --
+    // reordering alone doesn't help, since both assignments still land
+    // in the same tick with the animation not yet having played any of
+    // it out.
+    var opensToExtension = false
     if (payloadJson) {
       try {
         var payload = JSON.parse(payloadJson)
-        if (payload && payload.extension === "settings") root.activeExtensionId = "settings"
+        if (payload && payload.extension === "settings") {
+          root.suppressResizeAnimation = true
+          root.activeExtensionId = "settings"
+          opensToExtension = true
+        }
       } catch (e) {}
     }
+    root.opened = true
+    if (opensToExtension) Qt.callLater(function() { root.suppressResizeAnimation = false })
+    // Issue #50: this plugin is keepLoaded, so the shell can stay alive
+    // for a long session while real system state (an installed package,
+    // a user's own menu/keybind edit, a `when` guard's truth value)
+    // changes underneath it -- without this, the action catalog/
+    // visibility/keybind hints could only ever reflect whatever was true
+    // at the LAST full shell restart. Cheap: a few local file reads plus
+    // one short bash guard-eval script, not run per keystroke.
+    omarchyActionsProvider.refresh()
     Qt.callLater(function() { searchHeader.focusInput() })
   }
 
@@ -217,6 +236,14 @@ Item {
   // activateSelected()'s own dispatch below for both.
   property string activeExtensionId: ""
   readonly property bool inExtensionMode: root.activeExtensionId !== ""
+  // Suppresses the panel's own width/height resize Behaviors below --
+  // set true for exactly one synchronous open() call that jumps
+  // straight to an extension via payload, so the window's first paint
+  // already lands at its final size instead of appearing narrow and
+  // animating wider a moment later. Left enabled for every other case
+  // (switching extensions while already open still animates smoothly,
+  // same as always).
+  property bool suppressResizeAnimation: false
   // Wallpapers' own type filter, shown through the exact same top-right
   // dropdown Search Files uses for its source filter -- direct report:
   // "instead of IMAGE GIF VIDEO AND TOP put these into the top part for
@@ -1085,7 +1112,10 @@ Item {
       // result list." Still not resizing per result COUNT (the "fixed
       // tray" property that matters), just per deliberate mode.
       width: (root.filesMode || root.inExtensionMode) ? 920 : 640
-      Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+      Behavior on width {
+        enabled: !root.suppressResizeAnimation
+        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
+      }
       // A fixed viewport height, not a function of the result count --
       // still a constant, so the card never grows/shrinks per state
       // (Search Files mode is the one deliberate exception, same as
@@ -1107,7 +1137,10 @@ Item {
       // quietly landing on a third, slightly-smaller size because its
       // own mode flag happened not to be the one this formula checked.
       height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || root.inExtensionMode) ? 36 : 0)
-      Behavior on height { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+      Behavior on height {
+        enabled: !root.suppressResizeAnimation
+        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
+      }
       radius: 16
       color: root.glassBackground
       border.width: 1
@@ -1699,6 +1732,9 @@ Item {
         anchors.rightMargin: 8
         visible: root.activeExtensionId === "settings"
         active: root.activeExtensionId === "settings"
+        // Needed for summonWifiQr()/summonSpeedTest() -- see its own
+        // property comment.
+        shell: root.shell
         // Single search box, same convention Wallpapers already
         // established -- direct follow-up: "does search work for menu
         // items on the left too?" Filters the category list by label.

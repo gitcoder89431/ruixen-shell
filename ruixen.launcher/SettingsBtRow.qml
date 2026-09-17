@@ -208,8 +208,12 @@ Item {
         // background above already goes Qt.rgba(1,1,1,0.08) white
         // while root.armed, so the usual light-tint button style would
         // stack a second light layer on top of that and lose contrast
-        // the exact same way.
-        color: confirmMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.32) : Qt.rgba(0, 0, 0, 0.18)
+        // the exact same way. Direct follow-up named THIS button's own
+        // old hover shade (0.32) as the actual right darkness even at
+        // rest ("the on hover of the bluetooth connect button seems to
+        // be ideal darkness") -- rest raised to match it, hover pushed
+        // past it for real feedback.
+        color: confirmMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.44) : Qt.rgba(0, 0, 0, 0.32)
 
         Text {
           anchors.centerIn: parent

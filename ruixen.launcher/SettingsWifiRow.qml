@@ -200,7 +200,11 @@ Item {
           // white while root.expanded, so a second light tint stacked
           // on top of that left white text sitting on an unusually
           // light patch instead of the dark card everywhere else.
-          color: Qt.rgba(0, 0, 0, 0.18)
+          // 0.18 alone still read as "a bit too light" per direct
+          // follow-up, which named the submit button's own HOVER shade
+          // (0.32) as the actual right darkness -- matched here too,
+          // not just guessed darker.
+          color: Qt.rgba(0, 0, 0, 0.32)
 
           TextInput {
             id: passwordInput
@@ -238,8 +242,11 @@ Item {
           // Same dark-well fix as the input box just left of this --
           // darkens further on hover instead of lightening, matching
           // the direction every other dark-tonal hover state in this
-          // file already uses.
-          color: submitMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.32) : Qt.rgba(0, 0, 0, 0.18)
+          // file already uses. Rest state raised to match the input
+          // box's own 0.32 (direct follow-up named this button's old
+          // hover shade as the actual right darkness at rest, not just
+          // on hover) -- hover now goes past it for real feedback.
+          color: submitMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.44) : Qt.rgba(0, 0, 0, 0.32)
           opacity: root.connecting ? 0.5 : 1
 
           Text {

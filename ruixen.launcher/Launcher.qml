@@ -140,22 +140,28 @@ Item {
     if (payloadJson) {
       try {
         var payload = JSON.parse(payloadJson)
-        if (payload && payload.extension === "settings") {
+        // "settings" or "wallpapers" -- the exact two activeExtensionId
+        // values activateSelected() already dispatches to for an
+        // in-palette pick (see its own "settings-extension"/
+        // "wallpapers-extension" branches). Same value either way, so
+        // this just forwards it rather than a separate if-branch per
+        // extension.
+        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers")) {
           root.suppressResizeAnimation = true
-          root.activeExtensionId = "settings"
+          root.activeExtensionId = payload.extension
           opensToExtension = true
-          // Deep-link straight to one settings category too, same
-          // real recipe ruixen.settings' own docs/KEYBINDS.md already
-          // documents (there via `{"section":"wifi"}` against
-          // ruixen.settings itself) -- e.g. `omarchy-shell shell
-          // summon ruixen.launcher
+          // Deep-link straight to one settings category too (Settings
+          // only -- Wallpapers has no sub-sections), same real recipe
+          // ruixen.settings' own docs/KEYBINDS.md already documents
+          // (there via `{"section":"wifi"}` against ruixen.settings
+          // itself) -- e.g. `omarchy-shell shell summon ruixen.launcher
           // '{"extension":"settings","section":"wifi"}'`. AFTER
           // activeExtensionId, not before -- setting that property
           // synchronously fires SettingsContent's own onActiveChanged
           // reset (openIndex/selectedIndex back to 0, "fresh state
           // every time this extension is (re)entered"), so this has
           // to land after that reset already happened, not before it.
-          if (payload.section) settingsContent.openSectionById(payload.section)
+          if (payload.extension === "settings" && payload.section) settingsContent.openSectionById(payload.section)
         }
       } catch (e) {}
     }
@@ -1054,6 +1060,14 @@ Item {
     // own bar icon already made the same switch).
     if (result.id === "omarchy:ruixen.settings") {
       root.activeExtensionId = "settings"
+      return
+    }
+    // Same reasoning as the synthetic Settings row above, for
+    // Wallpapers' own equivalent gap -- direct report: "we need
+    // wallpaper and setting to show up too" (typing "wallpaper"/
+    // "background" found nothing at all before this row existed).
+    if (result.id === "omarchy:ruixen.wallpapers") {
+      root.activeExtensionId = "wallpapers"
       return
     }
     var provider = root.providerFor(result.providerId)

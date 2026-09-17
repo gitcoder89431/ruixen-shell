@@ -182,6 +182,33 @@ Item {
       // field sees a stale reference to the old ruixen.settings plugin.
       action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"settings\"}'"
     },
+    // Same "typed-query discoverability" gap Settings' own entry above
+    // was built to close -- direct report: "we need wallpaper and
+    // setting to show up too" (on Wallpapers specifically: it had NO
+    // synthetic entry at all, so typing "wallpaper" found nothing --
+    // wallpapersRow() in Launcher.qml only ever appears on the empty-
+    // query landing list, same real limitation settingsRow() has).
+    "ruixen.wallpapers": {
+      // fa-image (U+F03E) -- matches wallpapersRow()'s own icon in
+      // Launcher.qml and ruixen.notch's own Wallpapers tab, so the
+      // palette row and what it opens read as the same thing.
+      icon: "",
+      label: "Wallpapers",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      aliases: ["wallpaper", "background"],
+      // No known bound keybind today, but looked up live the same way
+      // Settings' own row is -- if one ever gets added to
+      // bindings.lua under this exact label, it shows up here with no
+      // code change needed.
+      keybind: root.keybindFor("Wallpapers"),
+      // Documentation only, not actually run -- same self-toggle-
+      // closes-itself reason Settings' own action field's comment
+      // documents. Launcher.qml's activateSelected() special-cases
+      // this row's id and jumps straight to activeExtensionId =
+      // "wallpapers" in-process instead.
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"wallpapers\"}'"
+    },
     "window.fullscreen": {
       icon: "", // fa-expand
       label: "Full Screen",

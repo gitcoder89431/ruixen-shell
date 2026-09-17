@@ -1500,32 +1500,33 @@ Item {
     }
   }
 
-  // Brightness (kind: "slider" -- Left/Right adjusts, nothing for
-  // Enter to commit since it already applies live), then Night Light
-  // ("toggle", direct request: "the display setting seems a bit light
-  // ... what about Night Light with on or off toggle"), then Display
-  // Scale (a plain segmented item, same shape as Bar Layout/Window
-  // Curvature -- fits the existing model with no new kind needed).
-  // Empty entirely when brightnessAvailable is false, matching every
-  // card's own visibility gate below -- nothing to navigate to. Night
-  // Light itself has no real dependency on backlight hardware (it's
-  // hyprsunset color temperature, not brightness), but bundling it
-  // under the same gate keeps this array's indexing fixed rather than
-  // conditional on two independent availability checks -- a real
-  // headless-brightness-but-wants-Night-Light machine is a follow-up
-  // for if one ever actually shows up, not a speculative case to
-  // design around now.
+  // Night Light ("toggle", direct request: "the display setting seems
+  // a bit light ... what about Night Light with on or off toggle",
+  // moved to the top slot per direct follow-up: "put it as the top
+  // option above brightness"), then Brightness (kind: "slider" --
+  // Left/Right adjusts, nothing for Enter to commit since it already
+  // applies live), then Display Scale (a plain segmented item, same
+  // shape as Bar Layout/Window Curvature -- fits the existing model
+  // with no new kind needed). Empty entirely when brightnessAvailable
+  // is false, matching every card's own visibility gate below --
+  // nothing to navigate to. Night Light itself has no real dependency
+  // on backlight hardware (it's hyprsunset color temperature, not
+  // brightness), but bundling it under the same gate keeps this
+  // array's indexing fixed rather than conditional on two independent
+  // availability checks -- a real headless-brightness-but-wants-Night-
+  // Light machine is a follow-up for if one ever actually shows up,
+  // not a speculative case to design around now.
   readonly property var displayItems: {
     if (!root.brightnessAvailable) return []
     return [
       {
-        kind: "slider",
-        adjust: function(delta) { root.setBrightness(root.brightnessPercent + delta * 100) }
-      },
-      {
         kind: "toggle",
         checked: root.nightLightEnabled,
         activate: function() { root.toggleNightLight() }
+      },
+      {
+        kind: "slider",
+        adjust: function(delta) { root.setBrightness(root.brightnessPercent + delta * 100) }
       },
       {
         options: root.scalePresets,
@@ -1795,7 +1796,7 @@ Item {
       return inputChannelItem.deviceRowAt(inputIdx - 1)
     }
     if (root.displayOpen) {
-      return [brightnessItem, nightLightRow, displayScaleItem][root.focusedItemIndex]
+      return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -2676,49 +2677,16 @@ Item {
     onDeviceSelected: (node) => root.setDefaultInput(node)
   }
 
-  // Display's own two items -- Brightness (a plain slider, no mute
-  // concept, hence SettingsSliderRow.qml rather than
-  // SettingsAudioChannelItem's own) and Display Scale (a plain
-  // segmented item, same shape as Bar Layout/Window Curvature). Both
-  // gated on brightnessAvailable, same as ruixen.settings' own
-  // DisplayContent.qml -- a laptop-less/headless session has no
-  // backlight to control.
-  Rectangle {
-    id: brightnessItem
-    width: parent.width
-    height: brightnessContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: (root.displayOpen && root.rightFocused && root.focusedItemIndex === 0) ? 1 : 0
-    border.color: root.accent
-    visible: root.displayOpen && root.brightnessAvailable
-
-    Column {
-      id: brightnessContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Brightness"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      SettingsSliderRow {
-        icon: ""
-        value: root.brightnessPercent / 100
-        textColor: root.textColor
-        muted: root.muted
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onAdjusted: (value) => root.setBrightness(value * 100)
-      }
-    }
-  }
-
+  // Display's own three items, top to bottom -- Night Light (direct
+  // follow-up: "put it as the top option above brightness"),
+  // Brightness (a plain slider, no mute concept, hence
+  // SettingsSliderRow.qml rather than SettingsAudioChannelItem's own),
+  // and Display Scale (a plain segmented item, same shape as Bar
+  // Layout/Window Curvature). All three gated on brightnessAvailable,
+  // same as ruixen.settings' own DisplayContent.qml -- a laptop-less/
+  // headless session has no backlight to control (Night Light itself
+  // doesn't strictly need this gate, see displayItems' own comment for
+  // why it's bundled under it anyway).
   Rectangle {
     id: nightLightItem
     width: parent.width
@@ -2745,11 +2713,47 @@ Item {
         id: nightLightRow
         label: "Enabled"
         checked: root.nightLightEnabled
-        rowFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 1
+        rowFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 0
         textColor: root.textColor
         accent: root.accent
         fontFamily: root.fontFamily
         onToggled: root.toggleNightLight()
+      }
+    }
+  }
+
+  Rectangle {
+    id: brightnessItem
+    width: parent.width
+    height: brightnessContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    border.width: (root.displayOpen && root.rightFocused && root.focusedItemIndex === 1) ? 1 : 0
+    border.color: root.accent
+    visible: root.displayOpen && root.brightnessAvailable
+
+    Column {
+      id: brightnessContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Brightness"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsSliderRow {
+        icon: ""
+        value: root.brightnessPercent / 100
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onAdjusted: (value) => root.setBrightness(value * 100)
       }
     }
   }

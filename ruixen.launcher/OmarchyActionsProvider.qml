@@ -148,13 +148,27 @@ Item {
       // instead of picking it off the landing list.
       kind: "Extension",
       aliases: ["settings", "preferences"],
-      // Hardcoded, not left to keybindFor()'s own auto lookup -- that
-      // only indexes Omarchy's own stock keybinds (omarchy-menu.jsonc),
-      // never this repo's own custom bindings.lua entries, so it would
-      // never find this one regardless of label text. Same reasoning
-      // window.fullscreen/etc.'s own hardcoded keybind below already
-      // documents.
-      keybind: "SUPER + SHIFT + R",
+      // Looked up live via keybindFor(), NOT hardcoded -- direct
+      // correction: "keybinds are like actual config source... user
+      // starts with nothing untill they run the keybind command then
+      // it shows up". A user who hasn't bound anything (or comments
+      // this bind back out) should see no hint at all, not a stale
+      // combo baked into this file; one who rebinds it to a different
+      // combo should see THAT combo without a code change. keybindIndex
+      // already merges bindingsFile's own real, live parse of
+      // ~/.config/hypr/bindings.lua (root.personalKeybindEntries, see
+      // that FileView's own comment) with Omarchy's stock keybinds, so
+      // this is the exact same real-config-driven lookup every other
+      // entry's own keybind hint already goes through -- looked up by
+      // "Ruixen Settings", the label bindings.lua's own o.bind() call
+      // actually uses (this row's own DISPLAYED label is just
+      // "Settings" now, a separate, cosmetic choice -- see label
+      // above). A readonly property binding, not a one-time value:
+      // this whole syntheticEntries object re-evaluates automatically
+      // once keybindIndex finishes loading (a few hundred ms after
+      // this plugin starts) or changes later (refresh() re-parses
+      // bindingsFile every time this extension opens).
+      keybind: root.keybindFor("Ruixen Settings"),
       // Documentation only, not actually run for this specific row --
       // Launcher.qml's own activateSelected() special-cases result.id
       // "omarchy:ruixen.settings" BEFORE reaching provider.activate(),

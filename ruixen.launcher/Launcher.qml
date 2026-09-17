@@ -583,6 +583,14 @@ Item {
   // Settings" row already uses, so this reads as the same feature
   // everywhere it shows up. Direct request: "lets do the Settings as
   // Extension so Settings 2nd Column Ruixen and type extension?"
+  //
+  // keybind uses the exact same live, config-driven lookup as that
+  // synthetic row -- direct follow-up: "make it show up for the
+  // extension group too... a user has to bind them right, they
+  // shouldnt be hardcoded". Called fresh every time results (below)
+  // re-evaluates, same as any other row's own keybind hint already
+  // works -- empty until the user actually has "Ruixen Settings" bound
+  // in their own bindings.lua, whatever combo that currently is.
   function settingsRow() {
     return {
       id: "extension:settings",
@@ -592,7 +600,8 @@ Item {
       breadcrumb: "Ruixen",
       kind: "Extension",
       providerName: "",
-      score: 0
+      score: 0,
+      keybind: omarchyActionsProvider.keybindFor("Ruixen Settings")
     }
   }
 

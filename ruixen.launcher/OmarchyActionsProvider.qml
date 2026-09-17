@@ -128,18 +128,28 @@ Item {
       // icon and this plugin's own Settings extension header, so the
       // palette row and what it opens read as the same thing.
       icon: "",
-      label: "Ruixen Settings",
+      label: "Settings",
       // A short tagline, same spirit as a .desktop file's own
       // GenericName= (e.g. "Streaming/Recording Software") -- a
       // couple of words, not a feature list. Not a breadcrumb (there's
       // no omarchy-menu.jsonc chain to walk for a synthetic entry),
-      // just plain text describing what this opens.
-      breadcrumb: "Shell Control",
+      // just plain text describing what this opens. "Ruixen", not
+      // "Shell Control" -- direct follow-up: matches wallpapersRow()'s
+      // own "Ruixen" breadcrumb in Launcher.qml, so both extension
+      // rows read as the same family of thing.
+      breadcrumb: "Ruixen",
       // Opens a panel rather than firing a one-shot action like
       // Screenshot/Lock/Theme -- "Application" fits what this actually
       // is better than the provider's own default "Command".
       kind: "Application",
       aliases: ["settings", "preferences"],
+      // Hardcoded, not left to keybindFor()'s own auto lookup -- that
+      // only indexes Omarchy's own stock keybinds (omarchy-menu.jsonc),
+      // never this repo's own custom bindings.lua entries, so it would
+      // never find this one regardless of label text. Same reasoning
+      // window.fullscreen/etc.'s own hardcoded keybind below already
+      // documents.
+      keybind: "SUPER + SHIFT + R",
       // Documentation only, not actually run for this specific row --
       // Launcher.qml's own activateSelected() special-cases result.id
       // "omarchy:ruixen.settings" BEFORE reaching provider.activate(),

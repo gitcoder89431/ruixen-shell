@@ -630,13 +630,17 @@ Item {
     }
     if (q === "") {
       // Direct request: a permanent "Extensions" group on the landing
-      // list itself (not just Search Files' own query-time "Use ...
-      // with" fallback) -- Search Files first, Wallpapers next, more
-      // landing here later ("Ruixen Settings or ClipBoard Manager etc
-      // when we do them"). First section, ahead of Suggestions -- these
-      // are the launcher's own core surfaces, not one more curated
-      // default alongside Lock/Screenshot/Theme.
-      var ext = tag([root.filesFallbackRow(""), root.wallpapersRow(), root.settingsRow()], "Extensions")
+      // list itself -- Wallpapers, Settings, more landing here later
+      // ("Ruixen Settings or ClipBoard Manager etc when we do them").
+      // First section, ahead of Suggestions -- these are the
+      // launcher's own core surfaces, not one more curated default
+      // alongside Lock/Screenshot/Theme. Search Files deliberately
+      // left out of this group -- direct follow-up: "i dont think we
+      // need file search in extension, its kinda baked in" -- it's
+      // still reachable via its own query-time "Use ... with"
+      // fallback row (filesFallbackRow(q) below), just not as a
+      // permanent landing-list entry alongside these two.
+      var ext = tag([root.wallpapersRow(), root.settingsRow()], "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
       var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
       return ext.concat(sug).concat(browse)

@@ -234,11 +234,20 @@ Item {
   // rather than "most frequently used" (no usage tracking exists), so
   // the palette isn't blank the instant it opens. synthetic entries are
   // referenced by their syntheticEntries key, real ones by their real
-  // omarchy-menu.jsonc id.
+  // omarchy-menu.jsonc id. system.reboot/system.shutdown added per
+  // direct request ("on raycast there have shutdown and reboot
+  // commands, i guess we can put these back in? they are kinda useful")
+  // -- both were already real, always-actionable (no `when` guard)
+  // omarchy-menu.jsonc entries, reachable by typing "reboot"/"shutdown"
+  // the whole time; this just also pins them here so they show up
+  // without typing anything, same as Raycast's own default system
+  // commands.
   readonly property var suggestedIds: [
     "ruixen.settings",
     "trigger.capture.screenshot",
     "system.lock",
+    "system.reboot",
+    "system.shutdown",
     "style.theme",
     "style.background"
   ]

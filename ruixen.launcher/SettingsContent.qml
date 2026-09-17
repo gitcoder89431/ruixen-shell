@@ -146,6 +146,24 @@ Item {
     }
   }
 
+  // About's own single line of debug-useful context -- direct request:
+  // "add the omarchy version... something light though user facing
+  // info", after ruling out embedding ruixen-doctor.sh's own full
+  // report (a multi-section diagnostic dump meant to be pasted into a
+  // support chat, not always-visible UI text). Read once, same
+  // "doesn't change mid-session, don't re-run needlessly" gate
+  // hardwareName's own identityProc already uses.
+  property string omarchyVersion: ""
+
+  Process {
+    id: omarchyVersionProc
+    command: ["omarchy-version"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.omarchyVersion = text.trim()
+    }
+  }
+
   Process {
     id: ensureAvatarStateDirProc
     command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
@@ -1952,6 +1970,7 @@ Item {
       // uses -- fastfetch is not free enough to re-run every time this
       // extension is (re)entered.
       if (root.hardwareName === "") identityProc.running = true
+      if (root.omarchyVersion === "") omarchyVersionProc.running = true
       // Unlike hardwareName above, these two are cheap AND can
       // genuinely change out from under this extension between visits
       // (the real ruixen.settings panel, or a CLI run of
@@ -3545,6 +3564,14 @@ Item {
 
       Text {
         text: "v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: root.muted
+      }
+
+      Text {
+        visible: root.omarchyVersion !== ""
+        text: "Omarchy " + root.omarchyVersion
         font.family: root.fontFamily
         font.pixelSize: 10
         color: root.muted

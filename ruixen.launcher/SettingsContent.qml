@@ -3209,24 +3209,18 @@ Item {
         color: root.muted
       }
 
-      Text {
-        visible: root.pluginStatusLine !== ""
-        width: parent.width
-        text: root.pluginStatusLine
-        wrapMode: Text.WordWrap
-        font.family: root.fontFamily
-        font.pixelSize: 11
-        font.weight: Font.DemiBold
-        color: root.pluginStatusLineColor
-      }
-
-      // Before any real check has run this session -- two labeled rows
-      // instead of one combined line, direct follow-up: "the last
-      // updated status line thing is kinda hard to see maybe split it
-      // so its Commit Version: and then Last Updated as two rows?
-      // commit version is bolded?"
+      // Always exactly these two rows, never a third jumping in/out --
+      // direct follow-up: "on the button press like Up to Date the
+      // status, can we not make it jump to a new one row status, like
+      // keep the commit version and last updated time and just show a
+      // check or replace one of the line. keep it consistent 2 rows so
+      // its not jumpy please". Commit Version never changes; the
+      // second row swaps its own text/color between "Last Updated:
+      // <date>" (nothing in flight yet) and the live Checking/
+      // Updating/result message -- same information, just no longer a
+      // separate line that appears and disappears.
       Column {
-        visible: root.pluginStatusLine === "" && root.pluginLastCommitSha !== ""
+        visible: root.pluginLastCommitSha !== ""
         width: parent.width
         spacing: 2
 
@@ -3247,20 +3241,11 @@ Item {
           }
         }
 
-        Row {
-          spacing: 4
-          Text {
-            text: "Last Updated:"
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: root.muted
-          }
-          Text {
-            text: root.pluginLastCommitDate
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: root.textColor
-          }
+        Text {
+          text: root.pluginStatusLine !== "" ? root.pluginStatusLine : ("Last Updated: " + root.pluginLastCommitDate)
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          color: root.pluginStatusLine !== "" ? root.pluginStatusLineColor : root.muted
         }
       }
 

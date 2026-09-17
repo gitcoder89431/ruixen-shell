@@ -717,6 +717,55 @@ Item {
     setScaleProc.running = true
   }
 
+  // Night Light -- real omarchy-toggle-nightlight CLI (confirmed by
+  // reading it directly, not guessed): --status prints
+  // {enabled, temperature} JSON, using the exact same
+  // "temperature < 6000 counts as night light" threshold its own real
+  // first-party bar service does (Omarchy's own NightlightModel.js).
+  // Plain args (no --status) toggles between 4000K/6500K, resending for
+  // up to 2s to outlast hyprsunset's own default-temperature-on-boot
+  // behavior -- deliberately NOT re-read synchronously after toggling
+  // for that reason (same "don't race the real hardware/daemon" call
+  // Display's own setBrightness makes); the next periodic poll below
+  // catches up once the CLI's own resend loop has settled.
+  property bool nightLightEnabled: false
+
+  Process {
+    id: nightLightStatusProc
+    command: ["omarchy-toggle-nightlight", "--status"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var parsed = null
+        try { parsed = JSON.parse(text) } catch (e) { parsed = null }
+        if (parsed) root.nightLightEnabled = !!parsed.enabled
+      }
+    }
+  }
+
+  Timer {
+    interval: 5000
+    running: root.active
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!nightLightStatusProc.running) nightLightStatusProc.running = true
+  }
+
+  Process {
+    id: nightLightToggleProc
+    command: ["omarchy-toggle-nightlight"]
+  }
+
+  function toggleNightLight() {
+    // Optimistic flip -- same immediate-feedback convention Audio's own
+    // mute toggles get for free from Pipewire's synchronous property
+    // writes; here the CLI itself takes up to ~2s to settle, so this is
+    // what keeps the toggle from reading as unresponsive in the
+    // meantime. The next 5s poll corrects it if reality disagrees.
+    root.nightLightEnabled = !root.nightLightEnabled
+    nightLightToggleProc.running = true
+  }
+
   // Real Quickshell.Networking-backed Wi-Fi state -- another standard
   // Quickshell module, confirmed the same way Audio's own Pipewire
   // backend was (reading Omarchy's own network bar-widget directly).
@@ -1189,7 +1238,7 @@ Item {
     { id: "bluetooth", label: "Bluetooth", glyph: "",
       description: "Paired devices and the wireless companions currently orbiting this machine." },
     { id: "display", label: "Display", glyph: "",
-      description: "Brightness and display scale, tuned to how you actually look at this screen." },
+      description: "Brightness, Night Light, and display scale, tuned to how you actually look at this screen." },
     { id: "plugins", label: "Plugins", glyph: "",
       description: "Everything Ruixen has installed, kept updated, and quietly running." },
     { id: "about", label: "About", glyph: "",
@@ -1452,17 +1501,31 @@ Item {
   }
 
   // Brightness (kind: "slider" -- Left/Right adjusts, nothing for
-  // Enter to commit since it already applies live) then Display Scale
-  // (a plain segmented item, same shape as Bar Layout/Window
+  // Enter to commit since it already applies live), then Night Light
+  // ("toggle", direct request: "the display setting seems a bit light
+  // ... what about Night Light with on or off toggle"), then Display
+  // Scale (a plain segmented item, same shape as Bar Layout/Window
   // Curvature -- fits the existing model with no new kind needed).
-  // Empty entirely when brightnessAvailable is false, matching both
-  // cards' own visibility gate below -- nothing to navigate to.
+  // Empty entirely when brightnessAvailable is false, matching every
+  // card's own visibility gate below -- nothing to navigate to. Night
+  // Light itself has no real dependency on backlight hardware (it's
+  // hyprsunset color temperature, not brightness), but bundling it
+  // under the same gate keeps this array's indexing fixed rather than
+  // conditional on two independent availability checks -- a real
+  // headless-brightness-but-wants-Night-Light machine is a follow-up
+  // for if one ever actually shows up, not a speculative case to
+  // design around now.
   readonly property var displayItems: {
     if (!root.brightnessAvailable) return []
     return [
       {
         kind: "slider",
         adjust: function(delta) { root.setBrightness(root.brightnessPercent + delta * 100) }
+      },
+      {
+        kind: "toggle",
+        checked: root.nightLightEnabled,
+        activate: function() { root.toggleNightLight() }
       },
       {
         options: root.scalePresets,
@@ -1732,7 +1795,7 @@ Item {
       return inputChannelItem.deviceRowAt(inputIdx - 1)
     }
     if (root.displayOpen) {
-      return [brightnessItem, displayScaleItem][root.focusedItemIndex]
+      return [brightnessItem, nightLightRow, displayScaleItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -2656,12 +2719,47 @@ Item {
     }
   }
 
+  Rectangle {
+    id: nightLightItem
+    width: parent.width
+    height: nightLightContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.displayOpen && root.brightnessAvailable
+
+    Column {
+      id: nightLightContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Night Light"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsToggleRow {
+        id: nightLightRow
+        label: "Enabled"
+        checked: root.nightLightEnabled
+        rowFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 1
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: root.toggleNightLight()
+      }
+    }
+  }
+
   SettingsSegmentedItem {
     id: displayScaleItem
     label: "Display Scale"
     options: root.scalePresets.map(function(s) { return { id: s, label: s + "x" } })
     current: root.displayScale
-    cardFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 1
+    cardFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 2
     focusedOptionIndex: displayScaleItem.cardFocused ? root.focusedOptionIndex : -1
     visible: root.displayOpen && root.brightnessAvailable
     textColor: root.textColor

@@ -114,8 +114,16 @@ Item {
       // weird, maybe another one for pair so its not too many plugs").
       Text {
         id: statusGlyph
-        visible: !(root.showForget && rowMouse.containsMouse)
-        anchors.right: parent.right
+        // Its own slot to the LEFT of forget's, not the same anchor --
+        // real bug hit live: both were separately anchored to
+        // parent.right, so a paired-but-disconnected row (forget
+        // eligible AND a plug/spinner both visible at once, forget no
+        // longer hover-gated) rendered the two glyphs stacked directly
+        // on top of each other. Forget still gets the rightmost slot
+        // when eligible; this one just steps left of it instead of
+        // sharing the same position.
+        anchors.right: root.showForget ? forgetGlyph.left : parent.right
+        anchors.rightMargin: root.showForget ? 8 : 0
         anchors.verticalCenter: parent.verticalCenter
         width: 16
         horizontalAlignment: Text.AlignRight
@@ -144,6 +152,7 @@ Item {
       // documents (a later sibling MouseArea would otherwise swallow
       // this click and re-trigger connect instead).
       Text {
+        id: forgetGlyph
         z: 1
         visible: root.showForget
         anchors.right: parent.right

@@ -198,6 +198,21 @@ Item {
     if (!root.opened) {
       searchHeader.text = ""
       root.query = ""
+      // Direct report: "i scroll all the way down the command list to
+      // the middle, i esc to close the launcher, then when i super r
+      // again, it shows me at the top of the launcher list, but then
+      // when i hit down or up on keyboard it continues from like the
+      // middle of the list". Real bug: the ListView's own scroll
+      // position visually resets on reopen (a fresh empty query
+      // rebuilds `results` from scratch), but selectedIndex itself was
+      // never reset back to 0 alongside it -- same numeric value in,
+      // same value out, so onSelectedIndexChanged's own
+      // positionViewAtIndex call never re-fires to reconcile the two.
+      // The very next arrow-key press bumps that stale middle index by
+      // one and jumps the view right back to it. Reset here, same
+      // "fresh state every time this is (re)entered" convention query/
+      // activeExtensionId/etc. already follow on this exact line.
+      root.selectedIndex = 0
       root.filesMode = false
       root.activeExtensionId = ""
       root.actionsMenuOpen = false

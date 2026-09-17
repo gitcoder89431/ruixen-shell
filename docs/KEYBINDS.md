@@ -18,25 +18,34 @@ o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launch
 
 ## Ruixen Settings
 
-```lua
-o.bind("SUPER + SHIFT + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
-```
-
-Want a keybind that jumps straight to one settings page instead of always
-opening on whichever page was open last? Use `summon` with a `section`
-payload instead of `toggle` — this opens Ruixen Settings on that page (or
-switches to it if the panel's already open on a different one) rather than
-closing the panel if it happens to already be open:
+Settings now lives as its own extension inside Ruixen Launcher, not a
+separate overlay — open it with an `extension` payload on
+`ruixen.launcher` itself rather than toggling a standalone plugin:
 
 ```lua
-o.bind("SUPER + W", "Wi-Fi Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"wifi"}']])
-o.bind("SUPER + A", "Audio Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"audio"}']])
-o.bind("SUPER + B", "Bluetooth Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"bluetooth"}']])
-o.bind("SUPER + D", "Display Settings", [[omarchy-shell shell summon ruixen.settings '{"section":"display"}']])
+o.bind("SUPER + SHIFT + R", "Ruixen Settings", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"settings"}']])
 ```
 
-Valid `section` values: `general` (Profile), `audio`, `wifi`, `bluetooth`,
-`display`, `plugins`, `about`.
+(The old standalone `ruixen.settings` plugin still exists and still
+works — `omarchy-shell shell toggle ruixen.settings` — but the launcher's
+own Settings extension is where new work lands going forward.)
+
+Want a keybind that jumps straight to one settings category instead of
+always opening on whichever one was open last? Add a `section` key
+alongside `extension`, and use `summon` instead of `toggle` — this opens
+on that category (or switches to it if the panel's already open on a
+different one) rather than closing the panel if it happens to already be
+open:
+
+```lua
+o.bind("SUPER + W", "Wi-Fi Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"wifi"}']])
+o.bind("SUPER + A", "Audio Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"audio"}']])
+o.bind("SUPER + B", "Bluetooth Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"bluetooth"}']])
+o.bind("SUPER + D", "Display Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"display"}']])
+```
+
+Valid `section` values: `general` (Profile), `bar`, `launcher` (File
+Search), `audio`, `wifi`, `bluetooth`, `display`, `plugins`, `about`.
 
 ## Notch dashboard and app launcher
 

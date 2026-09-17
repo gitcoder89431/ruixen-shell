@@ -25,18 +25,18 @@ omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high
 ```
 
 **The generic overlay convention** — "overlay"-kind plugins (like
-`ruixen.settings`) also answer to the host's own generic `shell
+`ruixen.launcher`) also answer to the host's own generic `shell
 summon`/`toggle` calls, which accept an optional JSON payload:
 
 ```bash
-omarchy-shell shell summon ruixen.settings '{"section":"wifi"}'
-omarchy-shell shell toggle ruixen.settings
+omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"wifi"}'
+omarchy-shell shell toggle ruixen.launcher
 ```
 
 A plugin can support either, both, or neither shape — there's no rule that
 every plugin must expose the same surface. Discovering what's actually
 there: `omarchy-shell shell listPlugins` lists every enabled plugin id;
-each plugin's own QML source (`Overlay.qml`/`Settings.qml`, in this repo)
+each plugin's own QML source (`Overlay.qml`/`Launcher.qml`, in this repo)
 is the real source of truth for which functions its `IpcHandler` exposes —
 there's no separate schema doc to fall out of sync with the actual code.
 

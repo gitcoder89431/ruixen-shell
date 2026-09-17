@@ -50,7 +50,8 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   fill in around real filename hits rather than needing a separate mode),
   across every auto-discovered drive (an internal HDD, a USB stick)
   individually or all at once — plus any custom folder you add yourself,
-  or exclude, from Ruixen Settings' own Launcher page. Filter by file
+  or exclude, from this plugin's own built-in Settings extension (its
+  File Search page). Filter by file
   type/hidden-files/names-or-contents from a small control row, or type
   the same filters directly into the query (`type:image`, `in:Home`,
   `hidden:true`, ...). Selecting a file shows a real preview — an
@@ -63,7 +64,10 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   and notch together visually.
 - **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,
   Display, Plugins) that can replace the default Omarchy settings panel
-  entirely, or run on its own.
+  entirely, or run on its own. Superseded by `ruixen.launcher`'s own
+  built-in Settings extension (same categories, plus Bar/Night Light and a
+  couple more) as the primary way in — still installed and fully working
+  as a fallback, just no longer where new Settings work lands.
 - **`ruixen.pinnedapps`** — quick-launch row for apps pinned in the notch's
   own app launcher.
 - **`ruixen.pluginpins`** — a pin/unpin dropdown on the bar for any other

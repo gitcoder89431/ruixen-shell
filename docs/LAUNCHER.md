@@ -121,10 +121,11 @@ Available actions (folders get one extra):
 By default, Search Files walks your home directory plus every
 auto-discovered mount. To add a folder outside home, exclude a subtree
 entirely, or turn a specific drive off without disabling auto-discovery —
-open **Ruixen Settings → Launcher**:
+open **Ruixen Settings → File Search** (this plugin's own built-in
+Settings extension, not the standalone `ruixen.settings` app):
 
 ```bash
-omarchy-shell shell toggle ruixen.settings
+omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"launcher"}'
 ```
 
 - **Include Home** / **Auto-include mounted drives** — on/off toggles

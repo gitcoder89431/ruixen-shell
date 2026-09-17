@@ -1732,9 +1732,6 @@ Item {
         anchors.rightMargin: 8
         visible: root.activeExtensionId === "settings"
         active: root.activeExtensionId === "settings"
-        // Needed for summonWifiQr()/summonSpeedTest() -- see its own
-        // property comment.
-        shell: root.shell
         // Single search box, same convention Wallpapers already
         // established -- direct follow-up: "does search work for menu
         // items on the left too?" Filters the category list by label.

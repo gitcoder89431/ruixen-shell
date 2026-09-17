@@ -53,11 +53,6 @@ Item {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
   property bool active: false
-  // Passed through from Launcher.qml's own root.shell -- needed for
-  // summonWifiQr()/summonSpeedTest() below (root.shell.summon(id,
-  // payloadJson), the same generic host API Launcher.qml's own
-  // dismiss() already calls as shell.hide(id)).
-  property var shell: null
   // Fed from the outer SearchHeader/root.query, same single-search-box
   // convention Wallpapers already established ("we dont need two
   // search box, use the launcher for wallpaper search input") -- direct
@@ -964,29 +959,41 @@ Item {
 
   // Both real Omarchy panel plugins (kind: panel), already enabled in
   // this shell -- confirmed via omarchy-shell shell listPlugins, not
-  // guessed, same as ruixen.settings' own port of these two. Direct
-  // follow-up: "definitely add the qr and speed test, these should be
-  // easy to do as they are button that calls omarchy overlays".
-  // root.shell.summon(id, payloadJson) is the same generic host API
-  // dismiss() already calls as shell.hide(id) -- just the "open a
-  // panel" verb instead of "close this one". Payload shapes ported
-  // directly from ruixen.settings/Settings.qml's own summonWifiQr()/
-  // summonSpeedTest(), themselves ported from Omarchy's own real
-  // network Panel.qml.
+  // guessed. Direct follow-up: "definitely add the qr and speed test,
+  // these should be easy to do as they are button that calls omarchy
+  // overlays". Payload shapes ported directly from ruixen.settings/
+  // Settings.qml's own summonWifiQr()/summonSpeedTest(), themselves
+  // ported from Omarchy's own real network Panel.qml.
+  //
+  // NOT root.shell.summon() -- confirmed real bug, not a coding
+  // mistake, by reading $OMARCHY_PATH/shell/shell.qml directly: the
+  // in-process API a plugin's own root.shell resolves to is a SCOPED,
+  // sandboxed proxy (createScopedPluginShell) whose own _summon() only
+  // allows a plugin to open something it "owns" (its own id),
+  // something a bar-widget-capable plugin controls, or -- the one real
+  // exception -- a plugin whose OWN manifest.omarchy.clonedFrom is
+  // "omarchy.network" (only that lets a caller reach wifiqr/speedtest).
+  // ruixen.launcher is none of those, so root.shell.summon() here
+  // silently returned false and did nothing -- exactly the reported
+  // "doesnt do anything when i click on them". omarchy-shell's own CLI
+  // (the same one bindings.lua/ruixen.settingsbutton already shell out
+  // to) hits shell.summon() UNSCOPED via its own top-level IpcHandler
+  // instead, with no such ownership check -- the same privilege an
+  // external keybind/terminal call already has, not something specific
+  // to this plugin.
   function summonWifiQr() {
-    if (!root.shell || typeof root.shell.summon !== "function") return
     var payload = {}
     if (root.connectedWifiNetwork) {
       if (root.netInfo.iface) payload.iface = root.netInfo.iface
       payload.ssid = root.connectedWifiNetwork.ssid
     }
-    root.shell.summon("omarchy.wifiqr", JSON.stringify(payload))
+    Quickshell.execDetached(["omarchy-shell", "shell", "summon", "omarchy.wifiqr", JSON.stringify(payload)])
   }
 
   function summonSpeedTest() {
-    if (!root.shell || typeof root.shell.summon !== "function") return
     var connection = root.connectedWifiNetwork ? root.connectedWifiNetwork.ssid : ""
-    root.shell.summon("omarchy.speedtest", connection ? JSON.stringify({ connection: connection }) : "{}")
+    var payload = connection ? JSON.stringify({ connection: connection }) : "{}"
+    Quickshell.execDetached(["omarchy-shell", "shell", "summon", "omarchy.speedtest", payload])
   }
 
   // scannerEnabled lives on the shared WifiDevice, not per-instance
@@ -2864,10 +2871,11 @@ Item {
   // Wi-Fi's own three items -- the radio toggle (reuses
   // SettingsToggleRow.qml directly, same as Launcher's own toggles),
   // then QR-share and Speed Test buttons (real Omarchy panel plugins,
-  // summoned via root.shell.summon() -- see summonWifiQr()/
-  // summonSpeedTest()'s own comment), then Known Networks and
-  // Available Networks, both on SettingsWifiRow.qml (see its own
-  // header comment). Real backend on root above, ported from
+  // summoned via the unscoped omarchy-shell CLI -- see summonWifiQr()/
+  // summonSpeedTest()'s own comment for why NOT the in-process
+  // root.shell), then Known Networks and Available Networks, both on
+  // SettingsWifiRow.qml (see its own header comment). Real backend on
+  // root above, ported from
   // ruixen.settings/WifiContent.qml + Settings.qml.
   Rectangle {
     id: wifiRadioItem

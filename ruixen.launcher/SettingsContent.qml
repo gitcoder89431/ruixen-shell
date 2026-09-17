@@ -3540,7 +3540,18 @@ Item {
       spacing: 4
 
       Text {
-        text: "Ruixen v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
+        // Real manifest.json "name" for this plugin -- matches the
+        // Plugins page's own checklist row for it, not a separate name
+        // invented just for this page.
+        text: "Ruixen Launcher"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Text {
+        text: "v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
         font.family: root.fontFamily
         font.pixelSize: 10
         color: root.muted

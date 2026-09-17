@@ -1246,7 +1246,7 @@ Item {
         // no second inner search box either one owns. "Search
         // Settings", not bare "Settings" -- direct follow-up: "lets
         // make it say Search Settings so later we search for stuff".
-        placeholderOverride: root.activeExtensionId === "wallpapers" ? "Wallpapers"
+        placeholderOverride: root.activeExtensionId === "wallpapers" ? "Search Wallpapers"
           : root.activeExtensionId === "settings" ? "Search Settings" : ""
         resultCount: root.results.length
         showSettingsHints: root.activeExtensionId === "settings"

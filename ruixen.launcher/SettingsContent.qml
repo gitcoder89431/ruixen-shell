@@ -1997,61 +1997,31 @@ Item {
       // wasn't something anyone asked to preserve.
       spacing: 16
 
-  // Every category's right-panel content, Profile included, starts
-  // with this same header (its own label) + short description -- a
-  // plain layout convention every future real panel keeps building on
-  // top of, not a separate component of its own (there's nothing else
-  // here yet to warrant one). Direct correction: Profile's own real
-  // content (below) had quietly REPLACED this instead of sitting under
-  // it -- "why did you nuke the Profile and description subtitle we
-  // had above it? keep it there please".
-  Column {
-    id: headerColumn
-    width: parent.width
-    spacing: 6
-    visible: root.openIndex >= 0 && root.openIndex < root.sections.length
-
-    Text {
-      width: parent.width
-      text: root.openIndex >= 0 && root.openIndex < root.sections.length
-        ? root.sections[root.openIndex].label : ""
-      font.family: root.fontFamily
-      font.pixelSize: 16
-      font.weight: Font.DemiBold
-      color: root.textColor
-    }
-    Text {
-      width: parent.width
-      text: root.openIndex >= 0 && root.openIndex < root.sections.length
-        ? root.sections[root.openIndex].description : ""
-      wrapMode: Text.WordWrap
-      lineHeight: 1.3
-      font.family: root.fontFamily
-      font.pixelSize: 12
-      color: root.muted
-    }
-  }
-
+  // No more per-category header (label + description) above the item
+  // cards here -- direct follow-up: "its kinda cluttering, i think we
+  // dont need that and can just start with options without the header
+  // and subtitle". The left panel's own row already names which
+  // category is open; repeating that plus a description right above
+  // the first option was redundant with it. sections[].description
+  // itself stays on the data (not dead: kept for a stated future
+  // search use -- "itll be good for searching for them later too"),
+  // just no longer rendered anywhere.
+  //
   // Profile's own real content -- centered avatar + username@machine,
   // then the DiceBear collection picker -- ported from ruixen.settings/
   // GeneralContent.qml's own avatar card (see this file's header
-  // comment). Sits BELOW headerColumn (its "Profile" label + subtitle
-  // stay in place), not instead of it. No card background/border here
-  // (unlike the real app's own black card) -- this pane is already the
-  // ghost/ContentPage treatment every extension's right side uses, a
-  // second nested card would be a surface-on-a-surface with nothing to
-  // visually separate.
+  // comment). No card background/border here (unlike the real app's
+  // own black card) -- this pane is already the ghost/ContentPage
+  // treatment every extension's right side uses, a second nested card
+  // would be a surface-on-a-surface with nothing to visually separate.
   // Frames this one setting as a distinct menu item/option -- direct
   // follow-up: "this would be considered an option or menu item, how
   // do we group it as that... put that darker bg tonal we used for
-  // the file picker text or zebra stripe... frame this as a item but
-  // dont frame the header Profile and description in it though." Same
-  // dark tonal FileDetailsPanel.qml's own zebra-striped metadata rows
-  // already use (Qt.rgba(0, 0, 0, 0.18)) -- this is that same"item"
-  // treatment scaled up to a whole option's card instead of one thin
-  // row, not a new color invented for this. headerColumn (the page's
-  // own "Profile" title + description) stays a separate, unframed
-  // sibling above -- explicitly not wrapped in this.
+  // the file picker text or zebra stripe." Same dark tonal
+  // FileDetailsPanel.qml's own zebra-striped metadata rows already use
+  // (Qt.rgba(0, 0, 0, 0.18)) -- this is that same "item" treatment
+  // scaled up to a whole option's card instead of one thin row, not a
+  // new color invented for this.
   Rectangle {
     id: profilePictureItem
     width: parent.width
@@ -2077,12 +2047,10 @@ Item {
       // "for this first setting option we can put Select Profile
       // Picture. i dont think these options need subtitle if we make
       // the option... kind a descriptive? itll be good for searching
-      // for them later too." This is the per-ITEM label (distinct
-      // from headerColumn's own per-PAGE "Profile" title above); every
-      // future real setting in any category follows this same
-      // one-line, self-descriptive convention rather than a
-      // title+subtitle pair. Shortened to "Profile Picture" per direct
-      // follow-up.
+      // for them later too." Every future real setting in any category
+      // follows this same one-line, self-descriptive convention rather
+      // than a title+subtitle pair. Shortened to "Profile Picture" per
+      // direct follow-up.
       Text {
         text: "Profile Picture"
         font.family: root.fontFamily
@@ -2293,9 +2261,8 @@ Item {
   // bar layout floating or dock." A plain Column child like the three
   // above, not anchored -- Column already skips every invisible
   // sibling's space, so with Profile's own four items all hidden while
-  // Bar is open, this naturally lands right after headerColumn with
-  // the Column's own 16px spacing between them, same as every other
-  // item-after-header gap.
+  // Bar is open, this naturally lands at the top of the column, same
+  // as every other category's own first item.
   SettingsSegmentedItem {
     id: barLayoutItem
     label: "Bar Layout"

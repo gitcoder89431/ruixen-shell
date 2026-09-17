@@ -3540,23 +3540,19 @@ Item {
       spacing: 4
 
       Text {
-        text: "Ruixen Launcher"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Text {
-        text: "v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
+        text: "Ruixen v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
         font.family: root.fontFamily
         font.pixelSize: 10
         color: root.muted
       }
 
       Text {
+        // Confirmed directly against this machine's own Omarchy
+        // install (contributing.md, os-release BUG_REPORT_URL, several
+        // systemd unit Documentation= lines all agree) -- basecamp/
+        // omarchy, not omacom/omarchy.
         visible: root.omarchyVersion !== ""
-        text: "Omarchy " + root.omarchyVersion
+        text: "Omarchy " + root.omarchyVersion + " -- github.com/basecamp/omarchy"
         font.family: root.fontFamily
         font.pixelSize: 10
         color: root.muted

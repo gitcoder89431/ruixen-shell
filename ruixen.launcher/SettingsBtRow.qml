@@ -202,7 +202,14 @@ Item {
         width: parent.width
         height: 32
         radius: 10
-        color: confirmMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+        // Dark, not light -- same fix as SettingsWifiRow.qml's own
+        // password field/submit button (direct report there: "kinda
+        // low contrast... nested in a light box"). This row's own
+        // background above already goes Qt.rgba(1,1,1,0.08) white
+        // while root.armed, so the usual light-tint button style would
+        // stack a second light layer on top of that and lose contrast
+        // the exact same way.
+        color: confirmMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.32) : Qt.rgba(0, 0, 0, 0.18)
 
         Text {
           anchors.centerIn: parent

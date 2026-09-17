@@ -192,7 +192,15 @@ Item {
           anchors.rightMargin: 6
           height: 28
           radius: 6
-          color: Qt.rgba(1, 1, 1, 0.06)
+          // Dark, not the usual light-tint input style -- direct
+          // report: "this input and the enter button is kinda low
+          // contrast, we should make it dark again cause its nested in
+          // a light box". This row's own background Rectangle (near
+          // the top of this file) already goes Qt.rgba(1,1,1,0.08)
+          // white while root.expanded, so a second light tint stacked
+          // on top of that left white text sitting on an unusually
+          // light patch instead of the dark card everywhere else.
+          color: Qt.rgba(0, 0, 0, 0.18)
 
           TextInput {
             id: passwordInput
@@ -227,7 +235,11 @@ Item {
           width: 28
           height: 28
           radius: 6
-          color: submitMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+          // Same dark-well fix as the input box just left of this --
+          // darkens further on hover instead of lightening, matching
+          // the direction every other dark-tonal hover state in this
+          // file already uses.
+          color: submitMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.32) : Qt.rgba(0, 0, 0, 0.18)
           opacity: root.connecting ? 0.5 : 1
 
           Text {

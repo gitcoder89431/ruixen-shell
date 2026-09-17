@@ -1229,7 +1229,7 @@ Item {
       description: "Your identity on this machine — display name, avatar, and the small touches that make Ruixen feel like yours." },
     { id: "bar", label: "Bar", glyph: "",
       description: "Layout, docking, and how the bar itself sits on your screen." },
-    { id: "launcher", label: "Search Settings", glyph: "",
+    { id: "launcher", label: "File Search", glyph: "",
       description: "How this very launcher searches, ranks, and remembers what matters most the moment you reach for it." },
     { id: "audio", label: "Audio", glyph: "",
       description: "Volume, output routing, and the quieter details of how this machine sounds." },
@@ -2402,7 +2402,7 @@ Item {
       spacing: 12
 
       Text {
-        text: "File Search"
+        text: "Search Settings"
         font.family: root.fontFamily
         font.pixelSize: 12
         font.weight: Font.DemiBold

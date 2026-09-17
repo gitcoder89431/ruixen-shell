@@ -149,6 +149,7 @@ Item {
         if (payload && (payload.extension === "settings" || payload.extension === "wallpapers")) {
           root.suppressResizeAnimation = true
           root.activeExtensionId = payload.extension
+          root.openedDirectlyToExtension = true
           opensToExtension = true
           // Deep-link straight to one settings category too (Settings
           // only -- Wallpapers has no sub-sections), same real recipe
@@ -201,8 +202,22 @@ Item {
       root.activeExtensionId = ""
       root.actionsMenuOpen = false
       root.hasScopeHistory = false
+      root.openedDirectlyToExtension = false
     }
   }
+
+  // Set true only by open(payloadJson)'s own extension-payload branch --
+  // direct report: "if i bind this to a key `... shell summon
+  // ruixen.launcher '{"extension":"settings","section":"launcher"}'` i
+  // have to escape twice to close it". The normal manual flow (Super+R,
+  // browse/search, pick an extension) genuinely has a real search view
+  // to back OUT to first, so 2 presses (exit extension, then dismiss)
+  // makes sense there. A keybind that jumps straight to an extension
+  // skips that step entirely -- there's no search view this session
+  // ever showed to "back out" to, so Escape's own handler below treats
+  // this case specially: the first press dismisses outright instead of
+  // dropping back to a search view that was never actually shown.
+  property bool openedDirectlyToExtension: false
 
   property string query: ""
   property int selectedIndex: 0
@@ -1381,6 +1396,15 @@ Item {
             // than jumping straight past it to exiting the whole
             // extension.
             settingsContent.blurToLeftPanel()
+          } else if (root.inExtensionMode && root.openedDirectlyToExtension) {
+            // Direct report: a keybind that jumps straight to an
+            // extension (openedDirectlyToExtension, see its own
+            // property comment) never showed a real search view this
+            // session -- dropping back to activeExtensionId "" here
+            // the normal way would just leave an empty search palette
+            // open behind it, needing a SECOND Escape to actually
+            // close anything. Dismiss outright instead.
+            root.dismiss()
           } else if (root.inExtensionMode) {
             root.activeExtensionId = ""
           } else {

@@ -597,6 +597,25 @@ Item {
     Pipewire.preferredDefaultAudioSource = node
   }
 
+  // Audio's own top-level on/off, same hero-switch semantics as
+  // Omarchy's own audio panel (confirmed by reading
+  // $OMARCHY_PATH/shell/plugins/panels/audio/Panel.qml directly, not
+  // guessed) -- PipeWire itself has no real "off" state for a sink/
+  // source the way a Wi-Fi/Bluetooth radio does, so this is a mute-both
+  // toggle standing in for one: reads as on while anything is still
+  // audible (either channel), and a single press mutes BOTH output and
+  // input together, or unmutes both together, whichever the current
+  // state calls for. Muting just one channel from its own row below
+  // does NOT flip this master switch off by itself -- only when both
+  // end up muted does anyAudible go false.
+  readonly property bool anyAudible: (!!root.outputSink && !root.outputMuted) || (!!root.inputSource && !root.inputMuted)
+
+  function toggleAllMuted() {
+    var mute = root.anyAudible
+    if (root.outputSink && root.outputSink.audio) root.outputSink.audio.muted = mute
+    if (root.inputSource && root.inputSource.audio) root.inputSource.audio.muted = mute
+  }
+
   // Same real property-preference order as Omarchy's own nodeLabel()/
   // friendlyDeviceLabel(), ported directly: nickname/nick fields
   // first, falling back to description/name, then trimmed of the same
@@ -1382,8 +1401,18 @@ Item {
   // item (Enter sets it as the default, no options to cycle -- same
   // direct-activate() shape "toggle" items already use, just a
   // different real name so the intent reads clearly).
+  //
+  // The radio toggle sits first (index 0), same top-of-page slot Wi-Fi/
+  // Bluetooth's own radio occupies -- direct request: "on omarchy
+  // theres a toggle for on and off, we have this for bluetooth and
+  // wifi as the top option, can we have an audio on and off toggle
+  // too". Everything below it shifts down by exactly 1 from before.
   readonly property var audioItems: {
-    var items = [root.volumeControlItem("output")]
+    var items = [{
+      kind: "toggle",
+      checked: root.anyAudible,
+      activate: function() { root.toggleAllMuted() }
+    }, root.volumeControlItem("output")]
     for (var i = 0; i < root.outputDevices.length; i++) {
       items.push(root.deviceSelectItem(root.outputDevices[i], "output"))
     }
@@ -1694,9 +1723,11 @@ Item {
       return [customRootsItem, excludedPathsItem, excludedNamesItem][textEntryIdx]
     }
     if (root.audioOpen) {
-      if (root.focusedItemIndex === 0) return outputChannelItem.volumeRowItem
-      if (root.focusedItemIndex < root.outputItemCount) return outputChannelItem.deviceRowAt(root.focusedItemIndex - 1)
-      var inputIdx = root.focusedItemIndex - root.outputItemCount
+      if (root.focusedItemIndex === 0) return audioRadioRow
+      var audioIdx = root.focusedItemIndex - 1
+      if (audioIdx === 0) return outputChannelItem.volumeRowItem
+      if (audioIdx < root.outputItemCount) return outputChannelItem.deviceRowAt(audioIdx - 1)
+      var inputIdx = audioIdx - root.outputItemCount
       if (inputIdx === 0) return inputChannelItem.volumeRowItem
       return inputChannelItem.deviceRowAt(inputIdx - 1)
     }
@@ -2478,7 +2509,48 @@ Item {
     onCancelled: root.returnFocusRequested()
   }
 
-  // Audio's own two items -- Output and Input, both on
+  // Audio's own radio toggle -- direct request: "on omarchy theres a
+  // toggle for on and off, we have this for bluetooth and wifi as the
+  // top option, can we have an audio on and off toggle too." Same
+  // mute-both semantics as Omarchy's own hero switch (see
+  // root.toggleAllMuted()'s own comment) -- reused SettingsToggleRow
+  // directly, same card-wrapped shape Wi-Fi/Bluetooth's own radio uses.
+  Rectangle {
+    id: audioRadioItem
+    width: parent.width
+    height: audioRadioContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.audioOpen
+
+    Column {
+      id: audioRadioContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Audio"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsToggleRow {
+        id: audioRadioRow
+        label: "Enabled"
+        checked: root.anyAudible
+        rowFocused: root.audioOpen && root.rightFocused && root.focusedItemIndex === 0
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: root.toggleAllMuted()
+      }
+    }
+  }
+
+  // Audio's own two channel items -- Output and Input, both on
   // SettingsAudioChannelItem.qml (see its own header comment). Mouse/
   // scroll-wheel only for this pass, same as Profile Picture's own
   // avatar picker started out -- a continuous slider is a genuinely
@@ -2492,12 +2564,13 @@ Item {
     channelMuted: root.outputMuted
     devices: root.outputDevices
     defaultDevice: root.outputSink
-    // Output's own items are index 0 (volume/mute) through
-    // outputDevices.length (the last device) in audioItems above.
-    volumeFocused: root.audioOpen && root.rightFocused && root.focusedItemIndex === 0
+    // Output's own items are index 1 (volume/mute, right after the
+    // radio toggle at index 0) through 1 + outputDevices.length (the
+    // last device) in audioItems above.
+    volumeFocused: root.audioOpen && root.rightFocused && root.focusedItemIndex === 1
     focusedDeviceIndex: (root.audioOpen && root.rightFocused
-      && root.focusedItemIndex >= 1 && root.focusedItemIndex <= root.outputDevices.length)
-      ? root.focusedItemIndex - 1 : -1
+      && root.focusedItemIndex >= 2 && root.focusedItemIndex <= 1 + root.outputDevices.length)
+      ? root.focusedItemIndex - 2 : -1
     iconMuted: ""
     iconUnmuted: ""
     labelFor: root.deviceLabel
@@ -2518,14 +2591,15 @@ Item {
     channelMuted: root.inputMuted
     devices: root.inputDevices
     defaultDevice: root.inputSource
-    // Input's items pick up right where Output's own leave off --
+    // Input's items pick up right where Output's own leave off -- 1 +
     // root.outputItemCount is exactly the offset both this file and
-    // focusedItemVisual()/audioItems above already agree on.
-    volumeFocused: root.audioOpen && root.rightFocused && root.focusedItemIndex === root.outputItemCount
+    // focusedItemVisual()/audioItems above already agree on (the extra
+    // +1 is the radio toggle at index 0).
+    volumeFocused: root.audioOpen && root.rightFocused && root.focusedItemIndex === 1 + root.outputItemCount
     focusedDeviceIndex: (root.audioOpen && root.rightFocused
-      && root.focusedItemIndex > root.outputItemCount
-      && root.focusedItemIndex <= root.outputItemCount + root.inputDevices.length)
-      ? root.focusedItemIndex - root.outputItemCount - 1 : -1
+      && root.focusedItemIndex > 1 + root.outputItemCount
+      && root.focusedItemIndex <= 1 + root.outputItemCount + root.inputDevices.length)
+      ? root.focusedItemIndex - root.outputItemCount - 2 : -1
     iconMuted: ""
     iconUnmuted: ""
     labelFor: root.deviceLabel

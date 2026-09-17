@@ -120,6 +120,24 @@ Item {
     // at the LAST full shell restart. Cheap: a few local file reads plus
     // one short bash guard-eval script, not run per keystroke.
     omarchyActionsProvider.refresh()
+    // Jump straight to the Settings extension when asked -- direct
+    // request: phasing out ruixen.settings as the primary entry point
+    // in favor of this plugin's own Settings extension, for both the
+    // Super+Shift+R keybind and the bar's settings icon. Same
+    // activeExtensionId assignment activateSelected() already makes
+    // when someone picks the in-palette "Ruixen Settings" row by hand
+    // (see its own "settings-extension" branch) -- this is just an
+    // external, payload-driven way to land on the same screen instead
+    // of the plain search palette. root.opened's own change handler
+    // (onOpenedChanged below) already reset activeExtensionId to ""
+    // by the time this line runs (property assignment above fires it
+    // synchronously) -- this intentionally overrides that reset.
+    if (payloadJson) {
+      try {
+        var payload = JSON.parse(payloadJson)
+        if (payload && payload.extension === "settings") root.activeExtensionId = "settings"
+      } catch (e) {}
+    }
     Qt.callLater(function() { searchHeader.focusInput() })
   }
 
@@ -966,6 +984,23 @@ Item {
       return
     }
     if (result.providerId === "settings-extension") {
+      root.activeExtensionId = "settings"
+      return
+    }
+    // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
+    // (typed-query discoverability -- "settings"/"preferences" aliases;
+    // settingsRow() above only ever appears on the empty-query landing
+    // list, never as a search match) needs this same in-process jump,
+    // not its own action string's real `omarchy-shell shell toggle
+    // ruixen.launcher ...` command -- shelling that out from INSIDE
+    // this already-open launcher would hit shell.toggle()'s own
+    // isPluginOpen(id) ? hide(id) : summon(id) branch and just close
+    // this palette instead of opening Settings, since it's the exact
+    // same plugin toggling itself while already open. Direct follow-
+    // through on phasing out ruixen.settings as the primary entry
+    // point (bindings.lua's Super+Shift+R and ruixen.settingsbutton's
+    // own bar icon already made the same switch).
+    if (result.id === "omarchy:ruixen.settings") {
       root.activeExtensionId = "settings"
       return
     }

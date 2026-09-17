@@ -125,8 +125,8 @@ Item {
   readonly property var syntheticEntries: ({
     "ruixen.settings": {
       // fa-gear (U+F013) -- matches ruixen.settingsbutton's own bar
-      // icon and Settings.qml's own panel header, so the palette row
-      // and what it opens read as the same thing.
+      // icon and this plugin's own Settings extension header, so the
+      // palette row and what it opens read as the same thing.
       icon: "",
       label: "Ruixen Settings",
       // A short tagline, same spirit as a .desktop file's own
@@ -140,7 +140,18 @@ Item {
       // is better than the provider's own default "Command".
       kind: "Application",
       aliases: ["settings", "preferences"],
-      action: "omarchy-shell shell toggle ruixen.settings"
+      // Documentation only, not actually run for this specific row --
+      // Launcher.qml's own activateSelected() special-cases result.id
+      // "omarchy:ruixen.settings" BEFORE reaching provider.activate(),
+      // jumping straight to activeExtensionId = "settings" in-process
+      // instead. Shelling this exact command out for real would hit
+      // shell.toggle()'s own isPluginOpen(id) ? hide(id) : summon(id)
+      // branch and just close this already-open launcher (toggling
+      // itself) rather than opening Settings. Kept accurate here
+      // anyway (matches bindings.lua's Super+Shift+R and
+      // ruixen.settingsbutton's own bar icon) so nothing reading this
+      // field sees a stale reference to the old ruixen.settings plugin.
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"settings\"}'"
     },
     "window.fullscreen": {
       icon: "", // fa-expand

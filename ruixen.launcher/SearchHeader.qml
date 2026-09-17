@@ -60,6 +60,14 @@ Item {
   // already unconditionally do (a single-line TextInput has no real use
   // for Up/Down anyway, but DOES for Left/Right while editing a query).
   property bool interceptArrowKeys: false
+  // Direct request: "for the top search thing for Search Setting, on
+  // the right alligned lets put a kbd helper so people know to tab" --
+  // the Settings extension's own top search bar has nothing occupying
+  // this right-aligned slot (no source filter, no Enter-hint since
+  // filesMode's own layout applies but resultCount is never > 0 here),
+  // same "this space is empty" reasoning the Enter-hint chip below
+  // already documents.
+  property bool showTabHint: false
 
   property color textColor: "#ffffff"
   property color mutedColor: "#888888"
@@ -239,17 +247,46 @@ Item {
     }
   }
 
+  // Tab hint -- same physical-keycap styling as the Enter-hint chip
+  // above, just labeled with the actual key name instead of a glyph
+  // (three letters doesn't compress into a single-character symbol the
+  // way Enter's ↵ does, so this chip sizes to its own label instead of
+  // a fixed 28px).
+  Rectangle {
+    id: tabHintChip
+    visible: root.showTabHint
+    anchors.right: parent.right
+    anchors.rightMargin: 12
+    anchors.verticalCenter: parent.verticalCenter
+    width: tabHintLabel.implicitWidth + 14
+    height: 22
+    radius: 6
+    color: Qt.rgba(1, 1, 1, 0.06)
+    border.width: 1
+    border.color: Qt.rgba(1, 1, 1, 0.12)
+
+    Text {
+      id: tabHintLabel
+      anchors.centerIn: parent
+      text: "Tab"
+      color: root.mutedColor
+      font.family: root.fontFamily
+      font.pixelSize: 11
+    }
+  }
+
   TextInput {
     id: searchInput
     anchors.fill: parent
     // searchIcon's own leftMargin (12) + width (22) + a 10px gap.
     anchors.leftMargin: 44
     // sourceFilterWidth + sourceFilterButton's own rightMargin (12) +
-    // a small gap, only while it's actually showing; otherwise room
-    // for the Enter-hint chip (28 wide + 12 rightMargin) once there's
-    // a result for it to hint at, or the plain 16 default with neither
-    // showing.
+    // a small gap, only while it's actually showing; otherwise room for
+    // the Tab-hint chip (Settings mode) or the Enter-hint chip (28 wide
+    // + 12 rightMargin) once there's a result for it to hint at, or the
+    // plain 16 default with none of the three showing.
     anchors.rightMargin: root.showSourceFilter ? (root.sourceFilterWidth + 12 + 10)
+      : root.showTabHint ? (tabHintChip.width + 12 + 10)
       : (root.resultCount > 0 ? (28 + 12 + 10) : 16)
     verticalAlignment: TextInput.AlignVCenter
     color: root.textColor

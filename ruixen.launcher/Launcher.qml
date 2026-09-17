@@ -1181,7 +1181,7 @@ Item {
         placeholderOverride: root.activeExtensionId === "wallpapers" ? "Wallpapers"
           : root.activeExtensionId === "settings" ? "Search Settings" : ""
         resultCount: root.results.length
-        showTabHint: root.activeExtensionId === "settings"
+        showSettingsHints: root.activeExtensionId === "settings"
         // Wallpapers mode feeds this same button/dropdown its own type
         // options instead of real Search Files sources -- see
         // wallpaperTypeOptions' own comment. wallpapersContent.kindFilter

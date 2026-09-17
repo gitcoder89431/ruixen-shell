@@ -1182,7 +1182,8 @@ Item {
   property alias pluginCheckError: pluginService.pluginCheckError
   property alias pluginChangedIds: pluginService.pluginChangedIds
   property alias pluginsUpToDate: pluginService.pluginsUpToDate
-  property alias pluginLastUpdatedLabel: pluginService.lastUpdatedLabel
+  property alias pluginLastCommitSha: pluginService.lastCommitSha
+  property alias pluginLastCommitDate: pluginService.lastCommitDate
   property alias ruixenRepoPath: pluginService.ruixenRepoPath
   property alias uninstallConfirmPhrase: pluginService.uninstallConfirmPhrase
   property alias uninstallConfirmInput: pluginService.uninstallConfirmInput
@@ -1205,17 +1206,16 @@ Item {
 
   // Short status line above the Check/Update buttons -- direct
   // request: "like a status line but short please... it can say Up to
-  // Date or Update Available and then on load before update check then
-  // Last Updated time or the commit version". Priority order matches
-  // what's actually happening: an in-flight update/check always wins
-  // over a stale prior result; a real check result wins over the
-  // load-time git log guess once one exists; the git log line is the
-  // fallback for "nothing's been checked yet this session".
+  // Date or Update Available". Empty until an update/check has actually
+  // happened this session -- before that, the Commit Version/Last
+  // Updated rows below cover it instead (their own direct follow-up:
+  // "kinda hard to see... split it so its Commit Version: and then
+  // Last Updated as two rows").
   readonly property string pluginStatusLine: {
     if (root.pluginUpdateStatus === "updating") return "Updating…"
     if (root.pluginCheckStatus === "checking") return "Checking for updates…"
     if (root.pluginCheckStatus === "checked") return root.pluginsUpToDate ? "Up to Date" : "Update Available"
-    return root.pluginLastUpdatedLabel
+    return ""
   }
 
   // Green/yellow, same real meaning the per-row pending dot already
@@ -3199,6 +3199,50 @@ Item {
         font.pixelSize: 11
         font.weight: Font.DemiBold
         color: root.pluginStatusLineColor
+      }
+
+      // Before any real check has run this session -- two labeled rows
+      // instead of one combined line, direct follow-up: "the last
+      // updated status line thing is kinda hard to see maybe split it
+      // so its Commit Version: and then Last Updated as two rows?
+      // commit version is bolded?"
+      Column {
+        visible: root.pluginStatusLine === "" && root.pluginLastCommitSha !== ""
+        width: parent.width
+        spacing: 2
+
+        Row {
+          spacing: 4
+          Text {
+            text: "Commit Version:"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: root.muted
+          }
+          Text {
+            text: root.pluginLastCommitSha
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            font.weight: Font.DemiBold
+            color: root.textColor
+          }
+        }
+
+        Row {
+          spacing: 4
+          Text {
+            text: "Last Updated:"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: root.muted
+          }
+          Text {
+            text: root.pluginLastCommitDate
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: root.textColor
+          }
+        }
       }
 
       Text {

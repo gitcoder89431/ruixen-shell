@@ -97,15 +97,18 @@ Item {
     repoPathProc.running = true
   }
 
-  // "Last updated" label shown before any real Check for Updates has
-  // run this session -- direct request: "on load before update check
-  // then Last Updated time or the commit version". Plain read-only
-  // `git log`, same class of dependency as update.sh's own --check-json
-  // (a real command against the checkout, never mutates it) -- date +
-  // short hash together, since either alone is less useful (a date with
-  // no way to correlate it to a specific commit, or a hash with no
-  // human-readable sense of how stale it might be).
-  property string lastUpdatedLabel: ""
+  // Commit version + last-updated date, shown before any real Check for
+  // Updates has run this session -- direct request: "on load before
+  // update check then Last Updated time or the commit version", later
+  // split into its own two labeled rows per direct follow-up ("kinda
+  // hard to see... split it so its Commit Version: and then Last
+  // Updated as two rows"). Plain read-only `git log`, same class of
+  // dependency as update.sh's own --check-json (a real command against
+  // the checkout, never mutates it) -- kept as two separate properties
+  // rather than one combined string so SettingsContent.qml can render
+  // them as two rows with independent styling (commit version bolded).
+  property string lastCommitSha: ""
+  property string lastCommitDate: ""
 
   Process {
     id: lastUpdatedProc
@@ -114,14 +117,19 @@ Item {
       onStreamFinished: {
         var raw = String(text || "").trim()
         var parts = raw.split("|")
-        root.lastUpdatedLabel = (parts.length === 2 && parts[0] !== "" && parts[1] !== "")
-          ? "Last updated " + parts[0] + " (" + parts[1] + ")" : ""
+        if (parts.length === 2 && parts[0] !== "" && parts[1] !== "") {
+          root.lastCommitDate = parts[0]
+          root.lastCommitSha = parts[1]
+        } else {
+          root.lastCommitDate = ""
+          root.lastCommitSha = ""
+        }
       }
     }
   }
 
   function refreshLastUpdated() {
-    if (root.ruixenRepoPath === "") { root.lastUpdatedLabel = ""; return }
+    if (root.ruixenRepoPath === "") { root.lastCommitSha = ""; root.lastCommitDate = ""; return }
     var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
     lastUpdatedProc.command = ["bash", "-c", "git -C '" + safePath + "' log -1 --format='%ad|%h' --date=short 2>/dev/null"]
     lastUpdatedProc.running = true

@@ -1153,7 +1153,35 @@ Item {
       id: card
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
-      anchors.topMargin: parent.height * 0.22
+      // Direct report: "someone was using a laptop and the screen is
+      // much smaller than my monitor, the launcher... settings and
+      // file search size and wallpaper size is like not centered, its
+      // pretty low". Real bug, confirmed by the actual numbers: this
+      // card's own height is a fixed pixel formula (below) that never
+      // shrinks, while the old plain `parent.height * 0.22` margin DID
+      // scale with screen height -- on a tall monitor that leaves a
+      // big gap below the card (reads as "upper third", the intended
+      // look), but on a shorter laptop panel the same proportional
+      // margin eats a bigger share of what's actually a much smaller
+      // total height, leaving less room below than above -- the exact
+      // "pushed low" look reported (measured live: 900px screen ->
+      // 198px above the card but only 102px below it; 768px screen ->
+      // the card's own bottom edge already past the screen's own
+      // bottom edge entirely).
+      //
+      // Fix is one continuous formula, not a second breakpoint size --
+      // a lookup table of screen-size tiers just moves the same bug to
+      // whatever resolution falls between two tiers. Centers on 44% of
+      // the screen's own height (a deliberate small upward bias off
+      // dead-center, not the old top-anchored 22% -- centering makes
+      // the top/bottom split scale WITH screen height instead of
+      // against it), then clamps into [16, height-card.height-16] so
+      // it can never crowd flush against either edge even on a very
+      // short screen. Verified against the exact numbers above: 900px
+      // now splits 96px/204px, 768px splits 38px/130px -- bottom gap
+      // stays bigger than top on both, matching the same "sits above
+      // center" look the original design intended on a large monitor.
+      anchors.topMargin: Math.max(16, Math.min(parent.height * 0.44 - height / 2, parent.height - height - 16))
       // Wider in Search Files mode, and now any extension too -- direct
       // report after Wallpapers shipped at the plain landing-list width
       // and felt cramped: "switch the panel so its like file search

@@ -2794,6 +2794,111 @@ Item {
     }
   }
 
+  // ruixen-shell#67: every hosted widget used to get `bar = root` verbatim
+  // -- ruixen.bar's own top-level Item, including its own `shell` (a
+  // PluginShellApi scoped to "ruixen.bar"'s identity, not the widget's
+  // own). One of these is created per ModuleSlot instead, so each widget
+  // sees a facade scoped to ITS OWN moduleName.
+  //
+  // Every property/method below mirrors something real widgets already
+  // read off `bar` today (audited across the repo) -- this is a pure
+  // reshaping of the same contract, not a new one, so nothing that works
+  // today should regress.
+  component PluginBarFacade: QtObject {
+    id: facade
+
+    required property string moduleName
+
+    readonly property color foreground: root.foreground
+    readonly property string fontFamily: root.fontFamily
+    readonly property color barForeground: root.barForeground
+    readonly property bool foregroundAnimationEnabled: root.foregroundAnimationEnabled
+    readonly property var barWidgetRegistry: root.barWidgetRegistry
+    readonly property var barConfig: root.barConfig
+    readonly property var layoutConfig: root.layoutConfig
+
+    // The one writable property in this contract (ruixen.weather/Panel.qml
+    // sets it directly) -- kept in sync both ways via plain JS-expression
+    // bindings, the same mechanism this whole file already relies on for
+    // every other root-tracking property (no property alias used here --
+    // untested whether alias resolution reaches into an inline `component`
+    // the way plain expression bindings, proven throughout this file, do).
+    property bool centerHoverRevealSuppressed: root.centerHoverRevealSuppressed
+    onCenterHoverRevealSuppressedChanged: root.centerHoverRevealSuppressed = centerHoverRevealSuppressed
+
+    function run(command) { return root.run(command) }
+    function showTooltip(target, text) { return root.showTooltip(target, text) }
+    function hideTooltip(target) { return root.hideTooltip(target) }
+    function registerClickTarget(target) { return root.registerClickTarget(target) }
+    function unregisterClickTarget(target) { return root.unregisterClickTarget(target) }
+    function switchPanelFrom(owner, direction) { return root.switchPanelFrom(owner, direction) }
+
+    // Correct per-widget scoping stops here -- see ruixen-shell#67.
+    // pluginShellForBarEntry() is the real, public, host-exposed
+    // mechanism for a replacement bar to obtain a facade scoped to a
+    // SPECIFIC hosted widget's own id, instead of leaking ruixen.bar's
+    // own. summon/hide/toggle/isPluginOpen/updateEntryInline now
+    // correctly resolve to THIS widget's own identity through it.
+    //
+    // firstPartyServiceFor/mutateShellConfig deliberately still route
+    // through root.shell (ruixen.bar's own, unchanged) -- confirmed by
+    // reading shell.qml that pluginShellForBarEntry()'s own result never
+    // wires _firstPartyServiceLookup or _mutateBarConfig, so scoping
+    // those here too would silently break ruixen.stayawake/
+    // ruixen.quickactions, which already call bar.shell.firstPartyServiceFor
+    // successfully today via this exact path.
+    //
+    // serviceFor() deliberately still returns null: Omarchy has no
+    // host-exposed mechanism for a replacement bar to obtain a
+    // service-capable facade for a widget it hosts -- confirmed this is
+    // an intentional trust boundary (only the trusted built-in bar can
+    // call pluginShellForId(), see /usr/share/omarchy/shell/plugins/bar/
+    // Bar.qml's own pluginBarApiFor()), not an oversight fixable from
+    // here. That's what #11949/PR #11970 (unmerged, blocked on a real
+    // security regression) are about.
+    // A plain function, not a property binding -- pluginShellForBarEntry()
+    // caches and mutates state on the host object as a side effect of
+    // being called, and invoking that from inside a declarative binding
+    // triggered a real "Binding loop detected" warning (confirmed live).
+    // Calling it on demand instead avoids that entirely; the host's own
+    // cache keeps repeat calls cheap.
+    function _scopedEntry() {
+      return (root.shell && typeof root.shell.pluginShellForBarEntry === "function")
+        ? root.shell.pluginShellForBarEntry("bar-entry:" + facade.moduleName, facade.moduleName)
+        : null
+    }
+
+    readonly property var shell: QtObject {
+      function serviceFor(id) { return null }
+      function firstPartyServiceFor(id) {
+        return root.shell ? root.shell.firstPartyServiceFor(id) : null
+      }
+      function summon(id, payloadJson) {
+        var entry = facade._scopedEntry()
+        return entry ? entry.summon(id, payloadJson) : false
+      }
+      function hide(id) {
+        var entry = facade._scopedEntry()
+        return entry ? entry.hide(id) : false
+      }
+      function toggle(id, payloadJson) {
+        var entry = facade._scopedEntry()
+        return entry ? entry.toggle(id, payloadJson) : false
+      }
+      function isPluginOpen(id) {
+        var entry = facade._scopedEntry()
+        return entry ? entry.isPluginOpen(id) : false
+      }
+      function updateEntryInline(id, settings) {
+        var entry = facade._scopedEntry()
+        return entry ? entry.updateEntryInline(id, settings) : false
+      }
+      function mutateShellConfig(mutator) {
+        return root.shell ? root.shell.mutateShellConfig(mutator) : false
+      }
+    }
+  }
+
   component ModuleSlot: Item {
     id: slot
 
@@ -2819,6 +2924,8 @@ Item {
       if (qmlCustom) return qmlLoader.item
       return componentLoader.item
     }
+    readonly property var pluginBarFacade: PluginBarFacade { moduleName: slot.moduleName }
+
     readonly property bool hovered: moduleHover.hovered
     readonly property bool dragSource: root.barDragSource === slot
     readonly property bool panelOpen: root.activePopout === slot.activeItem
@@ -3039,7 +3146,7 @@ Item {
     function injectProps() {
       var target = activeItem
       if (!target) return
-      if ("bar" in target) target.bar = root
+      if ("bar" in target) target.bar = slot.pluginBarFacade
       if ("moduleName" in target) target.moduleName = moduleName
       if ("settings" in target) target.settings = moduleSettings
     }

@@ -92,7 +92,7 @@ out1="$(run_install "$home1" 2>&1)"
 exit1=$?
 check "fresh install: exits 0" "$exit1" "0"
 check "fresh install: reports the overlay as applied" \
-  "$(grep -c '^  applied: white$' <<<"$out1")" "1"
+  "$(grep -cE '^  applied: .*\bwhite\b' <<<"$out1")" "1"
 check "fresh install: reports the active theme re-applied live" \
   "$(grep -c 're-applied the active theme (white)' <<<"$out1")" "1"
 

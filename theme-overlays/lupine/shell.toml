@@ -1,0 +1,29 @@
+# Overlay, not a full theme replacement -- shell.toml is a per-key
+# override on top of this theme's own colors.toml (confirmed by reading
+# Omarchy's own Color.qml/Style.qml merge logic: any key not set here
+# falls back to that theme's own natural color, e.g. Color.popups.text
+# defaults to root.foreground). Every other section is intentionally
+# left out so it keeps following Lupine's own natural bar size,
+# spacing, font scale, tooltip, notifications, launcher, menu, etc.
+
+[popups]
+# Same fix as theme-overlays/white/shell.toml's own [popups] section,
+# for the same reason: this is a light-mode theme (background #fafafa),
+# so Color.popups.background would otherwise follow that bright natural
+# background. Stock popup content (bluetooth/agents/power/clock's
+# calendar, at minimum) reads bar.foreground for its text color, which
+# ruixen.bar pins to a pill-safe near-white value so bar-ROW icons stay
+# readable against its own permanently-black pills -- this theme's own
+# foreground (#212121) falls below that safety threshold, so it gets
+# the same near-white fallback White's own foreground (#000000) does.
+# Paired against this theme's own bright background, that produces the
+# same unreadable near-white-on-near-white text confirmed live on Rose
+# Pine (the clock's calendar). Forcing this theme's own popup surface
+# to black/white matches what ruixen.bar's pill-safe fallback already
+# assumes, fixing every consumer -- stock and ruixen's own -- with one
+# file, no plugin code involved.
+background       = "#000000"
+background-alpha = 1.0
+text             = "#ffffff"
+border           = "hyprland.active-border"
+border-alpha     = 1.0

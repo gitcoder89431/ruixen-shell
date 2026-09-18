@@ -1032,6 +1032,20 @@ Item {
     // pill rearrange within its group only"): these four may only
     // reorder among each other, never leave curatedPill via drag.
     var sourceIsCurated = sourceSlot && root.curatedRightIds.indexOf(sourceSlot.moduleName) !== -1
+    // Direct report: centerSpecialIds (weather/clock's own clockPill)
+    // never got curatedRightIds' own "only reorder among its own group"
+    // treatment -- it was only ever protected in the general
+    // (sourceIsProtected) sense, which just stops FOREIGN widgets from
+    // landing there. That sense does nothing to constrain WHERE weather/
+    // clock themselves can be dragged TO, since being protected also
+    // exempts a source from the foreign-widget block below -- so either
+    // one could freely land on any other protected slot (workspacesPill,
+    // applauncher, tray, curatedPill, ...), scattering clockPill and
+    // leaving no ordinary way to drag anything back into the gap.
+    // Confirmed as a real, live-reported bug, not a hypothetical --
+    // identical shape to the curatedRightIds fix above, just never
+    // extended to this second group.
+    var sourceIsCenterSpecial = sourceSlot && root.centerSpecialIds.indexOf(sourceSlot.moduleName) !== -1
     var sourceIsProtected = sourceSlot && root.protectedModuleIds.indexOf(sourceSlot.moduleName) !== -1
 
     var candidates = []
@@ -1040,6 +1054,8 @@ Item {
       if (!slot || slot === sourceSlot || !slot.visible || slot.width <= 0 || slot.height <= 0) continue
       if (sourceIsCurated) {
         if (root.curatedRightIds.indexOf(slot.moduleName) === -1) continue
+      } else if (sourceIsCenterSpecial) {
+        if (root.centerSpecialIds.indexOf(slot.moduleName) === -1) continue
       } else if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) {
         continue
       }

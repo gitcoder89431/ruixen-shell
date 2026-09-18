@@ -64,6 +64,19 @@ check "moduleDropAtScene also computes whether the source is one of curatedRight
 check "a curated source's candidate loop only accepts other curatedRightIds slots" \
   "$(grep -Fc 'if (root.curatedRightIds.indexOf(slot.moduleName) === -1) continue' "$bar_qml" || true)" "1"
 
+# Direct report: centerSpecialIds (weather/clock's own clockPill) never
+# got the same "only reorder among its own group" treatment
+# curatedRightIds has -- being merely "protected" (sourceIsProtected)
+# only stops FOREIGN widgets from landing there, it does nothing to
+# constrain where weather/clock THEMSELVES can be dragged to, so either
+# could freely scatter onto any other protected slot on the bar, with
+# no ordinary way to drag anything back into the resulting gap.
+check "sourceIsCenterSpecial exists, exactly once" \
+  "$(grep -Fc 'var sourceIsCenterSpecial = sourceSlot && root.centerSpecialIds.indexOf(sourceSlot.moduleName) !== -1' "$bar_qml" || true)" "1"
+
+check "a centerSpecial source's candidate loop only accepts other centerSpecialIds slots" \
+  "$(grep -Fc 'if (root.centerSpecialIds.indexOf(slot.moduleName) === -1) continue' "$bar_qml" || true)" "1"
+
 check "a non-curated, non-protected drag source still skips every protected slot (the plain foreign-widget case)" \
   "$(grep -Fc '} else if (!sourceIsProtected && root.protectedModuleIds.indexOf(slot.moduleName) !== -1) {' "$bar_qml" || true)" "1"
 

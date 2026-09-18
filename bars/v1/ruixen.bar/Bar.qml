@@ -2816,6 +2816,20 @@ Item {
     readonly property var barWidgetRegistry: root.barWidgetRegistry
     readonly property var barConfig: root.barConfig
     readonly property var layoutConfig: root.layoutConfig
+    // The rest of this block: found missing live, after the first version
+    // of this facade shipped -- Quickshell's own shared qs.Ui base
+    // components (WidgetButton, PopupCard, KeyboardPanel, Panel -- every
+    // widget in this repo extends one of these) read all of these off
+    // `bar` too, and none of it showed up in a repo-only grep since none
+    // of OUR OWN source calls it by name. Confirmed real usage in
+    // /usr/share/omarchy/shell/Ui/*.qml, not just this repo.
+    readonly property color background: root.background
+    readonly property color urgent: root.urgent
+    readonly property bool vertical: root.vertical
+    readonly property int barSize: root.barSize
+    readonly property string position: root.position
+    readonly property var clickTargets: root.clickTargets
+    readonly property var activePopout: root.activePopout
 
     // The one writable property in this contract (ruixen.weather/Panel.qml
     // sets it directly) -- kept in sync both ways via plain JS-expression
@@ -2832,6 +2846,10 @@ Item {
     function registerClickTarget(target) { return root.registerClickTarget(target) }
     function unregisterClickTarget(target) { return root.unregisterClickTarget(target) }
     function switchPanelFrom(owner, direction) { return root.switchPanelFrom(owner, direction) }
+    function requestPopout(owner) { return root.requestPopout(owner) }
+    function releasePopout(owner) { return root.releasePopout(owner) }
+    function targetBelongsToWindow(target, window) { return root.targetBelongsToWindow(target, window) }
+    function moduleWidgets(pluginId) { return root.moduleWidgets(pluginId) }
 
     // Correct per-widget scoping stops here -- see ruixen-shell#67.
     // pluginShellForBarEntry() is the real, public, host-exposed

@@ -279,6 +279,26 @@ Item {
       y += Math.max(0, window.screen.height - window.height)
     else if (root.position === "right")
       x += Math.max(0, window.screen.width - window.width)
+    else if (root.position === "top")
+      // Direct live report: the drag-reorder drop-marker line rendered
+      // too high, right at the true screen edge, not aligned with the
+      // bar. Root cause: BarPanel's own top margin (margins.top:
+      // root.screenMarginTop, see its own comment) is a compositor-level
+      // layer-shell margin -- it shifts the WHOLE window down on screen
+      // without changing the window's own internal coordinate origin, so
+      // mapToItem(null, ...) on a widget inside it returns a point
+      // relative to that internal origin, short by screenMarginTop
+      // (13px floating / 6px docked) of the widget's real screen
+      // position. The bottom/right cases above correct for a DIFFERENT
+      // situation entirely (a window anchored to the far edge, narrower/
+      // shorter than the full screen, so its own local (0,0) isn't at
+      // that far edge) -- a top bar has neither of those (it spans the
+      // full width and is anchored only to the top), so it needed its
+      // own, different correction: back the real compositor margin out
+      // directly, the same root.screenMarginTop the popup-margin fixes
+      // elsewhere in this file already use for the identical class of
+      // surface-offset bug.
+      y += root.screenMarginTop
 
     return { x: x, y: y }
   }

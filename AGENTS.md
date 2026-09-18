@@ -142,6 +142,21 @@ Before calling non-trivial work done:
       structure changed.
 - [ ] For runtime/QML/IPC changes, do a real `omarchy restart shell`
       verification — don't rely on hot reload alone to prove correctness.
+      This is not a style preference: confirmed live (ruixen-shell#67
+      follow-up) that the file-watcher hot-reload path can leave stale
+      widget/facade instances alive in memory — clearing
+      `~/.cache/quickshell/qmlcache` and seeing "Local plugin changed,
+      reloading" in the journal does NOT guarantee existing object
+      instances were recreated from the new code. This cost hours of
+      debugging a popup-positioning fix that looked deployed-and-correct
+      (correct source, clean journal, `omarchy plugin validate` passing)
+      but silently kept running against a pre-fix object, throwing
+      `TypeError: ... is not a function` on methods that definitely
+      existed in the source on disk. If a fix looks right on paper and
+      in the diff but a live test says it "didn't work," do a full
+      `omarchy restart shell` (not just a qmlcache clear) before
+      concluding the fix itself is wrong — confirm a genuinely new PID
+      via `ps aux | grep quickshell` first.
 - [ ] Check the journal (`journalctl --user -b 0`) for anything new:
       QML binding loops, TypeErrors, duplicate IPC registrations,
       deleted-object warnings.

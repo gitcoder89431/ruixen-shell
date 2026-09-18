@@ -406,6 +406,23 @@ BarWidget {
     owner: root
     bar: root.bar
     open: root.popupOpen
+    // PopupCard's own default Y math (target.height + margin, target
+    // being this widget's own icon via anchorItem) put this popup's top
+    // edge overlapping the bar's own reserved height above the icon row
+    // -- confirmed live (icon sits at local Y=0 within a window taller
+    // than the icon itself: barH=58 vs the icon's own 34). Two derived
+    // compensations were each tried and verified live to be wrong in
+    // opposite directions: PopupCard's own plain default (margin=5, its
+    // built-in gapsOut) landed too high; fully cancelling target.height
+    // via PopupCard's own exposed barH (margin = barH + gapsOut -
+    // anchorItem.height = 29) overshot too low, into the bar's own
+    // reserved-but-invisible padding above the icon. 17 is the real,
+    // live-measured value between those two (via a temporary debug
+    // hook reading popup.anchor.rect.y directly, since neither
+    // analytical derivation matched reality) -- not itself derived from
+    // a formula, just confirmed correct live in both floating position
+    // and appearance.
+    margin: 17
     contentWidth: popup.fittedContentWidth(Style.space(220))
     contentHeight: popup.fittedContentHeight(column.implicitHeight, Style.space(360))
 

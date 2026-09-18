@@ -183,19 +183,24 @@ BarWidget {
     owner: root
     bar: root.bar
     open: root.popupOpen
-    // Back to anchored under this widget's own icon (PopupCard's own
-    // default: centerOnBar false, margin unoverridden) -- direct
-    // request to revert the screen-centered match with weather/clock
-    // from e0429b7/61ef0bd: "it doesn't need to be center anymore, it
-    // can go back to being below the icon". That earlier change was
-    // purely a visual-consistency choice, not a fix for anything broken
-    // here -- this popup's own icon-relative position was never
-    // reported as a problem (unlike weather/clock's, which genuinely
-    // did overlap the Notch). The margin compensation from 61ef0bd
-    // (backing root.bar.screenMarginTop out of margin) existed only to
-    // match weather/clock's screen-centered Y exactly; reverting to
-    // plain icon-relative positioning drops the need for it too, so
-    // both are removed together rather than leaving one half-applied.
+    // centerOnBar stays reverted (e0429b7 was purely a visual-consistency
+    // choice, correctly dropped per direct request -- this popup should
+    // stay anchored under its own icon horizontally, not screen-centered).
+    //
+    // The Y position needed real live tuning, not a derived formula --
+    // two analytical attempts (61ef0bd's own screenMarginTop
+    // compensation, calibrated for centerOnBar's different formula; then
+    // a barH-cancellation meant to land exactly on the bar's own true
+    // edge) were each verified live and wrong in opposite directions.
+    // The plain PopupCard default (no override) was ALSO verified live
+    // to be wrong, still overlapping the bar's own reserved height above
+    // the icon row -- confirmed via ruixen.pluginpins' own identical
+    // popup (same BarIconButton, same real height) that PopupCard's own
+    // target.height + margin math needs a real live-measured margin
+    // between the plain default (5, too high) and full barH cancellation
+    // (29, too low). 17 is that number, confirmed live on pluginpins
+    // first -- same icon component/height here, so it transfers directly.
+    margin: 17
     contentWidth: popup.fittedContentWidth(Style.space(200))
     contentHeight: popup.fittedContentHeight(column.implicitHeight)
 

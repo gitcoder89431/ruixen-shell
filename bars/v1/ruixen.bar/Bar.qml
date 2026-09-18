@@ -2829,6 +2829,13 @@ Item {
     readonly property int barSize: root.barSize
     readonly property string position: root.position
     readonly property var clickTargets: root.clickTargets
+    // Found missing the same way, this time by actually tracing a real
+    // reported bug (ruixen-shell popup-positioning regression) back to
+    // its root: this is what ruixen.quickactions'/ruixen.pluginpins' own
+    // PopupCard.margin needs to back out of PopupCard's own xdg-popup
+    // surface-relative offset -- see either widget's own popup.margin
+    // comment (originally added in 61ef0bd) for the full "why".
+    readonly property int screenMarginTop: root.screenMarginTop
     readonly property var activePopout: root.activePopout
 
     // The one writable property in this contract (ruixen.weather/Panel.qml
@@ -3161,6 +3168,15 @@ Item {
     onActiveItemChanged: Qt.callLater(injectProps)
     onModuleSettingsChanged: injectProps()
 
+    // Editing PluginBarFacade (below) or anything it forwards? A qmlcache
+    // clear + hot reload is NOT sufficient to verify the change -- confirmed
+    // live that stale PluginBarFacade instances can survive a hot reload,
+    // throwing "TypeError: ... is not a function" on methods that plainly
+    // exist in the on-disk source (cost hours of debugging a since-fixed
+    // popup-positioning bug that looked broken purely because of this).
+    // Always do a full `omarchy restart shell` and confirm a new PID via
+    // `ps aux | grep quickshell` before trusting a live test of anything
+    // touching this facade. See AGENTS.md's own verification checklist.
     function injectProps() {
       var target = activeItem
       if (!target) return

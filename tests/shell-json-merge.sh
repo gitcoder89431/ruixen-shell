@@ -340,6 +340,80 @@ check "ruixen.peripherals: pinnedapps/pluginpins already present are not touched
 check "ruixen.peripherals: re-running on its own output is idempotent" \
   "$(printf '%s' "$out12" | "$build")" "$out12"
 
+# --- Case 13: direct live report -- a real drag-and-drop bug let
+# ruixen.weather/omarchy.clock be dragged out of "center" onto any
+# other protected slot, scattering either into "left"/"right" with no
+# ordinary way to drag it back. Unlike the general foreign-widget
+# migration (Case 7), which deliberately leaves "left" alone, weather/
+# clock have no legitimate home anywhere but "center" -- this sweeps
+# BOTH sides. Preserves the full entry object (omarchy.clock's own
+# format survives); a stale center-side copy of an id already correctly
+# placed is dropped, not doubled.
+scattered_center_special='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [
+        { "id": "ruixen.applauncher" },
+        { "id": "ruixen.workspaces" },
+        { "id": "ruixen.pinnedapps" }
+      ],
+      "center": [{ "id": "omarchy.clock", "format": "HH:mm" }],
+      "right": [
+        { "id": "ruixen.weather" },
+        { "id": "ruixen.tray" },
+        { "id": "ruixen.pluginpins" }
+      ]
+    }
+  },
+  "plugins": []
+}'
+out13="$(printf '%s' "$scattered_center_special" | "$build")"
+check "center rescue: ruixen.weather moves back into center, alongside omarchy.clock" \
+  "$(jq -c '.bar.layout.center' <<<"$out13")" \
+  '[{"id":"omarchy.clock","format":"HH:mm"},{"id":"ruixen.weather"}]'
+check "center rescue: ruixen.weather no longer present in right" \
+  "$(jq -c '.bar.layout.right' <<<"$out13")" \
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
+check "center rescue: left is untouched" \
+  "$(jq -c '.bar.layout.left' <<<"$out13")" \
+  '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'
+check "center rescue: re-running on its own output is idempotent" \
+  "$(printf '%s' "$out13" | "$build")" "$out13"
+
+# --- Case 13b: weather scattered to the right AND a stale center-side
+# copy of clock already present alongside a SECOND, stranded copy of
+# clock (with settings) stuck in "left" too -- simulating a config
+# caught mid-drag. Same precedent as the general foreign-widget
+# migration's own dedup (Case 8: "the stale CENTER-side copy is
+# dropped" in favor of an already-correctly-placed one) applied in the
+# opposite direction here -- center IS the correct home for this
+# migration, so the copy already there wins and the stranded duplicate
+# (settings included) is dropped, not merged or preferred.
+both_scattered='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "omarchy.clock", "format": "HH:mm" }],
+      "center": [{ "id": "omarchy.clock" }],
+      "right": [{ "id": "ruixen.weather" }, { "id": "ruixen.tray" }]
+    }
+  },
+  "plugins": []
+}'
+out13b="$(printf '%s' "$both_scattered" | "$build")"
+check "center rescue: weather rescued, clock keeps its already-in-center copy (the stranded duplicate is dropped)" \
+  "$(jq -c '.bar.layout.center' <<<"$out13b")" \
+  '[{"id":"omarchy.clock"},{"id":"ruixen.weather"}]'
+check "center rescue: left keeps everything else, the stranded clock duplicate removed" \
+  "$(jq -c '.bar.layout.left' <<<"$out13b")" \
+  '[{"id":"ruixen.applauncher"},{"id":"ruixen.pinnedapps"}]'
+check "center rescue: right keeps everything else, weather removed" \
+  "$(jq -c '.bar.layout.right' <<<"$out13b")" \
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
+
 # --- Case 5: invalid JSON input is rejected, not silently swallowed
 if printf 'not json at all' | "$build" >/dev/null 2>&1; then
   printf 'FAIL - invalid JSON input should not succeed\n'

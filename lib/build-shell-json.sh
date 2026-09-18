@@ -111,6 +111,11 @@ protected_bar_ids='[
   "omarchy.system-update", "omarchy.power", "ruixen.quickactions"
 ]'
 
+# Mirrors Bar.qml's own centerSpecialIds -- keep both in sync if either
+# changes. See the center-rescue migration below for why this needs its
+# own list, not just a subset check against protected_bar_ids above.
+center_special_ids='["ruixen.weather", "omarchy.clock"]'
+
 existing_json="$(cat)"
 
 jq -n \
@@ -118,6 +123,7 @@ jq -n \
   --argjson ruixenBar "$ruixen_bar_json" \
   --argjson ruixenPluginIds "$ruixen_plugin_ids" \
   --argjson protectedBarIds "$protected_bar_ids" \
+  --argjson centerSpecialIds "$center_special_ids" \
   --argjson defaultIdle "$default_idle_json" \
   '
   # bar: only installed fresh the first time ruixen.bar takes over the
@@ -206,6 +212,39 @@ jq -n \
           | .layout.right = ($rightNow + $migratedEntries))
      else $strippedBar end) as $migratedBar
 
+  # Direct live report: a real drag-and-drop bug (the moduleDropAtScene
+  # function in Bar.qml) let ruixen.weather/omarchy.clock be dragged OUT
+  # of "center" onto any other protected slot, scattering either into
+  # "left"/"right" with no ordinary way to drag it back -- the
+  # horizontal bar own clockPill only ever reads these two ids out of
+  # "center" specifically (see this file own header comment), so a
+  # scattered entry there just stops rendering as the shared pill at
+  # all, silently. Unlike the general foreign-widget migration above
+  # (which deliberately leaves "left" alone, since a non-protected id
+  # there may be a deliberate pluginpins left-pin), weather/clock have
+  # no legitimate home anywhere but "center" -- there is no "left
+  # clockPill" twin the way pluginpins has one -- so this sweeps BOTH
+  # "left" and "right". Preserves the full entry object (inline
+  # settings survive, e.g. omarchy.clock own format/formatAlt/
+  # verticalFormat); a duplicate of an id already correctly in "center"
+  # is dropped, not doubled. Idempotent: once back in "center", a
+  # second run finds nothing left in either side to move.
+  | (if ($migratedBar.layout | type) == "object" then
+       ($migratedBar.layout.center // []) as $centerNow
+       | ($centerNow | map(.id)) as $centerIds
+       | ([($migratedBar.layout.left // []), ($migratedBar.layout.right // [])]
+          | map(map(select((.id as $id | $centerSpecialIds | index($id)) != null)))
+          | add) as $strandedEntries
+       | ($strandedEntries
+          | map(select((.id as $id | $centerIds | index($id)) == null))) as $rescuedEntries
+       | ($migratedBar
+          | .layout.left = ((.layout.left // [])
+              | map(select((.id as $id | $centerSpecialIds | index($id)) == null)))
+          | .layout.right = ((.layout.right // [])
+              | map(select((.id as $id | $centerSpecialIds | index($id)) == null)))
+          | .layout.center = ($centerNow + $rescuedEntries))
+     else $migratedBar end) as $centerRescuedBar
+
   # Real tester gap, found via ruixen-doctor.sh: an install from before
   # ruixen.pinnedapps/ruixen.pluginpins existed stays missing both
   # forever -- an existing owner bar is otherwise preserved verbatim
@@ -240,9 +279,9 @@ jq -n \
        { id: "ruixen.pinnedapps", section: "left", after: "ruixen.workspaces" },
        { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" }
      ]) as $requiredStructural
-  | (if ($migratedBar.layout | type) == "object" then
+  | (if ($centerRescuedBar.layout | type) == "object" then
        reduce $requiredStructural[] as $req
-         ($migratedBar;
+         ($centerRescuedBar;
            . as $bar
            | ([$bar.layout.left[]?, $bar.layout.center[]?, $bar.layout.right[]?]
               | map(.id) | index($req.id)) as $alreadyPresent
@@ -254,7 +293,7 @@ jq -n \
                | ($sectionEntries[0:$insertAt] + [{id: $req.id}] + $sectionEntries[$insertAt:]) as $newSection
                | $bar | .layout[$req.section] = $newSection
              end)
-     else $migratedBar end) as $mergedBar
+     else $centerRescuedBar end) as $mergedBar
 
   # plugins: existing entries (ruixen-owned or not) are left completely
   # untouched -- only ids from ruixenPluginIds that are not present AT

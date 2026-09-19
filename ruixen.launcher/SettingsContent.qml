@@ -3653,7 +3653,7 @@ Item {
 
             Text {
               anchors.verticalCenter: parent.verticalCenter
-              text: "Check for Updates"
+              text: "Check Updates"
               font.family: root.fontFamily
               font.pixelSize: 12
               color: pluginCheckButton.actionEnabled ? root.textColor : root.muted

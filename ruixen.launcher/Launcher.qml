@@ -1203,6 +1203,18 @@ Item {
       // proportional 40/60 split) scales down cleanly, unlike
       // Wallpapers' grid or Search Files' fixed-column layout, which
       // still need the extra room.
+      //
+      // To switch settings back to the wide/tall panel (some people
+      // may end up preferring that over this compact default, per
+      // direct follow-up): delete ` && root.activeExtensionId !==
+      // "settings"` from this line AND the matching height line
+      // below -- that's the whole revert, ExtensionTwoPanel's own
+      // proportional split just re-expands to fill it, no other
+      // change needed. If this ever becomes a real user-facing
+      // toggle instead of a hand edit, swap that literal condition
+      // for a persisted property (own state file, same pattern as
+      // avatarCollection/cornerCurvature elsewhere in this plugin)
+      // read by both this line and the height line below.
       width: (root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 920 : 640
       Behavior on width {
         enabled: !root.suppressResizeAnimation
@@ -1232,7 +1244,9 @@ Item {
       // here was standing in for Search Files' own filtersBar, which
       // settings never shows (filtersBar.active: root.filesMode only),
       // so dropping it for settings isn't losing real content height,
-      // just matching the plain landing size it's now sized like.
+      // just matching the plain landing size it's now sized like. Revert
+      // this in lockstep with the width line above -- see its own
+      // comment for the exact edit and the future-settings-toggle note.
       height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 36 : 0)
       Behavior on height {
         enabled: !root.suppressResizeAnimation

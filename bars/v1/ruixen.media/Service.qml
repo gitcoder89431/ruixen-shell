@@ -525,16 +525,29 @@ Item {
 
   function statusJson() {
     var p = activePlayer
+    // hasMedia is computed fresh from this same local p, not read off
+    // root.hasMedia -- confirmed live (ruixen-shell issue: notch stuck on
+    // a closed Spotify) that root.hasMedia's own binding can still hold
+    // the previous player's true value in the exact tick p has already
+    // gone null (activePlayer and its dependents don't all settle
+    // atomically), so a flush triggered right on that edge wrote
+    // {"hasPlayer":false,"hasMedia":true} to the state file, sticking
+    // ruixen.notch on the media view forever since nothing ever flushes
+    // again once activePlayer stays null. Deriving hasMedia from the
+    // same p already snapshotted above makes this file's own hasPlayer/
+    // hasMedia/title/artist fields consistent with each other by
+    // construction, no separate binding to fall out of sync with.
+    var mediaFlag = !!(p && (p.trackTitle || p.trackArtist))
     return JSON.stringify({
       hasPlayer: p !== null,
-      hasMedia: root.hasMedia,
+      hasMedia: mediaFlag,
       playing: p ? !!p.isPlaying : false,
       identity: p ? (p.identity || "") : "",
       desktopEntry: p ? (p.desktopEntry || "") : "",
       title: p ? (p.trackTitle || "") : "",
       artist: p ? (p.trackArtist || "") : "",
       album: p && p.trackAlbum ? p.trackAlbum : "",
-      // Gated on hasMedia, not just p.trackArtUrl -- a closed app can
+      // Gated on mediaFlag, not just p.trackArtUrl -- a closed app can
       // leave a zombie MPRIS registration behind (confirmed: chromium
       // after quitting still owns org.mpris.MediaPlayer2.chromium.* on
       // the session bus, PlaybackStatus "Stopped", with a stale
@@ -543,7 +556,7 @@ Item {
       // it started reading this JSON directly (see ruixen-shell issue
       // #39), moved here so every consumer of this status gets it, not
       // just that one.
-      artUrl: root.hasMedia && p && p.trackArtUrl ? p.trackArtUrl : "",
+      artUrl: mediaFlag && p && p.trackArtUrl ? p.trackArtUrl : "",
       // Added for ruixen-shell issue #39 -- ruixen.notch's own progress
       // bar reads these off the state file this JSON gets mirrored into
       // (see flushMediaState() above). Harmless additive fields for any

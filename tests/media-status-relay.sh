@@ -54,8 +54,12 @@ check "Service.qml's state file writer uses atomic writes" \
   "$(grep -c 'atomicWrites: true' "$service_qml")" "1"
 check "statusJson() includes length/position (needed for the progress bar, missing before this fix)" \
   "$(grep -c 'length: p ? Math\.max(0, Number(p\.length' "$service_qml")" "1"
-check "statusJson()'s artUrl is gated on hasMedia (the zombie-MPRIS-registration guard, moved here from ruixen.notch)" \
-  "$(grep -c 'artUrl: root\.hasMedia && p && p\.trackArtUrl' "$service_qml")" "1"
+check "statusJson()'s artUrl is gated on mediaFlag (the zombie-MPRIS-registration guard, moved here from ruixen.notch)" \
+  "$(grep -c 'artUrl: mediaFlag && p && p\.trackArtUrl' "$service_qml")" "1"
+check "statusJson() derives hasMedia fresh from the local p snapshot, not the separately-bound root.hasMedia (issue: notch stuck on a closed player)" \
+  "$(grep -c 'var mediaFlag = !!(p && (p\.trackTitle || p\.trackArtist))' "$service_qml")" "1"
+check "statusJson()'s hasMedia field uses mediaFlag, not root.hasMedia" \
+  "$(grep -c 'hasMedia: mediaFlag,' "$service_qml")" "1"
 check "the IpcHandler exposes a parameterized runAction for in-process callers needing showFeedback: false" \
   "$(grep -c 'function runAction(action: string, showFeedback: bool): string' "$service_qml")" "1"
 

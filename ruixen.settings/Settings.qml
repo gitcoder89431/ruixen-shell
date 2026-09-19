@@ -489,7 +489,7 @@ Item {
     // most deliberate action in this row (browse and choose, not a
     // single click), same reasoning that put GitHub after every
     // DiceBear style rather than up front.
-    { id: "custom", label: "Choose File..." }
+    { id: "custom", label: "Custom File" }
   ]
   // Starts on "gradient" -- matches the real state a fresh install
   // actually starts in (no ~/.face.icon yet). Persisted separately

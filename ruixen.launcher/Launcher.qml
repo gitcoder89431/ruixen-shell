@@ -1192,7 +1192,18 @@ Item {
       // Files already established works well for "more than a plain
       // result list." Still not resizing per result COUNT (the "fixed
       // tray" property that matters), just per deliberate mode.
-      width: (root.filesMode || root.inExtensionMode) ? 920 : 640
+      // Settings specifically opts back out of the shared wide size --
+      // direct report: "the setting extension in our launcher is a bit
+      // wide... there seems to be alot of empty space... the size
+      // should match the app launcher main panel size." Not a new
+      // third size (the comment below still holds: only ever plain
+      // landing or wide/tall) -- settings just reuses the plain
+      // landing width instead of the wide one, since its own left
+      // category list + right detail pane (ExtensionTwoPanel, a
+      // proportional 40/60 split) scales down cleanly, unlike
+      // Wallpapers' grid or Search Files' fixed-column layout, which
+      // still need the extra room.
+      width: (root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 920 : 640
       Behavior on width {
         enabled: !root.suppressResizeAnimation
         NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
@@ -1217,7 +1228,12 @@ Item {
       // every extension shares the second one exactly rather than
       // quietly landing on a third, slightly-smaller size because its
       // own mode flag happened not to be the one this formula checked.
-      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || root.inExtensionMode) ? 36 : 0)
+      // Same settings-stays-narrow carve-out as width above -- the +36
+      // here was standing in for Search Files' own filtersBar, which
+      // settings never shows (filtersBar.active: root.filesMode only),
+      // so dropping it for settings isn't losing real content height,
+      // just matching the plain landing size it's now sized like.
+      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 36 : 0)
       Behavior on height {
         enabled: !root.suppressResizeAnimation
         NumberAnimation { duration: 120; easing.type: Easing.OutQuad }

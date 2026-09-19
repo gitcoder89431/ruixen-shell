@@ -464,12 +464,16 @@ Item {
   // literal -- it recomputes automatically once githubConnected flips
   // (the auth check above resolves asynchronously, after this page may
   // already be open), the same way any other QML property binding
-  // reacts to its own dependencies. GitHub sits right after Gradient,
-  // not appended at the end -- unlike every DiceBear style below it,
-  // it's a real personal photo, the same category of "who you actually
-  // are" as Gradient's own plain fallback, not another generated-avatar
-  // option.
-  readonly property var avatarCollections: (root.githubConnected ? [{ id: "github", label: "GitHub" }] : []).concat([
+  // reacts to its own dependencies. GitHub is always present (unlike an
+  // earlier version of this that only inserted it into the array once
+  // connected), last after every DiceBear style -- direct follow-up:
+  // shown but dimmed/unclickable when not connected reads better than
+  // vanishing outright, the same way avatarBusy already dims every
+  // button mid-fetch (see GeneralContent.qml's own Repeater). available
+  // defaults to true for every other entry (checked with !== false, not
+  // truthiness, so omitting the field entirely -- what every DiceBear
+  // entry does -- still means available).
+  readonly property var avatarCollections: [
     { id: "gradient", label: "Gradient" },
     { id: "bottts-neutral", label: "Bottts", version: "10.x", format: "svg" },
     { id: "pixel-art", label: "Pixel Art" },
@@ -478,8 +482,9 @@ Item {
     { id: "thumbs", label: "Thumbs" },
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
     { id: "critters", label: "Critters", version: "10.x", format: "svg" },
-    { id: "moods", label: "Moods", version: "10.x", format: "svg" }
-  ])
+    { id: "moods", label: "Moods", version: "10.x", format: "svg" },
+    { id: "github", label: "GitHub", available: root.githubConnected }
+  ]
   // Starts on "gradient" -- matches the real state a fresh install
   // actually starts in (no ~/.face.icon yet). Persisted separately
   // from the file itself, direct follow-up ("the avatar set survives
@@ -709,6 +714,13 @@ Item {
   // same row instead of a distinct Reset action.
   function selectAvatar(collection) {
     if (root.avatarBusy) return
+    // Belt-and-suspenders, not just relying on the picker's own button
+    // being visually disabled -- GitHub's own command already fails
+    // safely on its own (set -e below stops it before curl ever runs),
+    // but no-opping here means nothing happens at all: no avatarBusy
+    // flicker, no avatarCollection persisted as "github" while the
+    // actual file/display never changed.
+    if (collection === "github" && !root.githubConnected) return
     root.avatarBusy = true
     root.avatarCollection = collection
     var target = Quickshell.env("HOME") + "/.face.icon"

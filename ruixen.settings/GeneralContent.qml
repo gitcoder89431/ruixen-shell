@@ -197,6 +197,10 @@ ColumnLayout {
             id: collectionBtn
             required property var modelData
             readonly property bool isCurrent: settingsRoot.avatarCollection === collectionBtn.modelData.id
+            // !== false, not truthiness -- every entry except github
+            // omits this field entirely and must still count as
+            // available (undefined !== false is true).
+            readonly property bool isAvailable: collectionBtn.modelData.available !== false
 
             width: collectionLabel.implicitWidth + 16
             height: 24
@@ -204,7 +208,7 @@ ColumnLayout {
             color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
             border.color: collectionBtn.isCurrent ? settingsRoot.accent : Qt.rgba(1, 1, 1, 0.12)
-            opacity: settingsRoot.avatarBusy ? 0.5 : 1
+            opacity: (settingsRoot.avatarBusy || !collectionBtn.isAvailable) ? 0.5 : 1
 
             Text {
               id: collectionLabel
@@ -218,8 +222,8 @@ ColumnLayout {
 
             MouseArea {
               anchors.fill: parent
-              enabled: !settingsRoot.avatarBusy
-              cursorShape: Qt.PointingHandCursor
+              enabled: !settingsRoot.avatarBusy && collectionBtn.isAvailable
+              cursorShape: collectionBtn.isAvailable ? Qt.PointingHandCursor : Qt.ArrowCursor
               onClicked: settingsRoot.selectAvatar(collectionBtn.modelData.id)
             }
           }

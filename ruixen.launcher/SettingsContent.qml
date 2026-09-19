@@ -92,11 +92,14 @@ Item {
 
   // Still a readonly property, but now a live binding instead of a bare
   // literal -- it recomputes automatically once githubConnected flips.
-  // GitHub sits right after Gradient, not appended at the end -- unlike
-  // every DiceBear style below it, it's a real personal photo, the same
-  // category of "who you actually are" as Gradient's own plain
-  // fallback, not another generated-avatar option.
-  readonly property var avatarCollections: (root.githubConnected ? [{ id: "github", label: "GitHub" }] : []).concat([
+  // GitHub is always present, last after every DiceBear style -- direct
+  // follow-up: shown but dimmed/unclickable when not connected reads
+  // better than vanishing outright, the same way avatarBusy already
+  // dims every button mid-fetch. available defaults to true for every
+  // other entry (checked with !== false, not truthiness, so omitting
+  // the field entirely -- what every DiceBear entry does -- still means
+  // available).
+  readonly property var avatarCollections: [
     { id: "gradient", label: "Gradient" },
     { id: "bottts-neutral", label: "Bottts", version: "10.x", format: "svg" },
     { id: "pixel-art", label: "Pixel Art" },
@@ -105,8 +108,9 @@ Item {
     { id: "thumbs", label: "Thumbs" },
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
     { id: "critters", label: "Critters", version: "10.x", format: "svg" },
-    { id: "moods", label: "Moods", version: "10.x", format: "svg" }
-  ])
+    { id: "moods", label: "Moods", version: "10.x", format: "svg" },
+    { id: "github", label: "GitHub", available: root.githubConnected }
+  ]
   property string avatarCollection: "gradient"
   property bool avatarStateLoaded: false
   readonly property string avatarStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.json"
@@ -131,6 +135,13 @@ Item {
   // avatar from that collection.
   function selectAvatar(collection) {
     if (root.avatarBusy) return
+    // Belt-and-suspenders, not just relying on the picker's own button
+    // being visually disabled -- GitHub's own command already fails
+    // safely on its own (set -e below stops it before curl ever runs),
+    // but no-opping here means nothing happens at all: no avatarBusy
+    // flicker, no avatarCollection persisted as "github" while the
+    // actual file/display never changed.
+    if (collection === "github" && !root.githubConnected) return
     root.avatarBusy = true
     root.avatarCollection = collection
     var target = Quickshell.env("HOME") + "/.face.icon"
@@ -2393,6 +2404,10 @@ Item {
             // (below), leaving border.color alone entirely.
             readonly property bool isFocused: root.rightFocused
               && root.focusedItemIndex === 0 && root.focusedOptionIndex === collectionBtn.index
+            // !== false, not truthiness -- every entry except github
+            // omits this field entirely and must still count as
+            // available (undefined !== false is true).
+            readonly property bool isAvailable: collectionBtn.modelData.available !== false
 
             width: collectionLabel.implicitWidth + 16
             height: 24
@@ -2400,7 +2415,7 @@ Item {
             color: collectionBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
             border.width: 1
             border.color: collectionBtn.isCurrent ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-            opacity: root.avatarBusy ? 0.5 : 1
+            opacity: (root.avatarBusy || !collectionBtn.isAvailable) ? 0.5 : 1
 
             Text {
               id: collectionLabel
@@ -2429,8 +2444,8 @@ Item {
 
             MouseArea {
               anchors.fill: parent
-              enabled: !root.avatarBusy
-              cursorShape: Qt.PointingHandCursor
+              enabled: !root.avatarBusy && collectionBtn.isAvailable
+              cursorShape: collectionBtn.isAvailable ? Qt.PointingHandCursor : Qt.ArrowCursor
               onClicked: root.selectAvatar(collectionBtn.modelData.id)
             }
           }

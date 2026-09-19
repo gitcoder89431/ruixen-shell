@@ -69,9 +69,24 @@ ColumnLayout {
       // either (see the collection picker Flow below) -- every action
       // lives there instead.
       Item {
+        id: avatarPreviewWrap
         Layout.preferredWidth: 64
         Layout.preferredHeight: 64
         Layout.alignment: Qt.AlignHCenter
+
+        // Whichever of the two image elements below actually decoded
+        // the source -- AnimatedImage first (for real GIF animation),
+        // falling back to plain Image only once AnimatedImage's own
+        // decoder (QMovie) has genuinely failed. Confirmed live this
+        // fallback is load-bearing, not defensive-for-no-reason code:
+        // QMovie supports a narrower format set than QImageReader (the
+        // decoder behind plain Image) -- an .ico-format ~/.face.icon
+        // (confirmed live on this exact machine) decodes fine via Image
+        // but errors out via AnimatedImage every time, fragment or not.
+        // Without this, an avatar that worked before this feature
+        // shipped could silently stop rendering at all.
+        readonly property var activeAvatarImage: avatarPreviewImage.status === Image.Error
+          ? avatarPreviewImageFallback : avatarPreviewImage
 
         // Explicitly hidden once a real image is loaded, not just
         // painted over by an assumed-opaque one -- direct follow-up
@@ -92,7 +107,7 @@ ColumnLayout {
           // (visible below is gated on the image NOT being ready), so
           // the two shapes never need to match.
           radius: width / 2
-          visible: avatarPreviewImage.status !== Image.Ready
+          visible: avatarPreviewWrap.activeAvatarImage.status !== Image.Ready
           gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.lighter(settingsRoot.accent, 1.6) }
             GradientStop { position: 1.0; color: Qt.darker(settingsRoot.accent, 1.4) }
@@ -128,8 +143,34 @@ ColumnLayout {
         // instead of width/2 -- a rounded square, not a circle (the
         // circle stays for the gradient placeholder only, per its own
         // comment above).
-        Image {
+        // AnimatedImage, not Image -- direct request to make a picked
+        // GIF actually animate. AnimatedImage (QQuickAnimatedImage) is a
+        // real subclass of QQuickImage per Qt's own qmltypes, and a
+        // standalone `qs -p` test confirmed it renders DiceBear's SVG
+        // collections and a static PNG/JPG identically to plain Image
+        // when the source isn't a movie -- so this isn't a GIF-only
+        // special case in principle. In practice, QMovie (the decoder
+        // behind AnimatedImage) supports a genuinely narrower format set
+        // than QImageReader (behind plain Image) -- confirmed live on
+        // this exact machine that an .ico-format ~/.face.icon decodes
+        // fine via Image but errors out via AnimatedImage every time.
+        // avatarPreviewImageFallback below exists because of that: this
+        // element is tried first (so a real GIF still animates), and
+        // avatarPreviewWrap.activeAvatarImage (used by the gradient
+        // placeholder above and MultiEffect below) only falls back to
+        // plain Image once this one has genuinely failed to decode.
+        AnimatedImage {
           id: avatarPreviewImage
+          anchors.fill: parent
+          source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          cache: false
+          visible: false
+        }
+
+        Image {
+          id: avatarPreviewImageFallback
           anchors.fill: parent
           source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
           fillMode: Image.PreserveAspectCrop
@@ -149,7 +190,7 @@ ColumnLayout {
 
         MultiEffect {
           anchors.fill: parent
-          source: avatarPreviewImage
+          source: avatarPreviewWrap.activeAvatarImage
           maskEnabled: true
           maskSource: avatarPreviewMask
           maskThresholdMin: 0.5

@@ -525,18 +525,59 @@ Item {
           Layout.preferredWidth: 64
           Layout.preferredHeight: 64
 
+          // Whichever of the two image elements below actually decoded
+          // the source -- AnimatedImage first (for real GIF animation),
+          // falling back to plain Image only once AnimatedImage's own
+          // decoder (QMovie) has genuinely failed. Confirmed live this
+          // fallback is load-bearing, not defensive-for-no-reason code:
+          // QMovie supports a narrower format set than QImageReader (the
+          // decoder behind plain Image) -- an .ico-format ~/.face.icon
+          // (confirmed live on this exact machine) decodes fine via
+          // Image but errors out via AnimatedImage every time, fragment
+          // or not. Without this, an avatar that worked before this
+          // feature shipped could silently stop rendering at all.
+          readonly property var activeAvatarImage: avatarImage.status === Image.Error
+            ? avatarImageFallback : avatarImage
+
           Rectangle {
             anchors.fill: parent
             radius: width / 2
-            visible: avatarImage.status !== Image.Ready
+            visible: avatar.activeAvatarImage.status !== Image.Ready
             gradient: Gradient {
               GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
               GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
             }
           }
 
-          Image {
+          // AnimatedImage, not Image -- direct request to make a picked
+          // GIF actually animate. AnimatedImage (QQuickAnimatedImage) is
+          // a real subclass of QQuickImage per Qt's own qmltypes, and a
+          // standalone `qs -p` test confirmed it renders DiceBear's SVG
+          // collections and a static PNG/JPG identically to plain Image
+          // when the source isn't a movie -- so this isn't a GIF-only
+          // special case in principle. In practice, QMovie (the decoder
+          // behind AnimatedImage) supports a genuinely narrower format
+          // set than QImageReader (behind plain Image) -- confirmed live
+          // on this exact machine that an .ico-format ~/.face.icon
+          // decodes fine via Image but errors out via AnimatedImage
+          // every time. avatarImageFallback below exists because of
+          // that: this element is tried first (so a real GIF still
+          // animates), and avatar.activeAvatarImage (used by the
+          // gradient placeholder above and MultiEffect below) only
+          // falls back to plain Image once this one has genuinely
+          // failed to decode.
+          AnimatedImage {
             id: avatarImage
+            anchors.fill: parent
+            source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: false
+            visible: false
+          }
+
+          Image {
+            id: avatarImageFallback
             anchors.fill: parent
             source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
             fillMode: Image.PreserveAspectCrop
@@ -556,7 +597,7 @@ Item {
 
           MultiEffect {
             anchors.fill: parent
-            source: avatarImage
+            source: avatar.activeAvatarImage
             maskEnabled: true
             maskSource: avatarMask
             maskThresholdMin: 0.5

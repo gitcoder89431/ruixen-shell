@@ -504,6 +504,12 @@ Item {
   // ruixen.notch's own launcher-favorites.json (confirmed by reading
   // that one directly) -- a real state file, not guessed at.
   property string avatarCollection: "gradient"
+  // Set right before avatarCollection is overwritten in selectAvatar()
+  // below, read back by avatarProc's own onExited on a failed run --
+  // reverts the picker's own selected-highlight to whatever was
+  // actually applied last, instead of leaving it stuck on the one that
+  // just failed.
+  property string avatarPreviousCollection: "gradient"
   property bool avatarStateLoaded: false
   readonly property string avatarStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.json"
 
@@ -546,8 +552,28 @@ Item {
   Process {
     id: avatarProc
     stdout: StdioCollector { waitForEnd: true }
-    onExited: {
+    stderr: StdioCollector { id: avatarProcStderr; waitForEnd: true }
+    // exitCode wasn't even read before -- direct live report: picking a
+    // GIF as a custom avatar "didnt even change" anything. Root cause
+    // confirmed: magick can fail (bad/unreadable source path, corrupt
+    // file, whatever) and this handler ran through to completion
+    // regardless, bumping avatarCacheBust and persisting the new
+    // collection as if it had actually applied -- the picker's own
+    // button looked selected, ~/.face.icon was untouched, and nothing
+    // anywhere surfaced that the fetch/convert had actually failed.
+    // Checking exitCode and reverting avatarCollection on failure
+    // fixes the false "it applied" state; the notification below
+    // surfaces the real reason instead of a silent no-op.
+    onExited: function(exitCode) {
       root.avatarBusy = false
+      if (exitCode !== 0) {
+        root.avatarCollection = root.avatarPreviousCollection
+        var errLine = String(avatarProcStderr.text || "").trim().split("\n").pop()
+        avatarNotifyProc.command = ["omarchy-notification-send", "-u", "normal",
+          "Avatar update failed", errLine || ("exit code " + exitCode)]
+        avatarNotifyProc.running = true
+        return
+      }
       root.avatarCacheBust = root.avatarCacheBust + 1
       avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection }, null, 2) + "\n")
       // Tells ruixen.notch's own UserAvatar to re-read the file too --
@@ -729,6 +755,7 @@ Item {
     // flicker, no avatarCollection persisted as "github" while the
     // actual file/display never changed.
     if (collection === "github" && !root.githubConnected) return
+    root.avatarPreviousCollection = root.avatarCollection
     root.avatarBusy = true
     root.avatarCollection = collection
     var target = Quickshell.env("HOME") + "/.face.icon"

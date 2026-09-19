@@ -407,6 +407,26 @@ Item {
   property int avatarCacheBust: 0
   property bool avatarBusy: false
 
+  // GitHub avatar option -- direct request: someone wanted their real
+  // Discord picture usable here instead of only DiceBear. Discord would
+  // mean owning a full OAuth2 app registration + a local redirect
+  // listener + token storage/refresh, all built and maintained by us
+  // with nothing in Omarchy's own toolkit to lean on. Omarchy already
+  // ships `gh` though, and anyone who has run `gh auth login` for
+  // ordinary git/PR work already has a real avatar sitting one API call
+  // away with zero auth work of our own: `gh api user --jq .avatar_url`.
+  // So this offers GitHub as a picker option, but ONLY when `gh` is
+  // already authenticated -- checked once at startup (exit code alone,
+  // matching `gh auth status`'s own contract), not assumed available,
+  // so someone without it never sees a button that would silently fail.
+  property bool githubConnected: false
+
+  Process {
+    id: githubAuthCheckProc
+    command: ["gh", "auth", "status"]
+    onExited: function(exitCode) { root.githubConnected = exitCode === 0 }
+  }
+
   // Curated to visually distinct DiceBear styles (confirmed real
   // slugs by hitting each one directly, not guessed) plus the gradient
   // pseudo-collection, rather than all ~30 DiceBear ships -- a picker
@@ -440,7 +460,16 @@ Item {
   // direct follow-up ("that should probably be it so the second toggle
   // row dont look so empty") -- 7 entries wrapped Sprouts alone onto a
   // sparse-looking second Flow row; these two fill it out to three.
-  readonly property var avatarCollections: [
+  // Still a readonly property, but now a live binding instead of a bare
+  // literal -- it recomputes automatically once githubConnected flips
+  // (the auth check above resolves asynchronously, after this page may
+  // already be open), the same way any other QML property binding
+  // reacts to its own dependencies. GitHub sits right after Gradient,
+  // not appended at the end -- unlike every DiceBear style below it,
+  // it's a real personal photo, the same category of "who you actually
+  // are" as Gradient's own plain fallback, not another generated-avatar
+  // option.
+  readonly property var avatarCollections: (root.githubConnected ? [{ id: "github", label: "GitHub" }] : []).concat([
     { id: "gradient", label: "Gradient" },
     { id: "bottts-neutral", label: "Bottts", version: "10.x", format: "svg" },
     { id: "pixel-art", label: "Pixel Art" },
@@ -450,7 +479,7 @@ Item {
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
     { id: "critters", label: "Critters", version: "10.x", format: "svg" },
     { id: "moods", label: "Moods", version: "10.x", format: "svg" }
-  ]
+  ])
   // Starts on "gradient" -- matches the real state a fresh install
   // actually starts in (no ~/.face.icon yet). Persisted separately
   // from the file itself, direct follow-up ("the avatar set survives
@@ -500,6 +529,7 @@ Item {
   Component.onCompleted: {
     ensureAvatarStateDirProc.running = true
     ensureLauncherSearchConfigDirProc.running = true
+    githubAuthCheckProc.running = true
   }
 
   Process {
@@ -684,6 +714,16 @@ Item {
     var target = Quickshell.env("HOME") + "/.face.icon"
     if (collection === "gradient") {
       avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    } else if (collection === "github") {
+      // One command, not a separate "fetch the URL, then curl it" pair
+      // of Processes -- `gh api user` already needs the same `gh` auth
+      // this option is gated on, so there is no real fetch-then-fail
+      // case here beyond what curl's own -f already covers. set -e so a
+      // failed `gh api` call (revoked token, offline) does not fall
+      // through into curl-ing an empty URL and silently overwriting a
+      // perfectly good existing avatar with a broken 0-byte file.
+      avatarProc.command = ["bash", "-c",
+        "set -e; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o '" + target + "'"]
     } else {
       var seed = Math.random().toString(36).slice(2) + Date.now()
       // Per-collection version/format, defaulting to DiceBear's 9.x

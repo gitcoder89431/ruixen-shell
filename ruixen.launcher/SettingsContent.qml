@@ -76,7 +76,27 @@ Item {
   property string hardwareName: ""
   property int avatarCacheBust: 0
   property bool avatarBusy: false
-  readonly property var avatarCollections: [
+  // GitHub avatar option, ported from ruixen.settings/Settings.qml --
+  // see its own comment for the full "why" (Discord would mean owning a
+  // full OAuth2 app + local redirect listener + token storage, `gh` is
+  // already shipped and already authenticated for anyone doing ordinary
+  // git/PR work). Gated on `gh auth status` succeeding, checked once at
+  // startup -- never shown as an option that would silently fail.
+  property bool githubConnected: false
+
+  Process {
+    id: githubAuthCheckProc
+    command: ["gh", "auth", "status"]
+    onExited: function(exitCode) { root.githubConnected = exitCode === 0 }
+  }
+
+  // Still a readonly property, but now a live binding instead of a bare
+  // literal -- it recomputes automatically once githubConnected flips.
+  // GitHub sits right after Gradient, not appended at the end -- unlike
+  // every DiceBear style below it, it's a real personal photo, the same
+  // category of "who you actually are" as Gradient's own plain
+  // fallback, not another generated-avatar option.
+  readonly property var avatarCollections: (root.githubConnected ? [{ id: "github", label: "GitHub" }] : []).concat([
     { id: "gradient", label: "Gradient" },
     { id: "bottts-neutral", label: "Bottts", version: "10.x", format: "svg" },
     { id: "pixel-art", label: "Pixel Art" },
@@ -86,7 +106,7 @@ Item {
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
     { id: "critters", label: "Critters", version: "10.x", format: "svg" },
     { id: "moods", label: "Moods", version: "10.x", format: "svg" }
-  ]
+  ])
   property string avatarCollection: "gradient"
   property bool avatarStateLoaded: false
   readonly property string avatarStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.json"
@@ -116,6 +136,14 @@ Item {
     var target = Quickshell.env("HOME") + "/.face.icon"
     if (collection === "gradient") {
       avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    } else if (collection === "github") {
+      // One command, not a separate fetch-then-curl pair of Processes --
+      // `gh api user` already needs the same `gh` auth this option is
+      // gated on. set -e so a failed `gh api` call (revoked token,
+      // offline) does not fall through into curl-ing an empty URL and
+      // silently overwriting a perfectly good existing avatar.
+      avatarProc.command = ["bash", "-c",
+        "set -e; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o '" + target + "'"]
     } else {
       var seed = Math.random().toString(36).slice(2) + Date.now()
       var entry = null
@@ -1283,7 +1311,10 @@ Item {
     return root.muted
   }
 
-  Component.onCompleted: ensureAvatarStateDirProc.running = true
+  Component.onCompleted: {
+    ensureAvatarStateDirProc.running = true
+    githubAuthCheckProc.running = true
+  }
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
   // Settings.qml's own root.sections -- confirmed by reading that file

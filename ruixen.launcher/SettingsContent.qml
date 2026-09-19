@@ -3778,17 +3778,33 @@ Item {
             border.color: root.accent
           }
 
+          // Reserved width for whatever sits at the row's far right
+          // (lock glyph for protected rows, the toggle otherwise) plus
+          // its own margin -- the name's own width budget below is
+          // capped against this, not against the status dot, now that
+          // the dot follows the name instead of living out at the
+          // far-right edge.
+          readonly property real trailingWidth: (pluginRow.isProtected ? pluginLock.implicitWidth : pluginToggle.width) + 8
+
           Text {
             id: pluginNameText
             anchors.left: parent.left
-            anchors.right: pluginStatusDot.visible ? pluginStatusDot.left : (pluginLock.visible ? pluginLock.left : pluginToggle.left)
-            anchors.rightMargin: 8
             anchors.verticalCenter: parent.verticalCenter
             text: pluginRow.modelData.name
             font.family: root.fontFamily
             font.pixelSize: 12
             color: pluginRow.isProtected ? root.muted : root.textColor
             elide: Text.ElideRight
+            // Sized to its own content (capped by the leftover space
+            // before the lock/toggle, reserving a bit more when the
+            // status dot is actually showing) instead of stretching
+            // to fill that whole space -- so pluginStatusDot below,
+            // anchored off this Text's own right edge, sits right
+            // behind the plugin's name instead of pinned out next to
+            // the toggle. Direct report: "instead of alligning it
+            // with the toggle, can we make it right behind the name
+            // of the plugin instead."
+            width: Math.min(implicitWidth, pluginRow.width - pluginRow.trailingWidth - (pluginStatusDot.visible ? 12 : 0))
           }
 
           // Update-status dot -- pending (yellow) if this plugin has
@@ -3798,8 +3814,8 @@ Item {
             id: pluginStatusDot
             visible: root.pluginCheckStatus === "checked"
             readonly property bool pending: root.pluginChangedIds.indexOf(pluginRow.modelData.id) >= 0
-            anchors.right: pluginLock.visible ? pluginLock.left : pluginToggle.left
-            anchors.rightMargin: 8
+            anchors.left: pluginNameText.right
+            anchors.leftMargin: 6
             anchors.verticalCenter: parent.verticalCenter
             width: 6
             height: 6

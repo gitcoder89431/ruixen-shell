@@ -650,11 +650,37 @@ Item {
               color: "transparent"
 
               Image {
+                id: playerArtImage
                 anchors.fill: parent
                 source: playerCard.playerBgSource
                 sourceSize: Qt.size(260, 260)
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
+
+                // Slow vinyl-style spin while actually playing -- per
+                // direct request ("would look nice but not a quick
+                // spin though"), so real turntable speed
+                // (~1.8s/revolution) is deliberately not used.
+                // Rotates this Image itself, NOT the parent
+                // ClippingRectangle -- rotating the clip rectangle
+                // rotated its own rasterized circular mask along with
+                // it, which isn't re-antialiased per-frame, so the
+                // circle's edge turned visibly blocky at in-between
+                // angles ("weird clipping or antialias issue... looks
+                // blocky at certain turn"). The clip circle is a
+                // square image exactly inscribing it (130x130 image
+                // in a 65-radius clip, tangent at every angle by
+                // construction), so a full rotation of the square
+                // never uncovers a corner regardless of angle -- only
+                // this layer's own pixels move, the static clip edge
+                // stays smooth throughout.
+                RotationAnimation on rotation {
+                  running: root.isPlaying
+                  loops: Animation.Infinite
+                  from: 0
+                  to: 360
+                  duration: 28000
+                }
               }
             }
           }

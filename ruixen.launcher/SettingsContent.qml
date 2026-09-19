@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import QtQuick.Dialogs
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
@@ -109,7 +110,13 @@ Item {
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
     { id: "critters", label: "Critters", version: "10.x", format: "svg" },
     { id: "moods", label: "Moods", version: "10.x", format: "svg" },
-    { id: "github", label: "GitHub", available: root.githubConnected }
+    { id: "github", label: "GitHub", available: root.githubConnected },
+    // Always available, no gating -- picking a local file needs no
+    // external auth/connection at all, unlike GitHub. Last of all: the
+    // most deliberate action in this row (browse and choose, not a
+    // single click), same reasoning that put GitHub after every
+    // DiceBear style rather than up front.
+    { id: "custom", label: "Choose File..." }
   ]
   property string avatarCollection: "gradient"
   property bool avatarStateLoaded: false
@@ -133,7 +140,7 @@ Item {
   // Single entry point for every avatar-picker button -- "gradient"
   // deletes ~/.face.icon, any real DiceBear slug fetches a random
   // avatar from that collection.
-  function selectAvatar(collection) {
+  function selectAvatar(collection, filePath) {
     if (root.avatarBusy) return
     // Belt-and-suspenders, not just relying on the picker's own button
     // being visually disabled -- GitHub's own command already fails
@@ -147,6 +154,24 @@ Item {
     var target = Quickshell.env("HOME") + "/.face.icon"
     if (collection === "gradient") {
       avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    } else if (collection === "custom") {
+      // A plain argument array, not "bash", "-c" + string-interpolated
+      // path -- Quickshell's own Process runs this directly (no shell
+      // involved at all), so a picked filename with a space/apostrophe/
+      // anything else shell-special in it is never a quoting concern
+      // the way every other branch here has to be careful about.
+      //
+      // 512x512> (ImageMagick's own "only shrink if larger, never
+      // enlarge" syntax) instead of a hard reject on oversized files --
+      // normalizing down covers a giant camera-roll photo AND a tiny
+      // existing icon with the same one command, no arbitrary size
+      // limit to pick or explain to anyone. -auto-orient respects a
+      // phone photo's own EXIF rotation before resizing; -strip drops
+      // EXIF/metadata afterward (e.g. GPS tags a picked photo may
+      // carry) -- confirmed live: the output format is inferred
+      // correctly from the INPUT even though the target path itself has
+      // no extension, same as every other avatar source here.
+      avatarProc.command = ["magick", filePath, "-auto-orient", "-strip", "-resize", "512x512>", target]
     } else if (collection === "github") {
       // One command, not a separate fetch-then-curl pair of Processes --
       // `gh api user` already needs the same `gh` auth this option is
@@ -1503,7 +1528,14 @@ Item {
     {
       options: root.avatarCollections.map(function(c) { return c.id }),
       current: root.avatarCollection,
-      activate: function(id) { root.selectAvatar(id) }
+      // "custom" has no self-contained action the way every other
+      // entry does -- it needs a file first (same reasoning as the
+      // mouse-click branch below), so Enter opens the picker instead of
+      // calling selectAvatar("custom") with no filePath.
+      activate: function(id) {
+        if (id === "custom") avatarFileDialog.open()
+        else root.selectAvatar(id)
+      }
     },
     {
       options: ["sharp", "rounded"],
@@ -2446,9 +2478,38 @@ Item {
               anchors.fill: parent
               enabled: !root.avatarBusy && collectionBtn.isAvailable
               cursorShape: collectionBtn.isAvailable ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onClicked: root.selectAvatar(collectionBtn.modelData.id)
+              // "custom" has no self-contained action the way every
+              // other entry does (gradient/DiceBear/github all apply
+              // immediately on click) -- it needs a file first, so this
+              // opens the picker instead and lets its own onAccepted
+              // below call selectAvatar() once something is actually
+              // chosen.
+              onClicked: {
+                if (collectionBtn.modelData.id === "custom") avatarFileDialog.open()
+                else root.selectAvatar(collectionBtn.modelData.id)
+              }
             }
           }
+        }
+      }
+
+      // Native, XDG-portal-backed file picker -- confirmed live this
+      // actually works from inside a Quickshell layer-shell PanelWindow
+      // (not a given; Quickshell's own windows are not ordinary
+      // top-level windows, which is what FileDialog normally expects to
+      // parent to) before building this rather than assuming it would.
+      FileDialog {
+        id: avatarFileDialog
+        title: "Choose Avatar Image"
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp)"]
+        onAccepted: {
+          // selectedFile is a file:// URL, not a plain path -- decode
+          // first so a filename with a space/unicode character in it
+          // (URL-encoded in the url form) reaches ImageMagick correctly
+          // rather than as a literal "%20" etc.
+          var path = String(avatarFileDialog.selectedFile)
+          if (path.indexOf("file://") === 0) path = decodeURIComponent(path.slice(7))
+          root.selectAvatar("custom", path)
         }
       }
     }

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
+import QtQuick.Dialogs
 import Quickshell
 
 // General -- bar layout mode + avatar + about, first page in the
@@ -224,9 +225,38 @@ ColumnLayout {
               anchors.fill: parent
               enabled: !settingsRoot.avatarBusy && collectionBtn.isAvailable
               cursorShape: collectionBtn.isAvailable ? Qt.PointingHandCursor : Qt.ArrowCursor
-              onClicked: settingsRoot.selectAvatar(collectionBtn.modelData.id)
+              // "custom" has no self-contained action the way every
+              // other entry does (gradient/DiceBear/github all apply
+              // immediately on click) -- it needs a file first, so this
+              // opens the picker instead and lets its own onAccepted
+              // below call selectAvatar() once something is actually
+              // chosen.
+              onClicked: {
+                if (collectionBtn.modelData.id === "custom") avatarFileDialog.open()
+                else settingsRoot.selectAvatar(collectionBtn.modelData.id)
+              }
             }
           }
+        }
+      }
+
+      // Native, XDG-portal-backed file picker -- confirmed live this
+      // actually works from inside a Quickshell layer-shell PanelWindow
+      // (not a given; Quickshell's own windows are not ordinary
+      // top-level windows, which is what FileDialog normally expects to
+      // parent to) before building this rather than assuming it would.
+      FileDialog {
+        id: avatarFileDialog
+        title: "Choose Avatar Image"
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp)"]
+        onAccepted: {
+          // selectedFile is a file:// URL, not a plain path -- decode
+          // first so a filename with a space/unicode character in it
+          // (URL-encoded in the url form) reaches ImageMagick correctly
+          // rather than as a literal "%20" etc.
+          var path = String(avatarFileDialog.selectedFile)
+          if (path.indexOf("file://") === 0) path = decodeURIComponent(path.slice(7))
+          settingsRoot.selectAvatar("custom", path)
         }
       }
     }

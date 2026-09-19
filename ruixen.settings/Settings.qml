@@ -483,7 +483,13 @@ Item {
     { id: "sprouts", label: "Sprouts", version: "10.x", format: "svg" },
     { id: "critters", label: "Critters", version: "10.x", format: "svg" },
     { id: "moods", label: "Moods", version: "10.x", format: "svg" },
-    { id: "github", label: "GitHub", available: root.githubConnected }
+    { id: "github", label: "GitHub", available: root.githubConnected },
+    // Always available, no gating -- picking a local file needs no
+    // external auth/connection at all, unlike GitHub. Last of all: the
+    // most deliberate action in this row (browse and choose, not a
+    // single click), same reasoning that put GitHub after every
+    // DiceBear style rather than up front.
+    { id: "custom", label: "Choose File..." }
   ]
   // Starts on "gradient" -- matches the real state a fresh install
   // actually starts in (no ~/.face.icon yet). Persisted separately
@@ -709,10 +715,12 @@ Item {
 
   // Single entry point for every avatar-picker button -- "gradient"
   // deletes ~/.face.icon, any real DiceBear slug fetches a random
-  // avatar from that collection. Replaces the old separate shuffleAvatar()/
-  // resetAvatar() pair now that Gradient is just another button in the
-  // same row instead of a distinct Reset action.
-  function selectAvatar(collection) {
+  // avatar from that collection, "custom" (filePath required) copies a
+  // user-picked local file through ImageMagick. Replaces the old
+  // separate shuffleAvatar()/resetAvatar() pair now that Gradient is
+  // just another button in the same row instead of a distinct Reset
+  // action.
+  function selectAvatar(collection, filePath) {
     if (root.avatarBusy) return
     // Belt-and-suspenders, not just relying on the picker's own button
     // being visually disabled -- GitHub's own command already fails
@@ -726,6 +734,25 @@ Item {
     var target = Quickshell.env("HOME") + "/.face.icon"
     if (collection === "gradient") {
       avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+    } else if (collection === "custom") {
+      // A plain argument array, not "bash", "-c" + string-interpolated
+      // path -- Quickshell's own Process runs this directly (no shell
+      // involved at all), so a picked filename with a space/apostrophe/
+      // anything else shell-special in it is never a quoting concern
+      // the way every other branch here has to be careful about.
+      //
+      // 512x512> (ImageMagick's own "only shrink if larger, never
+      // enlarge" syntax) instead of a hard reject on oversized files --
+      // direct discussion: normalizing down covers a giant camera-roll
+      // photo AND a tiny existing icon with the same one command, no
+      // arbitrary size limit to pick or explain to anyone. -auto-orient
+      // respects a phone photo's own EXIF rotation before resizing (or
+      // it can come out sideways); -strip drops EXIF/metadata
+      // afterward, e.g. GPS tags a picked photo may carry -- confirmed
+      // live: the output format is inferred correctly from the INPUT
+      // even though the target path itself has no extension, same as
+      // every other avatar source already writes into ~/.face.icon.
+      avatarProc.command = ["magick", filePath, "-auto-orient", "-strip", "-resize", "512x512>", target]
     } else if (collection === "github") {
       // One command, not a separate "fetch the URL, then curl it" pair
       // of Processes -- `gh api user` already needs the same `gh` auth

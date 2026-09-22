@@ -2128,6 +2128,20 @@ Item {
       return [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
+      // Launcher Mark (index 2) is a special case -- direct report:
+      // "it kinda scroll me down but then im not able to see the top
+      // rows... can only see the bottom ones". scrollToFocusedItem()
+      // uses this return value's own height to decide how far to
+      // scroll; appLauncherIconItem is the WHOLE ~111-icon card
+      // (many rows tall), so scrolling to keep its bottom edge in
+      // view -- the only thing that generic logic can do with a card
+      // this size -- meant scrolling straight past the actually-
+      // focused tile to show the card's own bottom instead. Returning
+      // the specific focused TILE (iconRepeater.itemAt) instead gives
+      // scrollToFocusedItem() a small, correctly-positioned target to
+      // scroll to, the same as every other (much smaller) item here
+      // already gets for free.
+      if (root.focusedItemIndex === 2) return iconRepeater.itemAt(root.focusedOptionIndex)
       return [barLayoutItem, notchVisibilityItem, appLauncherIconItem][root.focusedItemIndex]
     }
     if (root.launcherOpen) {
@@ -2910,6 +2924,7 @@ Item {
         spacing: 6
 
         Repeater {
+          id: iconRepeater
           model: AppLauncherGlyphs.iconIds()
 
           Rectangle {

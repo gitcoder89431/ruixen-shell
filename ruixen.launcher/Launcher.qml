@@ -173,9 +173,28 @@ Item {
     // a user's own menu/keybind edit, a `when` guard's truth value)
     // changes underneath it -- without this, the action catalog/
     // visibility/keybind hints could only ever reflect whatever was true
-    // at the LAST full shell restart. Cheap: a few local file reads plus
-    // one short bash guard-eval script, not run per keystroke.
-    omarchyActionsProvider.refresh()
+    // at the LAST full shell restart.
+    //
+    // Deferred via Qt.callLater, not called inline -- direct report on
+    // the new open animation: "fading in on open seems abit slow...
+    // are we loading too much command and stuff on open?" Correct
+    // diagnosis: refresh() -> rebuildEntries() -> buildGuardScript()
+    // spawns ONE bash process evaluating every actionable entry's own
+    // when/checked condition (150+ real conditions against this
+    // machine's own omarchy-menu.jsonc) -- genuinely not free, and it
+    // used to run synchronously in this same call stack, before
+    // root.opened's own change had a chance to reach the compositor
+    // for even one frame. The card's fade+scale-in was therefore
+    // always starting late by however long that guard script took,
+    // not slowed down once actually playing -- dismiss has no
+    // equivalent work at all, which is exactly why only open felt
+    // laggy. Deferring this one frame past root.opened lets that first
+    // frame render on schedule; guardProc.exec() itself is
+    // already async once it does run (a real child process, not a
+    // blocking wait), so the actual guard evaluation still finishes in
+    // the background shortly after, same as before -- only the START
+    // of that work moved, not what it does or how long it takes.
+    Qt.callLater(function() { omarchyActionsProvider.refresh() })
     Qt.callLater(function() { searchHeader.focusInput() })
   }
 

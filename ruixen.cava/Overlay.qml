@@ -82,11 +82,21 @@ Item {
     color: "transparent"
 
     WlrLayershell.namespace: "ruixen-cava"
-    // Overlay, not Top -- same reasoning ruixen.frame-widget/Overlay.qml
-    // and ruixen.notch/Overlay.qml already documented: avoids click-
-    // stacking contention with ruixen.bar's own top-layer surface, and
-    // sits above normal windows without needing to compete for it.
-    WlrLayershell.layer: WlrLayer.Overlay
+    // Bottom, not Overlay -- direct live report after shipping with
+    // Overlay ("its layered kinda wrong, its over the frame and the
+    // hyprland terminal windows etc... it should sit on the wallpaper
+    // but not over the frame shell"). Confirmed directly in Ryoku's own
+    // reference (shell/modules/visualizer/Visualizer.qml): its default
+    // "desktop" mode is explicitly WlrLayer.Bottom specifically so the
+    // spectrum draws on the wallpaper BEHIND every window, only ever
+    // raising to WlrLayer.Top for its own separate, opt-in "overlay"
+    // mode -- Overlay (this repo's frame-widget/notch layer, ABOVE
+    // normal windows) was never the right layer for a decorative
+    // desktop effect at all. wlr-layer-shell stacking is background <
+    // bottom < [normal windows] < top < overlay -- Bottom sits right
+    // where ruixen.wallpaper's own WlrLayer.Background ends and normal
+    // windows begin, exactly "on the wallpaper, not over the frame."
+    WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     // Never reserves screen space -- a decorative strip, not a bar.
     exclusionMode: ExclusionMode.Ignore

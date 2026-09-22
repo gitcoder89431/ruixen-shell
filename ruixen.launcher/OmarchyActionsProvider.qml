@@ -466,16 +466,32 @@ Item {
 
   // Issue #50: re-evaluates guard/visibility state and reloads every
   // user-owned override source, called from Launcher.qml's own open()
-  // path (an open/session boundary, not per-keystroke). Cheap: FileView
-  // reloads are local file reads, keybindProc/guardProc both replace-
-  // safely via .exec() (see their own comments), and rebuildEntries()/
-  // rebuildKeybindIndex() are idempotent -- calling this on every open,
-  // including rapid open/close cycles, never spawns overlapping stale
-  // work since each .exec() call replaces whatever it might have still
-  // been running. The packaged default (menuFile) is included too, not
-  // skipped as a micro-optimization -- it's still just one small local
-  // file read, and correctness matters more here than saving it.
+  // path (an open/session boundary, not per-keystroke). The FileView
+  // reloads genuinely are cheap (local file reads), but keybindProc
+  // and the guard-eval script rebuildEntries() spawns are real
+  // subprocess work -- keybindProc alone measured ~200ms live (see its
+  // own comment), and the guard script runs 150+ real shell conditions
+  // in one bash process. This was called "Cheap" here before, which
+  // was wrong in practice: direct report after the open animation
+  // shipped ("theres a small jumpyness... a 20% jump in CPU usage from
+  // opening it") traced back to this running in full on EVERY open,
+  // including a rapid open/close/open within the same few seconds,
+  // where none of installed packages/guard truth values/personal
+  // keybinds could plausibly have changed anyway.
+  //
+  // minRefreshIntervalMs throttles actually doing this work -- still
+  // real "reflects state since last full shell restart" freshness (the
+  // whole point of issue #50), just not on a timescale finer than a
+  // human could have plausibly gone and changed any of it in. A
+  // rapid-fire reopen now costs nothing beyond the guard results
+  // already sitting in memory from the last real refresh.
+  readonly property int minRefreshIntervalMs: 30000
+  property double lastRefreshAt: 0
+
   function refresh() {
+    var now = Date.now()
+    if (now - root.lastRefreshAt < root.minRefreshIntervalMs) return
+    root.lastRefreshAt = now
     menuFile.reload()
     userMenuFile.reload()
     keybindProc.exec(["omarchy", "menu", "keybindings", "--print"])

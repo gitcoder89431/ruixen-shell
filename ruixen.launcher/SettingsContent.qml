@@ -1586,6 +1586,15 @@ Item {
       description: "Your identity on this machine — display name, avatar, and the small touches that make Ruixen feel like yours." },
     { id: "bar", label: "Bar", glyph: "",
       description: "Layout, docking, and how the bar itself sits on your screen." },
+    // Label "Desktop", not "Visualizer" -- direct follow-up: "im
+    // thinking about renaming it to desktop? cause the visualizer is
+    // in the desktop right." Moved up here, right under Bar, per the
+    // same request. id stays "visualizer" -- an internal key, never
+    // shown, and already threaded through cavaEnabled/cavaPosition/
+    // visualizerOpen/etc. elsewhere in this file; renaming those for a
+    // label-only change would be needless churn.
+    { id: "visualizer", label: "Desktop", glyph: "",
+      description: "A live, edge-docked spectrum that reacts to whatever this machine is playing." },
     { id: "launcher", label: "File Search", glyph: "",
       description: "How this very launcher searches, ranks, and remembers what matters most the moment you reach for it." },
     { id: "audio", label: "Audio", glyph: "",
@@ -1596,8 +1605,6 @@ Item {
       description: "Paired devices and the wireless companions currently orbiting this machine." },
     { id: "display", label: "Display", glyph: "",
       description: "Brightness, Night Light, and display scale, tuned to how you actually look at this screen." },
-    { id: "visualizer", label: "Visualizer", glyph: "",
-      description: "A live, edge-docked spectrum that reacts to whatever this machine is playing." },
     { id: "plugins", label: "Plugins", glyph: "",
       description: "Everything Ruixen has installed, kept updated, and quietly running." },
     { id: "about", label: "About", glyph: "",

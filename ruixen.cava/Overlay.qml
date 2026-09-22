@@ -200,9 +200,22 @@ Item {
           // there. Top's root is the panel's own top (y=0, growing down
           // toward parent.height) instead, since for a top-docked panel
           // the screen edge is y=0, not parent.height.
+          // Left/Right get the identical edge-anchored treatment --
+          // direct live follow-up: "for the left and right side, same
+          // idea there, right now it seems like its mirror or something
+          // on the side? i want it like flowing in same idea as the
+          // top." These used to grow from the panel's own horizontal
+          // CENTER in both directions at once (ported as-is from
+          // MusicBars.qml's own "horizontal" mode), which reads as
+          // "mirrored" rather than rooted to the dock edge. Left roots
+          // at x=0 (the panel's own left edge IS the screen's left edge
+          // there) and grows right; Right roots at parent.width (the
+          // panel's right edge IS the screen's right edge) and grows
+          // left -- same "root at whichever edge the panel actually
+          // touches, grow inward" rule Top/Bottom already follow.
           width: root.barsHoriz ? grow : thick
           height: root.barsHoriz ? thick : grow
-          x: root.barsHoriz ? (parent.width - width) / 2 : (index * slot + (slot - thick) / 2)
+          x: root.barsHoriz ? (root.position === "left" ? 0 : (parent.width - width)) : (index * slot + (slot - thick) / 2)
           y: root.barsHoriz ? (index * slot + (slot - thick) / 2) : (root.position === "top" ? 0 : (parent.height - height))
           radius: Math.min(width, height) / 2
           antialiasing: true

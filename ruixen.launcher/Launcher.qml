@@ -1295,9 +1295,18 @@ Item {
       // avatarCollection/cornerCurvature elsewhere in this plugin)
       // read by both this line and the height line below.
       width: (root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 920 : 640
+      // Same 140ms/OutCubic as the open/dismiss fade+scale above --
+      // direct follow-up on that same polish request ("i notice on
+      // size change... theres some animation right? can we make these
+      // intentional"): this Behavior already existed (mismatched vs
+      // the old open/dismiss instant-snap), just at a slightly
+      // different 120ms/OutQuad that now reads as an unrelated,
+      // uncoordinated motion next to the new one. One shared feel
+      // across every transition this card makes, not several
+      // similar-but-not-quite-matching ones.
       Behavior on width {
         enabled: !root.suppressResizeAnimation
-        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
+        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
       }
       // A fixed viewport height, not a function of the result count --
       // still a constant, so the card never grows/shrinks per state
@@ -1327,9 +1336,10 @@ Item {
       // this in lockstep with the width line above -- see its own
       // comment for the exact edit and the future-settings-toggle note.
       height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 36 : 0)
+      // Matches width's own Behavior above -- same comment applies.
       Behavior on height {
         enabled: !root.suppressResizeAnimation
-        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
+        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
       }
       radius: 16
       color: root.glassBackground

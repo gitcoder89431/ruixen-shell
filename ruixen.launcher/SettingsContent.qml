@@ -1421,27 +1421,27 @@ Item {
   // only ever writes cava-visualizer.json, ruixen.cava/Overlay.qml
   // (a completely separate, always-loaded plugin) is the sole reader.
   property bool cavaEnabled: false
-  property string cavaPosition: "top"
+  // Bottom/310/64 -- direct follow-up after trying it live: "cool i
+  // guess at 310 i like it, buttom 310 and 64 bands as default."
+  property string cavaPosition: "bottom"
   property int cavaBands: 64
   // A real pixel height, not a Small/Medium/Large preset -- direct
   // follow-up: "the large is still way too small, maybe instead of
   // small medium large we do scroll progress bar slider for height?"
   // 40-400px range: 400 is roughly a third of a 1080p screen, already
-  // a dramatic amount of edge real estate for a decorative strip;
-  // 160 as a default sits noticeably taller than the old "large" (100)
-  // without starting maxed out.
+  // a dramatic amount of edge real estate for a decorative strip.
   readonly property int cavaThicknessMin: 40
   readonly property int cavaThicknessMax: 400
-  property int cavaThickness: 160
+  property int cavaThickness: 310
   readonly property string cavaStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/cava-visualizer.json"
 
   function loadCavaState(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
       root.cavaEnabled = !!(p && p.enabled)
-      root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "top"
+      root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
       root.cavaBands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
-      var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 160
+      var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
       root.cavaThickness = Math.max(root.cavaThicknessMin, Math.min(root.cavaThicknessMax, t))
     } catch (e) {
       root.cavaEnabled = false

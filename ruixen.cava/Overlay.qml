@@ -29,19 +29,21 @@ Item {
   // established for notch-visibility.json and applauncher-icon.json.
   property bool vizEnabled: false
   property string style: "bars"        // only "bars" ships in v1
-  property string position: "top"      // "top" | "bottom" | "left" | "right"
+  // Bottom, not Top -- direct follow-up after trying it live: "cool i
+  // guess at 310 i like it, buttom 310 and 64 bands as default."
+  property string position: "bottom"   // "top" | "bottom" | "left" | "right"
   property int bands: 64               // 32 | 48 | 64 | 96
   // A real pixel height, not a Small/Medium/Large preset -- direct
   // follow-up: "the large is still way too small, maybe instead of
   // small medium large we do scroll progress bar slider for height?"
   // Range/default mirror SettingsContent.qml's own cavaThicknessMin/
-  // Max/default exactly (40-400, default 160) -- kept in sync by hand
+  // Max/default exactly (40-400, default 310) -- kept in sync by hand
   // since each file already owns its own copy of every other clamped
   // range here (bands, position), not worth a shared-constants file
   // for three small numbers.
   readonly property int thicknessMin: 40
   readonly property int thicknessMax: 400
-  property int thickness: 160
+  property int thickness: 310
 
   readonly property bool vertical: root.position === "left" || root.position === "right"
   // MusicBars.qml's own "vertical"/"horizontal" describe the BARS' own
@@ -61,9 +63,9 @@ Item {
       try {
         var p = JSON.parse(text() || "{}")
         root.vizEnabled = !!(p && p.enabled)
-        root.position = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "top"
+        root.position = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
         root.bands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
-        var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 160
+        var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
         root.thickness = Math.max(root.thicknessMin, Math.min(root.thicknessMax, t))
       } catch (e) {
         // Leave at last known values on a transient parse failure.

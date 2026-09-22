@@ -680,6 +680,12 @@ Item {
                   from: 0
                   to: 360
                   duration: 28000
+                  // Stopping the animation freezes rotation at whatever angle
+                  // it was mid-spin -- it doesn't reset the property. Without
+                  // this, the wallpaper fallback that replaces the album art
+                  // when nothing's playing inherits that stale angle instead
+                  // of sitting upright.
+                  onRunningChanged: if (!running) playerArtImage.rotation = 0
                 }
               }
             }

@@ -64,7 +64,8 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 
   printf '\nOptional dependencies:\n'
   for pair in "ffmpeg:video wallpaper support" "curl:weather data and avatar download" \
-    "python3:the bar's docked-mode toggle" "fastfetch:extra system-info detail"; do
+    "python3:the bar's docked-mode toggle" "fastfetch:extra system-info detail" \
+    "cava:the Desktop audio visualizer"; do
     cmd="${pair%%:*}"; feature="${pair#*:}"
     if command -v "$cmd" >/dev/null 2>&1; then
       printf '  %-10s present\n' "$cmd"
@@ -260,6 +261,7 @@ warn_optional_dep ffmpeg "video wallpaper support (posters/playback) will be una
 warn_optional_dep curl "weather data and avatar image download in Settings will be unavailable"
 warn_optional_dep python3 "the bar's docked-mode toggle will silently no-op"
 warn_optional_dep fastfetch "the health page's system-info panel will show less detail"
+warn_optional_dep cava "the Desktop audio visualizer will be unavailable; the rest of Ruixen remains usable"
 if [[ "$optional_dep_warned" -eq 0 ]]; then
   printf '  all optional dependencies present\n'
 fi

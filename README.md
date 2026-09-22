@@ -326,6 +326,7 @@ rather than discovering it later when a feature quietly doesn't work:
 | `curl` | Weather data, avatar image download in Settings |
 | `python3` | The bar's docked-mode toggle |
 | `fastfetch` | Less detail on the health page's system-info panel |
+| `cava` | The Desktop audio visualizer; the rest of Ruixen remains usable |
 
 ## Running tests
 
@@ -345,6 +346,21 @@ merge.sh`, `tests/looknfeel-preserve.sh`, `tests/uninstall-bar-
 restore.sh`) run against a throwaway fake `$HOME`/directory tree, never
 your real config, so they're safe to run anywhere including this repo's
 own checkout.
+
+### Manual QA: the Desktop audio visualizer
+
+`tests/cava-*.sh` cover the visualizer's own state/lifecycle wiring
+statically, but a few things only really show up live. A couple of
+minutes, not a long soak:
+
+```
+1. Off -> Bars -> Segments -> Wave
+2. switch 64 <-> 96 bands
+3. pause/resume audio
+4. enable/disable a few times
+5. enter/exit fullscreen
+6. kill cava once and confirm only one replacement process appears
+```
 
 ## Credits
 

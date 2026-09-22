@@ -40,6 +40,7 @@ suites=(
   "$script_dir/media-status-relay.sh"
   "$script_dir/cava-missing-dependency.sh"
   "$script_dir/cava-idle-quiesce.sh"
+  "$script_dir/cava-state-contract.sh"
   "$script_dir/idle-nightlight-relay.sh"
   "$script_dir/notification-relay.sh"
   "$script_dir/app-launcher-relay.sh"

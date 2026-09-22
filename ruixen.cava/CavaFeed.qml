@@ -33,17 +33,20 @@ QtObject {
   }
 
   // Playback spectrum via cava's own native pipewire backend (source =
-  // auto, the default sink's monitor) -- confirmed in the reference
-  // project's own comment that the pulse backend can't connect here even
-  // with pipewire-pulse up ("Connection terminated"), so this needs no
-  // pactl fallback. `command -v cava || exit 0` is the entire "cava not
-  // installed" story: the process exits instantly and silently, no error
-  // surfaced anywhere -- Omarchy doesn't ship cava by default, and a
-  // visualizer with nothing to visualize should just stay flat, not
-  // complain. `exec cava -p "$cfg"` (not a plain trailing command) so
-  // Quickshell's own SIGTERM on this Process reaches cava directly,
-  // rather than leaving an orphaned analyser behind when the surface
-  // unloads or enabled goes false.
+  // auto, the default sink's monitor) -- the pulse backend can't
+  // connect here even with pipewire-pulse up ("Connection
+  // terminated"), so this needs no pactl fallback. `command -v cava ||
+  // exit 42` is the entire "cava not installed" story: the process
+  // exits instantly and silently, no error surfaced anywhere --
+  // Omarchy doesn't ship cava by default, and a visualizer with
+  // nothing to visualize should just stay flat, not complain. Exit 42
+  // specifically (not a plain 0) is what lets onExited below tell
+  // "dependency missing" apart from "cava installed but exited for
+  // some other reason" -- see cavaAvailable's own comment. `exec cava
+  // -p "$cfg"` (not a plain trailing command) so Quickshell's own
+  // SIGTERM on this Process reaches cava directly, rather than leaving
+  // an orphaned analyser behind when the surface unloads or enabled
+  // goes false.
   //
   // autosens = 0 / sensitivity = 70 / ascii_max_range = 1000 -- direct
   // follow-up: "do we have the right pattern... peak-normalized so
@@ -55,10 +58,22 @@ QtObject {
   // previous 0-100) just gives that per-frame peak math more
   // resolution to work with; readBars() divides it back down to 0..1
   // itself either way.
+  // Latched separately from `enabled` -- true means "cava was found
+  // (or hasn't been checked yet this enable)", false means "the last
+  // spawn attempt confirmed cava is missing, stop trying." Direct
+  // report: a perpetual retry loop was possible with persisted
+  // enabled:true + cava later uninstalled -- every exit (missing
+  // binary or real crash alike) scheduled another 1.2s retry forever,
+  // since nothing distinguished the two cases. Reset to true whenever
+  // `enabled` flips on, so toggling the feature off and back on (or a
+  // full shell restart) is a real, deliberate re-check -- no polling
+  // loop needed to notice a package got installed.
+  property bool cavaAvailable: true
+
   property Process cavaProc: Process {
     id: cavaProc
     command: ["sh", "-c",
-      "command -v cava >/dev/null 2>&1 || exit 0; " +
+      "command -v cava >/dev/null 2>&1 || exit 42; " +
       "cfg=\"${XDG_RUNTIME_DIR:-/tmp}/ruixen-cava-visualizer.conf\"; " +
       "printf '%s\\n' '[general]' 'framerate = " + root.fps + "' 'bars = " + root.bands + "' 'autosens = 0' 'sensitivity = 70' '' " +
       "'[input]' 'method = pipewire' 'source = auto' '' " +
@@ -70,19 +85,26 @@ QtObject {
     // stop it (enable toggle, fullscreen). The backoff flag below
     // expresses the same "retry after a hiccup" behavior without ever
     // taking the binding away.
-    running: root.enabled && !cavaProc.backoff
+    running: root.enabled && root.cavaAvailable && !cavaProc.backoff
     property bool backoff: false
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: (line) => root.readBars(line)
     }
-    // cava exiting while still wanted (a transient pipewire hiccup, or
-    // simply not installed) earns one paced retry rather than a tight
-    // spin -- harmless either way since a missing-cava retry exits in a
-    // few ms each time.
-    onExited: if (root.enabled) {
-      cavaProc.backoff = true
-      restartTimer.restart()
+    // Exit 42 (the `command -v cava` guard above) means the dependency
+    // itself is missing -- latch cavaAvailable false and stop, no
+    // retry scheduled at all. Any OTHER exit (a transient pipewire
+    // hiccup, cava crashing, anything with cava genuinely present)
+    // still earns the existing paced retry rather than a tight spin.
+    onExited: (exitCode) => {
+      if (exitCode === 42) {
+        root.cavaAvailable = false
+        return
+      }
+      if (root.enabled) {
+        cavaProc.backoff = true
+        restartTimer.restart()
+      }
     }
   }
 
@@ -110,7 +132,13 @@ QtObject {
     levels = flat()
     prevLevels = flat()
     energy = 0
-    if (enabled) lastReadMs = 0
+    if (enabled) {
+      lastReadMs = 0
+      // A fresh, honest attempt every time the feature is turned back
+      // on -- if cava got installed since the last time this latched
+      // false, this is what actually notices.
+      cavaAvailable = true
+    }
   }
 
   // Process.command is read once at spawn, not a live binding cava
@@ -133,7 +161,7 @@ QtObject {
     if (cavaProc.running) {
       cavaProc.running = false
       Qt.callLater(function() {
-        cavaProc.running = Qt.binding(function() { return root.enabled && !cavaProc.backoff })
+        cavaProc.running = Qt.binding(function() { return root.enabled && root.cavaAvailable && !cavaProc.backoff })
       })
     }
   }
@@ -195,12 +223,12 @@ QtObject {
       // frame (a tiny peak) from getting falsely amplified toward 1.0
       // just because it's dividing by its own tiny peak.
       var n = peak > root.noiseFloor ? raw[j] / peak : 0
-      // 30% previous / 70% new -- the reference project's own exact
-      // ratio ("motion stays fluid instead of jittery"). An EMA on the
-      // DATA itself, layered underneath Overlay.qml's own 90ms Behavior
-      // transition on the rendered bar height/width, not a replacement
-      // for it -- two different smoothing stages, one per frame of
-      // data, one per rendered frame.
+      // 30% previous / 70% new -- keeps motion fluid instead of
+      // jittery. An EMA on the DATA itself, layered underneath
+      // Overlay.qml's own 90ms Behavior transition on the rendered bar
+      // height/width, not a replacement for it -- two different
+      // smoothing stages, one per frame of data, one per rendered
+      // frame.
       var smoothed = root.emaSmoothing * prev[j] + (1 - root.emaSmoothing) * n
       if (smoothed < root.levelFloor) smoothed = 0
       out.push(smoothed)

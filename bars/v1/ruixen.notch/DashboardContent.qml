@@ -1972,6 +1972,22 @@ Item {
 
           onPressed: mouse => updateFromY(mouse.y)
           onPositionChanged: mouse => { if (pressed) updateFromY(mouse.y) }
+
+          // Direct report: "the wheel on my mouse... adjusting it
+          // anymore, working fine with audio and mic level" -- this
+          // MouseArea was only ever built for click/drag, it never had
+          // an onWheel handler at all (unlike Dial's own MouseArea
+          // above, which audio/mic both use). Same Util.wheelSteps
+          // accumulator and 5%-per-notch convention as those two, just
+          // driving root.setBrightness with a percent instead of a
+          // 0..1 volume.
+          property real wheelAccumulator: 0
+          onWheel: function(wheel) {
+            var steps = Util.wheelSteps(wheelAccumulator, wheel.angleDelta.y)
+            wheelAccumulator = steps.remainder
+            if (steps.steps !== 0 && root.setBrightness)
+              root.setBrightness(Math.max(0, Math.min(100, Math.round(root.brightnessPercent) + steps.steps * 5)))
+          }
         }
       }
 

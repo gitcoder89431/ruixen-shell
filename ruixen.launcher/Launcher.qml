@@ -183,10 +183,68 @@ Item {
     root.opened = false
   }
 
+  // Direct request ("is there any animation like fade in... anything
+  // to make it polish on call and dismiss"): the window used to just
+  // snap visible/invisible with root.opened, no transition at all.
+  // card's own opacity/scale (below) now animate against root.opened
+  // directly, but the WINDOW itself has to stay mapped and visible a
+  // little longer than that on the way out, or there's nothing left
+  // on screen to actually render the fade -- closingAnimation keeps
+  // panel.visible true for exactly that closing transition, cleared
+  // by finishClosing() once the animation genuinely ends. A second
+  // open() interrupting an in-flight close (rapid toggle) clears it
+  // immediately instead, so the animation just reverses in place
+  // rather than finishing a close that no longer reflects reality.
+  property bool closingAnimation: false
+  // Set by dismiss() specifically, not close() -- the shell-level
+  // hide() calls dismiss() makes real ARE the visible ones (Escape,
+  // click-away, picking a result), close() has no real caller of its
+  // own left but keeps existing for API symmetry. Cleared the instant
+  // a new open() lands, so an interrupted close animation can never
+  // fire a stale hide() call after the window is legitimately open
+  // again.
+  property string pendingHideId: ""
+
   function dismiss() {
     root.opened = false
-    if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "ruixen.launcher")
+    root.pendingHideId = (root.manifest && root.manifest.id) || "ruixen.launcher"
+  }
+
+  // Runs once the closing fade/scale animation has actually finished
+  // (see card's own opacity Behavior below) -- moved out of
+  // onOpenedChanged entirely so none of this resets the visible
+  // content out from under a still-playing animation. Order matters:
+  // the real shell.hide() call happens LAST, after every local reset
+  // already landed, so a fast re-open racing this callback never
+  // catches stale search text or a stale extension mid-transition.
+  function finishClosing() {
+    root.closingAnimation = false
+    searchHeader.text = ""
+    root.query = ""
+    // Direct report: "i scroll all the way down the command list to
+    // the middle, i esc to close the launcher, then when i super r
+    // again, it shows me at the top of the launcher list, but then
+    // when i hit down or up on keyboard it continues from like the
+    // middle of the list". Real bug: the ListView's own scroll
+    // position visually resets on reopen (a fresh empty query
+    // rebuilds `results` from scratch), but selectedIndex itself was
+    // never reset back to 0 alongside it -- same numeric value in,
+    // same value out, so onSelectedIndexChanged's own
+    // positionViewAtIndex call never re-fires to reconcile the two.
+    // The very next arrow-key press bumps that stale middle index by
+    // one and jumps the view right back to it. Reset here, same
+    // "fresh state every time this is (re)entered" convention query/
+    // activeExtensionId/etc. already follow on this exact line.
+    root.selectedIndex = 0
+    root.filesMode = false
+    root.activeExtensionId = ""
+    root.actionsMenuOpen = false
+    root.hasScopeHistory = false
+    root.openedDirectlyToExtension = false
+    if (root.pendingHideId !== "") {
+      if (root.shell && typeof root.shell.hide === "function") root.shell.hide(root.pendingHideId)
+      root.pendingHideId = ""
+    }
   }
 
   function toggle(payloadJson) {
@@ -195,29 +253,14 @@ Item {
   }
 
   onOpenedChanged: {
-    if (!root.opened) {
-      searchHeader.text = ""
-      root.query = ""
-      // Direct report: "i scroll all the way down the command list to
-      // the middle, i esc to close the launcher, then when i super r
-      // again, it shows me at the top of the launcher list, but then
-      // when i hit down or up on keyboard it continues from like the
-      // middle of the list". Real bug: the ListView's own scroll
-      // position visually resets on reopen (a fresh empty query
-      // rebuilds `results` from scratch), but selectedIndex itself was
-      // never reset back to 0 alongside it -- same numeric value in,
-      // same value out, so onSelectedIndexChanged's own
-      // positionViewAtIndex call never re-fires to reconcile the two.
-      // The very next arrow-key press bumps that stale middle index by
-      // one and jumps the view right back to it. Reset here, same
-      // "fresh state every time this is (re)entered" convention query/
-      // activeExtensionId/etc. already follow on this exact line.
-      root.selectedIndex = 0
-      root.filesMode = false
-      root.activeExtensionId = ""
-      root.actionsMenuOpen = false
-      root.hasScopeHistory = false
-      root.openedDirectlyToExtension = false
+    if (root.opened) {
+      // A fresh open (including one that interrupts an in-flight
+      // close) always wins outright -- nothing from a previous close
+      // should ever land after this.
+      root.closingAnimation = false
+      root.pendingHideId = ""
+    } else {
+      root.closingAnimation = true
     }
   }
 
@@ -1107,7 +1150,11 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: root.opened
+    // Stays mapped through closingAnimation too -- see its own comment
+    // above -- so card's fade/scale-out below has a real surface left
+    // to render on for the length of that transition, instead of the
+    // window vanishing before the animation ever gets to play.
+    visible: root.opened || root.closingAnimation
     anchors { top: true; left: true; right: true; bottom: true }
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
@@ -1166,6 +1213,38 @@ Item {
 
     Rectangle {
       id: card
+      // Open/dismiss animation -- direct request ("is there any
+      // animation like fade in or something... anything to make it
+      // polish on call and dismiss"): a subtle fade + scale-from-
+      // center, Raycast/Spotlight-style, replacing what used to be an
+      // instant snap (panel.visible flipping straight off root.opened
+      // with nothing animated at all). Kept snappy on purpose -- a
+      // search palette should feel instant, not showy -- 140ms,
+      // OutCubic in both directions (no separate quicker "close"
+      // curve; one consistent feel reads as more intentional than two
+      // slightly different ones). transformOrigin stays the Item
+      // default (Center), which already matches anchors.centerIn
+      // above, so scaling never drifts the card off its own centered
+      // position.
+      //
+      // onRunningChanged on the opacity Behavior (not scale's) is the
+      // single completion signal for the whole close transition --
+      // both animations share the same duration/easing so they always
+      // finish together, and root.finishClosing() itself is written
+      // to run exactly once per close regardless of which Behavior's
+      // animation happened to be watched.
+      opacity: root.opened ? 1 : 0
+      scale: root.opened ? 1 : 0.96
+      Behavior on opacity {
+        NumberAnimation {
+          duration: 140
+          easing.type: Easing.OutCubic
+          onRunningChanged: if (!running && !root.opened) root.finishClosing()
+        }
+      }
+      Behavior on scale {
+        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+      }
       // Direct report: "someone was using a laptop and the screen is
       // much smaller than my monitor, the launcher... settings and
       // file search size and wallpaper size is like not centered, its

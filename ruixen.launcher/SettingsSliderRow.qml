@@ -20,6 +20,12 @@ Item {
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
+  // Overrides the auto percent readout below -- Visualizer's own
+  // Height slider shows a real pixel count ("160px"), not "58%", since
+  // a raw fraction means nothing without knowing the underlying pixel
+  // range. Empty (every existing caller -- Brightness) keeps the
+  // original percent-of-0..1 behavior untouched.
+  property string valueLabel: ""
 
   signal adjusted(real value)
 
@@ -99,9 +105,9 @@ Item {
     id: percentLabel
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
-    width: 32
+    width: root.valueLabel.length > 0 ? 48 : 32
     horizontalAlignment: Text.AlignRight
-    text: Math.round(root.value * 100) + "%"
+    text: root.valueLabel.length > 0 ? root.valueLabel : (Math.round(root.value * 100) + "%")
     font.family: root.fontFamily
     font.pixelSize: 12
     color: root.muted

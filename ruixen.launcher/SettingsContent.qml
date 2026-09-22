@@ -1423,7 +1423,16 @@ Item {
   property bool cavaEnabled: false
   property string cavaPosition: "top"
   property int cavaBands: 64
-  property string cavaSize: "medium"
+  // A real pixel height, not a Small/Medium/Large preset -- direct
+  // follow-up: "the large is still way too small, maybe instead of
+  // small medium large we do scroll progress bar slider for height?"
+  // 40-400px range: 400 is roughly a third of a 1080p screen, already
+  // a dramatic amount of edge real estate for a decorative strip;
+  // 160 as a default sits noticeably taller than the old "large" (100)
+  // without starting maxed out.
+  readonly property int cavaThicknessMin: 40
+  readonly property int cavaThicknessMax: 400
+  property int cavaThickness: 160
   readonly property string cavaStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/cava-visualizer.json"
 
   function loadCavaState(raw) {
@@ -1432,7 +1441,8 @@ Item {
       root.cavaEnabled = !!(p && p.enabled)
       root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "top"
       root.cavaBands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
-      root.cavaSize = (p && ["small", "medium", "large"].indexOf(p.size) >= 0) ? p.size : "medium"
+      var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 160
+      root.cavaThickness = Math.max(root.cavaThicknessMin, Math.min(root.cavaThicknessMax, t))
     } catch (e) {
       root.cavaEnabled = false
     }
@@ -1444,14 +1454,17 @@ Item {
   function writeCavaState() {
     cavaVisualizerFile.setText(JSON.stringify({
       enabled: root.cavaEnabled, style: "bars", position: root.cavaPosition,
-      bands: root.cavaBands, size: root.cavaSize
+      bands: root.cavaBands, thickness: root.cavaThickness
     }, null, 2) + "\n")
   }
 
   function setCavaEnabled(v) { root.cavaEnabled = !!v; root.writeCavaState() }
   function setCavaPosition(id) { root.cavaPosition = id; root.writeCavaState() }
   function setCavaBands(n) { root.cavaBands = n; root.writeCavaState() }
-  function setCavaSize(id) { root.cavaSize = id; root.writeCavaState() }
+  function setCavaThickness(px) {
+    root.cavaThickness = Math.max(root.cavaThicknessMin, Math.min(root.cavaThicknessMax, Math.round(px)))
+    root.writeCavaState()
+  }
 
   FileView {
     id: cavaVisualizerFile
@@ -1773,9 +1786,12 @@ Item {
   ]
 
   // Every real control on the Visualizer page, in the same order they're
-  // stacked -- one toggle (Enable) then three segmented items (Position/
-  // Bands/Size), same generic {kind:"toggle",...}/{options,current,
-  // activate} shapes launcherItems/barItems already use.
+  // stacked -- one toggle (Enable), two segmented items (Position/
+  // Bands), then a plain pixel-height slider (kind: "slider", same
+  // shape/step convention as Display's own Brightness) -- direct
+  // follow-up after Small/Medium/Large shipped: "the large is still
+  // way too small, maybe instead of small medium large we do scroll
+  // progress bar slider for height?"
   readonly property var visualizerItems: [
     {
       kind: "toggle",
@@ -1793,9 +1809,10 @@ Item {
       activate: function(id) { root.setCavaBands(id) }
     },
     {
-      options: ["small", "medium", "large"],
-      current: root.cavaSize,
-      activate: function(id) { root.setCavaSize(id) }
+      kind: "slider",
+      adjust: function(delta) {
+        root.setCavaThickness(root.cavaThickness + delta * (root.cavaThicknessMax - root.cavaThicknessMin))
+      }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -2244,7 +2261,7 @@ Item {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaPositionItem, cavaBandsItem, cavaSizeItem][root.focusedItemIndex]
+      return [cavaEnableRow, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3554,23 +3571,44 @@ Item {
     onActivated: (id) => root.setCavaBands(id)
   }
 
-  SettingsSegmentedItem {
-    id: cavaSizeItem
-    label: "Size"
-    options: [
-      { id: "small", label: "Small" },
-      { id: "medium", label: "Medium" },
-      { id: "large", label: "Large" }
-    ]
-    current: root.cavaSize
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3
-    focusedOptionIndex: cavaSizeItem.cardFocused ? root.focusedOptionIndex : -1
+  // Height -- a real pixel slider, not Small/Medium/Large. Same
+  // Rectangle-card + labeled SettingsSliderRow shape as Display's own
+  // Brightness card right above in this file, not a new pattern.
+  Rectangle {
+    id: cavaThicknessItem
+    width: parent.width
+    height: cavaThicknessContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    border.width: (root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3) ? 1 : 0
+    border.color: root.accent
     visible: root.visualizerOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setCavaSize(id)
+
+    Column {
+      id: cavaThicknessContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Height"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsSliderRow {
+        icon: ""
+        value: (root.cavaThickness - root.cavaThicknessMin) / (root.cavaThicknessMax - root.cavaThicknessMin)
+        valueLabel: root.cavaThickness + "px"
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onAdjusted: (value) => root.setCavaThickness(root.cavaThicknessMin + value * (root.cavaThicknessMax - root.cavaThicknessMin))
+      }
+    }
   }
 
   // Wi-Fi's own three items -- the radio toggle (reuses

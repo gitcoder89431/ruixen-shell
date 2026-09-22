@@ -188,10 +188,22 @@ Item {
           readonly property real thick: Math.max(2, slot * 0.68)
           readonly property real grow: Math.max(parent.sliver, (root.barsHoriz ? parent.width : parent.height) * level)
 
+          // Vertical bars (Top/Bottom docking) root at whichever screen
+          // edge the panel actually touches and grow AWAY from it --
+          // direct live report after Top shipped still rooted at the
+          // panel's bottom (growing up, same as Bottom): "we need to
+          // like flip it around... we are kinda flipping it upside down
+          // so it mirrors down, from the top down the bars." Bottom's
+          // root (screen edge) is the panel's own bottom (parent.height,
+          // growing up toward y=0) -- already correct, since the panel's
+          // bottom edge and the screen's bottom edge are the same line
+          // there. Top's root is the panel's own top (y=0, growing down
+          // toward parent.height) instead, since for a top-docked panel
+          // the screen edge is y=0, not parent.height.
           width: root.barsHoriz ? grow : thick
           height: root.barsHoriz ? thick : grow
           x: root.barsHoriz ? (parent.width - width) / 2 : (index * slot + (slot - thick) / 2)
-          y: root.barsHoriz ? (index * slot + (slot - thick) / 2) : (parent.height - height)
+          y: root.barsHoriz ? (index * slot + (slot - thick) / 2) : (root.position === "top" ? 0 : (parent.height - height))
           radius: Math.min(width, height) / 2
           antialiasing: true
           color: parent.bandColor(index, level)

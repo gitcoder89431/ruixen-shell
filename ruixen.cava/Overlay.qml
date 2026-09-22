@@ -216,8 +216,19 @@ Item {
     // feed.energy (the mean band level, computed every frame but
     // otherwise unused until now) so it breathes brighter on louder
     // passages instead of sitting at one fixed strength.
-    readonly property real glowBaseOpacity: 0.18
-    readonly property real glowEnergyBoost: 0.5
+    // Toned down and pulled in tight to the edge -- direct live
+    // follow-up: "maybe less wash out? so like distance of the bloom
+    // is abit left? its the glow is abit too much yea its washing or
+    // fading out the wallpaper." glowSpread is how far INTO the panel
+    // (as a fraction of its own thickness) the wash reaches before
+    // going fully transparent, instead of stretching across the
+    // entire panel thickness -- 0.32 means it's already invisible by
+    // a third of the way in, hugging the edge instead of washing the
+    // whole strip. Base/energy opacity both cut roughly in half too.
+    readonly property real glowBaseOpacity: 0.10
+    readonly property real glowEnergyBoost: 0.28
+    readonly property real glowSpread: 0.32
+    readonly property bool glowEdgeAtStart: root.position === "top" || root.position === "left"
     readonly property color glowTint: Qt.rgba(
       (root.warmColor.r + root.coolColor.r) / 2,
       (root.warmColor.g + root.coolColor.g) / 2,
@@ -229,11 +240,13 @@ Item {
       gradient: Gradient {
         orientation: root.vertical ? Gradient.Horizontal : Gradient.Vertical
         // Opaque stop sits at whichever edge the panel actually
-        // touches (same edge the bars root at), transparent at the
-        // panel's own inner edge -- "spill in from the edges", not a
-        // halo hugging the bar shapes.
-        GradientStop { position: (root.position === "top" || root.position === "left") ? 0.0 : 1.0; color: panel.glowTint }
-        GradientStop { position: (root.position === "top" || root.position === "left") ? 1.0 : 0.0; color: Qt.rgba(panel.glowTint.r, panel.glowTint.g, panel.glowTint.b, 0) }
+        // touches (same edge the bars root at); the transparent stop
+        // sits glowSpread of the way toward the panel's own inner
+        // edge, not all the way at it -- "spill in from the edges",
+        // a tight wash, not a halo hugging the bar shapes or a wash
+        // stretching the full strip.
+        GradientStop { position: panel.glowEdgeAtStart ? 0.0 : 1.0; color: panel.glowTint }
+        GradientStop { position: panel.glowEdgeAtStart ? panel.glowSpread : (1.0 - panel.glowSpread); color: Qt.rgba(panel.glowTint.r, panel.glowTint.g, panel.glowTint.b, 0) }
       }
     }
 

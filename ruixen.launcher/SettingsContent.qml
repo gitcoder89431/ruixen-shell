@@ -1339,6 +1339,21 @@ Item {
   function refreshPlugins() { pluginService.refreshPlugins() }
   function pluginIsProtected(row) { return pluginService.pluginIsProtected(row) }
   function togglePluginEnabled(row) { pluginService.togglePluginEnabled(row) }
+
+  // Backs the Bar page's own Notch show/hidden control below -- direct
+  // request: "instead of having people run the disable cli command,
+  // allow Notch show or hidden as an option" right on the Bar page,
+  // next to Bar Layout. Not a second, separate visibility flag: this
+  // reads/writes the exact same enabled state the Plugins page's own
+  // "Ruixen Notch" row already toggles (pluginService.pluginRows,
+  // via omarchy plugin enable/disable), so the two controls can never
+  // drift out of sync with each other -- flipping either one updates
+  // both, since they share one source of truth.
+  readonly property var notchPluginRow: {
+    for (var i = 0; i < root.pluginRows.length; i++)
+      if (root.pluginRows[i].id === "ruixen.notch") return root.pluginRows[i]
+    return null
+  }
   function updateRuixenShell() { pluginService.updateRuixenShell() }
   function checkForUpdates() { pluginService.checkForUpdates() }
   function confirmFullUninstall() { pluginService.confirmFullUninstall() }
@@ -1585,6 +1600,16 @@ Item {
       options: ["floating", "docked"],
       current: root.barMode,
       activate: function(id) { root.setBarMode(id) }
+    },
+    {
+      options: ["show", "hidden"],
+      current: (root.notchPluginRow && root.notchPluginRow.enabled) ? "show" : "hidden",
+      activate: function(id) {
+        var row = root.notchPluginRow
+        if (!row) return
+        var wantEnabled = id === "show"
+        if (row.enabled !== wantEnabled) root.togglePluginEnabled(row)
+      }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -1995,7 +2020,7 @@ Item {
       return [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
-      return [barLayoutItem][root.focusedItemIndex]
+      return [barLayoutItem, notchVisibilityItem][root.focusedItemIndex]
     }
     if (root.launcherOpen) {
       if (root.focusedItemIndex === 0) return includeHomeRow
@@ -2670,6 +2695,48 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.setBarMode(id)
+  }
+
+  // Direct request: "instead of having people run the disable cli
+  // command, allow Notch show or hidden as an option" -- same shape as
+  // Bar Layout right above (a segmented show/hidden control, not a
+  // toggle switch), since this page already established that visual
+  // language for a two-state bar setting. Flips the exact same
+  // enabled state the Plugins page's own "Ruixen Notch" row toggles
+  // (root.notchPluginRow above), through the same omarchy plugin
+  // enable/disable call togglePluginEnabled already runs for every
+  // other plugin row -- not a lighter-weight visibility flag, since
+  // the notch is keepLoaded and this IS meant to be the GUI form of
+  // that same disable/enable action, just reachable from the page
+  // where it's contextually relevant instead of buried in the full
+  // Plugins list.
+  SettingsSegmentedItem {
+    id: notchVisibilityItem
+    label: "Notch"
+    options: [
+      { id: "show", label: "Show" },
+      { id: "hidden", label: "Hidden" }
+    ]
+    current: (root.notchPluginRow && root.notchPluginRow.enabled) ? "show" : "hidden"
+    cardFocused: root.rightFocused && root.focusedItemIndex === 1
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
+    visible: root.barOpen
+    // Same busy-dimming the Plugins page's own row gives this exact
+    // toggle (pluginBusyId === row.id) -- prevents a second click here
+    // from queuing another enable/disable while the first is still
+    // applying, since this fires the identical Process.
+    optionsEnabled: root.pluginBusyId !== "ruixen.notch"
+    disabledHint: "Applying…"
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => {
+      var row = root.notchPluginRow
+      if (!row) return
+      var wantEnabled = id === "show"
+      if (row.enabled !== wantEnabled) root.togglePluginEnabled(row)
+    }
   }
 
   // Launcher's own first item -- two on/off toggles grouped in one

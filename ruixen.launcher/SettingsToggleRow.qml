@@ -38,11 +38,22 @@ Item {
   // card), so the ring needs to outline the ROW itself, not whatever
   // card happens to contain it.
   property bool rowFocused: false
+  // Same "gate the control, dim it, let subtitle explain why" shape
+  // SettingsSegmentedItem's own optionsEnabled/disabledHint pair
+  // already uses -- direct request (Visualizer's own Enable row, when
+  // cava isn't installed): "a new row? thats jumpy, on the enable or
+  // visualer row then?" Named toggleEnabled, not enabled -- Item
+  // already has a real, built-in `enabled` (it gates input handling
+  // for the whole Item and its children), so redeclaring that name
+  // would collide with it; optionsEnabled avoids the exact same
+  // collision on the segmented item for the same reason.
+  property bool toggleEnabled: true
 
   signal toggled(bool value)
 
   width: parent.width
   height: root.subtitle !== "" ? 28 : 20
+  opacity: root.toggleEnabled ? 1 : 0.5
 
   Rectangle {
     visible: root.rowFocused
@@ -101,6 +112,7 @@ Item {
 
     MouseArea {
       anchors.fill: parent
+      enabled: root.toggleEnabled
       cursorShape: Qt.PointingHandCursor
       onClicked: root.toggled(!root.checked)
     }

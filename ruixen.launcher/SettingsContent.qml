@@ -1420,6 +1420,25 @@ Item {
   // writes/plugin-reads split as notchVisibilityMode above: this page
   // only ever writes cava-visualizer.json, ruixen.cava/Overlay.qml
   // (a completely separate, always-loaded plugin) is the sole reader.
+  //
+  // cavaInstalled -- direct follow-up: "if user enables it without
+  // canva does it error in silient?... if a user enable it without
+  // canva then you get instructions or info instead of non working
+  // menu?" It did fail silently: CavaFeed.qml's own spawn command is
+  // `command -v cava || exit 0`, so the process just exits instantly,
+  // forever, with zero indication anywhere -- the toggle would show
+  // "on" and nothing would ever render. Checked once at startup, same
+  // Process-based capability-check shape githubConnected already uses
+  // right above (gh auth status -> a real feature gated on a real
+  // check, not guessed at).
+  property bool cavaInstalled: false
+
+  Process {
+    id: cavaInstalledCheckProc
+    command: ["sh", "-c", "command -v cava"]
+    onExited: function(exitCode) { root.cavaInstalled = exitCode === 0 }
+  }
+
   property bool cavaEnabled: false
   // Bars vs Segments -- direct follow-up ("so for the segment, i guess
   // its pretty much similar kinda vibe right" / "yup lets do it").
@@ -1558,6 +1577,7 @@ Item {
   Component.onCompleted: {
     ensureAvatarStateDirProc.running = true
     githubAuthCheckProc.running = true
+    cavaInstalledCheckProc.running = true
   }
 
   // Same 8 sections, same ids/labels/glyphs as ruixen.settings/
@@ -1807,7 +1827,10 @@ Item {
     {
       kind: "toggle",
       checked: root.cavaEnabled,
-      activate: function() { root.setCavaEnabled(!root.cavaEnabled) }
+      // Keyboard Enter respects the same gate the mouse/toggleEnabled
+      // path does below -- cava missing means this is a no-op, not
+      // just visually dimmed.
+      activate: function() { if (root.cavaInstalled) root.setCavaEnabled(!root.cavaEnabled) }
     },
     {
       options: ["bars", "segments", "wave"],
@@ -3534,15 +3557,23 @@ Item {
         color: root.textColor
       }
 
+      // Same row, same card -- direct request/answer to "where does an
+      // install hint go? a new row? thats jumpy, on the enable or
+      // visualer row then?" Swaps the switch's own dim state and adds
+      // an inline subtitle when cava isn't found, rather than a
+      // separate settings block appearing/disappearing above or below
+      // this one.
       SettingsToggleRow {
         id: cavaEnableRow
         label: "Enabled"
+        subtitle: root.cavaInstalled ? "" : "cava not found — install: sudo pacman -S cava"
+        toggleEnabled: root.cavaInstalled
         checked: root.cavaEnabled
         rowFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 0
         textColor: root.textColor
         accent: root.accent
         fontFamily: root.fontFamily
-        onToggled: root.setCavaEnabled(!root.cavaEnabled)
+        onToggled: if (root.cavaInstalled) root.setCavaEnabled(!root.cavaEnabled)
       }
     }
   }

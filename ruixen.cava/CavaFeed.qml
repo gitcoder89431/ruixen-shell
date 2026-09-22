@@ -49,14 +49,25 @@ QtObject {
   // Quickshell's own SIGTERM on this Process reaches cava directly,
   // rather than leaving an orphaned analyser behind when the surface
   // unloads or enabled goes false.
+  //
+  // autosens = 0 / sensitivity = 70 / ascii_max_range = 1000 -- direct
+  // pointer to github.com/pennyfx/omarchy-spectrum's own tuning ("do we
+  // have the right pattern... peak-normalized so volume does not
+  // change bar height"). Disables cava's OWN slow-adapting auto-gain
+  // in favor of a fixed sensitivity plus readBars()' own per-frame
+  // peak normalization below -- the two auto-gain mechanisms would
+  // otherwise fight each other on different timescales. The wider
+  // 0-1000 raw range (vs. this file's own previous 0-100) just gives
+  // that per-frame peak math more resolution to work with; readBars()
+  // divides it back down to 0..1 itself either way.
   property Process cavaProc: Process {
     id: cavaProc
     command: ["sh", "-c",
       "command -v cava >/dev/null 2>&1 || exit 0; " +
       "cfg=\"${XDG_RUNTIME_DIR:-/tmp}/ruixen-cava-visualizer.conf\"; " +
-      "printf '%s\\n' '[general]' 'framerate = " + root.fps + "' 'bars = " + root.bands + "' '' " +
+      "printf '%s\\n' '[general]' 'framerate = " + root.fps + "' 'bars = " + root.bands + "' 'autosens = 0' 'sensitivity = 70' '' " +
       "'[input]' 'method = pipewire' 'source = auto' '' " +
-      "'[output]' 'method = raw' 'raw_target = /dev/stdout' 'data_format = ascii' 'ascii_max_range = 100' 'channels = mono' 'mono_option = average' '' " +
+      "'[output]' 'method = raw' 'raw_target = /dev/stdout' 'data_format = ascii' 'ascii_max_range = 1000' 'channels = mono' 'mono_option = average' '' " +
       "'[smoothing]' 'noise_reduction = 45' > \"$cfg\"; exec cava -p \"$cfg\""]
     // Bound, never imperatively assigned -- see AudioBars.qml's own
     // comment on this exact point: an imperative `cavaProc.running =
@@ -96,12 +107,14 @@ QtObject {
     repeat: true
     onTriggered: if (Date.now() - root.lastReadMs > 260) {
       root.levels = root.flat()
+      root.prevLevels = root.flat()
       root.energy = 0
     }
   }
 
   onEnabledChanged: {
     levels = flat()
+    prevLevels = flat()
     energy = 0
     if (enabled) lastReadMs = 0
   }
@@ -112,8 +125,8 @@ QtObject {
   // its OLD band count forever, silently mismatching root.bands. This
   // has no equivalent in AudioBars.qml, whose own bars count is a fixed
   // constant that never changes at runtime -- ported logic stops at
-  // readBars/flat/norm above, this restart is new for the "Bands"
-  // setting specifically.
+  // readBars/flat above, this restart is new for the "Bands" setting
+  // specifically.
   // Qt.binding(), not a plain `cavaProc.running = root.enabled` --
   // direct live bug caught testing this exact path: a bare imperative
   // assignment replaces the declarative `running: root.enabled &&
@@ -126,6 +139,7 @@ QtObject {
   // forced restart.
   onBandsChanged: {
     levels = flat()
+    prevLevels = flat()
     if (cavaProc.running) {
       cavaProc.running = false
       Qt.callLater(function() {
@@ -134,24 +148,53 @@ QtObject {
     }
   }
 
-  function norm(v) {
-    var n = parseInt(v)
-    if (isNaN(n)) return 0
-    return Math.max(0, Math.min(1, n / 100))
-  }
+  // Direct pointer/comparison: github.com/pennyfx/omarchy-spectrum's own
+  // ingest() ("Peak-normalized so volume does not change bar height").
+  // Previously a flat parts[i]/ascii_max_range divide, which meant a
+  // quiet passage's bars genuinely sat short and a loud passage's sat
+  // tall -- raw amplitude, not volume-independent.
+  readonly property real noiseFloor: 3
+  readonly property real emaSmoothing: 0.3
+  property var prevLevels: root.flat()
 
   function readBars(line) {
     var t = line.trim()
     if (!t) return
     var parts = t.split(/[;\s]+/)
     if (parts.length < root.bands) return
+
+    var raw = []
+    var peak = 0
+    for (var i = 0; i < root.bands; i++) {
+      var n = parseInt(parts[i])
+      if (isNaN(n)) n = 0
+      raw.push(n)
+      if (n > peak) peak = n
+    }
+
+    var prev = (root.prevLevels && root.prevLevels.length === root.bands) ? root.prevLevels : root.flat()
+
     var out = []
     var sum = 0
-    for (var i = 0; i < root.bands; i++) {
-      var v = root.norm(parts[i])
-      out.push(v)
-      sum += v
+    for (var j = 0; j < root.bands; j++) {
+      // Relative to the LOUDEST bar in THIS frame, not a fixed scale --
+      // the tallest bar is always near-full-height regardless of how
+      // loud the source actually is. noiseFloor gates a near-silent
+      // frame (a tiny peak) from getting falsely amplified toward 1.0
+      // just because it's dividing by its own tiny peak.
+      var n = peak > root.noiseFloor ? raw[j] / peak : 0
+      // 30% previous / 70% new -- the reference project's own exact
+      // ratio ("motion stays fluid instead of jittery"). An EMA on the
+      // DATA itself, layered underneath Overlay.qml's own 90ms Behavior
+      // transition on the rendered bar height/width, not a replacement
+      // for it -- two different smoothing stages, one per frame of
+      // data, one per rendered frame.
+      var smoothed = root.emaSmoothing * prev[j] + (1 - root.emaSmoothing) * n
+      out.push(smoothed)
+      sum += smoothed
     }
+
+    root.prevLevels = out
     root.levels = out
     root.energy = sum / root.bands
     root.lastReadMs = Date.now()

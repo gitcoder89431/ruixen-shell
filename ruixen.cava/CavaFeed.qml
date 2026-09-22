@@ -20,7 +20,11 @@ QtObject {
   id: root
 
   property bool enabled: false
-  property int bands: 20
+  // 64, matching Ryoku's own real default (Config.qml's own
+  // adapter.bars: 64) -- direct follow-up after the first pass shipped
+  // with 20, which read as too sparse ("the gaps between the bar is
+  // alot, it looks like baby tooth").
+  property int bands: 64
   readonly property int fps: 30
 
   property var levels: root.flat()

@@ -1422,7 +1422,7 @@ Item {
   // (a completely separate, always-loaded plugin) is the sole reader.
   property bool cavaEnabled: false
   property string cavaPosition: "top"
-  property int cavaBands: 20
+  property int cavaBands: 64
   property string cavaSize: "medium"
   readonly property string cavaStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/cava-visualizer.json"
 
@@ -1431,7 +1431,7 @@ Item {
       var p = JSON.parse(String(raw || "").trim() || "{}")
       root.cavaEnabled = !!(p && p.enabled)
       root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "top"
-      root.cavaBands = (p && [12, 20, 32, 48].indexOf(p.bands) >= 0) ? p.bands : 20
+      root.cavaBands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
       root.cavaSize = (p && ["small", "medium", "large"].indexOf(p.size) >= 0) ? p.size : "medium"
     } catch (e) {
       root.cavaEnabled = false
@@ -1788,7 +1788,7 @@ Item {
       activate: function(id) { root.setCavaPosition(id) }
     },
     {
-      options: [12, 20, 32, 48],
+      options: [32, 48, 64, 96],
       current: root.cavaBands,
       activate: function(id) { root.setCavaBands(id) }
     },
@@ -3538,10 +3538,10 @@ Item {
     id: cavaBandsItem
     label: "Bands"
     options: [
-      { id: 12, label: "12" },
-      { id: 20, label: "20" },
       { id: 32, label: "32" },
-      { id: 48, label: "48" }
+      { id: 48, label: "48" },
+      { id: 64, label: "64" },
+      { id: 96, label: "96" }
     ]
     current: root.cavaBands
     cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 2

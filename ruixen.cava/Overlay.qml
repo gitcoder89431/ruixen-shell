@@ -30,7 +30,7 @@ Item {
   property bool vizEnabled: false
   property string style: "bars"        // only "bars" ships in v1
   property string position: "top"      // "top" | "bottom" | "left" | "right"
-  property int bands: 20               // 12 | 20 | 32 | 48
+  property int bands: 64               // 32 | 48 | 64 | 96
   property string size: "medium"       // "small" | "medium" | "large"
 
   readonly property var sizeThickness: ({ small: 48, medium: 72, large: 100 })
@@ -54,7 +54,7 @@ Item {
         var p = JSON.parse(text() || "{}")
         root.vizEnabled = !!(p && p.enabled)
         root.position = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "top"
-        root.bands = (p && [12, 20, 32, 48].indexOf(p.bands) >= 0) ? p.bands : 20
+        root.bands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
         root.size = (p && ["small", "medium", "large"].indexOf(p.size) >= 0) ? p.size : "medium"
       } catch (e) {
         // Leave at last known values on a transient parse failure.
@@ -142,14 +142,18 @@ Item {
         return (l && i < l.length) ? l[i] : 0
       }
 
+      // A single theme accent with subtle per-band lightness shading, not
+      // a two-color gradient -- direct port of Ryoku's own reasoning
+      // (Singletons/Scheme.qml's header comment): "the spectrum paints
+      // in the accent the rest of the shell uses... pushing every band a
+      // fixed step off the wallpaper is what used to send it near-white
+      // on a dark picture." Bass bands sit slightly darker, treble
+      // slightly lighter, but every band stays the same hue as
+      // Color.accent -- the same color the bar/notch already use.
       function bandColor(i, level) {
         var t = feed.bands > 1 ? i / (feed.bands - 1) : 0.5
-        var c = Qt.rgba(
-          Color.accent.r + (Color.foreground.r - Color.accent.r) * t,
-          Color.accent.g + (Color.foreground.g - Color.accent.g) * t,
-          Color.accent.b + (Color.foreground.b - Color.accent.b) * t,
-          1)
-        return Qt.lighter(c, 1 + 0.4 * level)
+        var shade = 0.82 + 0.36 * t + 0.25 * level
+        return shade >= 1 ? Qt.lighter(Color.accent, shade) : Qt.darker(Color.accent, 1 / shade)
       }
 
       Repeater {
@@ -160,7 +164,17 @@ Item {
           required property int index
           readonly property real level: parent.levelAt(index)
           readonly property real slot: (root.barsHoriz ? parent.height : parent.width) / Math.max(1, feed.bands)
-          readonly property real thick: Math.max(2, Math.min(slot * 0.6, 8))
+          // 0.68 of the slot, not the fixed few-pixel cap MusicBars.qml's
+          // own formula uses -- direct live report ("the gaps between
+          // the bar is alot, it looks like baby tooth"). That cap makes
+          // sense for MusicBars' own small embedded-bar-widget context
+          // (narrow width, small slots, so the cap is rarely the
+          // binding constraint); here the full-screen overlay hands out
+          // much wider slots per bar, so a tiny fixed cap left almost
+          // the whole slot empty. Ryoku's own real default (Config.qml's
+          // adapter.thickness: 0.58) confirms a slot-proportional
+          // fraction, not a fixed pixel count, is the right shape here.
+          readonly property real thick: Math.max(2, slot * 0.68)
           readonly property real grow: Math.max(parent.sliver, (root.barsHoriz ? parent.width : parent.height) * level)
 
           width: root.barsHoriz ? grow : thick

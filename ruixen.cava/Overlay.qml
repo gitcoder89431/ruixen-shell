@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -243,22 +242,18 @@ Item {
       (root.warmColor.r + root.coolColor.r) / 2,
       (root.warmColor.g + root.coolColor.g) / 2,
       (root.warmColor.b + root.coolColor.b) / 2, 1)
-    // Same "6 bands" taper barsData's own edgeFade uses, expressed as
-    // a fraction of the strip's total length (the mask below is one
-    // continuous gradient, not indexed per band) -- direct follow-up:
-    // "maybe lower the bloom or glow on the edges too? the opacity is
-    // there but the corners still feel bright cause of the glow lol."
-    // The bars themselves already taper near the strip's two ends, but
-    // the glow wash was one flat rectangle with no variation along
-    // that same axis, so it kept the corners looking lit even with the
-    // bars faded out over them.
-    readonly property real glowEdgeFadeSpan: barsData.edgeFadeBands / Math.max(1, feed.bands)
-
+    // A perpendicular-axis fade (dim the glow near the strip's two
+    // ends, matching the bars' own edgeFade) was tried here via
+    // MultiEffect masking and reverted -- direct live report: "wtf
+    // this is worse, now its just like a straight glow line?" The mask
+    // only ever got verified against Left docking (worked there); Top/
+    // Bottom -- the actual default, and the wider/shorter panel shape
+    // -- rendered as one flat, uniform band with no fade at all, which
+    // is exactly the "straight line" complaint. Reverted rather than
+    // guess at MultiEffect's mask parameters a third time; the corner-
+    // brightness observation itself was real, just not solved yet.
     Rectangle {
-      id: glowWash
       anchors.fill: parent
-      visible: false
-      layer.enabled: true
       opacity: panel.glowBaseOpacity + panel.glowEnergyBoost * feed.energy
       gradient: Gradient {
         orientation: root.vertical ? Gradient.Horizontal : Gradient.Vertical
@@ -271,37 +266,6 @@ Item {
         GradientStop { position: panel.glowEdgeAtStart ? 0.0 : 1.0; color: panel.glowTint }
         GradientStop { position: panel.glowEdgeAtStart ? panel.glowSpread : (1.0 - panel.glowSpread); color: Qt.rgba(panel.glowTint.r, panel.glowTint.g, panel.glowTint.b, 0) }
       }
-    }
-
-    // Perpendicular-axis fade mask -- transparent at both ends of the
-    // strip, opaque through the middle, same shape/orientation logic
-    // as glowWash's own gradient but on the OTHER axis. MultiEffect's
-    // own alpha-based masking (same technique this repo already uses
-    // elsewhere, just for a fade here instead of a blur) applies it to
-    // glowWash as one smooth wash -- chopping the wash itself into a
-    // per-band Repeater would leave visible gaps between slices, since
-    // each band's own footprint is already narrower than its slot by
-    // design.
-    Rectangle {
-      id: glowFadeMask
-      anchors.fill: parent
-      visible: false
-      gradient: Gradient {
-        orientation: root.vertical ? Gradient.Vertical : Gradient.Horizontal
-        GradientStop { position: 0.0; color: "transparent" }
-        GradientStop { position: panel.glowEdgeFadeSpan; color: "white" }
-        GradientStop { position: 1.0 - panel.glowEdgeFadeSpan; color: "white" }
-        GradientStop { position: 1.0; color: "transparent" }
-      }
-    }
-
-    MultiEffect {
-      anchors.fill: parent
-      source: glowWash
-      maskEnabled: true
-      maskSource: glowFadeMask
-      maskThresholdMin: 0.0
-      maskSpreadAtMin: 1.0
     }
 
     // Bars -- ported from MusicBars.qml's own slot/thick/grow formulas,

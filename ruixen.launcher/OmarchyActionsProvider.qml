@@ -70,7 +70,32 @@ Item {
     return OmarchyMenuParser.keybindFor(label, root.keybindIndex, root.stockKeybindEntries)
   }
 
+  // Issue #72's own live profiling found this running TWICE per open:
+  // menuFile.onLoaded and userMenuFile.onLoaded each call rebuildEntries()
+  // independently, and since defaultSettled/userSettled are usually
+  // already true by a SECOND refresh (first refresh already set them),
+  // BOTH calls pass the settled gate and redo the full rebuild --
+  // measured live at ~123ms of blocking, synchronous JS each (merging
+  // entries, building the 150+-condition guard script text), landing
+  // squarely inside the 140ms opening fade/scale animation and
+  // extending past it -- ~240ms of main-thread work across two
+  // redundant passes, competing directly with the animation's own
+  // frames. Qt.callLater() here -- not calling doRebuildEntries()
+  // directly -- coalesces multiple rebuildEntries() calls arriving
+  // before the deferred slot actually runs into exactly one real
+  // execution, same de-duplication Qt.callLater already gives any
+  // other function reference. Doesn't matter that the two onLoaded
+  // firings aren't in the exact same tick (they measured ~124ms apart
+  // live) -- SCHEDULING is now non-blocking either way, so the second
+  // file's own already-pending onLoaded gets a chance to arrive before
+  // the deferred rebuild actually starts, rather than being stuck
+  // behind the first rebuild's own ~123ms of blocking work the way it
+  // was before.
   function rebuildEntries() {
+    Qt.callLater(root.doRebuildEntries)
+  }
+
+  function doRebuildEntries() {
     if (!root.defaultSettled || !root.userSettled) return
     root.allEntries = OmarchyMenuParser.mergeUserOverrides(root.defaultEntries, root.userEntries)
     root.actionable = OmarchyMenuParser.actionableEntries(root.allEntries)

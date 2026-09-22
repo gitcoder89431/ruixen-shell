@@ -175,27 +175,35 @@ Item {
     // visibility/keybind hints could only ever reflect whatever was true
     // at the LAST full shell restart.
     //
-    // Deferred via Qt.callLater, not called inline -- direct report on
-    // the new open animation: "fading in on open seems abit slow...
-    // are we loading too much command and stuff on open?" Correct
-    // diagnosis: refresh() -> rebuildEntries() -> buildGuardScript()
-    // spawns ONE bash process evaluating every actionable entry's own
-    // when/checked condition (150+ real conditions against this
-    // machine's own omarchy-menu.jsonc) -- genuinely not free, and it
-    // used to run synchronously in this same call stack, before
-    // root.opened's own change had a chance to reach the compositor
-    // for even one frame. The card's fade+scale-in was therefore
-    // always starting late by however long that guard script took,
-    // not slowed down once actually playing -- dismiss has no
-    // equivalent work at all, which is exactly why only open felt
-    // laggy. Deferring this one frame past root.opened lets that first
-    // frame render on schedule; guardProc.exec() itself is
-    // already async once it does run (a real child process, not a
-    // blocking wait), so the actual guard evaluation still finishes in
-    // the background shortly after, same as before -- only the START
-    // of that work moved, not what it does or how long it takes.
-    Qt.callLater(function() { omarchyActionsProvider.refresh() })
+    // Deferred past the FULL 140ms opening animation via a real Timer,
+    // not one frame via Qt.callLater -- issue #72's own live profiling
+    // (instrumented timestamps at every stage, a real omarchy restart
+    // shell + toggle, not guessed) found that one frame was nowhere
+    // near enough. refresh() -> rebuildEntries() -> buildGuardScript()
+    // does ~123ms of blocking, synchronous JS (merging entries, then
+    // generating the 150+-condition guard script text) once each
+    // FileView's own reload lands -- that reload is real async file
+    // I/O, so deferring only the CALL to refresh() by one frame still
+    // let the actual expensive JS work start mid-animation once the
+    // file read completed, however long after that one frame it
+    // happened to be. A 160ms defer (140ms animation + margin) pushes
+    // the start of that whole chain -- reload, then the expensive
+    // synchronous rebuild once it lands -- safely past the animation's
+    // own critical window instead of racing it. guardProc.exec()
+    // itself is still async once it does run (a real child process,
+    // not a blocking wait); only the START of the chain leading to it
+    // moved, not what it does or how long it takes. (See
+    // OmarchyActionsProvider.qml's own rebuildEntries() comment for
+    // the OTHER half of this fix -- the same profiling also found that
+    // work running TWICE per open, not just late.)
+    refreshDeferTimer.restart()
     Qt.callLater(function() { searchHeader.focusInput() })
+  }
+
+  Timer {
+    id: refreshDeferTimer
+    interval: 160
+    onTriggered: omarchyActionsProvider.refresh()
   }
 
   function close() {

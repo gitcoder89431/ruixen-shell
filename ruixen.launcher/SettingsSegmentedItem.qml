@@ -29,7 +29,15 @@ Rectangle {
   property string label: ""
   // [{ id, label }, ...]
   property var options: []
-  property string current: ""
+  // var, not string -- every existing consumer (Bar Layout, Notch,
+  // Launcher Mark, Display Scale) passes a string id, but the
+  // Visualizer's own Bands option ids are real ints (12/20/32/48). A
+  // string-typed property silently coerces an int to "20", which then
+  // fails isCurrent's own `===` against optBtn.modelData.id (a real
+  // int) below -- the option never highlights even when it genuinely
+  // is the current value. `var` passes either straight through
+  // untouched.
+  property var current: ""
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
@@ -47,7 +55,10 @@ Rectangle {
   // Shown under the row only while optionsEnabled is false.
   property string disabledHint: ""
 
-  signal activated(string id)
+  // var, same reasoning as `current` above -- a string-typed signal
+  // parameter would coerce a real int id (Bands) to a string on the
+  // way out.
+  signal activated(var id)
 
   width: parent.width
   height: content.implicitHeight + 24

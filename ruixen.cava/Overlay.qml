@@ -110,10 +110,35 @@ Item {
       root.warmColor = root.parseThemeColor(t, "red", Color.accent)
       root.coolColor = root.parseThemeColor(t, "blue", Color.accent)
     }
+    // Direct live report/repro: "im stuck on like the risotto colors
+    // for the cava bars now, it doesn't switch theme colors anymore,
+    // seems to be stuck?" Confirmed directly by instrumenting this
+    // FileView: a theme switch replaces this file via an atomic
+    // delete-then-recreate (its own mtime/inode are fresh on every
+    // switch), which fires TWO file-change events -- the delete
+    // usually lands a reload() in the brief window where the path
+    // doesn't exist yet (onLoadFailed, caught here), then the recreate
+    // fires a second event that reloads correctly. That self-heals
+    // for one switch. Rapid switching (cycling through a theme
+    // switcher/gallery) can land the LAST reload() attempt exactly on
+    // a mid-swap gap with no further file event ever arriving to
+    // retry it -- reproduced directly by scripting 5 switches ~300ms
+    // apart, which left this stuck on the Color.accent fallback
+    // (both warm and cool collapsed to the same flat color)
+    // indefinitely, matching the reported symptom exactly. A short,
+    // one-shot retry closes that gap without needing a real file
+    // event to arrive.
     onLoadFailed: {
       root.warmColor = Color.accent
       root.coolColor = Color.accent
+      themeColorsRetryTimer.restart()
     }
+  }
+
+  Timer {
+    id: themeColorsRetryTimer
+    interval: 200
+    onTriggered: themeColorsFile.reload()
   }
 
   // Same real Wayland foreign-toplevel fullscreen watching already

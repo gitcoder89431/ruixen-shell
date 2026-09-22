@@ -74,6 +74,48 @@ Item {
     onLoadFailed: root.vizEnabled = false
   }
 
+  // Warm-center/cool-edge gradient, built from the ACTIVE theme's own
+  // palette instead of a hardcoded rainbow -- direct follow-up:
+  // "can we still have that color pattern where its warm and cool on
+  // the edges for bass but instead of hardcoded color, we alrady have
+  // the data from omarchy theme colors toml, so can we use the theme
+  // colors". Same file qs.Commons's own Color singleton reads
+  // (Commons/Color.qml's colorsFile), read again here directly rather
+  // than pulling in Color's own dozen unrelated per-surface roles for
+  // two colors -- watchChanges: true (Color's own copy isn't watched)
+  // so a live theme switch retints the spectrum without a restart.
+  // `red`/`blue` are the two roles present, and at genuinely different
+  // hues, across every theme checked (Everforest, Catppuccin, Nord,
+  // Gruvbox, Tokyo Night, Rose Pine, Hackerman, Lumon) -- including the
+  // grayscale ones (White, Vantablack), where they simply resolve to
+  // two close shades of gray instead of a hue split, matching those
+  // themes' own monochrome intent rather than fighting it with a fake
+  // rainbow.
+  property color warmColor: Color.accent
+  property color coolColor: Color.accent
+
+  function parseThemeColor(raw, key, fallback) {
+    var m = String(raw || "").match(new RegExp("^\\s*" + key + "\\s*=\\s*[\"']?(#[0-9A-Fa-f]{6})", "m"))
+    return m ? m[1] : fallback
+  }
+
+  FileView {
+    id: themeColorsFile
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/colors.toml"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      var t = text()
+      root.warmColor = root.parseThemeColor(t, "red", Color.accent)
+      root.coolColor = root.parseThemeColor(t, "blue", Color.accent)
+    }
+    onLoadFailed: {
+      root.warmColor = Color.accent
+      root.coolColor = Color.accent
+    }
+  }
+
   // Same real Wayland foreign-toplevel fullscreen watching already
   // proven in ruixen.frame-widget/Overlay.qml and ruixen.notch/
   // Overlay.qml -- a real fullscreen window (a game, a video) should
@@ -153,18 +195,24 @@ Item {
         return (l && i < l.length) ? l[i] : 0
       }
 
-      // A single theme accent with subtle per-band lightness shading, not
-      // a two-color gradient -- direct port of Ryoku's own reasoning
-      // (Singletons/Scheme.qml's header comment): "the spectrum paints
-      // in the accent the rest of the shell uses... pushing every band a
-      // fixed step off the wallpaper is what used to send it near-white
-      // on a dark picture." Bass bands sit slightly darker, treble
-      // slightly lighter, but every band stays the same hue as
-      // Color.accent -- the same color the bar/notch already use.
+      // Warm center, cool edges -- direct follow-up after shipping a
+      // single-accent shade ramp ("it look uhh kinda boring? especially
+      // if we're gonna do waves and stuff next"). dist is 0 at the
+      // middle band, 1 at either edge (a symmetric "V", not a left-to-
+      // right sweep -- same shape github.com/pennyfx/omarchy-spectrum's
+      // own barColor() uses), lerped between root.warmColor (center)
+      // and root.coolColor (edges) instead of their fixed HSLA hue
+      // ramp. Louder still lightens the result a little, same
+      // level-reactive touch the single-accent version had.
       function bandColor(i, level) {
-        var t = feed.bands > 1 ? i / (feed.bands - 1) : 0.5
-        var shade = 0.82 + 0.36 * t + 0.25 * level
-        return shade >= 1 ? Qt.lighter(Color.accent, shade) : Qt.darker(Color.accent, 1 / shade)
+        var mid = feed.bands / 2
+        var dist = feed.bands > 1 ? Math.abs(i - mid + 0.5) / mid : 0
+        var c = Qt.rgba(
+          root.warmColor.r + (root.coolColor.r - root.warmColor.r) * dist,
+          root.warmColor.g + (root.coolColor.g - root.warmColor.g) * dist,
+          root.warmColor.b + (root.coolColor.b - root.warmColor.b) * dist,
+          1)
+        return Qt.lighter(c, 1 + 0.35 * level)
       }
 
       Repeater {

@@ -465,14 +465,58 @@ Item {
       }
 
       // Wave -- one smooth curve traced through every band's level,
-      // filled from the docked edge same as Bars/Segments. Redrawn
-      // on every feed.levels update (up to cava's own 30fps), same
-      // real-time responsiveness the other two looks already have.
+      // filled from the docked edge same as Bars/Segments.
+      //
+      // displayLevels/waveTick -- direct live report: "the wave arent
+      // really that smooth... whats the frame rate on them? the wave
+      // seems a bit jumpy." cava itself only samples at 30fps
+      // (CavaFeed.qml's own framerate config), same as Bars/Segments --
+      // but those hide that behind a 90ms QML Behavior easing between
+      // each new value, so the RENDERED motion reads smooth even
+      // though the DATA only updates 30 times a second. Wave had
+      // nothing playing that same role: it repainted straight from
+      // feed.levels on every onLevelsChanged, snapping the whole curve
+      // to each new keyframe with no easing between them -- exactly
+      // the jumpiness reported. waveTick now redraws at 60fps
+      // (independent of cava's own 30fps data rate) and eases
+      // displayLevels toward feed.levels a little each tick, the same
+      // "smooth motion between sparser real updates" trick Behavior
+      // does for Bars/Segments, just implemented by hand since Canvas
+      // has no property system for Behavior to attach to.
       Canvas {
         id: waveCanvas
         anchors.fill: parent
         visible: root.style === "wave"
         renderStrategy: Canvas.Immediate
+
+        property var displayLevels: []
+
+        Timer {
+          interval: 16
+          running: waveCanvas.visible
+          repeat: true
+          onTriggered: waveCanvas.tick()
+        }
+
+        function tick() {
+          var target = feed.levels
+          var n = feed.bands
+          var cur = waveCanvas.displayLevels
+          if (!cur || cur.length !== n) {
+            cur = []
+            for (var z = 0; z < n; z++) cur.push(target && target[z] !== undefined ? target[z] : 0)
+          } else {
+            // 0.3 per 16ms tick -- ~90% converged toward a newly
+            // arrived target within ~6 ticks (about 100ms), close to
+            // the same 90ms feel Bars' own Behavior already uses.
+            for (var i = 0; i < n; i++) {
+              var t = (target && target[i] !== undefined) ? target[i] : 0
+              cur[i] = cur[i] + (t - cur[i]) * 0.3
+            }
+          }
+          waveCanvas.displayLevels = cur
+          waveCanvas.requestPaint()
+        }
 
         // (perp, grow) -> real (x, y) on this canvas. perp is position
         // along the band-index axis (0..perpLen); grow is distance
@@ -485,7 +529,7 @@ Item {
         readonly property bool edgeAtStart: root.position === "top" || root.position === "left"
 
         function pointAt(i, n) {
-          var lv = feed.levels
+          var lv = waveCanvas.displayLevels
           var level = (lv && i < lv.length) ? lv[i] : 0
           var perp = (n > 1 ? i / (n - 1) : 0.5) * waveCanvas.perpLen
           var grow = Math.max(barsData.sliver, waveCanvas.growLen * level)
@@ -568,10 +612,11 @@ Item {
           ctx.stroke()
         }
 
-        Connections {
-          target: feed
-          function onLevelsChanged() { if (waveCanvas.visible) waveCanvas.requestPaint() }
-        }
+        // No Connections on feed.onLevelsChanged -- waveTick's own
+        // 16ms Timer already reads feed.levels fresh every tick
+        // regardless of whether it changed since the last one; a
+        // separate listener here would just repaint twice on the
+        // ticks where new cava data happens to land.
         onVisibleChanged: if (visible) requestPaint()
       }
     }

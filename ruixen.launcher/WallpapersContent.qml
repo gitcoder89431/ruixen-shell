@@ -416,9 +416,30 @@ Item {
   // keeps them from bunching into the kind of simultaneous burst that
   // was coming back out of order. Stops itself once the gate has
   // caught up to however many entries exist.
+  //
+  // Direct report: "in all types the thumbnail doesn't show, only in
+  // images it shows" for whichever real wallpapers happened to sort
+  // last (swirls.jpg, windows-xp.jpg here). Root cause: tile.index
+  // (the Repeater's own delegate index, compared against loadGate
+  // below) is a position in root.gridModel, not in this array --
+  // gridModel inserts 4 extra {spacer:true} entries whenever the hero
+  // is showing (showHero, true only when kindFilter === "all"), so
+  // every real tile past the hero sits 4 positions higher in
+  // gridModel than its own position here. This ceiling compared
+  // against wallpaperPaths.length (this array, no spacers) instead,
+  // so the Timer stopped 4 short of the real maximum tile.index
+  // whenever the hero was showing -- the LAST 4 real entries by sort
+  // order then permanently failed tile.index <= loadGate and stayed
+  // gated to an empty source forever, exactly matching "only in All
+  // Types, only for whichever ones sort near the end". Filtering to
+  // "Images" made showHero false (see its own condition), which
+  // removes the spacer offset entirely, so the same wallpapers worked
+  // there. Fixed by comparing against root.gridModel.length instead,
+  // which already reflects that same offset in every case (equals
+  // this array's own length when there is no hero).
   Timer {
     interval: 10
-    running: root.active && root.loadGate < root.wallpaperPaths.length
+    running: root.active && root.loadGate < root.gridModel.length
     repeat: true
     onTriggered: root.loadGate += 2
   }
@@ -666,8 +687,12 @@ Item {
       // something further down -- bypass loadGate entirely rather
       // than making a manually-scrolled-to tile wait its turn behind
       // a drip-feed meant only to smooth out the passive initial
-      // fill.
-      onMovementStarted: root.loadGate = root.wallpaperPaths.length
+      // fill. root.gridModel.length, not wallpaperPaths.length -- see
+      // the Timer's own comment above for why the plain array length
+      // undercounts by 4 whenever the hero's spacer entries are
+      // showing, which left this same "bypass" 4 short of the real
+      // maximum tile.index too.
+      onMovementStarted: root.loadGate = root.gridModel.length
 
       // Drives currentIndex directly from genuine cursor movement --
       // same mechanism/reasoning as Launcher.qml's own card-level

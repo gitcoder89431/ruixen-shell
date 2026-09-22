@@ -379,10 +379,15 @@ Item {
           // direction as Bars (segment 0 sits nearest the screen edge,
           // ascending indices move inward), just chopped into discrete
           // blocks with small gaps instead of one continuous pill.
-          // Unlit blocks stay dimly visible (a constant low opacity)
-          // so the full potential range always reads, the same way a
-          // real VU meter's unlit LEDs stay visible rather than
-          // vanishing outright.
+          // Unlit blocks are fully invisible, not a dim placeholder --
+          // direct live correction after shipping a constant low
+          // opacity there: "on the empty spaces, theres should be like
+          // the grid showing. it should just be segment bars not like
+          // the grid or outline too." A real VU meter's unlit LEDs
+          // read as part of the FIXTURE (physically always there,
+          // just dark); a translucent rectangle floating over the
+          // wallpaper/edge-glow instead read as a grid outline drawn
+          // on top of the desktop.
           Repeater {
             model: root.style === "segments" ? root.segmentCount : 0
 
@@ -397,7 +402,7 @@ Item {
               radius: Math.min(width, height) / 4
               antialiasing: true
               color: bandItem.col
-              opacity: lit ? 1.0 : 0.15
+              opacity: lit ? 1.0 : 0.0
 
               x: root.barsHoriz
                 ? ((root.position === "left")

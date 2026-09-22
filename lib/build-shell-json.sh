@@ -97,23 +97,14 @@ ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 ruixen_plugin_ids='["ruixen.frame-widget", "ruixen.notch", "ruixen.settings", "ruixen.wallpaper", "ruixen.media", "ruixen.launcher"]'
 default_idle_json='{"lock": 300, "screensaver": 150}'
 
-# Issue #36: bar.layout ids with a dedicated, intentional pill of their
-# own -- never migrated out of left/center by the foreign-widget
-# cleanup below, no matter how old or malformed an existing install
-# own layout is. Mirrors Bar.qml own curatedRightIds plus every
-# left/center id that ModuleList filter checks by exact match
-# (settingsPill own left-side fallback slot included) -- keep both in
-# sync if either changes.
-protected_bar_ids='[
-  "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
-  "ruixen.settingsbutton", "ruixen.weather", "omarchy.clock",
-  "ruixen.tray", "ruixen.pluginpins",
-  "omarchy.system-update", "omarchy.power", "ruixen.quickactions"
-]'
-
 # Mirrors Bar.qml's own centerSpecialIds -- keep both in sync if either
-# changes. See the center-rescue migration below for why this needs its
-# own list, not just a subset check against protected_bar_ids above.
+# changes. These two are the only ids the horizontal bar's clockPill
+# gives dedicated pill+divider treatment; everything else placed in
+# "center" (including a third-party id) renders through #27's own
+# generic catch-all instead and is never migrated out of "center" by
+# this script, same as "left" below. See the center-rescue migration
+# further down for why weather/clock specifically still need a sweep
+# even though ordinary ids no longer get one.
 center_special_ids='["ruixen.weather", "omarchy.clock"]'
 
 existing_json="$(cat)"
@@ -122,7 +113,6 @@ jq -n \
   --argjson existing "$existing_json" \
   --argjson ruixenBar "$ruixen_bar_json" \
   --argjson ruixenPluginIds "$ruixen_plugin_ids" \
-  --argjson protectedBarIds "$protected_bar_ids" \
   --argjson centerSpecialIds "$center_special_ids" \
   --argjson defaultIdle "$default_idle_json" \
   '
@@ -169,25 +159,32 @@ jq -n \
        )
      else $ownedBar end) as $strippedBar
 
-  # Issue #36: workspacesPill (Bar.qml) used to render anything in
-  # "left" except a short exclusion list, an accidental catch-all --
-  # any bar-widget entry left over in "left"/"center" from before
-  # ruixen.pluginpins existed (or dragged there by hand) rendered
-  # sharing that Row with the tiny workspace dots, which a direct
-  # report described as the dots looking "floating/misaligned" inside
-  # the pill. Bar.qml itself was fixed to a strict single-id filter;
-  # this is the matching migration so an EXISTING install (whose bar
-  # object is otherwise preserved verbatim above) does not keep
-  # rendering broken forever -- moves anything not in this protected
-  # set out of "center" and into "right", where ruixen.pluginpins own
-  # pill already knows how to present arbitrary bar-widgets. Preserves
-  # the full entry object (inline settings survive); drops -- does not
-  # duplicate -- a stale copy whose id already exists somewhere in
-  # "right", since that copy is already correctly placed. Naturally
-  # idempotent: once migrated, an id is no longer in "center" for a
-  # second run to find.
+  # Issue #36 originally swept "center" the same way it now no longer
+  # sweeps "left" below -- workspacesPill (Bar.qml) used to render
+  # anything in "left" except a short exclusion list, an accidental
+  # catch-all that made a stray "center"/"left" entry from before
+  # ruixen.pluginpins existed render sharing the workspace dots own
+  # Row. Bar.qml was fixed to a strict single-id filter on both sides,
+  # and #27 later gave "center" its own real generic catch-all
+  # (clockPill own comment: no allowlist of known third-party ids,
+  # anything not in centerSpecialIds just flows through here) the
+  # same way ruixen.pluginpins already hosts arbitrary ids for
+  # left/right. Once that landed, sweeping "center" into "right" here
+  # stopped being a rendering-bug workaround and turned into exactly
+  # the mistake "left" below was already fixed not to make: silently
+  # relocating a deliberate placement (a third-party clock plugin
+  # someone put in "center" on purpose) to "right" on every future
+  # install/update, with the widget still rendering fine either way so
+  # nothing ever surfaced the move. Direct review finding after a
+  # third-party clock author traced the exact mechanism through this
+  # file: "the center catch-all from #27 renders anything not in
+  # centerSpecialIds... the problem is lib/build-shell-json.sh... a
+  # non-protected id sitting in center is no longer automatically a
+  # mistake, same as left below." No sweep of any kind runs on
+  # "center" now -- see the left-side comment immediately below for why
+  # this is the correct default, not just a matching one.
   #
-  # "left" is deliberately NOT swept here anymore, direct follow-up:
+  # "left" is deliberately NOT swept here, direct follow-up:
   # ruixen.pluginpins gained a real left-side twin of this same pill
   # (Bar.qml own leftPluginPinsPill, reachable via right-click in the
   # dropdown), so a non-protected id sitting in "left" is no longer
@@ -199,18 +196,6 @@ jq -n \
   # install passed through that original fix; from here on, an id left
   # in "left" just renders correctly in its own pill instead of
   # needing rescue.
-  | (if ($strippedBar.layout | type) == "object" then
-       ($strippedBar.layout.right // []) as $rightNow
-       | ($rightNow | map(.id)) as $rightIds
-       | (($strippedBar.layout.center // [])
-          | map(select((.id as $id | $protectedBarIds | index($id)) == null))
-          | map(select((.id as $id | $rightIds | index($id)) == null))) as $migratedEntries
-       | (($strippedBar.layout.center // [])
-          | map(select((.id as $id | $protectedBarIds | index($id)) != null))) as $prunedCenter
-       | ($strippedBar
-          | .layout.center = $prunedCenter
-          | .layout.right = ($rightNow + $migratedEntries))
-     else $strippedBar end) as $migratedBar
 
   # Direct live report: a real drag-and-drop bug (the moduleDropAtScene
   # function in Bar.qml) let ruixen.weather/omarchy.clock be dragged OUT
@@ -219,31 +204,31 @@ jq -n \
   # horizontal bar own clockPill only ever reads these two ids out of
   # "center" specifically (see this file own header comment), so a
   # scattered entry there just stops rendering as the shared pill at
-  # all, silently. Unlike the general foreign-widget migration above
-  # (which deliberately leaves "left" alone, since a non-protected id
-  # there may be a deliberate pluginpins left-pin), weather/clock have
-  # no legitimate home anywhere but "center" -- there is no "left
-  # clockPill" twin the way pluginpins has one -- so this sweeps BOTH
-  # "left" and "right". Preserves the full entry object (inline
-  # settings survive, e.g. omarchy.clock own format/formatAlt/
-  # verticalFormat); a duplicate of an id already correctly in "center"
-  # is dropped, not doubled. Idempotent: once back in "center", a
-  # second run finds nothing left in either side to move.
-  | (if ($migratedBar.layout | type) == "object" then
-       ($migratedBar.layout.center // []) as $centerNow
+  # all, silently. Unlike an ordinary third-party id (which may be a
+  # deliberate placement in "left", or now "center" too, per the
+  # comment above), weather/clock have no legitimate home anywhere but
+  # "center" -- there is no "left clockPill" twin the way pluginpins
+  # has one -- so this sweeps BOTH "left" and "right". Preserves the
+  # full entry object (inline settings survive, e.g. omarchy.clock own
+  # format/formatAlt/verticalFormat); a duplicate of an id already
+  # correctly in "center" is dropped, not doubled. Idempotent: once
+  # back in "center", a second run finds nothing left in either side to
+  # move.
+  | (if ($strippedBar.layout | type) == "object" then
+       ($strippedBar.layout.center // []) as $centerNow
        | ($centerNow | map(.id)) as $centerIds
-       | ([($migratedBar.layout.left // []), ($migratedBar.layout.right // [])]
+       | ([($strippedBar.layout.left // []), ($strippedBar.layout.right // [])]
           | map(map(select((.id as $id | $centerSpecialIds | index($id)) != null)))
           | add) as $strandedEntries
        | ($strandedEntries
           | map(select((.id as $id | $centerIds | index($id)) == null))) as $rescuedEntries
-       | ($migratedBar
+       | ($strippedBar
           | .layout.left = ((.layout.left // [])
               | map(select((.id as $id | $centerSpecialIds | index($id)) == null)))
           | .layout.right = ((.layout.right // [])
               | map(select((.id as $id | $centerSpecialIds | index($id)) == null)))
           | .layout.center = ($centerNow + $rescuedEntries))
-     else $migratedBar end) as $centerRescuedBar
+     else $strippedBar end) as $centerRescuedBar
 
   # Real tester gap, found via ruixen-doctor.sh: an install from before
   # ruixen.pinnedapps/ruixen.pluginpins existed stays missing both

@@ -131,26 +131,21 @@ check "existing install with stale ruixen.media in layout: still gets the plugin
   "$(jq -c '[.plugins[].id] | sort' <<<"$out6")" \
   '["ruixen.frame-widget","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
 
-# --- Case 7 (issue #36): legacy foreign/optional bar-widgets stuck in
-# "center" from before ruixen.pluginpins existed get migrated into
-# "right", where pluginPinsPill actually knows how to present them --
-# center has no legitimate catch-all of its own (only weather/clock
-# have a dedicated home there). Preserves the full entry object
-# (inline settings survive); a duplicate of an id already correctly on
-# the right is dropped, not doubled. omarchy.menu is DELIBERATELY
-# EXCLUDED from this fixture's "migrates to right" expectation --
-# direct follow-up after reviewing #36's first pass: Ruixen replaced
-# that bar icon with ruixen.applauncher on purpose, so unlike a genuine
-# third-party widget, omarchy.menu must never render on the bar at
-# all, not even via Plugin Pins. It gets the same unconditional strip
-# as ruixen.media instead (see Case 10 below), not this migration.
-#
-# "left" is DELIBERATELY left untouched by this fixture's own
-# expectations -- direct follow-up after ruixen.pluginpins gained a
-# real left-side twin (Bar.qml's leftPluginPinsPill): a non-protected
-# id in "left" is no longer automatically a mistake, so this migration
-# no longer sweeps that section at all (see Case 7b below for the
-# fixture proving that directly).
+# --- Case 7 (issue #36, revised): "center" is no longer swept for an
+# ordinary foreign id, mirroring the "left" decision below -- direct
+# review finding from a third-party clock author after #27 gave
+# "center" its own real generic catch-all (clockPill's own comment: no
+# allowlist of known third-party ids): sweeping a non-protected id out
+# of "center" into "right" on every install/update silently relocated
+# a deliberate placement (their own custom clock plugin) with nothing
+# ever surfacing the move, since the widget still rendered fine either
+# way. thirdparty.foo here now stays exactly where it was placed,
+# settings intact, same as an ordinary id already sitting in "left"
+# (Case 7b below). omarchy.menu is still stripped unconditionally
+# (this is the SEPARATE strip mechanism used for ruixen.media too, see
+# Case 10 below) -- unlike a genuine third-party widget, Ruixen
+# replaced that bar icon with ruixen.applauncher on purpose, so it must
+# never render at all, not even left in place.
 legacy_foreign='{
   "version": 1,
   "bar": {
@@ -172,12 +167,12 @@ out7="$(printf '%s' "$legacy_foreign" | "$build")"
 check "issue #36: left region is untouched (nothing to migrate here anymore)" \
   "$(jq -c '.bar.layout.left' <<<"$out7")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"},{"id":"ruixen.settingsbutton"}]'
-check "issue #36: center keeps only the protected weather/clock, omarchy.menu stripped (not migrated), thirdparty.foo migrates out" \
+check "center is no longer swept: thirdparty.foo stays in center, settings intact, omarchy.menu still stripped" \
   "$(jq -c '.bar.layout.center' <<<"$out7")" \
-  '[{"id":"ruixen.weather"},{"id":"omarchy.clock"}]'
-check "issue #36: real foreign entries land on the right, inline settings preserved, already-pinned ids untouched, omarchy.menu absent" \
+  '[{"id":"ruixen.weather"},{"id":"omarchy.clock"},{"id":"thirdparty.foo","opacity":0.5}]'
+check "center is no longer swept: right is untouched, thirdparty.foo does not land here" \
   "$(jq -c '.bar.layout.right' <<<"$out7")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned"},{"id":"thirdparty.foo","opacity":0.5}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned"}]'
 
 # --- Case 7b (issue #36 follow-up): a non-protected id deliberately
 # pinned to "left" via ruixen.pluginpins' own left/right click (see
@@ -206,12 +201,13 @@ check "issue #36 follow-up: it does not also get duplicated onto the right" \
   "$(jq -c '.bar.layout.right' <<<"$out7b_deliberate")" \
   '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
 
-# --- Case 8 (issue #36): a foreign id stuck in "center" AND already
-# correctly pinned on the right must not end up duplicated -- the
-# stale center-side copy is dropped, the right-side copy (already in
-# its intended home) wins. "left" is a separate, real placement now
-# (Case 7b above), so this dedup case is scoped to center, the only
-# section the migration still sweeps.
+# --- Case 8 (revised): now that "center" is no longer swept, a foreign
+# id sitting in BOTH "center" and "right" at once is left exactly as
+# given in each section -- no cross-section dedup, same as "left" and
+# "right" already have no dedup between them today. Whichever config
+# produced both copies is the caller's own to resolve; this script only
+# ever touches weather/clock across sections (the dedicated rescue
+# migration, Case 13/13b), never an ordinary id.
 dup_foreign='{
   "version": 1,
   "bar": {
@@ -225,12 +221,42 @@ dup_foreign='{
   "plugins": []
 }'
 out8="$(printf '%s' "$dup_foreign" | "$build")"
-check "issue #36: a foreign id already pinned on the right is not duplicated when also stuck in center" \
+check "center is no longer swept: the right-side copy is untouched" \
   "$(jq -c '.bar.layout.right' <<<"$out8")" \
   '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned","extra":"settings-that-should-win"}]'
-check "issue #36: the stale center-side copy of an already-pinned id is dropped, not left behind" \
+check "center is no longer swept: the center-side copy is left in place too, not dropped" \
   "$(jq -c '.bar.layout.center' <<<"$out8")" \
-  '[]'
+  '[{"id":"already.pinned"}]'
+
+# --- Case 8b: direct third-party report -- a real custom clock plugin
+# (their own words: "Bar.qml already supports this... a custom clock in
+# center renders fine. The problem is lib/build-shell-json.sh: it
+# sweeps any center id not in protected_bar_ids out to right... a
+# custom clock cant survive an update.") Exact before/after they gave
+# as their own repro, minus the plugin's real name (kept generic here
+# since this fixture only needs to prove the mechanism, not identify
+# any specific third-party plugin).
+third_party_clock='{
+  "version": 1,
+  "bar": {
+    "id": "ruixen.bar",
+    "layout": {
+      "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "ruixen.pinnedapps" }],
+      "center": [{ "id": "ruixen.weather" }, { "id": "thirdparty.clock", "timezone": "UTC" }],
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "omarchy.power" }]
+    }
+  },
+  "plugins": []
+}'
+out8b="$(printf '%s' "$third_party_clock" | "$build")"
+check "third-party clock survives an update: stays in center, settings intact" \
+  "$(jq -c '.bar.layout.center' <<<"$out8b")" \
+  '[{"id":"ruixen.weather"},{"id":"thirdparty.clock","timezone":"UTC"}]'
+check "third-party clock survives an update: right is untouched, the clock does not land here" \
+  "$(jq -c '.bar.layout.right' <<<"$out8b")" \
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"}]'
+check "third-party clock survives an update: re-running on its own output is idempotent" \
+  "$(printf '%s' "$out8b" | "$build")" "$out8b"
 
 # --- Case 9 (issue #36): running the merge again on its own migrated
 # output must be a no-op -- nothing left in left/center to migrate a

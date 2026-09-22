@@ -2721,12 +2721,6 @@ Item {
     cardFocused: root.rightFocused && root.focusedItemIndex === 1
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.barOpen
-    // Same busy-dimming the Plugins page's own row gives this exact
-    // toggle (pluginBusyId === row.id) -- prevents a second click here
-    // from queuing another enable/disable while the first is still
-    // applying, since this fires the identical Process.
-    optionsEnabled: root.pluginBusyId !== "ruixen.notch"
-    disabledHint: "Applying…"
     textColor: root.textColor
     muted: root.muted
     accent: root.accent

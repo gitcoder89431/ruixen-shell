@@ -1705,6 +1705,19 @@ Item {
       options: ["show", "hover", "hidden"],
       current: root.notchVisibilityCurrentId(),
       activate: function(id) { root.activateNotchVisibility(id) }
+    },
+    // Direct follow-up: "that setting option i cant tab into and use
+    // dpad to select a new icon, i think we can add that". Same
+    // generic {options, current, activate} shape every other barItems/
+    // profileItems entry already uses -- Left/Right cycling and Enter-
+    // to-apply work identically here whether options has 2 entries or
+    // 111, since moveOptionLeft/moveOptionRight/activateSelected below
+    // only ever index into item.options.length, never assume a small
+    // fixed count.
+    {
+      options: AppLauncherGlyphs.iconIds(),
+      current: root.appLauncherIconId,
+      activate: function(id) { root.setAppLauncherIconId(id) }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -2115,7 +2128,7 @@ Item {
       return [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
-      return [barLayoutItem, notchVisibilityItem][root.focusedItemIndex]
+      return [barLayoutItem, notchVisibilityItem, appLauncherIconItem][root.focusedItemIndex]
     }
     if (root.launcherOpen) {
       if (root.focusedItemIndex === 0) return includeHomeRow
@@ -2847,18 +2860,29 @@ Item {
   // verified-present glyph (AppLauncherGlyphs.js, 111 options) instead
   // of a segmented control -- SettingsSegmentedItem's own row-of-N-
   // buttons shape doesn't scale past a handful of options the way Bar
-  // Layout/Notch above use it. Mouse-only for this pass, same
-  // precedent already set below for Launcher's own toggle rows
-  // ("building a real keyboard model for it is its own separate piece
-  // of work, not a same-shape extension of this one") -- a 2D wrapping
-  // grid this size has no obvious Tab/arrow-key shape to reuse from
-  // the existing linear item model either.
+  // Layout/Notch above use it.
+  //
+  // Keyboard nav added per direct follow-up ("that setting option i
+  // cant tab into and use dpad to select a new icon") -- this card
+  // slotted into barItems above (index 2) as an ordinary {options,
+  // current, activate} entry, same shape as every other item, so
+  // Tab/Left/Right/Enter all already work generically; only the
+  // VISUAL focus indicators below are specific to this card (the
+  // card-level ring mirrors profilePictureItem's own convention, the
+  // per-tile underline mirrors collectionBtn's own, both already
+  // proven elsewhere in this file for the exact same "Flow of many
+  // options" shape).
   Rectangle {
     id: appLauncherIconItem
     width: parent.width
     height: appLauncherIconContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
+    // Card-level focus ring -- same convention profilePictureItem's
+    // own comment documents ("tab between cards... then left or right
+    // direction and enter for that option").
+    border.width: root.rightFocused && root.focusedItemIndex === 2 ? 1 : 0
+    border.color: root.accent
     visible: root.barOpen
 
     Column {
@@ -2891,7 +2915,16 @@ Item {
           Rectangle {
             id: iconBtn
             required property string modelData
+            required property int index
             readonly property bool isCurrent: root.appLauncherIconId === iconBtn.modelData
+            // Keyboard cursor position, distinct from isCurrent (the
+            // actually-applied value) -- same split collectionBtn's
+            // own isFocused/isCurrent already establishes above for
+            // the identical reason (an all-white border here would
+            // clobber the accent ring's own "this is applied"
+            // meaning).
+            readonly property bool isFocused: root.rightFocused
+              && root.focusedItemIndex === 2 && root.focusedOptionIndex === iconBtn.index
 
             width: 32
             height: 32
@@ -2910,6 +2943,22 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: 15
               color: iconBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            // Keyboard-focus indicator -- same accent underline
+            // convention collectionBtn's own isFocused treatment uses
+            // above, adapted to sit inside this tile's own bounds
+            // instead of below external label text (these tiles have
+            // none).
+            Rectangle {
+              visible: iconBtn.isFocused
+              anchors.bottom: parent.bottom
+              anchors.bottomMargin: 3
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: 14
+              height: 2
+              radius: 1
+              color: root.accent
             }
 
             MouseArea {

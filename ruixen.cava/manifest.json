@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.cava",
+  "name": "Ruixen Cava Visualizer",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "A live, edge-docked, audio-reactive cava spectrum overlay, controlled from ruixen.launcher's Settings.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": { "overlay": "Overlay.qml" }
+}

@@ -1415,6 +1415,55 @@ Item {
     onLoadFailed: root.loadNotchVisibilityMode("")
   }
 
+  // Cava audio visualizer -- direct request/community pointer
+  // (github.com/Ryoku-dev/ryoku's own cava integration). Same Settings-
+  // writes/plugin-reads split as notchVisibilityMode above: this page
+  // only ever writes cava-visualizer.json, ruixen.cava/Overlay.qml
+  // (a completely separate, always-loaded plugin) is the sole reader.
+  property bool cavaEnabled: false
+  property string cavaPosition: "top"
+  property int cavaBands: 20
+  property string cavaSize: "medium"
+  readonly property string cavaStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/cava-visualizer.json"
+
+  function loadCavaState(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.cavaEnabled = !!(p && p.enabled)
+      root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "top"
+      root.cavaBands = (p && [12, 20, 32, 48].indexOf(p.bands) >= 0) ? p.bands : 20
+      root.cavaSize = (p && ["small", "medium", "large"].indexOf(p.size) >= 0) ? p.size : "medium"
+    } catch (e) {
+      root.cavaEnabled = false
+    }
+  }
+
+  // style is written as a fixed "bars" literal for now -- kept as its
+  // own JSON field from day one so adding a real "Waves" option later
+  // is state-shape-compatible, not a migration.
+  function writeCavaState() {
+    cavaVisualizerFile.setText(JSON.stringify({
+      enabled: root.cavaEnabled, style: "bars", position: root.cavaPosition,
+      bands: root.cavaBands, size: root.cavaSize
+    }, null, 2) + "\n")
+  }
+
+  function setCavaEnabled(v) { root.cavaEnabled = !!v; root.writeCavaState() }
+  function setCavaPosition(id) { root.cavaPosition = id; root.writeCavaState() }
+  function setCavaBands(n) { root.cavaBands = n; root.writeCavaState() }
+  function setCavaSize(id) { root.cavaSize = id; root.writeCavaState() }
+
+  FileView {
+    id: cavaVisualizerFile
+    path: root.cavaStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadCavaState(text())
+    onLoadFailed: root.loadCavaState("")
+  }
+
   // App Launcher's own "Launcher Mark" picker, below on the Bar page --
   // direct request/community pointer (github.com/Ryoku-dev/ryoku's own
   // Identity page): "allow more glyph as an option... they call it
@@ -1530,6 +1579,8 @@ Item {
       description: "Paired devices and the wireless companions currently orbiting this machine." },
     { id: "display", label: "Display", glyph: "",
       description: "Brightness, Night Light, and display scale, tuned to how you actually look at this screen." },
+    { id: "visualizer", label: "Visualizer", glyph: "",
+      description: "A live, edge-docked spectrum that reacts to whatever this machine is playing." },
     { id: "plugins", label: "Plugins", glyph: "",
       description: "Everything Ruixen has installed, kept updated, and quietly running." },
     { id: "about", label: "About", glyph: "",
@@ -1718,6 +1769,33 @@ Item {
       options: AppLauncherGlyphs.iconIds(),
       current: root.appLauncherIconId,
       activate: function(id) { root.setAppLauncherIconId(id) }
+    }
+  ]
+
+  // Every real control on the Visualizer page, in the same order they're
+  // stacked -- one toggle (Enable) then three segmented items (Position/
+  // Bands/Size), same generic {kind:"toggle",...}/{options,current,
+  // activate} shapes launcherItems/barItems already use.
+  readonly property var visualizerItems: [
+    {
+      kind: "toggle",
+      checked: root.cavaEnabled,
+      activate: function() { root.setCavaEnabled(!root.cavaEnabled) }
+    },
+    {
+      options: ["top", "bottom", "left", "right"],
+      current: root.cavaPosition,
+      activate: function(id) { root.setCavaPosition(id) }
+    },
+    {
+      options: [12, 20, 32, 48],
+      current: root.cavaBands,
+      activate: function(id) { root.setCavaBands(id) }
+    },
+    {
+      options: ["small", "medium", "large"],
+      current: root.cavaSize,
+      activate: function(id) { root.setCavaSize(id) }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -2049,6 +2127,7 @@ Item {
     if (root.launcherOpen) return root.launcherItems
     if (root.audioOpen) return root.audioItems
     if (root.displayOpen) return root.displayItems
+    if (root.visualizerOpen) return root.visualizerItems
     if (root.wifiOpen) return root.wifiItems
     if (root.btOpen) return root.btItems
     if (root.pluginsOpen) return root.pluginItems
@@ -2163,6 +2242,9 @@ Item {
     }
     if (root.displayOpen) {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
+    }
+    if (root.visualizerOpen) {
+      return [cavaEnableRow, cavaPositionItem, cavaBandsItem, cavaSizeItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -2408,6 +2490,9 @@ Item {
   readonly property bool displayOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "display"
+  readonly property bool visualizerOpen: root.openIndex >= 0
+    && root.openIndex < root.sections.length
+    && root.sections[root.openIndex].id === "visualizer"
   readonly property bool wifiOpen: root.openIndex >= 0
     && root.openIndex < root.sections.length
     && root.sections[root.openIndex].id === "wifi"
@@ -3384,6 +3469,108 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.setDisplayScale(id)
+  }
+
+  // Visualizer -- direct request/community pointer (github.com/
+  // Ryoku-dev/ryoku's own cava integration). Enable toggle same shape as
+  // Night Light's own card above; Position/Bands/Size are plain
+  // segmented items, same shape as Bar Layout/Display Scale. The actual
+  // effect lives entirely in a separate, always-loaded plugin
+  // (ruixen.cava/Overlay.qml) -- this page only ever writes
+  // cava-visualizer.json, same Settings-writes/plugin-reads split as
+  // Notch above.
+  Rectangle {
+    id: cavaEnableItem
+    width: parent.width
+    height: cavaEnableContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.visualizerOpen
+
+    Column {
+      id: cavaEnableContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 12
+
+      Text {
+        text: "Visualizer"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      SettingsToggleRow {
+        id: cavaEnableRow
+        label: "Enabled"
+        checked: root.cavaEnabled
+        rowFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 0
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: root.setCavaEnabled(!root.cavaEnabled)
+      }
+    }
+  }
+
+  SettingsSegmentedItem {
+    id: cavaPositionItem
+    label: "Position"
+    options: [
+      { id: "top", label: "Top" },
+      { id: "bottom", label: "Bottom" },
+      { id: "left", label: "Left" },
+      { id: "right", label: "Right" }
+    ]
+    current: root.cavaPosition
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 1
+    focusedOptionIndex: cavaPositionItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.visualizerOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setCavaPosition(id)
+  }
+
+  SettingsSegmentedItem {
+    id: cavaBandsItem
+    label: "Bands"
+    options: [
+      { id: 12, label: "12" },
+      { id: 20, label: "20" },
+      { id: 32, label: "32" },
+      { id: 48, label: "48" }
+    ]
+    current: root.cavaBands
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 2
+    focusedOptionIndex: cavaBandsItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.visualizerOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setCavaBands(id)
+  }
+
+  SettingsSegmentedItem {
+    id: cavaSizeItem
+    label: "Size"
+    options: [
+      { id: "small", label: "Small" },
+      { id: "medium", label: "Medium" },
+      { id: "large", label: "Large" }
+    ]
+    current: root.cavaSize
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3
+    focusedOptionIndex: cavaSizeItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.visualizerOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setCavaSize(id)
   }
 
   // Wi-Fi's own three items -- the radio toggle (reuses

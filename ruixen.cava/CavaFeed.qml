@@ -153,8 +153,31 @@ QtObject {
   // Previously a flat parts[i]/ascii_max_range divide, which meant a
   // quiet passage's bars genuinely sat short and a loud passage's sat
   // tall -- raw amplitude, not volume-independent.
-  readonly property real noiseFloor: 3
+  // 15, not pennyfx's own 3 -- direct live report: "when the music is
+  // paused, the bar still sticks up... its like the base height isnt
+  // low enough." Live-traced this directly (console.log on every raw
+  // peak and every smoothed level): on THIS machine peak already hits
+  // a clean 0 the instant playback pauses, and the EMA tail below
+  // decays to astronomically small (1e-8 and beyond) within under a
+  // second either way -- so the reported symptom is very likely real-
+  // world background noise on their own audio interface (mic hiss,
+  // USB electrical noise, a player that keeps a near-silent stream
+  // open rather than closing it outright) keeping the frame's own
+  // peak just above the old threshold, which peak-normalization then
+  // stretches back up toward full height regardless of how quiet that
+  // noise actually is. 15 is still a small fraction of the 0-1000
+  // scale (comfortably below any real quiet passage) but gives much
+  // more headroom against exactly this class of noise than 3 did.
+  readonly property real noiseFloor: 15
   readonly property real emaSmoothing: 0.3
+  // Hard floor under the EMA below -- an exponential decay only ever
+  // approaches 0 asymptotically, never truly reaching it (the same
+  // live trace showed real, present-but-irrelevant values like 1e-13
+  // deep into a decay that already looked fully settled). Snapping
+  // anything under this to a flat, exact 0 guarantees a decaying tail
+  // actually terminates instead of leaving some technically-nonzero
+  // residue sitting under the bars/segments/wave forever.
+  readonly property real levelFloor: 0.01
   property var prevLevels: root.flat()
 
   function readBars(line) {
@@ -190,6 +213,7 @@ QtObject {
       // for it -- two different smoothing stages, one per frame of
       // data, one per rendered frame.
       var smoothed = root.emaSmoothing * prev[j] + (1 - root.emaSmoothing) * n
+      if (smoothed < root.levelFloor) smoothed = 0
       out.push(smoothed)
       sum += smoothed
     }

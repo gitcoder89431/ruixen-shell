@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -202,30 +201,40 @@ Item {
     implicitWidth: root.vertical ? root.thickness : 0
     implicitHeight: root.vertical ? 0 : root.thickness
 
-    // Bloom -- direct follow-up: "is there a bloom setting we should
-    // use, i think ryoku uses 60% as default? what does that look
-    // like." Ryoku's own bloom is a real per-pixel GPU shader glow
-    // (ui/SpectrumField.qml's own SDF-based blur, baked into
-    // shaders/spectrum.frag) -- not a property this repo can just
-    // flip on, there's no equivalent shader here. This approximates
-    // the same look with a plain blurred duplicate of the crisp bars,
-    // painted underneath them: a soft halo bleeding out around each
-    // bar rather than a true per-pixel shader bloom, but the same
-    // visual idea for a fraction of the complexity. glowIntensity
-    // mirrors their own 60% default as this layer's own opacity --
-    // no new Settings control for it yet, same "don't need a lot of
-    // customization" the visualizer's other knobs already settled on.
-    readonly property real glowIntensity: 0.6
+    // Bloom, take 2 -- direct follow-up after the first pass (a
+    // blurred duplicate of the bars themselves): "not sure if i like
+    // that, the blur is nice but its like contrasting with the sharp
+    // bar, it doesnt look like drop shadow or something, looks more
+    // like an artifact or dupe... i dont want it to look like floating
+    // bars, it should spill in from the edges." A per-bar blur
+    // duplicate reads as a second, slightly-offset copy of the same
+    // shape (an "artifact") rather than ambient light -- this instead
+    // washes color in from whichever screen edge the panel is docked
+    // to, fading out toward the panel's own inner edge, same
+    // root-at-the-edge/fade-inward direction the bars themselves
+    // already use (see the bars' own y/x formulas below). Reacts to
+    // feed.energy (the mean band level, computed every frame but
+    // otherwise unused until now) so it breathes brighter on louder
+    // passages instead of sitting at one fixed strength.
+    readonly property real glowBaseOpacity: 0.18
+    readonly property real glowEnergyBoost: 0.5
+    readonly property color glowTint: Qt.rgba(
+      (root.warmColor.r + root.coolColor.r) / 2,
+      (root.warmColor.g + root.coolColor.g) / 2,
+      (root.warmColor.b + root.coolColor.b) / 2, 1)
 
-    MultiEffect {
-      anchors.fill: barsData
-      source: barsData
-      visible: panel.glowIntensity > 0
-      opacity: panel.glowIntensity
-      blurEnabled: true
-      blur: 1.0
-      blurMax: 32
-      brightness: 0.3
+    Rectangle {
+      anchors.fill: parent
+      opacity: panel.glowBaseOpacity + panel.glowEnergyBoost * feed.energy
+      gradient: Gradient {
+        orientation: root.vertical ? Gradient.Horizontal : Gradient.Vertical
+        // Opaque stop sits at whichever edge the panel actually
+        // touches (same edge the bars root at), transparent at the
+        // panel's own inner edge -- "spill in from the edges", not a
+        // halo hugging the bar shapes.
+        GradientStop { position: (root.position === "top" || root.position === "left") ? 0.0 : 1.0; color: panel.glowTint }
+        GradientStop { position: (root.position === "top" || root.position === "left") ? 1.0 : 0.0; color: Qt.rgba(panel.glowTint.r, panel.glowTint.g, panel.glowTint.b, 0) }
+      }
     }
 
     // Bars -- ported from MusicBars.qml's own slot/thick/grow formulas,
@@ -240,7 +249,6 @@ Item {
     Item {
       id: barsData
       anchors.fill: parent
-      layer.enabled: true
 
       readonly property real sliver: 2
 

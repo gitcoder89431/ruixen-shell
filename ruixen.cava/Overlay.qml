@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -201,6 +202,32 @@ Item {
     implicitWidth: root.vertical ? root.thickness : 0
     implicitHeight: root.vertical ? 0 : root.thickness
 
+    // Bloom -- direct follow-up: "is there a bloom setting we should
+    // use, i think ryoku uses 60% as default? what does that look
+    // like." Ryoku's own bloom is a real per-pixel GPU shader glow
+    // (ui/SpectrumField.qml's own SDF-based blur, baked into
+    // shaders/spectrum.frag) -- not a property this repo can just
+    // flip on, there's no equivalent shader here. This approximates
+    // the same look with a plain blurred duplicate of the crisp bars,
+    // painted underneath them: a soft halo bleeding out around each
+    // bar rather than a true per-pixel shader bloom, but the same
+    // visual idea for a fraction of the complexity. glowIntensity
+    // mirrors their own 60% default as this layer's own opacity --
+    // no new Settings control for it yet, same "don't need a lot of
+    // customization" the visualizer's other knobs already settled on.
+    readonly property real glowIntensity: 0.6
+
+    MultiEffect {
+      anchors.fill: barsData
+      source: barsData
+      visible: panel.glowIntensity > 0
+      opacity: panel.glowIntensity
+      blurEnabled: true
+      blur: 1.0
+      blurMax: 32
+      brightness: 0.3
+    }
+
     // Bars -- ported from MusicBars.qml's own slot/thick/grow formulas,
     // simplified: displayed band count and cava's own config band count
     // are the SAME value here (root.bands drives both), so there is no
@@ -211,7 +238,9 @@ Item {
     // timer -- simpler, and good enough for v1; the snappier asymmetric
     // feel is a nice-to-have polish pass, not core plumbing.
     Item {
+      id: barsData
       anchors.fill: parent
+      layer.enabled: true
 
       readonly property real sliver: 2
 

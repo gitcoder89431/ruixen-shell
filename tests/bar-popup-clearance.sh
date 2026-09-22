@@ -98,7 +98,18 @@ check() {
 
 bar_size="$(grep -oP 'readonly property int barSize:\s*\K[0-9]+' "$bar_qml")"
 shoulder_wing_size="$(grep -oP 'property int shoulderWingSize:\s*\K[0-9]+' "$bar_qml")"
+# The old single margins.top (4) split into two pieces once "On Hover"
+# mode needed the surface itself to reach the true top edge (closing a
+# real dead zone -- see margins.top's own comment in Overlay.qml): the
+# PanelWindow's own margins.top (now 0, a real Wayland surface inset)
+# and notchOuter's own anchors.topMargin (4, a plain QML anchor) --
+# their SUM is still the pill's real on-screen top offset, which is
+# what notchCollapsedBottomEdge actually needs. notchOuter's own
+# topMargin is scoped to the few lines right after its `id:` (grep -A3)
+# since anchors.topMargin also appears once elsewhere in this file for
+# an unrelated child, and a plain file-wide match would pull in both.
 notch_top_margin="$(grep -oP 'margins\.top:\s*\K[0-9]+' "$notch_overlay_qml")"
+notch_outer_top_margin="$(grep -A8 'id: notchOuter' "$notch_overlay_qml" | grep -oP 'anchors\.topMargin:\s*\K[0-9]+')"
 notch_collapsed_height="$(grep -oP 'panel\.pinnedOpen \? 400 : \K[0-9]+' "$notch_overlay_qml")"
 notch_body_width="$(grep -oP 'panel\.pinnedOpen \? 900 : \K[0-9]+' "$notch_overlay_qml")"
 notch_corner_size="$(grep -oP 'readonly property int cornerSize:\s*\K[0-9]+' "$notch_overlay_qml")"
@@ -109,6 +120,8 @@ check "shoulderWingSize is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$shoulder_wing_size" | wc -l | tr -d ' ')" "0"
 check "Overlay.qml's own collapsed margins.top is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$notch_top_margin" | wc -l | tr -d ' ')" "0"
+check "Overlay.qml's own notchOuter anchors.topMargin is a single, real value (not empty/multiple matches)" \
+  "$(printf '%s' "$notch_outer_top_margin" | wc -l | tr -d ' ')" "0"
 check "Overlay.qml's own collapsed notchOuter height is a single, real value (not empty/multiple matches)" \
   "$(printf '%s' "$notch_collapsed_height" | wc -l | tr -d ' ')" "0"
 
@@ -122,8 +135,8 @@ check "Overlay.qml's own collapsed notchOuter height is a single, real value (no
 # became its last consumer -- Overlay.qml was always the real source of
 # truth those numbers mirrored, so this reads it directly now.
 notch_bottom_edge_fallback="$(grep -oP 'readonly property int notchCollapsedBottomEdge: \K[0-9]+' "$bar_qml")"
-check "ruixen.bar's own notchCollapsedBottomEdge matches Overlay.qml's real collapsed margins.top + notchOuter height" \
-  "$notch_bottom_edge_fallback" "$((notch_top_margin + notch_collapsed_height))"
+check "ruixen.bar's own notchCollapsedBottomEdge matches Overlay.qml's real collapsed margins.top + notchOuter topMargin + notchOuter height" \
+  "$notch_bottom_edge_fallback" "$((notch_top_margin + notch_outer_top_margin + notch_collapsed_height))"
 
 # Same drift risk, same fix, for the OTHER constant ruixen.bar used to
 # read live from NotchGeometry.qml (issue #28's own horizontal-space

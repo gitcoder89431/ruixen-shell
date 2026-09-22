@@ -781,10 +781,23 @@ Item {
     // implicitHeight; exclusionMode stays Ignore so this never reserves
     // screen space the way ruixen.bar's own window does.
     anchors { top: true; left: true; right: true; bottom: true }
-    // ruixen.bar's own notchCollapsedBottomEdge constant manually mirrors
-    // this value (ruixen-shell issue #41/#38) -- change this, change that
-    // one too.
-    margins.top: 4
+    // 0, not 4 -- direct report on "On Hover" mode: "theres a bit of
+    // dead area on top of the notch... hitting the top edge right now
+    // is considered not a on hover area". A Wayland layer-surface
+    // margin genuinely shrinks the surface's own occupied/mapped
+    // screen area, not just where its QML content starts drawing --
+    // with this at 4, the true top 4 screen pixels belonged to no
+    // surface's input region at all (ruixen.frame-widget's own
+    // overlay is deliberately click/hover-through everywhere, mask:
+    // Region {}, so nothing was there to catch it either), a real dead
+    // strip impossible to reveal-by-hover into since there is nothing
+    // to visually aim for while faded out. The former 4px inset moved
+    // into notchOuter's own anchors.topMargin below instead (a plain
+    // QML anchor, not a surface margin) -- the pill's own final
+    // painted position on screen is unchanged, so ruixen.bar's own
+    // notchCollapsedBottomEdge constant (still 48 = 0 surface margin +
+    // notchOuter's own 4 anchor margin + 44 height) needs no change.
+    margins.top: 0
     implicitHeight: 220
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
@@ -828,11 +841,20 @@ Item {
     // removed (see expanded below), so there's no longer a third
     // "briefly widened but shouldn't swallow other clicks" case to
     // exclude here.
+    //
+    // Collapsed y is 0, not notchOuter.y (4) -- this Region is what
+    // actually tells the compositor which pixels of this surface
+    // receive pointer input at all; leaving it at notchOuter.y would
+    // reopen the exact "On Hover" dead-zone strip margins.top's own
+    // comment above describes fixing, just moved from a surface-level
+    // gap to a mask-level one. Height grows by that same 4 to still
+    // reach notchOuter's real bottom edge (notchOuter.y +
+    // notchOuter.height, i.e. notchCollapsedBottomEdge).
     mask: Region {
       x: panel.expanded ? 0 : notchOuter.x
-      y: panel.expanded ? 0 : notchOuter.y
+      y: panel.expanded ? 0 : 0
       width: panel.expanded ? panel.width : notchOuter.width
-      height: panel.expanded ? panel.height : notchOuter.height
+      height: panel.expanded ? panel.height : (notchOuter.y + notchOuter.height)
     }
 
     // Hover-to-expand removed entirely, per direct request -- clicking
@@ -1038,10 +1060,42 @@ Item {
       onClicked: { panel.pinnedOpen = false; panel.launcherOpen = false }
     }
 
+    // "On Hover" mode's own hover-detection zone -- a sibling of
+    // notchOuter, not a HoverHandler nested inside it, specifically so
+    // it can start at this surface's true top edge (y: 0) rather than
+    // notchOuter's own y (4, its anchors.topMargin -- see that
+    // property's own comment for why the dead zone existed). Same
+    // width as notchOuter, height reaching down through its real
+    // bottom edge, so the whole collapsed footprint -- including the
+    // reclaimed strip above it -- is one continuous hoverable area.
+    // No visual of its own; purely observes hover, coexists fine with
+    // notchOuter's own nested MouseAreas (avatar, play/pause, bell)
+    // since HoverHandler does not consume/block those the way a
+    // MouseArea's own click handling would.
+    Item {
+      id: notchHoverZone
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: notchOuter.width
+      height: notchOuter.y + notchOuter.height
+
+      HoverHandler {
+        onHoveredChanged: {
+          if (hovered) root.notchHoverEntered()
+          else root.notchHoverExited()
+        }
+      }
+    }
+
     Item {
       id: notchOuter
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
+      // Was the PanelWindow's own margins.top (4) -- moved here
+      // verbatim (see that property's own comment) so the pill's final
+      // screen position is unchanged while the surface itself now
+      // reaches the true top edge, closing the "On Hover" dead zone.
+      anchors.topMargin: 4
 
       // Escape closes the expanded dashboard, same as the launcher's own
       // search box already does. Placed here (not on some deeper child)
@@ -1144,18 +1198,11 @@ Item {
       // "On Hover" mode's own fade -- opacity only, never visible/
       // geometry (see root.notchPillRevealed's own comment for why):
       // this Item's own size/position/mask footprint stay exactly as
-      // computed above at all times, so the hover handler right below
-      // keeps working identically whether or not anything is actually
-      // painted right now.
+      // computed above at all times. The actual hover DETECTION lives
+      // on notchHoverZone below, not here -- see its own comment for
+      // why it can't just be a HoverHandler nested inside this Item.
       opacity: root.notchPillRevealed ? 1 : 0
       Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-
-      HoverHandler {
-        onHoveredChanged: {
-          if (hovered) root.notchHoverEntered()
-          else root.notchHoverExited()
-        }
-      }
 
       // Painted background, masked into the notch silhouette below.
       Rectangle {

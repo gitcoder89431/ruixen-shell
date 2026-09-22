@@ -1354,6 +1354,66 @@ Item {
       if (root.pluginRows[i].id === "ruixen.notch") return root.pluginRows[i]
     return null
   }
+
+  // On Hover option, added alongside Show/Hidden -- direct follow-up
+  // request. Hidden still goes through the plugin enable/disable
+  // above (unloads the whole service); this is a separate axis that
+  // only matters while the plugin stays enabled, read by
+  // ruixen.notch/Overlay.qml itself (a completely different plugin
+  // folder) off this small shared state file -- same
+  // Settings-writes/notch-reads split already established for
+  // avatar.json above and media-state.json (ruixen.media -> notch).
+  property string notchVisibilityMode: "always"
+  readonly property string notchVisibilityStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/notch-visibility.json"
+
+  function loadNotchVisibilityMode(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.notchVisibilityMode = parsed && parsed.mode === "hover" ? "hover" : "always"
+    } catch (e) {
+      root.notchVisibilityMode = "always"
+    }
+  }
+
+  function setNotchVisibilityMode(mode) {
+    var value = mode === "hover" ? "hover" : "always"
+    root.notchVisibilityMode = value
+    notchVisibilityFile.setText(JSON.stringify({ mode: value }, null, 2) + "\n")
+  }
+
+  // Shared by both the Bar page's own Notch item below and its
+  // keyboard-nav twin in barItems -- one place deciding "show/hover/
+  // hidden" as a single 3-way id instead of duplicating the enabled +
+  // notchVisibilityMode logic in two spots that could drift apart.
+  function notchVisibilityCurrentId() {
+    if (root.notchPluginRow && !root.notchPluginRow.enabled) return "hidden"
+    return root.notchVisibilityMode === "hover" ? "hover" : "show"
+  }
+
+  function activateNotchVisibility(id) {
+    var row = root.notchPluginRow
+    if (id === "hidden") {
+      if (row && row.enabled) root.togglePluginEnabled(row)
+      return
+    }
+    // "show" or "hover" both need the plugin actually loaded -- hover
+    // detection is real-time, live QML, it cannot run while the
+    // service is unloaded the way Hidden leaves it.
+    if (row && !row.enabled) root.togglePluginEnabled(row)
+    root.setNotchVisibilityMode(id === "hover" ? "hover" : "always")
+  }
+
+  FileView {
+    id: notchVisibilityFile
+    path: root.notchVisibilityStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadNotchVisibilityMode(text())
+    onLoadFailed: root.loadNotchVisibilityMode("")
+  }
+
   function updateRuixenShell() { pluginService.updateRuixenShell() }
   function checkForUpdates() { pluginService.checkForUpdates() }
   function confirmFullUninstall() { pluginService.confirmFullUninstall() }
@@ -1602,14 +1662,9 @@ Item {
       activate: function(id) { root.setBarMode(id) }
     },
     {
-      options: ["show", "hidden"],
-      current: (root.notchPluginRow && root.notchPluginRow.enabled) ? "show" : "hidden",
-      activate: function(id) {
-        var row = root.notchPluginRow
-        if (!row) return
-        var wantEnabled = id === "show"
-        if (row.enabled !== wantEnabled) root.togglePluginEnabled(row)
-      }
+      options: ["show", "hover", "hidden"],
+      current: root.notchVisibilityCurrentId(),
+      activate: function(id) { root.activateNotchVisibility(id) }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -2699,10 +2754,10 @@ Item {
 
   // Direct request: "instead of having people run the disable cli
   // command, allow Notch show or hidden as an option" -- same shape as
-  // Bar Layout right above (a segmented show/hidden control, not a
-  // toggle switch), since this page already established that visual
-  // language for a two-state bar setting. Flips the exact same
-  // enabled state the Plugins page's own "Ruixen Notch" row toggles
+  // Bar Layout right above (a segmented control, not a toggle switch),
+  // since this page already established that visual language for a
+  // multi-state bar setting. Hidden flips the exact same enabled state
+  // the Plugins page's own "Ruixen Notch" row toggles
   // (root.notchPluginRow above), through the same omarchy plugin
   // enable/disable call togglePluginEnabled already runs for every
   // other plugin row -- not a lighter-weight visibility flag, since
@@ -2710,14 +2765,31 @@ Item {
   // that same disable/enable action, just reachable from the page
   // where it's contextually relevant instead of buried in the full
   // Plugins list.
+  //
+  // On Hover, added per direct follow-up ("we had it before and it
+  // knows not to [show] in fullscreen"): a real, different feature
+  // from the hover-to-EXPAND ruixen.notch/Overlay.qml's own comment
+  // documents removing -- this only fades the collapsed pill's own
+  // paint in/out on hover, it does not open the dashboard. Keeps the
+  // plugin enabled (hover detection needs the live service running,
+  // unlike Hidden) and just persists notchVisibilityMode to the small
+  // shared state file Overlay.qml itself watches -- see
+  // notchVisibilityCurrentId()/activateNotchVisibility() above for the
+  // shared logic both this item and its keyboard-nav twin
+  // (root.barItems) call into. Fullscreen-hiding needs no new code
+  // here at all: Overlay.qml's own panel.visible already goes false
+  // during fullscreen for an unrelated, pre-existing reason (root.
+  // fullscreenActive), which also fully unmaps the surface hover
+  // detection would otherwise run through.
   SettingsSegmentedItem {
     id: notchVisibilityItem
     label: "Notch"
     options: [
       { id: "show", label: "Show" },
+      { id: "hover", label: "On Hover" },
       { id: "hidden", label: "Hidden" }
     ]
-    current: (root.notchPluginRow && root.notchPluginRow.enabled) ? "show" : "hidden"
+    current: root.notchVisibilityCurrentId()
     cardFocused: root.rightFocused && root.focusedItemIndex === 1
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.barOpen
@@ -2725,12 +2797,7 @@ Item {
     muted: root.muted
     accent: root.accent
     fontFamily: root.fontFamily
-    onActivated: (id) => {
-      var row = root.notchPluginRow
-      if (!row) return
-      var wantEnabled = id === "show"
-      if (row.enabled !== wantEnabled) root.togglePluginEnabled(row)
-    }
+    onActivated: (id) => root.activateNotchVisibility(id)
   }
 
   // Launcher's own first item -- two on/off toggles grouped in one

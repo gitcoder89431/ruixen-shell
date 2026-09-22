@@ -195,6 +195,71 @@ Item {
     onLoadFailed: root.dnd = false
   }
 
+  // Bar page's own Notch "Show / On Hover / Hidden" setting -- Hidden
+  // goes through the real plugin enable/disable (unloads this whole
+  // service entirely, see ruixen.launcher/SettingsContent.qml's own
+  // comment), so this file only ever needs to distinguish "always
+  // show the collapsed pill" from "only reveal it on hover" for the
+  // other two. Same watched-FileView pattern as dndStateFile above --
+  // a different plugin's Settings extension is the only writer, this
+  // is a pure reader.
+  property string notchVisibilityMode: "always"
+
+  FileView {
+    id: notchVisibilityFile
+    path: Quickshell.env("HOME") + "/.local/state/ruixen/notch-visibility.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var parsed = JSON.parse(text() || "{}")
+        root.notchVisibilityMode = parsed && parsed.mode === "hover" ? "hover" : "always"
+      } catch (e) {
+        // Leave at its last known value on a transient parse failure.
+      }
+    }
+    onLoadFailed: root.notchVisibilityMode = "always"
+  }
+
+  // Hover-to-reveal for "On Hover" mode -- explicitly a different
+  // feature from the old hover-to-EXPAND that was removed (see
+  // notchOuter's own comment below for that history): this only fades
+  // the collapsed pill's own paint in/out, it never opens the
+  // dashboard, never grabs keyboard focus, and never eats a click
+  // meant for something else -- none of the reasons that removal
+  // happened apply here. Debounced on exit (short Timer below) so
+  // passing the cursor through on the way to something else at the
+  // top of the screen does not flicker it.
+  property bool notchHovering: false
+
+  Timer {
+    id: notchHoverExitTimer
+    interval: 250
+    repeat: false
+    onTriggered: root.notchHovering = false
+  }
+
+  function notchHoverEntered() {
+    notchHoverExitTimer.stop()
+    root.notchHovering = true
+  }
+
+  function notchHoverExited() {
+    notchHoverExitTimer.restart()
+  }
+
+  // Whether the collapsed pill should actually be painted right now --
+  // "always" mode (default, matches every prior release) or "hover"
+  // mode while the cursor is actually near it, or whenever expanded
+  // (opening it is proof enough it should be visible, independent of
+  // exactly where the cursor sits at that instant). Only ever fades
+  // notchOuter's own opacity, never its visible/geometry -- an
+  // invisible Item stops receiving hover in Qt Quick, which would
+  // make "on hover" unable to ever detect the hover that is
+  // supposed to reveal it in the first place.
+  readonly property bool notchPillRevealed: root.notchVisibilityMode !== "hover" || root.notchHovering || panel.expanded
+
   function sendDndAction(action) {
     if (dndActionProcess.running) return
     dndActionProcess.command = ["omarchy-shell", "notifications", String(action)]
@@ -1075,6 +1140,22 @@ Item {
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
+
+      // "On Hover" mode's own fade -- opacity only, never visible/
+      // geometry (see root.notchPillRevealed's own comment for why):
+      // this Item's own size/position/mask footprint stay exactly as
+      // computed above at all times, so the hover handler right below
+      // keeps working identically whether or not anything is actually
+      // painted right now.
+      opacity: root.notchPillRevealed ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+      HoverHandler {
+        onHoveredChanged: {
+          if (hovered) root.notchHoverEntered()
+          else root.notchHoverExited()
+        }
+      }
 
       // Painted background, masked into the notch silhouette below.
       Rectangle {

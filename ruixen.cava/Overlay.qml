@@ -12,12 +12,15 @@ import qs.Commons
 // same split ruixen.wallpaper already establishes for a different
 // persistent desktop effect.
 //
-// Bars only for v1 -- a near-verbatim port of Ryoku's own
+// Bars shipped first, a near-verbatim port of Ryoku's own
 // shell/modules/bar/MusicBars.qml (a plain Repeater of Rectangle bars).
-// A true "Waves" style (a smooth continuous curve, not a bars variant)
-// is an explicit, named follow-up once this core plumbing -- cava
-// process management, live audio data, edge-docked overlay -- is
-// confirmed working well here.
+// Segments (direct follow-up, "lets do it") reuses every bit of this
+// plumbing -- cava process management, live audio data, edge-docked
+// overlay, peak-normalization, theme-color gradient, edge glow -- and
+// only swaps each band's own visual for a stack of discrete blocks
+// instead of one continuous pill, same "10 segments" default Ryoku's
+// own VizItem.qml ships. A true "Waves" style (a smooth continuous
+// curve, not a bars variant) is still its own, separate follow-up.
 Item {
   id: root
   property var shell: null
@@ -28,7 +31,12 @@ Item {
   // category, same Settings-writes/this-reads split already
   // established for notch-visibility.json and applauncher-icon.json.
   property bool vizEnabled: false
-  property string style: "bars"        // only "bars" ships in v1
+  property string style: "bars"        // "bars" | "segments"
+  // 10, matching Ryoku's own default (VizItem.qml's own
+  // segments: item.val("segments", 10)) -- fixed, not a Settings
+  // knob, same "don't need a lot of customization" approach the
+  // other visual constants here (bloom's own intensity/spread) use.
+  readonly property int segmentCount: 10
   // Bottom, not Top -- direct follow-up after trying it live: "cool i
   // guess at 310 i like it, buttom 310 and 64 bands as default."
   property string position: "bottom"   // "top" | "bottom" | "left" | "right"
@@ -63,6 +71,7 @@ Item {
       try {
         var p = JSON.parse(text() || "{}")
         root.vizEnabled = !!(p && p.enabled)
+        root.style = (p && ["bars", "segments"].indexOf(p.style) >= 0) ? p.style : "bars"
         root.position = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
         root.bands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
         var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
@@ -293,8 +302,17 @@ Item {
       Repeater {
         model: feed.bands
 
-        Rectangle {
-          id: bar
+        // Per-band container, sized to the FULL potential growth range
+        // (maxLen) always -- not just the current level's worth, the
+        // way the single Bars pill used to size itself directly. Both
+        // looks below now root/grow WITHIN this fixed footprint, so the
+        // container's own position only ever handles the perpendicular
+        // (across-bands) slot spacing; edge-rooting lives in each
+        // look's own local x/y instead. That split is what makes
+        // Segments possible without duplicating the slot/thick math a
+        // second time -- both looks share this one container.
+        Item {
+          id: bandItem
           required property int index
           readonly property real level: parent.levelAt(index)
           readonly property real slot: (root.barsHoriz ? parent.height : parent.width) / Math.max(1, feed.bands)
@@ -309,43 +327,92 @@ Item {
           // adapter.thickness: 0.58) confirms a slot-proportional
           // fraction, not a fixed pixel count, is the right shape here.
           readonly property real thick: Math.max(2, slot * 0.68)
-          readonly property real grow: Math.max(parent.sliver, (root.barsHoriz ? parent.width : parent.height) * level)
+          readonly property real maxLen: root.barsHoriz ? parent.width : parent.height
+          readonly property real grow: Math.max(parent.sliver, maxLen * level)
+          readonly property color col: parent.bandColor(index, level)
 
-          // Vertical bars (Top/Bottom docking) root at whichever screen
-          // edge the panel actually touches and grow AWAY from it --
-          // direct live report after Top shipped still rooted at the
-          // panel's bottom (growing up, same as Bottom): "we need to
-          // like flip it around... we are kinda flipping it upside down
-          // so it mirrors down, from the top down the bars." Bottom's
-          // root (screen edge) is the panel's own bottom (parent.height,
-          // growing up toward y=0) -- already correct, since the panel's
-          // bottom edge and the screen's bottom edge are the same line
-          // there. Top's root is the panel's own top (y=0, growing down
-          // toward parent.height) instead, since for a top-docked panel
-          // the screen edge is y=0, not parent.height.
-          // Left/Right get the identical edge-anchored treatment --
-          // direct live follow-up: "for the left and right side, same
-          // idea there, right now it seems like its mirror or something
-          // on the side? i want it like flowing in same idea as the
-          // top." These used to grow from the panel's own horizontal
-          // CENTER in both directions at once (ported as-is from
-          // MusicBars.qml's own "horizontal" mode), which reads as
+          width: root.barsHoriz ? maxLen : thick
+          height: root.barsHoriz ? thick : maxLen
+          x: root.barsHoriz ? 0 : (index * slot + (slot - thick) / 2)
+          y: root.barsHoriz ? (index * slot + (slot - thick) / 2) : 0
+
+          // Bars -- one continuous rounded pill. Vertical bars (Top/
+          // Bottom docking) root at whichever screen edge the panel
+          // actually touches and grow AWAY from it -- direct live
+          // report after Top shipped still rooted at the panel's
+          // bottom (growing up, same as Bottom): "we need to like flip
+          // it around... we are kinda flipping it upside down so it
+          // mirrors down, from the top down the bars." Bottom's root
+          // (screen edge) is this container's own bottom, growing up --
+          // already correct, since the container's bottom edge and the
+          // screen's bottom edge are the same line there. Top's root is
+          // the container's own top (y=0, growing down) instead, since
+          // for a top-docked panel the screen edge is y=0, not the
+          // container's bottom. Left/Right get the identical treatment
+          // -- direct live follow-up: "for the left and right side,
+          // same idea there, right now it seems like its mirror or
+          // something on the side? i want it like flowing in same idea
+          // as the top." These used to grow from the container's own
+          // horizontal CENTER in both directions at once (ported as-is
+          // from MusicBars.qml's own "horizontal" mode), which reads as
           // "mirrored" rather than rooted to the dock edge. Left roots
-          // at x=0 (the panel's own left edge IS the screen's left edge
-          // there) and grows right; Right roots at parent.width (the
-          // panel's right edge IS the screen's right edge) and grows
-          // left -- same "root at whichever edge the panel actually
-          // touches, grow inward" rule Top/Bottom already follow.
-          width: root.barsHoriz ? grow : thick
-          height: root.barsHoriz ? thick : grow
-          x: root.barsHoriz ? (root.position === "left" ? 0 : (parent.width - width)) : (index * slot + (slot - thick) / 2)
-          y: root.barsHoriz ? (index * slot + (slot - thick) / 2) : (root.position === "top" ? 0 : (parent.height - height))
-          radius: Math.min(width, height) / 2
-          antialiasing: true
-          color: parent.bandColor(index, level)
+          // at x=0 and grows right; Right roots at the container's
+          // right edge and grows left -- same "root at whichever edge
+          // the panel actually touches, grow inward" rule Top/Bottom
+          // already follow.
+          Rectangle {
+            visible: root.style !== "segments"
+            width: root.barsHoriz ? bandItem.grow : bandItem.thick
+            height: root.barsHoriz ? bandItem.thick : bandItem.grow
+            x: (root.barsHoriz && root.position === "right") ? (bandItem.width - width) : 0
+            y: (!root.barsHoriz && root.position === "bottom") ? (bandItem.height - height) : 0
+            radius: Math.min(width, height) / 2
+            antialiasing: true
+            color: bandItem.col
 
-          Behavior on height { enabled: !root.barsHoriz; NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
-          Behavior on width { enabled: root.barsHoriz; NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+            Behavior on height { enabled: !root.barsHoriz; NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+            Behavior on width { enabled: root.barsHoriz; NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+          }
+
+          // Segments -- Ryoku's own default 10-block LED-meter look,
+          // direct follow-up ("lets do it"). Same edge-rooted growth
+          // direction as Bars (segment 0 sits nearest the screen edge,
+          // ascending indices move inward), just chopped into discrete
+          // blocks with small gaps instead of one continuous pill.
+          // Unlit blocks stay dimly visible (a constant low opacity)
+          // so the full potential range always reads, the same way a
+          // real VU meter's unlit LEDs stay visible rather than
+          // vanishing outright.
+          Repeater {
+            model: root.style === "segments" ? root.segmentCount : 0
+
+            Rectangle {
+              required property int index
+              readonly property real segGap: 2
+              readonly property real segLen: (bandItem.maxLen - (root.segmentCount - 1) * segGap) / root.segmentCount
+              readonly property bool lit: bandItem.level * root.segmentCount > index
+
+              width: root.barsHoriz ? segLen : bandItem.thick
+              height: root.barsHoriz ? bandItem.thick : segLen
+              radius: Math.min(width, height) / 4
+              antialiasing: true
+              color: bandItem.col
+              opacity: lit ? 1.0 : 0.15
+
+              x: root.barsHoriz
+                ? ((root.position === "left")
+                   ? index * (segLen + segGap)
+                   : (bandItem.width - (index + 1) * segLen - index * segGap))
+                : 0
+              y: root.barsHoriz
+                ? 0
+                : ((root.position === "top")
+                   ? index * (segLen + segGap)
+                   : (bandItem.height - (index + 1) * segLen - index * segGap))
+
+              Behavior on opacity { NumberAnimation { duration: 90 } }
+            }
+          }
         }
       }
     }

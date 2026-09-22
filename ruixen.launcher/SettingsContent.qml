@@ -1421,6 +1421,11 @@ Item {
   // only ever writes cava-visualizer.json, ruixen.cava/Overlay.qml
   // (a completely separate, always-loaded plugin) is the sole reader.
   property bool cavaEnabled: false
+  // Bars vs Segments -- direct follow-up ("so for the segment, i guess
+  // its pretty much similar kinda vibe right" / "yup lets do it").
+  // Segments reuses every other knob here unchanged (Position/Bands/
+  // Height all still apply); this is the only new one.
+  property string cavaStyle: "bars"
   // Bottom/310/64 -- direct follow-up after trying it live: "cool i
   // guess at 310 i like it, buttom 310 and 64 bands as default."
   property string cavaPosition: "bottom"
@@ -1439,6 +1444,7 @@ Item {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
       root.cavaEnabled = !!(p && p.enabled)
+      root.cavaStyle = (p && ["bars", "segments"].indexOf(p.style) >= 0) ? p.style : "bars"
       root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
       root.cavaBands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
       var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
@@ -1448,17 +1454,15 @@ Item {
     }
   }
 
-  // style is written as a fixed "bars" literal for now -- kept as its
-  // own JSON field from day one so adding a real "Waves" option later
-  // is state-shape-compatible, not a migration.
   function writeCavaState() {
     cavaVisualizerFile.setText(JSON.stringify({
-      enabled: root.cavaEnabled, style: "bars", position: root.cavaPosition,
+      enabled: root.cavaEnabled, style: root.cavaStyle, position: root.cavaPosition,
       bands: root.cavaBands, thickness: root.cavaThickness
     }, null, 2) + "\n")
   }
 
   function setCavaEnabled(v) { root.cavaEnabled = !!v; root.writeCavaState() }
+  function setCavaStyle(id) { root.cavaStyle = id; root.writeCavaState() }
   function setCavaPosition(id) { root.cavaPosition = id; root.writeCavaState() }
   function setCavaBands(n) { root.cavaBands = n; root.writeCavaState() }
   function setCavaThickness(px) {
@@ -1786,9 +1790,9 @@ Item {
   ]
 
   // Every real control on the Visualizer page, in the same order they're
-  // stacked -- one toggle (Enable), two segmented items (Position/
-  // Bands), then a plain pixel-height slider (kind: "slider", same
-  // shape/step convention as Display's own Brightness) -- direct
+  // stacked -- one toggle (Enable), three segmented items (Style/
+  // Position/Bands), then a plain pixel-height slider (kind: "slider",
+  // same shape/step convention as Display's own Brightness) -- direct
   // follow-up after Small/Medium/Large shipped: "the large is still
   // way too small, maybe instead of small medium large we do scroll
   // progress bar slider for height?"
@@ -1797,6 +1801,11 @@ Item {
       kind: "toggle",
       checked: root.cavaEnabled,
       activate: function() { root.setCavaEnabled(!root.cavaEnabled) }
+    },
+    {
+      options: ["bars", "segments"],
+      current: root.cavaStyle,
+      activate: function(id) { root.setCavaStyle(id) }
     },
     {
       options: ["top", "bottom", "left", "right"],
@@ -2261,7 +2270,7 @@ Item {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
+      return [cavaEnableRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3531,6 +3540,28 @@ Item {
     }
   }
 
+  // Style -- Bars vs Segments, direct follow-up: "so for the segment,
+  // i guess its pretty much similar kinda vibe right" / "yup lets do
+  // it." Same card shape as Position/Bands right below; Segments
+  // reuses every other knob on this page unchanged.
+  SettingsSegmentedItem {
+    id: cavaStyleItem
+    label: "Style"
+    options: [
+      { id: "bars", label: "Bars" },
+      { id: "segments", label: "Segments" }
+    ]
+    current: root.cavaStyle
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 1
+    focusedOptionIndex: cavaStyleItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.visualizerOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setCavaStyle(id)
+  }
+
   SettingsSegmentedItem {
     id: cavaPositionItem
     label: "Position"
@@ -3541,7 +3572,7 @@ Item {
       { id: "right", label: "Right" }
     ]
     current: root.cavaPosition
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 1
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 2
     focusedOptionIndex: cavaPositionItem.cardFocused ? root.focusedOptionIndex : -1
     visible: root.visualizerOpen
     textColor: root.textColor
@@ -3561,7 +3592,7 @@ Item {
       { id: 96, label: "96" }
     ]
     current: root.cavaBands
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 2
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3
     focusedOptionIndex: cavaBandsItem.cardFocused ? root.focusedOptionIndex : -1
     visible: root.visualizerOpen
     textColor: root.textColor
@@ -3580,7 +3611,7 @@ Item {
     height: cavaThicknessContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: (root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3) ? 1 : 0
+    border.width: (root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 4) ? 1 : 0
     border.color: root.accent
     visible: root.visualizerOpen
 

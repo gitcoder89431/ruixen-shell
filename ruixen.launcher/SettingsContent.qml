@@ -8,6 +8,7 @@ import Quickshell.Networking
 import Quickshell.Bluetooth
 import "services"
 import "LauncherSearchConfig.js" as LauncherSearchConfig
+import "AppLauncherGlyphs.js" as AppLauncherGlyphs
 
 // Layout-only shell for the "Settings" extension -- direct request:
 // "lets do the Settings as Extension so Settings 2nd Column Ruixen and
@@ -1414,6 +1415,45 @@ Item {
     onLoadFailed: root.loadNotchVisibilityMode("")
   }
 
+  // App Launcher's own "Launcher Mark" picker, below on the Bar page --
+  // direct request/community pointer (github.com/Ryoku-dev/ryoku's own
+  // Identity page): "allow more glyph as an option... they call it
+  // launcher mark". Same Settings-writes/AppLauncher.qml-reads split
+  // as notch-visibility.json above, written to its own small state
+  // file -- AppLauncherGlyphs.js (this repo's own copy of the same
+  // module ruixen.applauncher/AppLauncher.qml reads) is the single
+  // source of truth for which ids exist and what character each one
+  // renders as.
+  property string appLauncherIconId: AppLauncherGlyphs.defaultIconId()
+  readonly property string appLauncherIconStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/applauncher-icon.json"
+
+  function loadAppLauncherIconId(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.appLauncherIconId = (parsed && AppLauncherGlyphs.iconValid(parsed.icon))
+        ? parsed.icon : AppLauncherGlyphs.defaultIconId()
+    } catch (e) {
+      root.appLauncherIconId = AppLauncherGlyphs.defaultIconId()
+    }
+  }
+
+  function setAppLauncherIconId(id) {
+    if (!AppLauncherGlyphs.iconValid(id)) return
+    root.appLauncherIconId = id
+    appLauncherIconFile.setText(JSON.stringify({ icon: id }, null, 2) + "\n")
+  }
+
+  FileView {
+    id: appLauncherIconFile
+    path: root.appLauncherIconStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadAppLauncherIconId(text())
+    onLoadFailed: root.loadAppLauncherIconId("")
+  }
+
   function updateRuixenShell() { pluginService.updateRuixenShell() }
   function checkForUpdates() { pluginService.checkForUpdates() }
   function confirmFullUninstall() { pluginService.confirmFullUninstall() }
@@ -2798,6 +2838,91 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.activateNotchVisibility(id)
+  }
+
+  // "Launcher Mark" -- direct request/community pointer
+  // (github.com/Ryoku-dev/ryoku's own Identity page): "allow more
+  // glyph as an option in the bars panel setting so user can pick
+  // different ones... they call it launcher mark". A grid of every
+  // verified-present glyph (AppLauncherGlyphs.js, 111 options) instead
+  // of a segmented control -- SettingsSegmentedItem's own row-of-N-
+  // buttons shape doesn't scale past a handful of options the way Bar
+  // Layout/Notch above use it. Mouse-only for this pass, same
+  // precedent already set below for Launcher's own toggle rows
+  // ("building a real keyboard model for it is its own separate piece
+  // of work, not a same-shape extension of this one") -- a 2D wrapping
+  // grid this size has no obvious Tab/arrow-key shape to reuse from
+  // the existing linear item model either.
+  Rectangle {
+    id: appLauncherIconItem
+    width: parent.width
+    height: appLauncherIconContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.barOpen
+
+    Column {
+      id: appLauncherIconContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 10
+
+      Text {
+        text: "Launcher Mark"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      // Selecting one both picks it (highlighted border) AND
+      // immediately applies it -- same "no separate apply step"
+      // convention the avatar picker above already uses. Flow, not a
+      // fixed-column Grid: 111 tiles wrap naturally to however many
+      // fit this panel's own width, same reasoning the avatar
+      // picker's own Flow comment gives.
+      Flow {
+        width: parent.width
+        spacing: 6
+
+        Repeater {
+          model: AppLauncherGlyphs.iconIds()
+
+          Rectangle {
+            id: iconBtn
+            required property string modelData
+            readonly property bool isCurrent: root.appLauncherIconId === iconBtn.modelData
+
+            width: 32
+            height: 32
+            radius: 6
+            color: iconBtn.isCurrent ? Qt.rgba(1, 1, 1, 0.08)
+              : (iconMa.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+            border.width: 1
+            border.color: iconBtn.isCurrent ? root.accent
+              : (iconMa.containsMouse ? Qt.rgba(1, 1, 1, 0.3) : Qt.rgba(1, 1, 1, 0.12))
+            Behavior on border.color { ColorAnimation { duration: 120 } }
+            Behavior on color { ColorAnimation { duration: 120 } }
+
+            Text {
+              anchors.centerIn: parent
+              text: AppLauncherGlyphs.iconGlyph(iconBtn.modelData)
+              font.family: root.fontFamily
+              font.pixelSize: 15
+              color: iconBtn.isCurrent ? root.textColor : root.muted
+            }
+
+            MouseArea {
+              id: iconMa
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.setAppLauncherIconId(iconBtn.modelData)
+            }
+          }
+        }
+      }
+    }
   }
 
   // Launcher's own first item -- two on/off toggles grouped in one

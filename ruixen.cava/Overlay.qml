@@ -474,12 +474,36 @@ Item {
         renderStrategy: Canvas.Immediate
 
         property var displayLevels: []
+        // Direct audit finding: this timer used to run continuously
+        // at 60fps for as long as Wave was simply visible, even once
+        // the spectrum had fully converged to flat silence -- ongoing
+        // interpolation and Canvas repaint work for a frame that never
+        // visibly changes. settled tracks "target is all zero AND
+        // displayLevels have actually decayed to zero too" (not just
+        // close -- see the hard floor snap in tick() below); the timer
+        // only runs while unsettled, so real activity gets the same
+        // interpolated 60fps smoothing as before, and true silence
+        // stops costing anything.
+        property bool settled: false
 
         Timer {
           interval: 16
-          running: waveCanvas.visible
+          running: waveCanvas.visible && !waveCanvas.settled
           repeat: true
           onTriggered: waveCanvas.tick()
+        }
+
+        // Event-driven wake, not a second polling loop -- feed.levels
+        // already changes on every real cava frame (readBars() in
+        // CavaFeed.qml); this just un-settles (which restarts the
+        // Timer above via its own running binding) the instant new
+        // data arrives while the Timer was stopped. Cheap even if it
+        // fires often: a single property comparison, not a repaint.
+        Connections {
+          target: feed
+          function onLevelsChanged() {
+            if (waveCanvas.settled) waveCanvas.settled = false
+          }
         }
 
         function tick() {
@@ -489,17 +513,29 @@ Item {
           if (!cur || cur.length !== n) {
             cur = []
             for (var z = 0; z < n; z++) cur.push(target && target[z] !== undefined ? target[z] : 0)
-          } else {
+          }
+
+          var changed = false
+          var isSettled = true
+          for (var i = 0; i < n; i++) {
+            var t = (target && target[i] !== undefined) ? target[i] : 0
             // 0.3 per 16ms tick -- ~90% converged toward a newly
             // arrived target within ~6 ticks (about 100ms), close to
             // the same 90ms feel Bars' own Behavior already uses.
-            for (var i = 0; i < n; i++) {
-              var t = (target && target[i] !== undefined) ? target[i] : 0
-              cur[i] = cur[i] + (t - cur[i]) * 0.3
-            }
+            var next = cur[i] + (t - cur[i]) * 0.3
+            // Same hard floor CavaFeed.qml's own EMA snaps to --
+            // an exponential decay only ever approaches 0
+            // asymptotically, never truly reaching it, which would
+            // keep isSettled from ever cleanly becoming true.
+            if (t === 0 && Math.abs(next) < 0.01) next = 0
+            if (Math.abs(next - cur[i]) > 0.0005) changed = true
+            cur[i] = next
+            if (t !== 0 || next !== 0) isSettled = false
           }
+
           waveCanvas.displayLevels = cur
-          waveCanvas.requestPaint()
+          if (changed) waveCanvas.requestPaint()
+          waveCanvas.settled = isSettled
         }
 
         // (perp, grow) -> real (x, y) on this canvas. perp is position
@@ -596,11 +632,12 @@ Item {
           ctx.stroke()
         }
 
-        // No Connections on feed.onLevelsChanged -- waveTick's own
-        // 16ms Timer already reads feed.levels fresh every tick
-        // regardless of whether it changed since the last one; a
-        // separate listener here would just repaint twice on the
-        // ticks where new cava data happens to land.
+        // Explicit repaint on becoming visible -- if the Timer above
+        // is currently stopped (already settled from before this style
+        // was last shown), nothing else would trigger a first paint,
+        // and the canvas would otherwise show stale/blank pixels from
+        // whenever it was last visible instead of its actual current
+        // (already-correct, at-rest) state.
         onVisibleChanged: if (visible) requestPaint()
       }
     }

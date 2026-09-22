@@ -117,14 +117,30 @@ QtObject {
   // cava sleeps and stops emitting frames once playback idles -- settle
   // back to flat when no frame has arrived recently (260ms), so bars
   // don't visibly freeze on the last peak.
+  //
+  // idleSettled -- direct audit finding: this used to reassign flat()
+  // (two fresh array allocations) every single 120ms tick for as long
+  // as the feed stayed idle, forever, not just once when it first went
+  // idle. Harmless individually, but needless allocation/binding churn
+  // in a long-lived, always-loaded desktop shell process. Now only
+  // publishes the flat state once per idle transition; readBars()
+  // below clears the flag the moment a real frame arrives again, so
+  // the very next stale check after new audio starts still re-settles
+  // correctly if it goes idle again.
+  property bool idleSettled: false
+
   property Timer idleTimer: Timer {
     interval: 120
     running: root.enabled
     repeat: true
-    onTriggered: if (Date.now() - root.lastReadMs > 260) {
-      root.levels = root.flat()
-      root.prevLevels = root.flat()
-      root.energy = 0
+    onTriggered: {
+      if (root.idleSettled) return
+      if (Date.now() - root.lastReadMs > 260) {
+        root.levels = root.flat()
+        root.prevLevels = root.flat()
+        root.energy = 0
+        root.idleSettled = true
+      }
     }
   }
 
@@ -132,6 +148,7 @@ QtObject {
     levels = flat()
     prevLevels = flat()
     energy = 0
+    idleSettled = false
     if (enabled) {
       lastReadMs = 0
       // A fresh, honest attempt every time the feature is turned back
@@ -158,6 +175,7 @@ QtObject {
   onBandsChanged: {
     levels = flat()
     prevLevels = flat()
+    idleSettled = false
     if (cavaProc.running) {
       cavaProc.running = false
       Qt.callLater(function() {
@@ -239,5 +257,9 @@ QtObject {
     root.levels = out
     root.energy = sum / root.bands
     root.lastReadMs = Date.now()
+    // A real frame arrived -- if idleTimer had already settled to
+    // flat, this is what tells it to re-settle (once) the next time
+    // things go quiet again, instead of staying permanently latched.
+    root.idleSettled = false
   }
 }

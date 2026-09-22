@@ -14,13 +14,23 @@ import qs.Commons
 //
 // Bars shipped first, a near-verbatim port of Ryoku's own
 // shell/modules/bar/MusicBars.qml (a plain Repeater of Rectangle bars).
-// Segments (direct follow-up, "lets do it") reuses every bit of this
-// plumbing -- cava process management, live audio data, edge-docked
-// overlay, peak-normalization, theme-color gradient, edge glow -- and
-// only swaps each band's own visual for a stack of discrete blocks
-// instead of one continuous pill, same "10 segments" default Ryoku's
-// own VizItem.qml ships. A true "Waves" style (a smooth continuous
-// curve, not a bars variant) is still its own, separate follow-up.
+// Segments reuses every bit of this plumbing -- cava process
+// management, live audio data, edge-docked overlay, peak-
+// normalization, theme-color gradient, edge glow -- and only swaps
+// each band's own visual for a stack of discrete blocks instead of
+// one continuous pill, same "10 segments" default Ryoku's own
+// VizItem.qml ships. Wave is a genuinely different renderer -- Ryoku's
+// own "wave"/"line" styles live entirely in a compiled GPU shader
+// (ui/SpectrumField.qml's own SDF pass) this repo has no equivalent
+// of, so this is an original implementation, not a port: a plain
+// QtQuick Canvas tracing one smooth curve through every band's level
+// (quadratic-through-midpoints, the standard smooth-line technique),
+// filled from the docked edge same as Bars/Segments. Canvas over
+// Shape/ShaderEffect deliberately -- immediate-mode 2D drawing with no
+// GPU effect pipeline involved, after two separate MultiEffect
+// attempts this session (a blur "bloom" and a mask-based edge fade)
+// each shipped once, then had to be reverted for behaving unexpectedly
+// in ways that weren't caught until live testing.
 Item {
   id: root
   property var shell: null
@@ -31,7 +41,7 @@ Item {
   // category, same Settings-writes/this-reads split already
   // established for notch-visibility.json and applauncher-icon.json.
   property bool vizEnabled: false
-  property string style: "bars"        // "bars" | "segments"
+  property string style: "bars"        // "bars" | "segments" | "wave"
   // 10, matching Ryoku's own default (VizItem.qml's own
   // segments: item.val("segments", 10)) -- fixed, not a Settings
   // knob, same "don't need a lot of customization" approach the
@@ -71,7 +81,7 @@ Item {
       try {
         var p = JSON.parse(text() || "{}")
         root.vizEnabled = !!(p && p.enabled)
-        root.style = (p && ["bars", "segments"].indexOf(p.style) >= 0) ? p.style : "bars"
+        root.style = (p && ["bars", "segments", "wave"].indexOf(p.style) >= 0) ? p.style : "bars"
         root.position = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
         root.bands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
         var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
@@ -329,7 +339,9 @@ Item {
       }
 
       Repeater {
-        model: feed.bands
+        // Skipped entirely for Wave -- that style draws one continuous
+        // Canvas curve below instead of per-band delegates.
+        model: root.style === "wave" ? 0 : feed.bands
 
         // Per-band container, sized to the FULL potential growth range
         // (maxLen) always -- not just the current level's worth, the
@@ -450,6 +462,117 @@ Item {
             }
           }
         }
+      }
+
+      // Wave -- one smooth curve traced through every band's level,
+      // filled from the docked edge same as Bars/Segments. Redrawn
+      // on every feed.levels update (up to cava's own 30fps), same
+      // real-time responsiveness the other two looks already have.
+      Canvas {
+        id: waveCanvas
+        anchors.fill: parent
+        visible: root.style === "wave"
+        renderStrategy: Canvas.Immediate
+
+        // (perp, grow) -> real (x, y) on this canvas. perp is position
+        // along the band-index axis (0..perpLen); grow is distance
+        // from the docked edge along the growth axis (0..growLen),
+        // already oriented so 0 always means "at the edge" regardless
+        // of which physical edge that is -- same convention bandItem's
+        // own maxLen/grow already use for Bars/Segments.
+        readonly property real perpLen: root.barsHoriz ? height : width
+        readonly property real growLen: root.barsHoriz ? width : height
+        readonly property bool edgeAtStart: root.position === "top" || root.position === "left"
+
+        function pointAt(i, n) {
+          var lv = feed.levels
+          var level = (lv && i < lv.length) ? lv[i] : 0
+          var perp = (n > 1 ? i / (n - 1) : 0.5) * waveCanvas.perpLen
+          var grow = Math.max(barsData.sliver, waveCanvas.growLen * level)
+          var g = waveCanvas.edgeAtStart ? grow : (waveCanvas.growLen - grow)
+          return root.barsHoriz ? Qt.point(g, perp) : Qt.point(perp, g)
+        }
+
+        function rgbaStr(c, a) {
+          return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + a + ")"
+        }
+
+        onPaint: {
+          var ctx = getContext("2d")
+          ctx.reset()
+          var n = feed.bands
+          if (n < 2) return
+
+          var pts = []
+          for (var i = 0; i < n; i++) pts.push(waveCanvas.pointAt(i, n))
+
+          // Same warm-center/cool-edge colors Bars/Segments use, as a
+          // 3-stop gradient along the perpendicular (band-index) axis
+          // -- Canvas gradients are one continuous ramp, so the "V"
+          // shape bandColor() computes per-band becomes cool -> warm ->
+          // cool stops here instead. Includes barsData's own edgeFade
+          // as extra alpha at the two ends, same taper Bars/Segments
+          // already have.
+          var grad = root.barsHoriz
+            ? ctx.createLinearGradient(0, 0, 0, waveCanvas.perpLen)
+            : ctx.createLinearGradient(0, 0, waveCanvas.perpLen, 0)
+          var steps = 8
+          for (var s = 0; s <= steps; s++) {
+            var t = s / steps
+            var bandIdx = t * (n - 1)
+            var c = barsData.bandColor(bandIdx, 0)
+            var fade = barsData.edgeFade(bandIdx)
+            grad.addColorStop(t, waveCanvas.rgbaStr(c, 0.85 * fade))
+          }
+
+          // Filled area from the curve back to the docked edge --
+          // quadratic-through-midpoints for a smooth line (the
+          // standard technique: each segment's own endpoint is the
+          // midpoint between two real data points, with the real point
+          // itself as the control point, so the curve passes close to
+          // every band without sharp corners between them).
+          var baseG = waveCanvas.edgeAtStart ? 0 : waveCanvas.growLen
+          var basePt0 = root.barsHoriz ? Qt.point(baseG, pts[0].y) : Qt.point(pts[0].x, baseG)
+          var basePt1 = root.barsHoriz ? Qt.point(baseG, pts[n - 1].y) : Qt.point(pts[n - 1].x, baseG)
+
+          ctx.beginPath()
+          ctx.moveTo(basePt0.x, basePt0.y)
+          ctx.lineTo(pts[0].x, pts[0].y)
+          for (var j = 1; j < n - 1; j++) {
+            var mx = (pts[j].x + pts[j + 1].x) / 2
+            var my = (pts[j].y + pts[j + 1].y) / 2
+            ctx.quadraticCurveTo(pts[j].x, pts[j].y, mx, my)
+          }
+          ctx.lineTo(pts[n - 1].x, pts[n - 1].y)
+          ctx.lineTo(basePt1.x, basePt1.y)
+          ctx.closePath()
+          ctx.fillStyle = grad
+          ctx.fill()
+
+          // A slightly brighter stroke retraced along the same curve,
+          // for definition against the fill -- same idea as Bars' own
+          // antialiasing, just there's no separate outline primitive
+          // in Canvas the way Rectangle's own border gives for free.
+          ctx.beginPath()
+          ctx.moveTo(pts[0].x, pts[0].y)
+          for (var k = 1; k < n - 1; k++) {
+            var mx2 = (pts[k].x + pts[k + 1].x) / 2
+            var my2 = (pts[k].y + pts[k + 1].y) / 2
+            ctx.quadraticCurveTo(pts[k].x, pts[k].y, mx2, my2)
+          }
+          ctx.lineTo(pts[n - 1].x, pts[n - 1].y)
+          ctx.lineWidth = 2
+          ctx.lineCap = "round"
+          ctx.lineJoin = "round"
+          ctx.strokeStyle = grad
+          ctx.stroke()
+        }
+
+        Connections {
+          target: feed
+          function onLevelsChanged() { if (waveCanvas.visible) waveCanvas.requestPaint() }
+        }
+        onVisibleChanged: if (visible) requestPaint()
       }
     }
   }

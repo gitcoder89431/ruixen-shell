@@ -1444,7 +1444,7 @@ Item {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
       root.cavaEnabled = !!(p && p.enabled)
-      root.cavaStyle = (p && ["bars", "segments"].indexOf(p.style) >= 0) ? p.style : "bars"
+      root.cavaStyle = (p && ["bars", "segments", "wave"].indexOf(p.style) >= 0) ? p.style : "bars"
       root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
       root.cavaBands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
       var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
@@ -1803,7 +1803,7 @@ Item {
       activate: function() { root.setCavaEnabled(!root.cavaEnabled) }
     },
     {
-      options: ["bars", "segments"],
+      options: ["bars", "segments", "wave"],
       current: root.cavaStyle,
       activate: function(id) { root.setCavaStyle(id) }
     },
@@ -3549,7 +3549,8 @@ Item {
     label: "Style"
     options: [
       { id: "bars", label: "Bars" },
-      { id: "segments", label: "Segments" }
+      { id: "segments", label: "Segments" },
+      { id: "wave", label: "Wave" }
     ]
     current: root.cavaStyle
     cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 1

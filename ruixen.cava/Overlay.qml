@@ -4,33 +4,27 @@ import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 
-// A live, edge-docked, audio-reactive cava spectrum overlay -- direct
-// request/community pointer to github.com/Ryoku-dev/ryoku's own cava
-// integration. Persistent decorative effect (this plugin, always
-// loaded, gated on its own enabled flag) + control surface (the
-// Visualizer category in ruixen.launcher's Settings extension) --
-// same split ruixen.wallpaper already establishes for a different
-// persistent desktop effect.
+// A live, edge-docked, audio-reactive cava spectrum overlay. Persistent
+// decorative effect (this plugin, always loaded, gated on its own
+// enabled flag) + control surface (the Visualizer category in
+// ruixen.launcher's Settings extension) -- same split ruixen.wallpaper
+// already establishes for a different persistent desktop effect.
 //
-// Bars shipped first, a near-verbatim port of Ryoku's own
-// shell/modules/bar/MusicBars.qml (a plain Repeater of Rectangle bars).
-// Segments reuses every bit of this plumbing -- cava process
-// management, live audio data, edge-docked overlay, peak-
-// normalization, theme-color gradient, edge glow -- and only swaps
-// each band's own visual for a stack of discrete blocks instead of
-// one continuous pill, same "10 segments" default Ryoku's own
-// VizItem.qml ships. Wave is a genuinely different renderer -- Ryoku's
-// own "wave"/"line" styles live entirely in a compiled GPU shader
-// (ui/SpectrumField.qml's own SDF pass) this repo has no equivalent
-// of, so this is an original implementation, not a port: a plain
-// QtQuick Canvas tracing one smooth curve through every band's level
-// (quadratic-through-midpoints, the standard smooth-line technique),
-// filled from the docked edge same as Bars/Segments. Canvas over
-// Shape/ShaderEffect deliberately -- immediate-mode 2D drawing with no
-// GPU effect pipeline involved, after two separate MultiEffect
-// attempts this session (a blur "bloom" and a mask-based edge fade)
-// each shipped once, then had to be reverted for behaving unexpectedly
-// in ways that weren't caught until live testing.
+// Bars shipped first: a plain Repeater of Rectangle bars, one
+// continuous pill per band. Segments reuses every bit of this
+// plumbing -- cava process management, live audio data, edge-docked
+// overlay, peak-normalization, theme-color gradient, edge glow -- and
+// only swaps each band's own visual for a stack of discrete blocks
+// instead of one continuous pill, 10 segments by default. Wave is a
+// genuinely different renderer: a plain QtQuick Canvas tracing one
+// smooth curve through every band's level (quadratic-through-
+// midpoints, the standard smooth-line technique), filled from the
+// docked edge same as Bars/Segments. Canvas over Shape/ShaderEffect
+// deliberately -- immediate-mode 2D drawing with no GPU effect
+// pipeline involved, after two separate MultiEffect attempts this
+// session (a blur "bloom" and a mask-based edge fade) each shipped
+// once, then had to be reverted for behaving unexpectedly in ways
+// that weren't caught until live testing.
 Item {
   id: root
   property var shell: null
@@ -42,10 +36,9 @@ Item {
   // established for notch-visibility.json and applauncher-icon.json.
   property bool vizEnabled: false
   property string style: "bars"        // "bars" | "segments" | "wave"
-  // 10, matching Ryoku's own default (VizItem.qml's own
-  // segments: item.val("segments", 10)) -- fixed, not a Settings
-  // knob, same "don't need a lot of customization" approach the
-  // other visual constants here (bloom's own intensity/spread) use.
+  // 10 -- fixed, not a Settings knob, same "don't need a lot of
+  // customization" approach the other visual constants here (bloom's
+  // own intensity/spread) use.
   readonly property int segmentCount: 10
   // Bottom, not Top -- direct follow-up after trying it live: "cool i
   // guess at 310 i like it, buttom 310 and 64 bands as default."
@@ -64,11 +57,11 @@ Item {
   property int thickness: 310
 
   readonly property bool vertical: root.position === "left" || root.position === "right"
-  // MusicBars.qml's own "vertical"/"horizontal" describe the BARS' own
-  // growth axis, not which screen edge they're docked to -- inverted
-  // relative to root.vertical (our docking flag) by definition: docking
-  // to left/right (root.vertical true) means bars grow SIDEWAYS spread
-  // down height, which is MusicBars' own "horizontal" orient.
+  // barsHoriz describes the BARS' own growth axis, not which screen
+  // edge they're docked to -- inverted relative to root.vertical (our
+  // docking flag) by definition: docking to left/right (root.vertical
+  // true) means bars grow SIDEWAYS, spread down height, i.e. a
+  // horizontal growth axis.
   readonly property bool barsHoriz: root.vertical
 
   FileView {
@@ -182,16 +175,13 @@ Item {
     // Bottom, not Overlay -- direct live report after shipping with
     // Overlay ("its layered kinda wrong, its over the frame and the
     // hyprland terminal windows etc... it should sit on the wallpaper
-    // but not over the frame shell"). Confirmed directly in Ryoku's own
-    // reference (shell/modules/visualizer/Visualizer.qml): its default
-    // "desktop" mode is explicitly WlrLayer.Bottom specifically so the
-    // spectrum draws on the wallpaper BEHIND every window, only ever
-    // raising to WlrLayer.Top for its own separate, opt-in "overlay"
-    // mode -- Overlay (this repo's frame-widget/notch layer, ABOVE
-    // normal windows) was never the right layer for a decorative
-    // desktop effect at all. wlr-layer-shell stacking is background <
-    // bottom < [normal windows] < top < overlay -- Bottom sits right
-    // where ruixen.wallpaper's own WlrLayer.Background ends and normal
+    // but not over the frame shell"). A decorative desktop effect wants
+    // to draw on the wallpaper BEHIND every window, not above them --
+    // Overlay (this repo's frame-widget/notch layer, ABOVE normal
+    // windows) was never the right layer for that at all. wlr-layer-
+    // shell stacking is background < bottom < [normal windows] < top <
+    // overlay -- Bottom sits right where ruixen.wallpaper's own
+    // WlrLayer.Background ends and normal
     // windows begin, exactly "on the wallpaper, not over the frame."
     WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -278,15 +268,14 @@ Item {
       }
     }
 
-    // Bars -- ported from MusicBars.qml's own slot/thick/grow formulas,
-    // simplified: displayed band count and cava's own config band count
-    // are the SAME value here (root.bands drives both), so there is no
-    // "coarse strip averaging several cava bands into one displayed
-    // bar" step to port -- feed.levels[index] maps 1:1 to a displayed
-    // bar. Smoothing is a plain symmetric Behavior animation rather
-    // than MusicBars' own asymmetric fast-attack/slow-decay tick()
-    // timer -- simpler, and good enough for v1; the snappier asymmetric
-    // feel is a nice-to-have polish pass, not core plumbing.
+    // Bars -- one Rectangle per band, sized off slot/thick/grow.
+    // Displayed band count and cava's own config band count are the
+    // SAME value here (root.bands drives both), so there's no "coarse
+    // strip averaging several cava bands into one displayed bar" step
+    // needed -- feed.levels[index] maps 1:1 to a displayed bar.
+    // Smoothing is a plain symmetric Behavior animation; a snappier
+    // asymmetric fast-attack/slow-decay feel is a nice-to-have polish
+    // pass, not core plumbing.
     Item {
       id: barsData
       anchors.fill: parent
@@ -302,11 +291,10 @@ Item {
       // single-accent shade ramp ("it look uhh kinda boring? especially
       // if we're gonna do waves and stuff next"). dist is 0 at the
       // middle band, 1 at either edge (a symmetric "V", not a left-to-
-      // right sweep -- same shape github.com/pennyfx/omarchy-spectrum's
-      // own barColor() uses), lerped between root.warmColor (center)
-      // and root.coolColor (edges) instead of their fixed HSLA hue
-      // ramp. Louder still lightens the result a little, same
-      // level-reactive touch the single-accent version had.
+      // right sweep), lerped between root.warmColor (center) and
+      // root.coolColor (edges) instead of a fixed hue ramp. Louder
+      // still lightens the result a little, same level-reactive touch
+      // the single-accent version had.
       function bandColor(i, level) {
         var mid = feed.bands / 2
         var dist = feed.bands > 1 ? Math.abs(i - mid + 0.5) / mid : 0
@@ -357,16 +345,13 @@ Item {
           required property int index
           readonly property real level: parent.levelAt(index)
           readonly property real slot: (root.barsHoriz ? parent.height : parent.width) / Math.max(1, feed.bands)
-          // 0.68 of the slot, not the fixed few-pixel cap MusicBars.qml's
-          // own formula uses -- direct live report ("the gaps between
-          // the bar is alot, it looks like baby tooth"). That cap makes
-          // sense for MusicBars' own small embedded-bar-widget context
-          // (narrow width, small slots, so the cap is rarely the
-          // binding constraint); here the full-screen overlay hands out
-          // much wider slots per bar, so a tiny fixed cap left almost
-          // the whole slot empty. Ryoku's own real default (Config.qml's
-          // adapter.thickness: 0.58) confirms a slot-proportional
-          // fraction, not a fixed pixel count, is the right shape here.
+          // 0.68 of the slot, not a fixed few-pixel cap -- direct live
+          // report ("the gaps between the bar is alot, it looks like
+          // baby tooth"). A fixed pixel cap made bars look fine at
+          // small sizes, but this full-screen overlay hands out much
+          // wider slots per bar, so a tiny fixed cap left almost the
+          // whole slot empty. A slot-proportional fraction scales
+          // correctly at any width instead.
           readonly property real thick: Math.max(2, slot * 0.68)
           readonly property real maxLen: root.barsHoriz ? parent.width : parent.height
           readonly property real grow: Math.max(parent.sliver, maxLen * level)
@@ -395,9 +380,8 @@ Item {
           // same idea there, right now it seems like its mirror or
           // something on the side? i want it like flowing in same idea
           // as the top." These used to grow from the container's own
-          // horizontal CENTER in both directions at once (ported as-is
-          // from MusicBars.qml's own "horizontal" mode), which reads as
-          // "mirrored" rather than rooted to the dock edge. Left roots
+          // horizontal CENTER in both directions at once, which reads
+          // as "mirrored" rather than rooted to the dock edge. Left roots
           // at x=0 and grows right; Right roots at the container's
           // right edge and grows left -- same "root at whichever edge
           // the panel actually touches, grow inward" rule Top/Bottom
@@ -417,8 +401,8 @@ Item {
             Behavior on width { enabled: root.barsHoriz; NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
           }
 
-          // Segments -- Ryoku's own default 10-block LED-meter look,
-          // direct follow-up ("lets do it"). Same edge-rooted growth
+          // Segments -- a 10-block LED-meter look, direct follow-up
+          // ("lets do it"). Same edge-rooted growth
           // direction as Bars (segment 0 sits nearest the screen edge,
           // ascending indices move inward), just chopped into discrete
           // blocks with small gaps instead of one continuous pill.

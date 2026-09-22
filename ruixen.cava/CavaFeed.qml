@@ -1,29 +1,24 @@
 import QtQuick
 import Quickshell.Io
 
-// Ported from github.com/Ryoku-dev/ryoku's own
-// shell/services/AudioBars.qml (MIT-style project, direct community
-// pointer -- "it has a really cool cava visualizer feature"), simplified
-// for this repo's own single-consumer shape: no multi-owner refcounting
-// (that file shares one analyser across six different UI surfaces;
-// Overlay.qml is the only consumer here), and no Perf.pillFrozen
-// power-profile gate (this repo has no equivalent service) -- `enabled`
+// Spawns cava and turns its raw stdout into a normalized, smoothed
+// levels array for Overlay.qml to render. Single-consumer shape --
+// no multi-owner refcounting or power-profile gating, since this is
+// only ever instantiated once, directly inside Overlay.qml. `enabled`
 // alone is the gate, driven by Overlay.qml's own vizEnabled &&
 // !fullscreenActive.
 //
-// Plain QtObject, not a pragma Singleton -- AudioBars.qml needs Singleton
-// specifically because several independent QML files each import and
-// read the same shared feed; this one is only ever instantiated once,
-// directly inside Overlay.qml, so a singleton would add import-path
-// overhead for nothing.
+// Plain QtObject, not a pragma Singleton -- a singleton only earns its
+// keep when multiple independent files need to import and read the
+// same shared instance; this one has exactly one consumer, so that
+// import-path overhead buys nothing here.
 QtObject {
   id: root
 
   property bool enabled: false
-  // 64, matching Ryoku's own real default (Config.qml's own
-  // adapter.bars: 64) -- direct follow-up after the first pass shipped
-  // with 20, which read as too sparse ("the gaps between the bar is
-  // alot, it looks like baby tooth").
+  // 64 -- direct follow-up after the first pass shipped with 20, which
+  // read as too sparse ("the gaps between the bar is alot, it looks
+  // like baby tooth").
   property int bands: 64
   readonly property int fps: 30
 
@@ -51,15 +46,15 @@ QtObject {
   // unloads or enabled goes false.
   //
   // autosens = 0 / sensitivity = 70 / ascii_max_range = 1000 -- direct
-  // pointer to github.com/pennyfx/omarchy-spectrum's own tuning ("do we
-  // have the right pattern... peak-normalized so volume does not
-  // change bar height"). Disables cava's OWN slow-adapting auto-gain
-  // in favor of a fixed sensitivity plus readBars()' own per-frame
-  // peak normalization below -- the two auto-gain mechanisms would
-  // otherwise fight each other on different timescales. The wider
-  // 0-1000 raw range (vs. this file's own previous 0-100) just gives
-  // that per-frame peak math more resolution to work with; readBars()
-  // divides it back down to 0..1 itself either way.
+  // follow-up: "do we have the right pattern... peak-normalized so
+  // volume does not change bar height." Disables cava's OWN slow-
+  // adapting auto-gain in favor of a fixed sensitivity plus readBars()'
+  // own per-frame peak normalization below -- the two auto-gain
+  // mechanisms would otherwise fight each other on different
+  // timescales. The wider 0-1000 raw range (vs. this file's own
+  // previous 0-100) just gives that per-frame peak math more
+  // resolution to work with; readBars() divides it back down to 0..1
+  // itself either way.
   property Process cavaProc: Process {
     id: cavaProc
     command: ["sh", "-c",
@@ -69,12 +64,12 @@ QtObject {
       "'[input]' 'method = pipewire' 'source = auto' '' " +
       "'[output]' 'method = raw' 'raw_target = /dev/stdout' 'data_format = ascii' 'ascii_max_range = 1000' 'channels = mono' 'mono_option = average' '' " +
       "'[smoothing]' 'noise_reduction = 45' > \"$cfg\"; exec cava -p \"$cfg\""]
-    // Bound, never imperatively assigned -- see AudioBars.qml's own
-    // comment on this exact point: an imperative `cavaProc.running =
-    // true` from a restart path would destroy this binding, and cava
-    // would then outlive every gate meant to stop it (enable toggle,
-    // fullscreen). The backoff flag below expresses the same "retry
-    // after a hiccup" behavior without ever taking the binding away.
+    // Bound, never imperatively assigned -- an imperative
+    // `cavaProc.running = true` from a restart path would destroy
+    // this binding, and cava would then outlive every gate meant to
+    // stop it (enable toggle, fullscreen). The backoff flag below
+    // expresses the same "retry after a hiccup" behavior without ever
+    // taking the binding away.
     running: root.enabled && !cavaProc.backoff
     property bool backoff: false
     stdout: SplitParser {
@@ -98,9 +93,8 @@ QtObject {
   }
 
   // cava sleeps and stops emitting frames once playback idles -- settle
-  // back to flat when no frame has arrived recently, same 260ms
-  // threshold AudioBars.qml itself uses, so bars don't visibly freeze on
-  // the last peak.
+  // back to flat when no frame has arrived recently (260ms), so bars
+  // don't visibly freeze on the last peak.
   property Timer idleTimer: Timer {
     interval: 120
     running: root.enabled
@@ -122,11 +116,7 @@ QtObject {
   // Process.command is read once at spawn, not a live binding cava
   // itself reacts to -- changing bands mid-run needs an explicit
   // restart or the already-running cava process keeps analysing with
-  // its OLD band count forever, silently mismatching root.bands. This
-  // has no equivalent in AudioBars.qml, whose own bars count is a fixed
-  // constant that never changes at runtime -- ported logic stops at
-  // readBars/flat above, this restart is new for the "Bands" setting
-  // specifically.
+  // its OLD band count forever, silently mismatching root.bands.
   // Qt.binding(), not a plain `cavaProc.running = root.enabled` --
   // direct live bug caught testing this exact path: a bare imperative
   // assignment replaces the declarative `running: root.enabled &&
@@ -148,12 +138,11 @@ QtObject {
     }
   }
 
-  // Direct pointer/comparison: github.com/pennyfx/omarchy-spectrum's own
-  // ingest() ("Peak-normalized so volume does not change bar height").
-  // Previously a flat parts[i]/ascii_max_range divide, which meant a
-  // quiet passage's bars genuinely sat short and a loud passage's sat
-  // tall -- raw amplitude, not volume-independent.
-  // 15, not pennyfx's own 3 -- direct live report: "when the music is
+  // Peak-normalized so volume doesn't change bar height. Previously a
+  // flat parts[i]/ascii_max_range divide, which meant a quiet passage's
+  // bars genuinely sat short and a loud passage's sat tall -- raw
+  // amplitude, not volume-independent.
+  // 15, not the original 3 -- direct live report: "when the music is
   // paused, the bar still sticks up... its like the base height isnt
   // low enough." Live-traced this directly (console.log on every raw
   // peak and every smoothed level): on THIS machine peak already hits

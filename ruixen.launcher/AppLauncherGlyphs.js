@@ -1,23 +1,18 @@
 // Curated Nerd Font icon options for the app launcher's own mark --
-// direct community pointer to github.com/Ryoku-dev/ryoku's own
-// Identity/Launcher Mark picker ("a ton of good glyph people like to
-// use as options"), ported from that project's own
-// launcherLogoIconOptions/launcherLogoIconCodes table. Filtered to
-// exactly the codepoints CONFIRMED present in this repo's own real
-// JetBrainsMono Nerd Font (checked directly with fontTools against
-// the installed .ttf, not assumed from Ryoku's own list, same "verify
-// the actual font, don't guess" standard AppLauncher.qml's own arch
-// glyph comment already holds itself to) -- Ryoku's own "ryoku"
-// (U+529B) and "dragon" (U+2EEF) both need a CJK font this repo
-// doesn't ship, so both are dropped rather than risk a tofu box.
-// 111 of Ryoku's own 113 non-wordmark options survived that check
-// unchanged.
+// direct request ("a ton of good glyph people like to use as
+// options"). Filtered to exactly the codepoints CONFIRMED present in
+// this repo's own real JetBrainsMono Nerd Font (checked directly with
+// fontTools against the installed .ttf, not assumed, same "verify the
+// actual font, don't guess" standard AppLauncher.qml's own arch glyph
+// comment already holds itself to) -- two candidate glyphs needed a
+// CJK font this repo doesn't ship, so both were dropped rather than
+// risk a tofu box, leaving 111 options.
 var ICONS = {
   // Distros / OS -- "arch" deliberately keeps THIS repo's own existing
-  // 0xF303 (linux-archlinux), not Ryoku's own different 0xE732 arch
-  // glyph, so shipping this picker doesn't silently change the
-  // current default's look for anyone who never touches this setting
-  // (see AppLauncher.qml's own comment on why 0xF303 specifically was
+  // 0xF303 (linux-archlinux) rather than a different arch glyph, so
+  // shipping this picker doesn't silently change the current
+  // default's look for anyone who never touches this setting (see
+  // AppLauncher.qml's own comment on why 0xF303 specifically was
   // chosen: a denser filled shape that reads better at this size than
   // a thinner outline glyph did).
   "arch": 0xF303, "hyprland": 0xF359, "ubuntu": 0xF31B, "debian": 0xF306,

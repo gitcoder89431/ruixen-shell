@@ -1415,11 +1415,10 @@ Item {
     onLoadFailed: root.loadNotchVisibilityMode("")
   }
 
-  // Cava audio visualizer -- direct request/community pointer
-  // (github.com/Ryoku-dev/ryoku's own cava integration). Same Settings-
-  // writes/plugin-reads split as notchVisibilityMode above: this page
-  // only ever writes cava-visualizer.json, ruixen.cava/Overlay.qml
-  // (a completely separate, always-loaded plugin) is the sole reader.
+  // Cava audio visualizer -- direct request. Same Settings-writes/
+  // plugin-reads split as notchVisibilityMode above: this page only
+  // ever writes cava-visualizer.json, ruixen.cava/Overlay.qml (a
+  // completely separate, always-loaded plugin) is the sole reader.
   //
   // cavaInstalled -- direct follow-up: "if user enables it without
   // canva does it error in silient?... if a user enable it without
@@ -1501,8 +1500,7 @@ Item {
   }
 
   // App Launcher's own "Launcher Mark" picker, below on the Bar page --
-  // direct request/community pointer (github.com/Ryoku-dev/ryoku's own
-  // Identity page): "allow more glyph as an option... they call it
+  // direct request: "allow more glyph as an option... they call it
   // launcher mark". Same Settings-writes/AppLauncher.qml-reads split
   // as notch-visibility.json above, written to its own small state
   // file -- AppLauncherGlyphs.js (this repo's own copy of the same
@@ -3008,10 +3006,9 @@ Item {
     onActivated: (id) => root.activateNotchVisibility(id)
   }
 
-  // "Launcher Mark" -- direct request/community pointer
-  // (github.com/Ryoku-dev/ryoku's own Identity page): "allow more
-  // glyph as an option in the bars panel setting so user can pick
-  // different ones... they call it launcher mark". A grid of every
+  // "Launcher Mark" -- direct request: "allow more glyph as an option
+  // in the bars panel setting so user can pick different ones... they
+  // call it launcher mark". A grid of every
   // verified-present glyph (AppLauncherGlyphs.js, 111 options) instead
   // of a segmented control -- SettingsSegmentedItem's own row-of-N-
   // buttons shape doesn't scale past a handful of options the way Bar
@@ -3527,8 +3524,7 @@ Item {
     onActivated: (id) => root.setDisplayScale(id)
   }
 
-  // Visualizer -- direct request/community pointer (github.com/
-  // Ryoku-dev/ryoku's own cava integration). Enable toggle same shape as
+  // Visualizer -- direct request. Enable toggle same shape as
   // Night Light's own card above; Position/Bands/Size are plain
   // segmented items, same shape as Bar Layout/Display Scale. The actual
   // effect lives entirely in a separate, always-loaded plugin

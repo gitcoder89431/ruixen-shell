@@ -842,19 +842,28 @@ Item {
     // "briefly widened but shouldn't swallow other clicks" case to
     // exclude here.
     //
-    // Collapsed y is 0, not notchOuter.y (4) -- this Region is what
-    // actually tells the compositor which pixels of this surface
-    // receive pointer input at all; leaving it at notchOuter.y would
-    // reopen the exact "On Hover" dead-zone strip margins.top's own
-    // comment above describes fixing, just moved from a surface-level
-    // gap to a mask-level one. Height grows by that same 4 to still
-    // reach notchOuter's real bottom edge (notchOuter.y +
-    // notchOuter.height, i.e. notchCollapsedBottomEdge).
+    // Collapsed y is 0, not notchOuter's own resting offset -- this
+    // Region is what actually tells the compositor which pixels of
+    // this surface receive pointer input at all; leaving it at that
+    // offset would reopen the exact "On Hover" dead-zone strip
+    // margins.top's own comment above describes fixing, just moved
+    // from a surface-level gap to a mask-level one. Height reaches
+    // notchOuter's real RESTING bottom edge (notchOuter.restY +
+    // notchOuter.height, i.e. notchCollapsedBottomEdge) -- deliberately
+    // notchOuter.restY, not its live y: that now animates between
+    // restY and a negative off-screen value for the slide-down reveal
+    // (see notchOuter's own comment), and this mask has to stay fixed
+    // at the resting footprint regardless of where the pill's paint
+    // currently is mid-animation, or hover detection while fully
+    // hidden (y at its most negative) would shrink toward a near-zero
+    // or negative height and stop working -- the one moment it most
+    // needs to keep working, since that is the state hovering is
+    // supposed to reveal it FROM.
     mask: Region {
       x: panel.expanded ? 0 : notchOuter.x
       y: panel.expanded ? 0 : 0
       width: panel.expanded ? panel.width : notchOuter.width
-      height: panel.expanded ? panel.height : (notchOuter.y + notchOuter.height)
+      height: panel.expanded ? panel.height : (notchOuter.restY + notchOuter.height)
     }
 
     // Hover-to-expand removed entirely, per direct request -- clicking
@@ -1063,11 +1072,14 @@ Item {
     // "On Hover" mode's own hover-detection zone -- a sibling of
     // notchOuter, not a HoverHandler nested inside it, specifically so
     // it can start at this surface's true top edge (y: 0) rather than
-    // notchOuter's own y (4, its anchors.topMargin -- see that
-    // property's own comment for why the dead zone existed). Same
-    // width as notchOuter, height reaching down through its real
-    // bottom edge, so the whole collapsed footprint -- including the
-    // reclaimed strip above it -- is one continuous hoverable area.
+    // notchOuter's own resting offset (restY, 4 -- see that property's
+    // own comment for why the dead zone existed). Same width as
+    // notchOuter, height reaching down through its real RESTING bottom
+    // edge (restY + height, deliberately not notchOuter's own live y,
+    // which now animates for the slide-down reveal -- see notchOuter's
+    // own comment) so the whole collapsed footprint -- including the
+    // reclaimed strip above it -- stays one continuous, FIXED hoverable
+    // area no matter where the pill's paint currently is mid-animation.
     // No visual of its own; purely observes hover, coexists fine with
     // notchOuter's own nested MouseAreas (avatar, play/pause, bell)
     // since HoverHandler does not consume/block those the way a
@@ -1077,7 +1089,7 @@ Item {
       anchors.top: parent.top
       anchors.horizontalCenter: parent.horizontalCenter
       width: notchOuter.width
-      height: notchOuter.y + notchOuter.height
+      height: notchOuter.restY + notchOuter.height
 
       HoverHandler {
         onHoveredChanged: {
@@ -1090,12 +1102,18 @@ Item {
     Item {
       id: notchOuter
       anchors.horizontalCenter: parent.horizontalCenter
-      anchors.top: parent.top
-      // Was the PanelWindow's own margins.top (4) -- moved here
-      // verbatim (see that property's own comment) so the pill's final
-      // screen position is unchanged while the surface itself now
-      // reaches the true top edge, closing the "On Hover" dead zone.
-      anchors.topMargin: 4
+      // y, not anchors.top/topMargin -- direct follow-up on "On Hover"
+      // mode ("instead of fading in, can we make it slide down"): an
+      // anchor continuously re-asserts position every frame, which
+      // would fight a Behavior on y, so vertical position is now a
+      // plain property instead. restY (4) is the exact same resting
+      // offset the old anchors.topMargin gave it -- moved here
+      // verbatim (see margins.top's own comment on the PanelWindow
+      // above) so the pill's final on-screen position when revealed is
+      // unchanged from before that fix.
+      readonly property int restY: 4
+      y: root.notchPillRevealed ? restY : -(height + 8)
+      Behavior on y { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 
       // Escape closes the expanded dashboard, same as the launcher's own
       // search box already does. Placed here (not on some deeper child)
@@ -1194,15 +1212,6 @@ Item {
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
-
-      // "On Hover" mode's own fade -- opacity only, never visible/
-      // geometry (see root.notchPillRevealed's own comment for why):
-      // this Item's own size/position/mask footprint stay exactly as
-      // computed above at all times. The actual hover DETECTION lives
-      // on notchHoverZone below, not here -- see its own comment for
-      // why it can't just be a HoverHandler nested inside this Item.
-      opacity: root.notchPillRevealed ? 1 : 0
-      Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
       // Painted background, masked into the notch silhouette below.
       Rectangle {

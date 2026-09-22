@@ -299,6 +299,26 @@ Item {
         return Qt.lighter(c, 1 + 0.35 * level)
       }
 
+      // A subtle opacity taper on the last few bands at EITHER end of
+      // the strip -- direct request: "on the left and right edges of
+      // the bar, i seen some other people do it where its like an
+      // opacity fade on the edges last few bars... its pretty
+      // subtitle, but it does create a bit of dept." This is the
+      // perpendicular axis (which band, i.e. how far into the strip),
+      // not the growth axis the edge-glow wash already fades along
+      // (how tall/deep a bar reaches) -- two different fades on two
+      // different axes, both landing near the strip's own ends.
+      // 1.0 for the whole middle bulk, ramping down to 0 exactly at
+      // the first/last band; a fixed band count rather than a fraction
+      // of feed.bands so the taper reads the same "last few bars"
+      // width regardless of how many bands are on screen.
+      readonly property int edgeFadeBands: 6
+
+      function edgeFade(i) {
+        var d = Math.min(i, feed.bands - 1 - i)
+        return Math.max(0, Math.min(1, d / barsData.edgeFadeBands))
+      }
+
       Repeater {
         model: feed.bands
 
@@ -330,6 +350,7 @@ Item {
           readonly property real maxLen: root.barsHoriz ? parent.width : parent.height
           readonly property real grow: Math.max(parent.sliver, maxLen * level)
           readonly property color col: parent.bandColor(index, level)
+          readonly property real fade: parent.edgeFade(index)
 
           width: root.barsHoriz ? maxLen : thick
           height: root.barsHoriz ? thick : maxLen
@@ -369,6 +390,7 @@ Item {
             radius: Math.min(width, height) / 2
             antialiasing: true
             color: bandItem.col
+            opacity: bandItem.fade
 
             Behavior on height { enabled: !root.barsHoriz; NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
             Behavior on width { enabled: root.barsHoriz; NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
@@ -402,7 +424,7 @@ Item {
               radius: Math.min(width, height) / 4
               antialiasing: true
               color: bandItem.col
-              opacity: lit ? 1.0 : 0.0
+              opacity: lit ? bandItem.fade : 0.0
 
               x: root.barsHoriz
                 ? ((root.position === "left")

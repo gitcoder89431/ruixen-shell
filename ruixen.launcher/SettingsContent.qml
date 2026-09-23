@@ -1841,6 +1841,11 @@ Item {
       activate: function() { if (root.cavaInstalled) root.setCavaEnabled(!root.cavaEnabled) }
     },
     {
+      kind: "toggle",
+      checked: root.cavaMirror,
+      activate: function() { root.setCavaMirror(!root.cavaMirror) }
+    },
+    {
       options: ["bars", "segments", "wave"],
       current: root.cavaStyle,
       activate: function(id) { root.setCavaStyle(id) }
@@ -1854,11 +1859,6 @@ Item {
       options: [32, 48, 64, 96],
       current: root.cavaBands,
       activate: function(id) { root.setCavaBands(id) }
-    },
-    {
-      kind: "toggle",
-      checked: root.cavaMirror,
-      activate: function() { root.setCavaMirror(!root.cavaMirror) }
     },
     {
       kind: "slider",
@@ -2313,7 +2313,7 @@ Item {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaMirrorRow, cavaThicknessItem][root.focusedItemIndex]
+      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3586,6 +3586,24 @@ Item {
         fontFamily: root.fontFamily
         onToggled: if (root.cavaInstalled) root.setCavaEnabled(!root.cavaEnabled)
       }
+
+      // Mirror -- real bass-on-both-edges/treble-in-the-center, not a
+      // plain left-to-right sweep. Grouped into the same card as
+      // Enabled, right below it -- direct follow-up: "might as well
+      // put the toggles together" (was its own separate card between
+      // Bands and Height). Direct follow-up after shipping the same
+      // fold on the compact notch's own mini cava first ("looks better
+      // that way for aesthetic").
+      SettingsToggleRow {
+        id: cavaMirrorRow
+        label: "Mirror"
+        checked: root.cavaMirror
+        rowFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 1
+        textColor: root.textColor
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onToggled: root.setCavaMirror(!root.cavaMirror)
+      }
     }
   }
 
@@ -3602,7 +3620,7 @@ Item {
       { id: "wave", label: "Wave" }
     ]
     current: root.cavaStyle
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 1
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 2
     focusedOptionIndex: cavaStyleItem.cardFocused ? root.focusedOptionIndex : -1
     visible: root.visualizerOpen
     textColor: root.textColor
@@ -3622,7 +3640,7 @@ Item {
       { id: "right", label: "Right" }
     ]
     current: root.cavaPosition
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 2
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3
     focusedOptionIndex: cavaPositionItem.cardFocused ? root.focusedOptionIndex : -1
     visible: root.visualizerOpen
     textColor: root.textColor
@@ -3642,7 +3660,7 @@ Item {
       { id: 96, label: "96" }
     ]
     current: root.cavaBands
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 4
     focusedOptionIndex: cavaBandsItem.cardFocused ? root.focusedOptionIndex : -1
     visible: root.visualizerOpen
     textColor: root.textColor
@@ -3650,23 +3668,6 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.setCavaBands(id)
-  }
-
-  // Mirror -- real bass-on-both-edges/treble-in-the-center, not a
-  // plain left-to-right sweep. Same toggle shape as Enabled above,
-  // direct follow-up after shipping the same fold on the compact
-  // notch's own mini cava first ("looks better that way for
-  // aesthetic").
-  SettingsToggleRow {
-    id: cavaMirrorRow
-    label: "Mirror"
-    checked: root.cavaMirror
-    rowFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 4
-    textColor: root.textColor
-    accent: root.accent
-    fontFamily: root.fontFamily
-    visible: root.visualizerOpen
-    onToggled: root.setCavaMirror(!root.cavaMirror)
   }
 
   // Height -- a real pixel slider, not Small/Medium/Large. Same

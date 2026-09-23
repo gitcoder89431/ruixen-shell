@@ -1137,12 +1137,30 @@ Item {
     // Same non-dismissing switch, for an extension with its own full
     // picker UI instead of a search mode -- see activeExtensionId's
     // own comment.
+    //
+    // searchHeader.text (and root.query, same two-way alias dismiss()
+    // above already clears together) is cleared on every jump below --
+    // direct report: searching "settings", hitting Enter, and landing
+    // inside Settings with "settings" still sitting in the search box,
+    // which SettingsContent/WallpapersContent's own searchText binding
+    // (Launcher.qml below, "root.activeExtensionId === ... ? root.query
+    // : """) reuses as a live filter over the LEFT-side category list --
+    // so the very text that found Settings then hid every category that
+    // doesn't happen to contain the word "settings", i.e. all of them.
+    // That binding is correct for typing WHILE already inside the
+    // extension (a real, separate feature -- "does search work for menu
+    // items on the left too?"); it's only wrong for whatever query got
+    // you there in the first place, which this clears.
     if (result.providerId === "wallpapers-extension") {
       root.activeExtensionId = "wallpapers"
+      searchHeader.text = ""
+      root.query = ""
       return
     }
     if (result.providerId === "settings-extension") {
       root.activeExtensionId = "settings"
+      searchHeader.text = ""
+      root.query = ""
       return
     }
     // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
@@ -1160,6 +1178,8 @@ Item {
     // own bar icon already made the same switch).
     if (result.id === "omarchy:ruixen.settings") {
       root.activeExtensionId = "settings"
+      searchHeader.text = ""
+      root.query = ""
       return
     }
     // Same reasoning as the synthetic Settings row above, for
@@ -1168,6 +1188,8 @@ Item {
     // "background" found nothing at all before this row existed).
     if (result.id === "omarchy:ruixen.wallpapers") {
       root.activeExtensionId = "wallpapers"
+      searchHeader.text = ""
+      root.query = ""
       return
     }
     var provider = root.providerFor(result.providerId)

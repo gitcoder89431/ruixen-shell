@@ -376,6 +376,63 @@ Item {
   // matches this one specific shape, and .replace() is a no-op on
   // anything that doesn't.
   readonly property string compactWindowTitle: root.activeWindowTitle.replace(/^[^\s@]+@[^\s:]+:/, "")
+
+  // Which of {seeker, cava} the collapsed pill's fixed "now playing"
+  // slot shows while media is actually playing -- see nowPlayingSlot's
+  // own comment (collapsedContent below) for why this only ever
+  // applies to the media-present state. Persisted so the choice
+  // survives a reopen, same small-JSON-file convention as every other
+  // bit of state under ~/.local/state/ruixen/.
+  property string mediaVizMode: "seeker"
+  readonly property string mediaVizModeStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/notch-media-viz-mode.json"
+
+  function loadMediaVizMode(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.mediaVizMode = (parsed && parsed.mode === "cava") ? "cava" : "seeker"
+    } catch (e) {
+      root.mediaVizMode = "seeker"
+    }
+  }
+
+  function setMediaVizMode(mode) {
+    var next = mode === "cava" ? "cava" : "seeker"
+    if (next === root.mediaVizMode) return
+    root.mediaVizMode = next
+    mediaVizModeFile.setText(JSON.stringify({ mode: next }, null, 2) + "\n")
+  }
+
+  function toggleMediaVizMode() {
+    root.setMediaVizMode(root.mediaVizMode === "seeker" ? "cava" : "seeker")
+  }
+
+  FileView {
+    id: mediaVizModeFile
+    path: root.mediaVizModeStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadMediaVizMode(text())
+    onLoadFailed: root.loadMediaVizMode("")
+  }
+
+  // A separate, smaller CavaFeed instance from ruixen.cava's own edge-
+  // docked overlay (a different plugin entirely, plugin folders can't
+  // share state) -- only enabled while this exact mode is actually
+  // visible, so it never spawns a real `cava` process just for having
+  // been toggled on once. cavaAvailable's own existing latch
+  // (CavaFeed.qml's own header) is what a missing `cava` binary flips
+  // false after a real spawn attempt -- caught here to fall back to
+  // the seeker automatically rather than leaving the pill on a
+  // permanently-flat, dead visualizer with no way back except manually
+  // scrolling again.
+  CavaFeed {
+    id: compactCavaFeed
+    enabled: root.hasMedia && root.mediaVizMode === "cava"
+    bands: 20
+    onCavaAvailableChanged: if (!cavaAvailable) root.setMediaVizMode("seeker")
+  }
   // title/artist/album/artUrl/hasMedia are now plain properties set by
   // applyMediaState() above (fed by ruixen.media's own state file) --
   // the zombie-MPRIS-registration gate that used to live on artUrl's
@@ -1423,20 +1480,39 @@ Item {
                 }
               }
 
+              // Fixed 140x20 "now playing" slot -- exactly one of three
+              // mutually-exclusive children visible at a time: the
+              // seeker (media, mediaVizMode "seeker"), a mini cava
+              // visualizer (media, mediaVizMode "cava"), or the active
+              // window name (no media at all, unconditional -- see its
+              // own comment below for why it has no toggle). Direct
+              // request: "since we have the cava visualizer now...
+              // click it and it switch between cava and seeker" --
+              // scoped to a scroll toggle, and to ONLY the two media-
+              // present modes: cava reacts to real audio, so with
+              // nothing playing it would just sit at its own flat idle
+              // bars, no different from showing nothing at all. Window
+              // name already covers that state on its own.
+              Item {
+                id: nowPlayingSlot
+                anchors.verticalCenter: parent.verticalCenter
+                width: 140
+                height: 20
+
+                MouseArea {
+                  anchors.fill: parent
+                  enabled: root.hasMedia
+                  cursorShape: root.hasMedia ? Qt.PointingHandCursor : Qt.ArrowCursor
+                  onWheel: root.toggleMediaVizMode()
+                }
+
               // Track (full length, dim) + wave (played portion only, up
               // to progressRatio) -- actually reflects position now,
               // instead of a decorative full-width wave. No drag-to-seek
               // yet, position display only.
               Item {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 140
-                // Direct follow-up: "when theres no music it just shows
-                // active window? that might be kinda cool" -- this whole
-                // wave/track/playhead group is the "there is media"
-                // half; ActiveWindowLabel (below, same 140x20 slot) is
-                // the "there is not" half. Same fixed slot either way so
-                // the pill's own width never jumps between the two.
-                visible: root.hasMedia
+                anchors.fill: parent
+                visible: root.hasMedia && root.mediaVizMode === "seeker"
               // Grown 12 -> 20 alongside the thickness bump below --
               // WavyLine is a Canvas, and Canvas content outside its
               // own item bounds is simply never drawn (an implicit
@@ -1521,6 +1597,38 @@ Item {
               }
               }
 
+              // Mini cava visualizer -- same 20-band feed a fresh
+              // CavaFeed instance drives (kept separate from
+              // ruixen.cava's own edge-docked overlay: a different
+              // plugin entirely, plugin folders can't share state, and
+              // this one only needs to run while actually visible).
+              // Fixed horizontal/bottom-grow layout, unlike the full
+              // overlay's own configurable orientation -- this slot is
+              // always exactly 140x20, so that generality buys nothing
+              // here.
+              Item {
+                id: cavaMiniSlot
+                anchors.fill: parent
+                visible: root.hasMedia && root.mediaVizMode === "cava"
+
+                Repeater {
+                  model: compactCavaFeed.bands
+                  Rectangle {
+                    readonly property real slot: cavaMiniSlot.width / compactCavaFeed.bands
+                    readonly property real thick: Math.max(1, slot - 2)
+                    readonly property real level: compactCavaFeed.levels[index] || 0
+                    width: thick
+                    height: Math.max(2, level * cavaMiniSlot.height)
+                    radius: thick / 2
+                    x: index * slot + (slot - thick) / 2
+                    y: cavaMiniSlot.height - height
+                    color: root.accent
+
+                    Behavior on height { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+                  }
+                }
+              }
+
               // The "no media" half of this same 140x20 slot -- direct
               // request: "when theres no music it just shows active
               // window". Reads Quickshell.Wayland's own ToplevelManager
@@ -1535,10 +1643,10 @@ Item {
               // string. "~" is the empty-state fallback for the rare
               // moment nothing is focused at all (just closed
               // everything, say), rather than leaving the pill blank.
+              // No toggle of its own -- unconditional whenever there's
+              // no media, see nowPlayingSlot's own header comment for why.
               Text {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 140
-                height: 20
+                anchors.fill: parent
                 visible: !root.hasMedia
                 text: root.compactWindowTitle !== "" ? root.compactWindowTitle : "~"
                 // Direct follow-up ("are the text a bit muted") -- this
@@ -1551,6 +1659,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
+              }
               }
             }
           }

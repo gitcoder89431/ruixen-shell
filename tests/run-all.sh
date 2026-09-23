@@ -40,6 +40,7 @@ suites=(
   "$script_dir/media-status-relay.sh"
   "$script_dir/launcher-open-defer.sh"
   "$script_dir/launcher-settings-search-clear.sh"
+  "$script_dir/launcher-extensions-frecency.sh"
   "$script_dir/cava-missing-dependency.sh"
   "$script_dir/cava-idle-quiesce.sh"
   "$script_dir/cava-state-contract.sh"

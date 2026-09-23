@@ -6,6 +6,7 @@ import qs.Commons
 import "LauncherHelpers.js" as LauncherHelpers
 import "FileSearchRanking.js" as FileSearchRanking
 import "LauncherQueryOperators.js" as LauncherQueryOperators
+import "LauncherFrecency.js" as Frecency
 
 // Raycast/Spotlight-style command palette. Root contract copied from
 // ruixen.settings/Settings.qml (confirmed by reading it directly --
@@ -767,7 +768,21 @@ Item {
       // still reachable via its own query-time "Use ... with"
       // fallback row (filesFallbackRow(q) below), just not as a
       // permanent landing-list entry alongside these two.
-      var ext = tag([root.wallpapersRow(), root.settingsRow()], "Extensions")
+      // Reordered by the same frecency data recordLaunch() above
+      // writes into -- direct follow-up: "these aren't included in
+      // the ranking thing yet" (this pair was a fixed
+      // [Wallpapers, Settings] order regardless of which one is
+      // actually used). Array.prototype.sort is stable, so a tie (no
+      // usage yet for either) keeps that same original order rather
+      // than shuffling on every launcher open.
+      var extNow = Date.now()
+      var extBoost = {
+        "extension:wallpapers": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.wallpapers"), extNow),
+        "extension:settings": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.settings"), extNow)
+      }
+      var extRows = [root.wallpapersRow(), root.settingsRow()]
+      extRows.sort(function(a, b) { return extBoost[b.id] - extBoost[a.id] })
+      var ext = tag(extRows, "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
       var browse = tag(omarchyActionsProvider.browse(omarchyActionsProvider.suggestedIds), "Commands")
       return ext.concat(sug).concat(browse)
@@ -1151,16 +1166,32 @@ Item {
     // extension (a real, separate feature -- "does search work for menu
     // items on the left too?"); it's only wrong for whatever query got
     // you there in the first place, which this clears.
+    //
+    // Each of these 4 branches also records a launch (same
+    // omarchyActionsProvider frecency store the "ruixen.settings"/
+    // "ruixen.wallpapers" synthetic rows' own scoreEntry() call already
+    // reads from, see OmarchyMenuParser.js) -- direct follow-up: "these
+    // aren't included in the ranking thing yet." Neither extension ever
+    // ran provider.activate() before this (this function returns
+    // early, well above that call, for all 4 of them), so nothing was
+    // ever recorded no matter how often either was opened. Recording
+    // here from BOTH the landing-list row (providerId branches) and
+    // the typed-search synthetic row (result.id branches below) means
+    // either path to Settings/Wallpapers counts toward the same usage
+    // data -- extensionsOrder below reads it back to reorder the
+    // landing list's own "Extensions" group by the same signal.
     if (result.providerId === "wallpapers-extension") {
       root.activeExtensionId = "wallpapers"
       searchHeader.text = ""
       root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.wallpapers")
       return
     }
     if (result.providerId === "settings-extension") {
       root.activeExtensionId = "settings"
       searchHeader.text = ""
       root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.settings")
       return
     }
     // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
@@ -1180,6 +1211,7 @@ Item {
       root.activeExtensionId = "settings"
       searchHeader.text = ""
       root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.settings")
       return
     }
     // Same reasoning as the synthetic Settings row above, for
@@ -1190,6 +1222,7 @@ Item {
       root.activeExtensionId = "wallpapers"
       searchHeader.text = ""
       root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.wallpapers")
       return
     }
     var provider = root.providerFor(result.providerId)

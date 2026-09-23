@@ -445,27 +445,25 @@ Item {
     animationProfileWriteProc.running = true
   }
 
-  // --- Profile: Glass (Frosted/Transparent/Vibrant/Solid) -- direct
-  // request, after checking a reference theme's own window-look hook
-  // for how its blur read noticeably clearer: "im thinking of making
-  // that a setting in profile between frosted and transparent."
-  // Vibrant/Solid are a direct follow-up ("are there any other design
-  // other than these two... anything other than like actual liquid
-  // glass with hyprglass?") -- both stay entirely inside Hyprland's
-  // own native decoration options, no compositor plugin. Same plain-
-  // text-file + `hyprctl reload` shape as Window Spacing/Animation
-  // Style above, no repo checkout dependency -- the actual opacity/
-  // blur values live in hyprland/looknfeel.ruixen.lua and
-  // looknfeel.square.lua (both read this same file, same as Window
-  // Spacing above), this side's only job is writing the chosen
-  // profile. Frosted (today's existing values) stays the default;
-  // Transparent is a real, working configuration confirmed to read
-  // noticeably clearer (inactive_opacity 0.75, blur passes 2). Vibrant
-  // boosts blur.vibrancy/vibrancy_darkness instead of opacity -- a
-  // different flavor of glass, tried live via `hyprctl eval` before
-  // picking the actual numbers. Solid disables blur and pushes both
-  // opacities to 1.0 -- no see-through at all, and the cheapest of the
-  // four on integrated graphics, since blur is the expensive part.
+  // --- Profile: Glass (Frosted/Transparent) -- direct request, after
+  // checking a reference theme's own window-look hook for how its blur
+  // read noticeably clearer: "im thinking of making that a setting in
+  // profile between frosted and transparent." Same plain-text-file +
+  // `hyprctl reload` shape as Window Spacing/Animation Style above, no
+  // repo checkout dependency -- the actual opacity/blur values live in
+  // hyprland/looknfeel.ruixen.lua and looknfeel.square.lua (both read
+  // this same file, same as Window Spacing above), this side's only
+  // job is writing the chosen profile. Frosted (today's existing
+  // values) stays the default; Transparent is a real, working
+  // configuration confirmed to read noticeably clearer (inactive_opacity
+  // 0.75, blur passes 2), not guessed.
+  //
+  // A Vibrant (blur.vibrancy boost) and Solid (blur off) pair were
+  // also tried and reverted -- direct report: "solid still broken and
+  // it breaks the ruixen app launcher too, vibrancy still looks like
+  // frosted, so i guess we dont need them." See looknfeel.ruixen.lua's
+  // own comment on its readGlassProfile() for the full root-cause
+  // writeup, for anyone tempted to retry either.
   property string glassProfile: "frosted"
   readonly property string glassProfilePath: Quickshell.env("HOME") + "/.local/state/ruixen/glass-profile"
 
@@ -476,7 +474,7 @@ Item {
       waitForEnd: true
       onStreamFinished: {
         var v = String(text || "").trim()
-        root.glassProfile = (v === "transparent" || v === "vibrant" || v === "solid") ? v : "frosted"
+        root.glassProfile = (v === "transparent") ? v : "frosted"
       }
     }
   }
@@ -487,7 +485,7 @@ Item {
   }
 
   function setGlassProfile(profile) {
-    if (profile !== "frosted" && profile !== "transparent" && profile !== "vibrant" && profile !== "solid") return
+    if (profile !== "frosted" && profile !== "transparent") return
     root.glassProfile = profile
     glassProfileWriteProc.command = ["bash", "-c",
       "printf '%s' '" + profile + "' > \"" + root.glassProfilePath + "\" && hyprctl reload"]
@@ -1847,7 +1845,7 @@ Item {
       activate: function(id) { root.setAnimationProfile(id) }
     },
     {
-      options: ["frosted", "transparent", "vibrant", "solid"],
+      options: ["frosted", "transparent"],
       current: root.glassProfile,
       activate: function(id) { root.setGlassProfile(id) }
     }
@@ -3003,13 +3001,11 @@ Item {
     onActivated: (id) => root.setAnimationProfile(id)
   }
 
-  // Glass (Frosted/Transparent/Vibrant/Solid) -- direct request; see
-  // glassProfile's own property comment above for the full "why" of
-  // all four, including which ones are a direct follow-up ("are there
-  // any other design other than these two... anything other than like
-  // actual liquid glass with hyprglass?"). Same segmented-card shape
-  // as Window Spacing/Animation Style above; the real opacity/blur
-  // values live in hyprland/looknfeel.ruixen.lua and
+  // Glass (Frosted/Transparent) -- direct request; see glassProfile's
+  // own property comment above for the full "why," including the
+  // Vibrant/Solid pair that was tried and reverted. Same segmented-
+  // card shape as Window Spacing/Animation Style above; the real
+  // opacity/blur values live in hyprland/looknfeel.ruixen.lua and
   // looknfeel.square.lua (both read the same glass-profile file, same
   // as those two).
   SettingsSegmentedItem {
@@ -3017,9 +3013,7 @@ Item {
     label: "Glass"
     options: [
       { id: "frosted", label: "Frosted" },
-      { id: "transparent", label: "Transparent" },
-      { id: "vibrant", label: "Vibrant" },
-      { id: "solid", label: "Solid" }
+      { id: "transparent", label: "Transparent" }
     ]
     current: root.glassProfile
     cardFocused: root.rightFocused && root.focusedItemIndex === 4

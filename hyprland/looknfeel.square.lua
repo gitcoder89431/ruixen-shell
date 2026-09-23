@@ -81,10 +81,9 @@ end
 
 local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
 
--- Glass (Frosted/Transparent/Vibrant/Solid) -- same shared glass-
--- profile file looknfeel.ruixen.lua reads (see its own comment for
--- the full "why", including why vibrancy/vibrancy_darkness/
--- active_opacity are set explicitly for every profile) -- this
+-- Glass (Frosted/Transparent) -- same shared glass-profile file
+-- looknfeel.ruixen.lua reads (see its own comment for the full "why",
+-- including the Vibrant/Solid attempt that got reverted) -- this
 -- variant honors the same choice rather than always sitting at
 -- Frosted's own fixed values regardless of what the user picked.
 local function readGlassProfile()
@@ -94,19 +93,14 @@ local function readGlassProfile()
   local line = f:read("*l") or "frosted"
   f:close()
   line = line:gsub("%s+", "")
-  if line == "transparent" or line == "vibrant" or line == "solid" then return line end
+  if line == "transparent" then return line end
   return "frosted"
 end
 
 local ruixenGlassProfile = readGlassProfile()
-local ruixenActiveOpacity = ruixenGlassProfile == "solid" and 1.0 or 0.98
-local ruixenInactiveOpacity = ruixenGlassProfile == "solid" and 1.0
-  or (ruixenGlassProfile == "transparent" and 0.75 or 0.94)
-local ruixenBlurEnabled = ruixenGlassProfile ~= "solid"
+local ruixenInactiveOpacity = ruixenGlassProfile == "transparent" and 0.75 or 0.94
 local ruixenBlurSize = ruixenGlassProfile == "transparent" and 4 or 7
 local ruixenBlurPasses = ruixenGlassProfile == "transparent" and 2 or 3
-local ruixenBlurVibrancy = ruixenGlassProfile == "vibrant" and 0.7 or 0.1696
-local ruixenBlurVibrancyDarkness = ruixenGlassProfile == "vibrant" and 0.35 or 0.0
 
 hl.config({
   general = {
@@ -132,10 +126,10 @@ hl.config({
     -- a different lever. Belongs under decoration, not general --
     -- confirmed directly (`hyprctl getoption general:active_opacity`
     -- returned "no such option") after an initial wrong placement.
-    -- active_opacity/inactive_opacity: see looknfeel.ruixen.lua's own
-    -- comment on this exact line -- Glass-profile-driven now, same
-    -- shared file this variant's readGlassProfile() above reads too.
-    active_opacity = ruixenActiveOpacity,
+    -- inactive_opacity: see looknfeel.ruixen.lua's own comment on this
+    -- exact line -- Glass-profile-driven now, same shared file this
+    -- variant's readGlassProfile() above reads too.
+    active_opacity = 0.98,
     inactive_opacity = ruixenInactiveOpacity,
 
     -- Window blur -- lets transparent surfaces (e.g. Kitty's
@@ -143,15 +137,13 @@ hl.config({
     -- behind them instead of plain see-through. noise: see
     -- looknfeel.ruixen.lua's own comment on this exact line -- needs
     -- applying in both files, same as blur/shadow/animation profiles.
-    -- enabled/size/passes/vibrancy: also Glass-profile-driven, same as
-    -- inactive_opacity above.
+    -- size/passes: also Glass-profile-driven, same as inactive_opacity
+    -- above.
     blur = {
-      enabled = ruixenBlurEnabled,
+      enabled = true,
       size = ruixenBlurSize,
       passes = ruixenBlurPasses,
       noise = 0.01,
-      vibrancy = ruixenBlurVibrancy,
-      vibrancy_darkness = ruixenBlurVibrancyDarkness,
     },
 
     -- Direct request ("i feel like this design could do drop shadow

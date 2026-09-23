@@ -95,7 +95,7 @@ local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
 -- Frosted's own opacity/blur strength but boosts blur.vibrancy/
 -- vibrancy_darkness -- a different FLAVOR of glass (more color/
 -- contrast in the blur itself) rather than more or less transparent;
--- 0.4/0.2 is a moderate step up from Hyprland's own stock default
+-- 0.7/0.35 is a stronger step up from Hyprland's own stock default
 -- (0.1696/0), tried live via `hyprctl eval` first rather than guessed
 -- outright. Solid disables blur entirely and pushes both opacities to
 -- 1.0 -- no see-through at all, and (unlike the other three) the
@@ -128,8 +128,8 @@ local ruixenInactiveOpacity = ruixenGlassProfile == "solid" and 1.0
 local ruixenBlurEnabled = ruixenGlassProfile ~= "solid"
 local ruixenBlurSize = ruixenGlassProfile == "transparent" and 4 or 7
 local ruixenBlurPasses = ruixenGlassProfile == "transparent" and 2 or 3
-local ruixenBlurVibrancy = ruixenGlassProfile == "vibrant" and 0.4 or 0.1696
-local ruixenBlurVibrancyDarkness = ruixenGlassProfile == "vibrant" and 0.2 or 0.0
+local ruixenBlurVibrancy = ruixenGlassProfile == "vibrant" and 0.7 or 0.1696
+local ruixenBlurVibrancyDarkness = ruixenGlassProfile == "vibrant" and 0.35 or 0.0
 
 hl.config({
   general = {
@@ -184,7 +184,7 @@ hl.config({
     -- Transparent (fewer passes means less diffusion, reading clearer/
     -- crisper rather than smoothed). vibrancy/vibrancy_darkness: only
     -- Vibrant moves off Hyprland's own stock default (0.1696/0) --
-    -- 0.4/0.2 boosts color/contrast inside the blur itself, a
+    -- 0.7/0.35 boosts color/contrast inside the blur itself, a
     -- different flavor of glass rather than more or less transparent.
     blur = {
       enabled = ruixenBlurEnabled,

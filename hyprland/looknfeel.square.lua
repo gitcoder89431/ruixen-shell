@@ -105,8 +105,8 @@ local ruixenInactiveOpacity = ruixenGlassProfile == "solid" and 1.0
 local ruixenBlurEnabled = ruixenGlassProfile ~= "solid"
 local ruixenBlurSize = ruixenGlassProfile == "transparent" and 4 or 7
 local ruixenBlurPasses = ruixenGlassProfile == "transparent" and 2 or 3
-local ruixenBlurVibrancy = ruixenGlassProfile == "vibrant" and 0.4 or 0.1696
-local ruixenBlurVibrancyDarkness = ruixenGlassProfile == "vibrant" and 0.2 or 0.0
+local ruixenBlurVibrancy = ruixenGlassProfile == "vibrant" and 0.7 or 0.1696
+local ruixenBlurVibrancyDarkness = ruixenGlassProfile == "vibrant" and 0.35 or 0.0
 
 hl.config({
   general = {

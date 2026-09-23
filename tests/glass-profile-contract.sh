@@ -79,10 +79,10 @@ check "both Lua files use the same Transparent blur size (4 vs. Frosted/Vibrant'
   "$(grep -c 'and 4 or 7' "$ruixen_lua")$(grep -c 'and 4 or 7' "$square_lua")" "11"
 check "both Lua files use the same Transparent blur passes (2 vs. Frosted/Vibrant's 3)" \
   "$(grep -c 'and 2 or 3' "$ruixen_lua")$(grep -c 'and 2 or 3' "$square_lua")" "11"
-check "both Lua files use the same Vibrant blur.vibrancy (0.4 vs. stock 0.1696)" \
-  "$(grep -c 'and 0.4 or 0.1696' "$ruixen_lua")$(grep -c 'and 0.4 or 0.1696' "$square_lua")" "11"
-check "both Lua files use the same Vibrant blur.vibrancy_darkness (0.2 vs. stock 0.0)" \
-  "$(grep -c 'and 0.2 or 0.0' "$ruixen_lua")$(grep -c 'and 0.2 or 0.0' "$square_lua")" "11"
+check "both Lua files use the same Vibrant blur.vibrancy (0.7 vs. stock 0.1696)" \
+  "$(grep -c 'and 0.7 or 0.1696' "$ruixen_lua")$(grep -c 'and 0.7 or 0.1696' "$square_lua")" "11"
+check "both Lua files use the same Vibrant blur.vibrancy_darkness (0.35 vs. stock 0.0)" \
+  "$(grep -c 'and 0.35 or 0.0' "$ruixen_lua")$(grep -c 'and 0.35 or 0.0' "$square_lua")" "11"
 
 # --- the actual decoration block reads the profile-driven variables, not a
 # leftover hardcoded literal ------------------------------------------------

@@ -492,6 +492,43 @@ Item {
     glassProfileWriteProc.running = true
   }
 
+  // --- Profile: Glass Tint (Themed/Black) -- direct request, after
+  // remembering this had already been explored: "i think we had this
+  // effect before in the past but opted to go for the theme tint
+  // only." A separate control from Glass Effect above -- orthogonal
+  // axes (this is the launcher card's own TINT COLOR, a pure QML
+  // property in Launcher.qml; Glass Effect is Hyprland-level blur/
+  // opacity STRENGTH) -- so no `hyprctl reload` here, just a plain
+  // state file Launcher.qml's own FileView watches directly (see its
+  // glassTintMode there for the actual color resolution).
+  property string glassTintMode: "themed"
+  readonly property string glassTintModePath: Quickshell.env("HOME") + "/.local/state/ruixen/glass-tint-mode"
+
+  Process {
+    id: glassTintModeReadProc
+    command: ["bash", "-c", "cat \"" + root.glassTintModePath + "\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var v = String(text || "").trim()
+        root.glassTintMode = (v === "black") ? v : "themed"
+      }
+    }
+  }
+
+  Process {
+    id: glassTintModeWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setGlassTintMode(mode) {
+    if (mode !== "themed" && mode !== "black") return
+    root.glassTintMode = mode
+    glassTintModeWriteProc.command = ["bash", "-c",
+      "printf '%s' '" + mode + "' > \"" + root.glassTintModePath + "\""]
+    glassTintModeWriteProc.running = true
+  }
+
   // --- Bar: Bar Layout (Floating/Docked), ported from ruixen.settings
   // -- same naming as Settings.qml's own barMode/setBarMode. Plain
   // shell.json read/write via python3 (same mechanism, no repo
@@ -1835,6 +1872,11 @@ Item {
       activate: function(id) { root.setGlassProfile(id) }
     },
     {
+      options: ["themed", "black"],
+      current: root.glassTintMode,
+      activate: function(id) { root.setGlassTintMode(id) }
+    },
+    {
       options: ["sharp", "rounded"],
       current: root.cornerCurvature,
       activate: function(id) { root.setCornerCurvature(id) }
@@ -2325,7 +2367,7 @@ Item {
   // relative to their own immediate parent).
   function focusedItemVisual() {
     if (root.profileOpen) {
-      return [profilePictureItem, glassProfileItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
+      return [profilePictureItem, glassProfileItem, glassTintItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
       // Launcher Mark (index 2) is a special case -- direct report:
@@ -2509,6 +2551,7 @@ Item {
       spacingProfileReadProc.running = true
       animationProfileReadProc.running = true
       glassProfileReadProc.running = true
+      glassTintModeReadProc.running = true
       barModeReadProc.running = true
       root.refreshPlugins()
       pluginService.refreshRepoPath()
@@ -2964,7 +3007,30 @@ Item {
     onActivated: (id) => root.setGlassProfile(id)
   }
 
-  // Third/fourth/fifth Profile items -- SettingsSegmentedItem.qml,
+  // Glass Tint (Themed/Black) -- direct request, right after Glass
+  // Effect since they're both "glass"-related, even though they're
+  // orthogonal settings (see glassTintMode's own comment above for the
+  // full "why," including the git-history confirmation that Black is
+  // this repo's own original value, not a new invention).
+  SettingsSegmentedItem {
+    id: glassTintItem
+    label: "Glass Tint"
+    options: [
+      { id: "themed", label: "Themed" },
+      { id: "black", label: "Black" }
+    ]
+    current: root.glassTintMode
+    cardFocused: root.rightFocused && root.focusedItemIndex === 2
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
+    visible: root.profileOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setGlassTintMode(id)
+  }
+
+  // Fourth/fifth/sixth Profile items -- SettingsSegmentedItem.qml,
   // the shared "segmented option" card three near-identical hand-
   // rolled copies got extracted into: "how do we keep this pattern
   // going? easy to reuse". Ported values (options/current/activate)
@@ -2978,7 +3044,7 @@ Item {
       { id: "rounded", label: "Rounded" }
     ]
     current: root.cornerCurvature
-    cardFocused: root.rightFocused && root.focusedItemIndex === 2
+    cardFocused: root.rightFocused && root.focusedItemIndex === 3
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
     textColor: root.textColor
@@ -2996,7 +3062,7 @@ Item {
       { id: "tight", label: "Tight" }
     ]
     current: root.spacingProfile
-    cardFocused: root.rightFocused && root.focusedItemIndex === 3
+    cardFocused: root.rightFocused && root.focusedItemIndex === 4
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
     textColor: root.textColor
@@ -3018,7 +3084,7 @@ Item {
       { id: "snappy", label: "Snappy" }
     ]
     current: root.animationProfile
-    cardFocused: root.rightFocused && root.focusedItemIndex === 4
+    cardFocused: root.rightFocused && root.focusedItemIndex === 5
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
     textColor: root.textColor

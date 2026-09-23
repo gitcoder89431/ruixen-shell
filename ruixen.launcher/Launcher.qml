@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import "LauncherHelpers.js" as LauncherHelpers
@@ -78,7 +79,39 @@ Item {
   // already tried and explicitly rejected earlier as too theme-token-
   // influenced/light; this is theme identity on top of that same
   // hardcoded-black foundation, not a reversal of it.
-  readonly property color glassTint: Qt.tint("#000000", Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.25))
+  //
+  // Glass Tint setting (Themed/Black) -- direct request, after
+  // remembering this had already been explored: "i think we had this
+  // effect before in the past but opted to go for the theme tint
+  // only." Confirmed directly in this repo's own git history: Black
+  // (Qt.rgba(0, 0, 0, 0.68), zero theme influence) is genuinely this
+  // property's own ORIGINAL value, from before the accent tint above
+  // was ever added -- not a new invention, an exact revival. Themed
+  // stays the default (unchanged); this only decides which base color
+  // glassTint below resolves to, so glassBackground/every other
+  // consumer of glassTint (the source-filter dropdown, ResultActionsMenu)
+  // picks up whichever is chosen automatically, no separate wiring.
+  property string glassTintMode: "themed"
+  readonly property string glassTintModeStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/glass-tint-mode"
+
+  function loadGlassTintMode(raw) {
+    var v = String(raw || "").trim()
+    root.glassTintMode = (v === "black") ? v : "themed"
+  }
+
+  FileView {
+    id: glassTintModeFile
+    path: root.glassTintModeStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadGlassTintMode(text())
+    onLoadFailed: root.loadGlassTintMode("")
+  }
+
+  readonly property color glassTint: root.glassTintMode === "black"
+    ? "#000000"
+    : Qt.tint("#000000", Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.25))
   readonly property color glassBackground: Qt.rgba(glassTint.r, glassTint.g, glassTint.b, 0.68)
   readonly property color glassBorder: Qt.rgba(1, 1, 1, 0.08)
 

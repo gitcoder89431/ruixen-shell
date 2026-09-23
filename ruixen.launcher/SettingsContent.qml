@@ -1830,6 +1830,11 @@ Item {
       }
     },
     {
+      options: ["frosted", "transparent"],
+      current: root.glassProfile,
+      activate: function(id) { root.setGlassProfile(id) }
+    },
+    {
       options: ["sharp", "rounded"],
       current: root.cornerCurvature,
       activate: function(id) { root.setCornerCurvature(id) }
@@ -1843,11 +1848,6 @@ Item {
       options: ["calm", "bubbly", "snappy"],
       current: root.animationProfile,
       activate: function(id) { root.setAnimationProfile(id) }
-    },
-    {
-      options: ["frosted", "transparent"],
-      current: root.glassProfile,
-      activate: function(id) { root.setGlassProfile(id) }
     }
   ]
   readonly property var barItems: [
@@ -2325,7 +2325,7 @@ Item {
   // relative to their own immediate parent).
   function focusedItemVisual() {
     if (root.profileOpen) {
-      return [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem, glassProfileItem][root.focusedItemIndex]
+      return [profilePictureItem, glassProfileItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
       // Launcher Mark (index 2) is a special case -- direct report:
@@ -2937,7 +2937,34 @@ Item {
     }
   }
 
-  // Second/third/fourth Profile items -- SettingsSegmentedItem.qml,
+  // Glass Effect (Frosted/Transparent) -- moved above Window
+  // Curvature -- direct request: "maybe we can move this setting high
+  // than window curvature even?" (after noticing it affects both
+  // ruixen.launcher's own card AND real Hyprland window blur/opacity,
+  // a bigger-reaching setting than most of what's below it). See
+  // glassProfile's own property comment above for the full "why,"
+  // including the Vibrant/Solid pair that was tried and reverted. The
+  // real opacity/blur values live in hyprland/looknfeel.ruixen.lua and
+  // looknfeel.square.lua (both read the same glass-profile file).
+  SettingsSegmentedItem {
+    id: glassProfileItem
+    label: "Glass Effect"
+    options: [
+      { id: "frosted", label: "Frosted" },
+      { id: "transparent", label: "Transparent" }
+    ]
+    current: root.glassProfile
+    cardFocused: root.rightFocused && root.focusedItemIndex === 1
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
+    visible: root.profileOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setGlassProfile(id)
+  }
+
+  // Third/fourth/fifth Profile items -- SettingsSegmentedItem.qml,
   // the shared "segmented option" card three near-identical hand-
   // rolled copies got extracted into: "how do we keep this pattern
   // going? easy to reuse". Ported values (options/current/activate)
@@ -2951,7 +2978,7 @@ Item {
       { id: "rounded", label: "Rounded" }
     ]
     current: root.cornerCurvature
-    cardFocused: root.rightFocused && root.focusedItemIndex === 1
+    cardFocused: root.rightFocused && root.focusedItemIndex === 2
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
     textColor: root.textColor
@@ -2969,7 +2996,7 @@ Item {
       { id: "tight", label: "Tight" }
     ]
     current: root.spacingProfile
-    cardFocused: root.rightFocused && root.focusedItemIndex === 2
+    cardFocused: root.rightFocused && root.focusedItemIndex === 3
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
     textColor: root.textColor
@@ -2991,31 +3018,6 @@ Item {
       { id: "snappy", label: "Snappy" }
     ]
     current: root.animationProfile
-    cardFocused: root.rightFocused && root.focusedItemIndex === 3
-    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
-    visible: root.profileOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setAnimationProfile(id)
-  }
-
-  // Glass (Frosted/Transparent) -- direct request; see glassProfile's
-  // own property comment above for the full "why," including the
-  // Vibrant/Solid pair that was tried and reverted. Same segmented-
-  // card shape as Window Spacing/Animation Style above; the real
-  // opacity/blur values live in hyprland/looknfeel.ruixen.lua and
-  // looknfeel.square.lua (both read the same glass-profile file, same
-  // as those two).
-  SettingsSegmentedItem {
-    id: glassProfileItem
-    label: "Glass Effect"
-    options: [
-      { id: "frosted", label: "Frosted" },
-      { id: "transparent", label: "Transparent" }
-    ]
-    current: root.glassProfile
     cardFocused: root.rightFocused && root.focusedItemIndex === 4
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.profileOpen
@@ -3023,7 +3025,7 @@ Item {
     muted: root.muted
     accent: root.accent
     fontFamily: root.fontFamily
-    onActivated: (id) => root.setGlassProfile(id)
+    onActivated: (id) => root.setAnimationProfile(id)
   }
 
   // Bar's own single item -- direct request: "think we're ready for

@@ -120,6 +120,14 @@ check "the wave repaints when new cava data arrives" \
   "$(grep -A1 'function onLevelsChanged() { if (cavaMiniWave.visible)' "$overlay_qml" | grep -c 'requestPaint()')" "1"
 check "the wave forces a fresh paint on becoming visible, not stale cached content" \
   "$(grep -c 'onVisibleChanged: if (visible) requestPaint()' "$overlay_qml")" "1"
+check "the wave is a FILLED area, not just a stroked line -- direct correction" \
+  "$(grep -c 'ctx.fillStyle = grad' "$overlay_qml")" "1"
+check "the fill curve is smoothed via quadratic-through-midpoints, same technique the desktop wave uses, not raw straight segments" \
+  "$(grep -c 'ctx.quadraticCurveTo(pts\[j\].x, pts\[j\].y, mx, my)' "$overlay_qml")" "1"
+check "the fill starts and closes down to the bottom edge (same baseline bars grow up from)" \
+  "$(grep -c 'ctx.moveTo(pts\[0\].x, height)' "$overlay_qml")$(grep -c 'ctx.lineTo(pts\[n - 1\].x, height)' "$overlay_qml")" "11"
+check "a brighter stroke is retraced on top of the fill for definition" \
+  "$(grep -c 'ctx.strokeStyle = grad' "$overlay_qml")" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

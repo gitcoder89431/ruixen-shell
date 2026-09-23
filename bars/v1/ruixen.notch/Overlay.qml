@@ -1742,24 +1742,28 @@ Item {
                   }
                 }
 
-                // Wave -- one continuous stroke through the same
-                // mirrored levels the bars use, instead of a per-band
-                // Rectangle each. Same cool/warm/cool 3-stop gradient
-                // concept ruixen.cava/Overlay.qml's own wave style
-                // already uses (a Canvas gradient is one continuous
-                // ramp, so the "V" bandColor() computes per-bar becomes
-                // stops here instead), just simpler: no separate
-                // display/target easing pass on top -- CavaFeed.qml's
-                // own EMA smoothing already softens the raw data enough
-                // at this small a scale, so a second smoothing layer
-                // would only add latency without a visible benefit.
+                // Wave -- a filled, smoothed curve through the same
+                // mirrored levels the bars use, not just a stroked
+                // zigzag -- direct correction: "it wasnt suppose to be
+                // a line, our desktop wave has like gradient filled
+                // in." Same technique ruixen.cava/Overlay.qml's own
+                // wave style already uses: quadratic-through-midpoints
+                // for a smooth curve (each segment's endpoint is the
+                // midpoint between two real points, the real point
+                // itself as the control point, so the curve passes
+                // close to every point without sharp corners), filled
+                // from that curve down to the bottom edge (bars grow up
+                // from there too -- same baseline) with the cool/warm/
+                // cool gradient, then a brighter stroke retraced along
+                // the same curve on top for definition against the
+                // fill.
                 Canvas {
                   id: cavaMiniWave
                   anchors.fill: parent
                   visible: root.cavaMiniStyle === "wave"
 
-                  function rgbaStr(c) {
-                    return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + ",1)"
+                  function rgbaStr(c, a) {
+                    return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + a + ")"
                   }
 
                   onVisibleChanged: if (visible) requestPaint()
@@ -1784,17 +1788,36 @@ Item {
                     }
 
                     var grad = ctx.createLinearGradient(0, 0, width, 0)
-                    grad.addColorStop(0, cavaMiniWave.rgbaStr(root.cavaCoolColor))
-                    grad.addColorStop(0.5, cavaMiniWave.rgbaStr(root.cavaWarmColor))
-                    grad.addColorStop(1, cavaMiniWave.rgbaStr(root.cavaCoolColor))
+                    grad.addColorStop(0, cavaMiniWave.rgbaStr(root.cavaCoolColor, 0.85))
+                    grad.addColorStop(0.5, cavaMiniWave.rgbaStr(root.cavaWarmColor, 0.85))
+                    grad.addColorStop(1, cavaMiniWave.rgbaStr(root.cavaCoolColor, 0.85))
 
-                    ctx.strokeStyle = grad
-                    ctx.lineWidth = 3
-                    ctx.lineJoin = "round"
-                    ctx.lineCap = "round"
+                    ctx.beginPath()
+                    ctx.moveTo(pts[0].x, height)
+                    ctx.lineTo(pts[0].x, pts[0].y)
+                    for (var j = 1; j < n - 1; j++) {
+                      var mx = (pts[j].x + pts[j + 1].x) / 2
+                      var my = (pts[j].y + pts[j + 1].y) / 2
+                      ctx.quadraticCurveTo(pts[j].x, pts[j].y, mx, my)
+                    }
+                    ctx.lineTo(pts[n - 1].x, pts[n - 1].y)
+                    ctx.lineTo(pts[n - 1].x, height)
+                    ctx.closePath()
+                    ctx.fillStyle = grad
+                    ctx.fill()
+
                     ctx.beginPath()
                     ctx.moveTo(pts[0].x, pts[0].y)
-                    for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y)
+                    for (var k = 1; k < n - 1; k++) {
+                      var mx2 = (pts[k].x + pts[k + 1].x) / 2
+                      var my2 = (pts[k].y + pts[k + 1].y) / 2
+                      ctx.quadraticCurveTo(pts[k].x, pts[k].y, mx2, my2)
+                    }
+                    ctx.lineTo(pts[n - 1].x, pts[n - 1].y)
+                    ctx.lineWidth = 2
+                    ctx.lineCap = "round"
+                    ctx.lineJoin = "round"
+                    ctx.strokeStyle = grad
                     ctx.stroke()
                   }
                 }

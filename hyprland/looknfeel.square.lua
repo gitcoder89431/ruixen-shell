@@ -81,6 +81,26 @@ end
 
 local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
 
+-- Glass (Frosted/Transparent) -- same shared glass-profile file
+-- looknfeel.ruixen.lua reads (see its own comment for the full "why")
+-- -- this variant honors the same choice rather than always sitting at
+-- Frosted's own fixed values regardless of what the user picked.
+local function readGlassProfile()
+  local path = (os.getenv("HOME") or "") .. "/.local/state/ruixen/glass-profile"
+  local f = io.open(path, "r")
+  if not f then return "frosted" end
+  local line = f:read("*l") or "frosted"
+  f:close()
+  line = line:gsub("%s+", "")
+  if line == "transparent" then return line end
+  return "frosted"
+end
+
+local ruixenGlassProfile = readGlassProfile()
+local ruixenInactiveOpacity = ruixenGlassProfile == "transparent" and 0.75 or 0.94
+local ruixenBlurSize = ruixenGlassProfile == "transparent" and 4 or 7
+local ruixenBlurPasses = ruixenGlassProfile == "transparent" and 2 or 3
+
 hl.config({
   general = {
     border_size = 1,
@@ -105,18 +125,23 @@ hl.config({
     -- a different lever. Belongs under decoration, not general --
     -- confirmed directly (`hyprctl getoption general:active_opacity`
     -- returned "no such option") after an initial wrong placement.
+    -- inactive_opacity: see looknfeel.ruixen.lua's own comment on this
+    -- exact line -- Glass-profile-driven now, same shared file this
+    -- variant's readGlassProfile() above reads too.
     active_opacity = 0.98,
-    inactive_opacity = 0.94,
+    inactive_opacity = ruixenInactiveOpacity,
 
     -- Window blur -- lets transparent surfaces (e.g. Kitty's
     -- background_opacity, see ../kitty.conf) show a blurred desktop
     -- behind them instead of plain see-through. noise: see
     -- looknfeel.ruixen.lua's own comment on this exact line -- needs
     -- applying in both files, same as blur/shadow/animation profiles.
+    -- size/passes: also Glass-profile-driven, same as inactive_opacity
+    -- above.
     blur = {
       enabled = true,
-      size = 7,
-      passes = 3,
+      size = ruixenBlurSize,
+      passes = ruixenBlurPasses,
       noise = 0.01,
     },
 

@@ -74,6 +74,32 @@ end
 
 local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
 
+-- Glass (Frosted/Transparent) -- direct request, after checking a
+-- reference theme's own window-look hook for how its blur read
+-- noticeably clearer: "im thinking of making that a setting in
+-- profile between frosted and transparent." Same plain-text-file
+-- convention as spacing/animation profiles above (ruixen.launcher's
+-- own Settings Profile page writes it). Frosted is this file's own
+-- existing values, unchanged; Transparent is a real, working
+-- configuration confirmed to read noticeably clearer (inactive_opacity
+-- 0.75, blur passes 2), not guessed. This file and looknfeel.square.lua
+-- both read the same file, same as spacing/animation profiles above.
+local function readGlassProfile()
+  local path = (os.getenv("HOME") or "") .. "/.local/state/ruixen/glass-profile"
+  local f = io.open(path, "r")
+  if not f then return "frosted" end
+  local line = f:read("*l") or "frosted"
+  f:close()
+  line = line:gsub("%s+", "")
+  if line == "transparent" then return line end
+  return "frosted"
+end
+
+local ruixenGlassProfile = readGlassProfile()
+local ruixenInactiveOpacity = ruixenGlassProfile == "transparent" and 0.75 or 0.94
+local ruixenBlurSize = ruixenGlassProfile == "transparent" and 4 or 7
+local ruixenBlurPasses = ruixenGlassProfile == "transparent" and 2 or 3
+
 hl.config({
   general = {
     border_size = 1,
@@ -96,8 +122,12 @@ hl.config({
     -- a different lever. Belongs under decoration, not general --
     -- confirmed directly (`hyprctl getoption general:active_opacity`
     -- returned "no such option") after an initial wrong placement.
+    --
+    -- inactive_opacity is now Glass-profile-driven (ruixenGlassProfile
+    -- above) -- 0.94 here under Frosted, unchanged from the original
+    -- cachyos value; 0.75 under Transparent.
     active_opacity = 0.98,
-    inactive_opacity = 0.94,
+    inactive_opacity = ruixenInactiveOpacity,
 
     -- Window blur -- lets transparent surfaces (e.g. Kitty's
     -- background_opacity, see ../kitty.conf) show a blurred desktop
@@ -112,10 +142,14 @@ hl.config({
     -- card existed. Global, not launcher-specific (Hyprland has no
     -- per-layer-rule noise override), so this also smooths Kitty's own
     -- background blur -- a net improvement there too, not a tradeoff.
+    --
+    -- size/passes are also Glass-profile-driven now -- 7/3 here under
+    -- Frosted (unchanged), 4/2 under Transparent (fewer passes means
+    -- less diffusion, reading clearer/crisper rather than smoothed).
     blur = {
       enabled = true,
-      size = 7,
-      passes = 3,
+      size = ruixenBlurSize,
+      passes = ruixenBlurPasses,
       noise = 0.01,
     },
 

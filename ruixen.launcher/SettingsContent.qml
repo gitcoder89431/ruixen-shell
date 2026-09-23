@@ -445,6 +445,46 @@ Item {
     animationProfileWriteProc.running = true
   }
 
+  // --- Profile: Glass (Frosted/Transparent) -- direct request, after
+  // checking a reference theme's own window-look hook for how its blur
+  // read noticeably clearer: "im thinking of making that a setting in
+  // profile between frosted and transparent." Same plain-text-file +
+  // `hyprctl reload` shape as Window Spacing/Animation Style above, no
+  // repo checkout dependency -- the actual opacity/blur values live in
+  // hyprland/looknfeel.ruixen.lua and looknfeel.square.lua (both read
+  // this same file, same as Window Spacing above), this side's only
+  // job is writing the chosen profile. Frosted (today's existing
+  // values) stays the default; Transparent is a real, working
+  // configuration confirmed to read noticeably clearer (inactive_opacity
+  // 0.75, blur passes 2), not guessed.
+  property string glassProfile: "frosted"
+  readonly property string glassProfilePath: Quickshell.env("HOME") + "/.local/state/ruixen/glass-profile"
+
+  Process {
+    id: glassProfileReadProc
+    command: ["bash", "-c", "cat \"" + root.glassProfilePath + "\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var v = String(text || "").trim()
+        root.glassProfile = (v === "transparent") ? v : "frosted"
+      }
+    }
+  }
+
+  Process {
+    id: glassProfileWriteProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function setGlassProfile(profile) {
+    if (profile !== "frosted" && profile !== "transparent") return
+    root.glassProfile = profile
+    glassProfileWriteProc.command = ["bash", "-c",
+      "printf '%s' '" + profile + "' > \"" + root.glassProfilePath + "\" && hyprctl reload"]
+    glassProfileWriteProc.running = true
+  }
+
   // --- Bar: Bar Layout (Floating/Docked), ported from ruixen.settings
   // -- same naming as Settings.qml's own barMode/setBarMode. Plain
   // shell.json read/write via python3 (same mechanism, no repo
@@ -1796,6 +1836,11 @@ Item {
       options: ["calm", "bubbly", "snappy"],
       current: root.animationProfile,
       activate: function(id) { root.setAnimationProfile(id) }
+    },
+    {
+      options: ["frosted", "transparent"],
+      current: root.glassProfile,
+      activate: function(id) { root.setGlassProfile(id) }
     }
   ]
   readonly property var barItems: [
@@ -2273,7 +2318,7 @@ Item {
   // relative to their own immediate parent).
   function focusedItemVisual() {
     if (root.profileOpen) {
-      return [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
+      return [profilePictureItem, windowCurvatureItem, windowSpacingItem, animationStyleItem, glassProfileItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
       // Launcher Mark (index 2) is a special case -- direct report:
@@ -2456,6 +2501,7 @@ Item {
       cornerCurvatureReadProc.running = true
       spacingProfileReadProc.running = true
       animationProfileReadProc.running = true
+      glassProfileReadProc.running = true
       barModeReadProc.running = true
       root.refreshPlugins()
       pluginService.refreshRepoPath()
@@ -2946,6 +2992,32 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.setAnimationProfile(id)
+  }
+
+  // Glass (Frosted/Transparent) -- direct request, after checking a
+  // reference repo's own theme-set hook for how its window blur read
+  // noticeably clearer: "im thinking of making that a setting in
+  // profile between frosted and transparent." Same segmented-card
+  // shape as Window Spacing/Animation Style above; the real opacity/
+  // blur values live in hyprland/looknfeel.ruixen.lua and
+  // looknfeel.square.lua (both read the same glass-profile file, same
+  // as those two).
+  SettingsSegmentedItem {
+    id: glassProfileItem
+    label: "Glass"
+    options: [
+      { id: "frosted", label: "Frosted" },
+      { id: "transparent", label: "Transparent" }
+    ]
+    current: root.glassProfile
+    cardFocused: root.rightFocused && root.focusedItemIndex === 4
+    focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
+    visible: root.profileOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setGlassProfile(id)
   }
 
   // Bar's own single item -- direct request: "think we're ready for

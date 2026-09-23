@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Effects
-import QtQuick.Dialogs
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
@@ -1862,7 +1861,7 @@ Item {
       // mouse-click branch below), so Enter opens the picker instead of
       // calling selectAvatar("custom") with no filePath.
       activate: function(id) {
-        if (id === "custom") avatarFileDialog.open()
+        if (id === "custom") avatarFileDialog.openPicker()
         else root.selectAvatar(id)
       }
     },
@@ -2946,11 +2945,11 @@ Item {
               // "custom" has no self-contained action the way every
               // other entry does (gradient/DiceBear/github all apply
               // immediately on click) -- it needs a file first, so this
-              // opens the picker instead and lets its own onAccepted
-              // below call selectAvatar() once something is actually
+              // opens the picker instead and lets its own stderr
+              // collector call selectAvatar() once something is actually
               // chosen.
               onClicked: {
-                if (collectionBtn.modelData.id === "custom") avatarFileDialog.open()
+                if (collectionBtn.modelData.id === "custom") avatarFileDialog.openPicker()
                 else root.selectAvatar(collectionBtn.modelData.id)
               }
             }
@@ -2958,23 +2957,49 @@ Item {
         }
       }
 
-      // Native, XDG-portal-backed file picker -- confirmed live this
-      // actually works from inside a Quickshell layer-shell PanelWindow
-      // (not a given; Quickshell's own windows are not ordinary
-      // top-level windows, which is what FileDialog normally expects to
-      // parent to) before building this rather than assuming it would.
-      FileDialog {
+      // Spawned as a genuinely SEPARATE process (`qml6` running the
+      // sibling avatar-file-picker.qml), not run in-process via
+      // QtQuick.Dialogs' FileDialog directly -- direct fix after a real,
+      // reproducible crash (confirmed via coredumpctl + debuginfod
+      // symbolization, twice, byte-for-byte identical both times) inside
+      // GTK3's native file chooser + GVfs's directory-monitor D-Bus
+      // call, triggered by this system's QT_QPA_PLATFORMTHEME=gtk3 and
+      // taking the WHOLE shell down with it -- several seconds of the
+      // entire desktop shell restarting, every time it fired. Running
+      // this same FileDialog as a standalone process instead means a
+      // crash there can never touch quickshell again -- worst case, this
+      // one small helper dies and the picker just doesn't open. See the
+      // sibling file's own comment for the full mechanism, including why
+      // GTK_USE_PORTAL=1/QT_FORCE_STDERR_LOGGING=1 are set here rather
+      // than there (this is the caller, so this is where the child's
+      // environment gets to be decided).
+      Process {
         id: avatarFileDialog
-        title: "Choose Avatar Image"
-        nameFilters: ["Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp)"]
-        onAccepted: {
-          // selectedFile is a file:// URL, not a plain path -- decode
-          // first so a filename with a space/unicode character in it
-          // (URL-encoded in the url form) reaches ImageMagick correctly
-          // rather than as a literal "%20" etc.
-          var path = String(avatarFileDialog.selectedFile)
-          if (path.indexOf("file://") === 0) path = decodeURIComponent(path.slice(7))
-          root.selectAvatar("custom", path)
+        command: ["env", "GTK_USE_PORTAL=1", "QT_FORCE_STDERR_LOGGING=1",
+          "qml6", Quickshell.env("HOME") + "/.config/omarchy/plugins/ruixen.launcher/avatar-file-picker.qml"]
+        stderr: StdioCollector {
+          id: avatarFileDialogStderr
+          waitForEnd: true
+          onStreamFinished: {
+            var marker = "RUIXEN_AVATAR_PICK:"
+            var lines = String(text || "").split("\n")
+            for (var i = 0; i < lines.length; i++) {
+              var idx = lines[i].indexOf(marker)
+              if (idx < 0) continue
+              // selectedFile is a file:// URL, not a plain path --
+              // decode first so a filename with a space/unicode
+              // character in it (URL-encoded in the url form) reaches
+              // ImageMagick correctly rather than as a literal "%20"
+              // etc.
+              var path = lines[i].slice(idx + marker.length).trim()
+              if (path.indexOf("file://") === 0) path = decodeURIComponent(path.slice(7))
+              if (path !== "") root.selectAvatar("custom", path)
+              return
+            }
+          }
+        }
+        function openPicker() {
+          if (!running) running = true
         }
       }
     }

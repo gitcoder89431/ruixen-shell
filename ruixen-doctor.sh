@@ -58,6 +58,68 @@ for tool in fd ffmpeg ffprobe jq; do
     printf '%-10s NOT FOUND\n' "$tool"
   fi
 done
+# Package, not command -- qt6-multimedia has no binary of its own to
+# check for. See the dedicated section below for the full "why this
+# matters" -- checked here too so it shows up in the same at-a-glance
+# list as the other dependencies, not just its own section.
+if pacman -Qi qt6-multimedia >/dev/null 2>&1; then
+  printf '%-10s found\n' "qt6-multimedia"
+else
+  printf '%-10s NOT FOUND -- see Video/GIF wallpaper backend section below\n' "qt6-multimedia"
+fi
+printf '\n'
+
+# --- Video/GIF wallpaper backend -- direct answer to real reports of
+# "selecting an mp4 shows it as current but never actually displays
+# it". Root cause, confirmed directly against this exact repo, not
+# guessed: ruixen.wallpaper/Service.qml has an unconditional `import
+# QtMultimedia` at the top of the file. qt6-multimedia is NOT part of
+# Omarchy's own base package set and is not a dependency of quickshell
+# or omarchy itself (confirmed via pacman -Qi on both) -- on a stock
+# install it is only present if some unrelated app (a video editor,
+# say) happened to pull it in. When it's missing, the ENTIRE
+# Service.qml file fails to load, not just its video-specific code --
+# confirmed directly against a throwaway QML file with an unresolvable
+# import ("Did not load any objects, exiting."), which is standard QML
+# behavior: a failed top-level import is fatal for the whole file, with
+# no partial-load fallback. That takes video, gif, AND the static-
+# background-switch safety net down together, since all three live in
+# the same file behind the same import -- the IPC handler itself never
+# comes into existence. WallpapersContent.qml's own picker marks a tile
+# "current" the instant it's clicked (deliberately optimistic
+# client-side UI, see that file's own comment on currentBackground),
+# regardless of whether the service ever receives -- let alone acts on
+# -- that click, which is exactly why the picker can look like it
+# worked while the desktop itself never changes. Live-tested end to end
+# on a machine that DOES have this package: video wallpaper works
+# correctly (real ffmpeg-backed decode, layer surface renders), ruling
+# out a Service.qml regression as the cause.
+printf -- '-- Video/GIF wallpaper backend --\n'
+if pacman -Qi qt6-multimedia >/dev/null 2>&1; then
+  printf 'qt6-multimedia: installed\n'
+  backend="none"
+  pacman -Qi qt6-multimedia-ffmpeg >/dev/null 2>&1 && backend="qt6-multimedia-ffmpeg (hardware-accelerated)"
+  [[ "$backend" == "none" ]] && pacman -Qi qt6-multimedia-gstreamer >/dev/null 2>&1 && backend="qt6-multimedia-gstreamer"
+  printf 'backend: %s\n' "$backend"
+  if [[ "$backend" == "none" ]]; then
+    printf 'WARNING: qt6-multimedia is installed but no backend package was found -- should not be possible under normal pacman dependency resolution (qt6-multimedia depends on the virtual qt6-multimedia-backend), so something unusual happened here\n'
+  fi
+  if command -v omarchy-shell >/dev/null 2>&1 && status_json="$(OMARCHY_SHELL_IPC_TIMEOUT=1s omarchy-shell ruixen.wallpaper status 2>/dev/null)"; then
+    # .active | tostring, not `.active // "?"` -- jq's // operator
+    # treats a real `false` value as absent (same as null), which
+    # silently printed "?" for the exact "not currently playing
+    # anything" case this check exists to report correctly. Caught live
+    # by actually running this against the real IPC while inactive, not
+    # assumed.
+    active="$(jq -r '.active | tostring' <<<"$status_json" 2>/dev/null || echo "?")"
+    printf 'ruixen.wallpaper IPC: responding (currently active: %s)\n' "$active"
+  else
+    printf 'ruixen.wallpaper IPC: NOT responding -- unexpected given qt6-multimedia is present; try omarchy restart shell\n'
+  fi
+else
+  printf 'qt6-multimedia: NOT INSTALLED -- this is almost certainly why video/gif wallpaper does not work here (not just video -- gif is affected too, for the same reason)\n'
+  printf 'fix: pacman -S --needed qt6-multimedia-ffmpeg\n'
+fi
 printf '\n'
 
 # --- This checkout ---------------------------------------------------

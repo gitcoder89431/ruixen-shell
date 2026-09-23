@@ -371,6 +371,22 @@ Item {
         id: player
         videoOutput: videoOutput
         loops: MediaPlayer.Infinite
+        // A backend package being installed doesn't guarantee it can
+        // decode any GIVEN file (an unsupported codec, a genuinely
+        // corrupt source) -- distinct from the "qt6-multimedia isn't
+        // installed at all" failure this plugin already can't survive
+        // (that one takes the whole file down before this object even
+        // exists, see ruixen-doctor.sh's own dedicated section on it).
+        // This is the narrower, per-file case: previously totally
+        // silent -- panel.frameDecoded just never flips true, so the
+        // video output stays invisible forever with no trail anywhere.
+        // Logged, not surfaced in the UI -- matches this plugin's own
+        // existing failure philosophy (see the GIF-poster comment
+        // above: partial failure degrades quietly, it doesn't pop an
+        // error dialog).
+        onErrorOccurred: (error, errorString) => {
+          if (root.videoPath !== "") console.warn("ruixen.wallpaper: video playback error for " + root.videoPath + ": " + errorString)
+        }
       }
 
       VideoOutput {

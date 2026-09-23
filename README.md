@@ -322,7 +322,8 @@ rather than discovering it later when a feature quietly doesn't work:
 
 | Missing | What's unavailable |
 |---|---|
-| `ffmpeg` | Video wallpaper support (posters/playback) |
+| `ffmpeg` | Video/gif wallpaper poster generation (current/background and the lock screen won't reflect the active video/gif; the moving wallpaper itself is unaffected by this one) |
+| `qt6-multimedia` (package, not command -- install a backend with it, e.g. `qt6-multimedia-ffmpeg`) | Video AND gif wallpaper playback both fail silently to start -- not part of Omarchy's own base install, only present if some other app happened to pull it in |
 | `curl` | Weather data, avatar image download in Settings |
 | `python3` | The bar's docked-mode toggle |
 | `fastfetch` | Less detail on the health page's system-info panel |

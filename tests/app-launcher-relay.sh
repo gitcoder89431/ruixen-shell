@@ -39,6 +39,13 @@ pinned_search="$repo_dir/bars/v1/ruixen.pinnedapps/AppSearch.js"
 # ruixen.notch/LauncherContent.qml, a completely different file.
 rlauncher_lib="$repo_dir/ruixen.launcher/AppLibrary.qml"
 rlauncher_search="$repo_dir/ruixen.launcher/AppSearch.js"
+# Same byte-identical-duplicate situation as AppLibrary.qml/AppSearch.js
+# above -- LauncherFrecency.js is the shared frecency-scoring module
+# both AppLibrary.qml (apps) and OmarchyActionsProvider.qml (Omarchy
+# Actions, ruixen.launcher-only, no copy needed there) import.
+notch_frecency="$repo_dir/bars/v1/ruixen.notch/LauncherFrecency.js"
+pinned_frecency="$repo_dir/bars/v1/ruixen.pinnedapps/LauncherFrecency.js"
+rlauncher_frecency="$repo_dir/ruixen.launcher/LauncherFrecency.js"
 # Issue #61: same byte-identical-duplicate-across-a-plugin-boundary
 # situation as AppLibrary.qml/AppSearch.js above, just a different pair
 # of plugins (ruixen.launcher consumes it to build the real search root
@@ -103,6 +110,12 @@ check "the three AppLibrary.qml copies are byte-identical (plugin folders can't 
   "$(diff -q "$notch_lib" "$pinned_lib" >/dev/null 2>&1 && diff -q "$notch_lib" "$rlauncher_lib" >/dev/null 2>&1 && echo same || echo different)" "same"
 check "the three AppSearch.js copies are byte-identical" \
   "$(diff -q "$notch_search" "$pinned_search" >/dev/null 2>&1 && diff -q "$notch_search" "$rlauncher_search" >/dev/null 2>&1 && echo same || echo different)" "same"
+
+check "ruixen.notch/LauncherFrecency.js exists" "$([[ -f "$notch_frecency" ]] && echo yes)" "yes"
+check "ruixen.pinnedapps/LauncherFrecency.js exists" "$([[ -f "$pinned_frecency" ]] && echo yes)" "yes"
+check "ruixen.launcher/LauncherFrecency.js exists" "$([[ -f "$rlauncher_frecency" ]] && echo yes)" "yes"
+check "the three LauncherFrecency.js copies are byte-identical" \
+  "$(diff -q "$notch_frecency" "$pinned_frecency" >/dev/null 2>&1 && diff -q "$notch_frecency" "$rlauncher_frecency" >/dev/null 2>&1 && echo same || echo different)" "same"
 
 check "ruixen.launcher/LauncherSearchConfig.js exists" "$([[ -f "$launcher_search_config" ]] && echo yes)" "yes"
 check "ruixen.settings/LauncherSearchConfig.js exists" "$([[ -f "$settings_search_config" ]] && echo yes)" "yes"

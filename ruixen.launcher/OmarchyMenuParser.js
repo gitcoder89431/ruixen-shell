@@ -193,7 +193,7 @@ function isVisible(id, entry, guardResults) {
 // (a same-category sibling should never outrank the action you actually
 // typed) but still positive, so results that only match the shown
 // subtitle work like a category browse rather than "No Results".
-function scoreEntry(entry, query, breadcrumb) {
+function scoreEntryBase(entry, query, breadcrumb) {
   var q = String(query || "").trim().toLowerCase()
   if (!q) return -1
   var label = String(entry.label || "").toLowerCase()
@@ -240,6 +240,22 @@ function scoreEntry(entry, query, breadcrumb) {
   }
 
   return -1
+}
+
+// frecencyBoostFor is optional -- same pattern AppSearch.js's own
+// fuzzyScore uses (see LauncherFrecency.js): a plain (entry) -> number
+// function, already resolved by the caller, added on top of the base
+// tier score above and only when there IS a real match. Direct
+// request: "theme" should rank Change Theme above Install Theme once
+// it's the one actually used, the same underlying need as apps
+// ranking Discord over Disc -- just a different provider with its own
+// scoring tiers and its own frecency store (OmarchyActionsProvider.qml
+// keys by the omarchy-menu.jsonc id, e.g. "style.theme.change", not a
+// desktop-entry id).
+function scoreEntry(entry, query, breadcrumb, frecencyBoostFor) {
+  var base = scoreEntryBase(entry, query, breadcrumb)
+  if (base < 0) return -1
+  return base + (frecencyBoostFor ? frecencyBoostFor(entry) : 0)
 }
 
 // ---- Keybind hints --------------------------------------------------------

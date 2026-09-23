@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "AppSearch.js" as AppSearch
+import "LauncherFrecency.js" as Frecency
 
 // ruixen-shell issue #44/#38: Omarchy v4.0.3 only populates
 // shell.appLibrary for a plugin declaring manifest kind "menu", which
@@ -69,17 +70,21 @@ Item {
 
   function sortedEntries(query) {
     var values = DesktopEntries.applications.values || []
+    var now = Date.now()
     return AppSearch.sortedEntries(values, query,
       function(entry) { return root.isHiddenEntry(entry) },
-      function(entry) { return root.frecencyFor(entry) }, Date.now())
+      function(entry) { return Frecency.frecencyBoost(root.frecencyFor(entry), now) })
   }
 
   // Frecency: a small ranking boost for apps actually launched (via
   // launch() below) often/recently, so "dis" ranks Discord above a
   // rarely-used app that merely matches more literally -- direct
-  // request. AppSearch.js's own frecencyBoost() does the scoring math;
-  // this is just the read/write/lookup side, same small-JSON-file
-  // convention as every other bit of state under
+  // request. LauncherFrecency.js's own frecencyBoost()/recordLaunch()
+  // do the actual scoring math and stats-object bookkeeping (shared
+  // with OmarchyActionsProvider.qml's own separate frecency store, for
+  // the equivalent "theme should rank Change Theme over Install Theme"
+  // request); this is just the read/write/lookup side, same small-
+  // JSON-file convention as every other bit of state under
   // ~/.local/state/ruixen/. Shared by every AppLibrary.qml copy (this
   // file is kept byte-identical across all three, see header above),
   // so a launch from ruixen.notch's dashboard or ruixen.pinnedapps
@@ -104,11 +109,8 @@ Item {
   function recordLaunch(desktopId) {
     var id = String(desktopId || "")
     if (!id) return
-    var stats = Object.assign({}, root.frecencyStats)
-    var prev = stats[id] || { count: 0, lastUsed: 0 }
-    stats[id] = { count: prev.count + 1, lastUsed: Date.now() }
-    root.frecencyStats = stats
-    frecencyFile.setText(JSON.stringify(stats))
+    root.frecencyStats = Frecency.recordLaunch(root.frecencyStats, id)
+    frecencyFile.setText(JSON.stringify(root.frecencyStats))
   }
 
   FileView {

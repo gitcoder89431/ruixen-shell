@@ -78,41 +78,14 @@ function allTermsMatch(entry, query) {
   return true
 }
 
-// Frecency: a small, bounded ranking boost for entries actually launched
-// (not just searched) often/recently -- direct request: typing "dis"
-// should rank Discord (opened daily) above some rarely-used app that
-// merely matches more literally. Purely additive on top of the tier
-// score below, and only ever applied to entries that already passed
-// allTermsMatch -- it re-ranks real matches, it never manufactures one.
-//
-// Capped well under the ~500+ point gap between this file's own scoring
-// tiers (direct-name-at-0, direct-name-elsewhere, haystack substring,
-// acronym, ...), so a heavily-used app can win a close contest within
-// its own tier (exactly the "dis" case) without a stale, once-launched
-// app leapfrogging a genuinely stronger textual match on some other
-// entry entirely.
-var FRECENCY_COUNT_CAP = 20
-var FRECENCY_MAX_BOOST = 600
-var FRECENCY_DAY_MS = 86400000
-
-function frecencyDecay(ageMs) {
-  if (ageMs <= FRECENCY_DAY_MS) return 1.0
-  if (ageMs <= 7 * FRECENCY_DAY_MS) return 0.7
-  if (ageMs <= 30 * FRECENCY_DAY_MS) return 0.4
-  return 0.15
-}
-
-function frecencyBoost(stat, nowMs) {
-  if (!stat || !stat.count) return 0
-  var count = Math.min(stat.count, FRECENCY_COUNT_CAP)
-  var age = Math.max(0, (nowMs || 0) - (stat.lastUsed || 0))
-  return Math.round((count / FRECENCY_COUNT_CAP) * FRECENCY_MAX_BOOST * frecencyDecay(age))
-}
-
-// frecencyLookup/nowMs are both optional -- a caller that doesn't pass
-// them (every call site before frecency existed) gets the exact same
-// score as before, unchanged.
-function fuzzyScore(entry, query, frecencyLookup, nowMs) {
+// frecencyBoostFor is optional -- a caller that doesn't pass it (every
+// call site before frecency existed) gets the exact same score as
+// before, unchanged. It's a plain function returning an already-
+// resolved NUMBER (see LauncherFrecency.js's own frecencyBoost) -- this
+// file has no notion of frecency itself, just "add this extra to the
+// tier score", so the same pattern works for any provider's own
+// scoring function, not just this one.
+function fuzzyScore(entry, query, frecencyBoostFor) {
   var q = String(query || "").trim().toLowerCase()
   if (!q) return 0
   if (!allTermsMatch(entry, q)) return -1
@@ -140,10 +113,10 @@ function fuzzyScore(entry, query, frecencyLookup, nowMs) {
     }
   }
 
-  return base + (frecencyLookup ? frecencyBoost(frecencyLookup(entry), nowMs) : 0)
+  return base + (frecencyBoostFor ? frecencyBoostFor(entry) : 0)
 }
 
-function sortedEntries(values, query, hiddenCallback, frecencyLookup, nowMs) {
+function sortedEntries(values, query, hiddenCallback, frecencyBoostFor) {
   var q = String(query || "").trim()
   var rows = []
 
@@ -153,7 +126,7 @@ function sortedEntries(values, query, hiddenCallback, frecencyLookup, nowMs) {
     if (hiddenCallback && hiddenCallback(entry)) continue
     var name = entryName(entry)
     if (!name) continue
-    var score = fuzzyScore(entry, q, frecencyLookup, nowMs)
+    var score = fuzzyScore(entry, q, frecencyBoostFor)
     if (score < 0) continue
     rows.push({ entry: entry, score: score, key: entrySortKey(entry), name: name.toLowerCase() })
   }

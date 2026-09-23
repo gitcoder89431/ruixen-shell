@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "OmarchyMenuParser.js" as OmarchyMenuParser
+import "LauncherFrecency.js" as Frecency
 
 // Provider: every directly-executable Omarchy menu action, searchable
 // by label/alias, filtered by its own real "when" visibility guard.
@@ -338,20 +339,67 @@ Item {
     var q = String(query || "").trim()
     if (!q) return []
     var out = []
+    var now = Date.now()
     for (var id in root.actionable) {
       var entry = root.actionable[id]
       if (!OmarchyMenuParser.isVisible(id, entry, root.guardResults)) continue
-      var score = OmarchyMenuParser.scoreEntry(entry, q, root.breadcrumbFor(id, entry))
+      var score = OmarchyMenuParser.scoreEntry(entry, q, root.breadcrumbFor(id, entry),
+        function() { return Frecency.frecencyBoost(root.frecencyFor(id), now) })
       if (score < 0) continue
       out.push(root.resultFor(id, entry, score))
     }
     for (var sid in root.syntheticEntries) {
       var sentry = root.syntheticEntries[sid]
-      var sscore = OmarchyMenuParser.scoreEntry(sentry, q, root.breadcrumbFor(sid, sentry))
+      var sscore = OmarchyMenuParser.scoreEntry(sentry, q, root.breadcrumbFor(sid, sentry),
+        function() { return Frecency.frecencyBoost(root.frecencyFor(sid), now) })
       if (sscore < 0) continue
       out.push(root.resultFor(sid, sentry, sscore))
     }
     return out
+  }
+
+  // Frecency: same ranking need as AppLibrary.qml's own (see its
+  // header), applied to Omarchy Actions instead of apps -- direct
+  // request: "theme" should rank Change Theme above Install Theme once
+  // it's the one actually used. Keyed by the omarchy-menu.jsonc id
+  // (e.g. "style.theme.change"), not the "omarchy:"-prefixed result id
+  // resultFor() builds -- that prefix only exists to namespace results
+  // across providers in Launcher.qml's own combined list, it's not
+  // part of this provider's own stable identity for a given action.
+  // Its own separate state file, own separate namespace from the app
+  // frecency store -- an action id and a desktop-entry id could
+  // collide as bare strings otherwise.
+  readonly property string frecencyStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/actions-frecency.json"
+  property var frecencyStats: ({})
+
+  function frecencyFor(id) {
+    return root.frecencyStats[String(id || "")] || null
+  }
+
+  function loadFrecencyStats(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.frecencyStats = (parsed && typeof parsed === "object") ? parsed : ({})
+    } catch (e) {
+      root.frecencyStats = ({})
+    }
+  }
+
+  function recordLaunch(id) {
+    if (!id) return
+    root.frecencyStats = Frecency.recordLaunch(root.frecencyStats, id)
+    frecencyFile.setText(JSON.stringify(root.frecencyStats))
+  }
+
+  FileView {
+    id: frecencyFile
+    path: root.frecencyStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadFrecencyStats(text())
+    onLoadFailed: root.loadFrecencyStats("")
   }
 
   function suggestions() {
@@ -387,6 +435,13 @@ Item {
   }
 
   function activate(result) {
+    // result.id is always "omarchy:" + the real action id (see
+    // resultFor above) -- strip the provider-namespace prefix back off
+    // before recording, so it matches the bare ids frecencyFor() looks
+    // up during search().
+    var rawId = String(result.id || "")
+    if (rawId.indexOf("omarchy:") === 0) rawId = rawId.slice(8)
+    root.recordLaunch(rawId)
     Util.execDetached(result.action.command)
   }
 

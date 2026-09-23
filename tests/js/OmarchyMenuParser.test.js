@@ -160,6 +160,22 @@ check("scoreEntry: a multi-word query where one word matches NOTHING anywhere st
 check("scoreEntry: a single-word query never falls through to multi-word matching (unchanged behavior)",
   M.scoreEntry({ label: "Grok Bot" }, "xyz", "Install › AI"), -1);
 
+// ---- scoreEntry + frecency -----------------------------------------------
+// frecencyBoostFor is a plain (entry) -> number function, already
+// resolved by the caller (see LauncherFrecency.js, tested separately)
+// -- this only needs to prove scoreEntry correctly adds whatever
+// number that callback returns, and only when there's a real match.
+
+check("scoreEntry: omitting frecencyBoostFor behaves identically to before it existed",
+  M.scoreEntry({ label: "Install a Theme" }, "theme"),
+  M.scoreEntry({ label: "Install a Theme" }, "theme", "", null));
+check("scoreEntry: a boosted action can outrank an unboosted literal match within the same tier -- "
+  + "'theme' ranking Change Theme above Install Theme once it's the one actually used",
+  M.scoreEntry({ label: "Change Theme" }, "theme", "", function() { return 500 })
+    > M.scoreEntry({ label: "Install Theme" }, "theme", "", function() { return 0 }), true);
+check("scoreEntry: frecency never turns a non-match into a match",
+  M.scoreEntry({ label: "Lock" }, "xyz", "", function() { return 600 }), -1);
+
 // ---- Keybind hints -----------------------------------------------------
 
 check("parseKeybindingsOutput: parses '<keybind>→<label>' lines, trims padding",

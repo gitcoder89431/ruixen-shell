@@ -52,7 +52,7 @@ check "Launcher.qml defaults to themed, only flips on an exact black match" \
 check "SettingsContent.qml validates against exactly themed/black" \
   "$(grep -c 'if (mode !== "themed" && mode !== "black") return' "$settings_qml")" "1"
 check "SettingsContent.qml's own Glass Tint picker offers exactly those two ids" \
-  "$(grep -c '{ id: "themed", label: "Themed" }\|{ id: "black", label: "Black" }' "$settings_qml")" "2"
+  "$(grep -c '{ id: "themed", label: "Themed" }\|{ id: "black", label: "Dark" }' "$settings_qml")" "2"
 
 # --- the Black value is an exact revival of this property's real original,
 # not a fresh guess (confirmed directly in git history: d527a25/e864c76) ---

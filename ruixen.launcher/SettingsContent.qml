@@ -3017,7 +3017,7 @@ Item {
     label: "Glass Tint"
     options: [
       { id: "themed", label: "Themed" },
-      { id: "black", label: "Black" }
+      { id: "black", label: "Dark" }
     ]
     current: root.glassTintMode
     cardFocused: root.rightFocused && root.focusedItemIndex === 2

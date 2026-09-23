@@ -3010,7 +3010,7 @@ Item {
   // as those two).
   SettingsSegmentedItem {
     id: glassProfileItem
-    label: "Glass"
+    label: "Glass Effect"
     options: [
       { id: "frosted", label: "Frosted" },
       { id: "transparent", label: "Transparent" }

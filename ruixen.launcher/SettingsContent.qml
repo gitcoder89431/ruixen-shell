@@ -1877,7 +1877,7 @@ Item {
       activate: function(id) { root.setGlassTintMode(id) }
     },
     {
-      options: ["sharp", "rounded"],
+      options: ["rounded", "sharp"],
       current: root.cornerCurvature,
       activate: function(id) { root.setCornerCurvature(id) }
     },
@@ -3040,8 +3040,8 @@ Item {
     id: windowCurvatureItem
     label: "Window Curvature"
     options: [
-      { id: "sharp", label: "Sharp" },
-      { id: "rounded", label: "Rounded" }
+      { id: "rounded", label: "Curve" },
+      { id: "sharp", label: "Sharp" }
     ]
     current: root.cornerCurvature
     cardFocused: root.rightFocused && root.focusedItemIndex === 3

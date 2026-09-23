@@ -384,26 +384,45 @@ Item {
   // survives a reopen, same small-JSON-file convention as every other
   // bit of state under ~/.local/state/ruixen/.
   property string mediaVizMode: "seeker"
+  // Which of {bars, wave} the cava mode itself renders as -- click-
+  // toggled, only meaningful while mediaVizMode is already "cava" (see
+  // nowPlayingSlot's own MouseArea). No "segments" here: the full
+  // overlay's own segment style splits each bar's growth length into
+  // 10 LED blocks with 2px gaps -- at this slot's 20px height that
+  // works out to ~0.2px per segment, not just cramped but literally
+  // sub-pixel, so it's left out entirely rather than shipped broken.
+  property string cavaMiniStyle: "bars"
   readonly property string mediaVizModeStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/notch-media-viz-mode.json"
 
   function loadMediaVizMode(raw) {
     try {
       var parsed = JSON.parse(String(raw || "").trim() || "{}")
       root.mediaVizMode = (parsed && parsed.mode === "cava") ? "cava" : "seeker"
+      root.cavaMiniStyle = (parsed && parsed.style === "wave") ? "wave" : "bars"
     } catch (e) {
       root.mediaVizMode = "seeker"
+      root.cavaMiniStyle = "bars"
     }
+  }
+
+  function writeMediaVizMode() {
+    mediaVizModeFile.setText(JSON.stringify({ mode: root.mediaVizMode, style: root.cavaMiniStyle }, null, 2) + "\n")
   }
 
   function setMediaVizMode(mode) {
     var next = mode === "cava" ? "cava" : "seeker"
     if (next === root.mediaVizMode) return
     root.mediaVizMode = next
-    mediaVizModeFile.setText(JSON.stringify({ mode: next }, null, 2) + "\n")
+    root.writeMediaVizMode()
   }
 
   function toggleMediaVizMode() {
     root.setMediaVizMode(root.mediaVizMode === "seeker" ? "cava" : "seeker")
+  }
+
+  function toggleCavaMiniStyle() {
+    root.cavaMiniStyle = root.cavaMiniStyle === "bars" ? "wave" : "bars"
+    root.writeMediaVizMode()
   }
 
   FileView {
@@ -1559,6 +1578,10 @@ Item {
                   enabled: root.hasMedia
                   cursorShape: root.hasMedia ? Qt.PointingHandCursor : Qt.ArrowCursor
                   onWheel: root.toggleMediaVizMode()
+                  // Click cycles bars/wave -- only meaningful once
+                  // already in cava mode (nothing to cycle on the
+                  // seeker or window name), direct request.
+                  onClicked: if (root.mediaVizMode === "cava") root.toggleCavaMiniStyle()
                 }
 
               // Track (full length, dim) + wave (played portion only, up
@@ -1698,8 +1721,12 @@ Item {
                   return Qt.lighter(c, 1 + 0.35 * level)
                 }
 
+                // Bars/wave, click-toggled (root.toggleCavaMiniStyle,
+                // nowPlayingSlot's own MouseArea.onClicked) -- no
+                // "segments" here, see root.cavaMiniStyle's own comment
+                // for the sub-pixel math that ruled it out at this size.
                 Repeater {
-                  model: cavaMiniSlot.displayBars
+                  model: root.cavaMiniStyle === "bars" ? cavaMiniSlot.displayBars : 0
                   Rectangle {
                     readonly property real slot: cavaMiniSlot.width / cavaMiniSlot.displayBars
                     readonly property real thick: Math.max(1, slot - 2)
@@ -1712,6 +1739,63 @@ Item {
                     color: cavaMiniSlot.barColor(index, level)
 
                     Behavior on height { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+                  }
+                }
+
+                // Wave -- one continuous stroke through the same
+                // mirrored levels the bars use, instead of a per-band
+                // Rectangle each. Same cool/warm/cool 3-stop gradient
+                // concept ruixen.cava/Overlay.qml's own wave style
+                // already uses (a Canvas gradient is one continuous
+                // ramp, so the "V" bandColor() computes per-bar becomes
+                // stops here instead), just simpler: no separate
+                // display/target easing pass on top -- CavaFeed.qml's
+                // own EMA smoothing already softens the raw data enough
+                // at this small a scale, so a second smoothing layer
+                // would only add latency without a visible benefit.
+                Canvas {
+                  id: cavaMiniWave
+                  anchors.fill: parent
+                  visible: root.cavaMiniStyle === "wave"
+
+                  function rgbaStr(c) {
+                    return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + ",1)"
+                  }
+
+                  onVisibleChanged: if (visible) requestPaint()
+
+                  Connections {
+                    target: compactCavaFeed
+                    function onLevelsChanged() { if (cavaMiniWave.visible) cavaMiniWave.requestPaint() }
+                  }
+
+                  onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.reset()
+                    var n = cavaMiniSlot.displayBars
+                    if (n < 2) return
+
+                    var pts = []
+                    for (var i = 0; i < n; i++) {
+                      var level = compactCavaFeed.levels[cavaMiniSlot.mirrorBandAt(i)] || 0
+                      var x = (i / (n - 1)) * width
+                      var y = height - Math.max(1, level * height)
+                      pts.push(Qt.point(x, y))
+                    }
+
+                    var grad = ctx.createLinearGradient(0, 0, width, 0)
+                    grad.addColorStop(0, cavaMiniWave.rgbaStr(root.cavaCoolColor))
+                    grad.addColorStop(0.5, cavaMiniWave.rgbaStr(root.cavaWarmColor))
+                    grad.addColorStop(1, cavaMiniWave.rgbaStr(root.cavaCoolColor))
+
+                    ctx.strokeStyle = grad
+                    ctx.lineWidth = 3
+                    ctx.lineJoin = "round"
+                    ctx.lineCap = "round"
+                    ctx.beginPath()
+                    ctx.moveTo(pts[0].x, pts[0].y)
+                    for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y)
+                    ctx.stroke()
                   }
                 }
               }

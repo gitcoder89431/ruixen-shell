@@ -43,8 +43,10 @@ check "ruixen.notch/CavaFeed.qml is byte-identical to ruixen.cava's own copy" \
 
 check "mediaVizMode property exists, defaulting to seeker" \
   "$(grep -c 'property string mediaVizMode: "seeker"' "$overlay_qml")" "1"
-check "setMediaVizMode persists to its own state file" \
-  "$(grep -A4 'function setMediaVizMode' "$overlay_qml" | grep -c 'mediaVizModeFile.setText')" "1"
+check "setMediaVizMode persists via writeMediaVizMode" \
+  "$(grep -A4 'function setMediaVizMode' "$overlay_qml" | grep -c 'root.writeMediaVizMode()')" "1"
+check "writeMediaVizMode is what actually writes the state file" \
+  "$(grep -A1 'function writeMediaVizMode' "$overlay_qml" | grep -c 'mediaVizModeFile.setText')" "1"
 check "toggleMediaVizMode flips between the two media-present modes only" \
   "$(grep -c 'function toggleMediaVizMode' "$overlay_qml")" "1"
 check "the state file lives under ~/.local/state/ruixen/, same convention as every other bit of state" \
@@ -89,6 +91,35 @@ check "the window name stays unconditional on media absence, no mode gating" \
   "$(grep -c 'visible: !root.hasMedia' "$overlay_qml")" "1"
 check "a wheel-triggered MouseArea toggles the mode, enabled only while media plays" \
   "$(grep -B2 'onWheel: root.toggleMediaVizMode()' "$overlay_qml" | grep -c 'enabled: root.hasMedia')" "1"
+
+# --- bars/wave click toggle, within cava mode only ------------------------
+# Segments deliberately excluded -- see cavaMiniStyle's own comment for
+# the sub-pixel-per-segment math (20px slot height / 10 segments / 2px
+# gaps) that ruled it out at this size.
+
+check "cavaMiniStyle property exists, defaulting to bars" \
+  "$(grep -c 'property string cavaMiniStyle: "bars"' "$overlay_qml")" "1"
+check "no segments option actually implemented -- bars/wave only (comments may still explain why)" \
+  "$(grep -c 'cavaMiniStyle === "segments"\|cavaMiniStyle: "segments"' "$overlay_qml")" "0"
+check "toggleCavaMiniStyle flips bars/wave and persists" \
+  "$(grep -A3 'function toggleCavaMiniStyle' "$overlay_qml" | grep -c 'writeMediaVizMode()')" "1"
+check "a click on the slot toggles style, but only while already in cava mode" \
+  "$(grep -c 'onClicked: if (root.mediaVizMode === "cava") root.toggleCavaMiniStyle()' "$overlay_qml")" "1"
+check "the mode/style state file round-trips both fields together" \
+  "$(grep -c 'mode: root.mediaVizMode, style: root.cavaMiniStyle' "$overlay_qml")" "1"
+
+# --- bars vs. wave rendering: mutually exclusive, same mirrored data ------
+
+check "the bars Repeater only populates in bars style (0 delegates otherwise)" \
+  "$(grep -c 'model: root.cavaMiniStyle === "bars" ? cavaMiniSlot.displayBars : 0' "$overlay_qml")" "1"
+check "the wave Canvas is scoped to wave style" \
+  "$(grep -c 'visible: root.cavaMiniStyle === "wave"' "$overlay_qml")" "1"
+check "the wave reads through the exact same mirror fold the bars use, not a separate index scheme" \
+  "$(grep -c 'compactCavaFeed.levels\[cavaMiniSlot.mirrorBandAt(i)\]' "$overlay_qml")" "1"
+check "the wave repaints when new cava data arrives" \
+  "$(grep -A1 'function onLevelsChanged() { if (cavaMiniWave.visible)' "$overlay_qml" | grep -c 'requestPaint()')" "1"
+check "the wave forces a fresh paint on becoming visible, not stale cached content" \
+  "$(grep -c 'onVisibleChanged: if (visible) requestPaint()' "$overlay_qml")" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

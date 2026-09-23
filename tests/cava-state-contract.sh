@@ -81,5 +81,18 @@ check "SettingsContent.qml validates the same band presets on load" \
 check "SettingsContent.qml's own Bands picker offers exactly those four values" \
   "$(grep -c '{ id: 32, label: "32" }\|{ id: 48, label: "48" }\|{ id: 64, label: "64" }\|{ id: 96, label: "96" }' "$settings_qml")" "4"
 
+# --- mirror: reader and writer agree, and the fold/halving is real ------
+
+check "Overlay.qml reads mirror from state" \
+  "$(grep -c 'root.mirror = !!(p && p.mirror)' "$overlay_qml")" "1"
+check "SettingsContent.qml reads and writes mirror" \
+  "$(grep -c 'root.cavaMirror = !!(p && p.mirror)' "$settings_qml")$(grep -c 'mirror: root.cavaMirror' "$settings_qml")" "11"
+check "feed's own real analyzed band count halves when mirror is on" \
+  "$(grep -c 'bands: root.mirror ? Math.max(1, Math.round(root.bands / 2)) : root.bands' "$overlay_qml")" "1"
+check "levelAt() folds the display index around the center when mirror is on" \
+  "$(grep -A3 'function levelAt(i) {' "$overlay_qml" | grep -c 'root.mirror ? Math.min(i, root.bands - 1 - i) : i')" "1"
+check "the wave renderer reads through the same levelAt() fold, not a direct index" \
+  "$(grep -c 'barsData.levelAt(i)' "$overlay_qml")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

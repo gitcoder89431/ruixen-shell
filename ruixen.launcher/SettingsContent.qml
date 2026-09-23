@@ -1448,6 +1448,14 @@ Item {
   // guess at 310 i like it, buttom 310 and 64 bands as default."
   property string cavaPosition: "bottom"
   property int cavaBands: 64
+  // Real bass-on-both-edges/treble-in-the-center, not a plain left-to-
+  // right sweep -- direct follow-up after shipping the same fold on
+  // the compact notch's own mini cava first ("i think it looks better
+  // if we can get the mirror... looks better that way for aesthetic").
+  // Overlay.qml halves the real analyzed band count when this is on
+  // (each real band shown twice, mirrored) so Bands above still means
+  // "how many bars on screen" either way, not "how many real bands."
+  property bool cavaMirror: false
   // A real pixel height, not a Small/Medium/Large preset -- direct
   // follow-up: "the large is still way too small, maybe instead of
   // small medium large we do scroll progress bar slider for height?"
@@ -1465,6 +1473,7 @@ Item {
       root.cavaStyle = (p && ["bars", "segments", "wave"].indexOf(p.style) >= 0) ? p.style : "bars"
       root.cavaPosition = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
       root.cavaBands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
+      root.cavaMirror = !!(p && p.mirror)
       var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
       root.cavaThickness = Math.max(root.cavaThicknessMin, Math.min(root.cavaThicknessMax, t))
     } catch (e) {
@@ -1475,7 +1484,7 @@ Item {
   function writeCavaState() {
     cavaVisualizerFile.setText(JSON.stringify({
       enabled: root.cavaEnabled, style: root.cavaStyle, position: root.cavaPosition,
-      bands: root.cavaBands, thickness: root.cavaThickness
+      bands: root.cavaBands, mirror: root.cavaMirror, thickness: root.cavaThickness
     }, null, 2) + "\n")
   }
 
@@ -1483,6 +1492,7 @@ Item {
   function setCavaStyle(id) { root.cavaStyle = id; root.writeCavaState() }
   function setCavaPosition(id) { root.cavaPosition = id; root.writeCavaState() }
   function setCavaBands(n) { root.cavaBands = n; root.writeCavaState() }
+  function setCavaMirror(v) { root.cavaMirror = !!v; root.writeCavaState() }
   function setCavaThickness(px) {
     root.cavaThickness = Math.max(root.cavaThicknessMin, Math.min(root.cavaThicknessMax, Math.round(px)))
     root.writeCavaState()
@@ -1844,6 +1854,11 @@ Item {
       options: [32, 48, 64, 96],
       current: root.cavaBands,
       activate: function(id) { root.setCavaBands(id) }
+    },
+    {
+      kind: "toggle",
+      checked: root.cavaMirror,
+      activate: function() { root.setCavaMirror(!root.cavaMirror) }
     },
     {
       kind: "slider",
@@ -2298,7 +2313,7 @@ Item {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
+      return [cavaEnableRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaMirrorRow, cavaThicknessItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3637,6 +3652,23 @@ Item {
     onActivated: (id) => root.setCavaBands(id)
   }
 
+  // Mirror -- real bass-on-both-edges/treble-in-the-center, not a
+  // plain left-to-right sweep. Same toggle shape as Enabled above,
+  // direct follow-up after shipping the same fold on the compact
+  // notch's own mini cava first ("looks better that way for
+  // aesthetic").
+  SettingsToggleRow {
+    id: cavaMirrorRow
+    label: "Mirror"
+    checked: root.cavaMirror
+    rowFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 4
+    textColor: root.textColor
+    accent: root.accent
+    fontFamily: root.fontFamily
+    visible: root.visualizerOpen
+    onToggled: root.setCavaMirror(!root.cavaMirror)
+  }
+
   // Height -- a real pixel slider, not Small/Medium/Large. Same
   // Rectangle-card + labeled SettingsSliderRow shape as Display's own
   // Brightness card right above in this file, not a new pattern.
@@ -3646,7 +3678,7 @@ Item {
     height: cavaThicknessContent.implicitHeight + 24
     radius: 10
     color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: (root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 4) ? 1 : 0
+    border.width: (root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 5) ? 1 : 0
     border.color: root.accent
     visible: root.visualizerOpen
 

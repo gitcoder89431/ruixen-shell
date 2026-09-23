@@ -44,6 +44,15 @@ Item {
   // guess at 310 i like it, buttom 310 and 64 bands as default."
   property string position: "bottom"   // "top" | "bottom" | "left" | "right"
   property int bands: 64               // 32 | 48 | 64 | 96
+  // Real bass-on-both-edges/treble-in-the-center, not a plain left-to-
+  // right sweep -- direct follow-up after shipping the same fold on
+  // the compact notch's own mini cava first ("i think it looks better
+  // if we can get the mirror... looks better that way for aesthetic").
+  // bands above still means "how many bars on screen" either way --
+  // feed's own real analyzed band count is halved when this is on
+  // (each real band shown twice, mirrored), not this value itself; see
+  // levelAt()'s own comment for the actual fold.
+  property bool mirror: false
   // A real pixel height, not a Small/Medium/Large preset -- direct
   // follow-up: "the large is still way too small, maybe instead of
   // small medium large we do scroll progress bar slider for height?"
@@ -77,6 +86,7 @@ Item {
         root.style = (p && ["bars", "segments", "wave"].indexOf(p.style) >= 0) ? p.style : "bars"
         root.position = (p && ["top", "bottom", "left", "right"].indexOf(p.position) >= 0) ? p.position : "bottom"
         root.bands = (p && [32, 48, 64, 96].indexOf(p.bands) >= 0) ? p.bands : 64
+        root.mirror = !!(p && p.mirror)
         var t = p && typeof p.thickness === "number" ? Math.round(p.thickness) : 310
         root.thickness = Math.max(root.thicknessMin, Math.min(root.thicknessMax, t))
       } catch (e) {
@@ -163,7 +173,10 @@ Item {
   CavaFeed {
     id: feed
     enabled: root.vizEnabled && !root.fullscreenActive
-    bands: root.bands
+    // Half the real analyzed bands when mirrored -- each one is then
+    // shown TWICE (once per side of the fold, see levelAt() below), so
+    // the ON-SCREEN bar count stays root.bands either way.
+    bands: root.mirror ? Math.max(1, Math.round(root.bands / 2)) : root.bands
   }
 
   PanelWindow {
@@ -270,21 +283,33 @@ Item {
 
     // Bars -- one Rectangle per band, sized off slot/thick/grow.
     // Displayed band count and cava's own config band count are the
-    // SAME value here (root.bands drives both), so there's no "coarse
-    // strip averaging several cava bands into one displayed bar" step
-    // needed -- feed.levels[index] maps 1:1 to a displayed bar.
-    // Smoothing is a plain symmetric Behavior animation; a snappier
-    // asymmetric fast-attack/slow-decay feel is a nice-to-have polish
-    // pass, not core plumbing.
+    // SAME value here (root.bands drives both) UNLESS mirror is on, in
+    // which case feed's own real analyzed count is root.bands/2 and
+    // levelAt() below folds each of the root.bands on-screen positions
+    // back onto it -- see its own comment. Smoothing is a plain
+    // symmetric Behavior animation; a snappier asymmetric fast-attack/
+    // slow-decay feel is a nice-to-have polish pass, not core plumbing.
     Item {
       id: barsData
       anchors.fill: parent
 
       readonly property real sliver: 2
 
+      // i is a DISPLAY position (0..root.bands-1), always -- NOT
+      // necessarily a real index into feed.levels once mirror is on.
+      // root.mirror folds i around the center: position i and position
+      // (root.bands-1-i) both read the SAME real band, its distance
+      // from whichever edge is nearer -- 0 at either edge (feed's own
+      // band 0, bass), root.bands/2-1 at the two innermost positions
+      // either side of center (feed's own highest band, treble). Direct
+      // request, after shipping the same fold on the compact notch's
+      // own mini cava first: "i think it looks better if we can get the
+      // mirror... looks better that way for aesthetic."
       function levelAt(i) {
         var l = feed.levels
-        return (l && i < l.length) ? l[i] : 0
+        if (!l) return 0
+        var idx = root.mirror ? Math.min(i, root.bands - 1 - i) : i
+        return idx < l.length ? l[idx] : 0
       }
 
       // Warm center, cool edges -- direct follow-up after shipping a
@@ -294,10 +319,12 @@ Item {
       // right sweep), lerped between root.warmColor (center) and
       // root.coolColor (edges) instead of a fixed hue ramp. Louder
       // still lightens the result a little, same level-reactive touch
-      // the single-accent version had.
+      // the single-accent version had. root.bands (the on-screen
+      // position count), not feed.bands -- unaffected by mirror halving
+      // the real analyzed count underneath.
       function bandColor(i, level) {
-        var mid = feed.bands / 2
-        var dist = feed.bands > 1 ? Math.abs(i - mid + 0.5) / mid : 0
+        var mid = root.bands / 2
+        var dist = root.bands > 1 ? Math.abs(i - mid + 0.5) / mid : 0
         var c = Qt.rgba(
           root.warmColor.r + (root.coolColor.r - root.warmColor.r) * dist,
           root.warmColor.g + (root.coolColor.g - root.warmColor.g) * dist,
@@ -317,19 +344,19 @@ Item {
       // different axes, both landing near the strip's own ends.
       // 1.0 for the whole middle bulk, ramping down to 0 exactly at
       // the first/last band; a fixed band count rather than a fraction
-      // of feed.bands so the taper reads the same "last few bars"
+      // of root.bands so the taper reads the same "last few bars"
       // width regardless of how many bands are on screen.
       readonly property int edgeFadeBands: 6
 
       function edgeFade(i) {
-        var d = Math.min(i, feed.bands - 1 - i)
+        var d = Math.min(i, root.bands - 1 - i)
         return Math.max(0, Math.min(1, d / barsData.edgeFadeBands))
       }
 
       Repeater {
         // Skipped entirely for Wave -- that style draws one continuous
         // Canvas curve below instead of per-band delegates.
-        model: root.style === "wave" ? 0 : feed.bands
+        model: root.style === "wave" ? 0 : root.bands
 
         // Per-band container, sized to the FULL potential growth range
         // (maxLen) always -- not just the current level's worth, the
@@ -344,7 +371,7 @@ Item {
           id: bandItem
           required property int index
           readonly property real level: parent.levelAt(index)
-          readonly property real slot: (root.barsHoriz ? parent.height : parent.width) / Math.max(1, feed.bands)
+          readonly property real slot: (root.barsHoriz ? parent.height : parent.width) / Math.max(1, root.bands)
           // 0.68 of the slot, not a fixed few-pixel cap -- direct live
           // report ("the gaps between the bar is alot, it looks like
           // baby tooth"). A fixed pixel cap made bars look fine at
@@ -507,18 +534,20 @@ Item {
         }
 
         function tick() {
-          var target = feed.levels
-          var n = feed.bands
+          var n = root.bands
           var cur = waveCanvas.displayLevels
           if (!cur || cur.length !== n) {
             cur = []
-            for (var z = 0; z < n; z++) cur.push(target && target[z] !== undefined ? target[z] : 0)
+            for (var z = 0; z < n; z++) cur.push(barsData.levelAt(z))
           }
 
           var changed = false
           var isSettled = true
           for (var i = 0; i < n; i++) {
-            var t = (target && target[i] !== undefined) ? target[i] : 0
+            // Same barsData.levelAt() Bars/Segments read through --
+            // folds through the mirror when root.mirror is on, instead
+            // of duplicating that logic here.
+            var t = barsData.levelAt(i)
             // 0.3 per 16ms tick -- ~90% converged toward a newly
             // arrived target within ~6 ticks (about 100ms), close to
             // the same 90ms feel Bars' own Behavior already uses.
@@ -564,7 +593,7 @@ Item {
         onPaint: {
           var ctx = getContext("2d")
           ctx.reset()
-          var n = feed.bands
+          var n = root.bands
           if (n < 2) return
 
           var pts = []

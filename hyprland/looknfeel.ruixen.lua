@@ -74,16 +74,42 @@ end
 
 local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
 
--- Glass (Frosted/Transparent) -- direct request, after checking a
--- reference theme's own window-look hook for how its blur read
--- noticeably clearer: "im thinking of making that a setting in
--- profile between frosted and transparent." Same plain-text-file
--- convention as spacing/animation profiles above (ruixen.launcher's
--- own Settings Profile page writes it). Frosted is this file's own
--- existing values, unchanged; Transparent is a real, working
--- configuration confirmed to read noticeably clearer (inactive_opacity
--- 0.75, blur passes 2), not guessed. This file and looknfeel.square.lua
--- both read the same file, same as spacing/animation profiles above.
+-- Glass (Frosted/Transparent/Vibrant/Solid) -- direct request, after
+-- checking a reference theme's own window-look hook for how its blur
+-- read noticeably clearer: "im thinking of making that a setting in
+-- profile between frosted and transparent." Vibrant/Solid are a
+-- direct follow-up ("are there any other design other than these
+-- two... anything other than like actual liquid glass with
+-- hyprglass?") -- both stay entirely inside Hyprland's own native
+-- decoration options, no compositor plugin (real liquid-glass
+-- refraction/chromatic aberration is a genuinely different mechanism,
+-- see the hyprglass investigation this profile deliberately doesn't
+-- attempt). Same plain-text-file convention as spacing/animation
+-- profiles above (ruixen.launcher's own Settings Profile page writes
+-- it). This file and looknfeel.square.lua both read the same file,
+-- same as spacing/animation profiles above.
+--
+-- Frosted is this file's own original values, unchanged. Transparent
+-- is a real, working configuration confirmed to read noticeably
+-- clearer (inactive_opacity 0.75, blur passes 2). Vibrant keeps
+-- Frosted's own opacity/blur strength but boosts blur.vibrancy/
+-- vibrancy_darkness -- a different FLAVOR of glass (more color/
+-- contrast in the blur itself) rather than more or less transparent;
+-- 0.4/0.2 is a moderate step up from Hyprland's own stock default
+-- (0.1696/0), tried live via `hyprctl eval` first rather than guessed
+-- outright. Solid disables blur entirely and pushes both opacities to
+-- 1.0 -- no see-through at all, and (unlike the other three) the
+-- cheapest option on this machine's own integrated GPU, since blur is
+-- the actual expensive part.
+--
+-- vibrancy/vibrancy_darkness are set explicitly for EVERY profile
+-- (never omitted), including the two that don't otherwise touch them
+-- -- `hl.config()` only specifies what's IN the table it's given, so
+-- leaving a key out risks it staying "sticky" at whatever a
+-- PREVIOUSLY active profile last set, rather than the value this
+-- profile actually wants. Same reasoning for active_opacity, freed
+-- from its old flat 0.98 constant now that Solid needs a different
+-- value than the other three.
 local function readGlassProfile()
   local path = (os.getenv("HOME") or "") .. "/.local/state/ruixen/glass-profile"
   local f = io.open(path, "r")
@@ -91,14 +117,19 @@ local function readGlassProfile()
   local line = f:read("*l") or "frosted"
   f:close()
   line = line:gsub("%s+", "")
-  if line == "transparent" then return line end
+  if line == "transparent" or line == "vibrant" or line == "solid" then return line end
   return "frosted"
 end
 
 local ruixenGlassProfile = readGlassProfile()
-local ruixenInactiveOpacity = ruixenGlassProfile == "transparent" and 0.75 or 0.94
+local ruixenActiveOpacity = ruixenGlassProfile == "solid" and 1.0 or 0.98
+local ruixenInactiveOpacity = ruixenGlassProfile == "solid" and 1.0
+  or (ruixenGlassProfile == "transparent" and 0.75 or 0.94)
+local ruixenBlurEnabled = ruixenGlassProfile ~= "solid"
 local ruixenBlurSize = ruixenGlassProfile == "transparent" and 4 or 7
 local ruixenBlurPasses = ruixenGlassProfile == "transparent" and 2 or 3
+local ruixenBlurVibrancy = ruixenGlassProfile == "vibrant" and 0.4 or 0.1696
+local ruixenBlurVibrancyDarkness = ruixenGlassProfile == "vibrant" and 0.2 or 0.0
 
 hl.config({
   general = {
@@ -123,10 +154,11 @@ hl.config({
     -- confirmed directly (`hyprctl getoption general:active_opacity`
     -- returned "no such option") after an initial wrong placement.
     --
-    -- inactive_opacity is now Glass-profile-driven (ruixenGlassProfile
-    -- above) -- 0.94 here under Frosted, unchanged from the original
-    -- cachyos value; 0.75 under Transparent.
-    active_opacity = 0.98,
+    -- active_opacity/inactive_opacity are now Glass-profile-driven
+    -- (ruixenGlassProfile above) -- 0.98/0.94 here under Frosted/
+    -- Vibrant, unchanged from the original cachyos value; 0.98/0.75
+    -- under Transparent; 1.0/1.0 under Solid (no see-through at all).
+    active_opacity = ruixenActiveOpacity,
     inactive_opacity = ruixenInactiveOpacity,
 
     -- Window blur -- lets transparent surfaces (e.g. Kitty's
@@ -143,14 +175,24 @@ hl.config({
     -- per-layer-rule noise override), so this also smooths Kitty's own
     -- background blur -- a net improvement there too, not a tradeoff.
     --
-    -- size/passes are also Glass-profile-driven now -- 7/3 here under
-    -- Frosted (unchanged), 4/2 under Transparent (fewer passes means
-    -- less diffusion, reading clearer/crisper rather than smoothed).
+    -- enabled/size/passes/vibrancy are also Glass-profile-driven now.
+    -- enabled is false only under Solid -- the rest of this table is
+    -- irrelevant once blur itself is off, but every field still gets
+    -- a real value regardless (see this profile block's own header on
+    -- why nothing here is ever left to a "sticky" previous value).
+    -- size/passes: 7/3 under Frosted/Vibrant (unchanged), 4/2 under
+    -- Transparent (fewer passes means less diffusion, reading clearer/
+    -- crisper rather than smoothed). vibrancy/vibrancy_darkness: only
+    -- Vibrant moves off Hyprland's own stock default (0.1696/0) --
+    -- 0.4/0.2 boosts color/contrast inside the blur itself, a
+    -- different flavor of glass rather than more or less transparent.
     blur = {
-      enabled = true,
+      enabled = ruixenBlurEnabled,
       size = ruixenBlurSize,
       passes = ruixenBlurPasses,
       noise = 0.01,
+      vibrancy = ruixenBlurVibrancy,
+      vibrancy_darkness = ruixenBlurVibrancyDarkness,
     },
 
     -- Direct request ("i feel like this design could do drop shadow

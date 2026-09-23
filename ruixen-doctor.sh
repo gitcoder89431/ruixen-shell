@@ -122,6 +122,61 @@ else
 fi
 printf '\n'
 
+# --- Cava desktop visualizer -- same "many possible causes, tedious to
+# untangle over chat" shape as the wallpaper section above, for a
+# feature with its own distinct failure modes, none of which are a
+# Service-file-wide crash this time (CavaFeed.qml has no risky
+# top-level import like Service.qml's own QtMultimedia one -- it's
+# plain QtQuick + Quickshell.Io, both guaranteed present). Instead:
+# cava's own pipewire input is the only backend that works here
+# (confirmed directly, see CavaFeed.qml's own comment -- the pulse
+# backend can't connect even with pipewire-pulse up), the overlay
+# deliberately goes invisible while any window is fullscreen
+# (Overlay.qml's own fullscreenActive gate -- easy to mistake for "it's
+# broken" if you're testing from inside a fullscreen video/game), and
+# CavaFeed.qml already latches cavaAvailable false the instant a spawn
+# confirms the binary is missing (its own exit code 42) rather than
+# retrying forever. So "settings say enabled but nothing is showing"
+# has several genuinely different honest explanations -- worth telling
+# them apart here instead of guessing back and forth over chat.
+printf -- '-- Cava desktop visualizer --\n'
+if command -v cava >/dev/null 2>&1; then
+  printf 'cava: installed\n'
+else
+  printf 'cava: NOT INSTALLED -- the overlay just stays flat/invisible by design, no error anywhere -- pacman -S cava\n'
+fi
+if pgrep -x pipewire >/dev/null 2>&1; then
+  printf 'pipewire: running\n'
+else
+  printf 'pipewire: NOT RUNNING -- cava only has a pipewire input path here, no pulse fallback, so it would have nothing to analyze even with cava itself installed\n'
+fi
+
+cava_state="$state_dir/cava-visualizer.json"
+if [[ -f "$cava_state" ]] && jq empty "$cava_state" >/dev/null 2>&1; then
+  enabled="$(jq -r '.enabled | tostring' "$cava_state" 2>/dev/null || echo "?")"
+  style="$(jq -r '.style // "?"' "$cava_state" 2>/dev/null || echo "?")"
+  position="$(jq -r '.position // "?"' "$cava_state" 2>/dev/null || echo "?")"
+  bands="$(jq -r '.bands // "?"' "$cava_state" 2>/dev/null || echo "?")"
+  mirror="$(jq -r '.mirror | tostring' "$cava_state" 2>/dev/null || echo "?")"
+  printf 'settings: enabled=%s style=%s position=%s bands=%s mirror=%s\n' "$enabled" "$style" "$position" "$bands" "$mirror"
+
+  live_running=0
+  pgrep -x cava >/dev/null 2>&1 && live_running=1
+  if [[ "$enabled" == "true" && "$live_running" -eq 0 ]]; then
+    printf 'MISMATCH: settings say enabled, but no cava process is running right now -- check the cava/pipewire lines above, or a fullscreen window may simply be active (the overlay intentionally hides for one, see the note below)\n'
+  elif [[ "$enabled" == "false" && "$live_running" -eq 1 ]]; then
+    printf 'NOTE: a cava process is running but settings say disabled -- likely mid-shutdown (Quickshell SIGTERMs it on toggle-off, briefly still exiting) or a leftover from a prior crash\n'
+  fi
+else
+  printf 'settings: no state file found (visualizer never enabled here, or this predates the feature)\n'
+fi
+
+if command -v hyprctl >/dev/null 2>&1; then
+  fullscreen="$(hyprctl activewindow -j 2>/dev/null | jq -r 'if .fullscreen and .fullscreen != 0 then "yes" else "no" end' 2>/dev/null || echo "?")"
+  [[ "$fullscreen" == "yes" ]] && printf 'note: the active window is currently fullscreen -- the visualizer (and the notch itself) is DESIGNED to hide in this state, so "not showing" right now may be expected, not broken\n'
+fi
+printf '\n'
+
 # --- This checkout ---------------------------------------------------
 printf -- '-- This checkout --\n'
 if [[ -d "$script_dir/.git" ]]; then

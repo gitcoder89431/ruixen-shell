@@ -78,7 +78,41 @@ function allTermsMatch(entry, query) {
   return true
 }
 
-function fuzzyScore(entry, query) {
+// Frecency: a small, bounded ranking boost for entries actually launched
+// (not just searched) often/recently -- direct request: typing "dis"
+// should rank Discord (opened daily) above some rarely-used app that
+// merely matches more literally. Purely additive on top of the tier
+// score below, and only ever applied to entries that already passed
+// allTermsMatch -- it re-ranks real matches, it never manufactures one.
+//
+// Capped well under the ~500+ point gap between this file's own scoring
+// tiers (direct-name-at-0, direct-name-elsewhere, haystack substring,
+// acronym, ...), so a heavily-used app can win a close contest within
+// its own tier (exactly the "dis" case) without a stale, once-launched
+// app leapfrogging a genuinely stronger textual match on some other
+// entry entirely.
+var FRECENCY_COUNT_CAP = 20
+var FRECENCY_MAX_BOOST = 600
+var FRECENCY_DAY_MS = 86400000
+
+function frecencyDecay(ageMs) {
+  if (ageMs <= FRECENCY_DAY_MS) return 1.0
+  if (ageMs <= 7 * FRECENCY_DAY_MS) return 0.7
+  if (ageMs <= 30 * FRECENCY_DAY_MS) return 0.4
+  return 0.15
+}
+
+function frecencyBoost(stat, nowMs) {
+  if (!stat || !stat.count) return 0
+  var count = Math.min(stat.count, FRECENCY_COUNT_CAP)
+  var age = Math.max(0, (nowMs || 0) - (stat.lastUsed || 0))
+  return Math.round((count / FRECENCY_COUNT_CAP) * FRECENCY_MAX_BOOST * frecencyDecay(age))
+}
+
+// frecencyLookup/nowMs are both optional -- a caller that doesn't pass
+// them (every call site before frecency existed) gets the exact same
+// score as before, unchanged.
+function fuzzyScore(entry, query, frecencyLookup, nowMs) {
   var q = String(query || "").trim().toLowerCase()
   if (!q) return 0
   if (!allTermsMatch(entry, q)) return -1
@@ -88,23 +122,28 @@ function fuzzyScore(entry, query) {
   var haystack = entrySearchText(entry)
   var directName = name.indexOf(q)
   var directId = id.indexOf(q)
-  if (directName === 0) return 10000 - name.length
-  if (directId === 0) return 9500 - id.length
-  if (directName > 0) return 8000 - directName * 10 - name.length
-  if (directId > 0) return 7600 - directId * 10 - id.length
+  var base
+  if (directName === 0) base = 10000 - name.length
+  else if (directId === 0) base = 9500 - id.length
+  else if (directName > 0) base = 8000 - directName * 10 - name.length
+  else if (directId > 0) base = 7600 - directId * 10 - id.length
+  else {
+    var hayIndex = haystack.indexOf(q)
+    if (hayIndex >= 0) {
+      base = 6000 - hayIndex
+    } else {
+      var acronym = entryAcronym(entry)
+      var acronymIndex = acronym.indexOf(q)
+      if (acronymIndex === 0) base = 5000 - acronym.length
+      else if (acronymIndex > 0) base = 4600 - acronymIndex * 10 - acronym.length
+      else base = 4000 - name.length
+    }
+  }
 
-  var hayIndex = haystack.indexOf(q)
-  if (hayIndex >= 0) return 6000 - hayIndex
-
-  var acronym = entryAcronym(entry)
-  var acronymIndex = acronym.indexOf(q)
-  if (acronymIndex === 0) return 5000 - acronym.length
-  if (acronymIndex > 0) return 4600 - acronymIndex * 10 - acronym.length
-
-  return 4000 - name.length
+  return base + (frecencyLookup ? frecencyBoost(frecencyLookup(entry), nowMs) : 0)
 }
 
-function sortedEntries(values, query, hiddenCallback) {
+function sortedEntries(values, query, hiddenCallback, frecencyLookup, nowMs) {
   var q = String(query || "").trim()
   var rows = []
 
@@ -114,7 +153,7 @@ function sortedEntries(values, query, hiddenCallback) {
     if (hiddenCallback && hiddenCallback(entry)) continue
     var name = entryName(entry)
     if (!name) continue
-    var score = fuzzyScore(entry, q)
+    var score = fuzzyScore(entry, q, frecencyLookup, nowMs)
     if (score < 0) continue
     rows.push({ entry: entry, score: score, key: entrySortKey(entry), name: name.toLowerCase() })
   }

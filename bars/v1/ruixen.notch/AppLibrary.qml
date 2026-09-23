@@ -69,7 +69,57 @@ Item {
 
   function sortedEntries(query) {
     var values = DesktopEntries.applications.values || []
-    return AppSearch.sortedEntries(values, query, function(entry) { return root.isHiddenEntry(entry) })
+    return AppSearch.sortedEntries(values, query,
+      function(entry) { return root.isHiddenEntry(entry) },
+      function(entry) { return root.frecencyFor(entry) }, Date.now())
+  }
+
+  // Frecency: a small ranking boost for apps actually launched (via
+  // launch() below) often/recently, so "dis" ranks Discord above a
+  // rarely-used app that merely matches more literally -- direct
+  // request. AppSearch.js's own frecencyBoost() does the scoring math;
+  // this is just the read/write/lookup side, same small-JSON-file
+  // convention as every other bit of state under
+  // ~/.local/state/ruixen/. Shared by every AppLibrary.qml copy (this
+  // file is kept byte-identical across all three, see header above),
+  // so a launch from ruixen.notch's dashboard or ruixen.pinnedapps
+  // counts toward the same frecency data the launcher itself ranks by.
+  readonly property string frecencyStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/launcher-frecency.json"
+  property var frecencyStats: ({})
+
+  function frecencyFor(entry) {
+    var id = String((entry && entry.id) || "")
+    return root.frecencyStats[id] || null
+  }
+
+  function loadFrecencyStats(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.frecencyStats = (parsed && typeof parsed === "object") ? parsed : ({})
+    } catch (e) {
+      root.frecencyStats = ({})
+    }
+  }
+
+  function recordLaunch(desktopId) {
+    var id = String(desktopId || "")
+    if (!id) return
+    var stats = Object.assign({}, root.frecencyStats)
+    var prev = stats[id] || { count: 0, lastUsed: 0 }
+    stats[id] = { count: prev.count + 1, lastUsed: Date.now() }
+    root.frecencyStats = stats
+    frecencyFile.setText(JSON.stringify(stats))
+  }
+
+  FileView {
+    id: frecencyFile
+    path: root.frecencyStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadFrecencyStats(text())
+    onLoadFailed: root.loadFrecencyStats("")
   }
 
   function iconSource(icon) {
@@ -93,6 +143,7 @@ Item {
   function launch(desktopId, name) {
     var id = String(desktopId || "")
     if (!id) return
+    root.recordLaunch(id)
     Util.execDetached("uwsm-app -- gtk-launch " + Util.shellQuote(id + ".desktop"))
   }
 

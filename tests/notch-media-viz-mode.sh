@@ -129,5 +129,14 @@ check "the fill starts and closes down to the bottom edge (same baseline bars gr
 check "a brighter stroke is retraced on top of the fill for definition" \
   "$(grep -c 'ctx.strokeStyle = grad' "$overlay_qml")" "1"
 
+# --- edge fade: opacity tapers at the outermost couple of positions -------
+
+check "edgeFade exists, scaled down from the desktop's own fixed 6 to fit displayBars=12" \
+  "$(grep -c 'readonly property int edgeFadeBands: 2' "$overlay_qml")" "1"
+check "each bar's own opacity is driven by edgeFade, not always full-strength" \
+  "$(grep -c 'opacity: cavaMiniSlot.edgeFade(index)' "$overlay_qml")" "1"
+check "the wave gradient is an 8-step ramp (not 3 flat stops), each step scaled by edgeFade too" \
+  "$(grep -c '0.85 \* fade' "$overlay_qml")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

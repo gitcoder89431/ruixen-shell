@@ -1721,6 +1721,24 @@ Item {
                   return Qt.lighter(c, 1 + 0.35 * level)
                 }
 
+                // A subtle opacity taper on the outermost couple of
+                // positions at EITHER edge -- direct follow-up: "the
+                // side of the visualizer edge, its kinda sharp... fade
+                // opacity the edges a bit to soften it up." Same idea
+                // ruixen.cava/Overlay.qml's own edgeFade already uses,
+                // just a much smaller edgeFadeBands -- that file's
+                // fixed 6 is tuned against a strip with 32-96 bands;
+                // applied unscaled here (displayBars is only 12) it
+                // would fade the entire left/right HALVES toward
+                // center, not just the last couple of positions at
+                // each edge.
+                readonly property int edgeFadeBands: 2
+
+                function edgeFade(i) {
+                  var d = Math.min(i, cavaMiniSlot.displayBars - 1 - i)
+                  return Math.max(0, Math.min(1, d / cavaMiniSlot.edgeFadeBands))
+                }
+
                 // Bars/wave, click-toggled (root.toggleCavaMiniStyle,
                 // nowPlayingSlot's own MouseArea.onClicked) -- no
                 // "segments" here, see root.cavaMiniStyle's own comment
@@ -1737,6 +1755,7 @@ Item {
                     x: index * slot + (slot - thick) / 2
                     y: cavaMiniSlot.height - height
                     color: cavaMiniSlot.barColor(index, level)
+                    opacity: cavaMiniSlot.edgeFade(index)
 
                     Behavior on height { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                   }
@@ -1787,10 +1806,26 @@ Item {
                       pts.push(Qt.point(x, y))
                     }
 
+                    // 8-step gradient (not just 3 flat stops), each
+                    // step's own alpha additionally scaled by
+                    // cavaMiniSlot.edgeFade -- same technique
+                    // ruixen.cava/Overlay.qml's own wave gradient
+                    // already uses. Direct follow-up: "the side of the
+                    // visualizer edge, its kinda sharp... fade opacity
+                    // the edges a bit to soften it up." Without this,
+                    // the fill/stroke hit full alpha right at x=0/x=
+                    // width, where the shape's own edge coincides
+                    // exactly with the canvas's own edge -- reading as
+                    // a hard cutoff rather than easing out.
                     var grad = ctx.createLinearGradient(0, 0, width, 0)
-                    grad.addColorStop(0, cavaMiniWave.rgbaStr(root.cavaCoolColor, 0.85))
-                    grad.addColorStop(0.5, cavaMiniWave.rgbaStr(root.cavaWarmColor, 0.85))
-                    grad.addColorStop(1, cavaMiniWave.rgbaStr(root.cavaCoolColor, 0.85))
+                    var steps = 8
+                    for (var s = 0; s <= steps; s++) {
+                      var t = s / steps
+                      var bandIdx = t * (n - 1)
+                      var c = cavaMiniSlot.barColor(bandIdx, 0)
+                      var fade = cavaMiniSlot.edgeFade(bandIdx)
+                      grad.addColorStop(t, cavaMiniWave.rgbaStr(c, 0.85 * fade))
+                    }
 
                     ctx.beginPath()
                     ctx.moveTo(pts[0].x, height)

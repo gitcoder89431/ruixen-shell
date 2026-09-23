@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Dialogs
 
 // Standalone, single-purpose picker -- spawned as a genuinely separate
@@ -28,7 +29,17 @@ import QtQuick.Dialogs
 // capturable stream whenever JOURNAL_STREAM is set -- QT_FORCE_STDERR_
 // LOGGING=1, set by the caller, is what makes this land on a real pipe
 // instead) on accept; nothing on cancel.
-Item {
+//
+// Window { visible: false }, not a plain Item -- direct live report: a
+// blank white window opened alongside the real picker every time.
+// qml6's own runtime auto-creates a default QQuickView/window to host a
+// non-Window root item, since it needs SOMETHING to render a GUI app
+// into -- that auto-created window is what was showing up empty. An
+// explicit, already-invisible Window as the root sidesteps that
+// entirely; FileDialog itself is still a real, separate native/portal
+// window regardless of this one's own visibility.
+Window {
+  visible: false
   FileDialog {
     id: dlg
     title: "Choose Avatar Image"

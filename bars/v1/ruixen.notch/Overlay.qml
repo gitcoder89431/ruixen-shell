@@ -427,11 +427,66 @@ Item {
   // the seeker automatically rather than leaving the pill on a
   // permanently-flat, dead visualizer with no way back except manually
   // scrolling again.
+  //
+  // 6 real bands, mirrored to 12 displayed bars (see cavaMiniSlot's own
+  // mirrorBandAt below) -- direct request: real bass-on-both-edges/
+  // treble-in-the-center, not just a color impression of one. Fewer
+  // real bands than a plain 1:1 mapping would need for the same visual
+  // bar count also means each bar is wider at this tiny 140px scale --
+  // direct follow-up ("we can decrease the amount of bars and make
+  // them wider if that helps").
+  readonly property int cavaMirrorBands: 6
   CavaFeed {
     id: compactCavaFeed
     enabled: root.hasMedia && root.mediaVizMode === "cava"
-    bands: 20
+    bands: root.cavaMirrorBands
     onCavaAvailableChanged: if (!cavaAvailable) root.setMediaVizMode("seeker")
+  }
+
+  // Warm/cool theme colors for the mini cava bars -- same live mechanism
+  // ruixen.cava/Overlay.qml's own warmColor/coolColor already uses
+  // (this repo's own established pattern, not rebuilt from scratch):
+  // reads the real active theme's "red"/"blue" swatches, Color.accent
+  // as the fallback when either is missing. See that file's own
+  // FileView comment for the theme-switch atomic delete-then-recreate
+  // race this same onFileChanged/onLoadFailed pairing already guards
+  // against.
+  property color cavaWarmColor: Color.accent
+  property color cavaCoolColor: Color.accent
+
+  function parseCavaThemeColor(raw, key, fallback) {
+    var m = String(raw || "").match(new RegExp("^\\s*" + key + "\\s*=\\s*[\"']?(#[0-9A-Fa-f]{6})", "m"))
+    return m ? m[1] : fallback
+  }
+
+  FileView {
+    id: cavaThemeColorsFile
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/colors.toml"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      var t = text()
+      root.cavaWarmColor = root.parseCavaThemeColor(t, "red", Color.accent)
+      root.cavaCoolColor = root.parseCavaThemeColor(t, "blue", Color.accent)
+    }
+    // Same one-shot retry ruixen.cava/Overlay.qml's own themeColorsFile
+    // already uses -- a theme switch replaces this file via an atomic
+    // delete-then-recreate, which can (rapid switching especially) land
+    // a reload() exactly in the gap where the path doesn't exist yet
+    // with no further file event ever arriving to retry it. See that
+    // file's own comment for the full direct-repro history.
+    onLoadFailed: {
+      root.cavaWarmColor = Color.accent
+      root.cavaCoolColor = Color.accent
+      cavaThemeColorsRetryTimer.restart()
+    }
+  }
+
+  Timer {
+    id: cavaThemeColorsRetryTimer
+    interval: 200
+    onTriggered: cavaThemeColorsFile.reload()
   }
   // title/artist/album/artUrl/hasMedia are now plain properties set by
   // applyMediaState() above (fed by ruixen.media's own state file) --
@@ -1597,32 +1652,64 @@ Item {
               }
               }
 
-              // Mini cava visualizer -- same 20-band feed a fresh
-              // CavaFeed instance drives (kept separate from
-              // ruixen.cava's own edge-docked overlay: a different
-              // plugin entirely, plugin folders can't share state, and
-              // this one only needs to run while actually visible).
-              // Fixed horizontal/bottom-grow layout, unlike the full
-              // overlay's own configurable orientation -- this slot is
-              // always exactly 140x20, so that generality buys nothing
-              // here.
+              // Mini cava visualizer -- a fresh, smaller CavaFeed
+              // instance (kept separate from ruixen.cava's own edge-
+              // docked overlay: a different plugin entirely, plugin
+              // folders can't share state, and this one only needs to
+              // run while actually visible). Fixed horizontal/bottom-
+              // grow layout, unlike the full overlay's own configurable
+              // orientation -- this slot is always exactly 140x20, so
+              // that generality buys nothing here.
+              //
+              // Mirrored, not a plain 1:1 sweep -- direct request:
+              // real bass on both edges, treble in the center, "looks
+              // better that way for aesthetic." displayBars is double
+              // cavaMirrorBands (root, see its own comment): position i
+              // and position (displayBars-1-i) both read the SAME real
+              // band, folded around the center. mirrorBandAt(i) is
+              // exactly "distance from the nearest edge" -- 0 at either
+              // edge (band 0, bass), displayBars/2-1 at the two
+              // innermost positions either side of center (the highest
+              // analyzed band, treble), by construction of the fold.
               Item {
                 id: cavaMiniSlot
                 anchors.fill: parent
                 visible: root.hasMedia && root.mediaVizMode === "cava"
 
+                readonly property int displayBars: compactCavaFeed.bands * 2
+
+                function mirrorBandAt(i) {
+                  return Math.min(i, cavaMiniSlot.displayBars - 1 - i)
+                }
+
+                // Warm center, cool edges -- same formula ruixen.cava/
+                // Overlay.qml's own bandColor() already uses, applied
+                // to the DISPLAY index/count here (mirroring already
+                // makes display-index distance-from-center behave the
+                // same way band-index distance-from-center does there).
+                function barColor(i, level) {
+                  var mid = cavaMiniSlot.displayBars / 2
+                  var dist = cavaMiniSlot.displayBars > 1 ? Math.abs(i - mid + 0.5) / mid : 0
+                  var c = Qt.rgba(
+                    root.cavaWarmColor.r + (root.cavaCoolColor.r - root.cavaWarmColor.r) * dist,
+                    root.cavaWarmColor.g + (root.cavaCoolColor.g - root.cavaWarmColor.g) * dist,
+                    root.cavaWarmColor.b + (root.cavaCoolColor.b - root.cavaWarmColor.b) * dist,
+                    1)
+                  return Qt.lighter(c, 1 + 0.35 * level)
+                }
+
                 Repeater {
-                  model: compactCavaFeed.bands
+                  model: cavaMiniSlot.displayBars
                   Rectangle {
-                    readonly property real slot: cavaMiniSlot.width / compactCavaFeed.bands
+                    readonly property real slot: cavaMiniSlot.width / cavaMiniSlot.displayBars
                     readonly property real thick: Math.max(1, slot - 2)
-                    readonly property real level: compactCavaFeed.levels[index] || 0
+                    readonly property real level: compactCavaFeed.levels[cavaMiniSlot.mirrorBandAt(index)] || 0
                     width: thick
                     height: Math.max(2, level * cavaMiniSlot.height)
                     radius: thick / 2
                     x: index * slot + (slot - thick) / 2
                     y: cavaMiniSlot.height - height
-                    color: root.accent
+                    color: cavaMiniSlot.barColor(index, level)
 
                     Behavior on height { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                   }

@@ -1512,29 +1512,61 @@ Item {
         // NOT plain rounded corners here -- they're RoundCorner's own
         // concave arcs, reused verbatim (same center/radius/angle
         // convention) rather than approximated.
+        // cs is NEVER reduced by inset -- direct live correction after
+        // the first version warped the bottom corners into a "mustache"
+        // (a real live report, not a guess): the flank is a CONCAVE arc,
+        // and shrinking a concave arc's own radius by inset (copying the
+        // convex-corner technique below) makes the straight-edge
+        // junction point (originally left+cs) cancel out to a FIXED
+        // x-coordinate for every ring, instead of actually shifting
+        // inward. A concave arc's true inward erosion keeps the SAME
+        // radius and shifts the CENTER by (inset, inset) instead --
+        // verified by hand: center (inset, cs+inset), radius cs, angle
+        // 1.5π gives exactly (inset, inset) [the true inset top-left
+        // corner] and angle 2π gives exactly (cs+inset, cs+inset) [where
+        // the straight edge genuinely begins, correctly shifted]. br
+        // (the CONVEX bottom corners) keeps the original shrink-by-inset
+        // formula -- that one was never the bug, a convex corner's
+        // erosion really does shrink its radius, same technique already
+        // proven on ruixen.bar's own frame corners.
         function notchOutline(ctx, inset) {
-          var cs = Math.max(0, notchOuter.cornerSize - inset)
-          var br = Math.max(0, bottomRadius - inset)
+          var cs = notchOuter.cornerSize
           var left = inset, top = inset
           var right = width - inset, bottom = height - inset
+          var edgeL = cs + inset
+          var edgeR = right - cs
+          var flankY = cs + inset
+          // Clamped against the actual available space, not just
+          // bottomRadius - inset -- direct live report, the compact
+          // (collapsed) notch specifically: cornerSize (28) + bottomRadius
+          // (28) = 56 is bigger than the collapsed height (44) itself, so
+          // the flank and the bottom corner don't actually fit together
+          // with any straight run between them at all. Unclamped, the
+          // straight-side lineTo below went BACKWARD (bottom-br above
+          // flankY), producing exactly the inverted/degenerate path this
+          // was reported as: "clipping over the edges... nothing on the
+          // curve... like a mustache." Qt's own Rectangle radius clamps
+          // the same way when a radius would exceed its available edge --
+          // this hand-rolled path needs the same guard explicitly.
+          var br = Math.max(0, Math.min(bottomRadius - inset, bottom - flankY, (edgeR - edgeL) / 2))
           ctx.beginPath()
           ctx.moveTo(left, top)
           // Left flank: concave arc from the true top-left corner down
           // to where it meets the center block's own left edge --
-          // identical center/radius/angles to leftFlank's own
-          // RoundCorner (corner: 1) above, just placed at this inset.
-          ctx.arc(left, top + cs, cs, 1.5 * Math.PI, 2 * Math.PI)
-          ctx.lineTo(left + cs, bottom - br)
+          // identical radius/angles to leftFlank's own RoundCorner
+          // (corner: 1) above, center shifted by (inset, inset).
+          ctx.arc(left, flankY, cs, 1.5 * Math.PI, 2 * Math.PI)
+          ctx.lineTo(edgeL, bottom - br)
           // Bottom-left: a plain convex rounded corner, same technique
           // as ruixen.bar's own frame corners.
-          ctx.quadraticCurveTo(left + cs, bottom, left + cs + br, bottom)
-          ctx.lineTo(right - cs - br, bottom)
+          ctx.quadraticCurveTo(edgeL, bottom, edgeL + br, bottom)
+          ctx.lineTo(edgeR - br, bottom)
           // Bottom-right: mirrors bottom-left.
-          ctx.quadraticCurveTo(right - cs, bottom, right - cs, bottom - br)
-          ctx.lineTo(right - cs, top + cs)
+          ctx.quadraticCurveTo(edgeR, bottom, edgeR, bottom - br)
+          ctx.lineTo(edgeR, flankY)
           // Right flank: mirrors the left flank -- identical to
           // rightFlank's own RoundCorner (corner: 0) above.
-          ctx.arc(right, top + cs, cs, Math.PI, 1.5 * Math.PI)
+          ctx.arc(right, flankY, cs, Math.PI, 1.5 * Math.PI)
           // closePath draws straight back to (left, top) -- both ends
           // sit at y = top, so this is exactly the flat top edge, not
           // an approximation of it.
@@ -1556,18 +1588,25 @@ Item {
         // up the right side. notchOutline (the full closed shape) is
         // still used for the clip below, unchanged -- only the stroked
         // geometry changes.
+        // Same edgeL/edgeR/flankY fix as notchOutline above -- cs stays
+        // constant (the concave flank's own radius never shrinks), only
+        // the straight-edge x-position (cs + inset) and the convex
+        // bottom-corner radius (br) actually move/shrink with inset.
         function notchShadowPath(ctx, inset) {
-          var cs = Math.max(0, notchOuter.cornerSize - inset)
-          var br = Math.max(0, bottomRadius - inset)
-          var left = inset, top = inset
+          var cs = notchOuter.cornerSize
           var right = width - inset, bottom = height - inset
+          var edgeL = cs + inset
+          var edgeR = right - cs
+          var flankY = cs + inset
+          // Same clamp as notchOutline above -- see its own comment.
+          var br = Math.max(0, Math.min(bottomRadius - inset, bottom - flankY, (edgeR - edgeL) / 2))
           ctx.beginPath()
-          ctx.moveTo(left + cs, top + cs)
-          ctx.lineTo(left + cs, bottom - br)
-          ctx.quadraticCurveTo(left + cs, bottom, left + cs + br, bottom)
-          ctx.lineTo(right - cs - br, bottom)
-          ctx.quadraticCurveTo(right - cs, bottom, right - cs, bottom - br)
-          ctx.lineTo(right - cs, top + cs)
+          ctx.moveTo(edgeL, flankY)
+          ctx.lineTo(edgeL, bottom - br)
+          ctx.quadraticCurveTo(edgeL, bottom, edgeL + br, bottom)
+          ctx.lineTo(edgeR - br, bottom)
+          ctx.quadraticCurveTo(edgeR, bottom, edgeR, bottom - br)
+          ctx.lineTo(edgeR, flankY)
         }
 
         onPaint: {

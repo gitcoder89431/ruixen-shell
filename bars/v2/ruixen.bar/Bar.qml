@@ -1722,18 +1722,25 @@ Item {
         function onDockedChanged() { frameShadowCanvas.requestPaint() }
       }
 
-      function roundedRect(ctx, x, y, w, h, r) {
-        const rr = Math.max(0, Math.min(r, w / 2, h / 2))
+      // Independent per-corner radii, not one uniform r like frameCanvas's
+      // own helper -- needed so the top-left/top-right corners can be
+      // squared off in THIS canvas specifically (see shadow-corner
+      // exclusion comment in onPaint below) without touching frameCanvas's
+      // own hole-punch geometry, which stays uniformly rounded and has
+      // never needed this.
+      function roundedRectCorners(ctx, x, y, w, h, rTop, rBottom) {
+        const rt = Math.max(0, Math.min(rTop, w / 2, h / 2))
+        const rb = Math.max(0, Math.min(rBottom, w / 2, h / 2))
         ctx.beginPath()
-        ctx.moveTo(x + rr, y)
-        ctx.lineTo(x + w - rr, y)
-        ctx.quadraticCurveTo(x + w, y, x + w, y + rr)
-        ctx.lineTo(x + w, y + h - rr)
-        ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h)
-        ctx.lineTo(x + rr, y + h)
-        ctx.quadraticCurveTo(x, y + h, x, y + h - rr)
-        ctx.lineTo(x, y + rr)
-        ctx.quadraticCurveTo(x, y, x + rr, y)
+        ctx.moveTo(x + rt, y)
+        ctx.lineTo(x + w - rt, y)
+        ctx.quadraticCurveTo(x + w, y, x + w, y + rt)
+        ctx.lineTo(x + w, y + h - rb)
+        ctx.quadraticCurveTo(x + w, y + h, x + w - rb, y + h)
+        ctx.lineTo(x + rb, y + h)
+        ctx.quadraticCurveTo(x, y + h, x, y + h - rb)
+        ctx.lineTo(x, y + rt)
+        ctx.quadraticCurveTo(x, y, x + rt, y)
         ctx.closePath()
       }
 
@@ -1749,10 +1756,33 @@ Item {
         const ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
         const frameCornerRadius = (!root.docked && root.sharpCorners) ? 0 : 24
+        // Direct live follow-up, top corners only, bottom confirmed
+        // clean: "theres still some specs of dots left on the top right
+        // and left corner". Root cause isn't this canvas's own
+        // antialiasing (already fixed) -- it's that BarPanel's own
+        // docked wing pieces (leftShoulderWing/leftFrameHemWing and
+        // their right-side mirrors, a SEPARATE window layered on top)
+        // already fully cover this exact corner when docked, and only
+        // rightShoulderWing ever got the small sibling-overlap insurance
+        // this repo already uses elsewhere for exactly this class of
+        // gap (#36-era fix) -- leftShoulderWing/both hem-wings never
+        // did. That pre-existing sub-pixel seam was harmless before
+        // (flat frame color peeking through matched the wing's own flat
+        // black almost exactly) but this shadow's own gradient now gives
+        // it something to visibly leak as a fleck. Rather than touch
+        // BarPanel's own wing geometry (a different, more fragile fix,
+        // deliberately deferred earlier this same session pending an
+        // actual report), squaring off just THIS canvas's own top
+        // corners when docked removes the shadow from the only place it
+        // could ever leak into that seam -- the open middle of the top
+        // edge (unclaimed by any wing) keeps its shadow exactly as
+        // before, and bottom corners (nothing overlapping them ever)
+        // are untouched.
+        const topRadius = (root.docked && root.position === "top") ? 0 : frameCornerRadius
         ctx.save()
-        roundedRect(ctx, root.frameInset, root.frameInset,
+        roundedRectCorners(ctx, root.frameInset, root.frameInset,
           width - root.frameInset * 2, height - root.frameInset * 2,
-          frameCornerRadius)
+          topRadius, frameCornerRadius)
         ctx.clip()
         ctx.lineWidth = 1
         for (var i = 0; i < shadowReachPx; i++) {
@@ -1760,9 +1790,9 @@ Item {
           var alpha = 0.8 * t * t
           if (alpha < 0.004) continue
           ctx.strokeStyle = Qt.rgba(0, 0, 0, alpha)
-          roundedRect(ctx, root.frameInset + i, root.frameInset + i,
+          roundedRectCorners(ctx, root.frameInset + i, root.frameInset + i,
             width - (root.frameInset + i) * 2, height - (root.frameInset + i) * 2,
-            frameCornerRadius - i)
+            Math.max(0, topRadius - i), Math.max(0, frameCornerRadius - i))
           ctx.stroke()
         }
         ctx.restore()

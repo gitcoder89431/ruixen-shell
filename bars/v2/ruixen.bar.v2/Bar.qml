@@ -1771,16 +1771,37 @@ Item {
     // band is supposed to stay transparent, same as v1 always had it
     // ("almost entirely transparent") -- painting it solid turned it
     // into a real, visible black block sitting on top of wherever a
-    // tiled window is supposed to start. This only needs to cover from
-    // this window's own top (BarPanel-local y=0, which starts
-    // root.seamOverlap px above the frame's real edge) down to a little
-    // past where the frame's own edge should actually be -- root.
-    // frameInset + root.seamOverlap gives that with a small safety
-    // margin, nowhere close to the real pill row further down.
+    // tiled window is supposed to start.
+    //
+    // height, corrected: a second direct live report ("i definitely
+    // notice a difference, just cant pinpoint what") turned out to be
+    // this -- root.frameInset + root.seamOverlap (9) double-counted
+    // frameInset. This window's own top (BarPanel-local y=0) is ALREADY
+    // at screen y = root.contentTopInset - root.seamOverlap, which for
+    // docked mode (contentTopInset === frameInset) is frameInset -
+    // seamOverlap = 3, not 0 -- the seam-cover only needs to reach a
+    // little PAST FrameWindow's real edge (screen y = frameInset) from
+    // THAT starting point, i.e. seamOverlap px plus a couple more for
+    // safety margin, not frameInset's own full value added on top again.
+    // The old (wrong) height of 9 made the real visible top border
+    // roughly twice as thick on screen (~12px) as v1's own plain 6px --
+    // exactly the "something's different, can't place it" report.
+    //
+    // +1, not +2 -- the only real uncertainty this buffer needs to cover
+    // is BarPanel's OWN margin.top possibly rounding to a physical pixel
+    // slightly different from intended (the same class of cross-surface
+    // rounding this whole v2 effort exists to route around). FrameWindow's
+    // own edge is a fixed integer value rendered with antialiasing:false
+    // in a single Canvas pass, not independently uncertain on its own --
+    // there's nothing on that side for a bigger buffer to protect against.
+    // A 1px margin is already more than that rounding could plausibly
+    // need, measured live: this puts the real on-screen border at 7px
+    // total (was 6 in v1, was a broken ~12-13 before this fix) --
+    // negligible rather than "definitely something different".
     Rectangle {
       visible: root.docked && root.position === "top"
       anchors { top: parent.top; left: parent.left; right: parent.right }
-      height: root.frameInset + root.seamOverlap
+      height: root.seamOverlap + 1
       color: root.frameColor
     }
 

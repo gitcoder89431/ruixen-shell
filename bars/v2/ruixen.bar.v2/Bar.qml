@@ -552,10 +552,21 @@ Item {
   // where FrameWindow's own edge is, so the two surfaces' own edges
   // never need to agree on the exact same physical pixel to avoid a
   // visible seam -- see BarPanel's own comment for the full mechanism.
-  // Top-position docked mode only (see BarPanel's own seamOverlap
-  // comment for why not left/right too). Lives on root, not just inside
-  // BarPanel, so screenMarginTop below can account for it too.
-  readonly property int seamOverlap: (docked && position === "top") ? 3 : 0
+  //
+  // A plain constant now, NOT docked/position-conditional -- direct live
+  // report: BarPanel's own real height came out different between docked
+  // (61) and floating (58) modes, breaking v1's own explicit "same floor
+  // in both modes" design (see visibleBarHeight's own comment) and
+  // visibly affecting spacing around the Notch. Root cause: implicitHeight
+  // below added this value unconditionally, but the OLD conditional
+  // property evaluated to 0 in floating mode -- so only docked grew.
+  // Every actual USE of the overlap (margins.top, exclusiveZone,
+  // contentOffset's own topMargin) now carries its own explicit
+  // docked-and-top-position gate at the call site instead of relying on
+  // this property doing that gating internally, specifically so
+  // implicitHeight CAN apply the fixed 3px in both modes uniformly
+  // without needing a separate, second constant.
+  readonly property int seamOverlap: 3
 
   // BarPanel's own current REAL on-screen margin -- contentTopInset
   // minus whatever seam-overlap it's currently painting. Backs this out
@@ -1688,15 +1699,17 @@ Item {
     // it could ever show through as a wallpaper sliver.
     visible: !remapGuard.remapping
     exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    // + root.seamOverlap -- margin.top below gives up exactly that many
-    // pixels for the insurance-overlap trick, so exclusiveZone picks
-    // them back up here. Total real-window reservation (margin.top +
-    // exclusiveZone) stays the true v1 value (44) either way -- direct
-    // live report, again: the first pass at this overlap trick forgot
-    // this compensation and the reserved gap came out seamOverlap px
-    // too shallow, same class of miss as the ReservationPanel one
-    // before it.
-    exclusiveZone: root.docked ? (44 - root.frameInset + root.seamOverlap) : root.notchClearance
+    // + seamOverlap, top position only -- margin.top below only gives up
+    // those pixels when position === "top" (see its own comment), so
+    // this only needs to pick them back up in that same case. Total
+    // real-window reservation (margin.top + exclusiveZone) stays the
+    // true v1 value (44) either way -- direct live report, again: the
+    // first pass at this overlap trick forgot this compensation and the
+    // reserved gap came out seamOverlap px too shallow, same class of
+    // miss as the ReservationPanel one before it.
+    exclusiveZone: root.docked
+      ? (44 - root.frameInset + (root.position === "top" ? root.seamOverlap : 0))
+      : root.notchClearance
 
     ScreenMoveRemap {
       id: remapGuard
@@ -1704,7 +1717,7 @@ Item {
     }
 
     margins {
-      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? root.contentTopInset - root.seamOverlap : 0)
+      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? root.contentTopInset - (root.docked ? root.seamOverlap : 0) : 0)
       bottom: root.barHidden && root.position === "bottom" ? -root.barSize : 0
       left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
       right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
@@ -1781,7 +1794,7 @@ Item {
     Item {
       id: contentOffset
       anchors.fill: parent
-      anchors.topMargin: root.vertical ? 0 : root.seamOverlap
+      anchors.topMargin: (!root.vertical && root.docked && root.position === "top") ? root.seamOverlap : 0
 
       Loader {
         anchors.fill: parent

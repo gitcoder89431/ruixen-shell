@@ -1541,6 +1541,35 @@ Item {
           ctx.closePath()
         }
 
+        // The actual shadow only ever strokes THIS path, not the full
+        // notchOutline above -- direct live correction: "we dont need
+        // the drop shadow on top as the frame is there, the compact
+        // notch actually doesnt sit on the screen edge, it sits on the
+        // frame bottom edge so it should feel like a part of it, the top
+        // shadow of the notch is breaking that design." The flat top AND
+        // both flank arcs are the notch's own connection to the frame
+        // (the same reasoning ruixen.bar's own docked-mode top-corner
+        // shadow exclusion already used, just applied to the notch's
+        // side of that same seam) -- open path, no arcs, starting and
+        // ending exactly where the flanks meet the straight sides:
+        // down the left side, both bottom corners, across the bottom,
+        // up the right side. notchOutline (the full closed shape) is
+        // still used for the clip below, unchanged -- only the stroked
+        // geometry changes.
+        function notchShadowPath(ctx, inset) {
+          var cs = Math.max(0, notchOuter.cornerSize - inset)
+          var br = Math.max(0, bottomRadius - inset)
+          var left = inset, top = inset
+          var right = width - inset, bottom = height - inset
+          ctx.beginPath()
+          ctx.moveTo(left + cs, top + cs)
+          ctx.lineTo(left + cs, bottom - br)
+          ctx.quadraticCurveTo(left + cs, bottom, left + cs + br, bottom)
+          ctx.lineTo(right - cs - br, bottom)
+          ctx.quadraticCurveTo(right - cs, bottom, right - cs, bottom - br)
+          ctx.lineTo(right - cs, top + cs)
+        }
+
         onPaint: {
           var ctx = getContext("2d")
           ctx.clearRect(0, 0, width, height)
@@ -1552,7 +1581,7 @@ Item {
             var alpha = t * t
             if (alpha < 0.004) continue
             ctx.strokeStyle = Qt.rgba(0, 0, 0, alpha)
-            notchOutline(ctx, i)
+            notchShadowPath(ctx, i)
             ctx.stroke()
           }
         }

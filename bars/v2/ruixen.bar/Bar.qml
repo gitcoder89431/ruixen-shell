@@ -1687,24 +1687,31 @@ Item {
       // Settings -- these need live tuning against an actual affected
       // machine/theme before they're worth turning into a real knob.
       //
-      // Qt.rgba(), not an 8-digit hex string -- direct live report ("the
-      // shadow looks grey... i was expecting a darker dropshadow like
-      // our hyprland windows"), root-caused, not just retuned: QML's own
-      // color type parses "#8f000000" alpha-FIRST (Qt convention), but
-      // Canvas 2D's own CSS-style color parser expects alpha-LAST
-      // (#RRGGBBAA) once that value round-trips through
-      // ctx.shadowColor/strokeStyle as a string -- the hex string was
-      // being reinterpreted under the wrong convention, landing on a
-      // much weaker, greyer result than "black at ~0.56 alpha" ever
-      // intended. Qt.rgba(r, g, b, a) is unambiguous regardless of which
-      // convention the Canvas string parser assumes, since it's a real
-      // color value, never re-parsed as a string at all. Pushed darker
-      // at the same time (0.55 -> 0.8 alpha) to actually read as a real
-      // drop shadow, closer to Hyprland's own default window shadow
-      // weight, not just fixing the parsing bug at the old faint value.
+      // Qt.rgba(), not an 8-digit hex string -- earlier direct live
+      // report ("the shadow looks grey... i was expecting a darker
+      // dropshadow like our hyprland windows"): QML's own color type
+      // parses "#8f000000" alpha-FIRST (Qt convention), but that string
+      // round-trips through Canvas 2D's own strokeStyle as a string
+      // again, where its CSS-style parser expects alpha-LAST
+      // (#RRGGBBAA) -- landed on a much weaker, greyer result than
+      // "black at ~0.56 alpha" ever intended. Qt.rgba() is a real color
+      // value, never re-parsed as a string, so there's no format
+      // convention left to get backwards.
       readonly property color shadowColor: Qt.rgba(0, 0, 0, 0.8)
-      readonly property int shadowBlurPx: 18
-      readonly property int shadowWidthPx: 10
+      // How many pixels the shadow reaches into the hole before fading
+      // out completely -- was a single ctx.shadowBlur-based stroke,
+      // direct live follow-up right after the color fix: "why is the
+      // shadow like hard drop, shouldnt the shadow be a bit softer?"
+      // Pixel-sampled the result to check, rather than re-guessing a
+      // number blind: Qt Quick Canvas's own shadowBlur did NOT produce a
+      // clean monotonic falloff here -- a sharp 1px peak, a hard drop to
+      // a flat mid-tone plateau for several pixels, THEN a taper, not a
+      // smooth gradient at all. Replaced the whole shadowBlur/lineWidth
+      // approach below with a manually drawn multi-ring gradient instead
+      // (see the loop's own comment) -- fully computed here, so it's
+      // guaranteed monotonic by construction rather than depending on
+      // however this engine's own blur happens to be implemented.
+      readonly property int shadowReachPx: 16
 
       onPaint: {
         const ctx = getContext("2d")
@@ -1719,23 +1726,33 @@ Item {
         ctx.globalCompositeOperation = "source-over"
 
         // Inner shadow along the hole's own inside edge, giving the
-        // frame some depth instead of a flat color band -- standard
-        // Canvas inner-shadow technique: clip to the hole itself, then
-        // stroke that SAME path with shadowBlur/shadowColor set. The
-        // clip means only the half of the stroke (and its blur falloff)
-        // that falls inside the hole ever renders, reading as a soft
-        // dark band hugging the frame's own inner edge and fading
-        // toward whatever's visible through it.
+        // frame some depth instead of a flat color band. Clipped to the
+        // hole itself (same as the abandoned shadowBlur attempt this
+        // replaced), but the actual gradient is now hand-drawn: a stack
+        // of thin 1px rings, each one pixel further inside the hole than
+        // the last, each progressively more transparent. Quadratic
+        // falloff (not linear) so the peak stays dark for a couple of
+        // pixels before easing off, closer to how a real soft shadow
+        // reads than an even ramp all the way down. This is strictly
+        // monotonic by construction -- every ring is a known, computed
+        // alpha, nothing left to an engine's own blur implementation to
+        // get subtly wrong the way ctx.shadowBlur did here.
         ctx.save()
         roundedRect(ctx, root.frameInset, root.frameInset,
           width - root.frameInset * 2, height - root.frameInset * 2,
           frameCornerRadius)
         ctx.clip()
-        ctx.shadowColor = shadowColor
-        ctx.shadowBlur = shadowBlurPx
-        ctx.lineWidth = shadowWidthPx
-        ctx.strokeStyle = shadowColor
-        ctx.stroke()
+        ctx.lineWidth = 1
+        for (var i = 0; i < shadowReachPx; i++) {
+          var t = 1 - (i / shadowReachPx)
+          var alpha = 0.8 * t * t
+          if (alpha < 0.004) continue
+          ctx.strokeStyle = Qt.rgba(0, 0, 0, alpha)
+          roundedRect(ctx, root.frameInset + i, root.frameInset + i,
+            width - (root.frameInset + i) * 2, height - (root.frameInset + i) * 2,
+            frameCornerRadius - i)
+          ctx.stroke()
+        }
         ctx.restore()
       }
     }

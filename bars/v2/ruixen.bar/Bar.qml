@@ -2226,6 +2226,20 @@ Item {
 
           Item {
             anchors.fill: parent
+            // opacity/blurMax/blur: byte-for-byte the same recipe as
+            // ruixen.notch/Overlay.qml's own notchShadowBlur -- direct
+            // live correction after this used GroupPill's own tighter
+            // pill-lift shadow instead (shadowEnabled/shadowBlur:0.15/
+            // shadowVerticalOffset), copied for convenience (also mask-
+            // safe) rather than actually matched to what frame/notch
+            // already agreed on: "why does it need to be different at
+            // all? why cant they act as one continuous shadow?" It
+            // didn't need to be -- a plain blur, not a directional
+            // shadowEnabled effect, is what the notch's own reach/
+            // softness comes from; no shadowVerticalOffset either, so
+            // it doesn't bias toward one edge the way a pill-lift shadow
+            // deliberately does.
+            opacity: 0.9
 
             Rectangle {
               x: leftDockedBg.x
@@ -2260,11 +2274,9 @@ Item {
 
             layer.enabled: true
             layer.effect: MultiEffect {
-              shadowEnabled: true
-              shadowColor: "#000000"
-              shadowOpacity: 0.8
-              shadowBlur: 0.15
-              shadowVerticalOffset: 1
+              blurEnabled: true
+              blurMax: 32
+              blur: 0.6
             }
           }
         }
@@ -2296,6 +2308,9 @@ Item {
 
           Item {
             anchors.fill: parent
+            // Mirrors leftShoulderShadowClip's own inner Item -- see its
+            // comment (same notchShadowBlur recipe, not GroupPill's).
+            opacity: 0.9
 
             Rectangle {
               x: rightDockedBg.x - rightShoulderShadowClip.x
@@ -2330,11 +2345,9 @@ Item {
 
             layer.enabled: true
             layer.effect: MultiEffect {
-              shadowEnabled: true
-              shadowColor: "#000000"
-              shadowOpacity: 0.8
-              shadowBlur: 0.15
-              shadowVerticalOffset: 1
+              blurEnabled: true
+              blurMax: 32
+              blur: 0.6
             }
           }
         }

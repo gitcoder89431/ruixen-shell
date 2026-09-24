@@ -1748,13 +1748,26 @@ Item {
     // configuration where this window's own edge is meant to visually
     // merge with FrameWindow's rounded corner at all; floating pills
     // stay clear of the frame with a real gap, no seam risk there).
-    // Declared first (behind everything else, siblings paint in document
-    // order), sized to this window's own full bounds -- simplest correct
-    // option, since real pill content already paints over it everywhere
-    // that isn't the seam itself.
+    //
+    // A THIN band at the top only, not anchors.fill: parent -- direct
+    // live report: filling this window's own full height painted the
+    // WHOLE bar strip solid, including the real overflow room below the
+    // pill row (popup-clearance/hem-wing space, this window's own
+    // implicitHeight is deliberately taller than the actual reserved
+    // exclusiveZone -- see visibleBarHeight's own comment). That overflow
+    // band is supposed to stay transparent, same as v1 always had it
+    // ("almost entirely transparent") -- painting it solid turned it
+    // into a real, visible black block sitting on top of wherever a
+    // tiled window is supposed to start. This only needs to cover from
+    // this window's own top (BarPanel-local y=0, which starts
+    // root.seamOverlap px above the frame's real edge) down to a little
+    // past where the frame's own edge should actually be -- root.
+    // frameInset + root.seamOverlap gives that with a small safety
+    // margin, nowhere close to the real pill row further down.
     Rectangle {
       visible: root.docked && root.position === "top"
-      anchors.fill: parent
+      anchors { top: parent.top; left: parent.left; right: parent.right }
+      height: root.frameInset + root.seamOverlap
       color: root.frameColor
     }
 

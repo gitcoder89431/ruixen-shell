@@ -2161,32 +2161,133 @@ Item {
         // settingsPill's empty, same as its own fade-out), and
         // parent.width - trayPill.x is the mirror for the right group.
         //
-        // dockedShoulderShadow wraps all six pieces below (both sides) in
-        // one layered Item so the shadow follows their COMBINED silhouette
-        // as a single shape, not six independent ones -- each side's
-        // DockedBg+ShoulderWing+FrameHemWing are flush siblings forming
-        // one continuous L-shape, and shadowing them separately would
-        // draw a visible seam-shadow at their own shared internal edges
-        // instead of only along the true outer bottom edge/curve. Direct
-        // request, once the notch's own shadow was dialed in: "we still
-        // have the hard coded black bar we used... we can probably use
-        // the same technique to make it produce its own dropshadow on the
-        // buttom edges and curve too." Reuses GroupPill's own exact
-        // shadowEnabled recipe just above, not ruixen.notch's blur-
-        // duplicate workaround -- these pieces are plain Rectangle/Canvas
-        // shapes with no mask (see GroupPill's own comment on why
-        // shadowEnabled is safe here and wasn't for notchBg).
+        // leftShoulderShadowClip/rightShoulderShadowClip: hidden, solid-
+        // black duplicates of ONLY DockedBg+ShoulderWing (not
+        // FrameHemWing), shadowed and clipped, sitting behind the real
+        // pieces. First tried shadowing all six real pieces directly as
+        // one combined shape -- direct live correction: "it doesnt need
+        // the shadow on the like the top and none wing curve, the edges
+        // that sits on the frame dont need it." FrameHemWing's own curve
+        // and DockedBg's top-left/top-right corner (the one matching
+        // ruixen.frame-widget's own rounded corner, see topLeftRadius
+        // above) both sit flush against the frame's own continuing
+        // border -- same reasoning as excluding the notch's own top edge
+        // (part of the same surface, shouldn't shade itself). Only the
+        // bottom edge + the open-facing shoulder-wing curve are real
+        // "growing out of the frame" edges that want a shadow.
+        //
+        // A hidden duplicate (not shadowEnabled directly on the real
+        // pieces, unlike GroupPill) is what makes excluding those edges
+        // possible without also clipping the real, visible fill --
+        // exactly ruixen.notch/Overlay.qml's own notchShadowClip
+        // technique, just with two frame-touching sides to flatten
+        // instead of one: each clip is flush (no margin) on its own
+        // corner's two frame-touching sides (top+left for the left
+        // cluster, top+right for the right one) and expanded -40 on the
+        // two open sides, so shadow can't render past the frame-touching
+        // edges but still shows fully everywhere else. Geometry bound
+        // directly to the real pieces' own properties, not re-derived,
+        // so it can never drift out of sync with them.
+        Item {
+          id: leftShoulderShadowClip
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.rightMargin: -40
+          anchors.bottom: parent.bottom
+          anchors.bottomMargin: -40
+          clip: true
+
+          Item {
+            anchors.fill: parent
+
+            Rectangle {
+              x: leftDockedBg.x
+              y: leftDockedBg.y
+              width: leftDockedBg.width
+              height: leftDockedBg.height
+              visible: leftDockedBg.visible
+              topLeftRadius: leftDockedBg.topLeftRadius
+              topRightRadius: leftDockedBg.topRightRadius
+              bottomLeftRadius: leftDockedBg.bottomLeftRadius
+              bottomRightRadius: leftDockedBg.bottomRightRadius
+              color: "#000000"
+            }
+
+            RoundCorner {
+              x: leftShoulderWing.x
+              y: leftShoulderWing.y
+              corner: leftShoulderWing.corner
+              size: leftShoulderWing.size
+              visible: leftShoulderWing.visible
+              color: "#000000"
+            }
+
+            layer.enabled: true
+            layer.effect: MultiEffect {
+              shadowEnabled: true
+              shadowColor: "#000000"
+              shadowOpacity: 0.8
+              shadowBlur: 0.15
+              shadowVerticalOffset: 1
+            }
+          }
+        }
+
+        // Mirrors leftShoulderShadowClip -- see its comment. Flush
+        // top+right (rightDockedBg's own corner touches the frame there
+        // instead of on the left), expanded left+bottom.
+        Item {
+          id: rightShoulderShadowClip
+          anchors.top: parent.top
+          anchors.right: parent.right
+          anchors.left: parent.left
+          anchors.leftMargin: -40
+          anchors.bottom: parent.bottom
+          anchors.bottomMargin: -40
+          clip: true
+
+          Item {
+            anchors.fill: parent
+
+            Rectangle {
+              x: rightDockedBg.x
+              y: rightDockedBg.y
+              width: rightDockedBg.width
+              height: rightDockedBg.height
+              visible: rightDockedBg.visible
+              topLeftRadius: rightDockedBg.topLeftRadius
+              topRightRadius: rightDockedBg.topRightRadius
+              bottomLeftRadius: rightDockedBg.bottomLeftRadius
+              bottomRightRadius: rightDockedBg.bottomRightRadius
+              color: "#000000"
+            }
+
+            RoundCorner {
+              x: rightShoulderWing.x
+              y: rightShoulderWing.y
+              corner: rightShoulderWing.corner
+              size: rightShoulderWing.size
+              visible: rightShoulderWing.visible
+              color: "#000000"
+            }
+
+            layer.enabled: true
+            layer.effect: MultiEffect {
+              shadowEnabled: true
+              shadowColor: "#000000"
+              shadowOpacity: 0.8
+              shadowBlur: 0.15
+              shadowVerticalOffset: 1
+            }
+          }
+        }
+
+        // Grouping only, no shadow of its own -- see
+        // leftShoulderShadowClip/rightShoulderShadowClip above for that.
         Item {
           id: dockedShoulderShadow
           anchors.fill: parent
-          layer.enabled: true
-          layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: "#000000"
-            shadowOpacity: 0.8
-            shadowBlur: 0.15
-            shadowVerticalOffset: 1
-          }
 
         Rectangle {
           id: leftDockedBg

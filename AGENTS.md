@@ -227,6 +227,22 @@ this before touching any of the three.
   code/comments alone — comments in this area have gone stale before
   (`leftFrameTaper`/`dockedSeamCover` are old names for pieces later
   renamed to `leftFrameHemWing`/etc., with the comment never updated).
+- **One shadow recipe across the whole surface, copied on purpose.** The
+  notch's own shadow (`notchShadowBlur` in `notch/Overlay.qml`: `opacity:
+  0.9` on the shape + a plain `blurEnabled`/`blurMax: 32`/`blur: 0.6`
+  `MultiEffect`, no directional offset) was tuned once, live, against the
+  frame's own hand-rolled ring shadow. When the docked-bar shoulder strip
+  got its own shadow later the same session, it reused `GroupPill`'s
+  *different* recipe (`shadowEnabled`/tight `shadowBlur: 0.15`/a
+  directional `shadowVerticalOffset` — a deliberately close, hard pill-
+  lift effect) instead, just because it was also mask-safe and
+  convenient to copy. Direct correction: "why does it need to be
+  different at all? why cant they act as one continuous shadow?" It
+  didn't — fixed in `7cc7af7` by copying `notchShadowBlur`'s own recipe
+  byte-for-byte instead. The lesson: when adding a shadow to a new piece
+  of this same surface, copy the recipe that's already been tuned
+  against the others (`notchShadowBlur`), not whatever other mask-safe
+  example happens to be nearby in the file.
 
 ## 10. Keeping this file useful
 

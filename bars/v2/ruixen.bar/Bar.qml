@@ -1719,8 +1719,23 @@ Item {
     margins {
       top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? root.contentTopInset - (root.docked ? root.seamOverlap : 0) : 0)
       bottom: root.barHidden && root.position === "bottom" ? -root.barSize : 0
-      left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
-      right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
+      // - (docked ? seamOverlap : 0), same reasoning/same constant as
+      // margins.top just above: docked mode's leftDockedBg/leftFrameHemWing
+      // (and their right-side mirrors) paint flush against this window's
+      // own left/right edge specifically to visually merge with
+      // FrameWindow's own rounded corner there (see their own comments,
+      // "growing out of the frame") -- the exact same cross-surface
+      // rounding risk as the top seam, just on a different axis. Direct
+      // live report on another machine only (never reproduced on this
+      // dev machine, matching how the original top-seam bug only showed
+      // up under a fractional Hyprland scale this machine doesn't use):
+      // a hairline gap between the left wing and the real frame border in
+      // docked mode. No exclusiveZone compensation needed here unlike
+      // margins.top's own -- a horizontal top bar's exclusiveZone reserves
+      // vertical space only, left/right margins are pure positioning, not
+      // reservation.
+      left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? root.frameInset - (root.docked ? root.seamOverlap : 0) : 0)
+      right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? root.frameInset - (root.docked ? root.seamOverlap : 0) : 0)
     }
 
     anchors {
@@ -1805,6 +1820,30 @@ Item {
       color: root.frameColor
     }
 
+    // Mirrors the top seam-cover immediately above, for margins.left/
+    // right's own identical overlap reduction just above THAT. Full
+    // window height (not a thin band like the top cover) is deliberate,
+    // not an oversight -- unlike the top cover, which had to avoid
+    // painting over the transparent popup-clearance area below the pill
+    // row, this sliver never overlaps that area horizontally at all: it
+    // only occupies the seamOverlap-px-wide strip contentOffset's own
+    // leftMargin/rightMargin (below) pushes the real content clear of, so
+    // there's nothing real underneath it to hide -- just true screen
+    // pixels that already show FrameWindow's own continuing border there
+    // regardless, same color, at every height.
+    Rectangle {
+      visible: root.docked && root.position === "top"
+      anchors { top: parent.top; bottom: parent.bottom; left: parent.left }
+      width: root.seamOverlap + 1
+      color: root.frameColor
+    }
+    Rectangle {
+      visible: root.docked && root.position === "top"
+      anchors { top: parent.top; bottom: parent.bottom; right: parent.right }
+      width: root.seamOverlap + 1
+      color: root.frameColor
+    }
+
     // Keeps the real content (the Loader, and everything inside it) at
     // EXACTLY the same on-screen position it always had, despite this
     // window's own top edge now starting seamOverlap px higher for the
@@ -1816,6 +1855,14 @@ Item {
       id: contentOffset
       anchors.fill: parent
       anchors.topMargin: (!root.vertical && root.docked && root.position === "top") ? root.seamOverlap : 0
+      // Mirrors topMargin above, for margins.left/right's own matching
+      // overlap reduction -- without this, leftDockedBg/leftShoulderWing/
+      // leftFrameHemWing (all positioned off this Item's own x: 0) would
+      // visibly shift outward by seamOverlap, past where they're meant to
+      // flush against the frame's real rounded corner, into the newly-
+      // reclaimed sliver the seam-cover strips above now own instead.
+      anchors.leftMargin: (!root.vertical && root.docked && root.position === "top") ? root.seamOverlap : 0
+      anchors.rightMargin: (!root.vertical && root.docked && root.position === "top") ? root.seamOverlap : 0
 
       Loader {
         anchors.fill: parent

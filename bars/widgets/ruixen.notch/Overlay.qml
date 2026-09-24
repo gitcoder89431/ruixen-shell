@@ -1403,27 +1403,31 @@ Item {
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
 
       // Painted background, masked into the notch silhouette below.
-      // Transparent when collapsed -- direct request, after the
-      // dedicated shadow canvas below kept producing new bugs on this
-      // exact shape every tuning pass (hard drop, corner dots, then a
-      // genuinely inverted "mustache" corner): "how do we make the notch
-      // similarry to the frame edge so the shadow works and its like an
-      // extension of the frame... might as well thing about redoing
-      // it". ruixen.bar's own FrameWindow now punches this SAME
-      // collapsed silhouette as a second hole in its own already-proven
-      // canvas and draws its shadow there directly -- see its own
-      // notchHolePath/notchShadowRingPath comments. This Rectangle stays
-      // transparent for that footprint so the frame's own paint shows
-      // through underneath instead of this plugin's own copy sitting on
-      // top of it; the mask below still clips CONTENT (avatar, dividers,
-      // bell) to the correct silhouette either way, transparent fill or
-      // not. Expanded (launcher/pinned) keeps its own real fill --
-      // scoped out of this change entirely, a floating panel rather than
-      // something asking to look "attached to the frame."
+      // Back to a plain, always-real fill -- direct live regression:
+      // "the notch bg is stuck on black, its not theme changing anymore".
+      // Root cause of THAT bug: this was briefly made transparent when
+      // collapsed (an interim step of the FrameWindow-merge experiment,
+      // meant to let the frame's own paint show through from underneath
+      // instead), but notchShadowBlur below is a SOLID filled shape, not
+      // a thin ring -- with notchBg transparent, nothing in this window
+      // covered that shadow's own opaque interior anymore, and since
+      // ruixen.notch's own window stacks ABOVE FrameWindow in the
+      // compositor, its solid black just sat on top of the frame's
+      // theme-colored fill, visible everywhere instead of just the
+      // surrounding halo. The frame-color sync itself was never actually
+      // the problem THAT merge was solving -- root.notchColor already
+      // tracks frameColorMode/Color.background correctly on its own (see
+      // its own property block above), always did, via the same shared
+      // state file both plugins read -- no FrameWindow-side hole-punch
+      // was ever required for THAT part. Reverting this specific piece
+      // fixes the regression AND restores the natural "shadow only
+      // visible in the halo, covered by the real shape everywhere else"
+      // behavior every normal drop shadow has, in both collapsed and
+      // expanded.
       Rectangle {
         id: notchBg
         anchors.fill: parent
-        color: panel.expanded ? root.notchColor : "transparent"
+        color: root.notchColor
 
         layer.enabled: true
         layer.smooth: true

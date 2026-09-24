@@ -981,17 +981,6 @@ Item {
   // collapsed margins.top (4) + notchOuter height (44).
   readonly property int notchCollapsedBottomEdge: 48
 
-  // Split out of notchCollapsedBottomEdge (4 + 44) for FrameWindow's own
-  // hole-punch/shadow below, which needs the top Y and height as
-  // separate numbers, not just their sum. Same mirrored-constant
-  // convention as notchReservedWidth/notchCollapsedBottomEdge above --
-  // change Overlay.qml's own restY/cornerSize/collapsed height or
-  // bottomRadius, change these four too.
-  readonly property int notchCollapsedTopY: 4
-  readonly property int notchCollapsedHeight: 44
-  readonly property int notchCollapsedCornerSize: 28
-  readonly property int notchCollapsedBottomRadius: 28
-
   // Screen-space rect the Notch's collapsed footprint occupies, centered
   // in a region of the given width -- per-output correct for free
   // (called with THIS bar surface's own dockedRow.width, which is
@@ -1693,91 +1682,36 @@ Item {
       // clipping risk to avoid by going square there).
       readonly property int frameCornerRadius: (!root.docked && root.sharpCorners) ? 0 : 24
 
-      // The Notch's own collapsed silhouette, punched as a SECOND hole in
-      // this same canvas -- direct request, after ruixen.notch's own
-      // separate copy of this shape kept producing new bugs every single
-      // tuning pass (hard drop, corner dot artifacts, then a genuinely
-      // inverted "mustache" corner): "how do we make the notch similarry
-      // to the frame edge so the shadow works and its like an extension
-      // of the frame... might as well thing about redoing it... instead
-      // of trying to save it." ruixen.notch's own window is a SEPARATE
-      // surface from this one -- no amount of tuning its own independent
-      // shape/shadow system could ever make it look truly attached to
-      // the frame, the exact same "two surfaces, one seam" problem this
-      // whole v2 rebuild already solved once for the bar itself.
-      //
-      // x/y/w/h/cornerSize/bottomRadius all come from the mirrored
-      // notchCollapsed* constants above -- ported verbatim from
-      // Overlay.qml's own (already fixed and verified) notchOutline, just
-      // parameterized by position instead of implicitly using this
-      // canvas's own width/height (which span the whole screen here, not
-      // just the notch's own small footprint). Scoped to the COLLAPSED
-      // footprint only, matching notchReservedWidth's own established
-      // scope limit -- ruixen.notch's own launcher/pinned EXPANDED states
-      // remain its own separate concern, not "an extension of the frame"
-      // in the same sense the resting pill is.
-      //
-      // Known, accepted limitation: this always punches the hole,
-      // regardless of ruixen.notch's own live notchPillRevealed state
-      // (hover-to-reveal / hidden visibility modes) -- that's a
-      // per-plugin runtime toggle with no low-latency way to reach this
-      // window without a real cross-plugin service dependency (AGENTS.md
-      // #2/#67's own restriction). Correct for the default "always"
-      // visibility mode; a user on "hover"/"hidden" mode would see an
-      // always-open gap here instead. Not solved in this pass.
-      function notchHolePath(ctx, x, y, w, h, cornerSize, bottomRadius) {
-        var cs = cornerSize
-        var edgeL = x + cs
-        var edgeR = x + w - cs
-        var flankY = y + cs
-        var bottom = y + h
-        var br = Math.max(0, Math.min(bottomRadius, bottom - flankY, (edgeR - edgeL) / 2))
-        ctx.moveTo(x, y)
-        ctx.arc(x, flankY, cs, 1.5 * Math.PI, 2 * Math.PI)
-        ctx.lineTo(edgeL, bottom - br)
-        ctx.quadraticCurveTo(edgeL, bottom, edgeL + br, bottom)
-        ctx.lineTo(edgeR - br, bottom)
-        ctx.quadraticCurveTo(edgeR, bottom, edgeR, bottom - br)
-        ctx.lineTo(edgeR, flankY)
-        ctx.arc(x + w, flankY, cs, Math.PI, 1.5 * Math.PI)
-      }
-
       onPaint: {
         const ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
         ctx.fillStyle = root.frameColor
         ctx.fillRect(0, 0, width, height)
         ctx.globalCompositeOperation = "destination-out"
-        // roundedRect's own call below already does beginPath() as its
-        // first line -- that's the one true start of this whole path.
         roundedRect(ctx, root.frameInset, root.frameInset,
           width - root.frameInset * 2, height - root.frameInset * 2,
           frameCornerRadius)
-        // Second, disjoint subpath appended to that SAME path -- no
-        // beginPath() call here, so this punches its own hole without
-        // wiping the frame's own rounded-rect hole just drawn above. Both
-        // get erased together by the one ctx.fill() below (fill()
-        // implicitly closes an open subpath, so notchHolePath doesn't
-        // need its own closePath() call).
-        // Top clamped to frameInset, height shortened to match -- direct
-        // live bug: "theres now a gap on the top edge of the notch thats
-        // cutting through the frame". notchCollapsedTopY (4) is LESS
-        // than frameInset (6), so punching the hole starting at 4 poked
-        // 2px ABOVE where the frame's own border already ends at 6 -- a
-        // visible cut through the solid border, specifically in the
-        // notch's own width. The frame's own hole already covers y>=6
-        // for the whole screen anyway, so starting this hole no higher
-        // than that removes the cut entirely -- that 2px sliver (y=4..6)
-        // just renders as the frame's own border color either way, and
-        // ruixen.notch's own real content still starts at its own
-        // unrelated y=4 regardless of where this hole starts. Height is
-        // shortened by the same 2px so the BOTTOM edge (the one number
-        // that actually matters -- see notchCollapsedBottomEdge's own
-        // comment) stays exactly where it always was, not shifted down.
-        var notchHoleTop = Math.max(root.notchCollapsedTopY, root.frameInset)
-        notchHolePath(ctx, (width - root.notchReservedWidth) / 2, notchHoleTop,
-          root.notchReservedWidth, root.notchCollapsedBottomEdge - notchHoleTop,
-          root.notchCollapsedCornerSize, root.notchCollapsedBottomRadius)
+        // Old, since-reverted: a second notch-shaped hole punched here
+        // too, so this canvas's own paint would show through ruixen.notch's
+        // own window wherever it left itself transparent. Direct live
+        // regression that reverting caused: "the notch bg is stuck on
+        // black, its not theme changing anymore" -- ruixen.notch's own
+        // window stacks ABOVE this one in the compositor, so once its own
+        // notchShadowBlur (a SOLID filled shape, not a thin ring) had
+        // nothing opaque left in front of it to hide its own interior
+        // behind, that solid black sat on top of whatever this hole
+        // showed through, regardless of this hole's own color. Restoring
+        // ruixen.notch's own always-real notchBg fill (see its own
+        // comment) fixed that regression directly and made this hole
+        // redundant at the same time -- ruixen.notch's own opaque layer
+        // covers this exact footprint either way now, hole or not, so
+        // there's nothing left for a hole here to actually reveal. Removing
+        // it is a clean simplification, not a functional loss -- and it
+        // incidentally fixes the one real limitation the hole always had:
+        // "hover"/"hidden" notch visibility modes previously left an
+        // always-open gap here even while the notch itself was hidden;
+        // with no hole punched at all, that footprint is just the frame's
+        // own ordinary top edge now, matching every other point along it.
         ctx.fill()
         ctx.globalCompositeOperation = "source-over"
       }

@@ -1878,10 +1878,13 @@ Item {
     // above is one single Canvas covering the whole screen, not two
     // independently-hardcoded plugins each guessing the other's number.
     // The one remaining seam risk -- this window's own edge meeting
-    // FrameWindow's edge in docked mode -- is handled by dockedSeamCover
-    // below: a plain frameColor-filled Rectangle, deliberately painted
-    // a few pixels WIDER than the gap it's covering, sitting on a higher
-    // layer than FrameWindow. Two independent surfaces can still round
+    // FrameWindow's edge in docked mode -- is handled by
+    // leftFrameHemWing/rightFrameHemWing below (renamed from this
+    // comment's own original "dockedSeamCover" at some point -- if you're
+    // grepping for that name and finding nothing, this is why): a plain
+    // frameColor-filled RoundCorner, deliberately painted a few pixels
+    // WIDER than the gap it's covering, sitting on a higher layer than
+    // FrameWindow. Two independent surfaces can still round
     // their own edges to slightly different physical pixels under a
     // fractional scale -- that was never fixable by trying harder to
     // agree on a shared number, only by making it not matter. A few
@@ -2411,8 +2414,9 @@ Item {
           width: root.sharpCorners ? parent.width : (settingsPill.x + settingsPill.width)
           // root.barSize, not parent.height -- parent (the outer Item,
           // sized to the whole window) is taller than the pill row when
-          // docked, to make room for leftFrameTaper below. This piece is
-          // just the pill row itself.
+          // docked, to make room for leftFrameHemWing below (renamed from
+          // this comment's own original "leftFrameTaper" at some point).
+          // This piece is just the pill row itself.
           height: root.barSize
           color: root.dockedBarColor
           antialiasing: true

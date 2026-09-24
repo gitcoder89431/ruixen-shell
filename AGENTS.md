@@ -165,7 +165,70 @@ Before calling non-trivial work done:
       reviewed per its own ledger rules — bumping it is a claim of
       verification, not a formality.
 
-## 9. Keeping this file useful
+## 9. Coupled visual surfaces: frame / notch / docked bar
+
+The screen border (`ruixen.bar/Bar.qml`'s `FrameWindow`), the notch
+(`ruixen.notch/Overlay.qml`), and the docked bar's merged shoulder strip
+(`leftDockedBg`/`rightDockedBg`/their wing pieces, also in `Bar.qml`) are
+visually **one continuous surface** by design — "growing out of the
+frame" is the whole point. They're separate windows/plugins with no live
+object link between them (per rule #4/#38), but they still have to move
+together whenever that surface's own look changes (color, corner radius,
+shadow). This bit hard during the frame-color/docked-shadow work
+(2026-09-24) and will bite again on any future glass-surface pass — read
+this before touching any of the three.
+
+- **Shared color state, independent resolution.** All three read the same
+  `~/.local/state/ruixen/frame-appearance.json` (`{"mode":"theme"|"black"}`),
+  but each keeps its own copy of the resolve logic (`frameColorMode`/
+  `frameColor` in `Bar.qml`, `resolvedFrameColor` in `notch/Overlay.qml`) —
+  intentional, not an oversight (rule #4). Adding a mode or field means
+  editing the load/fallback function in every consumer, not just one.
+- **Two different colors, on purpose.** A surface that hosts icon/text
+  content directly (the notch's own UI, `leftDockedBg`/`leftShoulderWing`
+  in docked mode, since `GroupPill { visible: !root.docked }` hides each
+  pill's own background there) needs the **luminance-clamped** color —
+  falls back to black whenever the resolved theme color reads too light,
+  or content becomes unreadable on a light theme. A surface that exists
+  purely to blend into the frame's own border with no content on it
+  (`leftFrameHemWing`/`rightFrameHemWing`, `BarPanel`'s own seam-cover
+  pieces) must use the **unclamped** color instead, matching the frame's
+  real border exactly — the "paint the same color as the thing
+  underneath" seam trick only works when the colors are actually
+  identical. Giving a seam piece the clamped color (done once, reverted
+  in `f146a14`) makes it visibly diverge from the frame on any theme
+  where the clamp actually triggers.
+- **A rounded piece only covers its own inscribed disk.** It never
+  reaches the sharp corner of its own bounding square. Anything meant to
+  fully hide what's behind a rounded corner (the frame's own shadow,
+  wallpaper, another surface) needs an explicit **square** backing patch
+  at that corner too (see the `dockedBarColor`-filled squares added in
+  `9249621`) — no amount of repositioning or resizing the rounded shape
+  itself fixes this, it's structural.
+- **Exclude shadow by direction (clip), not by piece.** A multi-piece
+  L-shaped surface (docked strip = DockedBg + ShoulderWing + FrameHemWing)
+  should shadow-duplicate the FULL real shape and let an asymmetric clip
+  (flush on the frame-touching sides, expanded on the open sides) trim
+  the shadow directionally. Leaving a whole piece out of the duplicate
+  because "it touches the frame" is wrong when that piece has its own
+  open-facing edge too (`e7101e8` — excluding `FrameHemWing` entirely
+  first removed a real, wanted shadow along its own curve).
+- **An asymmetric clip shifts its own coordinate origin.** Expanding a
+  clip `Item` outward on the side where it's normally flush-anchored (e.g.
+  flush-right, expanded left) moves that Item's own `x`/`y` in its
+  parent's frame — children positioned at a real sibling's absolute `x`/
+  `y` land in the wrong place unless you subtract the clip's own `x`/`y`
+  first (`e7101e8`'s `rightShoulderShadowClip` fix). Only the flush-
+  origin case (e.g. flush top-left, expanded right+bottom) needs no
+  compensation.
+- When debugging *which* piece a visual artifact belongs to, temporarily
+  hardcoding a loud, distinct color per suspect piece and doing one real
+  `omarchy restart shell` + screenshot is much faster than reasoning from
+  code/comments alone — comments in this area have gone stale before
+  (`leftFrameTaper`/`dockedSeamCover` are old names for pieces later
+  renamed to `leftFrameHemWing`/etc., with the comment never updated).
+
+## 10. Keeping this file useful
 
 - Keep it concise enough that an agent will actually read the whole thing.
 - Link to `README.md`/`COMPATIBILITY.md`/`docs/*.md`/tests/source instead

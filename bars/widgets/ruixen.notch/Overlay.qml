@@ -1609,12 +1609,18 @@ Item {
           layer.smooth: true
           layer.effect: MultiEffect {
             blurEnabled: true
-            // blurMax 32/blur 0.6 (effective ~19px radius) -> blurMax
-            // 16/blur 0.6 (~10px) -- same request as opacity above,
-            // matching ruixen.bar's own frame shadow's reach (8px, see
-            // its own shadowReachPx) instead of the much wider, softer
-            // spread this first shipped with.
-            blurMax: 16
+            // Tried matching ruixen.bar's own frame shadow's numeric
+            // reach (shadowReachPx: 8) by shrinking this to blurMax: 16
+            // -- looked wrong live: "the shadow looks a little less...
+            // not as soft". The frame's 8px is a hard-edge ring-gradient
+            // reach, not directly comparable to a Gaussian blurMax; at
+            // the higher 0.9 opacity above, a short reach reads as an
+            // abrupt ring instead of a soft halo. Restored to the
+            // original, larger distance -- the actual bug (wrong
+            // curve/shape) is fixed independent of this value now, so
+            // widening it back doesn't reintroduce the old corner
+            // artifacts, it just fades over more distance again.
+            blurMax: 32
             blur: 0.6
           }
         }

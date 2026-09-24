@@ -58,7 +58,54 @@ Item {
     onFileChanged: barHiddenProbe.running = true
   }
 
-  readonly property color notchColor: "#000000"
+  // Reads the SAME shared state ruixen.bar's own frame color writes to
+  // (~/.local/state/ruixen/frame-appearance.json) -- direct request:
+  // "the compact notch and expanded notch is also like connected to the
+  // frame... we gotta make the notch bg change with it too to match the
+  // frame". Independent copy of Bar.qml's own frameColorMode/
+  // frameCustomColor/frameColor resolution (not a cross-plugin
+  // reference to ruixen.bar's own object -- AGENTS.md #2/#67's own
+  // "don't depend on another plugin's live object" rule -- a small
+  // versioned state file both plugins read is exactly the prescribed
+  // pattern instead). No new file: this is the one Settings already
+  // writes for the frame itself, so switching Frame Color in Settings
+  // updates the notch too, automatically, with nothing notch-specific
+  // to configure.
+  //
+  // Caveat accepted for now, not solved here: textColor below always
+  // resolves to a LIGHT color (the theme's own bright foreground, or a
+  // hardcoded near-white fallback) since text/icons sit directly on
+  // this background, unlike the frame's own color (which has nothing
+  // painted on top of it). If Theme mode ever resolves to a light
+  // background on some theme, that would be light text on a light
+  // background. Every other tuning fix today was handled the same way
+  // -- ship the simple version, fix it once an actual affected
+  // theme/machine shows a real problem, not pre-guess every combination.
+  property string frameColorMode: "custom"
+  property color frameCustomColor: "#000000"
+  readonly property color notchColor: frameColorMode === "theme" ? Color.background : frameCustomColor
+  readonly property string frameColorStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"
+
+  function loadFrameAppearance(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.frameColorMode = (p && (p.mode === "theme" || p.mode === "custom")) ? p.mode : "custom"
+      var c = p && p.customColor
+      root.frameCustomColor = (typeof c === "string" && /^#[0-9a-fA-F]{6,8}$/.test(c)) ? c : "#000000"
+    } catch (e) {
+      root.frameColorMode = "custom"
+      root.frameCustomColor = "#000000"
+    }
+  }
+
+  FileView {
+    path: root.frameColorStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadFrameAppearance(text())
+    onLoadFailed: root.loadFrameAppearance("")
+  }
   // Same theme-aware-with-safety-net treatment as ruixen.bar's
   // pillForeground (see Bar.qml for the full reasoning): this notch is
   // always OLED black too, so use the theme's own foreground when it's

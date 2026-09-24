@@ -532,6 +532,19 @@ Item {
   // Black and Theme."
   property string frameColorMode: "black"
   readonly property color frameColor: root.frameColorMode === "theme" ? Color.background : "#000000"
+  // Docked mode's merged shoulder strip (leftDockedBg/rightDockedBg and
+  // their wing pieces below) hides every individual pill's own
+  // background (GroupPill { visible: !root.docked }) and renders icons
+  // directly against this fill -- same situation ruixen.notch's own
+  // notchColor is in, and for the same reason it needs the same clamp:
+  // pillForeground above is computed assuming a permanently-black
+  // backdrop, so a light frameColor (Theme mode on an actual light
+  // theme) would make every docked icon unreadable, not just look
+  // "off". Falls back to plain black instead of frameColor whenever
+  // frameColor itself reads too light -- mirrors ruixen.notch/Overlay.qml's
+  // own resolvedFrameColorLuminance/notchColor pair exactly.
+  readonly property real frameColorLuminance: 0.299 * root.frameColor.r + 0.587 * root.frameColor.g + 0.114 * root.frameColor.b
+  readonly property color dockedBarColor: root.frameColorLuminance > 0.5 ? "#000000" : root.frameColor
   // JSON, not a plain string -- kept the shape (an object with a "mode"
   // key) even though customColor is gone, so an old file from before
   // this simplification (mode: "custom", customColor: "#...") degrades
@@ -2147,6 +2160,34 @@ Item {
         // is wherever the left group actually ends (0 width when
         // settingsPill's empty, same as its own fade-out), and
         // parent.width - trayPill.x is the mirror for the right group.
+        //
+        // dockedShoulderShadow wraps all six pieces below (both sides) in
+        // one layered Item so the shadow follows their COMBINED silhouette
+        // as a single shape, not six independent ones -- each side's
+        // DockedBg+ShoulderWing+FrameHemWing are flush siblings forming
+        // one continuous L-shape, and shadowing them separately would
+        // draw a visible seam-shadow at their own shared internal edges
+        // instead of only along the true outer bottom edge/curve. Direct
+        // request, once the notch's own shadow was dialed in: "we still
+        // have the hard coded black bar we used... we can probably use
+        // the same technique to make it produce its own dropshadow on the
+        // buttom edges and curve too." Reuses GroupPill's own exact
+        // shadowEnabled recipe just above, not ruixen.notch's blur-
+        // duplicate workaround -- these pieces are plain Rectangle/Canvas
+        // shapes with no mask (see GroupPill's own comment on why
+        // shadowEnabled is safe here and wasn't for notchBg).
+        Item {
+          id: dockedShoulderShadow
+          anchors.fill: parent
+          layer.enabled: true
+          layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: "#000000"
+            shadowOpacity: 0.8
+            shadowBlur: 0.15
+            shadowVerticalOffset: 1
+          }
+
         Rectangle {
           id: leftDockedBg
           visible: root.docked
@@ -2166,7 +2207,7 @@ Item {
           // docked, to make room for leftFrameTaper below. This piece is
           // just the pill row itself.
           height: root.barSize
-          color: "#000000"
+          color: root.dockedBarColor
           antialiasing: true
           // Matches ruixen.frame-widget's own cornerRadius (24) exactly --
           // this corner sits at the same point the frame's rounded-rect
@@ -2217,7 +2258,7 @@ Item {
           visible: root.docked
           corner: "topLeft"
           size: root.shoulderWingSize
-          color: "#000000"
+          color: root.dockedBarColor
           x: leftDockedBg.x + leftDockedBg.width
           y: 0
         }
@@ -2235,7 +2276,7 @@ Item {
           visible: root.docked
           corner: "topLeft"
           size: root.shoulderWingSize
-          color: "#000000"
+          color: root.dockedBarColor
           x: 0
           y: leftDockedBg.height
         }
@@ -2250,7 +2291,7 @@ Item {
           y: 0
           width: parent.width - trayPill.x
           height: root.barSize
-          color: "#000000"
+          color: root.dockedBarColor
           antialiasing: true
           topRightRadius: 24
           topLeftRadius: 0
@@ -2281,7 +2322,7 @@ Item {
           visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
-          color: "#000000"
+          color: root.dockedBarColor
           x: rightDockedBg.x - size + 1
           y: 0
         }
@@ -2292,9 +2333,10 @@ Item {
           visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
-          color: "#000000"
+          color: root.dockedBarColor
           x: rightDockedBg.x + rightDockedBg.width - size
           y: rightDockedBg.height
+        }
         }
 
         // Everything else (every pill's own content).

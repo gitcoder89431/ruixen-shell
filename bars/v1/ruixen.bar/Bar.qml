@@ -502,13 +502,45 @@ Item {
   // unbalanced for no real benefit. Back to the split tuned here.
   readonly property int notchClearance: 31
 
-  // Inset to match ruixen.frame-widget's thickness (6px), so the bar sits
-  // inside the frame's rounded-rect hole instead of flush against the
-  // screen edge when docked -- see BarPanel's own margins for the real
-  // consumer. Lives on root (not just inside BarPanel) so widgets can
-  // read the bar's own current screen offset too -- see screenMarginTop
-  // below for why that matters.
+  // Inset so the bar sits inside ruixen.frame-widget's own rounded-rect
+  // hole instead of flush against the screen edge when docked -- see
+  // BarPanel's own margins for the real consumer. Lives on root (not
+  // just inside BarPanel) so widgets can read the bar's own current
+  // screen offset too -- see screenMarginTop below for why that matters.
+  //
+  // THIS is the single, authoritative place this number is defined --
+  // frame-widget no longer hardcodes its own separate copy of it (used
+  // to, as a plain literal "6" duplicated across two plugin folders with
+  // only a comment on each side asking a future editor to keep them
+  // equal by hand). publishFrameGeometry() below writes it out to a
+  // shared state file on startup; frame-widget reads that file instead
+  // of owning a number of its own, so the two can no longer drift apart
+  // -- whatever this bar actually uses IS what the frame punches its
+  // hole to, always, by construction rather than by convention.
   readonly property int frameInset: 6
+
+  readonly property string frameGeometryStatePath: root.stateHome + "/ruixen/frame-geometry.json"
+
+  // Plain Process + printf, not FileView.setText -- this is a one-shot
+  // publish on startup (frameInset is a readonly constant, it can never
+  // change during this process's lifetime), not a value that needs
+  // live watching/rewriting from this side. frame-widget's own FileView
+  // is what watches for changes, same "one writer, real watcher on the
+  // read side" split every other cross-plugin state file in this repo
+  // already uses. mkdir and the write happen in one command, not two
+  // separate Processes -- avoids a real race (the write firing before
+  // an async mkdir has actually finished creating the directory).
+  Process {
+    id: publishFrameGeometryProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  function publishFrameGeometry() {
+    publishFrameGeometryProc.command = ["bash", "-c",
+      "mkdir -p \"$(dirname \"$1\")\" && printf '%s' '{\"thickness\": " + root.frameInset + "}' > \"$1\"",
+      "_", root.frameGeometryStatePath]
+    publishFrameGeometryProc.running = true
+  }
   // Floating's own, bigger top margin -- see BarPanel's own margins
   // comment for the full history/tuning. Lives on root for the same
   // reason frameInset does.
@@ -963,6 +995,7 @@ Item {
   Component.onCompleted: {
     applyBarConfig()
     readLookAndFeelVariantForDock.running = true
+    publishFrameGeometry()
   }
 
   // Revealing the indicators widens their section, which can slide a neighbour

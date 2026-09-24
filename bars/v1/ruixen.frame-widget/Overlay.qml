@@ -20,7 +20,53 @@ Item {
     property var manifest: null
 
     readonly property color frameColor: "#000000"
-    readonly property int thickness: 6
+    // Was a plain hardcoded literal here too, a second, independent copy
+    // of the exact number ruixen.bar's own frameInset also hardcoded --
+    // direct live report ("theres like a 1px or small gap between the
+    // frame and the bar... it looks like the bar was lowered a bit on
+    // docked mode") on a machine this repo couldn't reproduce on
+    // (confirmed: not a fractional-scale rounding issue this time --
+    // that machine's own scale was a clean 1x/2x). Two files each
+    // hardcoding "the same" number, kept equal only by a comment asking
+    // a future editor to remember to, is exactly the kind of drift this
+    // symptom looks like, whatever the precise trigger turns out to be
+    // on that specific install. Fixed at the root instead of patched
+    // around: ruixen.bar is now the single, authoritative owner of this
+    // value (see its own frameInset comment) and publishes it to a
+    // shared state file; this reads that file instead of owning a
+    // second number of its own, so the two literally cannot drift apart
+    // again. 6 here is a startup-only fallback for the brief window
+    // before the real published value loads (or the rare case bar
+    // isn't running at all) -- not a value this file is meant to own.
+    property int thickness: 6
+    onThicknessChanged: canvas.requestPaint()
+
+    // watchChanges: true, not a one-shot read -- if ruixen.bar ever
+    // republishes a different value (a future settings toggle, a
+    // restart with a new default), this picks it up live instead of
+    // needing its own restart to converge, unlike the hardcoded literal
+    // it replaces.
+    FileView {
+        id: frameGeometryFile
+        path: Quickshell.env("HOME") + "/.local/state/ruixen/frame-geometry.json"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                var parsed = JSON.parse(text() || "{}")
+                if (typeof parsed.thickness === "number" && parsed.thickness >= 0) {
+                    root.thickness = parsed.thickness
+                }
+            } catch (e) {
+                // Leave at the startup-fallback value on a transient
+                // parse failure (e.g. bar mid-write).
+            }
+        }
+        // onLoadFailed left as a no-op, deliberately -- ruixen.bar not
+        // having published yet (or not being installed at all) should
+        // leave this at its own sane fallback, not force any state.
+    }
     // Was a hardcoded 24 -- real bug, found live while adding a 3rd
     // look'n'feel variant (hyprland/looknfeel.square.lua, 0 rounding):
     // this frame's own corner mask never actually matched whatever

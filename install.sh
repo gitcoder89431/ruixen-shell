@@ -5,16 +5,23 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 plugins_dir="$HOME/.config/omarchy/plugins"
 shell_json="$HOME/.config/omarchy/shell.json"
 # Every ruixen.* source directory in this checkout, wherever it actually
-# lives -- bar-family plugins moved under bars/v1/ (a clean split from
-# the repo root for a future bars/v2/, per direct request: "instead of
-# having them on root, can we put them in bars and then v1 or v2"), the
-# rest (launcher/settings/wallpaper) stay at the root. ONE array, not a
-# literal glob repeated at every call site (5 in this file alone) -- a
-# future bars/v2/ or any other reshuffle only ever needs this one line
-# touched. A glob with no match expands to itself (the literal pattern
-# string) when nullglob is off, so each site below still needs its own
-# `[[ -d "$dir" ]] || continue` guard -- this array can't guarantee
-# every element is real.
+# lives -- bar-family plugins moved under bars/ (a clean split from the
+# repo root, per direct request: "instead of having them on root, can we
+# put them in bars and then v1 or v2"). The actual bar SHELL itself
+# (ruixen.bar, the one thing that's genuinely design-generation-specific)
+# lives at bars/v2/ruixen.bar now that v1's own bar/frame-widget were
+# retired in favor of it; the widgets that plug into whichever bar is
+# active (applauncher, tray, weather, ...) turned out to not be
+# version-specific at all, so they live at bars/widgets/ instead, not
+# duplicated per generation. The rest (launcher/settings/wallpaper) stay
+# at the root. ONE array, not a literal glob repeated at every call site
+# (5 in this file alone) -- a future bars/v3/ or any other reshuffle
+# only ever needs this one line touched (the glob below already matches
+# any bars/*/ subfolder, so v1 -> v2 -> widgets never needed a code
+# change here, only a comment update). A glob with no match expands to
+# itself (the literal pattern string) when nullglob is off, so each site
+# below still needs its own `[[ -d "$dir" ]] || continue` guard -- this
+# array can't guarantee every element is real.
 plugin_source_dirs=("$script_dir"/ruixen.*/ "$script_dir"/bars/*/ruixen.*/)
 # Nanosecond, not `date +%s` -- direct review finding ("Add an
 # install/update/uninstall lock and collision-safe run identifiers",
@@ -393,12 +400,13 @@ mkdir -p "$theme_overlay_backup_dir"
 # call site in this script gets rollback for free, no per-call-site
 # changes needed.
 DEPLOYED_PLUGIN_IDS=()
-# id -> its own source dir (could be "$script_dir/ruixen.X" or
-# "$script_dir/bars/v1/ruixen.X") -- the post-deploy hash verification
-# below needs the REAL source path back, not "$script_dir/$id" rebuilt
-# from the id alone (that assumption broke the moment bars/v1/ moved
-# plugins out of a flat root layout: every verify would have hashed a
-# now-nonexistent directory and failed every install).
+# id -> its own source dir (could be "$script_dir/ruixen.X",
+# "$script_dir/bars/v2/ruixen.X", or "$script_dir/bars/widgets/ruixen.X")
+# -- the post-deploy hash verification below needs the REAL source path
+# back, not "$script_dir/$id" rebuilt from the id alone (that assumption
+# broke the moment bar-family plugins moved out of a flat root layout:
+# every verify would have hashed a now-nonexistent directory and failed
+# every install).
 declare -A PLUGIN_SOURCE_DIR_FOR_ID
 SHELL_JSON_TOUCHED=0
 SHELL_JSON_HAD_BACKUP=0

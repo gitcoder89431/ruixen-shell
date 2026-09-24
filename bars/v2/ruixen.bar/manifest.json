@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.bar",
+  "name": "Ruixen Bar",
+  "version": "2.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Status bar with widgets. The bar and shell frame render as one merged surface, so they can no longer misalign under any Hyprland monitor scale.",
+  "kinds": [
+    "bar"
+  ],
+  "entryPoints": {
+    "bar": "Bar.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.bar"
+  }
+}

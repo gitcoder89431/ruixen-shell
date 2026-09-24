@@ -1,4 +1,4 @@
-// Ported from bars/v1/ruixen.notch/WallpapersContent.qml -- same
+// Ported from bars/widgets/ruixen.notch/WallpapersContent.qml -- same
 // "plugin folders can't share a file" convention already used for
 // AppLibrary.qml/AppSearch.js across ruixen.notch/ruixen.pinnedapps/
 // ruixen.launcher. Direct request: a "Wallpapers" extension in the

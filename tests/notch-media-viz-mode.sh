@@ -15,8 +15,8 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-overlay_qml="$repo_dir/bars/v1/ruixen.notch/Overlay.qml"
-notch_feed="$repo_dir/bars/v1/ruixen.notch/CavaFeed.qml"
+overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+notch_feed="$repo_dir/bars/widgets/ruixen.notch/CavaFeed.qml"
 cava_feed="$repo_dir/ruixen.cava/CavaFeed.qml"
 
 pass=0

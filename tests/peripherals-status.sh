@@ -21,9 +21,9 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-helper_py="$repo_dir/bars/v1/ruixen.peripherals/helper/status.py"
-widget_qml="$repo_dir/bars/v1/ruixen.peripherals/BarWidget.qml"
-manifest_json="$repo_dir/bars/v1/ruixen.peripherals/manifest.json"
+helper_py="$repo_dir/bars/widgets/ruixen.peripherals/helper/status.py"
+widget_qml="$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml"
+manifest_json="$repo_dir/bars/widgets/ruixen.peripherals/manifest.json"
 
 pass=0
 fail_count=0
@@ -230,7 +230,7 @@ check "manifest's bar-widget entry point is BarWidget.qml" \
 # fixed 4-item allowlist of Omarchy's own services -- "ruixen.peripherals"
 # was never going to be in it. BarWidget.qml now reads Service.qml's own
 # state file directly instead.
-service_qml="$repo_dir/bars/v1/ruixen.peripherals/Service.qml"
+service_qml="$repo_dir/bars/widgets/ruixen.peripherals/Service.qml"
 # "1", not "0" -- the only surviving mention is this migration's own
 # explanatory comment (quoting the retired call for context), not a real
 # leftover call. bar?.shell?.firstPartyServiceFor(...) as an actual

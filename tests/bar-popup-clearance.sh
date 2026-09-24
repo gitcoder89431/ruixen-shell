@@ -80,8 +80,8 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-bar_qml="$repo_dir/bars/v1/ruixen.bar/Bar.qml"
-notch_overlay_qml="$repo_dir/bars/v1/ruixen.notch/Overlay.qml"
+bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+notch_overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 
 pass=0
 fail_count=0
@@ -162,14 +162,23 @@ check "visibleBarHeight no longer branches on root.docked (both modes share one 
 check "visibleBarHeight still floors at barSize + shoulderWingSize (the wing-graphic minimum, now shared)" \
   "$(printf '%s' "$visible_bar_height_line" | grep -c 'Math\.max(root\.barSize + root\.shoulderWingSize, root\.notchCollapsedBottomEdge)' || true)" "1"
 
-# implicitHeight itself must stay exactly visibleBarHeight (no reach for
-# center, see this file's own header for why that was reverted) -- a
-# future edit growing this again needs to bring the input mask back with
-# it (see the reverted attempt's own comment in git history), not just
-# quietly resurface the agents-popup-at-the-bottom bug.
+# implicitHeight must stay EITHER exactly visibleBarHeight OR
+# visibleBarHeight + root.seamOverlap -- not some other, larger reach
+# (still guarding against the "reach for center" regression this file's
+# own header describes; a future edit growing this again some OTHER way
+# needs to bring the input mask back with it, same as that reverted
+# attempt needed). The "+ seamOverlap" branch is new, v2-era: BarPanel is
+# a real small window again (not the fullscreen one v2 first tried), but
+# its own top edge intentionally starts a few px higher than v1's ever
+# did, painting a small insurance-overlap band into where the shell
+# frame's own separate surface edge is (see BarPanel's own seamOverlap
+# comment) -- implicitHeight grows by that same small, fixed amount so
+# the window's real BOTTOM edge (and thus anchorWindow.height for every
+# popup this whole file is about) lands exactly where v1's always did,
+# regardless of the extra room claimed at the top.
 implicit_height_line="$(grep -m1 'implicitHeight: root.vertical ? 0 : ' "$bar_qml")"
-check "implicitHeight is exactly visibleBarHeight, not a further-grown value" \
-  "$implicit_height_line" "    implicitHeight: root.vertical ? 0 : visibleBarHeight"
+check "implicitHeight is visibleBarHeight, optionally + root.seamOverlap -- not some other, larger reach" \
+  "$implicit_height_line" "    implicitHeight: root.vertical ? 0 : visibleBarHeight + root.seamOverlap"
 
 # The docked/floating split top margin (reverted from #29's own attempt
 # to unify it) is unrelated to this fix and must stay untouched by it.
@@ -180,23 +189,32 @@ check "root.frameInset (docked's own top margin) still exists, exactly once" \
   "$(grep -c 'readonly property int frameInset:' "$bar_qml" || true)" "1"
 check "root.topInset (floating's own, separately-tuned top margin) still exists, exactly once" \
   "$(grep -c 'readonly property int topInset:' "$bar_qml" || true)" "1"
-margins_top_line="$(grep -m1 'position === "top".*root.screenMarginTop' "$bar_qml")"
-check "margins.top still resolves per-mode via root.screenMarginTop" \
-  "$(printf '%s' "$margins_top_line" | grep -c 'root\.screenMarginTop' || true)" "1"
+# v2: margins.top resolves per-mode via root.contentTopInset now, not
+# root.screenMarginTop directly -- BarPanel's own seam-overlap trick
+# (see its own comment) needed a DIFFERENT number for "how far content
+# sits from this window's own top edge" than screenMarginTop's own
+# (now separate) job of "this window's real final on-screen offset,
+# overlap included". Same docked/floating split either property carries,
+# just renamed/split apart for the two different jobs.
+margins_top_line="$(grep -m1 'position === "top".*root.contentTopInset' "$bar_qml")"
+check "margins.top still resolves per-mode via root.contentTopInset" \
+  "$(printf '%s' "$margins_top_line" | grep -c 'root\.contentTopInset' || true)" "1"
+check "root.contentTopInset exists, exactly once (docked ? frameInset : topInset)" \
+  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : topInset' "$bar_qml" || true)" "1"
 
 # --- root.screenMarginTop (bar hosting infra) --------------------------
 #
-# The bar WINDOW's own current absolute screen-Y offset. Real, reusable
-# bar-hosting infrastructure -- currently unconsumed (a past attempt to
-# use it for quickactions'/pluginpins' own PopupCard.margin, calibrated
-# for centerOnBar's different Y formula, was verified live to be wrong
-# for the target.height-based formula these actually use -- see either
-# widget's own popup.margin comment for the real fix).
+# v2: this window's own REAL final on-screen top offset, i.e.
+# contentTopInset with the seam-overlap trick's own reduction already
+# applied for a top-positioned bar (0 for left/right/bottom, unaffected
+# by the trick). Real, reusable bar-hosting infrastructure -- currently
+# unconsumed (a past attempt to use it for quickactions'/pluginpins' own
+# PopupCard.margin, calibrated for centerOnBar's different Y formula,
+# was verified live to be wrong for the target.height-based formula
+# these actually use -- see either widget's own popup.margin comment for
+# the real fix).
 check "root.screenMarginTop exists, exactly once (bar-hosting infra)" \
-  "$(grep -c 'readonly property int screenMarginTop: docked ? frameInset : topInset' "$bar_qml" || true)" "1"
-screen_margin_top_line="$(grep -m1 'readonly property int screenMarginTop:' "$bar_qml")"
-check "screenMarginTop is docked ? frameInset : topInset (mirrors margins.top's own per-mode split)" \
-  "$screen_margin_top_line" "  readonly property int screenMarginTop: docked ? frameInset : topInset"
+  "$(grep -c 'readonly property int screenMarginTop: position === "top" ? contentTopInset - seamOverlap : contentTopInset' "$bar_qml" || true)" "1"
 
 # ruixen.quickactions'/ruixen.pluginpins' own popups: centerOnBar stays
 # reverted (e0429b7 was purely visual, correctly dropped). The Y position
@@ -209,8 +227,8 @@ check "screenMarginTop is docked ? frameInset : topInset (mirrors margins.top's 
 # real, live-measured value in between (via a temporary debug hook
 # reading popup.anchor.rect.y directly) -- both widgets share this exact
 # value since both use the same BarIconButton icon (same real height).
-qa_qml="$repo_dir/bars/v1/ruixen.quickactions/QuickActions.qml"
-pp_qml="$repo_dir/bars/v1/ruixen.pluginpins/BarWidget.qml"
+qa_qml="$repo_dir/bars/widgets/ruixen.quickactions/QuickActions.qml"
+pp_qml="$repo_dir/bars/widgets/ruixen.pluginpins/BarWidget.qml"
 check "ruixen.quickactions' own popup still has no centerOnBar override" \
   "$(grep -c 'centerOnBar:' "$qa_qml" || true)" "0"
 check "ruixen.quickactions' own popup uses the live-measured margin" \

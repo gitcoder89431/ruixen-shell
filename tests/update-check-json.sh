@@ -75,8 +75,8 @@ git -C "$checkout" checkout -q -- ruixen.notch/VERSION
 # (bar-family plugins live under bars/v1/, not flat at the root; this
 # fixture's cases 1-3 above predate that move and stay flat on purpose,
 # proving the still-supported flat shape keeps working too). -----------
-mkdir -p "$other_clone/bars/v1/ruixen.weather"
-printf 'v1\n' >"$other_clone/bars/v1/ruixen.weather/VERSION"
+mkdir -p "$other_clone/bars/widgets/ruixen.weather"
+printf 'v1\n' >"$other_clone/bars/widgets/ruixen.weather/VERSION"
 git -C "$other_clone" add bars
 git -C "$other_clone" commit -q -m "add nested bar plugin"
 git -C "$other_clone" push -q origin master

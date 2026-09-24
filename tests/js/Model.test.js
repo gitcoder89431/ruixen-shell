@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "bars", "v1", "ruixen.weather", "Model.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "bars", "widgets", "ruixen.weather", "Model.js"));
 
 check(
   "parseLocationFile: valid JSON with coordinates",

@@ -56,7 +56,7 @@ Ruixen's own `ruixen.bar` visually hosts third-party bar widgets. The
 current, correct contract (post-#67):
 
 - Every hosted widget gets a **per-widget scoped facade**
-  (`PluginBarFacade` in `bars/v1/ruixen.bar/Bar.qml`) — never Ruixen's own
+  (`PluginBarFacade` in `bars/v2/ruixen.bar/Bar.qml`) — never Ruixen's own
   top-level `bar = root` object.
 - Don't work around Omarchy's service boundary by exposing an unrestricted
   `serviceFor()` or building a generic foreign-service factory. If a

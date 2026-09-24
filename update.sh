@@ -92,10 +92,11 @@ if [[ "${1:-}" == "--check-json" ]]; then
   # ruixen.* directory names only, deduped -- a plugin touched by more
   # than one changed file must only show up once. Matches a ruixen.*
   # path SEGMENT wherever it sits, not just at the very start of the
-  # path -- bar-family plugins live under bars/v1/ruixen.X/... now, not
-  # only flat ruixen.X/... at the repo root, so an anchor tied to the
-  # start of the path would silently stop reporting every bar plugin's
-  # own changes here. Requires a trailing "/" (it's a directory
+  # path -- bar-family plugins live under bars/v2/ruixen.X/... or
+  # bars/widgets/ruixen.X/... now, not only flat ruixen.X/... at the
+  # repo root, so an anchor tied to the start of the path would silently
+  # stop reporting every bar plugin's own changes here. Requires a
+  # trailing "/" (it's a directory
   # component, never the last segment of a real file path) so a
   # same-named FILE could never be mistaken for a plugin id; the
   # leading "(^|/)" / trailing "/" delimiters themselves are stripped

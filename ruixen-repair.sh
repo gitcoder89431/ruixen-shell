@@ -19,7 +19,9 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 plugins_dir="$HOME/.config/omarchy/plugins"
 # Same shared-array reasoning as install.sh's own plugin_source_dirs --
-# bar-family plugins live under bars/v1/, the rest at the root.
+# bar-family plugins live under bars/ (the bar shell itself at
+# bars/v2/ruixen.bar, the widgets that plug into it at bars/widgets/),
+# the rest at the root.
 plugin_source_dirs=("$script_dir"/ruixen.*/ "$script_dir"/bars/*/ruixen.*/)
 dry_run=0
 

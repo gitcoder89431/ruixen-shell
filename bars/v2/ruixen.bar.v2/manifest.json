@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.bar.v2",
+  "name": "Ruixen Bar (v2)",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Experimental: bar and shell frame merged into one surface, so they can no longer misalign. Opt-in alternative to ruixen.bar -- not the auto-installed default.",
+  "kinds": [
+    "bar"
+  ],
+  "entryPoints": {
+    "bar": "Bar.qml"
+  }
+}

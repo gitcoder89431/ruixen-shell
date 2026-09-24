@@ -2594,6 +2594,20 @@ Item {
       left: root.position === "left" || !root.vertical
       right: root.position === "right" || !root.vertical
     }
+    // Direct live report: the real reserved gap came out too shallow,
+    // closer to the notch's own collapsed bottom edge than the side/
+    // bottom gaps. Root cause: v1's own total on-screen reservation was
+    // ALWAYS margin.top + exclusiveZone (44 either way -- 6+38 docked,
+    // 13+31 floating, see root.contentTopInset/notchClearance's own
+    // comments), not exclusiveZone alone -- porting only exclusiveZone
+    // here and dropping the margin left this window's own real
+    // reservation 6px (docked) / 13px (floating) short of the true 44
+    // every time. Restored here, the one piece of v1's own BarPanel
+    // margins that legitimately belongs on the reservation side, not
+    // the (now purely visual) contentArea side.
+    margins {
+      top: root.position === "top" ? root.contentTopInset : 0
+    }
     implicitWidth: root.vertical ? root.barSize : 0
     implicitHeight: root.vertical ? 0 : 1
 

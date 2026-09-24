@@ -1679,40 +1679,6 @@ Item {
       // clipping risk to avoid by going square there).
       readonly property int frameCornerRadius: (!root.docked && root.sharpCorners) ? 0 : 24
 
-      // Neutral black regardless of frameColor, same reasoning a real
-      // physical shadow doesn't tint with its caster's own color --
-      // direct request, after Themed mode shipped: "the surface looks
-      // kinda faded", same depth-cue omacalestria/calestria shell's own
-      // frame bezels use. Fixed constants for now, not exposed in
-      // Settings -- these need live tuning against an actual affected
-      // machine/theme before they're worth turning into a real knob.
-      //
-      // Qt.rgba(), not an 8-digit hex string -- earlier direct live
-      // report ("the shadow looks grey... i was expecting a darker
-      // dropshadow like our hyprland windows"): QML's own color type
-      // parses "#8f000000" alpha-FIRST (Qt convention), but that string
-      // round-trips through Canvas 2D's own strokeStyle as a string
-      // again, where its CSS-style parser expects alpha-LAST
-      // (#RRGGBBAA) -- landed on a much weaker, greyer result than
-      // "black at ~0.56 alpha" ever intended. Qt.rgba() is a real color
-      // value, never re-parsed as a string, so there's no format
-      // convention left to get backwards.
-      readonly property color shadowColor: Qt.rgba(0, 0, 0, 0.8)
-      // How many pixels the shadow reaches into the hole before fading
-      // out completely -- was a single ctx.shadowBlur-based stroke,
-      // direct live follow-up right after the color fix: "why is the
-      // shadow like hard drop, shouldnt the shadow be a bit softer?"
-      // Pixel-sampled the result to check, rather than re-guessing a
-      // number blind: Qt Quick Canvas's own shadowBlur did NOT produce a
-      // clean monotonic falloff here -- a sharp 1px peak, a hard drop to
-      // a flat mid-tone plateau for several pixels, THEN a taper, not a
-      // smooth gradient at all. Replaced the whole shadowBlur/lineWidth
-      // approach below with a manually drawn multi-ring gradient instead
-      // (see the loop's own comment) -- fully computed here, so it's
-      // guaranteed monotonic by construction rather than depending on
-      // however this engine's own blur happens to be implemented.
-      readonly property int shadowReachPx: 16
-
       onPaint: {
         const ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
@@ -1724,19 +1690,65 @@ Item {
           frameCornerRadius)
         ctx.fill()
         ctx.globalCompositeOperation = "source-over"
+      }
+    }
 
-        // Inner shadow along the hole's own inside edge, giving the
-        // frame some depth instead of a flat color band. Clipped to the
-        // hole itself (same as the abandoned shadowBlur attempt this
-        // replaced), but the actual gradient is now hand-drawn: a stack
-        // of thin 1px rings, each one pixel further inside the hole than
-        // the last, each progressively more transparent. Quadratic
-        // falloff (not linear) so the peak stays dark for a couple of
-        // pixels before easing off, closer to how a real soft shadow
-        // reads than an even ramp all the way down. This is strictly
-        // monotonic by construction -- every ring is a known, computed
-        // alpha, nothing left to an engine's own blur implementation to
-        // get subtly wrong the way ctx.shadowBlur did here.
+    // Inner shadow along the hole's own inside edge, giving the frame
+    // some depth instead of a flat color band -- a SEPARATE Canvas from
+    // frameCanvas above, not more drawing inside it. Direct live report,
+    // corners only: "theres dots artifact kinda stuff, looks like an
+    // anti alias... issue". Root cause: frameCanvas has antialiasing:
+    // false, deliberately, so the hole-punch's own hard edge has no
+    // fractional coverage to leak on a fractional Hyprland scale (see
+    // its own comment) -- but that setting applies to the WHOLE canvas
+    // for a given paint, and this shadow draws many thin CURVED strokes
+    // (see the loop below), which rasterize as a jagged dotted mess
+    // without antialiasing, especially stacked at a rounded corner. The
+    // shadow has none of the cross-surface alignment risk the hole-punch
+    // edge does -- it never has to agree pixel-for-pixel with anything
+    // outside this one window -- so it can just be antialiased properly
+    // on its own canvas instead.
+    Canvas {
+      id: frameShadowCanvas
+      anchors.fill: parent
+      antialiasing: true
+
+      onWidthChanged: requestPaint()
+      onHeightChanged: requestPaint()
+      Connections {
+        target: root
+        function onFrameColorChanged() { frameShadowCanvas.requestPaint() }
+        function onSharpCornersChanged() { frameShadowCanvas.requestPaint() }
+        function onDockedChanged() { frameShadowCanvas.requestPaint() }
+      }
+
+      function roundedRect(ctx, x, y, w, h, r) {
+        const rr = Math.max(0, Math.min(r, w / 2, h / 2))
+        ctx.beginPath()
+        ctx.moveTo(x + rr, y)
+        ctx.lineTo(x + w - rr, y)
+        ctx.quadraticCurveTo(x + w, y, x + w, y + rr)
+        ctx.lineTo(x + w, y + h - rr)
+        ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h)
+        ctx.lineTo(x + rr, y + h)
+        ctx.quadraticCurveTo(x, y + h, x, y + h - rr)
+        ctx.lineTo(x, y + rr)
+        ctx.quadraticCurveTo(x, y, x + rr, y)
+        ctx.closePath()
+      }
+
+      // How many pixels the shadow reaches into the hole before fading
+      // out completely. 16 -> 8 -- direct live follow-up right after the
+      // antialiasing fix: "the shadow distance is soft now but a bit too
+      // much distance now, it looks more like a fade lol". Halved so the
+      // darkness concentrates closer to the edge and reads as a defined
+      // shadow again, not a broad wash.
+      readonly property int shadowReachPx: 8
+
+      onPaint: {
+        const ctx = getContext("2d")
+        ctx.clearRect(0, 0, width, height)
+        const frameCornerRadius = (!root.docked && root.sharpCorners) ? 0 : 24
         ctx.save()
         roundedRect(ctx, root.frameInset, root.frameInset,
           width - root.frameInset * 2, height - root.frameInset * 2,

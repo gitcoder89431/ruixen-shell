@@ -543,28 +543,27 @@ Item {
   // comment for the full history/tuning. Lives on root for the same
   // reason frameInset does.
   readonly property int topInset: 13
-  // v2: always 0, not docked/topInset-conditional -- this used to back
-  // out BarPanel's own layer-shell margin (a real, nonzero on-screen
-  // offset of the window's surface origin from true screen (0,0)) for
-  // anything anchored to that surface's own coordinate space (PopupCard
-  // xdg-popups, the drag-ghost screen-point correction). v2's BarPanel
-  // is a fullscreen window with NO margin of its own anymore -- see
-  // contentArea's own comment -- so that surface offset is genuinely
-  // zero now, not just a different nonzero number. Kept as a real
-  // property (not deleted) so every existing consumer (PopupCard's own
-  // margin math, windowScreenPoint's drag correction) stays correct
-  // automatically at 0 without needing to hunt each one down individually.
-  readonly property int screenMarginTop: 0
 
-  // The NEW thing v2 needs that v1 never did: how far contentArea (the
-  // bar's actual visible content) sits from BarPanel's own top edge --
-  // a plain in-scene position now, not a window-level margin, since
-  // BarPanel itself has no margin left to express it with. Exactly the
-  // same numbers screenMarginTop used to carry (frameInset docked /
-  // topInset floating) -- only the ROLE changed (content offset within
-  // the window, not the window's own offset from the screen), not the
-  // values themselves.
+  // BarPanel's own baseline top margin, before the seam-overlap
+  // reduction below -- exactly what v1's own screenMarginTop always was.
   readonly property int contentTopInset: docked ? frameInset : topInset
+
+  // A few pixels of deliberate insurance overlap BarPanel paints into
+  // where FrameWindow's own edge is, so the two surfaces' own edges
+  // never need to agree on the exact same physical pixel to avoid a
+  // visible seam -- see BarPanel's own comment for the full mechanism.
+  // Top-position docked mode only (see BarPanel's own seamOverlap
+  // comment for why not left/right too). Lives on root, not just inside
+  // BarPanel, so screenMarginTop below can account for it too.
+  readonly property int seamOverlap: (docked && position === "top") ? 3 : 0
+
+  // BarPanel's own current REAL on-screen margin -- contentTopInset
+  // minus whatever seam-overlap it's currently painting. Backs this out
+  // for anything anchored to BarPanel's own surface coordinate space
+  // (PopupCard xdg-popups, the drag-ghost screen-point correction) --
+  // same role this property has always had, just now also accounting
+  // for the overlap trick on top of the older docked-vs-floating split.
+  readonly property int screenMarginTop: position === "top" ? contentTopInset - seamOverlap : contentTopInset
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
@@ -1412,7 +1411,7 @@ Item {
     model: Quickshell.screens
 
     delegate: Component {
-      BarPanel {
+      FrameWindow {
         required property var modelData
 
         screen: modelData
@@ -1424,7 +1423,7 @@ Item {
     model: Quickshell.screens
 
     delegate: Component {
-      ReservationPanel {
+      BarPanel {
         required property var modelData
 
         screen: modelData
@@ -1566,87 +1565,43 @@ Item {
     }
   }
 
-  component BarPanel: PanelWindow {
-    id: barWindow
+  // The shell's own decorative border, as its own fullscreen, always-
+  // click-through window -- ported from v1 ruixen.frame-widget's own
+  // Canvas hole-punch technique (fill, then punch a rounded-rect hole
+  // out with destination-out compositing), reading root.frameInset/
+  // root.frameColor/root.docked/root.sharpCorners directly instead of
+  // re-deriving independent copies of them (v1's frame-widget had to
+  // shell out to read shell.json/looknfeel.lua itself; this bar already
+  // has all of that live on root). Still ONE authoritative Canvas for
+  // all four edges, unlike v1's two-plugin split -- that part of the
+  // original fix stands. BarPanel below is what changed back: it tried
+  // living in THIS SAME window for one pass (a genuinely fullscreen
+  // BarPanel), which fixed the frame/bar seam completely but broke
+  // exclusiveZone (see BarPanel's own comment) and broke every stock
+  // Omarchy popup on this bar (weather/clock/agents read this window's
+  // REAL height for their own positioning -- fullscreen made that the
+  // whole screen instead of the bar's real strip, direct live report:
+  // "shows up very small on the bottom"). Splitting BarPanel back out
+  // fixes both without giving up the frame's own single-Canvas fix --
+  // BarPanel's own comment explains how the seam stays covered even
+  // though these are two separate surfaces again.
+  component FrameWindow: PanelWindow {
+    id: frameWindow
 
-    // v2's whole reason to exist: this window is now ALWAYS fullscreen
-    // (anchored to all four edges, no layer-shell margin at all), not a
-    // small strip pushed into place by a margin. frameCanvas below
-    // paints the shell's own decorative border directly into this same
-    // surface, and contentArea positions the bar's real content within
-    // it -- one scene, one rasterizer, so the two can never independently
-    // round to different physical pixels the way two separate Wayland
-    // surfaces could (confirmed live, reproducible: v1's separate
-    // ruixen.bar + ruixen.frame-widget windows visibly misaligned at
-    // 1.25x and 2x Hyprland scale, even after making them share one
-    // logical constant -- the logical value agreeing was never the same
-    // problem as the two surfaces' own independent rounding agreeing).
-    //
-    // Known, accepted tradeoff of going fullscreen: stock Omarchy popup
-    // widgets on this bar (weather/clock/agents, via Omarchy's own
-    // uneditable KeyboardPanel.qml) read anchorItem.QsWindow.window --
-    // this window -- and use its REAL height directly for their own
-    // positioning math. That now returns the true screen height instead
-    // of the old small strip's height, so those three widgets' popups
-    // will very likely open in the wrong place until they get their own
-    // follow-up fix. Not attempted here -- flagged, not solved, per
-    // direct instruction to accept this and move on.
-    //
-    // Hiding now toggles contentArea's own visibility/mask (see below)
-    // instead of parking the window off-screen via a negative margin --
-    // there is no "past the edge" left to park at, the window already
-    // covers the whole screen. The frame's own border stays visible
-    // regardless of barHidden, matching v1 ruixen.frame-widget's own
-    // behavior (it never depended on the bar's hidden state either).
-    visible: !remapGuard.remapping
-    // Reserves NOTHING itself, always -- direct live report (confirmed
-    // only at 1.25x Hyprland scale, not caught by this session's own
-    // 1x-only testing): a nonzero exclusiveZone on a layer-shell surface
-    // anchored to all FOUR edges left real tiled windows rendering
-    // underneath the bar instead of correctly avoiding it. wlr-layer-
-    // shell's own exclusive-zone semantics are only well-defined for a
-    // surface anchored to a single free edge (the classic case: anchored
-    // to three edges, reserving against the fourth) -- a surface
-    // anchored to all four, like this one now is for the frame's own
-    // sake, has no well-defined "which direction" to reserve in, and
-    // apparently Hyprland's own handling of that ambiguity isn't stable
-    // across scale factors. Fixed by moving the actual reservation to a
-    // separate, tiny, fully invisible ReservationPanel below instead --
-    // same ExclusionMode.Ignore this repo's own ruixen.notch/frame-widget
-    // already use for "renders something, reserves nothing".
+    visible: true
     exclusionMode: ExclusionMode.Ignore
-
-    ScreenMoveRemap {
-      id: remapGuard
-      window: barWindow
-    }
-
-    anchors {
-      top: true
-      bottom: true
-      left: true
-      right: true
-    }
-
-    // Always transparent -- see frameCanvas below for the frame's own
-    // color; the rest of this surface (almost all of it, now that it's
-    // fullscreen) has nothing painted there at all, just contentArea's
-    // own small footprint.
+    anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     surfaceFormat.opaque: false
-    WlrLayershell.namespace: "omarchy-bar"
-    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.namespace: "omarchy-shell-frame"
+    // Bottom, not Top -- BarPanel (real content, and its own insurance-
+    // overlap trim, see its own comment) needs to render ON TOP of this
+    // wherever the two would otherwise meet.
+    WlrLayershell.layer: WlrLayer.Bottom
+    // Zero interactive purpose ever -- matches v1 ruixen.frame-widget's
+    // own `mask: Region {}` exactly.
+    mask: Region {}
 
-    // The shell's own decorative border, folded into this surface
-    // instead of a separate ruixen.frame-widget plugin -- ported from
-    // that plugin's own Canvas hole-punch technique (fill, then punch a
-    // rounded-rect hole out with destination-out compositing), reading
-    // root.frameInset/root.frameColor/root.docked/root.sharpCorners
-    // directly instead of re-deriving independent copies of them (v1's
-    // frame-widget had to shell out to read shell.json/looknfeel.lua
-    // itself; this bar already has all of that live on root). Declared
-    // before contentArea, not after -- siblings paint in document order,
-    // and this needs to sit behind the bar's own content.
     Canvas {
       id: frameCanvas
       anchors.fill: parent
@@ -1699,52 +1654,71 @@ Item {
         ctx.globalCompositeOperation = "source-over"
       }
     }
+  }
 
-    // Occupies exactly the rectangle v1's own small, margin-offset
-    // window used to occupy -- same anchor+margin arithmetic (position
-    // top/bottom/left/right, vertical vs horizontal, root.contentTopInset
-    // where root.screenMarginTop used to sit in BarPanel's own margins),
-    // just applied to a plain Item inside a now-fullscreen window
-    // instead of to the window's own layer-shell margins. Everything
-    // inside (the Loader below, and all of horizontalBar/verticalBar's
-    // own interior positioning) is completely unaware anything changed
-    // -- it was always relative to its own local (0,0), which now just
-    // happens to BE this Item's origin instead of the window's own.
-    Item {
-      id: contentArea
-      visible: !root.barHidden
+  component BarPanel: PanelWindow {
+    id: barWindow
 
-      anchors {
-        top: root.position === "top" || root.vertical ? parent.top : undefined
-        bottom: root.position === "bottom" || root.vertical ? parent.bottom : undefined
-        left: root.position === "left" || !root.vertical ? parent.left : undefined
-        right: root.position === "right" || !root.vertical ? parent.right : undefined
-        topMargin: root.position === "top" ? root.contentTopInset : 0
-        leftMargin: root.position === "top" ? root.frameInset : 0
-        rightMargin: root.position === "top" ? root.frameInset : 0
-      }
-      width: root.vertical ? root.barSize : undefined
-      height: root.vertical ? undefined : barWindow.visibleBarHeight
-    }
-
-    // Real interactive area is just contentArea's own footprint -- the
-    // rest of this now-fullscreen window (almost all of it) is
-    // deliberately click/scroll-through to whatever's behind it, same
-    // `Region { item: ... }` live-tracking technique ruixen.notch/
-    // Overlay.qml already uses for its own collapsed/expanded footprint.
-    // item: null while barHidden collapses this to an empty region
-    // instead of leaving the old footprint blocking clicks after the
-    // bar's own content has already gone invisible.
-    mask: Region {
-      item: root.barHidden ? null : contentArea
-    }
-
-    // contentArea's own real content height -- where the pill row
-    // (and, docked only, the frame-hem corner wing graphics) actually
-    // live. v1 also used this as BarPanel's own implicitHeight; v2's
-    // BarPanel is fullscreen and ignores implicit sizing entirely now,
-    // so this only feeds contentArea's height above.
+    // Back to a real small window (v1's own anchors/margins, byte-for-
+    // byte) -- NOT fullscreen anymore. Two things forced this back:
+    // exclusiveZone has no well-defined meaning on a surface anchored to
+    // all four edges (direct live report at 1.25x scale: real windows
+    // rendered UNDER the bar), and every stock Omarchy popup on this bar
+    // reads THIS window's real height for its own position (direct live
+    // report: popups clamped to the bottom of the screen, tiny, once
+    // this window's real height became the whole screen instead of the
+    // bar's own strip). Both need this window's real size to be the
+    // bar's own small footprint again, no way around it.
     //
+    // What's DIFFERENT from v1, and still the actual fix: FrameWindow
+    // above is one single Canvas covering the whole screen, not two
+    // independently-hardcoded plugins each guessing the other's number.
+    // The one remaining seam risk -- this window's own edge meeting
+    // FrameWindow's edge in docked mode -- is handled by dockedSeamCover
+    // below: a plain frameColor-filled Rectangle, deliberately painted
+    // a few pixels WIDER than the gap it's covering, sitting on a higher
+    // layer than FrameWindow. Two independent surfaces can still round
+    // their own edges to slightly different physical pixels under a
+    // fractional scale -- that was never fixable by trying harder to
+    // agree on a shared number, only by making it not matter. A few
+    // pixels of deliberate overlap, painted the same color as the thing
+    // underneath, absorbs that disagreement completely: whichever
+    // physical pixel FrameWindow's own edge actually lands on, it's
+    // already covered by this window's own matching-color paint before
+    // it could ever show through as a wallpaper sliver.
+    visible: !remapGuard.remapping
+    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
+    // + root.seamOverlap -- margin.top below gives up exactly that many
+    // pixels for the insurance-overlap trick, so exclusiveZone picks
+    // them back up here. Total real-window reservation (margin.top +
+    // exclusiveZone) stays the true v1 value (44) either way -- direct
+    // live report, again: the first pass at this overlap trick forgot
+    // this compensation and the reserved gap came out seamOverlap px
+    // too shallow, same class of miss as the ReservationPanel one
+    // before it.
+    exclusiveZone: root.docked ? (44 - root.frameInset + root.seamOverlap) : root.notchClearance
+
+    ScreenMoveRemap {
+      id: remapGuard
+      window: barWindow
+    }
+
+    margins {
+      top: root.barHidden && root.position === "top" ? -root.barSize : (root.position === "top" ? root.contentTopInset - root.seamOverlap : 0)
+      bottom: root.barHidden && root.position === "bottom" ? -root.barSize : 0
+      left: root.barHidden && root.position === "left" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
+      right: root.barHidden && root.position === "right" ? -root.barSize : (root.position === "top" ? root.frameInset : 0)
+    }
+
+    anchors {
+      top: root.position === "top" || root.vertical
+      bottom: root.position === "bottom" || root.vertical
+      left: root.position === "left" || !root.vertical
+      right: root.position === "right" || !root.vertical
+    }
+
+    implicitWidth: root.vertical ? root.barSize : 0
+
     // Clears the Notch's own collapsed bottom edge (notchCollapsedBottomEdge,
     // from ruixen.notch's own service) -- direct live report: any popup
     // panel anchored off this window (weather's own, and stock Omarchy's
@@ -1752,39 +1726,63 @@ Item {
     // `anchorWindow.height + gap` (KeyboardPanel.qml's own cardOrigin, not
     // editable -- it's a stock /usr/share/omarchy file), which had no
     // notion of ruixen.notch and let a popup open right underneath it.
-    //
-    // Same floor in BOTH modes now, not a per-mode split. Docked needs
-    // barSize + shoulderWingSize regardless of the Notch's own numbers:
-    // leftFrameHemWing/rightFrameHemWing (the frame-hem corner wing
-    // graphics, docked only) are positioned at y: barSize with their own
-    // height shoulderWingSize, i.e. they occupy this window's own [34, 58]
-    // band; sizing the window any shorter than 58 when docked would clip
-    // their bottom edge against the window's own Wayland surface bounds (a
-    // real, silent clip -- not a QML clip -- confirmed finding from #29's
-    // own investigation). Floating has no such constraint of its own (48,
-    // barSize/notchCollapsedBottomEdge's own max, would still clear the
-    // Notch on its own) -- but a direct follow-up report pointed out that
-    // popups then open at two visibly different heights depending on
-    // mode ("it looks kinda sloppy... i think its better they either
-    // lower or higher rather than having its own thing"). Docked's own
-    // 58 can't safely come down (the wing-clip constraint above), so
-    // floating goes up to match instead -- consistent behavior across
-    // both modes wins over exactly hugging the window-tiling boundary in
-    // floating alone.
     readonly property int visibleBarHeight: root.vertical ? root.barSize : Math.max(root.barSize + root.shoulderWingSize, root.notchCollapsedBottomEdge)
+    // + seamOverlap -- this window's own top edge moved up by seamOverlap
+    // (margins.top above), so its own height needs to grow by the same
+    // amount to keep the BOTTOM edge (and thus anchorWindow.height/
+    // visibleBarHeight-dependent popup math, and the real content below)
+    // exactly where v1 always had it. contentOffset below is what keeps
+    // the actual pill row's own on-screen position unchanged despite the
+    // window itself now starting seamOverlap px higher.
+    implicitHeight: root.vertical ? 0 : visibleBarHeight + root.seamOverlap
 
-    Loader {
-      anchors.fill: contentArea
-      sourceComponent: root.vertical ? verticalBar : horizontalBar
+    color: "transparent"
+    surfaceFormat.opaque: false
+    WlrLayershell.namespace: "omarchy-bar"
+    // Above FrameWindow (Bottom) -- needed for the seam-cover Rectangle
+    // below to actually be capable of covering FrameWindow's own edge.
+    WlrLayershell.layer: WlrLayer.Top
 
-      // A child of the loader, not a sibling of the sections: an ancestor stays
-      // hovered while the pointer is over a widget, where a sibling would lose
-      // hover to the section the pointer entered.
-      HoverHandler {
-        onHoveredChanged: root.setBarHovered(hovered)
-        // Unplugging a monitor destroys its bar without a leave event, which
-        // would strand this surface's tally and hold the peek open for good.
-        Component.onDestruction: if (hovered) root.setBarHovered(false)
+    // The actual seam-covering paint -- see this component's own comment
+    // above for the full mechanism. Only present in docked+top (the only
+    // configuration where this window's own edge is meant to visually
+    // merge with FrameWindow's rounded corner at all; floating pills
+    // stay clear of the frame with a real gap, no seam risk there).
+    // Declared first (behind everything else, siblings paint in document
+    // order), sized to this window's own full bounds -- simplest correct
+    // option, since real pill content already paints over it everywhere
+    // that isn't the seam itself.
+    Rectangle {
+      visible: root.docked && root.position === "top"
+      anchors.fill: parent
+      color: root.frameColor
+    }
+
+    // Keeps the real content (the Loader, and everything inside it) at
+    // EXACTLY the same on-screen position it always had, despite this
+    // window's own top edge now starting seamOverlap px higher for the
+    // insurance-overlap trick above -- without this, the whole pill row
+    // would visibly shift up by seamOverlap too, since horizontalBar's
+    // own Item positions everything relative to its own (0,0), which is
+    // this window's own top-left corner.
+    Item {
+      id: contentOffset
+      anchors.fill: parent
+      anchors.topMargin: root.vertical ? 0 : root.seamOverlap
+
+      Loader {
+        anchors.fill: parent
+        sourceComponent: root.vertical ? verticalBar : horizontalBar
+
+        // A child of the loader, not a sibling of the sections: an ancestor stays
+        // hovered while the pointer is over a widget, where a sibling would lose
+        // hover to the section the pointer entered.
+        HoverHandler {
+          onHoveredChanged: root.setBarHovered(hovered)
+          // Unplugging a monitor destroys its bar without a leave event, which
+          // would strand this surface's tally and hold the peek open for good.
+          Component.onDestruction: if (hovered) root.setBarHovered(false)
+        }
       }
     }
 
@@ -2558,62 +2556,6 @@ Item {
         }
       }
     }
-  }
-
-  // Reserves the tiling space BarPanel itself no longer safely can (see
-  // its own exclusionMode comment for why) -- a small, fully invisible,
-  // fully click-through window, anchored to exactly the relevant edge(s)
-  // the same way v1's own bar window always was, existing purely to give
-  // Hyprland an unambiguous single-edge surface to reserve exclusiveZone
-  // against. Nothing is ever painted here and nothing ever needs to
-  // align with it visually, so unlike BarPanel/frameCanvas, its own
-  // exact on-screen position carries none of the original alignment
-  // risk -- it can be off by a physical pixel or two under any scale
-  // factor and nobody would ever be able to tell.
-  component ReservationPanel: PanelWindow {
-    id: reservationWindow
-
-    visible: true
-    color: "transparent"
-    surfaceFormat.opaque: false
-    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    exclusiveZone: root.docked ? (44 - root.frameInset) : root.notchClearance
-    WlrLayershell.namespace: "omarchy-bar-reservation"
-    // Bottom, not Top -- this window paints nothing and should never be
-    // capable of visually covering anything; Bottom is the lowest real
-    // layer, purely a reservation placeholder.
-    WlrLayershell.layer: WlrLayer.Bottom
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-
-    // Exactly v1's own BarPanel anchors -- anchored to the relevant
-    // edge(s) only, never all four, so exclusiveZone has the single
-    // well-defined free edge it needs.
-    anchors {
-      top: root.position === "top" || root.vertical
-      bottom: root.position === "bottom" || root.vertical
-      left: root.position === "left" || !root.vertical
-      right: root.position === "right" || !root.vertical
-    }
-    // Direct live report: the real reserved gap came out too shallow,
-    // closer to the notch's own collapsed bottom edge than the side/
-    // bottom gaps. Root cause: v1's own total on-screen reservation was
-    // ALWAYS margin.top + exclusiveZone (44 either way -- 6+38 docked,
-    // 13+31 floating, see root.contentTopInset/notchClearance's own
-    // comments), not exclusiveZone alone -- porting only exclusiveZone
-    // here and dropping the margin left this window's own real
-    // reservation 6px (docked) / 13px (floating) short of the true 44
-    // every time. Restored here, the one piece of v1's own BarPanel
-    // margins that legitimately belongs on the reservation side, not
-    // the (now purely visual) contentArea side.
-    margins {
-      top: root.position === "top" ? root.contentTopInset : 0
-    }
-    implicitWidth: root.vertical ? root.barSize : 0
-    implicitHeight: root.vertical ? 0 : 1
-
-    // Fully click/scroll-through -- this window has no interactive
-    // purpose at all, only a reservation one.
-    mask: Region {}
   }
 
   Component { id: emptyModuleComponent; Item { implicitWidth: 0; implicitHeight: 0; visible: false } }

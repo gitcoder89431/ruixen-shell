@@ -62,52 +62,50 @@ Item {
   // (~/.local/state/ruixen/frame-appearance.json) -- direct request:
   // "the compact notch and expanded notch is also like connected to the
   // frame... we gotta make the notch bg change with it too to match the
-  // frame". Independent copy of Bar.qml's own frameColorMode/
-  // frameCustomColor/frameColor resolution (not a cross-plugin
-  // reference to ruixen.bar's own object -- AGENTS.md #2/#67's own
-  // "don't depend on another plugin's live object" rule -- a small
-  // versioned state file both plugins read is exactly the prescribed
-  // pattern instead). No new file: this is the one Settings already
-  // writes for the frame itself, so switching Frame Color in Settings
-  // updates the notch too, automatically, with nothing notch-specific
-  // to configure.
+  // frame". Independent copy of Bar.qml's own frameColorMode/frameColor
+  // resolution (not a cross-plugin reference to ruixen.bar's own object
+  // -- AGENTS.md #2/#67's own "don't depend on another plugin's live
+  // object" rule -- a small versioned state file both plugins read is
+  // exactly the prescribed pattern instead). No new file: this is the
+  // one Settings already writes for the frame itself, so switching
+  // Frame Color in Settings updates the notch too, automatically, with
+  // nothing notch-specific to configure.
   //
-  // Direct live follow-up, and a real one: "some themes uses white like
-  // lupine and few other light theme, this would make the notch
-  // unusable and must be black then right". Confirmed live with the
-  // White custom preset first ("i just tried white and yea its kinda
-  // usable with like orange and yellow stuff") -- but the same failure
-  // isn't specific to that one preset, it's ANY resolved color that's
-  // too light, including Theme mode on an actually-installed light
-  // theme (lupine, catppuccin-latte, flexoki-light all ship with this
-  // repo's own theme-overlays). Removing just the White swatch would
-  // have missed that entirely. This notch's whole color system --
-  // accent hues, warning colors, media art tints, icons, not just plain
-  // text -- assumes a dark background throughout; making every one of
-  // those individually light-background-aware would be a much bigger
-  // rework than this feature warrants. Clamping instead: whichever
-  // color the frame resolves to (Theme or Custom, doesn't matter which),
+  // Just "theme" or "black" now -- was a Themed/Custom split with a
+  // 3-swatch color picker (OLED Black/Charcoal/White), direct correction
+  // after live testing: "some themes uses white like lupine and few
+  // other light theme, this would make the notch unusable... remove
+  // white from the setting as an option then and just leave Black and
+  // Theme." The luminance clamp below stays regardless -- Theme mode on
+  // an actually-installed light theme (lupine, catppuccin-latte,
+  // flexoki-light all ship with this repo's own theme-overlays) can
+  // still resolve to a light Color.background even with the White
+  // swatch gone, and this notch's whole color system (accent hues,
+  // warning colors, media art tints, icons, not just plain text) assumes
+  // a dark background throughout -- making every one of those
+  // individually light-background-aware would be a much bigger rework
+  // than this feature warrants. Whichever color the frame resolves to,
   // fall back to plain black here specifically whenever that color is
   // too light to safely host this notch's existing content, otherwise
   // use it as-is. The frame itself has nothing painted on it, so it
-  // keeps whatever light color a theme or custom pick actually gives it
-  // -- this clamp is notch-only.
-  property string frameColorMode: "custom"
-  property color frameCustomColor: "#000000"
-  readonly property color resolvedFrameColor: frameColorMode === "theme" ? Color.background : frameCustomColor
+  // keeps whatever light color Theme mode actually gives it -- this
+  // clamp is notch-only.
+  property string frameColorMode: "black"
+  readonly property color resolvedFrameColor: frameColorMode === "theme" ? Color.background : "#000000"
   readonly property real resolvedFrameColorLuminance: 0.299 * resolvedFrameColor.r + 0.587 * resolvedFrameColor.g + 0.114 * resolvedFrameColor.b
   readonly property color notchColor: resolvedFrameColorLuminance > 0.5 ? "#000000" : resolvedFrameColor
   readonly property string frameColorStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"
 
+  // Old files from before this simplification (mode: "custom",
+  // customColor: "#...") degrade safely here too -- "custom" isn't a
+  // recognized mode string anymore, so this just falls through to the
+  // new "black" default, same as Bar.qml's own copy of this function.
   function loadFrameAppearance(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.frameColorMode = (p && (p.mode === "theme" || p.mode === "custom")) ? p.mode : "custom"
-      var c = p && p.customColor
-      root.frameCustomColor = (typeof c === "string" && /^#[0-9a-fA-F]{6,8}$/.test(c)) ? c : "#000000"
+      root.frameColorMode = (p && p.mode === "theme") ? "theme" : "black"
     } catch (e) {
-      root.frameColorMode = "custom"
-      root.frameCustomColor = "#000000"
+      root.frameColorMode = "black"
     }
   }
 

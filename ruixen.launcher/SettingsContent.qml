@@ -1592,47 +1592,39 @@ Item {
     onLoadFailed: root.loadCavaState("")
   }
 
-  // Frame color -- two independent choices ("themed", tracking the
-  // active theme's own background live, or "custom", a fixed color the
-  // frame stays regardless of theme switches). Direct request, after
-  // discussing an actual drop-shadow-on-glass idea: "not sure if people
-  // know hex code, oled black might easier" -- frameCustomColorId is a
-  // named preset id (matching cavaStyle/cavaPosition's own plain-string
-  // id convention), never a raw hex field for the user to type into.
-  // Kept as a plain string here (not a QML `color`) specifically so it
-  // compares cleanly against SettingsSegmentedItem's own option ids the
-  // same way every other segmented setting on this page already does --
-  // Bar.qml's own frameCustomColor property is still a real `color`,
-  // QML auto-converts this same hex string on assignment there.
-  property string frameColorMode: "custom"
-  property string frameCustomColorId: "#000000"
-  readonly property var frameColorPresets: [
-    { id: "#000000", label: "OLED Black" },
-    { id: "#1a1a1a", label: "Charcoal" },
-    { id: "#ffffff", label: "White" }
-  ]
+  // Frame color -- just "theme" (tracking the active theme's own
+  // background live) or "black" (fixed OLED black). Was a Themed/Custom
+  // split with a 3-swatch color picker (OLED Black/Charcoal/White) --
+  // direct correction after live testing: "some themes uses white like
+  // lupine and few other light theme, this would make the notch
+  // unusable... remove white from the setting as an option then and
+  // just leave Black and Theme." ruixen.notch reads this exact same
+  // state file/mode, so a light custom swatch and Theme-mode-on-a-
+  // light-theme hit the identical failure -- simplified down to the two
+  // colors this repo's downstream consumers can actually support
+  // without a much bigger light-background rework, rather than trying
+  // to patch around just the one reported swatch.
+  property string frameColorMode: "black"
   readonly property string frameAppearanceStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"
 
+  // Old files from before this simplification (mode: "custom",
+  // customColor: "#...") degrade safely here too -- "custom" isn't a
+  // recognized mode string anymore, so this just falls through to the
+  // new "black" default, same as Bar.qml's own copy of this function.
   function loadFrameAppearanceState(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.frameColorMode = (p && (p.mode === "theme" || p.mode === "custom")) ? p.mode : "custom"
-      var presetIds = root.frameColorPresets.map(function(o) { return o.id })
-      root.frameCustomColorId = (p && presetIds.indexOf(p.customColor) >= 0) ? p.customColor : "#000000"
+      root.frameColorMode = (p && p.mode === "theme") ? "theme" : "black"
     } catch (e) {
-      root.frameColorMode = "custom"
-      root.frameCustomColorId = "#000000"
+      root.frameColorMode = "black"
     }
   }
 
   function writeFrameAppearanceState() {
-    frameAppearanceFile.setText(JSON.stringify({
-      mode: root.frameColorMode, customColor: root.frameCustomColorId
-    }, null, 2) + "\n")
+    frameAppearanceFile.setText(JSON.stringify({ mode: root.frameColorMode }, null, 2) + "\n")
   }
 
   function setFrameColorMode(id) { root.frameColorMode = id; root.writeFrameAppearanceState() }
-  function setFrameCustomColorId(id) { root.frameCustomColorId = id; root.writeFrameAppearanceState() }
 
   FileView {
     id: frameAppearanceFile
@@ -2013,14 +2005,9 @@ Item {
       }
     },
     {
-      options: ["theme", "custom"],
+      options: ["theme", "black"],
       current: root.frameColorMode,
       activate: function(id) { root.setFrameColorMode(id) }
-    },
-    {
-      options: root.frameColorPresets.map(function(o) { return o.id }),
-      current: root.frameCustomColorId,
-      activate: function(id) { root.setFrameCustomColorId(id) }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -2469,7 +2456,7 @@ Item {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem, frameColorModeItem, frameCustomColorItem][root.focusedItemIndex]
+      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem, frameColorModeItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3944,18 +3931,21 @@ Item {
     }
   }
 
-  // Frame color -- direct request, after discussing an actual
-  // drop-shadow-on-glass idea: theme it (tracks the active theme's own
-  // background live) or pick a fixed preset. Same "Themed"/mode-name
-  // wording ruixen.settings' own Glass Tint card already established
-  // elsewhere in this file, for consistency across the two closest
-  // analogous settings.
+  // Frame color -- theme it (tracks the active theme's own background
+  // live) or plain black. Same "Themed"/mode-name wording ruixen.settings'
+  // own Glass Tint card already established elsewhere in this file, for
+  // consistency across the two closest analogous settings. Was a
+  // Themed/Custom split with its own 3-swatch "Custom Color" card right
+  // below this one -- direct correction after live testing: "some themes
+  // uses white like lupine and few other light theme, this would make
+  // the notch unusable... remove white from the setting as an option
+  // then and just leave Black and Theme." Down to one card, one choice.
   SettingsSegmentedItem {
     id: frameColorModeItem
     label: "Frame Color"
     options: [
       { id: "theme", label: "Themed" },
-      { id: "custom", label: "Custom" }
+      { id: "black", label: "Black" }
     ]
     current: root.frameColorMode
     cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 6
@@ -3966,27 +3956,6 @@ Item {
     accent: root.accent
     fontFamily: root.fontFamily
     onActivated: (id) => root.setFrameColorMode(id)
-  }
-
-  // Named presets, not a raw hex field -- direct request: "not sure if
-  // people know hex code, oled black might easier". Stays focusable/
-  // selectable even in Themed mode (queuing a color for whenever Custom
-  // is picked next isn't wrong, just a no-op on the frame itself until
-  // then) rather than disappearing, so this list doesn't need its own
-  // separate focus-index bookkeeping when the mode above flips.
-  SettingsSegmentedItem {
-    id: frameCustomColorItem
-    label: "Custom Color"
-    options: root.frameColorPresets
-    current: root.frameCustomColorId
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 7
-    focusedOptionIndex: frameCustomColorItem.cardFocused ? root.focusedOptionIndex : -1
-    visible: root.visualizerOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setFrameCustomColorId(id)
   }
 
   // Wi-Fi's own three items -- the radio toggle (reuses

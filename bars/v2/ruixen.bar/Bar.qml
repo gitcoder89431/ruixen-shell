@@ -515,45 +515,48 @@ Item {
   // Was hardcoded "#000000" (OLED black) in v1's ruixen.frame-widget,
   // unconditionally -- direct request: "make the surface for the frame
   // and floating pills not oled black this time too but changeable".
-  // Two independent choices, matching Settings' own Frame category:
-  // WHERE the color comes from (frameColorMode: "custom", a user-picked
-  // swatch, or "theme", live-tracking the active theme's own Color.background
-  // -- see qs.Commons' own Color.qml, already the same singleton
-  // themeContrastForeground above reads), and, only when custom, WHICH
-  // color that is (frameCustomColor). Kept as two separate properties
-  // rather than one resolved-and-cached color so a live theme switch
-  // updates frameColor immediately in theme mode without this file
-  // needing to re-read anything -- Color.background is already its own
-  // live QML binding.
-  property string frameColorMode: "custom"
-  property color frameCustomColor: "#000000"
-  readonly property color frameColor: root.frameColorMode === "theme" ? Color.background : root.frameCustomColor
-  // JSON, not the old plain-hex file -- two fields now, same convention
-  // every other multi-field ruixen setting in this repo already uses
-  // (see ruixen.cava's own cava-visualizer.json). Renamed off the old
-  // frame-color path (never actually shipped -- no Settings UI wrote to
-  // it, so there is no real user data to migrate) rather than trying to
-  // read both formats.
+  // Just one choice now: "theme" (live-tracking the active theme's own
+  // Color.background -- see qs.Commons' own Color.qml, already the same
+  // singleton themeContrastForeground above reads) or "black" (plain
+  // fixed OLED black). Was a Themed/Custom split with a 3-swatch color
+  // picker (OLED Black/Charcoal/White) -- direct correction after live
+  // testing surfaced a real problem White couldn't be patched around:
+  // "some themes uses white like lupine and few other light theme, this
+  // would make the notch unusable" (ruixen.notch shares this exact
+  // frameColorMode/frameColor resolution off the same state file --
+  // Theme mode on an actual light theme hits the identical failure any
+  // light custom swatch would). Simplified down to the two colors this
+  // repo's own downstream consumers (this frame, and the notch) can
+  // actually support without a much bigger light-background rework:
+  // "remove white from the setting as an option then and just leave
+  // Black and Theme."
+  property string frameColorMode: "black"
+  readonly property color frameColor: root.frameColorMode === "theme" ? Color.background : "#000000"
+  // JSON, not a plain string -- kept the shape (an object with a "mode"
+  // key) even though customColor is gone, so an old file from before
+  // this simplification (mode: "custom", customColor: "#...") degrades
+  // safely: "custom" is no longer a recognized mode string, so
+  // loadFrameAppearance's own fallback below just treats it as unknown
+  // and lands on the new "black" default -- never a crash, never a
+  // stale color stuck from the old 3-swatch picker.
   readonly property string frameColorStatePath: root.stateHome + "/ruixen/frame-appearance.json"
 
-  // Always resets BOTH fields off the parsed result, never leaves either
-  // at whatever it happened to be before this call -- direct live bug
-  // found testing this: onLoadFailed used to be a bare no-op (fine for
-  // the old single-hex-string version, which never changed away from its
-  // own declared default without a file existing at all), but once a
-  // MODE existed too, deleting the state file after switching to Theme
-  // left frameColorMode stuck on "theme" forever instead of reverting --
-  // nothing was left to reset it. Same shape as ruixen.cava's own
-  // loadCavaState/onLoadFailed pattern, called with "" on failure.
+  // Always resets the mode off the parsed result, never leaves it at
+  // whatever it happened to be before this call -- direct live bug found
+  // testing the ORIGINAL (Themed/Custom) version of this: onLoadFailed
+  // used to be a bare no-op (fine for the very first single-hex-string
+  // version, which never changed away from its own declared default
+  // without a file existing at all), but once a mode existed too,
+  // deleting the state file left frameColorMode stuck on "theme" forever
+  // instead of reverting -- nothing was left to reset it. Same shape as
+  // ruixen.cava's own loadCavaState/onLoadFailed pattern, called with ""
+  // on failure.
   function loadFrameAppearance(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.frameColorMode = (p && (p.mode === "theme" || p.mode === "custom")) ? p.mode : "custom"
-      var c = p && p.customColor
-      root.frameCustomColor = (typeof c === "string" && /^#[0-9a-fA-F]{6,8}$/.test(c)) ? c : "#000000"
+      root.frameColorMode = (p && p.mode === "theme") ? "theme" : "black"
     } catch (e) {
-      root.frameColorMode = "custom"
-      root.frameCustomColor = "#000000"
+      root.frameColorMode = "black"
     }
   }
 

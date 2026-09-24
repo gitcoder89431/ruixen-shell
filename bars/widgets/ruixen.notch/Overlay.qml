@@ -1403,10 +1403,27 @@ Item {
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
 
       // Painted background, masked into the notch silhouette below.
+      // Transparent when collapsed -- direct request, after the
+      // dedicated shadow canvas below kept producing new bugs on this
+      // exact shape every tuning pass (hard drop, corner dots, then a
+      // genuinely inverted "mustache" corner): "how do we make the notch
+      // similarry to the frame edge so the shadow works and its like an
+      // extension of the frame... might as well thing about redoing
+      // it". ruixen.bar's own FrameWindow now punches this SAME
+      // collapsed silhouette as a second hole in its own already-proven
+      // canvas and draws its shadow there directly -- see its own
+      // notchHolePath/notchShadowRingPath comments. This Rectangle stays
+      // transparent for that footprint so the frame's own paint shows
+      // through underneath instead of this plugin's own copy sitting on
+      // top of it; the mask below still clips CONTENT (avatar, dividers,
+      // bell) to the correct silhouette either way, transparent fill or
+      // not. Expanded (launcher/pinned) keeps its own real fill --
+      // scoped out of this change entirely, a floating panel rather than
+      // something asking to look "attached to the frame."
       Rectangle {
         id: notchBg
         anchors.fill: parent
-        color: root.notchColor
+        color: panel.expanded ? root.notchColor : "transparent"
 
         layer.enabled: true
         layer.smooth: true
@@ -1484,6 +1501,12 @@ Item {
         id: notchShadowCanvas
         anchors.fill: parent
         antialiasing: true
+        // Collapsed shadow now lives in ruixen.bar's own FrameWindow
+        // canvas instead (see notchBg's own comment above for the full
+        // "why") -- this only ever needs to run for the expanded
+        // (launcher/pinned) states now, which stay this plugin's own
+        // responsibility.
+        visible: panel.expanded
 
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()

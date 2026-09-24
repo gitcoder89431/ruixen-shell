@@ -2162,32 +2162,55 @@ Item {
         // parent.width - trayPill.x is the mirror for the right group.
         //
         // leftShoulderShadowClip/rightShoulderShadowClip: hidden, solid-
-        // black duplicates of ONLY DockedBg+ShoulderWing (not
-        // FrameHemWing), shadowed and clipped, sitting behind the real
-        // pieces. First tried shadowing all six real pieces directly as
-        // one combined shape -- direct live correction: "it doesnt need
-        // the shadow on the like the top and none wing curve, the edges
-        // that sits on the frame dont need it." FrameHemWing's own curve
-        // and DockedBg's top-left/top-right corner (the one matching
-        // ruixen.frame-widget's own rounded corner, see topLeftRadius
-        // above) both sit flush against the frame's own continuing
-        // border -- same reasoning as excluding the notch's own top edge
-        // (part of the same surface, shouldn't shade itself). Only the
-        // bottom edge + the open-facing shoulder-wing curve are real
-        // "growing out of the frame" edges that want a shadow.
+        // black duplicates of ALL THREE real pieces per side (DockedBg +
+        // ShoulderWing + FrameHemWing), shadowed and clipped, sitting
+        // behind the real pieces. First tried excluding FrameHemWing
+        // from the duplicate entirely, reasoning "it touches the frame,
+        // so it shouldn't shadow" -- wrong: FrameHemWing has ONE edge
+        // touching the frame (its straight left edge, x:0) but its own
+        // CURVE faces the open window content below, exactly like
+        // ShoulderWing's curve does, and that curve legitimately wants a
+        // shadow. Direct live correction: "you took out the correct
+        // shadow between the lower dock filler curve and the window
+        // instead, now it looks missing." The excluded-PIECE model was
+        // wrong; what actually matters is excluded-DIRECTION -- which
+        // the clip below already does correctly on its own (trimming
+        // anything past the true screen top/left edge) as long as the
+        // full, real 3-piece shape is what's being clipped, not a
+        // partial stand-in for it. Duplicating the full shape also
+        // removes the earlier seam artifact where a shadowed DockedBg
+        // bottom edge sat directly above an unshadowed FrameHemWing --
+        // this was seen live as a stray triangular patch right at that
+        // hand-off ("the triangle corner is still there between frame
+        // and the dock filler").
         //
         // A hidden duplicate (not shadowEnabled directly on the real
-        // pieces, unlike GroupPill) is what makes excluding those edges
-        // possible without also clipping the real, visible fill --
-        // exactly ruixen.notch/Overlay.qml's own notchShadowClip
-        // technique, just with two frame-touching sides to flatten
-        // instead of one: each clip is flush (no margin) on its own
-        // corner's two frame-touching sides (top+left for the left
-        // cluster, top+right for the right one) and expanded -40 on the
-        // two open sides, so shadow can't render past the frame-touching
-        // edges but still shows fully everywhere else. Geometry bound
-        // directly to the real pieces' own properties, not re-derived,
-        // so it can never drift out of sync with them.
+        // pieces, unlike GroupPill) is what makes excluding the frame-
+        // touching DIRECTIONS possible without also clipping the real,
+        // visible fill -- exactly ruixen.notch/Overlay.qml's own
+        // notchShadowClip technique, just with two frame-touching sides
+        // to flatten instead of one: each clip is flush (no margin) on
+        // its own corner's two frame-touching sides (top+left for the
+        // left cluster, top+right for the right one) and expanded -40 on
+        // the two open sides, so shadow can't render past the frame-
+        // touching edges but still shows fully everywhere else. Geometry
+        // bound directly to the real pieces' own properties, not re-
+        // derived, so it can never drift out of sync with them.
+        //
+        // leftShoulderShadowClip's own flush corner (top-left) happens to
+        // coincide with this whole Item's own (0,0) origin, so the real
+        // pieces' x/y bind straight through with no compensation needed.
+        // rightShoulderShadowClip does NOT have that luxury (see its own
+        // comment below) -- expanding its clip LEFTWARD while staying
+        // flush on the RIGHT necessarily shifts ITS OWN local origin away
+        // from this Item's origin, and forgetting that shift the first
+        // time around left the right cluster's whole duplicate rendered
+        // 40px too far left -- its own solid, un-blurred core spilling out
+        // past the real (correctly-positioned) content instead of staying
+        // hidden under it. Direct live report: "the right side of the
+        // dock has like black sticking out from the curve's wing, looks
+        // like an extended shadow or just something else entirely
+        // layering there as pure black."
         Item {
           id: leftShoulderShadowClip
           anchors.top: parent.top
@@ -2223,6 +2246,15 @@ Item {
               color: "#000000"
             }
 
+            RoundCorner {
+              x: leftFrameHemWing.x
+              y: leftFrameHemWing.y
+              corner: leftFrameHemWing.corner
+              size: leftFrameHemWing.size
+              visible: leftFrameHemWing.visible
+              color: "#000000"
+            }
+
             layer.enabled: true
             layer.effect: MultiEffect {
               shadowEnabled: true
@@ -2237,6 +2269,18 @@ Item {
         // Mirrors leftShoulderShadowClip -- see its comment. Flush
         // top+right (rightDockedBg's own corner touches the frame there
         // instead of on the left), expanded left+bottom.
+        //
+        // Expanding LEFTWARD while staying flush-right unavoidably moves
+        // THIS ITEM'S OWN x to (parent.x - 40) -- x = right edge - width,
+        // and a wider box with a fixed right edge must start further
+        // left. The inner Item below inherits that same shifted origin
+        // via anchors.fill, so a child placed at a real piece's own x
+        // (e.g. rightDockedBg.x, expressed in the outer, UNshifted
+        // horizontalBar coordinate frame) would land 40px further left
+        // on screen than the real piece actually is. Subtracting this
+        // Item's own x (itself expressed in that same outer frame, as a
+        // sibling of rightDockedBg) cancels exactly that shift, however
+        // large the margin actually is -- not a hardcoded "+40".
         Item {
           id: rightShoulderShadowClip
           anchors.top: parent.top
@@ -2251,7 +2295,7 @@ Item {
             anchors.fill: parent
 
             Rectangle {
-              x: rightDockedBg.x
+              x: rightDockedBg.x - rightShoulderShadowClip.x
               y: rightDockedBg.y
               width: rightDockedBg.width
               height: rightDockedBg.height
@@ -2264,11 +2308,20 @@ Item {
             }
 
             RoundCorner {
-              x: rightShoulderWing.x
+              x: rightShoulderWing.x - rightShoulderShadowClip.x
               y: rightShoulderWing.y
               corner: rightShoulderWing.corner
               size: rightShoulderWing.size
               visible: rightShoulderWing.visible
+              color: "#000000"
+            }
+
+            RoundCorner {
+              x: rightFrameHemWing.x - rightShoulderShadowClip.x
+              y: rightFrameHemWing.y
+              corner: rightFrameHemWing.corner
+              size: rightFrameHemWing.size
+              visible: rightFrameHemWing.visible
               color: "#000000"
             }
 

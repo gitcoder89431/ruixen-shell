@@ -1785,9 +1785,21 @@ Item {
           topRadius, frameCornerRadius)
         ctx.clip()
         ctx.lineWidth = 1
+        // 0.8 -> 0.95 peak -- direct live report comparing corners
+        // against different wallpaper brightness (top-right, a lighter
+        // patch, looked "blurred"; bottom-right, over a darker area, read
+        // clean): 20% of whatever's underneath still showing through even
+        // at the shadow's own darkest point is negligible against a dark
+        // background but reads as a visible bright haze against a light
+        // one -- not a bug in the falloff shape (still the same smooth
+        // quadratic curve, still "soft"), just not dark enough at the
+        // peak to look like a solid edge regardless of what's behind it.
+        // "the shadow to like appear like the frame is on top" -- the
+        // peak needs to nearly fully override the wallpaper's own
+        // brightness, then fade, not stay semi-transparent throughout.
         for (var i = 0; i < shadowReachPx; i++) {
           var t = 1 - (i / shadowReachPx)
-          var alpha = 0.8 * t * t
+          var alpha = 1.0 * t * t
           if (alpha < 0.004) continue
           ctx.strokeStyle = Qt.rgba(0, 0, 0, alpha)
           roundedRectCorners(ctx, root.frameInset + i, root.frameInset + i,

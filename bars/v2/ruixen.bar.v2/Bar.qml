@@ -1424,6 +1424,18 @@ Item {
     model: Quickshell.screens
 
     delegate: Component {
+      ReservationPanel {
+        required property var modelData
+
+        screen: modelData
+      }
+    }
+  }
+
+  Variants {
+    model: Quickshell.screens
+
+    delegate: Component {
       DragGhostPanel {
         required property var modelData
 
@@ -1587,11 +1599,22 @@ Item {
     // regardless of barHidden, matching v1 ruixen.frame-widget's own
     // behavior (it never depended on the bar's hidden state either).
     visible: !remapGuard.remapping
-    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
-    // Unchanged from v1 -- already decoupled from the window's own size
-    // (Normal + an explicit value, not Auto), so going fullscreen here
-    // changes nothing about what this actually reserves.
-    exclusiveZone: root.docked ? (44 - root.frameInset) : root.notchClearance
+    // Reserves NOTHING itself, always -- direct live report (confirmed
+    // only at 1.25x Hyprland scale, not caught by this session's own
+    // 1x-only testing): a nonzero exclusiveZone on a layer-shell surface
+    // anchored to all FOUR edges left real tiled windows rendering
+    // underneath the bar instead of correctly avoiding it. wlr-layer-
+    // shell's own exclusive-zone semantics are only well-defined for a
+    // surface anchored to a single free edge (the classic case: anchored
+    // to three edges, reserving against the fourth) -- a surface
+    // anchored to all four, like this one now is for the frame's own
+    // sake, has no well-defined "which direction" to reserve in, and
+    // apparently Hyprland's own handling of that ambiguity isn't stable
+    // across scale factors. Fixed by moving the actual reservation to a
+    // separate, tiny, fully invisible ReservationPanel below instead --
+    // same ExclusionMode.Ignore this repo's own ruixen.notch/frame-widget
+    // already use for "renders something, reserves nothing".
+    exclusionMode: ExclusionMode.Ignore
 
     ScreenMoveRemap {
       id: remapGuard
@@ -2535,6 +2558,48 @@ Item {
         }
       }
     }
+  }
+
+  // Reserves the tiling space BarPanel itself no longer safely can (see
+  // its own exclusionMode comment for why) -- a small, fully invisible,
+  // fully click-through window, anchored to exactly the relevant edge(s)
+  // the same way v1's own bar window always was, existing purely to give
+  // Hyprland an unambiguous single-edge surface to reserve exclusiveZone
+  // against. Nothing is ever painted here and nothing ever needs to
+  // align with it visually, so unlike BarPanel/frameCanvas, its own
+  // exact on-screen position carries none of the original alignment
+  // risk -- it can be off by a physical pixel or two under any scale
+  // factor and nobody would ever be able to tell.
+  component ReservationPanel: PanelWindow {
+    id: reservationWindow
+
+    visible: true
+    color: "transparent"
+    surfaceFormat.opaque: false
+    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Normal
+    exclusiveZone: root.docked ? (44 - root.frameInset) : root.notchClearance
+    WlrLayershell.namespace: "omarchy-bar-reservation"
+    // Bottom, not Top -- this window paints nothing and should never be
+    // capable of visually covering anything; Bottom is the lowest real
+    // layer, purely a reservation placeholder.
+    WlrLayershell.layer: WlrLayer.Bottom
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    // Exactly v1's own BarPanel anchors -- anchored to the relevant
+    // edge(s) only, never all four, so exclusiveZone has the single
+    // well-defined free edge it needs.
+    anchors {
+      top: root.position === "top" || root.vertical
+      bottom: root.position === "bottom" || root.vertical
+      left: root.position === "left" || !root.vertical
+      right: root.position === "right" || !root.vertical
+    }
+    implicitWidth: root.vertical ? root.barSize : 0
+    implicitHeight: root.vertical ? 0 : 1
+
+    // Fully click/scroll-through -- this window has no interactive
+    // purpose at all, only a reservation one.
+    mask: Region {}
   }
 
   Component { id: emptyModuleComponent; Item { implicitWidth: 0; implicitHeight: 0; visible: false } }

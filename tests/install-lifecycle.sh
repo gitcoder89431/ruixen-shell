@@ -121,5 +121,31 @@ fi
 check "validation failure: shell.json was never written (aborted before step [4/7])" \
   "$([[ -e "$home3/.config/omarchy/shell.json" ]] && echo exists || echo absent)" "absent"
 
+# --- Case 4: a Ruixen plugin retired from this checkout (no source dir
+# left at all, e.g. ruixen.frame-widget once v2 merged it away) must be
+# removed from an existing install, not left deployed+referenced forever
+home4="$(mktemp -d)"
+homes+=("$home4")
+mkdir -p "$home4/.config/omarchy/plugins/ruixen.retired-widget"
+printf '%s' '{"schemaVersion":1,"id":"ruixen.retired-widget","name":"Retired","version":"1.0.0","author":"ruixen","kinds":["overlay"]}' \
+  > "$home4/.config/omarchy/plugins/ruixen.retired-widget/manifest.json"
+mkdir -p "$home4/.config/omarchy"
+printf '%s' '{"version":1,"bar":{"id":"ruixen.bar","layout":{"left":[{"id":"ruixen.retired-widget"}],"center":[],"right":[]}},"plugins":[{"id":"ruixen.retired-widget"}]}' \
+  > "$home4/.config/omarchy/shell.json"
+if run_install "$home4"; then status4=0; else status4=$?; fi
+check "retired plugin: exits 0" "$status4" "0"
+if [[ "$status4" -eq 0 ]]; then
+  check "retired plugin: deployed directory was removed" \
+    "$([[ -e "$home4/.config/omarchy/plugins/ruixen.retired-widget" ]] && echo present || echo gone)" "gone"
+  check "retired plugin: moved to a backup, not just deleted" \
+    "$(find "$home4/.local/state/ruixen/backups/plugins" -maxdepth 1 -name 'ruixen.retired-widget.bak.*' 2>/dev/null | wc -l | tr -d ' ')" "1"
+  check "retired plugin: stripped from shell.json's plugins[]" \
+    "$(jq -c '[.plugins[].id] | any(. == "ruixen.retired-widget")' "$home4/.config/omarchy/shell.json")" "false"
+  check "retired plugin: stripped from bar.layout too" \
+    "$(jq -c '[.bar.layout.left[].id] | any(. == "ruixen.retired-widget")' "$home4/.config/omarchy/shell.json")" "false"
+else
+  cat "$home4/install.out" >&2
+fi
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

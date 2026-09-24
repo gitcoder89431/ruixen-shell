@@ -408,6 +408,13 @@ DEPLOYED_PLUGIN_IDS=()
 # every verify would have hashed a now-nonexistent directory and failed
 # every install).
 declare -A PLUGIN_SOURCE_DIR_FOR_ID
+# A Ruixen-owned plugin id that's deployed but no longer has a matching
+# source directory in this checkout (e.g. a retired bar-family plugin
+# from an earlier layout, like ruixen.frame-widget once v2 merged it
+# away) -- separate from DEPLOYED_PLUGIN_IDS above because the hash
+# verification loop below indexes PLUGIN_SOURCE_DIR_FOR_ID by id, and an
+# orphan has no source dir to verify against at all.
+REMOVED_ORPHAN_PLUGIN_IDS=()
 SHELL_JSON_TOUCHED=0
 SHELL_JSON_HAD_BACKUP=0
 LOOKNFEEL_TOUCHED=0
@@ -455,6 +462,17 @@ rollback_plugins() {
     if [[ -e "$backup" ]]; then
       mv "$backup" "$target" || printf '  warning: could not restore %s from its backup\n' "$id" >&2
     fi
+  done
+}
+
+rollback_orphan_plugins() {
+  local idx id target backup
+  for (( idx=${#REMOVED_ORPHAN_PLUGIN_IDS[@]}-1; idx>=0; idx-- )); do
+    id="${REMOVED_ORPHAN_PLUGIN_IDS[$idx]}"
+    target="$plugins_dir/$id"
+    backup="$plugin_backup_dir/$id.bak.$stamp"
+    [[ -e "$backup" ]] || continue
+    mv "$backup" "$target" || printf '  warning: could not restore orphaned plugin %s from its backup\n' "$id" >&2
   done
 }
 
@@ -546,7 +564,7 @@ rollback_theme_overlays() {
 
 rollback_all() {
   trap - ERR
-  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 && "$THEME_OVERLAYS_TOUCHED" -eq 0 ]]; then
+  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && ${#REMOVED_ORPHAN_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 && "$THEME_OVERLAYS_TOUCHED" -eq 0 ]]; then
     # Failed before anything was actually changed (e.g. plugin
     # validation) -- fail()'s own message already explained why,
     # nothing to undo.
@@ -558,6 +576,7 @@ rollback_all() {
   rollback_looknfeel_data
   rollback_shell_json
   rollback_plugins
+  rollback_orphan_plugins
   printf 'rollback complete -- your previous installation should be unchanged.\n' >&2
 }
 trap rollback_all ERR
@@ -573,6 +592,18 @@ done
 printf '  all plugins passed validation\n'
 
 printf '\n[3/7] Installing plugins\n'
+# Every id this checkout currently ships as a real source directory --
+# used below (after the deploy loop) to recognize a previously-deployed
+# Ruixen plugin whose source no longer exists at all, not just one that
+# moved to a different subfolder (bar-family plugins already move
+# between bars/v1, bars/v2, bars/widgets/ across versions; basename is
+# all that's compared, so a relocation is never mistaken for a removal).
+declare -A CURRENT_SOURCE_IDS=()
+for dir in "${plugin_source_dirs[@]}"; do
+  [[ -d "$dir" ]] || continue
+  CURRENT_SOURCE_IDS["$(basename "$dir")"]=1
+done
+
 for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
@@ -618,6 +649,28 @@ for id in "${DEPLOYED_PLUGIN_IDS[@]}"; do
   [[ "$source_hash" == "$deployed_hash" ]] \
     || fail "$id was deployed but does not match this checkout's own source -- the copy did not complete cleanly (nothing else has been changed; safe to just run this again)"
 done
+# Orphan cleanup: a plugin id this checkout used to ship as its own
+# source directory, but no longer does (e.g. ruixen.frame-widget, retired
+# once v2 merged it into ruixen.bar itself), would otherwise sit deployed
+# here forever -- the loop above only ever pushes forward from whatever
+# IS in plugin_source_dirs right now, it never looks at what's already
+# deployed. Left alone, an existing install upgrading past a removal like
+# that keeps running the old plugin's code indefinitely, alongside
+# whatever replaced it. Scoped to manifests this checkout actually
+# authored (author == "ruixen") -- never removes a deployed dir just
+# because its name happens to start with "ruixen." (AGENTS.md #6:
+# ownership-aware only, never touch what we don't own).
+for target in "$plugins_dir"/ruixen.*; do
+  [[ -d "$target" ]] || continue
+  id="$(basename "$target")"
+  [[ -n "${CURRENT_SOURCE_IDS[$id]:-}" ]] && continue
+  author="$(jq -r '.author // empty' "$target/manifest.json" 2>/dev/null)"
+  [[ "$author" == "ruixen" ]] || continue
+  mv "$target" "$plugin_backup_dir/$id.bak.$stamp"
+  REMOVED_ORPHAN_PLUGIN_IDS+=("$id")
+  printf '  removed orphaned plugin %s (no longer part of this checkout)\n' "$id"
+done
+
 printf '  verified: every deployed plugin exactly matches this checkout\n'
 
 printf '\n[4/7] Applying shell layout\n'
@@ -651,9 +704,16 @@ SHELL_JSON_TOUCHED=1
 # Written to a temp file in the same directory first, then renamed into
 # place -- an atomic swap, not an in-place overwrite, so a killed/failed
 # build can never leave shell.json half-written.
+# RUIXEN_ORPHAN_PLUGIN_IDS_JSON tells build-shell-json.sh which ids were
+# just physically removed above, so it strips the matching plugins[]/
+# bar.layout entries instead of leaving them referencing a directory that
+# no longer exists (its own merge is otherwise deliberately additive-only
+# -- see that script's comment on why -- so this is the one path that
+# can still take an id OUT).
 tmp_shell_json="$(mktemp "${shell_json}.XXXXXX")"
 { [[ "$shell_json_input" == /dev/null ]] && printf '{}' || cat "$shell_json_input"; } \
-  | "$script_dir/lib/build-shell-json.sh" > "$tmp_shell_json" \
+  | RUIXEN_ORPHAN_PLUGIN_IDS_JSON="$(printf '%s\n' "${REMOVED_ORPHAN_PLUGIN_IDS[@]:-}" | jq -R 'select(length > 0)' | jq -s .)" \
+    "$script_dir/lib/build-shell-json.sh" > "$tmp_shell_json" \
   || { rm -f "$tmp_shell_json"; fail "failed to build shell.json"; }
 
 mv "$tmp_shell_json" "$shell_json"

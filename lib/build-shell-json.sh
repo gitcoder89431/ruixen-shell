@@ -22,7 +22,12 @@
 #     duplicates) without needing to strip and re-add ruixen's own
 #     entries, which would have the same live-state-wipe risk the bar
 #     fix above addresses if one ever grows extra fields the way
-#     bar.layout entries already have.
+#     bar.layout entries already have. One deliberate exception: any id
+#     in RUIXEN_ORPHAN_PLUGIN_IDS_JSON (install.sh sets this to the ids
+#     it just found deployed with no matching source directory left in
+#     the checkout at all, e.g. a retired plugin) is stripped from both
+#     plugins[] and bar.layout here -- otherwise a removed plugin's id
+#     would sit referenced forever with no path left to take it out.
 #   - idle: left alone entirely if the caller's existing JSON already
 #     has one -- only Ruixen's own default applies when the key is
 #     missing.
@@ -113,6 +118,15 @@ default_idle_json='{"lock": 300, "screensaver": 150}'
 # even though ordinary ids no longer get one.
 center_special_ids='["ruixen.weather", "omarchy.clock"]'
 
+# Ids install.sh just physically removed this run (a Ruixen-authored
+# plugin whose source directory no longer exists in the checkout at all,
+# e.g. ruixen.frame-widget once v2 merged it away) -- the ONE way an id
+# can be taken OUT of plugins[]/bar.layout despite the merge below being
+# deliberately additive-only otherwise. Set by install.sh; empty (a
+# no-op) for every other caller, including update.sh's own --dry-run
+# preview and every test in tests/shell-json-merge.sh that doesn't set it.
+orphan_plugin_ids="${RUIXEN_ORPHAN_PLUGIN_IDS_JSON:-[]}"
+
 existing_json="$(cat)"
 
 jq -n \
@@ -121,6 +135,7 @@ jq -n \
   --argjson ruixenPluginIds "$ruixen_plugin_ids" \
   --argjson centerSpecialIds "$center_special_ids" \
   --argjson defaultIdle "$default_idle_json" \
+  --argjson orphanPluginIds "$orphan_plugin_ids" \
   '
   # bar: only installed fresh the first time ruixen.bar takes over the
   # bar slot (no bar yet, or some other bar active). Once ruixen.bar
@@ -157,10 +172,15 @@ jq -n \
   # specific ids only, not a general layout migration -- anything else
   # a user actually chose to keep in left/center is left alone here
   # (see the separate foreign-widget migration below for those).
+  # orphanPluginIds folded into this same strip, not a separate pass --
+  # an orphan that happened to be a bar-widget-kind plugin (unlike
+  # frame-widget itself, which never was) could otherwise keep rendering
+  # from a bar.layout slot even after its own plugin directory is gone.
   | (if ($ownedBar.layout | type) == "object" then
        $ownedBar | .layout |= with_entries(
          .value |= (if type == "array" then
-           map(select(.id != "ruixen.media" and .id != "omarchy.menu"))
+           map(select(.id as $i | $i != "ruixen.media" and $i != "omarchy.menu"
+             and ($orphanPluginIds | index($i)) == null))
          else . end)
        )
      else $ownedBar end) as $strippedBar
@@ -292,7 +312,11 @@ jq -n \
   # have the same "wipe live per-plugin state on reinstall" problem the
   # bar fix above addresses, if a ruixen plugin entry ever grows extra
   # fields the way bar.layout entries already have.
-  | ($existing.plugins // []) as $existingPlugins
+  # orphanPluginIds stripped here first -- the one exception to "every
+  # existing entry is left completely untouched" above, and only for an
+  # id install.sh itself just confirmed has no source directory left in
+  # this checkout at all (never a heuristic run on ordinary reinstalls).
+  | ($existing.plugins // [] | map(select((.id as $i | $orphanPluginIds | index($i)) == null))) as $existingPlugins
   | ($existingPlugins | map(.id)) as $existingIds
   # `. as $id` matters here, not just style -- `index(.)` inside a
   # nested pipe re-evaluates `.` against the input of that pipe itself

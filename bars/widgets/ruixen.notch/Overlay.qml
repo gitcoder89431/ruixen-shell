@@ -72,18 +72,31 @@ Item {
   // updates the notch too, automatically, with nothing notch-specific
   // to configure.
   //
-  // Caveat accepted for now, not solved here: textColor below always
-  // resolves to a LIGHT color (the theme's own bright foreground, or a
-  // hardcoded near-white fallback) since text/icons sit directly on
-  // this background, unlike the frame's own color (which has nothing
-  // painted on top of it). If Theme mode ever resolves to a light
-  // background on some theme, that would be light text on a light
-  // background. Every other tuning fix today was handled the same way
-  // -- ship the simple version, fix it once an actual affected
-  // theme/machine shows a real problem, not pre-guess every combination.
+  // Direct live follow-up, and a real one: "some themes uses white like
+  // lupine and few other light theme, this would make the notch
+  // unusable and must be black then right". Confirmed live with the
+  // White custom preset first ("i just tried white and yea its kinda
+  // usable with like orange and yellow stuff") -- but the same failure
+  // isn't specific to that one preset, it's ANY resolved color that's
+  // too light, including Theme mode on an actually-installed light
+  // theme (lupine, catppuccin-latte, flexoki-light all ship with this
+  // repo's own theme-overlays). Removing just the White swatch would
+  // have missed that entirely. This notch's whole color system --
+  // accent hues, warning colors, media art tints, icons, not just plain
+  // text -- assumes a dark background throughout; making every one of
+  // those individually light-background-aware would be a much bigger
+  // rework than this feature warrants. Clamping instead: whichever
+  // color the frame resolves to (Theme or Custom, doesn't matter which),
+  // fall back to plain black here specifically whenever that color is
+  // too light to safely host this notch's existing content, otherwise
+  // use it as-is. The frame itself has nothing painted on it, so it
+  // keeps whatever light color a theme or custom pick actually gives it
+  // -- this clamp is notch-only.
   property string frameColorMode: "custom"
   property color frameCustomColor: "#000000"
-  readonly property color notchColor: frameColorMode === "theme" ? Color.background : frameCustomColor
+  readonly property color resolvedFrameColor: frameColorMode === "theme" ? Color.background : frameCustomColor
+  readonly property real resolvedFrameColorLuminance: 0.299 * resolvedFrameColor.r + 0.587 * resolvedFrameColor.g + 0.114 * resolvedFrameColor.b
+  readonly property color notchColor: resolvedFrameColorLuminance > 0.5 ? "#000000" : resolvedFrameColor
   readonly property string frameColorStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"
 
   function loadFrameAppearance(raw) {

@@ -1686,9 +1686,25 @@ Item {
       // frame bezels use. Fixed constants for now, not exposed in
       // Settings -- these need live tuning against an actual affected
       // machine/theme before they're worth turning into a real knob.
-      readonly property color shadowColor: "#8f000000"
-      readonly property int shadowBlurPx: 14
-      readonly property int shadowWidthPx: 6
+      //
+      // Qt.rgba(), not an 8-digit hex string -- direct live report ("the
+      // shadow looks grey... i was expecting a darker dropshadow like
+      // our hyprland windows"), root-caused, not just retuned: QML's own
+      // color type parses "#8f000000" alpha-FIRST (Qt convention), but
+      // Canvas 2D's own CSS-style color parser expects alpha-LAST
+      // (#RRGGBBAA) once that value round-trips through
+      // ctx.shadowColor/strokeStyle as a string -- the hex string was
+      // being reinterpreted under the wrong convention, landing on a
+      // much weaker, greyer result than "black at ~0.56 alpha" ever
+      // intended. Qt.rgba(r, g, b, a) is unambiguous regardless of which
+      // convention the Canvas string parser assumes, since it's a real
+      // color value, never re-parsed as a string at all. Pushed darker
+      // at the same time (0.55 -> 0.8 alpha) to actually read as a real
+      // drop shadow, closer to Hyprland's own default window shadow
+      // weight, not just fixing the parsing bug at the old faint value.
+      readonly property color shadowColor: Qt.rgba(0, 0, 0, 0.8)
+      readonly property int shadowBlurPx: 18
+      readonly property int shadowWidthPx: 10
 
       onPaint: {
         const ctx = getContext("2d")

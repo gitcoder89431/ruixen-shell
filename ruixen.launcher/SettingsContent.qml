@@ -1937,6 +1937,16 @@ Item {
     }
   ]
   readonly property var barItems: [
+    // Moved here from the Desktop page, above Bar Layout -- direct
+    // request: "move the frame color from the setting out of desktop
+    // and lets put it in Bars above bar layout." It shapes the bar's
+    // own frame/docked-shoulder surface (see AGENTS.md #9), not
+    // anything Desktop-page-specific like the cava visualizer.
+    {
+      options: ["theme", "black"],
+      current: root.frameColorMode,
+      activate: function(id) { root.setFrameColorMode(id) }
+    },
     {
       options: ["floating", "docked"],
       current: root.barMode,
@@ -2003,11 +2013,6 @@ Item {
       adjust: function(delta) {
         root.setCavaThickness(root.cavaThickness + delta * (root.cavaThicknessMax - root.cavaThicknessMin))
       }
-    },
-    {
-      options: ["theme", "black"],
-      current: root.frameColorMode,
-      activate: function(id) { root.setFrameColorMode(id) }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -2419,7 +2424,9 @@ Item {
       return [profilePictureItem, glassProfileItem, glassTintItem, windowCurvatureItem, windowSpacingItem, animationStyleItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
-      // Launcher Mark (index 2) is a special case -- direct report:
+      // Launcher Mark (index 3, since Frame Color's move to index 0
+      // pushed every item after it up by one) is a special case --
+      // direct report:
       // "it kinda scroll me down but then im not able to see the top
       // rows... can only see the bottom ones". scrollToFocusedItem()
       // uses this return value's own height to decide how far to
@@ -2432,8 +2439,8 @@ Item {
       // scrollToFocusedItem() a small, correctly-positioned target to
       // scroll to, the same as every other (much smaller) item here
       // already gets for free.
-      if (root.focusedItemIndex === 2) return iconRepeater.itemAt(root.focusedOptionIndex)
-      return [barLayoutItem, notchVisibilityItem, appLauncherIconItem][root.focusedItemIndex]
+      if (root.focusedItemIndex === 3) return iconRepeater.itemAt(root.focusedOptionIndex)
+      return [frameColorModeItem, barLayoutItem, notchVisibilityItem, appLauncherIconItem][root.focusedItemIndex]
     }
     if (root.launcherOpen) {
       if (root.focusedItemIndex === 0) return includeHomeRow
@@ -2456,7 +2463,7 @@ Item {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem, frameColorModeItem][root.focusedItemIndex]
+      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3169,6 +3176,39 @@ Item {
     onActivated: (id) => root.setAnimationProfile(id)
   }
 
+  // Frame color -- theme it (tracks the active theme's own background
+  // live) or plain black. Same "Themed"/mode-name wording ruixen.settings'
+  // own Glass Tint card already established elsewhere in this file, for
+  // consistency across the two closest analogous settings. Was a
+  // Themed/Custom split with its own 3-swatch "Custom Color" card right
+  // below this one -- direct correction after live testing: "some themes
+  // uses white like lupine and few other light theme, this would make
+  // the notch unusable... remove white from the setting as an option
+  // then and just leave Black and Theme." Down to one card, one choice.
+  //
+  // Moved here from the Desktop page, above Bar Layout -- direct
+  // request: "move the frame color from the setting out of desktop and
+  // lets put it in Bars above bar layout." It shapes the bar's own
+  // frame/docked-shoulder surface (see AGENTS.md #9's "coupled visual
+  // surfaces"), not anything Desktop-page-specific.
+  SettingsSegmentedItem {
+    id: frameColorModeItem
+    label: "Frame Color"
+    options: [
+      { id: "theme", label: "Themed" },
+      { id: "black", label: "Black" }
+    ]
+    current: root.frameColorMode
+    cardFocused: root.barOpen && root.rightFocused && root.focusedItemIndex === 0
+    focusedOptionIndex: frameColorModeItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.barOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setFrameColorMode(id)
+  }
+
   // Bar's own single item -- direct request: "think we're ready for
   // the bar page next, it should just be one setting option there for
   // bar layout floating or dock." A plain Column child like the three
@@ -3184,7 +3224,8 @@ Item {
       { id: "docked", label: "Docked" }
     ]
     current: root.barMode
-    cardFocused: root.rightFocused && root.focusedItemIndex === 0
+    // 1, not 0 -- Frame Color took index 0 once it moved onto this page.
+    cardFocused: root.rightFocused && root.focusedItemIndex === 1
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.barOpen
     textColor: root.textColor
@@ -3225,14 +3266,19 @@ Item {
   // detection would otherwise run through.
   SettingsSegmentedItem {
     id: notchVisibilityItem
-    label: "Notch"
+    // Direct request: "rename Notch inside the bars setting to Notch
+    // Visibility" -- label only, id/state/function names unchanged
+    // (same reasoning as the Desktop/"visualizer" id split above: an
+    // internal key, never shown).
+    label: "Notch Visibility"
     options: [
       { id: "show", label: "Show" },
       { id: "hover", label: "On Hover" },
       { id: "hidden", label: "Hidden" }
     ]
     current: root.notchVisibilityCurrentId()
-    cardFocused: root.rightFocused && root.focusedItemIndex === 1
+    // 2, not 1 -- Frame Color took index 0 once it moved onto this page.
+    cardFocused: root.rightFocused && root.focusedItemIndex === 2
     focusedOptionIndex: cardFocused ? root.focusedOptionIndex : -1
     visible: root.barOpen
     textColor: root.textColor
@@ -3268,8 +3314,9 @@ Item {
     color: Qt.rgba(0, 0, 0, 0.18)
     // Card-level focus ring -- same convention profilePictureItem's
     // own comment documents ("tab between cards... then left or right
-    // direction and enter for that option").
-    border.width: root.rightFocused && root.focusedItemIndex === 2 ? 1 : 0
+    // direction and enter for that option"). 3, not 2 -- Frame Color
+    // took index 0 once it moved onto this page.
+    border.width: root.rightFocused && root.focusedItemIndex === 3 ? 1 : 0
     border.color: root.accent
     visible: root.barOpen
 
@@ -3312,8 +3359,10 @@ Item {
             // the identical reason (an all-white border here would
             // clobber the accent ring's own "this is applied"
             // meaning).
+            // 3, not 2 -- Frame Color took index 0 once it moved onto
+            // this page.
             readonly property bool isFocused: root.rightFocused
-              && root.focusedItemIndex === 2 && root.focusedOptionIndex === iconBtn.index
+              && root.focusedItemIndex === 3 && root.focusedOptionIndex === iconBtn.index
 
             width: 32
             height: 32
@@ -3929,33 +3978,6 @@ Item {
         onAdjusted: (value) => root.setCavaThickness(root.cavaThicknessMin + value * (root.cavaThicknessMax - root.cavaThicknessMin))
       }
     }
-  }
-
-  // Frame color -- theme it (tracks the active theme's own background
-  // live) or plain black. Same "Themed"/mode-name wording ruixen.settings'
-  // own Glass Tint card already established elsewhere in this file, for
-  // consistency across the two closest analogous settings. Was a
-  // Themed/Custom split with its own 3-swatch "Custom Color" card right
-  // below this one -- direct correction after live testing: "some themes
-  // uses white like lupine and few other light theme, this would make
-  // the notch unusable... remove white from the setting as an option
-  // then and just leave Black and Theme." Down to one card, one choice.
-  SettingsSegmentedItem {
-    id: frameColorModeItem
-    label: "Frame Color"
-    options: [
-      { id: "theme", label: "Themed" },
-      { id: "black", label: "Black" }
-    ]
-    current: root.frameColorMode
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 6
-    focusedOptionIndex: frameColorModeItem.cardFocused ? root.focusedOptionIndex : -1
-    visible: root.visualizerOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setFrameColorMode(id)
   }
 
   // Wi-Fi's own three items -- the radio toggle (reuses

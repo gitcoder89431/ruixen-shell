@@ -2342,6 +2342,59 @@ Item {
           id: dockedShoulderShadow
           anchors.fill: parent
 
+        // Square (no radius) corner fills sitting BEHIND leftDockedBg/
+        // rightDockedBg's own rounded corners, exactly at the true
+        // screen corner. Direct live report, tracked down with a red/
+        // orange debug pass: a small dark wedge visible right at the
+        // true top-left/top-right screen corner, between the docked
+        // strip's own rounded curve and the corner itself -- ruixen.bar's
+        // own frameShadowCanvas deliberately SQUARES OFF its top corners
+        // in docked mode (topRadius: 0 above, see its own comment: "the
+        // docked wing pieces already cover that exact corner"), but a
+        // ROUNDED corner piece like leftDockedBg only covers the
+        // INSCRIBED disk, not the full square bounding box -- it never
+        // actually reaches into the small triangular sliver right at the
+        // box's own sharp corner, which is exactly where the frame's own
+        // squared-off shadow still paints. leftDockedBg's rounded shape
+        // was never going to cover that sliver no matter how precisely
+        // it's positioned; it needs a plain square patch behind it, sized
+        // to the same radius, so nothing frame-shadow-colored is left
+        // exposed there. Same "paint over the disagreement" philosophy as
+        // BarPanel's own dockedSeamCover/HemWing pieces above, just for a
+        // corner instead of an edge.
+        Rectangle {
+          visible: root.docked
+          x: 0
+          y: 0
+          width: root.shoulderWingSize
+          height: root.shoulderWingSize
+          color: root.dockedBarColor
+        }
+
+        // Covers leftDockedBg's OWN top-right corner specifically --
+        // only rounded (and only touching the frame) in sharp-corner
+        // mode, per its own topRightRadius above.
+        Rectangle {
+          visible: root.docked && root.sharpCorners
+          x: leftDockedBg.width - root.shoulderWingSize
+          y: 0
+          width: root.shoulderWingSize
+          height: root.shoulderWingSize
+          color: root.dockedBarColor
+        }
+
+        // Covers rightDockedBg's own top-right corner -- hidden along
+        // with rightDockedBg itself in sharp mode, where leftDockedBg's
+        // own patch above takes over instead.
+        Rectangle {
+          visible: root.docked && !root.sharpCorners
+          x: parent.width - root.shoulderWingSize
+          y: 0
+          width: root.shoulderWingSize
+          height: root.shoulderWingSize
+          color: root.dockedBarColor
+        }
+
         Rectangle {
           id: leftDockedBg
           visible: root.docked

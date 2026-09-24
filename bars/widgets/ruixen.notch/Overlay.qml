@@ -1560,7 +1560,17 @@ Item {
           anchors.fill: parent
           anchors.margins: 40
           anchors.topMargin: 0
-          opacity: 0.6
+          // 0.6 -> 0.9 -- direct request, once the shape itself stopped
+          // being the problem: "can you make the shadow match with the
+          // frame... theres enough space now thats its allined nicely."
+          // ruixen.bar's own frame shadow peaks at a near-fully-opaque
+          // 1.0 right at its own edge (see frameShadowCanvas's own
+          // alpha=1.0*t*t) -- this shape's visible portion is only ever
+          // the blurred-out halo (its own true core sits hidden under
+          // notchBg), so matching that same weight means pushing this
+          // close to fully opaque too, not the much fainter 0.6 first
+          // shipped with.
+          opacity: 0.9
 
           RoundCorner {
             anchors.top: parent.top
@@ -1599,7 +1609,12 @@ Item {
           layer.smooth: true
           layer.effect: MultiEffect {
             blurEnabled: true
-            blurMax: 32
+            // blurMax 32/blur 0.6 (effective ~19px radius) -> blurMax
+            // 16/blur 0.6 (~10px) -- same request as opacity above,
+            // matching ruixen.bar's own frame shadow's reach (8px, see
+            // its own shadowReachPx) instead of the much wider, softer
+            // spread this first shipped with.
+            blurMax: 16
             blur: 0.6
           }
         }

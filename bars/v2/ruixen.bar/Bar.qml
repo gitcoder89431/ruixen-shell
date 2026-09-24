@@ -2372,12 +2372,27 @@ Item {
         // (x: 0, matching ruixen.frame-widget's continuing border strip),
         // with the curve itself down at its far corner, closer to where
         // this hands off to frame's plain strip continuing further down.
+        //
+        // root.frameColor, NOT dockedBarColor -- this piece hosts no
+        // icon content, its entire job is disappearing into FrameWindow's
+        // own real border (BarPanel's own comment above: "a plain
+        // frameColor-filled Rectangle... painted the same color as the
+        // thing underneath... absorbs that disagreement completely").
+        // dockedBarColor can differ from frameColor (it clamps to black
+        // whenever frameColor itself reads too light, since leftDockedBg/
+        // leftShoulderWing DO host icons) -- direct live report of
+        // exactly that: "this black thing we added to cover up a
+        // triangle gap... its currently possibly leaking through." Once
+        // this wedge's own color no longer matches the frame's real
+        // color underneath, the deliberate few-px overlap that's
+        // supposed to be an invisible seam-fill instead shows up as its
+        // own visibly wrong-colored triangle.
         RoundCorner {
           id: leftFrameHemWing
           visible: root.docked
           corner: "topLeft"
           size: root.shoulderWingSize
-          color: root.dockedBarColor
+          color: root.frameColor
           x: 0
           y: leftDockedBg.height
         }
@@ -2428,13 +2443,14 @@ Item {
           y: 0
         }
 
-        // Mirrors leftFrameHemWing -- see its comment.
+        // Mirrors leftFrameHemWing -- see its comment (root.frameColor,
+        // not dockedBarColor).
         RoundCorner {
           id: rightFrameHemWing
           visible: root.docked
           corner: "topRight"
           size: root.shoulderWingSize
-          color: root.dockedBarColor
+          color: root.frameColor
           x: rightDockedBg.x + rightDockedBg.width - size
           y: rightDockedBg.height
         }

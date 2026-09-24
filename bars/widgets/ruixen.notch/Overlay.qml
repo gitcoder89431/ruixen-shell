@@ -1465,187 +1465,85 @@ Item {
         // bell all still sit directly on this same flat black.
       }
 
-      // Inner shadow along the notch's own silhouette edge, matching the
-      // frame's own -- direct request, after the frame's own drop shadow
-      // shipped: "the compact notch and expanded notch is also like
-      // connected to the frame... add the same frame dropshadow
-      // similarly... so they look like they are on the same layer."
+      // Shadow: a real, visible, BLURRED duplicate of the exact same
+      // 3-piece silhouette as notchMask below (left flank + center block
+      // + right flank), dark-filled, sitting BEHIND notchBg. Direct
+      // pivot after the hand-rolled Canvas ring-shadow (the previous
+      // version of this comment/block) kept getting the curve/radius
+      // wrong every tuning pass -- "hard drop", then corner dot
+      // artifacts, then a genuinely inverted "mustache" corner, then a
+      // reach that compressed against the shape's own small size: "cant
+      // the notch edges just produce its own shadow?"
       //
-      // A completely separate plain Canvas, NOT another property on
-      // notchBg's own MultiEffect above -- this file has an explicit,
-      // hard-learned rule against that specific combination: "Tried,
+      // A PLAIN blur (MultiEffect's blurEnabled only) is a fundamentally
+      // different, much safer code path than the ORIGINAL broken attempt
+      // this file already has a hard-learned rule against: "Tried,
       // reverted: adding shadowEnabled/shadowColor/... to this same
-      // MultiEffect instance... the shape is completely broken... Do not
-      // re-add shadow properties to this MultiEffect instance without
-      // solving the underlying masking fragility first." This Canvas
-      // never touches that instance at all -- it clips to its OWN
-      // hand-traced copy of the silhouette outline (see notchOutline
-      // below) and strokes inset copies of that SAME path, exactly
-      // mirroring ruixen.bar's own frameShadowCanvas technique (a manual
-      // multi-ring gradient, not ctx.shadowBlur -- that engine's own
-      // blur already proved non-monotonic there, no reason to expect
-      // better here). No MultiEffect, no maskSource, no dependency on
-      // the fragile masking system at all.
+      // MultiEffect instance [notchBg's own, which ALSO has maskEnabled]
+      // ... the shape is completely broken... Do not re-add shadow
+      // properties to this MultiEffect instance without solving the
+      // underlying masking fragility first." That bug was specifically
+      // shadowEnabled COMBINED with maskEnabled on one effect -- this
+      // shape is never masked at all, it just IS the shape, rendered
+      // directly and then blurred, so there's nothing for a mask+shadow
+      // interaction to break. Guaranteed to match the real silhouette
+      // exactly since it's the identical geometry (same cornerSize, same
+      // bottomLeftRadius/bottomRightRadius binding), not a hand-derived
+      // approximation that has to be kept in sync by hand.
       //
-      // The outline itself was empirically verified against a live
-      // screenshot before writing this, not derived from the geometry
-      // table alone (this exact class of concave-arc reasoning went
-      // wrong more than once earlier this session) -- confirmed via a
-      // contrast-stretched crop of the real rendered left flank that the
-      // visible boundary runs from the notch's own true top-left corner
-      // curving down to where the flank meets the center block, i.e.
-      // exactly RoundCorner's own arc (center at the flank's own inner
-      // corner, radius cornerSize, the same 1.5π->2π sweep leftFlank
-      // itself already uses) -- not a guessed approximation.
-      Canvas {
-        id: notchShadowCanvas
+      // No top/flank exclusion needed the way the old ring-shadow had --
+      // a blur's own soft falloff bleeding upward into the frame's own
+      // (same-colored) border reads as a seamless continuation, not a
+      // separate floating shadow the way a hard-edged ring would have.
+      // Visible in both collapsed and expanded now (not gated to
+      // panel.expanded) -- ruixen.bar's own FrameWindow still owns the
+      // collapsed HOLE-PUNCH (that part was always correct), this is
+      // purely the soft depth cue layered on top of/behind it.
+      Item {
+        id: notchShadowBlur
         anchors.fill: parent
-        antialiasing: true
-        // Collapsed shadow now lives in ruixen.bar's own FrameWindow
-        // canvas instead (see notchBg's own comment above for the full
-        // "why") -- this only ever needs to run for the expanded
-        // (launcher/pinned) states now, which stay this plugin's own
-        // responsibility.
-        visible: panel.expanded
+        z: -1
+        opacity: 0.6
 
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
-
-        // Independent animated property, not a direct reference into
-        // centerMask's own bottomLeftRadius/bottomRightRadius (a sibling
-        // nested two levels down under notchMask, awkward to reach) --
-        // same source value and same Behavior duration/easing as
-        // centerMask's own, so the two stay visually in sync through the
-        // collapsed<->expanded transition without this Canvas needing to
-        // reach into that Item's internals at all.
-        property real bottomRadius: panel.expanded ? 44 : 28
-        Behavior on bottomRadius {
-          NumberAnimation { duration: 230; easing.type: Easing.OutCubic }
-        }
-        onBottomRadiusChanged: requestPaint()
-
-        readonly property color shadowColor: Qt.rgba(0, 0, 0, 1.0)
-        readonly property int shadowReachPx: 8
-
-        // Traces the FULL silhouette in one continuous closed path,
-        // inset by `inset` px on every side -- mirrors
-        // ruixen.bar's own frameCanvas/frameShadowCanvas roundedRect
-        // helpers in spirit (same quadraticCurveTo technique for the
-        // two plain convex bottom corners), but the two top corners are
-        // NOT plain rounded corners here -- they're RoundCorner's own
-        // concave arcs, reused verbatim (same center/radius/angle
-        // convention) rather than approximated.
-        // cs is NEVER reduced by inset -- direct live correction after
-        // the first version warped the bottom corners into a "mustache"
-        // (a real live report, not a guess): the flank is a CONCAVE arc,
-        // and shrinking a concave arc's own radius by inset (copying the
-        // convex-corner technique below) makes the straight-edge
-        // junction point (originally left+cs) cancel out to a FIXED
-        // x-coordinate for every ring, instead of actually shifting
-        // inward. A concave arc's true inward erosion keeps the SAME
-        // radius and shifts the CENTER by (inset, inset) instead --
-        // verified by hand: center (inset, cs+inset), radius cs, angle
-        // 1.5π gives exactly (inset, inset) [the true inset top-left
-        // corner] and angle 2π gives exactly (cs+inset, cs+inset) [where
-        // the straight edge genuinely begins, correctly shifted]. br
-        // (the CONVEX bottom corners) keeps the original shrink-by-inset
-        // formula -- that one was never the bug, a convex corner's
-        // erosion really does shrink its radius, same technique already
-        // proven on ruixen.bar's own frame corners.
-        function notchOutline(ctx, inset) {
-          var cs = notchOuter.cornerSize
-          var left = inset, top = inset
-          var right = width - inset, bottom = height - inset
-          var edgeL = cs + inset
-          var edgeR = right - cs
-          var flankY = cs + inset
-          // Clamped against the actual available space, not just
-          // bottomRadius - inset -- direct live report, the compact
-          // (collapsed) notch specifically: cornerSize (28) + bottomRadius
-          // (28) = 56 is bigger than the collapsed height (44) itself, so
-          // the flank and the bottom corner don't actually fit together
-          // with any straight run between them at all. Unclamped, the
-          // straight-side lineTo below went BACKWARD (bottom-br above
-          // flankY), producing exactly the inverted/degenerate path this
-          // was reported as: "clipping over the edges... nothing on the
-          // curve... like a mustache." Qt's own Rectangle radius clamps
-          // the same way when a radius would exceed its available edge --
-          // this hand-rolled path needs the same guard explicitly.
-          var br = Math.max(0, Math.min(bottomRadius - inset, bottom - flankY, (edgeR - edgeL) / 2))
-          ctx.beginPath()
-          ctx.moveTo(left, top)
-          // Left flank: concave arc from the true top-left corner down
-          // to where it meets the center block's own left edge --
-          // identical radius/angles to leftFlank's own RoundCorner
-          // (corner: 1) above, center shifted by (inset, inset).
-          ctx.arc(left, flankY, cs, 1.5 * Math.PI, 2 * Math.PI)
-          ctx.lineTo(edgeL, bottom - br)
-          // Bottom-left: a plain convex rounded corner, same technique
-          // as ruixen.bar's own frame corners.
-          ctx.quadraticCurveTo(edgeL, bottom, edgeL + br, bottom)
-          ctx.lineTo(edgeR - br, bottom)
-          // Bottom-right: mirrors bottom-left.
-          ctx.quadraticCurveTo(edgeR, bottom, edgeR, bottom - br)
-          ctx.lineTo(edgeR, flankY)
-          // Right flank: mirrors the left flank -- identical to
-          // rightFlank's own RoundCorner (corner: 0) above.
-          ctx.arc(right, flankY, cs, Math.PI, 1.5 * Math.PI)
-          // closePath draws straight back to (left, top) -- both ends
-          // sit at y = top, so this is exactly the flat top edge, not
-          // an approximation of it.
-          ctx.closePath()
+        RoundCorner {
+          anchors.top: parent.top
+          anchors.left: parent.left
+          cornerSize: notchOuter.cornerSize
+          corner: 1
+          fillColor: "#000000"
         }
 
-        // The actual shadow only ever strokes THIS path, not the full
-        // notchOutline above -- direct live correction: "we dont need
-        // the drop shadow on top as the frame is there, the compact
-        // notch actually doesnt sit on the screen edge, it sits on the
-        // frame bottom edge so it should feel like a part of it, the top
-        // shadow of the notch is breaking that design." The flat top AND
-        // both flank arcs are the notch's own connection to the frame
-        // (the same reasoning ruixen.bar's own docked-mode top-corner
-        // shadow exclusion already used, just applied to the notch's
-        // side of that same seam) -- open path, no arcs, starting and
-        // ending exactly where the flanks meet the straight sides:
-        // down the left side, both bottom corners, across the bottom,
-        // up the right side. notchOutline (the full closed shape) is
-        // still used for the clip below, unchanged -- only the stroked
-        // geometry changes.
-        // Same edgeL/edgeR/flankY fix as notchOutline above -- cs stays
-        // constant (the concave flank's own radius never shrinks), only
-        // the straight-edge x-position (cs + inset) and the convex
-        // bottom-corner radius (br) actually move/shrink with inset.
-        function notchShadowPath(ctx, inset) {
-          var cs = notchOuter.cornerSize
-          var right = width - inset, bottom = height - inset
-          var edgeL = cs + inset
-          var edgeR = right - cs
-          var flankY = cs + inset
-          // Same clamp as notchOutline above -- see its own comment.
-          var br = Math.max(0, Math.min(bottomRadius - inset, bottom - flankY, (edgeR - edgeL) / 2))
-          ctx.beginPath()
-          ctx.moveTo(edgeL, flankY)
-          ctx.lineTo(edgeL, bottom - br)
-          ctx.quadraticCurveTo(edgeL, bottom, edgeL + br, bottom)
-          ctx.lineTo(edgeR - br, bottom)
-          ctx.quadraticCurveTo(edgeR, bottom, edgeR, bottom - br)
-          ctx.lineTo(edgeR, flankY)
+        Rectangle {
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.leftMargin: notchOuter.cornerSize
+          anchors.right: parent.right
+          anchors.rightMargin: notchOuter.cornerSize
+          height: parent.height
+          color: "#000000"
+          topLeftRadius: 0
+          topRightRadius: 0
+          bottomLeftRadius: panel.expanded ? 44 : 28
+          bottomRightRadius: panel.expanded ? 44 : 28
+
+          Behavior on bottomLeftRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
+          Behavior on bottomRightRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
         }
 
-        onPaint: {
-          var ctx = getContext("2d")
-          ctx.clearRect(0, 0, width, height)
-          notchOutline(ctx, 0)
-          ctx.clip()
-          ctx.lineWidth = 1
-          for (var i = 0; i < shadowReachPx; i++) {
-            var t = 1 - (i / shadowReachPx)
-            var alpha = t * t
-            if (alpha < 0.004) continue
-            ctx.strokeStyle = Qt.rgba(0, 0, 0, alpha)
-            notchShadowPath(ctx, i)
-            ctx.stroke()
-          }
+        RoundCorner {
+          anchors.top: parent.top
+          anchors.right: parent.right
+          cornerSize: notchOuter.cornerSize
+          corner: 0
+          fillColor: "#000000"
+        }
+
+        layer.enabled: true
+        layer.smooth: true
+        layer.effect: MultiEffect {
+          blurEnabled: true
+          blurMax: 32
+          blur: 0.6
         }
       }
 

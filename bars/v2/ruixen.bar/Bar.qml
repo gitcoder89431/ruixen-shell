@@ -1759,8 +1759,24 @@ Item {
         // get erased together by the one ctx.fill() below (fill()
         // implicitly closes an open subpath, so notchHolePath doesn't
         // need its own closePath() call).
-        notchHolePath(ctx, (width - root.notchReservedWidth) / 2, root.notchCollapsedTopY,
-          root.notchReservedWidth, root.notchCollapsedHeight,
+        // Top clamped to frameInset, height shortened to match -- direct
+        // live bug: "theres now a gap on the top edge of the notch thats
+        // cutting through the frame". notchCollapsedTopY (4) is LESS
+        // than frameInset (6), so punching the hole starting at 4 poked
+        // 2px ABOVE where the frame's own border already ends at 6 -- a
+        // visible cut through the solid border, specifically in the
+        // notch's own width. The frame's own hole already covers y>=6
+        // for the whole screen anyway, so starting this hole no higher
+        // than that removes the cut entirely -- that 2px sliver (y=4..6)
+        // just renders as the frame's own border color either way, and
+        // ruixen.notch's own real content still starts at its own
+        // unrelated y=4 regardless of where this hole starts. Height is
+        // shortened by the same 2px so the BOTTOM edge (the one number
+        // that actually matters -- see notchCollapsedBottomEdge's own
+        // comment) stays exactly where it always was, not shifted down.
+        var notchHoleTop = Math.max(root.notchCollapsedTopY, root.frameInset)
+        notchHolePath(ctx, (width - root.notchReservedWidth) / 2, notchHoleTop,
+          root.notchReservedWidth, root.notchCollapsedBottomEdge - notchHoleTop,
           root.notchCollapsedCornerSize, root.notchCollapsedBottomRadius)
         ctx.fill()
         ctx.globalCompositeOperation = "source-over"
@@ -1826,33 +1842,6 @@ Item {
       // shadow again, not a broad wash.
       readonly property int shadowReachPx: 8
 
-      // Notch's own shadow, merged into this canvas alongside the
-      // frame's own -- see frameCanvas's own notchHolePath comment for
-      // the full "why". Ported verbatim from Overlay.qml's own (already
-      // fixed and verified) notchShadowPath: cs never shrinks (the
-      // flank's own concave-arc erosion keeps the same radius and shifts
-      // position instead -- see that fix's own comment for the full
-      // derivation), br is clamped against the actual available space so
-      // the flank and bottom corner can never overlap into an inverted
-      // "mustache" path the way the very first version of this did. No
-      // arcs, no top line -- same "shadow only on the sides+bottom, top
-      // is the frame's own seam" exclusion the notch's own version
-      // already established, ported unchanged.
-      function notchShadowRingPath(ctx, x, y, w, h, cornerSize, bottomRadius, inset) {
-        var cs = cornerSize
-        var edgeL = x + cs + inset
-        var edgeR = x + w - inset - cs
-        var flankY = y + cs + inset
-        var bottom = y + h - inset
-        var br = Math.max(0, Math.min(bottomRadius - inset, bottom - flankY, (edgeR - edgeL) / 2))
-        ctx.moveTo(edgeL, flankY)
-        ctx.lineTo(edgeL, bottom - br)
-        ctx.quadraticCurveTo(edgeL, bottom, edgeL + br, bottom)
-        ctx.lineTo(edgeR - br, bottom)
-        ctx.quadraticCurveTo(edgeR, bottom, edgeR, bottom - br)
-        ctx.lineTo(edgeR, flankY)
-      }
-
       onPaint: {
         const ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
@@ -1909,65 +1898,17 @@ Item {
           ctx.stroke()
         }
         ctx.restore()
-
-        // Notch's own shadow -- separate save/clip/restore block, not
-        // merged into the frame's own clip above, so this stays a
-        // simple, independent region (sides + bottom only, matching
-        // notchShadowRingPath's own open path) rather than needing to
-        // union two disjoint clip shapes in one path. inset=0 here
-        // doubles as both the clip boundary AND the first (fully opaque)
-        // ring -- clip()/fill() both treat an open path as implicitly
-        // closed by a straight line from its own end back to its start,
-        // which for this path is exactly the flat line at y=flankY this
-        // region should be capped by anyway.
-        // Smaller reach than the frame's own shadowReachPx (8) --
-        // direct live finding: the collapsed notch's own cornerSize (28)
-        // and bottomRadius (28) already consume almost its entire 44px
-        // height (see notchCollapsedBottomRadius's own comment on the
-        // clamp this forces), leaving very little room for a shadow to
-        // fade into before the flank arc and the bottom corner's own
-        // shrinking radius start crowding each other. At reach 8, the
-        // deepest rings' own br clamped down to just 1-2px, compressing
-        // the visible gradient into 1-2px instead of spreading smoothly.
-        // At reach 4, the deepest ring still has br=44-28-6=10px of real
-        // room, so every ring keeps a healthy, undistorted corner shape
-        // throughout.
-        var notchShadowReachPx = 4
-        var notchX = (width - root.notchReservedWidth) / 2
-        ctx.save()
-        // Explicit beginPath() -- direct live bug found testing this:
-        // without it, notchShadowRingPath's own moveTo() appended to
-        // whatever path state the frame shadow loop above left behind
-        // (roundedRectCorners's own last iteration), silently corrupting
-        // this clip into the union of that leftover geometry and the
-        // notch's own path instead of a clean, isolated region. The
-        // frame's own block above never needed this because
-        // roundedRectCorners calls beginPath() itself internally --
-        // notchShadowRingPath deliberately doesn't (see its own comment),
-        // so the caller owns starting a fresh path here.
-        ctx.beginPath()
-        notchShadowRingPath(ctx, notchX, root.notchCollapsedTopY,
-          root.notchReservedWidth, root.notchCollapsedHeight,
-          root.notchCollapsedCornerSize, root.notchCollapsedBottomRadius, 0)
-        ctx.clip()
-        ctx.lineWidth = 1
-        for (var j = 0; j < notchShadowReachPx; j++) {
-          var tj = 1 - (j / notchShadowReachPx)
-          var alphaj = 1.0 * tj * tj
-          if (alphaj < 0.004) continue
-          ctx.strokeStyle = Qt.rgba(0, 0, 0, alphaj)
-          // beginPath() per iteration -- without it, each ring's own
-          // moveTo() appends to every PREVIOUS ring's leftover subpath
-          // instead of replacing it, so stroke() keeps re-painting all
-          // earlier rings again at the current (lower) alpha every pass,
-          // not just the current ring alone.
-          ctx.beginPath()
-          notchShadowRingPath(ctx, notchX, root.notchCollapsedTopY,
-            root.notchReservedWidth, root.notchCollapsedHeight,
-            root.notchCollapsedCornerSize, root.notchCollapsedBottomRadius, j)
-          ctx.stroke()
-        }
-        ctx.restore()
+        // Notch's own shadow used to live here too (a hand-rolled Canvas
+        // ring system, ported from ruixen.notch's own now-abandoned
+        // version) -- direct live correction after it kept getting the
+        // curve/radius wrong every tuning pass: "cant the notch edges
+        // just produce its own shadow?" Moved to a real blur effect on a
+        // plain, unmasked duplicate of the notch's own shape instead
+        // (ruixen.notch/Overlay.qml's own notchShadowBlur) -- guaranteed
+        // to match the true silhouette since it directly reuses that
+        // geometry, no hand-derived arc math to get wrong. This canvas
+        // keeps its own hole-punch (frameCanvas above) since that part
+        // was correct; only the shadow moved back.
       }
     }
   }

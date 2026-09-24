@@ -1448,6 +1448,116 @@ Item {
         // bell all still sit directly on this same flat black.
       }
 
+      // Inner shadow along the notch's own silhouette edge, matching the
+      // frame's own -- direct request, after the frame's own drop shadow
+      // shipped: "the compact notch and expanded notch is also like
+      // connected to the frame... add the same frame dropshadow
+      // similarly... so they look like they are on the same layer."
+      //
+      // A completely separate plain Canvas, NOT another property on
+      // notchBg's own MultiEffect above -- this file has an explicit,
+      // hard-learned rule against that specific combination: "Tried,
+      // reverted: adding shadowEnabled/shadowColor/... to this same
+      // MultiEffect instance... the shape is completely broken... Do not
+      // re-add shadow properties to this MultiEffect instance without
+      // solving the underlying masking fragility first." This Canvas
+      // never touches that instance at all -- it clips to its OWN
+      // hand-traced copy of the silhouette outline (see notchOutline
+      // below) and strokes inset copies of that SAME path, exactly
+      // mirroring ruixen.bar's own frameShadowCanvas technique (a manual
+      // multi-ring gradient, not ctx.shadowBlur -- that engine's own
+      // blur already proved non-monotonic there, no reason to expect
+      // better here). No MultiEffect, no maskSource, no dependency on
+      // the fragile masking system at all.
+      //
+      // The outline itself was empirically verified against a live
+      // screenshot before writing this, not derived from the geometry
+      // table alone (this exact class of concave-arc reasoning went
+      // wrong more than once earlier this session) -- confirmed via a
+      // contrast-stretched crop of the real rendered left flank that the
+      // visible boundary runs from the notch's own true top-left corner
+      // curving down to where the flank meets the center block, i.e.
+      // exactly RoundCorner's own arc (center at the flank's own inner
+      // corner, radius cornerSize, the same 1.5π->2π sweep leftFlank
+      // itself already uses) -- not a guessed approximation.
+      Canvas {
+        id: notchShadowCanvas
+        anchors.fill: parent
+        antialiasing: true
+
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+
+        // Independent animated property, not a direct reference into
+        // centerMask's own bottomLeftRadius/bottomRightRadius (a sibling
+        // nested two levels down under notchMask, awkward to reach) --
+        // same source value and same Behavior duration/easing as
+        // centerMask's own, so the two stay visually in sync through the
+        // collapsed<->expanded transition without this Canvas needing to
+        // reach into that Item's internals at all.
+        property real bottomRadius: panel.expanded ? 44 : 28
+        Behavior on bottomRadius {
+          NumberAnimation { duration: 230; easing.type: Easing.OutCubic }
+        }
+        onBottomRadiusChanged: requestPaint()
+
+        readonly property color shadowColor: Qt.rgba(0, 0, 0, 1.0)
+        readonly property int shadowReachPx: 8
+
+        // Traces the FULL silhouette in one continuous closed path,
+        // inset by `inset` px on every side -- mirrors
+        // ruixen.bar's own frameCanvas/frameShadowCanvas roundedRect
+        // helpers in spirit (same quadraticCurveTo technique for the
+        // two plain convex bottom corners), but the two top corners are
+        // NOT plain rounded corners here -- they're RoundCorner's own
+        // concave arcs, reused verbatim (same center/radius/angle
+        // convention) rather than approximated.
+        function notchOutline(ctx, inset) {
+          var cs = Math.max(0, notchOuter.cornerSize - inset)
+          var br = Math.max(0, bottomRadius - inset)
+          var left = inset, top = inset
+          var right = width - inset, bottom = height - inset
+          ctx.beginPath()
+          ctx.moveTo(left, top)
+          // Left flank: concave arc from the true top-left corner down
+          // to where it meets the center block's own left edge --
+          // identical center/radius/angles to leftFlank's own
+          // RoundCorner (corner: 1) above, just placed at this inset.
+          ctx.arc(left, top + cs, cs, 1.5 * Math.PI, 2 * Math.PI)
+          ctx.lineTo(left + cs, bottom - br)
+          // Bottom-left: a plain convex rounded corner, same technique
+          // as ruixen.bar's own frame corners.
+          ctx.quadraticCurveTo(left + cs, bottom, left + cs + br, bottom)
+          ctx.lineTo(right - cs - br, bottom)
+          // Bottom-right: mirrors bottom-left.
+          ctx.quadraticCurveTo(right - cs, bottom, right - cs, bottom - br)
+          ctx.lineTo(right - cs, top + cs)
+          // Right flank: mirrors the left flank -- identical to
+          // rightFlank's own RoundCorner (corner: 0) above.
+          ctx.arc(right, top + cs, cs, Math.PI, 1.5 * Math.PI)
+          // closePath draws straight back to (left, top) -- both ends
+          // sit at y = top, so this is exactly the flat top edge, not
+          // an approximation of it.
+          ctx.closePath()
+        }
+
+        onPaint: {
+          var ctx = getContext("2d")
+          ctx.clearRect(0, 0, width, height)
+          notchOutline(ctx, 0)
+          ctx.clip()
+          ctx.lineWidth = 1
+          for (var i = 0; i < shadowReachPx; i++) {
+            var t = 1 - (i / shadowReachPx)
+            var alpha = t * t
+            if (alpha < 0.004) continue
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, alpha)
+            notchOutline(ctx, i)
+            ctx.stroke()
+          }
+        }
+      }
+
       // Mask silhouette: left flank (concave toward center) + center
       // block (square top, animated round bottom) + right flank
       // (concave toward center). Never drawn directly -- only sampled

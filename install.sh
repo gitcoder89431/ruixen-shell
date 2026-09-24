@@ -408,13 +408,6 @@ DEPLOYED_PLUGIN_IDS=()
 # every verify would have hashed a now-nonexistent directory and failed
 # every install).
 declare -A PLUGIN_SOURCE_DIR_FOR_ID
-# A Ruixen-owned plugin id that's deployed but no longer has a matching
-# source directory in this checkout (e.g. a retired bar-family plugin
-# from an earlier layout, like ruixen.frame-widget once v2 merged it
-# away) -- separate from DEPLOYED_PLUGIN_IDS above because the hash
-# verification loop below indexes PLUGIN_SOURCE_DIR_FOR_ID by id, and an
-# orphan has no source dir to verify against at all.
-REMOVED_ORPHAN_PLUGIN_IDS=()
 SHELL_JSON_TOUCHED=0
 SHELL_JSON_HAD_BACKUP=0
 LOOKNFEEL_TOUCHED=0
@@ -462,17 +455,6 @@ rollback_plugins() {
     if [[ -e "$backup" ]]; then
       mv "$backup" "$target" || printf '  warning: could not restore %s from its backup\n' "$id" >&2
     fi
-  done
-}
-
-rollback_orphan_plugins() {
-  local idx id target backup
-  for (( idx=${#REMOVED_ORPHAN_PLUGIN_IDS[@]}-1; idx>=0; idx-- )); do
-    id="${REMOVED_ORPHAN_PLUGIN_IDS[$idx]}"
-    target="$plugins_dir/$id"
-    backup="$plugin_backup_dir/$id.bak.$stamp"
-    [[ -e "$backup" ]] || continue
-    mv "$backup" "$target" || printf '  warning: could not restore orphaned plugin %s from its backup\n' "$id" >&2
   done
 }
 
@@ -564,7 +546,7 @@ rollback_theme_overlays() {
 
 rollback_all() {
   trap - ERR
-  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && ${#REMOVED_ORPHAN_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 && "$THEME_OVERLAYS_TOUCHED" -eq 0 ]]; then
+  if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 && "$THEME_OVERLAYS_TOUCHED" -eq 0 ]]; then
     # Failed before anything was actually changed (e.g. plugin
     # validation) -- fail()'s own message already explained why,
     # nothing to undo.
@@ -576,7 +558,6 @@ rollback_all() {
   rollback_looknfeel_data
   rollback_shell_json
   rollback_plugins
-  rollback_orphan_plugins
   printf 'rollback complete -- your previous installation should be unchanged.\n' >&2
 }
 trap rollback_all ERR
@@ -649,26 +630,36 @@ for id in "${DEPLOYED_PLUGIN_IDS[@]}"; do
   [[ "$source_hash" == "$deployed_hash" ]] \
     || fail "$id was deployed but does not match this checkout's own source -- the copy did not complete cleanly (nothing else has been changed; safe to just run this again)"
 done
-# Orphan cleanup: a plugin id this checkout used to ship as its own
-# source directory, but no longer does (e.g. ruixen.frame-widget, retired
-# once v2 merged it into ruixen.bar itself), would otherwise sit deployed
-# here forever -- the loop above only ever pushes forward from whatever
-# IS in plugin_source_dirs right now, it never looks at what's already
-# deployed. Left alone, an existing install upgrading past a removal like
-# that keeps running the old plugin's code indefinitely, alongside
-# whatever replaced it. Scoped to manifests this checkout actually
-# authored (author == "ruixen") -- never removes a deployed dir just
-# because its name happens to start with "ruixen." (AGENTS.md #6:
-# ownership-aware only, never touch what we don't own).
+# Orphan DETECTION only (not removal yet) -- a plugin id this checkout
+# used to ship as its own source directory, but no longer does (e.g.
+# ruixen.frame-widget, retired once v2 merged it into ruixen.bar itself),
+# would otherwise sit deployed here forever: the loop above only ever
+# pushes forward from whatever IS in plugin_source_dirs right now, it
+# never looks at what's already deployed. Scoped to manifests this
+# checkout actually authored (author == "ruixen") -- never touches a
+# deployed dir just because its name happens to start with "ruixen."
+# (AGENTS.md #6: ownership-aware only).
+#
+# The actual directory move is deliberately deferred to [7/7], AFTER
+# `omarchy restart shell` succeeds down there -- direct live report: an
+# orphan candidate (e.g. frame-widget) is typically `keepLoaded: true`
+# and still actively running in the OLD, not-yet-restarted quickshell
+# process at this point in the script. Moving its directory away here,
+# same as an ordinary replaced plugin's mv-then-cp above, leaves a still-
+# live plugin's own directory genuinely MISSING from disk for the entire
+# rest of this run (an ordinary replace gets its content put right back
+# in the same loop iteration; an orphan never does) -- confirmed live as
+# a real quickshell crash on another machine's first run through this
+# migration. Safe once the restart has actually happened: nothing has
+# the old plugin loaded anymore by then.
+ORPHAN_PLUGIN_IDS=()
 for target in "$plugins_dir"/ruixen.*; do
   [[ -d "$target" ]] || continue
   id="$(basename "$target")"
   [[ -n "${CURRENT_SOURCE_IDS[$id]:-}" ]] && continue
   author="$(jq -r '.author // empty' "$target/manifest.json" 2>/dev/null)"
   [[ "$author" == "ruixen" ]] || continue
-  mv "$target" "$plugin_backup_dir/$id.bak.$stamp"
-  REMOVED_ORPHAN_PLUGIN_IDS+=("$id")
-  printf '  removed orphaned plugin %s (no longer part of this checkout)\n' "$id"
+  ORPHAN_PLUGIN_IDS+=("$id")
 done
 
 printf '  verified: every deployed plugin exactly matches this checkout\n'
@@ -705,14 +696,16 @@ SHELL_JSON_TOUCHED=1
 # place -- an atomic swap, not an in-place overwrite, so a killed/failed
 # build can never leave shell.json half-written.
 # RUIXEN_ORPHAN_PLUGIN_IDS_JSON tells build-shell-json.sh which ids were
-# just physically removed above, so it strips the matching plugins[]/
-# bar.layout entries instead of leaving them referencing a directory that
-# no longer exists (its own merge is otherwise deliberately additive-only
-# -- see that script's comment on why -- so this is the one path that
-# can still take an id OUT).
+# just detected as orphaned above (their directories aren't removed from
+# disk until [7/7], but shell.json should stop referencing them right
+# now), so it strips the matching plugins[]/bar.layout entries instead of
+# leaving them referencing a plugin this run is about to retire (its own
+# merge is otherwise deliberately additive-only -- see that script's
+# comment on why -- so this is the one path that can still take an id
+# OUT).
 tmp_shell_json="$(mktemp "${shell_json}.XXXXXX")"
 { [[ "$shell_json_input" == /dev/null ]] && printf '{}' || cat "$shell_json_input"; } \
-  | RUIXEN_ORPHAN_PLUGIN_IDS_JSON="$(printf '%s\n' "${REMOVED_ORPHAN_PLUGIN_IDS[@]:-}" | jq -R 'select(length > 0)' | jq -s .)" \
+  | RUIXEN_ORPHAN_PLUGIN_IDS_JSON="$(printf '%s\n' "${ORPHAN_PLUGIN_IDS[@]:-}" | jq -R 'select(length > 0)' | jq -s .)" \
     "$script_dir/lib/build-shell-json.sh" > "$tmp_shell_json" \
   || { rm -f "$tmp_shell_json"; fail "failed to build shell.json"; }
 
@@ -925,6 +918,26 @@ printf '\n[7/7] Restarting Omarchy shell\n'
 # bytecode, never data, so deleting it can never lose anything.
 rm -rf "$HOME/.cache/quickshell/qmlcache" 2>/dev/null || true
 omarchy restart shell
+
+# Orphan plugins detected earlier (step [3/7]) are only physically removed
+# now, AFTER the restart above has actually happened -- see that step's
+# own comment for why removing the directory any earlier crashed a live
+# quickshell that still had the plugin loaded. shell.json already stopped
+# referencing these in [4/7], so the freshly restarted process never
+# tried to load them in the first place; this is just deleting the now
+# genuinely-unused files. Best-effort (a stray permission issue here
+# shouldn't fail an install that has already fully succeeded) -- backed
+# up the same way a replaced plugin already is, not just deleted outright.
+for id in "${ORPHAN_PLUGIN_IDS[@]:-}"; do
+  [[ -n "$id" ]] || continue
+  target="$plugins_dir/$id"
+  [[ -d "$target" ]] || continue
+  if mv "$target" "$plugin_backup_dir/$id.bak.$stamp" 2>/dev/null; then
+    printf '  removed orphaned plugin %s (no longer part of this checkout)\n' "$id"
+  else
+    printf '  warning: could not remove orphaned plugin %s -- safe to delete %s by hand\n' "$id" "$target" >&2
+  fi
+done
 
 # Direct review finding ("Make repo-path state part of the successful
 # install transaction", #14): this used to be written right at the top

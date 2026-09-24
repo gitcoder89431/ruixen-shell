@@ -132,8 +132,16 @@ printf '%s' '{"schemaVersion":1,"id":"ruixen.retired-widget","name":"Retired","v
 mkdir -p "$home4/.config/omarchy"
 printf '%s' '{"version":1,"bar":{"id":"ruixen.bar","layout":{"left":[{"id":"ruixen.retired-widget"}],"center":[],"right":[]}},"plugins":[{"id":"ruixen.retired-widget"}]}' \
   > "$home4/.config/omarchy/shell.json"
-if run_install "$home4"; then status4=0; else status4=$?; fi
+if ( HOME="$home4" PATH="$fake_bin:$PATH" \
+     FAKE_OMARCHY_ASSERT_PRESENT_AT_RESTART="$home4/.config/omarchy/plugins/ruixen.retired-widget" \
+     "$repo_dir/install.sh" ) >"$home4/install.out" 2>&1; then
+  status4=0
+else
+  status4=$?
+fi
 check "retired plugin: exits 0" "$status4" "0"
+check "retired plugin: directory still existed at restart time (removed after, not before)" \
+  "$(grep -c 'still exist at restart time' "$home4/install.out" 2>/dev/null)" "0"
 if [[ "$status4" -eq 0 ]]; then
   check "retired plugin: deployed directory was removed" \
     "$([[ -e "$home4/.config/omarchy/plugins/ruixen.retired-widget" ]] && echo present || echo gone)" "gone"

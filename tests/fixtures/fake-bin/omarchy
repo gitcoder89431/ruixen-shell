@@ -21,6 +21,16 @@ case "${1:-} ${2:-}" in
       echo "fake omarchy: forced restart failure" >&2
       exit 1
     fi
+    # Regression guard for install.sh's own orphan-plugin cleanup: a
+    # path here is asserted to STILL EXIST at the exact moment a restart
+    # happens, standing in for "a still-loaded plugin's directory must
+    # not have been ripped out from under the not-yet-restarted live
+    # quickshell process" -- a real crash found live on another machine
+    # the first time this path ever ran outside this dev machine.
+    if [[ -n "${FAKE_OMARCHY_ASSERT_PRESENT_AT_RESTART:-}" && ! -e "$FAKE_OMARCHY_ASSERT_PRESENT_AT_RESTART" ]]; then
+      echo "fake omarchy: expected $FAKE_OMARCHY_ASSERT_PRESENT_AT_RESTART to still exist at restart time, but it's already gone" >&2
+      exit 1
+    fi
     exit 0
     ;;
   # Added for uninstall.sh's own test coverage (#26) -- lists whatever

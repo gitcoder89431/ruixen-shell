@@ -1679,6 +1679,17 @@ Item {
       // clipping risk to avoid by going square there).
       readonly property int frameCornerRadius: (!root.docked && root.sharpCorners) ? 0 : 24
 
+      // Neutral black regardless of frameColor, same reasoning a real
+      // physical shadow doesn't tint with its caster's own color --
+      // direct request, after Themed mode shipped: "the surface looks
+      // kinda faded", same depth-cue omacalestria/calestria shell's own
+      // frame bezels use. Fixed constants for now, not exposed in
+      // Settings -- these need live tuning against an actual affected
+      // machine/theme before they're worth turning into a real knob.
+      readonly property color shadowColor: "#8f000000"
+      readonly property int shadowBlurPx: 14
+      readonly property int shadowWidthPx: 6
+
       onPaint: {
         const ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
@@ -1690,6 +1701,26 @@ Item {
           frameCornerRadius)
         ctx.fill()
         ctx.globalCompositeOperation = "source-over"
+
+        // Inner shadow along the hole's own inside edge, giving the
+        // frame some depth instead of a flat color band -- standard
+        // Canvas inner-shadow technique: clip to the hole itself, then
+        // stroke that SAME path with shadowBlur/shadowColor set. The
+        // clip means only the half of the stroke (and its blur falloff)
+        // that falls inside the hole ever renders, reading as a soft
+        // dark band hugging the frame's own inner edge and fading
+        // toward whatever's visible through it.
+        ctx.save()
+        roundedRect(ctx, root.frameInset, root.frameInset,
+          width - root.frameInset * 2, height - root.frameInset * 2,
+          frameCornerRadius)
+        ctx.clip()
+        ctx.shadowColor = shadowColor
+        ctx.shadowBlur = shadowBlurPx
+        ctx.lineWidth = shadowWidthPx
+        ctx.strokeStyle = shadowColor
+        ctx.stroke()
+        ctx.restore()
       }
     }
   }

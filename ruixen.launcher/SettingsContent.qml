@@ -1592,6 +1592,59 @@ Item {
     onLoadFailed: root.loadCavaState("")
   }
 
+  // Frame color -- two independent choices ("themed", tracking the
+  // active theme's own background live, or "custom", a fixed color the
+  // frame stays regardless of theme switches). Direct request, after
+  // discussing an actual drop-shadow-on-glass idea: "not sure if people
+  // know hex code, oled black might easier" -- frameCustomColorId is a
+  // named preset id (matching cavaStyle/cavaPosition's own plain-string
+  // id convention), never a raw hex field for the user to type into.
+  // Kept as a plain string here (not a QML `color`) specifically so it
+  // compares cleanly against SettingsSegmentedItem's own option ids the
+  // same way every other segmented setting on this page already does --
+  // Bar.qml's own frameCustomColor property is still a real `color`,
+  // QML auto-converts this same hex string on assignment there.
+  property string frameColorMode: "custom"
+  property string frameCustomColorId: "#000000"
+  readonly property var frameColorPresets: [
+    { id: "#000000", label: "OLED Black" },
+    { id: "#1a1a1a", label: "Charcoal" },
+    { id: "#ffffff", label: "White" }
+  ]
+  readonly property string frameAppearanceStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"
+
+  function loadFrameAppearanceState(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.frameColorMode = (p && (p.mode === "theme" || p.mode === "custom")) ? p.mode : "custom"
+      var presetIds = root.frameColorPresets.map(function(o) { return o.id })
+      root.frameCustomColorId = (p && presetIds.indexOf(p.customColor) >= 0) ? p.customColor : "#000000"
+    } catch (e) {
+      root.frameColorMode = "custom"
+      root.frameCustomColorId = "#000000"
+    }
+  }
+
+  function writeFrameAppearanceState() {
+    frameAppearanceFile.setText(JSON.stringify({
+      mode: root.frameColorMode, customColor: root.frameCustomColorId
+    }, null, 2) + "\n")
+  }
+
+  function setFrameColorMode(id) { root.frameColorMode = id; root.writeFrameAppearanceState() }
+  function setFrameCustomColorId(id) { root.frameCustomColorId = id; root.writeFrameAppearanceState() }
+
+  FileView {
+    id: frameAppearanceFile
+    path: root.frameAppearanceStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadFrameAppearanceState(text())
+    onLoadFailed: root.loadFrameAppearanceState("")
+  }
+
   // App Launcher's own "Launcher Mark" picker, below on the Bar page --
   // direct request: "allow more glyph as an option... they call it
   // launcher mark". Same Settings-writes/AppLauncher.qml-reads split
@@ -1958,6 +2011,16 @@ Item {
       adjust: function(delta) {
         root.setCavaThickness(root.cavaThickness + delta * (root.cavaThicknessMax - root.cavaThicknessMin))
       }
+    },
+    {
+      options: ["theme", "custom"],
+      current: root.frameColorMode,
+      activate: function(id) { root.setFrameColorMode(id) }
+    },
+    {
+      options: root.frameColorPresets.map(function(o) { return o.id }),
+      current: root.frameCustomColorId,
+      activate: function(id) { root.setFrameCustomColorId(id) }
     }
   ]
   // Every real control on the Launcher page, in the same order
@@ -2406,7 +2469,7 @@ Item {
       return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
+      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem, frameColorModeItem, frameCustomColorItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3879,6 +3942,51 @@ Item {
         onAdjusted: (value) => root.setCavaThickness(root.cavaThicknessMin + value * (root.cavaThicknessMax - root.cavaThicknessMin))
       }
     }
+  }
+
+  // Frame color -- direct request, after discussing an actual
+  // drop-shadow-on-glass idea: theme it (tracks the active theme's own
+  // background live) or pick a fixed preset. Same "Themed"/mode-name
+  // wording ruixen.settings' own Glass Tint card already established
+  // elsewhere in this file, for consistency across the two closest
+  // analogous settings.
+  SettingsSegmentedItem {
+    id: frameColorModeItem
+    label: "Frame Color"
+    options: [
+      { id: "theme", label: "Themed" },
+      { id: "custom", label: "Custom" }
+    ]
+    current: root.frameColorMode
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 6
+    focusedOptionIndex: frameColorModeItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.visualizerOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setFrameColorMode(id)
+  }
+
+  // Named presets, not a raw hex field -- direct request: "not sure if
+  // people know hex code, oled black might easier". Stays focusable/
+  // selectable even in Themed mode (queuing a color for whenever Custom
+  // is picked next isn't wrong, just a no-op on the frame itself until
+  // then) rather than disappearing, so this list doesn't need its own
+  // separate focus-index bookkeeping when the mode above flips.
+  SettingsSegmentedItem {
+    id: frameCustomColorItem
+    label: "Custom Color"
+    options: root.frameColorPresets
+    current: root.frameCustomColorId
+    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 7
+    focusedOptionIndex: frameCustomColorItem.cardFocused ? root.focusedOptionIndex : -1
+    visible: root.visualizerOpen
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
+    onActivated: (id) => root.setFrameCustomColorId(id)
   }
 
   // Wi-Fi's own three items -- the radio toggle (reuses

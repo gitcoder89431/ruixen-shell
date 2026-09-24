@@ -515,15 +515,47 @@ Item {
   // Was hardcoded "#000000" (OLED black) in v1's ruixen.frame-widget,
   // unconditionally -- direct request: "make the surface for the frame
   // and floating pills not oled black this time too but changeable".
-  // A real property now, not a literal buried in a Canvas.onPaint --
-  // frameColorFile below lets it actually be changed (reads an optional
-  // plain-hex state file, same convention every other simple ruixen
-  // setting in this repo already uses), proving the architecture
-  // supports it. No Settings UI page for it yet -- that's a real,
-  // separate follow-up once this surface merge itself is proven out,
-  // not bundled into this same change.
-  property color frameColor: "#000000"
-  readonly property string frameColorStatePath: root.stateHome + "/ruixen/frame-color"
+  // Two independent choices, matching Settings' own Frame category:
+  // WHERE the color comes from (frameColorMode: "custom", a user-picked
+  // swatch, or "theme", live-tracking the active theme's own Color.background
+  // -- see qs.Commons' own Color.qml, already the same singleton
+  // themeContrastForeground above reads), and, only when custom, WHICH
+  // color that is (frameCustomColor). Kept as two separate properties
+  // rather than one resolved-and-cached color so a live theme switch
+  // updates frameColor immediately in theme mode without this file
+  // needing to re-read anything -- Color.background is already its own
+  // live QML binding.
+  property string frameColorMode: "custom"
+  property color frameCustomColor: "#000000"
+  readonly property color frameColor: root.frameColorMode === "theme" ? Color.background : root.frameCustomColor
+  // JSON, not the old plain-hex file -- two fields now, same convention
+  // every other multi-field ruixen setting in this repo already uses
+  // (see ruixen.cava's own cava-visualizer.json). Renamed off the old
+  // frame-color path (never actually shipped -- no Settings UI wrote to
+  // it, so there is no real user data to migrate) rather than trying to
+  // read both formats.
+  readonly property string frameColorStatePath: root.stateHome + "/ruixen/frame-appearance.json"
+
+  // Always resets BOTH fields off the parsed result, never leaves either
+  // at whatever it happened to be before this call -- direct live bug
+  // found testing this: onLoadFailed used to be a bare no-op (fine for
+  // the old single-hex-string version, which never changed away from its
+  // own declared default without a file existing at all), but once a
+  // MODE existed too, deleting the state file after switching to Theme
+  // left frameColorMode stuck on "theme" forever instead of reverting --
+  // nothing was left to reset it. Same shape as ruixen.cava's own
+  // loadCavaState/onLoadFailed pattern, called with "" on failure.
+  function loadFrameAppearance(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.frameColorMode = (p && (p.mode === "theme" || p.mode === "custom")) ? p.mode : "custom"
+      var c = p && p.customColor
+      root.frameCustomColor = (typeof c === "string" && /^#[0-9a-fA-F]{6,8}$/.test(c)) ? c : "#000000"
+    } catch (e) {
+      root.frameColorMode = "custom"
+      root.frameCustomColor = "#000000"
+    }
+  }
 
   FileView {
     id: frameColorFile
@@ -531,13 +563,8 @@ Item {
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: {
-      var raw = String(text() || "").trim()
-      if (raw !== "" && /^#[0-9a-fA-F]{6,8}$/.test(raw)) root.frameColor = raw
-    }
-    // onLoadFailed left as a no-op -- no state file yet (the common
-    // case, until a real Settings toggle exists to write one) just
-    // means the default OLED black above, not an error.
+    onLoaded: root.loadFrameAppearance(text())
+    onLoadFailed: root.loadFrameAppearance("")
   }
   // Floating's own, bigger top margin -- see BarPanel's own margins
   // comment for the full history/tuning. Lives on root for the same

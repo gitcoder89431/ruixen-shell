@@ -1495,59 +1495,113 @@ Item {
       // bottomLeftRadius/bottomRightRadius binding), not a hand-derived
       // approximation that has to be kept in sync by hand.
       //
-      // No top/flank exclusion needed the way the old ring-shadow had --
-      // a blur's own soft falloff bleeding upward into the frame's own
-      // (same-colored) border reads as a seamless continuation, not a
-      // separate floating shadow the way a hard-edged ring would have.
-      // Visible in both collapsed and expanded now (not gated to
-      // panel.expanded) -- ruixen.bar's own FrameWindow still owns the
-      // collapsed HOLE-PUNCH (that part was always correct), this is
-      // purely the soft depth cue layered on top of/behind it.
+      // Direct live correction, right after this shipped: "check the
+      // compact notch top edge, right now it has its own top shadow
+      // which doesnt make sense cause its suppose to be part of the
+      // frame as one surface illusion." MultiEffect's blur spreads
+      // beyond its source item's own bounds in every direction by
+      // default (autoPaddingEnabled) -- exactly what makes the halo
+      // visible around the sides/bottom, but the same spillover was ALSO
+      // bleeding upward past the notch's own top edge, into the frame's
+      // own area, undermining the one thing this whole exclusion exists
+      // for. notchShadowClip below cuts that off: flush with the notch's
+      // own true top (no margin there, so nothing can ever render above
+      // it), but expanded on the left/right/bottom by more than the
+      // blur's own max reach, so the halo stays fully visible everywhere
+      // else. Simpler than the old ring-shadow's own approach (an open,
+      // top-excluding PATH) -- here the shape stays the full, real
+      // silhouette (still guaranteed to match by construction), only
+      // WHERE it's allowed to visibly render changes.
       Item {
-        id: notchShadowBlur
-        anchors.fill: parent
+        id: notchShadowClip
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.leftMargin: -40
+        anchors.right: parent.right
+        anchors.rightMargin: -40
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: -40
         z: -1
-        opacity: 0.6
+        clip: true
 
-        RoundCorner {
-          anchors.top: parent.top
-          anchors.left: parent.left
-          cornerSize: notchOuter.cornerSize
-          corner: 1
-          fillColor: "#000000"
-        }
+        // Shadow: a real, visible, BLURRED duplicate of the exact same
+        // 3-piece silhouette as notchMask below (left flank + center
+        // block + right flank), dark-filled. Direct pivot after the
+        // hand-rolled Canvas ring-shadow kept getting the curve/radius
+        // wrong every tuning pass -- "hard drop", corner dot artifacts,
+        // an inverted "mustache" corner, a reach that compressed against
+        // the shape's own small size: "cant the notch edges just produce
+        // its own shadow?"
+        //
+        // A PLAIN blur (MultiEffect's blurEnabled only) is a
+        // fundamentally different, much safer code path than the
+        // ORIGINAL broken attempt this file already has a hard-learned
+        // rule against: "Tried, reverted: adding shadowEnabled/
+        // shadowColor/... to this same MultiEffect instance [notchBg's
+        // own, which ALSO has maskEnabled]... the shape is completely
+        // broken... Do not re-add shadow properties to this MultiEffect
+        // instance without solving the underlying masking fragility
+        // first." That bug was specifically shadowEnabled COMBINED with
+        // maskEnabled on one effect -- this shape is never masked at
+        // all, it just IS the shape, rendered directly and then blurred,
+        // so there's nothing for a mask+shadow interaction to break.
+        // Guaranteed to match the real silhouette exactly since it's the
+        // identical geometry (same cornerSize, same bottomLeftRadius/
+        // bottomRightRadius binding), not a hand-derived approximation
+        // that has to be kept in sync by hand.
+        //
+        // anchors.margins: 40 + topMargin: 0 undoes notchShadowClip's own
+        // asymmetric expansion above, so this shape's own bounds land
+        // back on the notch's real, unexpanded geometry -- the outer
+        // Item only exists to decide where blur is ALLOWED to spill
+        // past those bounds, not to resize the shape itself.
+        Item {
+          id: notchShadowBlur
+          anchors.fill: parent
+          anchors.margins: 40
+          anchors.topMargin: 0
+          opacity: 0.6
 
-        Rectangle {
-          anchors.top: parent.top
-          anchors.left: parent.left
-          anchors.leftMargin: notchOuter.cornerSize
-          anchors.right: parent.right
-          anchors.rightMargin: notchOuter.cornerSize
-          height: parent.height
-          color: "#000000"
-          topLeftRadius: 0
-          topRightRadius: 0
-          bottomLeftRadius: panel.expanded ? 44 : 28
-          bottomRightRadius: panel.expanded ? 44 : 28
+          RoundCorner {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            cornerSize: notchOuter.cornerSize
+            corner: 1
+            fillColor: "#000000"
+          }
 
-          Behavior on bottomLeftRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
-          Behavior on bottomRightRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
-        }
+          Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.leftMargin: notchOuter.cornerSize
+            anchors.right: parent.right
+            anchors.rightMargin: notchOuter.cornerSize
+            height: parent.height
+            color: "#000000"
+            topLeftRadius: 0
+            topRightRadius: 0
+            bottomLeftRadius: panel.expanded ? 44 : 28
+            bottomRightRadius: panel.expanded ? 44 : 28
 
-        RoundCorner {
-          anchors.top: parent.top
-          anchors.right: parent.right
-          cornerSize: notchOuter.cornerSize
-          corner: 0
-          fillColor: "#000000"
-        }
+            Behavior on bottomLeftRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
+            Behavior on bottomRightRadius { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
+          }
 
-        layer.enabled: true
-        layer.smooth: true
-        layer.effect: MultiEffect {
-          blurEnabled: true
-          blurMax: 32
-          blur: 0.6
+          RoundCorner {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            cornerSize: notchOuter.cornerSize
+            corner: 0
+            fillColor: "#000000"
+          }
+
+          layer.enabled: true
+          layer.smooth: true
+          layer.effect: MultiEffect {
+            blurEnabled: true
+            blurMax: 32
+            blur: 0.6
+          }
         }
       }
 

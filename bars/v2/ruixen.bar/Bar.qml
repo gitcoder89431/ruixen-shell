@@ -443,19 +443,14 @@ Item {
   // leftDockedBg/leftShoulderWing).
   readonly property int shoulderWingSize: 24
 
-  // Sharp+docked only: whether leftDockedBg below should span the full
-  // window width instead of just the left widget group -- direct
-  // request, "make the topbar a full black strip so it runs under the
-  // notch too" (a traditional single continuous Waybar-style bar, not
-  // two separate left/right groups with a wallpaper gap in the
-  // middle). Deliberately NOT used for corner radius -- that stays
-  // hardcoded 24 always when docked now (see leftDockedBg/rightDockedBg
-  // below), matching ruixen.frame-widget's own corner, which also
-  // always stays rounded when docked regardless of curvature (see
-  // ruixen.frame-widget/Overlay.qml's own isDocked). Same read-once-at-
-  // startup Process pattern as frame-widget's own variant read -- safe
-  // because hyprland/ruixen-lookfeel.sh always does a full `omarchy
-  // restart shell` on every variant change.
+  // Hyprland/window curvature variant. This still controls the full-screen
+  // frame hole in floating mode, but docked bar chrome intentionally ignores
+  // it: sharp+docked should keep sharp windows below while the bar/notch skin
+  // behaves exactly like rounded+docked. The older sharp+docked full-strip bar
+  // is a separate future "classic/statusline" mode, not this curvature toggle.
+  // Same read-once-at-startup Process pattern as the rest of lookfeel -- safe
+  // because hyprland/ruixen-lookfeel.sh always does a full `omarchy restart
+  // shell` on every variant change.
   property bool sharpCorners: false
 
   Process {
@@ -2387,11 +2382,11 @@ Item {
           color: root.dockedBarColor
         }
 
-        // Covers leftDockedBg's OWN top-right corner specifically --
-        // only rounded (and only touching the frame) in sharp-corner
-        // mode, per its own topRightRadius above.
+        // Historical sharp+docked full-strip patch. Kept as a disabled shape
+        // rather than deleted so the old statusline/classic skin has an obvious
+        // starting point later without affecting today's curvature toggle.
         Rectangle {
-          visible: root.docked && root.sharpCorners
+          visible: false
           x: leftDockedBg.width - root.shoulderWingSize
           y: 0
           width: root.shoulderWingSize
@@ -2399,11 +2394,9 @@ Item {
           color: root.dockedBarColor
         }
 
-        // Covers rightDockedBg's own top-right corner -- hidden along
-        // with rightDockedBg itself in sharp mode, where leftDockedBg's
-        // own patch above takes over instead.
+        // Covers rightDockedBg's own top-right corner.
         Rectangle {
-          visible: root.docked && !root.sharpCorners
+          visible: root.docked
           x: parent.width - root.shoulderWingSize
           y: 0
           width: root.shoulderWingSize
@@ -2416,15 +2409,11 @@ Item {
           visible: root.docked
           x: 0
           y: 0
-          // Rounded mode: just the left group's own width, unchanged.
-          // Sharp mode: the FULL window width (see root.sharpCorners'
-          // own comment above). rightDockedBg below is hidden in this
-          // mode since this one now covers its entire area too.
-          // ruixen.notch is a separate overlay window on its own layer,
-          // already rendered on top of this one regardless of what's
-          // drawn here, so extending underneath it needs no z-order
-          // change.
-          width: root.sharpCorners ? parent.width : (settingsPill.x + settingsPill.width)
+          // Just the left group's own width. Sharp+docked used to stretch this
+          // to parent.width for a full statusline strip, but that belongs to a
+          // separate bar-style mode; curvature alone should not alter docked
+          // bar/notch geometry.
+          width: settingsPill.x + settingsPill.width
           // root.barSize, not parent.height -- parent (the outer Item,
           // sized to the whole window) is taller than the pill row when
           // docked, to make room for leftFrameHemWing below (renamed from
@@ -2439,16 +2428,8 @@ Item {
           // top too when docked, not topInset, specifically so this lines
           // up).
           topLeftRadius: 24
-          // Rounded mode: 0, square -- this edge butts against
-          // leftShoulderWing right after it, same as always. Sharp
-          // mode: leftDockedBg's own right edge IS the true screen
-          // edge now (full width, see width above), so it needs to
-          // match frame's own rounded corner there too, same as
-          // topLeftRadius does on the left -- direct live report,
-          // after the wing-hiding attempt was reverted for being the
-          // wrong fix: "the top bar corner is still missing or has a
-          // wierd curve on the black full width we added."
-          topRightRadius: root.sharpCorners ? root.shoulderWingSize : 0
+          // Square -- this edge butts against leftShoulderWing right after it.
+          topRightRadius: 0
           // Square, not a plain recede curve -- the actual concave wrap
           // (per direct request: "the smooth curve should face inward")
           // is leftFrameHemWing below, in its own dedicated space
@@ -2457,18 +2438,9 @@ Item {
           // hand-off into that wing rather than competing with
           // topLeftRadius for room on the same 34px edge.
           bottomLeftRadius: 0
-          // Rounded mode: the real shoulder, matches shoulderWingSize
-          // (24) -- a flush concave hand-off into leftShoulderWing
-          // right after this edge, same as always. Sharp mode:
-          // leftShoulderWing sits off-screen now (positioned at
-          // leftDockedBg.x + leftDockedBg.width, which is parent.width
-          // when full-width -- past the true right edge, effectively
-          // moot), so there's nothing left to hand off to; a concave
-          // cut here with nothing filling it would just notch a bite
-          // of wallpaper out of the strip's own true bottom-right
-          // corner. Flat (0) instead, matching the strip's plain
-          // bottom edge everywhere else.
-          bottomRightRadius: root.sharpCorners ? 0 : root.shoulderWingSize
+          // The real shoulder, matching shoulderWingSize -- a flush concave
+          // hand-off into leftShoulderWing right after this edge.
+          bottomRightRadius: root.shoulderWingSize
         }
 
         // A small square sitting immediately past the body's own right
@@ -2522,10 +2494,7 @@ Item {
 
         Rectangle {
           id: rightDockedBg
-          // Hidden in sharp mode -- leftDockedBg above already spans
-          // the full window width there, covering this piece's entire
-          // area.
-          visible: root.docked && !root.sharpCorners
+          visible: root.docked
           x: trayPill.x
           y: 0
           width: parent.width - trayPill.x

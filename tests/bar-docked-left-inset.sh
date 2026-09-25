@@ -49,5 +49,17 @@ left_docked_bg_x="$(grep -A2 'id: leftDockedBg$' "$bar_qml" | grep -c 'x: 0$' ||
 check "leftDockedBg's own x stays 0 (fix is internal padding only, not a background shift)" \
   "$left_docked_bg_x" "1"
 
+check "sharp+docked no longer stretches leftDockedBg into the old full-strip skin" \
+  "$(grep -m1 'width: settingsPill.x + settingsPill.width' "$bar_qml")" '          width: settingsPill.x + settingsPill.width'
+
+check "sharp+docked keeps the normal docked left shoulder radius" \
+  "$(grep -m1 'bottomRightRadius: root.shoulderWingSize' "$bar_qml")" '          bottomRightRadius: root.shoulderWingSize'
+
+check "rightDockedBg remains visible in sharp+docked, matching rounded+docked" \
+  "$(grep -A5 'id: rightDockedBg$' "$bar_qml" | grep -m1 'visible: root.docked')" '          visible: root.docked'
+
+check "old sharp-only docked corner patch is disabled until a separate classic/statusline mode exists" \
+  "$(grep -A5 'Historical sharp+docked full-strip patch' "$bar_qml" | grep -m1 'visible: false')" '          visible: false'
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

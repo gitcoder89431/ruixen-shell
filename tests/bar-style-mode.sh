@@ -66,7 +66,7 @@ check "README documents fullbar style" \
   "$(grep -m1 './ruixen-bar-style.sh fullbar' "$readme")" './ruixen-bar-style.sh fullbar    # full-width statusline skin, no notch'
 
 check "install output mentions fullbar helper" \
-  "$(grep -m1 'ruixen-bar-style.sh fullbar' "$install_sh")" '  $script_dir/ruixen-bar-style.sh fullbar'
+  "$(grep -m1 'ruixen-bar-style.sh fullbar' "$install_sh")" "  \$script_dir/ruixen-bar-style.sh fullbar"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

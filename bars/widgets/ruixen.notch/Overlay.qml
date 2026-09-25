@@ -44,6 +44,10 @@ Item {
   // same on-disk state `omarchy-toggle-bar` already flips -- not a
   // second, competing toggle.
   property bool barHidden: false
+  // bar.style="fullbar" is a saved alternate bar skin that intentionally has
+  // no notch overlay. Keep this plugin loaded so switching back to "notch"
+  // is a config reload, not an install/uninstall operation.
+  property bool fullbarStyle: false
 
   Process {
     id: barHiddenProbe
@@ -56,6 +60,26 @@ Item {
     watchChanges: true
     printErrors: false
     onFileChanged: barHiddenProbe.running = true
+  }
+
+  readonly property string shellConfigPath: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
+
+  function loadShellConfig(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.fullbarStyle = p && p.bar && p.bar.style === "fullbar"
+    } catch (e) {
+      root.fullbarStyle = false
+    }
+  }
+
+  FileView {
+    path: root.shellConfigPath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadShellConfig(text())
+    onLoadFailed: root.loadShellConfig("")
   }
 
   // Reads the SAME shared state ruixen.bar's own frame color writes to
@@ -1002,7 +1026,7 @@ Item {
 
   PanelWindow {
     id: panel
-    visible: !root.fullscreenActive && !root.barHidden
+    visible: !root.fullscreenActive && !root.barHidden && !root.fullbarStyle
     // bottom:true too, not just top/left/right -- the click-away-to-
     // dismiss MouseArea (see below) needs the panel's own surface to
     // actually reach the full screen height for its widened mask to

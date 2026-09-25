@@ -18,6 +18,7 @@ targets=(
   "$repo_dir/ruixen-doctor.sh"
   "$repo_dir/ruixen-repair.sh"
   "$repo_dir/ruixen-bar-mode.sh"
+  "$repo_dir/ruixen-bar-style.sh"
   "$repo_dir/hyprland/ruixen-lookfeel.sh"
   "$repo_dir/bars/widgets/ruixen.notch/list-wallpapers.sh"
   "$repo_dir/bars/widgets/ruixen.notch/prune-poster-cache.sh"

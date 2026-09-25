@@ -38,6 +38,24 @@ Item {
     return PluginModel.pluginIsProtected(row)
   }
 
+  function shellQuote(value) {
+    return "'" + String(value || "").replace(/'/g, "'\\''") + "'"
+  }
+
+  function pluginToggleCommand(row) {
+    var action = row.enabled ? "disable" : "enable"
+    if (action === "disable" || root.ruixenRepoPath === "") {
+      return ["omarchy", "plugin", action, row.id]
+    }
+
+    var repo = root.shellQuote(root.ruixenRepoPath)
+    var id = root.shellQuote(row.id)
+    return ["bash", "-c",
+      "omarchy plugin enable " + id
+        + " && " + repo + "/lib/restore-canonical-plugin-layout.sh " + id
+        + " && { omarchy-shell shell reloadConfig >/dev/null 2>&1 || true; }"]
+  }
+
   Process {
     id: pluginListProc
     command: ["omarchy", "plugin", "list", "--json"]
@@ -73,7 +91,7 @@ Item {
     if (!row || !row.id || root.pluginIsProtected(row)) return
     root.pluginActionPendingId = pluginActionProc.running ? row.id : ""
     root.pluginBusyId = row.id
-    pluginActionProc.command = ["omarchy", "plugin", row.enabled ? "disable" : "enable", row.id]
+    pluginActionProc.command = root.pluginToggleCommand(row)
     pluginActionProc.running = true
   }
 

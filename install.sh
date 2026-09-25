@@ -1166,13 +1166,18 @@ Run:
 
   $script_dir/ruixen-bar-mode.sh docked
 
+Want the saved full-width statusline skin without the notch?
+Run:
+
+  $script_dir/ruixen-bar-style.sh fullbar
+
 Pulling new changes later? Run:
 
   $script_dir/update.sh
 
-ruixen-bar-mode.sh and update.sh only work from this checkout -- keep it
-around after installing (don't delete the cloned folder), or note its
-path above. ruixen-lookfeel.sh itself is also run from here, but the
+ruixen-bar-mode.sh, ruixen-bar-style.sh, and update.sh only work from
+this checkout -- keep it around after installing (don't delete the cloned
+folder), or note its path above. ruixen-lookfeel.sh itself is also run from here, but the
 actual Hyprland look it applies is copied to a stable path first, so
 moving or deleting this checkout later won't break your active
 Hyprland config.

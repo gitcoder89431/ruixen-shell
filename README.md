@@ -289,6 +289,22 @@ trying:
 
 No restart needed either way — it's a live config reload.
 
+## Bar style
+
+The normal style is `notch`: the center island stays visible and the bar keeps
+its center reserved. `fullbar` is the saved full-width statusline skin from the
+old sharp+docked experiment. It hides the notch overlay and lets the bar own the
+center space again.
+
+```bash
+./ruixen-bar-style.sh notch      # current island/notch skin
+./ruixen-bar-style.sh fullbar    # full-width statusline skin, no notch
+./ruixen-bar-style.sh status     # show which one is active
+```
+
+This is independent from `./ruixen-bar-mode.sh docked|floating` and independent
+from Hyprland sharp/rounded window corners.
+
 ## Kanban board
 
 `ruixen.notch`'s dashboard has a 4th tab: a fixed 3-column board (Todo / In

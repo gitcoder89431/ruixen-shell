@@ -37,6 +37,7 @@ Item {
   property var fallbackBarConfig: ({
     position: "top",
     transparent: false,
+    style: "notch",
     centerAnchor: "omarchy.clock",
     layout: { left: [], center: [], right: [] }
   })
@@ -52,6 +53,11 @@ Item {
   // the notch's two. Off by default; set bar.docked: true in shell.json
   // to try it. Not the team's favorite mode, kept as an opt-in option.
   property bool docked: false
+  // Visual skin, independent from Hyprland window curvature:
+  // - notch: current Ruixen island/notch skin, with reserved center space.
+  // - fullbar: saved old sharp+docked-style full strip, no notch overlay.
+  property string barStyle: "notch"
+  readonly property bool fullbarStyle: barStyle === "fullbar"
   property bool centerSectionHovered: false
   // One bar surface exists per monitor and each reports into this count, so a
   // pointer crossing from one monitor's bar to another's stays counted however
@@ -643,6 +649,7 @@ Item {
     position = normalizePosition(config.position)
     setRequestedTransparency(config.transparent === true)
     docked = config.docked === true
+    barStyle = config.style === "fullbar" ? "fullbar" : "notch"
     centerAnchor = Util.canonicalWidgetId(config.centerAnchor || "")
 
     // layoutEntries feeds plain JS arrays to the module Repeaters, and QML
@@ -1000,7 +1007,7 @@ Item {
   // Notch already occupy the same horizontal band by construction (both
   // live at the top of the screen, centered).
   function reservedCenterRect(containerWidth) {
-    var r = BarModel.reservedCenterRect(root.notchReservedWidth, containerWidth, root.barSize)
+    var r = BarModel.reservedCenterRect(root.fullbarStyle ? 0 : root.notchReservedWidth, containerWidth, root.barSize)
     return Qt.rect(r.x, r.y, r.width, r.height)
   }
 
@@ -2382,11 +2389,10 @@ Item {
           color: root.dockedBarColor
         }
 
-        // Historical sharp+docked full-strip patch. Kept as a disabled shape
-        // rather than deleted so the old statusline/classic skin has an obvious
-        // starting point later without affecting today's curvature toggle.
+        // Historical sharp+docked full-strip corner patch, revived behind
+        // bar.style="fullbar" only. Curvature alone must not select it.
         Rectangle {
-          visible: false
+          visible: root.docked && root.fullbarStyle
           x: leftDockedBg.width - root.shoulderWingSize
           y: 0
           width: root.shoulderWingSize
@@ -2394,9 +2400,11 @@ Item {
           color: root.dockedBarColor
         }
 
-        // Covers rightDockedBg's own top-right corner.
+        // Covers rightDockedBg's own top-right corner in the normal notch skin.
+        // In fullbar mode leftDockedBg spans the whole surface and owns this
+        // corner instead.
         Rectangle {
-          visible: root.docked
+          visible: root.docked && !root.fullbarStyle
           x: parent.width - root.shoulderWingSize
           y: 0
           width: root.shoulderWingSize
@@ -2409,11 +2417,9 @@ Item {
           visible: root.docked
           x: 0
           y: 0
-          // Just the left group's own width. Sharp+docked used to stretch this
-          // to parent.width for a full statusline strip, but that belongs to a
-          // separate bar-style mode; curvature alone should not alter docked
-          // bar/notch geometry.
-          width: settingsPill.x + settingsPill.width
+          // Normal notch skin: just the left group's own width. Fullbar skin:
+          // stretch across the whole surface for the saved statusline strip.
+          width: root.fullbarStyle ? parent.width : (settingsPill.x + settingsPill.width)
           // root.barSize, not parent.height -- parent (the outer Item,
           // sized to the whole window) is taller than the pill row when
           // docked, to make room for leftFrameHemWing below (renamed from
@@ -2428,8 +2434,9 @@ Item {
           // top too when docked, not topInset, specifically so this lines
           // up).
           topLeftRadius: 24
-          // Square -- this edge butts against leftShoulderWing right after it.
-          topRightRadius: 0
+          // In fullbar mode this is the true screen edge, so it gets the
+          // same rounded frame-touching corner as topLeftRadius.
+          topRightRadius: root.fullbarStyle ? root.shoulderWingSize : 0
           // Square, not a plain recede curve -- the actual concave wrap
           // (per direct request: "the smooth curve should face inward")
           // is leftFrameHemWing below, in its own dedicated space
@@ -2438,9 +2445,9 @@ Item {
           // hand-off into that wing rather than competing with
           // topLeftRadius for room on the same 34px edge.
           bottomLeftRadius: 0
-          // The real shoulder, matching shoulderWingSize -- a flush concave
-          // hand-off into leftShoulderWing right after this edge.
-          bottomRightRadius: root.shoulderWingSize
+          // Normal notch skin hands off into leftShoulderWing. Fullbar has no
+          // open-facing shoulder at the right edge, so keep its bottom flat.
+          bottomRightRadius: root.fullbarStyle ? 0 : root.shoulderWingSize
         }
 
         // A small square sitting immediately past the body's own right
@@ -2494,7 +2501,7 @@ Item {
 
         Rectangle {
           id: rightDockedBg
-          visible: root.docked
+          visible: root.docked && !root.fullbarStyle
           x: trayPill.x
           y: 0
           width: parent.width - trayPill.x

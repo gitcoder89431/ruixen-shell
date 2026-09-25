@@ -406,6 +406,8 @@ Item {
   // auth needed).
   property int avatarCacheBust: 0
   property bool avatarBusy: false
+  property bool avatarAnimated: false
+  readonly property string avatarGifPath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.gif"
 
   // GitHub avatar option -- direct request: someone wanted their real
   // Discord picture usable here instead of only DiceBear. Discord would
@@ -523,6 +525,7 @@ Item {
           if (root.avatarCollections[i].id === parsed.collection) { known = true; break }
         }
         if (known) root.avatarCollection = parsed.collection
+        root.avatarAnimated = !!parsed.animated
       }
     } catch (e) {}
     root.avatarStateLoaded = true
@@ -551,7 +554,7 @@ Item {
 
   Process {
     id: avatarProc
-    stdout: StdioCollector { waitForEnd: true }
+    stdout: StdioCollector { id: avatarProcStdout; waitForEnd: true }
     stderr: StdioCollector { id: avatarProcStderr; waitForEnd: true }
     // exitCode wasn't even read before -- direct live report: picking a
     // GIF as a custom avatar "didnt even change" anything. Root cause
@@ -574,8 +577,9 @@ Item {
         avatarNotifyProc.running = true
         return
       }
+      root.avatarAnimated = String(avatarProcStdout.text || "").trim() === "animated"
       root.avatarCacheBust = root.avatarCacheBust + 1
-      avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection }, null, 2) + "\n")
+      avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection, animated: root.avatarAnimated }, null, 2) + "\n")
       // Tells ruixen.notch's own UserAvatar to re-read the file too --
       // it's a separate keepLoaded:true plugin process, so it has no
       // other way to know ~/.face.icon just changed.
@@ -760,13 +764,12 @@ Item {
     root.avatarCollection = collection
     var target = Quickshell.env("HOME") + "/.face.icon"
     if (collection === "gradient") {
-      avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+      avatarProc.command = ["bash", "-c", "rm -f \"$1\" \"$2\"; printf static", "ruixen-avatar-gradient", target, root.avatarGifPath]
     } else if (collection === "custom") {
-      // A plain argument array, not "bash", "-c" + string-interpolated
-      // path -- Quickshell's own Process runs this directly (no shell
-      // involved at all), so a picked filename with a space/apostrophe/
-      // anything else shell-special in it is never a quoting concern
-      // the way every other branch here has to be careful about.
+      // The picked path is passed as a real argv parameter to the
+      // helper shell ($1), never interpolated into the script string, so
+      // a filename with a space/apostrophe/anything else shell-special
+      // is not a quoting concern.
       //
       // 512x512> (ImageMagick's own "only shrink if larger, never
       // enlarge" syntax) instead of a hard reject on oversized files --
@@ -780,12 +783,28 @@ Item {
       // coalescing, that page geometry survives into ~/.face.icon and
       // the avatar appears off-center or broken even though the GIF is
       // valid. Coalescing expands every frame to the full canvas first,
-      // then resize keeps it centered. -strip drops EXIF/metadata
-      // afterward, e.g. GPS tags a picked photo may carry -- confirmed
-      // live: the output format is inferred correctly from the INPUT
-      // even though the target path itself has no extension, same as
-      // every other avatar source already writes into ~/.face.icon.
-      avatarProc.command = ["magick", filePath, "-auto-orient", "-coalesce", "-strip", "-resize", "512x512>", target]
+      // then resize keeps it centered. Animated GIFs are deliberately
+      // written to a real .gif path for Ruixen's own AnimatedImage
+      // views: QMovie is much less forgiving than static Image when an
+      // animated file is hidden behind the extensionless ~/.face.icon
+      // convention. ~/.face.icon still gets a static PNG first frame so
+      // non-Ruixen consumers keep a normal face icon.
+      avatarProc.command = ["bash", "-c",
+        "set -euo pipefail\n" +
+        "src=$1\n" +
+        "target=$2\n" +
+        "gif=$3\n" +
+        "rm -f \"$gif\"\n" +
+        "fmt=$(magick identify -quiet -format '%m' \"$src[0]\" | tr '[:upper:]' '[:lower:]')\n" +
+        "if [[ \"$fmt\" == gif ]]; then\n" +
+        "  magick \"$src\" -auto-orient -coalesce -strip -resize '512x512>' \"GIF:$gif\"\n" +
+        "  magick \"$gif[0]\" -strip \"PNG:$target\"\n" +
+        "  printf animated\n" +
+        "else\n" +
+        "  magick \"$src\" -auto-orient -strip -resize '512x512>' \"$target\"\n" +
+        "  printf static\n" +
+        "fi",
+        "ruixen-avatar-custom", filePath, target, root.avatarGifPath]
     } else if (collection === "github") {
       // One command, not a separate "fetch the URL, then curl it" pair
       // of Processes -- `gh api user` already needs the same `gh` auth
@@ -795,7 +814,8 @@ Item {
       // through into curl-ing an empty URL and silently overwriting a
       // perfectly good existing avatar with a broken 0-byte file.
       avatarProc.command = ["bash", "-c",
-        "set -e; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o '" + target + "'"]
+        "set -e; rm -f \"$2\"; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o \"$1\"; printf static",
+        "ruixen-avatar-github", target, root.avatarGifPath]
     } else {
       var seed = Math.random().toString(36).slice(2) + Date.now()
       // Per-collection version/format, defaulting to DiceBear's 9.x
@@ -823,7 +843,7 @@ Item {
       // fetching a few styles with no params at all) is what renders
       // now, unmodified.
       var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed
-      avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
+      avatarProc.command = ["bash", "-c", "rm -f \"$2\"; curl -fsL \"$3\" -o \"$1\"; printf static", "ruixen-avatar-dicebear", target, root.avatarGifPath, url]
     }
     avatarProc.running = true
   }

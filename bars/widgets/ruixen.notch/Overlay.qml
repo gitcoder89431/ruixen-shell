@@ -149,6 +149,28 @@ Item {
   // actually writes that file). See UserAvatar's own Image.source for
   // why this is a "#" fragment, not a "?" query string.
   property int avatarCacheBust: 0
+  property bool avatarAnimated: false
+  readonly property string avatarStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.json"
+  readonly property string avatarGifPath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.gif"
+
+  function loadAvatarState(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.avatarAnimated = !!p.animated
+    } catch (e) {
+      root.avatarAnimated = false
+    }
+  }
+
+  FileView {
+    id: avatarStateFile
+    path: root.avatarStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadAvatarState(text())
+    onLoadFailed: root.loadAvatarState("")
+  }
 
   // Reads ruixen.media/Service.qml's own state file directly instead of
   // shell.firstPartyServiceFor("ruixen.media") -- ruixen-shell issue
@@ -796,6 +818,9 @@ Item {
     // on it outright).
     readonly property var activeAvatarImage: (avatarImage.status === Image.Ready && avatarImage.frameCount > 1)
       ? avatarImage : avatarImageFallback
+    readonly property string avatarSource: root.avatarAnimated
+      ? "file://" + root.avatarGifPath + "#" + root.avatarCacheBust
+      : "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
 
     // Placeholder shown until/unless ~/.face.icon exists -- a gradient
     // square (see its own no-radius comment below) instead of a shipped
@@ -863,17 +888,17 @@ Item {
     AnimatedImage {
       id: avatarImage
       anchors.fill: parent
-      source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+      source: avatar.avatarSource
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       cache: false
-      visible: false
+      visible: root.avatarAnimated
     }
 
     Image {
       id: avatarImageFallback
       anchors.fill: parent
-      source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+      source: avatar.avatarSource
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       cache: false
@@ -892,6 +917,7 @@ Item {
     MultiEffect {
       anchors.fill: parent
       source: avatar.activeAvatarImage
+      visible: !root.avatarAnimated
       maskEnabled: true
       maskSource: avatarImageMask
       maskThresholdMin: 0.5
@@ -1154,7 +1180,10 @@ Item {
       // writes or removes ~/.face.icon -- this plugin is keepLoaded:
       // true, so nothing else would tell UserAvatar's Image to re-read
       // the file.
-      function refreshAvatar(): void { root.avatarCacheBust = root.avatarCacheBust + 1 }
+      function refreshAvatar(): void {
+        avatarStateFile.reload()
+        root.avatarCacheBust = root.avatarCacheBust + 1
+      }
 
       // Kanban tab (4th dashboard tab) -- direct request, agent-native
       // by design: these are the SAME functions KanbanContent.qml's

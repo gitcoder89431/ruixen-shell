@@ -87,6 +87,9 @@ ColumnLayout {
         // shipped could silently stop rendering at all.
         readonly property var activeAvatarImage: avatarPreviewImage.status === Image.Error
           ? avatarPreviewImageFallback : avatarPreviewImage
+        readonly property string avatarSource: settingsRoot.avatarAnimated
+          ? "file://" + settingsRoot.avatarGifPath + "#" + settingsRoot.avatarCacheBust
+          : "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
 
         // Explicitly hidden once a real image is loaded, not just
         // painted over by an assumed-opaque one -- direct follow-up
@@ -162,17 +165,17 @@ ColumnLayout {
         AnimatedImage {
           id: avatarPreviewImage
           anchors.fill: parent
-          source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
+          source: avatarPreviewWrap.avatarSource
           fillMode: Image.PreserveAspectCrop
           asynchronous: true
           cache: false
-          visible: false
+          visible: settingsRoot.avatarAnimated
         }
 
         Image {
           id: avatarPreviewImageFallback
           anchors.fill: parent
-          source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
+          source: avatarPreviewWrap.avatarSource
           fillMode: Image.PreserveAspectCrop
           asynchronous: true
           cache: false
@@ -191,6 +194,7 @@ ColumnLayout {
         MultiEffect {
           anchors.fill: parent
           source: avatarPreviewWrap.activeAvatarImage
+          visible: !settingsRoot.avatarAnimated
           maskEnabled: true
           maskSource: avatarPreviewMask
           maskThresholdMin: 0.5

@@ -37,6 +37,8 @@ check "custom avatar conversion still preserves the shrink-only 512px cap" \
   "$(grep -cF "512x512>" "$settings_qml")" "3"
 check "animated custom avatars are written to a real gif path, not extensionless ~/.face.icon" \
   "$(grep -cF 'GIF:$gif' "$settings_qml")" "1"
+check "animated custom avatars are forced to loop forever" \
+  "$(grep -cF -- '-loop 0' "$settings_qml")" "2"
 check "animated custom avatars still write a static ~/.face.icon fallback frame" \
   "$(grep -cF 'PNG:$target' "$settings_qml")" "1"
 check "avatar state persists whether the active avatar is animated" \

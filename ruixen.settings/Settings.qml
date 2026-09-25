@@ -788,7 +788,9 @@ Item {
       // views: QMovie is much less forgiving than static Image when an
       // animated file is hidden behind the extensionless ~/.face.icon
       // convention. ~/.face.icon still gets a static PNG first frame so
-      // non-Ruixen consumers keep a normal face icon.
+      // non-Ruixen consumers keep a normal face icon. -loop 0 is also
+      // required: generated GIFs can omit loop metadata, and Qt then
+      // plays the avatar once and stops.
       avatarProc.command = ["bash", "-c",
         "set -euo pipefail\n" +
         "src=$1\n" +
@@ -797,7 +799,7 @@ Item {
         "rm -f \"$gif\"\n" +
         "fmt=$(magick identify -quiet -format '%m' \"$src[0]\" | tr '[:upper:]' '[:lower:]')\n" +
         "if [[ \"$fmt\" == gif ]]; then\n" +
-        "  magick \"$src\" -auto-orient -coalesce -strip -resize '512x512>' \"GIF:$gif\"\n" +
+        "  magick \"$src\" -auto-orient -coalesce -strip -resize '512x512>' -loop 0 \"GIF:$gif\"\n" +
         "  magick \"$gif[0]\" -strip \"PNG:$target\"\n" +
         "  printf animated\n" +
         "else\n" +

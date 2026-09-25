@@ -45,7 +45,7 @@ required_exclusions=(
   "ruixen.quickactions" "ruixen.settingsbutton"
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
   "omarchy.system-update" "omarchy.power"
-  "omarchy.keyboard-layout" "omarchy.indicators" "omarchy.network"
+  "omarchy.keyboard-layout" "omarchy.indicators"
   "omarchy.active-window"
 )
 excluded_block="$(grep -A20 'readonly property var excludedIds:' "$widget_qml")"
@@ -57,13 +57,14 @@ for id in "${required_exclusions[@]}"; do
   fi
 done
 if [[ "$missing" -eq 0 ]]; then
-  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), system-update/power (curatedPill'"'"'s exact fixed four), keyboard-layout (self-hides on a single layout), indicators (redundant + a real IPC collision), network (a real, ongoing IPC collision), and active-window (ruixen.notch'"'"'s own collapsed player pill already shows it)\n'
+  printf 'ok   - excludedIds covers every structural ruixen id, omarchy.clock (shares clockPill with weather), system-update/power (curatedPill'"'"'s exact fixed four), keyboard-layout (self-hides on a single layout), indicators (redundant + a real IPC collision), and active-window (ruixen.notch'"'"'s own collapsed player pill already shows it)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))
 fi
 
-# Deliberately NOT excluded: ruixen.stayawake and omarchy.agents both
+# Deliberately NOT excluded: ruixen.stayawake, omarchy.agents, and
+# omarchy.network all
 # render in ruixen.pluginpins' OWN pill now (the toggle icon lives
 # together with whatever it toggles -- "microphone network cofee ai
 # [are] toggleable from the plugins pin so they stay pinnable or not in
@@ -77,7 +78,7 @@ fi
 # history), then moved back out to reduce clutter (direct follow-up:
 # "its not that important for me to always see it right now"). Pinnable
 # through here once more, same as stayawake/agents.
-must_not_exclude=("ruixen.stayawake" "omarchy.agents" "ruixen.peripherals")
+must_not_exclude=("ruixen.stayawake" "omarchy.agents" "omarchy.network" "ruixen.peripherals")
 wrongly_excluded=0
 for id in "${must_not_exclude[@]}"; do
   if grep -qF "\"$id\"" <<<"$excluded_block"; then
@@ -86,7 +87,7 @@ for id in "${must_not_exclude[@]}"; do
   fi
 done
 if [[ "$wrongly_excluded" -eq 0 ]]; then
-  printf 'ok   - stayawake/agents/peripherals are NOT excluded (they render in this widget'"'"'s own pill, toggling them through it is the intended interaction)\n'
+  printf 'ok   - stayawake/agents/network/peripherals are NOT excluded (they render in this widget'"'"'s own pill, toggling them through it is the intended interaction)\n'
   pass=$((pass + 1))
 else
   fail_count=$((fail_count + 1))

@@ -93,17 +93,6 @@ BarWidget {
   // without a second keyboard layout configured -- most people -- so it
   // reads as broken through this generic dropdown either way.
   //
-  // omarchy.network excluded per direct follow-up: pinning it produced
-  // a real, ongoing "Handler was registered but will not be used
-  // because another handler is registered for target omarchy.network"
-  // warning, repeating roughly every second rather than once at
-  // startup -- something keeps recreating a competing instance. Not
-  // ruixen.settings' own WifiContent.qml (checked directly: it reads
-  // Quickshell's own Networking singleton, no IpcHandler of its own,
-  // can't be the second registrant). Root cause not found; excluded as
-  // the practical fix since the actual collision source is stock
-  // Omarchy code we can't edit either way.
-  //
   // omarchy.indicators excluded per direct follow-up ("it crashed when
   // i toggled it and now does nothing") -- its own IpcHandler already
   // collides with another instance of the same target at plain shell
@@ -141,7 +130,7 @@ BarWidget {
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
     "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
     "omarchy.clock", "omarchy.system-update", "omarchy.power",
-    "omarchy.keyboard-layout", "omarchy.indicators", "omarchy.network",
+    "omarchy.keyboard-layout", "omarchy.indicators",
     "omarchy.bar", "omarchy.menu", "omarchy.spacer", "omarchy.active-window",
     "omarchy.workspaces", "omarchy.tray", "omarchy.weather", "omarchy.media"
   ]

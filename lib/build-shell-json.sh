@@ -288,6 +288,7 @@ jq -n \
   # widget must NOT have happen to it.
   | ([
        { id: "ruixen.pinnedapps", section: "left", after: "ruixen.workspaces" },
+       { id: "ruixen.capturestatus", section: "right", after: "omarchy.power" },
        { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" }
      ]) as $requiredStructural
   | (if ($centerRescuedBar.layout | type) == "object" then

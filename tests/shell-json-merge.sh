@@ -93,7 +93,7 @@ check "already ruixen.bar: docked toggle survives a reinstall" \
   "$(jq -r '.bar.docked' <<<"$out5")" "true"
 check "already ruixen.bar: reordered/hidden layout survives a reinstall (pinnedapps/pluginpins inserted alongside, not replacing anything)" \
   "$(jq -c '.bar.layout' <<<"$out5")" \
-  '{"left":[{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[],"right":[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"}]}'
+  '{"left":[{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[],"right":[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"},{"id":"ruixen.capturestatus"}]}'
 check "already ruixen.bar: existing ruixen plugin entry's extra field survives" \
   "$(jq -c '.plugins[] | select(.id == "ruixen.notch")' <<<"$out5")" \
   '{"id":"ruixen.notch","someFutureField":true}'
@@ -126,7 +126,7 @@ stale_media='{
 out6="$(printf '%s' "$stale_media" | "$build")"
 check "existing install with stale ruixen.media in layout: stripped from every section" \
   "$(jq -c '.bar.layout' <<<"$out6")" \
-  '{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[{"id":"omarchy.clock"},{"id":"ruixen.weather"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]}'
+  '{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[{"id":"omarchy.clock"},{"id":"ruixen.weather"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"ruixen.capturestatus"}]}'
 check "existing install with stale ruixen.media in layout: still gets the plugins[] entry" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out6")" \
   '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.settings","ruixen.wallpaper"]'
@@ -172,7 +172,7 @@ check "center is no longer swept: thirdparty.foo stays in center, settings intac
   '[{"id":"ruixen.weather"},{"id":"omarchy.clock"},{"id":"thirdparty.foo","opacity":0.5}]'
 check "center is no longer swept: right is untouched, thirdparty.foo does not land here" \
   "$(jq -c '.bar.layout.right' <<<"$out7")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned"},{"id":"ruixen.capturestatus"}]'
 
 # --- Case 7b (issue #36 follow-up): a non-protected id deliberately
 # pinned to "left" via ruixen.pluginpins' own left/right click (see
@@ -199,7 +199,7 @@ check "issue #36 follow-up: a deliberately left-pinned foreign widget survives a
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"},{"id":"deliberately.left","opacity":0.7}]'
 check "issue #36 follow-up: it does not also get duplicated onto the right" \
   "$(jq -c '.bar.layout.right' <<<"$out7b_deliberate")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"ruixen.capturestatus"}]'
 
 # --- Case 8 (revised): now that "center" is no longer swept, a foreign
 # id sitting in BOTH "center" and "right" at once is left exactly as
@@ -223,7 +223,7 @@ dup_foreign='{
 out8="$(printf '%s' "$dup_foreign" | "$build")"
 check "center is no longer swept: the right-side copy is untouched" \
   "$(jq -c '.bar.layout.right' <<<"$out8")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned","extra":"settings-that-should-win"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"already.pinned","extra":"settings-that-should-win"},{"id":"ruixen.capturestatus"}]'
 check "center is no longer swept: the center-side copy is left in place too, not dropped" \
   "$(jq -c '.bar.layout.center' <<<"$out8")" \
   '[{"id":"already.pinned"}]'
@@ -254,7 +254,7 @@ check "third-party clock survives an update: stays in center, settings intact" \
   '[{"id":"ruixen.weather"},{"id":"thirdparty.clock","timezone":"UTC"}]'
 check "third-party clock survives an update: right is untouched, the clock does not land here" \
   "$(jq -c '.bar.layout.right' <<<"$out8b")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"},{"id":"ruixen.capturestatus"}]'
 check "third-party clock survives an update: re-running on its own output is idempotent" \
   "$(printf '%s' "$out8b" | "$build")" "$out8b"
 
@@ -291,7 +291,7 @@ check "issue #36 follow-up: omarchy.menu stripped from left" \
 check "issue #36 follow-up: omarchy.menu stripped from center" \
   "$(jq -c '.bar.layout.center' <<<"$out10")" '[{"id":"ruixen.weather"}]'
 check "issue #36 follow-up: omarchy.menu stripped from right too, not just left/center" \
-  "$(jq -c '.bar.layout.right' <<<"$out10")" '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
+  "$(jq -c '.bar.layout.right' <<<"$out10")" '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"ruixen.capturestatus"}]'
 out10b="$(printf '%s' "$out10" | "$build")"
 check "issue #36 follow-up: re-running the strip on its own output is idempotent" \
   "$out10b" "$out10"
@@ -324,9 +324,9 @@ out11="$(printf '%s' "$old_pre_pluginpins" | "$build")"
 check "structural gap: ruixen.pinnedapps inserted right after ruixen.workspaces on the left" \
   "$(jq -c '.bar.layout.left' <<<"$out11")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'
-check "structural gap: ruixen.pluginpins inserted right after ruixen.tray on the right, nothing else added" \
+check "structural gap: ruixen.pluginpins and capturestatus inserted on the right, nothing else added" \
   "$(jq -c '.bar.layout.right' <<<"$out11")" \
-  '[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"},{"id":"ruixen.stayawake"},{"id":"ruixen.settingsbutton"}]'
+  '[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"},{"id":"ruixen.stayawake"},{"id":"ruixen.settingsbutton"},{"id":"ruixen.capturestatus"}]'
 check "structural gap: unrelated entries/settings/order elsewhere survive untouched (docked, center, plugins)" \
   "$(jq -c '{docked: .bar.docked, center: .bar.layout.center, plugins: [.plugins[].id]}' <<<"$out11")" \
   '{"docked":true,"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock","format":"HH:mm"}],"plugins":["ruixen.notch","ruixen.settings","ruixen.wallpaper","ruixen.media","ruixen.launcher","ruixen.cava"]}'
@@ -359,7 +359,7 @@ old_missing_peripherals='{
 out12="$(printf '%s' "$old_missing_peripherals" | "$build")"
 check "ruixen.peripherals is NOT force-inserted for an install missing it" \
   "$(jq -c '.bar.layout.right' <<<"$out12")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"},{"id":"ruixen.capturestatus"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]'
 check "ruixen.peripherals: pinnedapps/pluginpins already present are not touched or duplicated" \
   "$(jq -c '.bar.layout.left' <<<"$out12")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'
@@ -401,7 +401,7 @@ check "center rescue: ruixen.weather moves back into center, alongside omarchy.c
   '[{"id":"omarchy.clock","format":"HH:mm"},{"id":"ruixen.weather"}]'
 check "center rescue: ruixen.weather no longer present in right" \
   "$(jq -c '.bar.layout.right' <<<"$out13")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"ruixen.capturestatus"}]'
 check "center rescue: left is untouched" \
   "$(jq -c '.bar.layout.left' <<<"$out13")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'
@@ -438,7 +438,7 @@ check "center rescue: left keeps everything else, the stranded clock duplicate r
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.pinnedapps"}]'
 check "center rescue: right keeps everything else, weather removed" \
   "$(jq -c '.bar.layout.right' <<<"$out13b")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"ruixen.capturestatus"}]'
 
 # --- Case 5: invalid JSON input is rejected, not silently swallowed
 if printf 'not json at all' | "$build" >/dev/null 2>&1; then

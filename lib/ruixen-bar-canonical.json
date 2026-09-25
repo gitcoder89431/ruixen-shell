@@ -25,6 +25,7 @@
             { "id": "ruixen.pluginpins" },
             { "id": "omarchy.system-update" },
             { "id": "omarchy.power" },
+            { "id": "ruixen.capturestatus" },
             { "id": "ruixen.quickactions" },
             { "id": "ruixen.settingsbutton" }
         ]

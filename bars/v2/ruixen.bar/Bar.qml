@@ -891,7 +891,7 @@ Item {
   // for me to always see it right now" -- pill 2, pinned on demand
   // through ruixen.pluginpins, same as stayawake/agents, rather than a
   // permanent fixture here).
-  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.quickactions", "ruixen.settingsbutton"]
+  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.capturestatus", "ruixen.quickactions", "ruixen.settingsbutton"]
   // The two ids clockPill gives its own special pill+divider treatment
   // (see clockPill's own comment) -- direct review finding ("Support
   // arbitrary third-party widgets in the horizontal center region",

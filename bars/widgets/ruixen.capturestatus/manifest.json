@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.capturestatus",
+  "name": "Ruixen Capture Status",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Active-only screen recording indicator for Omarchy.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Capture Status",
+    "description": "Shows a REC chip while Omarchy screen recording is active.",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

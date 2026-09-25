@@ -77,6 +77,8 @@ Item {
   property string hardwareName: ""
   property int avatarCacheBust: 0
   property bool avatarBusy: false
+  property bool avatarAnimated: false
+  readonly property string avatarGifPath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.gif"
   // GitHub avatar option, ported from ruixen.settings/Settings.qml --
   // see its own comment for the full "why" (Discord would mean owning a
   // full OAuth2 app + local redirect listener + token storage, `gh` is
@@ -138,6 +140,7 @@ Item {
           if (root.avatarCollections[i].id === parsed.collection) { known = true; break }
         }
         if (known) root.avatarCollection = parsed.collection
+        root.avatarAnimated = !!parsed.animated
       }
     } catch (e) {}
     root.avatarStateLoaded = true
@@ -145,7 +148,9 @@ Item {
 
   // Single entry point for every avatar-picker button -- "gradient"
   // deletes ~/.face.icon, any real DiceBear slug fetches a random
-  // avatar from that collection.
+  // avatar from that collection. Kept in sync with
+  // ruixen.settings/Settings.qml because this page is another real
+  // writer of the same avatar files/state.
   function selectAvatar(collection, filePath) {
     if (root.avatarBusy) return
     // Belt-and-suspenders, not just relying on the picker's own button
@@ -160,25 +165,39 @@ Item {
     root.avatarCollection = collection
     var target = Quickshell.env("HOME") + "/.face.icon"
     if (collection === "gradient") {
-      avatarProc.command = ["bash", "-c", "rm -f '" + target + "'"]
+      avatarProc.command = ["bash", "-c", "rm -f \"$1\" \"$2\"; printf static", "ruixen-avatar-gradient", target, root.avatarGifPath]
     } else if (collection === "custom") {
-      // A plain argument array, not "bash", "-c" + string-interpolated
-      // path -- Quickshell's own Process runs this directly (no shell
-      // involved at all), so a picked filename with a space/apostrophe/
-      // anything else shell-special in it is never a quoting concern
-      // the way every other branch here has to be careful about.
+      // The picked path is passed as a real argv parameter to the
+      // helper shell ($1), never interpolated into the script string, so
+      // a filename with a space/apostrophe/anything else shell-special
+      // is not a quoting concern.
       //
       // 512x512> (ImageMagick's own "only shrink if larger, never
       // enlarge" syntax) instead of a hard reject on oversized files --
       // normalizing down covers a giant camera-roll photo AND a tiny
       // existing icon with the same one command, no arbitrary size
       // limit to pick or explain to anyone. -auto-orient respects a
-      // phone photo's own EXIF rotation before resizing; -strip drops
-      // EXIF/metadata afterward (e.g. GPS tags a picked photo may
-      // carry) -- confirmed live: the output format is inferred
-      // correctly from the INPUT even though the target path itself has
-      // no extension, same as every other avatar source here.
-      avatarProc.command = ["magick", filePath, "-auto-orient", "-strip", "-resize", "512x512>", target]
+      // phone photo's own EXIF rotation before resizing. Animated GIFs
+      // are written to a real .gif path for Ruixen's AnimatedImage
+      // views, with ~/.face.icon kept as a static PNG first-frame
+      // fallback for non-Ruixen consumers. -loop 0 is required because
+      // generated GIFs can otherwise play once and stop in Qt.
+      avatarProc.command = ["bash", "-c",
+        "set -euo pipefail\n" +
+        "src=$1\n" +
+        "target=$2\n" +
+        "gif=$3\n" +
+        "rm -f \"$gif\"\n" +
+        "fmt=$(magick identify -quiet -format '%m' \"$src[0]\" | tr '[:upper:]' '[:lower:]')\n" +
+        "if [[ \"$fmt\" == gif ]]; then\n" +
+        "  magick \"$src\" -auto-orient -coalesce -strip -resize '512x512>' -loop 0 \"GIF:$gif\"\n" +
+        "  magick \"$gif[0]\" -strip \"PNG:$target\"\n" +
+        "  printf animated\n" +
+        "else\n" +
+        "  magick \"$src\" -auto-orient -strip -resize '512x512>' \"PNG:$target\"\n" +
+        "  printf static\n" +
+        "fi",
+        "ruixen-avatar-custom", filePath, target, root.avatarGifPath]
     } else if (collection === "github") {
       // One command, not a separate fetch-then-curl pair of Processes --
       // `gh api user` already needs the same `gh` auth this option is
@@ -186,7 +205,8 @@ Item {
       // offline) does not fall through into curl-ing an empty URL and
       // silently overwriting a perfectly good existing avatar.
       avatarProc.command = ["bash", "-c",
-        "set -e; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o '" + target + "'"]
+        "set -e; rm -f \"$2\"; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o \"$1\"; printf static",
+        "ruixen-avatar-github", target, root.avatarGifPath]
     } else {
       var seed = Math.random().toString(36).slice(2) + Date.now()
       var entry = null
@@ -196,7 +216,7 @@ Item {
       var version = (entry && entry.version) || "9.x"
       var format = (entry && entry.format) || "png"
       var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed
-      avatarProc.command = ["bash", "-c", "curl -fsL '" + url + "' -o '" + target + "'"]
+      avatarProc.command = ["bash", "-c", "rm -f \"$2\"; curl -fsL \"$3\" -o \"$1\"; printf static", "ruixen-avatar-dicebear", target, root.avatarGifPath, url]
     }
     avatarProc.running = true
   }
@@ -252,7 +272,7 @@ Item {
 
   Process {
     id: avatarProc
-    stdout: StdioCollector { waitForEnd: true }
+    stdout: StdioCollector { id: avatarProcStdout; waitForEnd: true }
     stderr: StdioCollector { id: avatarProcStderr; waitForEnd: true }
     // exitCode wasn't even read before -- direct live report: picking a
     // GIF as a custom avatar "didnt even change" anything. Root cause
@@ -275,8 +295,9 @@ Item {
         avatarNotifyProc.running = true
         return
       }
+      root.avatarAnimated = String(avatarProcStdout.text || "").trim() === "animated"
       root.avatarCacheBust = root.avatarCacheBust + 1
-      avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection }, null, 2) + "\n")
+      avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection, animated: root.avatarAnimated }, null, 2) + "\n")
       // Tells ruixen.notch's own UserAvatar to re-read the file too --
       // it's a separate keepLoaded:true plugin process, so it has no
       // other way to know ~/.face.icon just changed.
@@ -2857,6 +2878,9 @@ Item {
         // out on it outright).
         readonly property var activeAvatarImage: (avatarPreviewImage.status === Image.Ready && avatarPreviewImage.frameCount > 1)
           ? avatarPreviewImage : avatarPreviewImageFallback
+        readonly property string avatarSource: root.avatarAnimated
+          ? "file://" + root.avatarGifPath + "#" + root.avatarCacheBust
+          : "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
 
         // Circular gradient fallback -- explicitly hidden once a real
         // image is loaded (not just painted over by an assumed-opaque
@@ -2888,17 +2912,17 @@ Item {
         AnimatedImage {
           id: avatarPreviewImage
           anchors.fill: parent
-          source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+          source: avatarPreviewWrap.avatarSource
           fillMode: Image.PreserveAspectCrop
           asynchronous: true
           cache: false
-          visible: false
+          visible: root.avatarAnimated
         }
 
         Image {
           id: avatarPreviewImageFallback
           anchors.fill: parent
-          source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+          source: avatarPreviewWrap.avatarSource
           fillMode: Image.PreserveAspectCrop
           asynchronous: true
           cache: false
@@ -2917,6 +2941,7 @@ Item {
         MultiEffect {
           anchors.fill: parent
           source: avatarPreviewWrap.activeAvatarImage
+          visible: !root.avatarAnimated
           maskEnabled: true
           maskSource: avatarPreviewMask
           maskThresholdMin: 0.5

@@ -803,7 +803,7 @@ Item {
         "  magick \"$gif[0]\" -strip \"PNG:$target\"\n" +
         "  printf animated\n" +
         "else\n" +
-        "  magick \"$src\" -auto-orient -strip -resize '512x512>' \"$target\"\n" +
+        "  magick \"$src\" -auto-orient -strip -resize '512x512>' \"PNG:$target\"\n" +
         "  printf static\n" +
         "fi",
         "ruixen-avatar-custom", filePath, target, root.avatarGifPath]

@@ -11,6 +11,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 settings_qml="$repo_dir/ruixen.settings/Settings.qml"
+launcher_settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
 general_qml="$repo_dir/ruixen.settings/GeneralContent.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 
@@ -40,7 +41,7 @@ check "animated custom avatars are written to a real gif path, not extensionless
 check "animated custom avatars are forced to loop forever" \
   "$(grep -cF -- '-loop 0' "$settings_qml")" "2"
 check "animated custom avatars still write a static ~/.face.icon fallback frame" \
-  "$(grep -cF 'PNG:$target' "$settings_qml")" "1"
+  "$(grep -cF 'PNG:$target' "$settings_qml")" "2"
 check "avatar state persists whether the active avatar is animated" \
   "$(grep -cF 'animated: root.avatarAnimated' "$settings_qml")" "1"
 check "non-custom avatar branches remove stale animated avatar files" \
@@ -49,6 +50,24 @@ check "failed avatar conversion reverts the selected collection instead of silen
   "$(grep -c 'root.avatarCollection = root.avatarPreviousCollection' "$settings_qml")" "1"
 check "failed avatar conversion sends a visible desktop notification" \
   "$(grep -c 'Avatar update failed' "$settings_qml")" "1"
+check "launcher settings has the same custom avatar conversion entry point" \
+  "$(grep -cF '"ruixen-avatar-custom", filePath, target, root.avatarGifPath' "$launcher_settings_qml")" "1"
+check "launcher settings coalesces GIF frame geometry before resize" \
+  "$(grep -cF -- '-coalesce' "$launcher_settings_qml")" "1"
+check "launcher settings forces animated custom avatars to loop forever" \
+  "$(grep -cF -- '-loop 0' "$launcher_settings_qml")" "2"
+check "launcher settings writes animated custom avatars to the real gif path" \
+  "$(grep -cF 'GIF:$gif' "$launcher_settings_qml")" "1"
+check "launcher settings writes PNG face-icon fallbacks for custom avatars" \
+  "$(grep -cF 'PNG:$target' "$launcher_settings_qml")" "2"
+check "launcher settings persists whether the active avatar is animated" \
+  "$(grep -cF 'animated: root.avatarAnimated' "$launcher_settings_qml")" "1"
+check "launcher settings preview switches to the real gif source when avatar state is animated" \
+  "$(grep -cF 'root.avatarGifPath' "$launcher_settings_qml")" "5"
+check "launcher settings preview renders animated avatars directly instead of through MultiEffect" \
+  "$(grep -cF 'visible: root.avatarAnimated' "$launcher_settings_qml")" "1"
+check "launcher settings preview keeps the MultiEffect mask for static avatars only" \
+  "$(grep -cF 'visible: !root.avatarAnimated' "$launcher_settings_qml")" "1"
 check "settings preview uses AnimatedImage so a valid GIF can animate" \
   "$(grep -c 'AnimatedImage {' "$general_qml")" "1"
 check "settings preview switches to the real gif source when avatar state is animated" \

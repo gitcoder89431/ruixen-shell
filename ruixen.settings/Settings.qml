@@ -774,12 +774,18 @@ Item {
       // photo AND a tiny existing icon with the same one command, no
       // arbitrary size limit to pick or explain to anyone. -auto-orient
       // respects a phone photo's own EXIF rotation before resizing (or
-      // it can come out sideways); -strip drops EXIF/metadata
+      // it can come out sideways). -coalesce is load-bearing for GIF:
+      // user-picked animations can have each frame stored as a smaller
+      // rectangle offset inside a larger logical canvas; without
+      // coalescing, that page geometry survives into ~/.face.icon and
+      // the avatar appears off-center or broken even though the GIF is
+      // valid. Coalescing expands every frame to the full canvas first,
+      // then resize keeps it centered. -strip drops EXIF/metadata
       // afterward, e.g. GPS tags a picked photo may carry -- confirmed
       // live: the output format is inferred correctly from the INPUT
       // even though the target path itself has no extension, same as
       // every other avatar source already writes into ~/.face.icon.
-      avatarProc.command = ["magick", filePath, "-auto-orient", "-strip", "-resize", "512x512>", target]
+      avatarProc.command = ["magick", filePath, "-auto-orient", "-coalesce", "-strip", "-resize", "512x512>", target]
     } else if (collection === "github") {
       // One command, not a separate "fetch the URL, then curl it" pair
       // of Processes -- `gh api user` already needs the same `gh` auth

@@ -37,6 +37,7 @@ suites=(
   "$script_dir/bar-popup-clearance.sh"
   "$script_dir/bar-right-side-groups.sh"
   "$script_dir/bar-docked-left-inset.sh"
+  "$script_dir/avatar-custom-gif.sh"
   "$script_dir/pluginpins-model.sh"
   "$script_dir/peripherals-status.sh"
   "$script_dir/media-status-relay.sh"

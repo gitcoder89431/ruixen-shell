@@ -111,7 +111,8 @@ language, so they read as one shell instead of a pile of separate widgets.
 
 ## Install
 
-Ruixen Shell targets Omarchy `4.0.0-1` (also confirmed working on `4.0.1-1`).
+Ruixen Shell targets Omarchy `4.0.0-1` and has been live-verified through
+Omarchy `4.0.4-1`.
 Install from source:
 
 ```bash
@@ -140,6 +141,17 @@ anything else — the app launcher, jumping straight to one settings page. See
 ```lua
 o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")
 ```
+
+If you want the recommended keybinds installed automatically, use the opt-in
+flag:
+
+```bash
+./install.sh --with-launcher-keybind
+```
+
+That flag only appends keys that are free: `SUPER+R` for Ruixen Launcher and
+`SUPER+SHIFT+R` for Ruixen Settings. If either key is already bound, the
+installer leaves that key untouched and prints the current binding.
 
 Want to see exactly what it would do first, without changing anything?
 

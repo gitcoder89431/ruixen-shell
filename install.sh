@@ -42,6 +42,34 @@ fail() {
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
+dry_run=false
+install_recommended_keybinds=false
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      dry_run=true
+      ;;
+    --with-launcher-keybind|--with-recommended-keybinds)
+      install_recommended_keybinds=true
+      ;;
+    -h|--help)
+      cat <<'EOF'
+Usage:
+  ./install.sh [--dry-run] [--with-launcher-keybind]
+
+Options:
+  --dry-run                   Preview the install without changing files.
+  --with-launcher-keybind     Add recommended Ruixen keybinds when free.
+  --with-recommended-keybinds Same as --with-launcher-keybind.
+EOF
+      exit 0
+      ;;
+    *)
+      fail "unknown option: $arg"
+      ;;
+  esac
+done
+
 # Issue #31: a completely separate, early code path -- not a
 # conditional threaded through the real mutation logic below, for the
 # same reason uninstall.sh's own --dry-run branch gives (see its own
@@ -55,7 +83,7 @@ command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 # for REAL here (omarchy plugin validate never mutates anything), not
 # simulated, so "invalid configs/manifests still fail validation in
 # dry-run" is literally true rather than approximated.
-if [[ "${1:-}" == "--dry-run" ]]; then
+if [[ "$dry_run" == true ]]; then
   printf '=== Ruixen Install -- dry run, nothing will be changed ===\n\n'
 
   omarchy_version="$(omarchy version 2>/dev/null || true)"
@@ -138,6 +166,33 @@ if [[ "${1:-}" == "--dry-run" ]]; then
     fi
   else
     printf '  would be created fresh from this checkout own canonical layout\n'
+  fi
+
+  printf '\nRecommended keybinds:\n'
+  if [[ "$install_recommended_keybinds" == true ]]; then
+    for spec in \
+      "SUPER+R|SUPER+R -> Ruixen Launcher" \
+      "SUPER+SHIFT+R|SUPER+SHIFT+R -> Ruixen Settings"; do
+      wanted="${spec%%|*}"
+      description="${spec#*|}"
+      existing_keybind="$(omarchy menu keybindings --print 2>/dev/null | awk -F '→' -v wanted="$wanted" '
+      function norm(s) {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+        gsub(/[[:space:]]*\+[[:space:]]*/, "+", s)
+        gsub(/[[:space:]]+/, " ", s)
+        return s
+      }
+      norm($1) == wanted { print; exit }
+    ' || true)"
+      if [[ -n "$existing_keybind" ]]; then
+        printf '  %s is already bound, so a real install would leave that key untouched:\n' "$wanted"
+        printf '    %s\n' "$existing_keybind"
+      else
+        printf '  would append %s to ~/.config/hypr/bindings.lua\n' "$description"
+      fi
+    done
+  else
+    printf '  not requested; pass --with-launcher-keybind to add SUPER+R/SUPER+SHIFT+R when free\n'
   fi
 
   printf '\nHyprland window look:\n'
@@ -337,6 +392,63 @@ reviewed_omarchy="$(grep -m1 -oE '`[0-9]+\.[0-9]+\.[0-9]+-[0-9]+`' "$script_dir/
 if [[ -n "$omarchy_version" && -n "$reviewed_omarchy" && "$omarchy_version" != "$reviewed_omarchy" ]]; then
   printf '  NOTE: last reviewed against Omarchy %s (see COMPATIBILITY.md), detected %s -- likely fine, just not specifically reviewed yet\n' "$reviewed_omarchy" "$omarchy_version" >&2
 fi
+
+install_recommended_keybind() {
+  local bindings_file="$HOME/.config/hypr/bindings.lua"
+  local normalized_key="$1"
+  local label="$2"
+  local line="$3"
+  local existing=""
+
+  existing="$(omarchy menu keybindings --print 2>/dev/null | awk -F '→' -v wanted="$normalized_key" '
+    function norm(s) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+      gsub(/[[:space:]]*\+[[:space:]]*/, "+", s)
+      gsub(/[[:space:]]+/, " ", s)
+      return s
+    }
+    norm($1) == wanted { print; exit }
+  ' || true)"
+
+  if [[ -n "$existing" ]]; then
+    if grep -Fq "$line" "$bindings_file" 2>/dev/null; then
+      printf '  %s already opens %s\n' "$normalized_key" "$label"
+      return 0
+    fi
+
+    printf '  WARNING: %s is already bound; leaving that key untouched:\n' "$normalized_key"
+    printf '    %s\n' "$existing"
+    printf '  Add this manually after unbinding %s if you want %s there:\n' "$normalized_key" "$label"
+    printf '    %s\n' "$line"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$bindings_file")"
+  {
+    printf '\n'
+    printf '%s\n' "-- Ruixen Shell recommended keybind: $label."
+    printf '%s\n' "$line"
+  } >> "$bindings_file"
+
+  printf '  added %s -> %s in %s\n' "$normalized_key" "$label" "$bindings_file"
+}
+
+install_recommended_keybinds() {
+  install_recommended_keybind \
+    "SUPER+R" \
+    "Ruixen Launcher" \
+    'o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")'
+  install_recommended_keybind \
+    "SUPER+SHIFT+R" \
+    "Ruixen Settings" \
+    "o.bind(\"SUPER + SHIFT + R\", \"Ruixen Settings\", [[omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"settings\"}']])"
+
+  if command -v hyprctl >/dev/null 2>&1; then
+    hyprctl reload >/dev/null 2>&1 \
+      && printf '  reloaded Hyprland keybindings\n' \
+      || printf '  NOTE: could not reload Hyprland automatically; reload or log out/in to pick up the keybind\n'
+  fi
+}
 
 mkdir -p "$plugins_dir"
 
@@ -960,6 +1072,11 @@ printf '%s\n' "$script_dir" > "$state_dir/repo-path"
 # an unnecessary rollback of a genuinely successful install.
 trap - ERR
 
+if [[ "$install_recommended_keybinds" == true ]]; then
+  printf '\n[extra] Installing recommended keybinds\n'
+  install_recommended_keybinds
+fi
+
 # Backup retention -- direct review finding ("Backup retention is
 # bounded or cleaned so repeated updates do not accumulate unlimited
 # plugin snapshots"). Every install/update run leaves a fresh
@@ -1024,11 +1141,19 @@ cat <<EOF
 
 Ruixen Shell is installed.
 
-One manual step left: add a keybind of your own for Ruixen Settings, since
-this installer deliberately doesn't touch your Hyprland keybindings. In
-~/.config/hypr/bindings.lua:
+Recommended keybinds: SUPER+R for Ruixen Launcher and SUPER+SHIFT+R for
+Ruixen Settings. To have the installer add any missing free keys next time,
+run:
 
-  o.bind("SUPER + R", "Ruixen Settings", "omarchy-shell shell toggle ruixen.settings")
+  $script_dir/install.sh --with-launcher-keybind
+
+Or add it yourself in ~/.config/hypr/bindings.lua:
+
+  o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")
+
+Ruixen Settings lives inside the Launcher. Optional direct settings keybind:
+
+  o.bind("SUPER + SHIFT + R", "Ruixen Settings", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"settings"}']])
 
 Pick any other unbound key if you'd rather -- run \`omarchy menu keybindings --print\` to see what's taken.
 

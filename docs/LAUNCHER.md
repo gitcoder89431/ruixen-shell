@@ -4,10 +4,10 @@ A Raycast/Spotlight-style command palette — one overlay for running Omarchy
 menu actions, launching installed apps, and searching your filesystem by
 name or content.
 
-No keybind opens it out of the box (the installer deliberately doesn't
-touch your Hyprland config) — see [`KEYBINDS.md`](KEYBINDS.md) for a
-ready-to-use recipe (`SUPER + R` by convention throughout this repo's own
-docs).
+Default install leaves Hyprland keybindings alone, but
+`./install.sh --with-launcher-keybind` adds `SUPER + R` for Launcher and
+`SUPER + SHIFT + R` for Settings when those keys are free. See
+[`KEYBINDS.md`](KEYBINDS.md) for the manual recipes.
 
 ```bash
 omarchy-shell shell toggle ruixen.launcher

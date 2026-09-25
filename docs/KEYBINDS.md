@@ -1,7 +1,13 @@
 # Keybind Recipes
 
-None of these are set up for you — the installer deliberately doesn't touch
-your Hyprland config. Add whichever of these you actually want to your own
+The installer leaves Hyprland keybindings alone by default. If you want the
+recommended keybinds and the keys are free, run:
+
+```bash
+./install.sh --with-launcher-keybind
+```
+
+Otherwise, add whichever of these you actually want to your own
 `~/.config/hypr/bindings.lua`, then reload Hyprland to pick them up.
 
 `omarchy menu keybindings --print` lists what's already bound, so you don't

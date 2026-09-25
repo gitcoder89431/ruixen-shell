@@ -33,6 +33,12 @@ case "${1:-} ${2:-}" in
     fi
     exit 0
     ;;
+  "menu keybindings")
+    if [[ "${3:-}" == "--print" ]]; then
+      printf '%s\n' "${FAKE_OMARCHY_KEYBINDINGS:-}"
+      exit 0
+    fi
+    ;;
   # Added for uninstall.sh's own test coverage (#26) -- lists whatever
   # plugin directories are actually present under $HOME's own plugins
   # dir, real and dynamic per test fixture state rather than a fixed

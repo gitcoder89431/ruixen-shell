@@ -39,6 +39,13 @@ check() {
   fi
 }
 
+count_fixed_line() {
+  local file="$1"
+  local needle="$2"
+  [[ -f "$file" ]] || { printf '0\n'; return; }
+  grep -F -c "$needle" "$file" || true
+}
+
 run_install() {
   local fake_home="$1"
   ( HOME="$fake_home" PATH="$fake_bin:$PATH" "$repo_dir/install.sh" ) >"$fake_home/install.out" 2>&1
@@ -153,6 +160,51 @@ if [[ "$status4" -eq 0 ]]; then
     "$(jq -c '[.bar.layout.left[].id] | any(. == "ruixen.retired-widget")' "$home4/.config/omarchy/shell.json")" "false"
 else
   cat "$home4/install.out" >&2
+fi
+
+# --- Case 5: opt-in recommended keybinds append only free recommended keys
+home5="$(mktemp -d)"
+homes+=("$home5")
+if ( HOME="$home5" PATH="$fake_bin:$PATH" "$repo_dir/install.sh" --with-launcher-keybind ) \
+  >"$home5/install.out" 2>&1; then
+  status5=0
+else
+  status5=$?
+fi
+check "recommended keybinds: exits 0 when both keys are free" "$status5" "0"
+if [[ "$status5" -eq 0 ]]; then
+  check "recommended keybinds: bindings.lua contains Ruixen Launcher on SUPER+R" \
+    "$(count_fixed_line "$home5/.config/hypr/bindings.lua" 'o.bind("SUPER + R", "Ruixen Launcher",')" "1"
+  check "recommended keybinds: bindings.lua contains Ruixen Settings on SUPER+SHIFT+R" \
+    "$(count_fixed_line "$home5/.config/hypr/bindings.lua" 'o.bind("SUPER + SHIFT + R", "Ruixen Settings",')" "1"
+  check "recommended keybinds: installer reports the added launcher keybind" \
+    "$(grep -c 'added SUPER+R -> Ruixen Launcher' "$home5/install.out" 2>/dev/null || true)" "1"
+  check "recommended keybinds: installer reports the added settings keybind" \
+    "$(grep -c 'added SUPER+SHIFT+R -> Ruixen Settings' "$home5/install.out" 2>/dev/null || true)" "1"
+else
+  cat "$home5/install.out" >&2
+fi
+
+# --- Case 6: opt-in recommended keybinds never clobber an existing SUPER+R,
+# but still install the free Settings key.
+home6="$(mktemp -d)"
+homes+=("$home6")
+if ( HOME="$home6" PATH="$fake_bin:$PATH" FAKE_OMARCHY_KEYBINDINGS='SUPER + R                           → Existing Action' \
+     "$repo_dir/install.sh" --with-launcher-keybind ) >"$home6/install.out" 2>&1; then
+  status6=0
+else
+  status6=$?
+fi
+check "recommended keybind conflict: exits 0 and keeps install usable" "$status6" "0"
+if [[ "$status6" -eq 0 ]]; then
+  check "recommended keybind conflict: does not add Ruixen Launcher over occupied SUPER+R" \
+    "$(count_fixed_line "$home6/.config/hypr/bindings.lua" 'o.bind("SUPER + R", "Ruixen Launcher",')" "0"
+  check "recommended keybind conflict: still adds Ruixen Settings on free SUPER+SHIFT+R" \
+    "$(count_fixed_line "$home6/.config/hypr/bindings.lua" 'o.bind("SUPER + SHIFT + R", "Ruixen Settings",')" "1"
+  check "recommended keybind conflict: reports current binding instead of overwriting" \
+    "$(grep -c 'SUPER+R is already bound' "$home6/install.out" 2>/dev/null || true)" "1"
+else
+  cat "$home6/install.out" >&2
 fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"

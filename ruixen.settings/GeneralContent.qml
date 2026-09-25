@@ -87,9 +87,17 @@ ColumnLayout {
         // shipped could silently stop rendering at all.
         readonly property var activeAvatarImage: avatarPreviewImage.status === Image.Error
           ? avatarPreviewImageFallback : avatarPreviewImage
+        property int avatarFrameIndex: 0
         readonly property string avatarSource: settingsRoot.avatarAnimated
-          ? "file://" + settingsRoot.avatarGifPath + "#" + settingsRoot.avatarCacheBust
+          ? "file://" + settingsRoot.avatarFrameDir + "/frame-" + ("00" + avatarPreviewWrap.avatarFrameIndex).slice(-3) + ".png#" + settingsRoot.avatarCacheBust
           : "file://" + Quickshell.env("HOME") + "/.face.icon#" + settingsRoot.avatarCacheBust
+
+        Timer {
+          interval: settingsRoot.avatarFrameDelayMs
+          running: settingsRoot.avatarAnimated && settingsRoot.avatarFrameCount > 1
+          repeat: true
+          onTriggered: avatarPreviewWrap.avatarFrameIndex = (avatarPreviewWrap.avatarFrameIndex + 1) % settingsRoot.avatarFrameCount
+        }
 
         // Explicitly hidden once a real image is loaded, not just
         // painted over by an assumed-opaque one -- direct follow-up
@@ -110,7 +118,7 @@ ColumnLayout {
           // (visible below is gated on the image NOT being ready), so
           // the two shapes never need to match.
           radius: width / 2
-          visible: avatarPreviewWrap.activeAvatarImage.status !== Image.Ready
+          visible: !settingsRoot.avatarAnimated && avatarPreviewWrap.activeAvatarImage.status !== Image.Ready
           gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.lighter(settingsRoot.accent, 1.6) }
             GradientStop { position: 1.0; color: Qt.darker(settingsRoot.accent, 1.4) }
@@ -202,18 +210,32 @@ ColumnLayout {
         }
       }
 
-      Text {
+      ColumnLayout {
         Layout.alignment: Qt.AlignHCenter
-        // Raw Quickshell.env("USER"), not settingsRoot.username --
-        // matches the header's own "user@machine" string exactly (that
-        // one intentionally stays lowercase/unstyled, terminal-prompt
-        // convention) rather than settingsRoot.username's capitalized
-        // display form, which would read "Dev@NucBoxG5" here vs.
-        // "dev@NucBoxG5" up top.
-        text: Quickshell.env("USER") + "@" + settingsRoot.hardwareName
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 11
-        color: settingsRoot.muted
+        spacing: 1
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          // Raw Quickshell.env("USER"), not settingsRoot.username --
+          // matches the header's own "user@machine" string exactly.
+          readonly property int detailStart: settingsRoot.hardwareName.indexOf(" (")
+          readonly property string shortHardwareName: detailStart > 0 ? settingsRoot.hardwareName.slice(0, detailStart) : settingsRoot.hardwareName
+
+          text: Quickshell.env("USER") + "@" + shortHardwareName
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 11
+          color: settingsRoot.muted
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          readonly property int detailStart: settingsRoot.hardwareName.indexOf(" (")
+          text: detailStart > 0 ? settingsRoot.hardwareName.slice(detailStart) : ""
+          visible: text !== ""
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 10
+          color: Qt.rgba(settingsRoot.muted.r, settingsRoot.muted.g, settingsRoot.muted.b, 0.78)
+        }
       }
 
       // Collection picker -- direct follow-up chain: first "this uses

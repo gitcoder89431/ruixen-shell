@@ -153,6 +153,13 @@ notch_reserved_width="$(grep -oP 'readonly property int notchReservedWidth:\s*\K
 check "ruixen.bar's own notchReservedWidth matches Overlay.qml's real collapsed bodyWidth + cornerSize * 2" \
   "$notch_reserved_width" "$((notch_body_width + notch_corner_size * 2))"
 
+check "Overlay.qml's notchOuter has a small seamOverlap for fractional-scale mask joins" \
+  "$(grep -c 'readonly property int seamOverlap: 2' "$notch_overlay_qml" || true)" "1"
+check "Overlay.qml's centerMask overlaps both flanks to avoid hairline seams" \
+  "$(( $(grep -A10 'id: centerMask' "$notch_overlay_qml" | grep -cF 'anchors.leftMargin: -notchOuter.seamOverlap' || true) + $(grep -A10 'id: centerMask' "$notch_overlay_qml" | grep -cF 'anchors.rightMargin: -notchOuter.seamOverlap' || true) ))" "2"
+check "Overlay.qml's shadow center uses the same seam overlap as the mask" \
+  "$(( $(grep -cF 'anchors.leftMargin: notchOuter.cornerSize - notchOuter.seamOverlap' "$notch_overlay_qml" || true) + $(grep -cF 'anchors.rightMargin: notchOuter.cornerSize - notchOuter.seamOverlap' "$notch_overlay_qml" || true) ))" "2"
+
 # Same floor in BOTH modes now (see this file's own header for why the
 # per-mode split was unified) -- docked's own wing-clip constraint sets
 # the shared value, since it's the one that can't come down.

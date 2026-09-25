@@ -150,15 +150,22 @@ Item {
   // why this is a "#" fragment, not a "?" query string.
   property int avatarCacheBust: 0
   property bool avatarAnimated: false
+  property int avatarFrameCount: 0
+  property int avatarFrameDelayMs: 80
   readonly property string avatarStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.json"
   readonly property string avatarGifPath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.gif"
+  readonly property string avatarFrameDir: Quickshell.env("HOME") + "/.local/state/ruixen/avatar-frames"
 
   function loadAvatarState(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
       root.avatarAnimated = !!p.animated
+      root.avatarFrameCount = Math.max(0, parseInt(p.frameCount || 0))
+      root.avatarFrameDelayMs = Math.max(40, parseInt(p.frameDelayMs || 80))
     } catch (e) {
       root.avatarAnimated = false
+      root.avatarFrameCount = 0
+      root.avatarFrameDelayMs = 80
     }
   }
 
@@ -818,9 +825,17 @@ Item {
     // on it outright).
     readonly property var activeAvatarImage: (avatarImage.status === Image.Ready && avatarImage.frameCount > 1)
       ? avatarImage : avatarImageFallback
+    property int avatarFrameIndex: 0
     readonly property string avatarSource: root.avatarAnimated
-      ? "file://" + root.avatarGifPath + "#" + root.avatarCacheBust
+      ? "file://" + root.avatarFrameDir + "/frame-" + ("00" + avatar.avatarFrameIndex).slice(-3) + ".png#" + root.avatarCacheBust
       : "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+
+    Timer {
+      interval: root.avatarFrameDelayMs
+      running: root.avatarAnimated && root.avatarFrameCount > 1
+      repeat: true
+      onTriggered: avatar.avatarFrameIndex = (avatar.avatarFrameIndex + 1) % root.avatarFrameCount
+    }
 
     // Placeholder shown until/unless ~/.face.icon exists -- a gradient
     // square (see its own no-radius comment below) instead of a shipped
@@ -845,7 +860,7 @@ Item {
       // time as a real avatar (visible below is gated on the image
       // NOT being ready), so the two shapes never need to match.
       radius: width / 2
-      visible: avatar.activeAvatarImage.status !== Image.Ready
+      visible: !root.avatarAnimated && avatar.activeAvatarImage.status !== Image.Ready
       // Theme-aware, not two hardcoded colors -- direct follow-up
       // ("install you get the fallback or default gradient, maybe
       // theme aware?"). root.accent is already Color.accent (see its
@@ -1373,6 +1388,14 @@ Item {
       // why it's a plain constant there rather than a live read) --
       // change this value, change that one too.
       readonly property int cornerSize: 28
+      // The mask/shadow silhouette is built from three adjacent pieces
+      // (left flank, center, right flank). At fractional output scales,
+      // exact edge-to-edge joins can sample as a 1px hairline where a
+      // flank touches the center body. Overlap the center slightly
+      // under both flanks so those joins overdraw instead of butt up
+      // against each other. Keep this small: it is only a seam guard,
+      // not a geometry change.
+      readonly property int seamOverlap: 2
       // Collapsed width trimmed down from an initial 290 -- this row's
       // actual content (avatar + divider + play glyph/wave + divider +
       // bell) is narrower than that, so 290 left a big empty gap
@@ -1612,9 +1635,9 @@ Item {
           Rectangle {
             anchors.top: parent.top
             anchors.left: parent.left
-            anchors.leftMargin: notchOuter.cornerSize
+            anchors.leftMargin: notchOuter.cornerSize - notchOuter.seamOverlap
             anchors.right: parent.right
-            anchors.rightMargin: notchOuter.cornerSize
+            anchors.rightMargin: notchOuter.cornerSize - notchOuter.seamOverlap
             height: parent.height
             color: "#000000"
             topLeftRadius: 0
@@ -1679,7 +1702,9 @@ Item {
           id: centerMask
           anchors.top: parent.top
           anchors.left: leftFlank.right
+          anchors.leftMargin: -notchOuter.seamOverlap
           anchors.right: rightFlank.left
+          anchors.rightMargin: -notchOuter.seamOverlap
           height: parent.height
           color: "#ffffff"
           topLeftRadius: 0
@@ -2331,6 +2356,10 @@ Item {
                 accent: root.accent
                 fontFamily: root.fontFamily
                 avatarCacheBust: root.avatarCacheBust
+                avatarAnimated: root.avatarAnimated
+                avatarFrameCount: root.avatarFrameCount
+                avatarFrameDelayMs: root.avatarFrameDelayMs
+                avatarFrameDir: root.avatarFrameDir
               }
 
               KanbanContent {

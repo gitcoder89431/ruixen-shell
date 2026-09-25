@@ -78,7 +78,10 @@ Item {
   property int avatarCacheBust: 0
   property bool avatarBusy: false
   property bool avatarAnimated: false
+  property int avatarFrameCount: 0
+  property int avatarFrameDelayMs: 80
   readonly property string avatarGifPath: Quickshell.env("HOME") + "/.local/state/ruixen/avatar.gif"
+  readonly property string avatarFrameDir: Quickshell.env("HOME") + "/.local/state/ruixen/avatar-frames"
   // GitHub avatar option, ported from ruixen.settings/Settings.qml --
   // see its own comment for the full "why" (Discord would mean owning a
   // full OAuth2 app + local redirect listener + token storage, `gh` is
@@ -141,6 +144,8 @@ Item {
         }
         if (known) root.avatarCollection = parsed.collection
         root.avatarAnimated = !!parsed.animated
+        root.avatarFrameCount = Math.max(0, parseInt(parsed.frameCount || 0))
+        root.avatarFrameDelayMs = Math.max(40, parseInt(parsed.frameDelayMs || 80))
       }
     } catch (e) {}
     root.avatarStateLoaded = true
@@ -165,7 +170,9 @@ Item {
     root.avatarCollection = collection
     var target = Quickshell.env("HOME") + "/.face.icon"
     if (collection === "gradient") {
-      avatarProc.command = ["bash", "-c", "rm -f \"$1\" \"$2\"; printf static", "ruixen-avatar-gradient", target, root.avatarGifPath]
+      avatarProc.command = ["bash", "-c",
+        "rm -f \"$1\" \"$2\"; mkdir -p \"$3\"; find \"$3\" -maxdepth 1 -type f -name 'frame-*.png' -delete; printf 'static 0 80'",
+        "ruixen-avatar-gradient", target, root.avatarGifPath, root.avatarFrameDir]
     } else if (collection === "custom") {
       // The picked path is passed as a real argv parameter to the
       // helper shell ($1), never interpolated into the script string, so
@@ -187,17 +194,24 @@ Item {
         "src=$1\n" +
         "target=$2\n" +
         "gif=$3\n" +
+        "frames=$4\n" +
         "rm -f \"$gif\"\n" +
+        "mkdir -p \"$frames\"\n" +
+        "find \"$frames\" -maxdepth 1 -type f -name 'frame-*.png' -delete\n" +
         "fmt=$(magick identify -quiet -format '%m' \"$src[0]\" | tr '[:upper:]' '[:lower:]')\n" +
         "if [[ \"$fmt\" == gif ]]; then\n" +
         "  magick \"$src\" -auto-orient -coalesce -strip -resize '512x512>' -loop 0 \"GIF:$gif\"\n" +
         "  magick \"$gif[0]\" -strip \"PNG:$target\"\n" +
-        "  printf animated\n" +
+        "  magick \"$gif\" -coalesce \"$frames/frame-%03d.png\"\n" +
+        "  count=$(magick identify -format '%n\\n' \"$gif\" | head -n 1)\n" +
+        "  delay=$(magick identify -format '%T\\n' \"$gif[0]\" | head -n 1)\n" +
+        "  ms=$(( delay > 0 ? delay * 10 : 80 ))\n" +
+        "  printf 'animated %s %s' \"$count\" \"$ms\"\n" +
         "else\n" +
         "  magick \"$src\" -auto-orient -strip -resize '512x512>' \"PNG:$target\"\n" +
-        "  printf static\n" +
+        "  printf 'static 0 80'\n" +
         "fi",
-        "ruixen-avatar-custom", filePath, target, root.avatarGifPath]
+        "ruixen-avatar-custom", filePath, target, root.avatarGifPath, root.avatarFrameDir]
     } else if (collection === "github") {
       // One command, not a separate fetch-then-curl pair of Processes --
       // `gh api user` already needs the same `gh` auth this option is
@@ -205,8 +219,8 @@ Item {
       // offline) does not fall through into curl-ing an empty URL and
       // silently overwriting a perfectly good existing avatar.
       avatarProc.command = ["bash", "-c",
-        "set -e; rm -f \"$2\"; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o \"$1\"; printf static",
-        "ruixen-avatar-github", target, root.avatarGifPath]
+        "set -e; rm -f \"$2\"; mkdir -p \"$3\"; find \"$3\" -maxdepth 1 -type f -name 'frame-*.png' -delete; url=\"$(gh api user --jq .avatar_url)\"; curl -fsL \"$url\" -o \"$1\"; printf 'static 0 80'",
+        "ruixen-avatar-github", target, root.avatarGifPath, root.avatarFrameDir]
     } else {
       var seed = Math.random().toString(36).slice(2) + Date.now()
       var entry = null
@@ -216,7 +230,9 @@ Item {
       var version = (entry && entry.version) || "9.x"
       var format = (entry && entry.format) || "png"
       var url = "https://api.dicebear.com/" + version + "/" + collection + "/" + format + "?seed=" + seed
-      avatarProc.command = ["bash", "-c", "rm -f \"$2\"; curl -fsL \"$3\" -o \"$1\"; printf static", "ruixen-avatar-dicebear", target, root.avatarGifPath, url]
+      avatarProc.command = ["bash", "-c",
+        "rm -f \"$2\"; mkdir -p \"$3\"; find \"$3\" -maxdepth 1 -type f -name 'frame-*.png' -delete; curl -fsL \"$4\" -o \"$1\"; printf 'static 0 80'",
+        "ruixen-avatar-dicebear", target, root.avatarGifPath, root.avatarFrameDir, url]
     }
     avatarProc.running = true
   }
@@ -295,9 +311,17 @@ Item {
         avatarNotifyProc.running = true
         return
       }
-      root.avatarAnimated = String(avatarProcStdout.text || "").trim() === "animated"
+      var parts = String(avatarProcStdout.text || "").trim().split(/\s+/)
+      root.avatarAnimated = parts[0] === "animated"
+      root.avatarFrameCount = root.avatarAnimated ? Math.max(0, parseInt(parts[1] || 0)) : 0
+      root.avatarFrameDelayMs = root.avatarAnimated ? Math.max(40, parseInt(parts[2] || 80)) : 80
       root.avatarCacheBust = root.avatarCacheBust + 1
-      avatarStateFile.setText(JSON.stringify({ collection: root.avatarCollection, animated: root.avatarAnimated }, null, 2) + "\n")
+      avatarStateFile.setText(JSON.stringify({
+        collection: root.avatarCollection,
+        animated: root.avatarAnimated,
+        frameCount: root.avatarFrameCount,
+        frameDelayMs: root.avatarFrameDelayMs
+      }, null, 2) + "\n")
       // Tells ruixen.notch's own UserAvatar to re-read the file too --
       // it's a separate keepLoaded:true plugin process, so it has no
       // other way to know ~/.face.icon just changed.
@@ -2878,9 +2902,17 @@ Item {
         // out on it outright).
         readonly property var activeAvatarImage: (avatarPreviewImage.status === Image.Ready && avatarPreviewImage.frameCount > 1)
           ? avatarPreviewImage : avatarPreviewImageFallback
+        property int avatarFrameIndex: 0
         readonly property string avatarSource: root.avatarAnimated
-          ? "file://" + root.avatarGifPath + "#" + root.avatarCacheBust
+          ? "file://" + root.avatarFrameDir + "/frame-" + ("00" + avatarPreviewWrap.avatarFrameIndex).slice(-3) + ".png#" + root.avatarCacheBust
           : "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+
+        Timer {
+          interval: root.avatarFrameDelayMs
+          running: root.avatarAnimated && root.avatarFrameCount > 1
+          repeat: true
+          onTriggered: avatarPreviewWrap.avatarFrameIndex = (avatarPreviewWrap.avatarFrameIndex + 1) % root.avatarFrameCount
+        }
 
         // Circular gradient fallback -- explicitly hidden once a real
         // image is loaded (not just painted over by an assumed-opaque
@@ -2889,7 +2921,7 @@ Item {
         Rectangle {
           anchors.fill: parent
           radius: width / 2
-          visible: avatarPreviewWrap.activeAvatarImage.status !== Image.Ready
+          visible: !root.avatarAnimated && avatarPreviewWrap.activeAvatarImage.status !== Image.Ready
           gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
             GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
@@ -2949,12 +2981,30 @@ Item {
         }
       }
 
-      Text {
+      Column {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: Quickshell.env("USER") + "@" + root.hardwareName
-        font.family: root.fontFamily
-        font.pixelSize: 11
-        color: root.muted
+        spacing: 1
+
+        Text {
+          anchors.horizontalCenter: parent.horizontalCenter
+          readonly property int detailStart: root.hardwareName.indexOf(" (")
+          readonly property string shortHardwareName: detailStart > 0 ? root.hardwareName.slice(0, detailStart) : root.hardwareName
+
+          text: Quickshell.env("USER") + "@" + shortHardwareName
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          color: root.muted
+        }
+
+        Text {
+          anchors.horizontalCenter: parent.horizontalCenter
+          readonly property int detailStart: root.hardwareName.indexOf(" (")
+          text: detailStart > 0 ? root.hardwareName.slice(detailStart) : ""
+          visible: text !== ""
+          font.family: root.fontFamily
+          font.pixelSize: 10
+          color: Qt.rgba(root.muted.r, root.muted.g, root.muted.b, 0.78)
+        }
       }
 
       // Selecting one both picks it (highlighted border) AND immediately

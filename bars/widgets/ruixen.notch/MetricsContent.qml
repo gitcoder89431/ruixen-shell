@@ -50,6 +50,10 @@ Item {
   // up a new ~/.face.icon without a full restart even though the
   // collapsed row's own UserAvatar already could).
   property int avatarCacheBust: 0
+  property bool avatarAnimated: false
+  property int avatarFrameCount: 0
+  property int avatarFrameDelayMs: 80
+  property string avatarFrameDir: Quickshell.env("HOME") + "/.local/state/ruixen/avatar-frames"
 
   // Real $USER, no process needed -- Quickshell.env("USER") directly.
   readonly property string username: {
@@ -546,11 +550,22 @@ Item {
           // (AnimatedImage's decoder errors out on it outright).
           readonly property var activeAvatarImage: (avatarImage.status === Image.Ready && avatarImage.frameCount > 1)
             ? avatarImage : avatarImageFallback
+          property int avatarFrameIndex: 0
+          readonly property string avatarSource: root.avatarAnimated
+            ? "file://" + root.avatarFrameDir + "/frame-" + ("00" + avatar.avatarFrameIndex).slice(-3) + ".png#" + root.avatarCacheBust
+            : "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+
+          Timer {
+            interval: root.avatarFrameDelayMs
+            running: root.avatarAnimated && root.avatarFrameCount > 1
+            repeat: true
+            onTriggered: avatar.avatarFrameIndex = (avatar.avatarFrameIndex + 1) % root.avatarFrameCount
+          }
 
           Rectangle {
             anchors.fill: parent
             radius: width / 2
-            visible: avatar.activeAvatarImage.status !== Image.Ready
+            visible: !root.avatarAnimated && avatar.activeAvatarImage.status !== Image.Ready
             gradient: Gradient {
               GradientStop { position: 0.0; color: Qt.lighter(root.accent, 1.6) }
               GradientStop { position: 1.0; color: Qt.darker(root.accent, 1.4) }
@@ -567,17 +582,17 @@ Item {
           AnimatedImage {
             id: avatarImage
             anchors.fill: parent
-            source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+            source: avatar.avatarSource
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             cache: false
-            visible: false
+            visible: root.avatarAnimated
           }
 
           Image {
             id: avatarImageFallback
             anchors.fill: parent
-            source: "file://" + Quickshell.env("HOME") + "/.face.icon#" + root.avatarCacheBust
+            source: avatar.avatarSource
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             cache: false
@@ -596,6 +611,7 @@ Item {
           MultiEffect {
             anchors.fill: parent
             source: avatar.activeAvatarImage
+            visible: !root.avatarAnimated
             maskEnabled: true
             maskSource: avatarMask
             maskThresholdMin: 0.5

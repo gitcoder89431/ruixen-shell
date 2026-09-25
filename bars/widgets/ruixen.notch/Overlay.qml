@@ -1560,17 +1560,17 @@ Item {
           anchors.fill: parent
           anchors.margins: 40
           anchors.topMargin: 0
-          // 0.6 -> 0.9 -- direct request, once the shape itself stopped
-          // being the problem: "can you make the shadow match with the
-          // frame... theres enough space now thats its allined nicely."
-          // ruixen.bar's own frame shadow peaks at a near-fully-opaque
-          // 1.0 right at its own edge (see frameShadowCanvas's own
-          // alpha=1.0*t*t) -- this shape's visible portion is only ever
-          // the blurred-out halo (its own true core sits hidden under
-          // notchBg), so matching that same weight means pushing this
-          // close to fully opaque too, not the much fainter 0.6 first
-          // shipped with.
-          opacity: 0.9
+          // 0.6 -> 0.9 -> 1.0. ruixen.bar's own frame shadow peaks at a
+          // true 1.0 right at its own edge (frameShadowCanvas's own
+          // alpha=1.0*t*t) -- 0.9 here was still a real, if small, gap
+          // below that peak (this shape's visible portion is only ever
+          // the blurred-out halo, its own true core hidden under
+          // notchBg, so the halo's own darkest pixel topped out at 90%
+          // black blended with wallpaper, never true black). Direct
+          // live report the gap was visible: "it seems less then the
+          // frame shadow setting." 1.0 matches the frame's own peak
+          // exactly.
+          opacity: 1.0
 
           RoundCorner {
             anchors.top: parent.top

@@ -2239,7 +2239,7 @@ Item {
             // softness comes from; no shadowVerticalOffset either, so
             // it doesn't bias toward one edge the way a pill-lift shadow
             // deliberately does.
-            opacity: 0.9
+            opacity: 1.0
 
             Rectangle {
               x: leftDockedBg.x
@@ -2310,7 +2310,7 @@ Item {
             anchors.fill: parent
             // Mirrors leftShoulderShadowClip's own inner Item -- see its
             // comment (same notchShadowBlur recipe, not GroupPill's).
-            opacity: 0.9
+            opacity: 1.0
 
             Rectangle {
               x: rightDockedBg.x - rightShoulderShadowClip.x

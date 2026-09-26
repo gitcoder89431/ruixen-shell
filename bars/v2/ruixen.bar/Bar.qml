@@ -456,8 +456,12 @@ Item {
   // is a separate future "classic/statusline" mode, not this curvature toggle.
   // Same read-once-at-startup Process pattern as the rest of lookfeel -- safe
   // because hyprland/ruixen-lookfeel.sh always does a full `omarchy restart
-  // shell` on every variant change.
-  property bool sharpCorners: false
+  // shell` on every variant change. "half" is the third Window Curvature
+  // option (looknfeel.half.lua, half the full curve's own 24 -> 12; direct
+  // request: "add a 3rd option that'd be half the size of the border's curve
+  // on the windows") -- the frame's own hole follows it so the mask keeps
+  // matching the real window corners.
+  property string lookFeelVariant: "rounded"
 
   Process {
     id: readLookAndFeelVariantForDock
@@ -465,7 +469,12 @@ Item {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        root.sharpCorners = text.indexOf("looknfeel.square.lua") >= 0
+        if (text.indexOf("looknfeel.square.lua") >= 0)
+          root.lookFeelVariant = "sharp"
+        else if (text.indexOf("looknfeel.half.lua") >= 0)
+          root.lookFeelVariant = "half"
+        else
+          root.lookFeelVariant = "rounded"
       }
     }
   }
@@ -1625,7 +1634,7 @@ Item {
   // click-through window -- ported from v1 ruixen.frame-widget's own
   // Canvas hole-punch technique (fill, then punch a rounded-rect hole
   // out with destination-out compositing), reading root.frameInset/
-  // root.frameColor/root.docked/root.sharpCorners directly instead of
+  // root.frameColor/root.docked/root.lookFeelVariant directly instead of
   // re-deriving independent copies of them (v1's frame-widget had to
   // shell out to read shell.json/looknfeel.lua itself; this bar already
   // has all of that live on root). Still ONE authoritative Canvas for
@@ -1671,7 +1680,7 @@ Item {
       Connections {
         target: root
         function onFrameColorChanged() { frameCanvas.requestPaint() }
-        function onSharpCornersChanged() { frameCanvas.requestPaint() }
+        function onLookFeelVariantChanged() { frameCanvas.requestPaint() }
         function onDockedChanged() { frameCanvas.requestPaint() }
       }
 
@@ -1694,8 +1703,14 @@ Item {
       // square only when BOTH floating AND sharp -- docked mode stays
       // curved regardless of curvature (docked's own bigger gaps already
       // keep a real window's corner clear of this curve, so there's no
-      // clipping risk to avoid by going square there).
-      readonly property int frameCornerRadius: (!root.docked && root.sharpCorners) ? 0 : 24
+      // clipping risk to avoid by going square there). "half" follows
+      // the window's own half step (12) for the same match-the-real-
+      // corners reason.
+      readonly property int frameCornerRadius: !root.docked
+        ? (root.lookFeelVariant === "sharp" ? 0
+          : root.lookFeelVariant === "half" ? 12
+          : 24)
+        : 24
 
       onPaint: {
         const ctx = getContext("2d")
@@ -1757,7 +1772,7 @@ Item {
       Connections {
         target: root
         function onFrameColorChanged() { frameShadowCanvas.requestPaint() }
-        function onSharpCornersChanged() { frameShadowCanvas.requestPaint() }
+        function onLookFeelVariantChanged() { frameShadowCanvas.requestPaint() }
         function onDockedChanged() { frameShadowCanvas.requestPaint() }
       }
 
@@ -1794,7 +1809,11 @@ Item {
       onPaint: {
         const ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
-        const frameCornerRadius = (!root.docked && root.sharpCorners) ? 0 : 24
+        const frameCornerRadius = !root.docked
+          ? (root.lookFeelVariant === "sharp" ? 0
+            : root.lookFeelVariant === "half" ? 12
+            : 24)
+          : 24
         // Direct live follow-up, top corners only, bottom confirmed
         // clean: "theres still some specs of dots left on the top right
         // and left corner". Root cause isn't this canvas's own

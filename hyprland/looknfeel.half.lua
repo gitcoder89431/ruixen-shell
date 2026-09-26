@@ -1,4 +1,24 @@
 -- Change the default Omarchy look'n'feel.
+--
+-- "Half" variant -- direct request for a third Window Curvature option:
+-- half the size of the full curve on the windows ("add a 3rd option
+-- that'd be half the size of the border's curve on the windows"). The
+-- free slider/number input was declined ("its something about the
+-- frame" -- the frame's own corner mask, its shadow ring, and the
+-- docked shoulder pieces are hand-tuned against specific rounding
+-- values, see AGENTS.md #9), so this ships as one discrete half step
+-- instead: a full copy of looknfeel.ruixen.lua with just rounding
+-- changed (24 -> 12), same established pattern as looknfeel.square.lua
+-- (fully independent files, no shared base -- no untested hl.config()
+-- merge-semantics risk). The tradeoff is real: any future tweak to the
+-- shared parts (blur/shadow/animation profiles) needs applying in all
+-- three Ruixen-look files by hand.
+--
+-- ruixen.bar/Bar.qml's own screen-frame corner mask reads which of the
+-- four variants is active and matches its rounding automatically
+-- (12 here, 0 for looknfeel.square.lua, 24 for looknfeel.ruixen.lua),
+-- floating mode only -- docked mode's frame corner stays rounded
+-- regardless of curvature (see Bar.qml's own frameCornerRadius comment).
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#general
 -- hl.config({
@@ -58,7 +78,7 @@
 -- page writes it), read here so `hyprctl reload` alone picks up
 -- whichever was last chosen. Comfy (default) keeps Hyprland's own
 -- stock 5; Tight goes to 0. All three Ruixen-look variants (this
--- file, looknfeel.square.lua, looknfeel.half.lua) read the
+-- file, looknfeel.square.lua, looknfeel.ruixen.lua) read the
 -- same file -- direct instruction ("if its tight then both
 -- round and sharp will get no inner padding") -- so switching Window
 -- Curvature elsewhere never resets this choice.
@@ -84,7 +104,7 @@ local ruixenGapsIn = readSpacingProfile() == "tight" and 0 or 5
 -- existing values, unchanged; Transparent is a real, working
 -- configuration confirmed to read noticeably clearer (inactive_opacity
 -- 0.75, blur passes 2), not guessed. All three Ruixen-look variants
--- (this file, looknfeel.square.lua, looknfeel.half.lua) read the
+-- (this file, looknfeel.square.lua, looknfeel.ruixen.lua) read the
 -- same file, same as spacing/animation profiles above.
 --
 -- Vibrant (blur.vibrancy boost) and Solid (blur disabled entirely)
@@ -127,8 +147,11 @@ hl.config({
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#decoration
 hl.config({
   decoration = {
-    -- Matches the frame/bar's cornerRadius (24) for a consistent look.
-    rounding = 24,
+    -- Half the full curve's own 24 -- the whole point of this variant
+    -- (direct request: "half the size of the border's curve on the
+    -- windows"). The frame's own corner mask matches this automatically
+    -- (see this file's own header comment).
+    rounding = 12,
 
     -- Ported from the user's own past cachyos-dotfiles config
     -- (0.98/0.94, unchanged from that source -- direct request: "yea

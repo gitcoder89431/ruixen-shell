@@ -18,12 +18,15 @@ fail() {
 
 usage() {
   cat <<'EOF'
-Usage: ruixen-lookfeel <on|off|square|status>
+Usage: ruixen-lookfeel <on|off|half|square|status>
 
   on      Apply Ruixen's window look'n'feel (rounded corners matching the
           frame/bar's radius, plus blur) to Hyprland.
   off     Restore Hyprland's stock look'n'feel (square corners, no blur,
           stock 2px border).
+  half    Ruixen's look'n'feel with HALF the full curve's corner radius
+          (12 instead of 24) -- direct request for a third Window
+          Curvature option at "half the size of the border's curve".
   square  Ruixen's look'n'feel (thin border, blur, shadow, animations)
           but with square corners instead of rounded -- direct request:
           someone wanted the stock square-corner look without giving up
@@ -72,6 +75,9 @@ case "$command" in
     ;;
   off)
     apply "off (stock Omarchy)" "$looknfeel_data_dir/looknfeel.default.lua"
+    ;;
+  half)
+    apply "half (rounded at half the radius, 12)" "$looknfeel_data_dir/looknfeel.half.lua"
     ;;
   square)
     apply "square (blur + shadow, no rounding)" "$looknfeel_data_dir/looknfeel.square.lua"

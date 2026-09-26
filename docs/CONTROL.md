@@ -83,3 +83,12 @@ panel and an external writer in sync live.
 Moving cards around by hand still works too: left-click a card to advance
 it (dismisses it once it's in Done, since there's nothing further to
 advance to), right-click to send it back a column.
+
+The panel is also fully editable in place now — each column header has a
+**+** that opens an inline new-card editor (with a priority picker),
+hovering a card offers **✎** (inline edit: title, description, priority,
+due date) and **✕** (delete — click once to arm it red, again within 3
+seconds to confirm), and a done/total progress bar sits above the board.
+These are conveniences over the same functions listed above, not a
+parallel API: whatever the panel writes, `kanbanListCards` reads back,
+and vice versa.

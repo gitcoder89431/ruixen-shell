@@ -18,10 +18,12 @@
 // be driven by KanbanService.qml's own IpcHandler functions
 // (addCard/moveCard/removeCard/renameColumn), the same
 // `omarchy-shell ruixen.notch <fn> ...` mechanism already proven for
-// setDoNotDisturb/debugOpenDashboard elsewhere in this plugin. The UI
-// itself still supports the same actions by hand (click a column
-// header to rename, click a card's arrow to advance/regress it), but
-// that's the secondary path, not the primary one.
+// setDoNotDisturb/debugOpenDashboard elsewhere in this plugin. The
+// panel is fully editable in place now too (per-column add editor,
+// per-card edit/delete, done/total progress row -- all calling those
+// same functions), and click-to-advance / right-click-to-regress
+// still work on cards, so the CLI/agent path is one of TWO first-
+// class surfaces, not the only one.
 
 var COLUMN_IDS = ["todo", "in-progress", "done"]
 var DEFAULT_LABELS = { "todo": "Todo", "in-progress": "In Progress", "done": "Done" }
@@ -277,6 +279,11 @@ function moveCard(cards, cardId, columnId) {
 
 function removeCard(cards, cardId) {
   return normalizeCards(cards).filter(function(c) { return c.id !== cardId })
+}
+
+function clearColumn(cards, columnId) {
+  if (!isColumnId(columnId)) return normalizeCards(cards)
+  return normalizeCards(cards).filter(function(c) { return c.column !== columnId })
 }
 
 // "Overdue" excludes Done on purpose -- a shipped card with a past due

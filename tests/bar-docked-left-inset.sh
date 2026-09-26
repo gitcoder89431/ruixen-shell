@@ -58,7 +58,7 @@ check "sharp+docked keeps the normal docked left shoulder radius unless fullbar 
 check "rightDockedBg remains visible in sharp+docked, hidden only by fullbar style" \
   "$(grep -A5 'id: rightDockedBg$' "$bar_qml" | grep -m1 'visible: root.docked && !root.fullbarStyle')" '          visible: root.docked && !root.fullbarStyle'
 
-check "old sharp-only docked corner patch is behind fullbar style, not sharpCorners" \
+check "old sharp-only docked corner patch is behind fullbar style, not the lookfeel variant" \
   "$(grep -A5 'Historical sharp+docked full-strip corner patch' "$bar_qml" | grep -m1 'visible: root.docked && root.fullbarStyle')" '          visible: root.docked && root.fullbarStyle'
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"

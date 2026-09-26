@@ -39,6 +39,7 @@ Item {
   property color cardSurface: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.035)
   property color cardBorderColor: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.12)
   property color editorSurface: Qt.darker(cardSurface, 1.08)
+  readonly property color readableAccentColor: readableSemanticColor(accent)
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
 
@@ -65,13 +66,14 @@ Item {
     // the theme hue instead of hardcoding one global red/green/blue.
     var colorLum = root.colorLuminance(c)
     var textLum = root.colorLuminance(root.textColor)
-    var needsLift = textLum > 0.5 && colorLum < 0.45
+    var needsLift = textLum > 0.5 && colorLum < 0.55
     var needsDrop = textLum <= 0.5 && colorLum > 0.55
     if (!needsLift && !needsDrop) return c
+    var mix = needsLift ? 0.52 : 0.42
     return Qt.rgba(
-      c.r + (root.textColor.r - c.r) * 0.32,
-      c.g + (root.textColor.g - c.g) * 0.32,
-      c.b + (root.textColor.b - c.b) * 0.32,
+      c.r + (root.textColor.r - c.r) * mix,
+      c.g + (root.textColor.g - c.g) * mix,
+      c.b + (root.textColor.b - c.b) * mix,
       c.a
     )
   }
@@ -311,14 +313,14 @@ Item {
             implicitWidth: Math.max(18, countText.implicitWidth + 10)
             implicitHeight: 18
             radius: height / 2
-            color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+            color: Qt.rgba(root.readableAccentColor.r, root.readableAccentColor.g, root.readableAccentColor.b, 0.16)
 
             Text {
               id: countText
               anchors.centerIn: parent
               horizontalAlignment: Text.AlignHCenter
               text: String(columnRoot.columnCards.length)
-              color: root.accent
+              color: root.readableAccentColor
               font.family: root.fontFamily
               font.pixelSize: 11
               font.bold: true

@@ -66,13 +66,13 @@ check "column header count is a nested rounded sub-pill" \
   "$(grep -F -c 'implicitWidth: Math.max(18, countText.implicitWidth + 10)' "$content_qml")" \
   "1"
 
-check "column header count sub-pill uses a subtle accent tint" \
-  "$(grep -F -c 'color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)' "$content_qml")" \
+check "column header count sub-pill uses a readable accent tint" \
+  "$(grep -F -c 'color: Qt.rgba(root.readableAccentColor.r, root.readableAccentColor.g, root.readableAccentColor.b, 0.16)' "$content_qml")" \
   "1"
 
-check "column header count text uses accent color" \
-  "$(grep -c 'color: root.accent' "$content_qml")" \
-  "2"
+check "column header count text uses readable accent color" \
+  "$(grep -c 'color: root.readableAccentColor' "$content_qml")" \
+  "1"
 
 check "column header add action is a wider pill" \
   "$(grep -F -c 'implicitWidth: addActionRow.implicitWidth + 16' "$content_qml")" \
@@ -117,7 +117,7 @@ check "Kanban compact icon actions use one reusable button component" \
   "$(grep -c 'component KanbanActionButton : Rectangle' "$content_qml")" "1"
 
 check "Kanban semantic action colors are normalized for contrast" \
-  "$(( $(grep -F -c 'function readableSemanticColor(c)' "$content_qml") + $(grep -F -c 'resolvedAccentColor: root.readableSemanticColor(accentColor)' "$content_qml") ))" "2"
+  "$(( $(grep -F -c 'function readableSemanticColor(c)' "$content_qml") + $(grep -F -c 'resolvedAccentColor: root.readableSemanticColor(accentColor)' "$content_qml") + $(grep -F -c 'readableAccentColor: readableSemanticColor(accent)' "$content_qml") ))" "3"
 
 check "reusable action button inverts readable icon color on hover/armed" \
   "$(grep -c 'color: (actionButton.armed || actionButton.hovered) ? "#000000" : actionButton.resolvedAccentColor' "$content_qml")" "1"

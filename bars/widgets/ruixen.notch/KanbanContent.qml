@@ -310,6 +310,8 @@ Item {
       // open, so the header keeps showing what mode the column is in.
       // Wider than the old tiny "+" target for easier clicking.
       Rectangle {
+        id: addActionButton
+
         readonly property bool active: root.addColumnId === columnRoot.columnId
 
         visible: columnRoot.columnId !== "done"
@@ -317,7 +319,7 @@ Item {
         implicitWidth: addActionRow.implicitWidth + 16
         implicitHeight: 24
         radius: height / 2
-        color: active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)
+        color: addActionButton.active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)
 
         Row {
           id: addActionRow
@@ -327,7 +329,7 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "+"
-            color: active || addMouse.containsMouse ? "#000000" : root.successColor
+            color: addActionButton.active || addMouse.containsMouse ? "#000000" : root.successColor
             font.family: root.fontFamily
             font.pixelSize: 12
             font.bold: true
@@ -336,7 +338,7 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "Add"
-            color: active || addMouse.containsMouse ? "#000000" : root.successColor
+            color: addActionButton.active || addMouse.containsMouse ? "#000000" : root.successColor
             font.family: root.fontFamily
             font.pixelSize: 10
             font.bold: true

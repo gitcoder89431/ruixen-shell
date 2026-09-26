@@ -51,11 +51,11 @@ check "column header + button tracks its active add editor state" \
   "1"
 
 check "column header + button uses green fill when active or hovered" \
-  "$(grep -c 'color: active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
+  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
   "1"
 
 check "column header + glyph inverts when active or hovered" \
-  "$(grep -c 'color: active || addMouse.containsMouse ? "#000000" : root.successColor' "$content_qml")" \
+  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? "#000000" : root.successColor' "$content_qml")" \
   "2"
 
 check "column header label and count share one compact pill" \

@@ -10,13 +10,22 @@ import "KanbanModel.js" as KanbanModel
 // variable-width/count layout would otherwise risk (this session
 // already hit several of those elsewhere in this same plugin).
 //
-// Agent-native by design, and CLI-only for any TEXT ENTRY -- direct
-// request ("i rather do it from cli or tui tbh"): adding a card and
-// renaming a column both go through KanbanService.qml's own functions
-// via Overlay.qml's "ruixen.notch" IpcHandler target
-// (kanbanAddCard/kanbanRenameColumn/...), never an in-panel TextInput.
-// This panel is otherwise mouse-driven (advance/regress/remove a
-// card), just never for typing a title or a label.
+// Agent-native AND mouse/type friendly in-panel now. The board was
+// originally CLI-only for any TEXT ENTRY (direct request at the time:
+// "i rather do it from cli or tui tbh") with only advance/regress/
+// remove as clicks -- REVERSED by a later direct request: "right now
+// its not GUI friendly, meaning i can't manage tasks from there. i
+// wanna be able to add, edit, delete check progress on the notch". So
+// the panel now has its own add/edit/delete/progress affordances
+// (per-column "+" with an inline new-card editor, per-card hover
+// edit/delete with a two-click delete confirm, and a done/total
+// progress row), all calling the exact same KanbanService.qml
+// functions Overlay.qml's "ruixen.notch" IpcHandler target exposes
+// (kanbanAddCard/kanbanRenameCard/kanbanRemoveCard/...) -- the panel
+// and a CLI caller are the same API, neither is a second
+// implementation. Column LABELS stay CLI-only (kanbanRenameColumn) --
+// not part of that request, and the fixed-label layout guarantees
+// this file's own comments document depend on them.
 Item {
   id: root
 
@@ -25,6 +34,64 @@ Item {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
+
+  // ---- In-panel editing state (the GUI path -- see this file's own
+  // header comment for why it exists now). Exactly ONE editor open at
+  // a time across the whole board: opening an add or an edit closes
+  // the other, so there is never a question of which surface a
+  // keystroke belongs to.
+  property string addColumnId: ""   // column with an open "new card" row ("" = none)
+  property string addPriority: "medium"
+  property string editingCardId: "" // card with an open inline editor ("" = none)
+  property string editPriority: "medium"
+  property string deleteArmedId: "" // card whose delete button is armed for its confirming second click
+
+  function openAdd(columnId) {
+    root.editingCardId = ""
+    root.deleteArmedId = ""
+    root.addPriority = "medium"
+    root.addColumnId = columnId
+  }
+
+  function openEdit(card) {
+    root.addColumnId = ""
+    root.deleteArmedId = ""
+    root.editPriority = card.priority
+    root.editingCardId = card.id
+  }
+
+  function cyclePriority(priority) {
+    return priority === "high" ? "medium" : priority === "medium" ? "low" : "high"
+  }
+
+  // Same due-date rules as Overlay.qml's own kanbanSetDueDate IPC
+  // function, mirrored here so the in-panel editor and the CLI behave
+  // identically: an empty string clears the due date, anything
+  // Date.parse() recognizes is stored as epoch ms, and an unparseable
+  // string is a no-op (NaN) so a typo cannot silently wipe a real
+  // deadline that was already set.
+  function parsedDueMs(text) {
+    var trimmed = String(text || "").trim()
+    if (trimmed === "") return 0
+    var ms = Date.parse(trimmed)
+    return isNaN(ms) ? NaN : ms
+  }
+
+  // Progress row inputs -- done/total across the whole board. cards is
+  // reassigned (never mutated in place) on every KanbanService
+  // mutation, so both bindings re-evaluate on any add/move/remove.
+  readonly property int totalCards: kanbanService ? kanbanService.cards.length : 0
+  readonly property int doneCards: kanbanService ? kanbanService.cardsInColumn("done").length : 0
+
+  // Delete confirm window -- a second click on the same card's delete
+  // button inside this window removes the card; letting it lapse
+  // disarms. A dialog would be a third surface convention this plugin
+  // doesn't have; the armed button itself IS the confirmation.
+  Timer {
+    interval: 3000
+    running: root.deleteArmedId !== ""
+    onTriggered: root.deleteArmedId = ""
+  }
 
   // Display-only formatting -- KanbanModel.js stores dueAt as a plain
   // epoch millisecond number (locale-independent, easy to test in
@@ -109,10 +176,11 @@ Item {
       : 0
     spacing: 8
 
-    // Header -- read-only. Renaming a column is CLI/agent-only
-    // (kanbanRenameColumn), per direct request ("i rather do it from
-    // cli or tui tbh") -- no in-panel typing at all, not just for
-    // adding cards.
+    // Header -- the label itself stays read-only (renaming a column is
+    // still CLI/agent-only via kanbanRenameColumn; not part of the GUI
+    // request). What IS new here: the "+" button after the count pill,
+    // the in-panel half of the add path (see this file's own header
+    // comment for the reversed decision).
     RowLayout {
       Layout.fillWidth: true
       Layout.leftMargin: 10
@@ -165,6 +233,38 @@ Item {
           font.bold: true
         }
       }
+
+      // In-panel add button -- opens this column's inline "new card"
+      // row (see the addRow comment inside the card area). Hidden while
+      // this column's editor is already open -- the editor has its own
+      // cancel, and a second "+" would just be a second way to do
+      // nothing. Accent fill on hover so the affordance reads as a
+      // button, not decoration.
+      Rectangle {
+        visible: root.addColumnId !== columnRoot.columnId
+        Layout.alignment: Qt.AlignVCenter
+        implicitWidth: 18
+        implicitHeight: 18
+        radius: 9
+        color: addMouse.containsMouse ? root.accent : Qt.rgba(1, 1, 1, 0.10)
+
+        Text {
+          anchors.centerIn: parent
+          text: "+"
+          color: addMouse.containsMouse ? "#000000" : root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          font.bold: true
+        }
+
+        MouseArea {
+          id: addMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.openAdd(columnRoot.columnId)
+        }
+      }
     }
 
     // The panel itself is now just the card surface -- same tonal fill
@@ -213,14 +313,164 @@ Item {
             width: parent.width
             spacing: 6
 
+            // In-panel "new card" row -- the GUI half of the add path,
+            // opened by the column header's own "+" (one editor open
+            // board-wide at a time -- see root's openAdd). Commits
+            // through KanbanService.addCard, the same function
+            // kanbanAddCard IPC wraps, which does the clamping and
+            // priority defaulting, so this row carries none of that
+            // itself. Blank input + Enter is a deliberate no-op (a
+            // card can never be blank); Esc cancels LOCALLY with the
+            // event accepted, so it never bubbles up to notchOuter's
+            // own Escape handling and closes the whole panel mid-edit.
+            Rectangle {
+              id: addRow
+              visible: root.addColumnId === columnRoot.columnId
+              Layout.fillWidth: true
+              Layout.preferredHeight: addEditorContent.implicitHeight + 16
+              radius: 8
+              color: "#000000"
+              border.color: root.accent
+              border.width: 1.5
+
+              onVisibleChanged: if (visible) Qt.callLater(function() { addInput.forceActiveFocus() })
+
+              function commitAdd() {
+                if (addInput.text.trim() === "" || !root.kanbanService) return
+                root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)
+                root.addColumnId = ""
+              }
+
+              ColumnLayout {
+                id: addEditorContent
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 4
+
+                Item {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 16
+
+                  TextInput {
+                    id: addInput
+                    anchors.fill: parent
+                    verticalAlignment: TextInput.AlignVCenter
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    clip: true
+                    onAccepted: addRow.commitAdd()
+                    Keys.onEscapePressed: function(event) {
+                      event.accepted = true
+                      root.addColumnId = ""
+                    }
+
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: addInput.text.length === 0
+                      text: "New task..."
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 11
+                    }
+                  }
+                }
+
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 6
+
+                  // Priority for the card about to be created -- click
+                  // cycles high -> medium -> low. Default medium, same
+                  // as addCard's own default when the CLI omits it.
+                  Rectangle {
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitWidth: addPriorityLabel.implicitWidth + 30
+                    implicitHeight: addPriorityLabel.implicitHeight + 6
+                    radius: height / 2
+                    color: Qt.rgba(1, 1, 1, 0.10)
+
+                    Row {
+                      anchors.centerIn: parent
+                      spacing: 4
+
+                      Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 6
+                        height: 6
+                        radius: 3
+                        color: root.addPriority === "high" ? "#e05252"
+                          : root.addPriority === "low" ? root.muted
+                          : "#e8c34a"
+                      }
+
+                      Text {
+                        id: addPriorityLabel
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.addPriority
+                        color: root.textColor
+                        font.family: root.fontFamily
+                        font.pixelSize: 9
+                      }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.addPriority = root.cyclePriority(root.addPriority)
+                    }
+                  }
+
+                  Item { Layout.fillWidth: true }
+
+                  Text {
+                    text: "✓"
+                    color: root.accent
+                    font.pixelSize: 13
+
+                    MouseArea {
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: addRow.commitAdd()
+                    }
+                  }
+
+                  Text {
+                    text: "✕"
+                    color: "#e05252"
+                    font.pixelSize: 13
+
+                    MouseArea {
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.addColumnId = ""
+                    }
+                  }
+                }
+              }
+            }
+
               Repeater {
               model: columnRoot.columnCards
 
               Rectangle {
                 id: cardRoot
                 required property var modelData
+                // This card is the one with the open inline editor /
+                // armed delete confirm (root holds the single source of
+                // truth -- exactly one editor board-wide, one armed
+                // delete at a time).
+                readonly property bool isEditing: root.editingCardId === cardRoot.modelData.id
+                readonly property bool deleteArmed: root.deleteArmedId === cardRoot.modelData.id
                 Layout.fillWidth: true
-                Layout.preferredHeight: cardContent.implicitHeight + 16
+                // Taller while the editor is open -- the editor's own
+                // fields are taller than the display content they
+                // replace, and the invisible cardContent (Layouts drop
+                // invisible children) would otherwise collapse the card
+                // around the open editor.
+                Layout.preferredHeight: (cardRoot.isEditing ? editContent.implicitHeight : cardContent.implicitHeight) + 16
                 radius: 8
                 // Black card, white text -- same contrast as the
                 // notification history cards, better readability than
@@ -234,7 +484,9 @@ Item {
                 // there specifically because a thumbnail image paints
                 // over a Rectangle's own border; this card has no such
                 // overlapping content, so the direct border just works.
-                border.color: cardArea.containsMouse ? root.accent : "transparent"
+                border.color: cardRoot.deleteArmed ? "#e05252"
+                  : cardArea.containsMouse ? root.accent
+                  : "transparent"
                 border.width: 1.5
                 Behavior on border.color { ColorAnimation { duration: 100 } }
 
@@ -256,6 +508,11 @@ Item {
                   cursorShape: Qt.PointingHandCursor
                   onClicked: function(mouse) {
                     if (!root.kanbanService) return
+                    // While this card's editor is open, the card body
+                    // itself is inert -- a stray click inside the editor
+                    // (on padding, not a field) must never advance or
+                    // regress the card being edited.
+                    if (cardRoot.isEditing) return
                     if (mouse.button === Qt.RightButton) {
                       root.kanbanService.regressCard(cardRoot.modelData.id)
                     } else if (columnRoot.columnId === "done") {
@@ -277,6 +534,7 @@ Item {
                 // assumed.
                 ColumnLayout {
                   id: cardContent
+                  visible: !cardRoot.isEditing
                   anchors.fill: parent
                   anchors.margins: 8
                   spacing: 2
@@ -330,11 +588,21 @@ Item {
                     Text {
                       Layout.fillWidth: true
                       text: cardRoot.modelData.title
+                      // PlainText -- card text is user/agent-typed and
+                      // Text's AutoText default would interpret markup.
+                      textFormat: Text.PlainText
                       color: root.textColor
                       font.family: root.fontFamily
                       font.pixelSize: 11
                       wrapMode: Text.WordWrap
                     }
+
+                    // Fixed right reserve for the hover edit/delete
+                    // buttons overlaying this corner (cardActions below)
+                    // -- reserved on every card, not just while hovered,
+                    // so the title's wrap point never jumps when the
+                    // buttons appear.
+                    Item { Layout.preferredWidth: 30 }
                   }
 
                   // Description -- always a single elided line, never
@@ -352,6 +620,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.leftMargin: 16
                     text: cardRoot.modelData.description
+                    textFormat: Text.PlainText
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: 10
@@ -374,6 +643,7 @@ Item {
                       visible: cardRoot.modelData.label !== ""
                       Layout.maximumWidth: 90
                       text: cardRoot.modelData.label
+                      textFormat: Text.PlainText
                       color: root.muted
                       font.family: root.fontFamily
                       font.pixelSize: 9
@@ -398,6 +668,266 @@ Item {
                     }
                   }
                 }
+
+                // Inline edit mode -- the GUI half of rename/describe/
+                // re-prioritize/re-due (hover ✎ on a card, see
+                // cardActions below). Prefills from the card itself;
+                // saves through the SAME four KanbanService functions
+                // the kanbanRenameCard/kanbanSetDescription/
+                // kanbanSetPriority/kanbanSetDueDate IPC functions
+                // wrap -- identical clamps (title 48 / description 60,
+                // applied by the model), identical blank-title no-op,
+                // identical due-date rules (empty clears, unparseable
+                // no-ops via root.parsedDueMs). Enter in any field
+                // saves; Esc cancels LOCALLY (event accepted) so it
+                // never bubbles up to notchOuter and closes the panel.
+                ColumnLayout {
+                  id: editContent
+                  visible: cardRoot.isEditing
+                  anchors.fill: parent
+                  anchors.margins: 8
+                  spacing: 4
+
+                  onVisibleChanged: if (visible) Qt.callLater(function() { editTitleInput.forceActiveFocus() })
+
+                  function commitEdit() {
+                    if (!root.kanbanService || !cardRoot.isEditing) return
+                    root.kanbanService.renameCard(cardRoot.modelData.id, editTitleInput.text)
+                    root.kanbanService.setDescription(cardRoot.modelData.id, editDescInput.text)
+                    root.kanbanService.setPriority(cardRoot.modelData.id, root.editPriority)
+                    var dueMs = root.parsedDueMs(editDueInput.text)
+                    // NaN (unparseable) deliberately no-ops -- same
+                    // typo-cannot-wipe-a-deadline guard as the IPC
+                    // path; 0 (empty field) clears the due date.
+                    if (!isNaN(dueMs)) root.kanbanService.setDueDate(cardRoot.modelData.id, dueMs)
+                    root.editingCardId = ""
+                  }
+
+                  TextInput {
+                    id: editTitleInput
+                    Layout.fillWidth: true
+                    text: cardRoot.modelData.title
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                    wrapMode: TextInput.Wrap
+                    clip: true
+                    selectByMouse: true
+                    onAccepted: editContent.commitEdit()
+                    Keys.onEscapePressed: function(event) {
+                      event.accepted = true
+                      root.editingCardId = ""
+                    }
+                  }
+
+                  TextInput {
+                    id: editDescInput
+                    Layout.fillWidth: true
+                    text: cardRoot.modelData.description
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: 10
+                    clip: true
+                    selectByMouse: true
+                    onAccepted: editContent.commitEdit()
+                    Keys.onEscapePressed: function(event) {
+                      event.accepted = true
+                      root.editingCardId = ""
+                    }
+
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: editDescInput.text.length === 0
+                      text: "description..."
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 10
+                    }
+                  }
+
+                  RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    // Priority -- click cycles high -> medium -> low,
+                    // same order/rank the model sorts by. State lives
+                    // on root (editPriority), not in this delegate, so
+                    // the chip's own label re-renders on click.
+                    Rectangle {
+                      Layout.alignment: Qt.AlignVCenter
+                      implicitWidth: editPriorityLabel.implicitWidth + 30
+                      implicitHeight: editPriorityLabel.implicitHeight + 6
+                      radius: height / 2
+                      color: Qt.rgba(1, 1, 1, 0.10)
+
+                      Row {
+                        anchors.centerIn: parent
+                        spacing: 4
+
+                        Rectangle {
+                          anchors.verticalCenter: parent.verticalCenter
+                          width: 6
+                          height: 6
+                          radius: 3
+                          color: root.editPriority === "high" ? "#e05252"
+                            : root.editPriority === "low" ? root.muted
+                            : "#e8c34a"
+                        }
+
+                        Text {
+                          id: editPriorityLabel
+                          anchors.verticalCenter: parent.verticalCenter
+                          text: root.editPriority
+                          color: root.textColor
+                          font.family: root.fontFamily
+                          font.pixelSize: 9
+                        }
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.editPriority = root.cyclePriority(root.editPriority)
+                      }
+                    }
+
+                    // Due date as free text -- same Date.parse()
+                    // convention the IPC function documents ("2026-09-12"
+                    // or anything else Date.parse() recognizes).
+                    TextInput {
+                      id: editDueInput
+                      Layout.preferredWidth: 96
+                      text: cardRoot.modelData.dueAt > 0 ? Qt.formatDate(new Date(cardRoot.modelData.dueAt), "yyyy-MM-dd") : ""
+                      color: root.textColor
+                      font.family: root.fontFamily
+                      font.pixelSize: 10
+                      clip: true
+                      selectByMouse: true
+                      onAccepted: editContent.commitEdit()
+                      Keys.onEscapePressed: function(event) {
+                        event.accepted = true
+                        root.editingCardId = ""
+                      }
+
+                      Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        visible: editDueInput.text.length === 0
+                        text: "yyyy-mm-dd"
+                        color: root.muted
+                        font.family: root.fontFamily
+                        font.pixelSize: 10
+                      }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Text {
+                      text: "✓"
+                      color: root.accent
+                      font.pixelSize: 13
+
+                      MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: editContent.commitEdit()
+                      }
+                    }
+
+                    Text {
+                      text: "✕"
+                      color: "#e05252"
+                      font.pixelSize: 13
+
+                      MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.editingCardId = ""
+                      }
+                    }
+                  }
+                }
+
+                // Hover actions -- edit/delete, the only NEW click
+                // targets on a card. Declared LAST inside the card so
+                // they stack above the whole-row MouseArea (cardArea):
+                // a click on a button must never also advance the card
+                // underneath it. The title row's fixed right reserve
+                // (see cardContent) keeps the title's wrap point stable
+                // whether or not these are showing. Their own hover
+                // keeps them visible while the pointer is ON them --
+                // cardArea.containsMouse drops the moment a button
+                // takes the hover, and without these terms the buttons
+                // would vanish under the cursor exactly when reached.
+                Row {
+                  id: cardActions
+                  anchors.top: parent.top
+                  anchors.right: parent.right
+                  anchors.margins: 3
+                  spacing: 2
+                  visible: !cardRoot.isEditing
+                    && (cardArea.containsMouse || cardRoot.deleteArmed
+                        || editBtnMouse.containsMouse || deleteBtnMouse.containsMouse)
+
+                  Rectangle {
+                    width: 16
+                    height: 16
+                    radius: 4
+                    color: editBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
+
+                    Text {
+                      anchors.centerIn: parent
+                      text: "✎"
+                      color: root.textColor
+                      font.pixelSize: 9
+                    }
+
+                    MouseArea {
+                      id: editBtnMouse
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.openEdit(cardRoot.modelData)
+                    }
+                  }
+
+                  Rectangle {
+                    width: 16
+                    height: 16
+                    radius: 4
+                    // Two-click delete -- the armed red button IS the
+                    // confirmation (this plugin has no dialog surface
+                    // convention); root's own 3s Timer disarms it.
+                    color: cardRoot.deleteArmed
+                      ? "#e05252"
+                      : (deleteBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent")
+
+                    Text {
+                      anchors.centerIn: parent
+                      text: "✕"
+                      color: cardRoot.deleteArmed ? "#ffffff" : root.textColor
+                      font.pixelSize: 9
+                    }
+
+                    MouseArea {
+                      id: deleteBtnMouse
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        if (!root.kanbanService) return
+                        if (cardRoot.deleteArmed) {
+                          root.deleteArmedId = ""
+                          root.kanbanService.removeCard(cardRoot.modelData.id)
+                        } else {
+                          root.deleteArmedId = cardRoot.modelData.id
+                        }
+                      }
+                    }
+                  }
+                }
               }
           }
         }
@@ -405,39 +935,97 @@ Item {
       }
     }
 
-    // No in-panel "add card"/rename input -- CLI/agent-only for any
-    // text entry (kanbanAddCard/kanbanRenameColumn), per direct
-    // request ("i rather do it from cli or tui tbh"). Advancing,
-    // regressing, and removing a card stay mouse-driven here since
-    // those are plain clicks, not typing.
+    // Superseded -- the "no in-panel text entry" rule this comment used
+    // to document was reversed by the later "its not GUI friendly"
+    // request: each column header now has a "+" opening this file's own
+    // inline add editor, and each card carries hover edit/delete. The
+    // only thing still CLI/agent-only on this board is RENAMING A
+    // COLUMN (kanbanRenameColumn). Advancing, regressing, and the Done
+    // dismiss stay plain clicks, same as they always were.
   }
 
-  RowLayout {
-    id: columnsRow
+  // Root is a two-piece ColumnLayout now: a slim progress row (done /
+  // total across the whole board -- the "check progress" half of the
+  // direct GUI request), then the columns row itself. The columns row
+  // keeps every margin it had as anchors -- just translated into
+  // Layout margins, same values, since it is a layout child now.
+  ColumnLayout {
     anchors.fill: parent
-    // Extra clearance on the right -- direct report ("thrid panel
-    // sits too close to edge"), confirmed live: the Done column's own
-    // right edge sat only a few px from the notch's own curved right
-    // edge. Same fix, same value, as MetricsContent.qml's own
-    // Layout.rightMargin: 10 on its stat-tile grid (its own comment:
-    // "the expanded panel's outer anchors.rightMargin... wasn't enough
-    // breathing room on its own for this dense a grid") -- this tab is
-    // the same shape of problem, a full-width grid of tonal panels
-    // reaching the panel's own right edge.
-    anchors.rightMargin: 10
-    // Same reasoning, bottom edge -- direct follow-up: "the buttom of
-    // the panel stil ends too close to the buttom of the notch edge".
-    // The notch's own signature shape has its rounded corners at the
-    // BOTTOM (see Overlay.qml's own bottomLeftRadius/bottomRightRadius
-    // on the notch shape itself), so a full-height panel reaching the
-    // shared 12px outer bottomMargin needs real clearance from that
-    // curve, same as the right edge did.
-    anchors.bottomMargin: 10
     spacing: 8
 
-    Repeater {
-      model: root.kanbanService ? root.kanbanService.columns : []
-      delegate: KanbanColumn {}
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.leftMargin: 10
+      Layout.rightMargin: 10
+      spacing: 8
+
+      Text {
+        text: "Progress"
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        font.bold: true
+      }
+
+      // Track + fill -- same tonal-track/accent-fill language as the
+      // rest of this plugin family. width is a plain binding off the
+      // done/total counts (KanbanService reassigns its cards array on
+      // every mutation, so this re-evaluates on any add/move/remove),
+      // never a live-ticking number, so there is no rapid-resize
+      // flicker concern the way a media-progress bar has.
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 5
+        radius: 2.5
+        color: Qt.rgba(1, 1, 1, 0.10)
+
+        Rectangle {
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+          anchors.left: parent.left
+          width: parent.width * (root.totalCards > 0 ? Math.min(root.doneCards / root.totalCards, 1) : 0)
+          radius: 2.5
+          color: root.accent
+          Behavior on width { NumberAnimation { duration: 150 } }
+        }
+      }
+
+      Text {
+        text: root.doneCards + "/" + root.totalCards
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 10
+      }
+    }
+
+    RowLayout {
+      id: columnsRow
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      // Extra clearance on the right -- direct report ("thrid panel
+      // sits too close to edge"), confirmed live: the Done column's own
+      // right edge sat only a few px from the notch's own curved right
+      // edge. Same fix, same value, as MetricsContent.qml's own
+      // Layout.rightMargin: 10 on its stat-tile grid (its own comment:
+      // "the expanded panel's outer anchors.rightMargin... wasn't enough
+      // breathing room on its own for this dense a grid") -- this tab is
+      // the same shape of problem, a full-width grid of tonal panels
+      // reaching the panel's own right edge.
+      Layout.rightMargin: 10
+      // Same reasoning, bottom edge -- direct follow-up: "the buttom of
+      // the panel stil ends too close to the buttom of the notch edge".
+      // The notch's own signature shape has its rounded corners at the
+      // BOTTOM (see Overlay.qml's own bottomLeftRadius/bottomRightRadius
+      // on the notch shape itself), so a full-height panel reaching the
+      // shared 12px outer bottomMargin needs real clearance from that
+      // curve, same as the right edge did.
+      Layout.bottomMargin: 10
+      spacing: 8
+
+      Repeater {
+        model: root.kanbanService ? root.kanbanService.columns : []
+        delegate: KanbanColumn {}
+      }
     }
   }
 }

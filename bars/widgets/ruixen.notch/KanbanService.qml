@@ -18,6 +18,12 @@ import "KanbanModel.js" as KanbanModel
 // native... id tell you to manage and update it" -- this is the
 // primary intended way to use the board, not a bonus feature bolted
 // onto a mouse-driven one.
+//
+// Since the later "its not GUI friendly, i wanna add edit delete check
+// progress on the notch" request reversed the CLI-only-for-typing
+// rule, KanbanContent.qml's own in-panel add/edit/delete buttons call
+// THESE SAME functions directly -- one API, two surfaces (panel and
+// CLI/agent), never a second implementation of any mutation here.
 Item {
   id: service
 

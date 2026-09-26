@@ -15,6 +15,8 @@ suites=(
   "$script_dir/looknfeel-preserve.sh"
   "$script_dir/looknfeel-stable-path.sh"
   "$script_dir/looknfeel-choice-persist.sh"
+  "$script_dir/curvature-half-option.sh"
+  "$script_dir/notch-kanban-gui.sh"
   "$script_dir/glass-profile-contract.sh"
   "$script_dir/glass-tint-contract.sh"
   "$script_dir/uninstall-bar-restore.sh"

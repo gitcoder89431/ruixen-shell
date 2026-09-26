@@ -309,10 +309,12 @@ from Hyprland sharp/rounded window corners.
 
 `ruixen.notch`'s dashboard has a 4th tab: a fixed 3-column board (Todo / In
 Progress / Done — Tab cycles through all 4 tabs, or click the column-icon in
-the left rail). It's agent-native — built to be driven programmatically
-rather than typed into by hand, so adding a card, renaming a column, and
-setting priority are all CLI-only. Full command reference and how the
-click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
+the left rail). It's agent-native — every mutation (add, move, rename,
+priority, due date, label, description) is a plain IPC call a script or
+agent can drive — and it's fully editable in the notch itself now too:
+per-column add buttons, hover edit/delete on each card, and a done/total
+progress bar. Renaming a column stays CLI-only. Full command reference and
+how the click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
 
 ## Window look'n'feel (Hyprland)
 
@@ -321,14 +323,17 @@ frame/bar. Toggle it independently of the plugins above:
 
 ```bash
 hyprland/ruixen-lookfeel.sh on      # rounded corners + blur, matches the frame
+hyprland/ruixen-lookfeel.sh half    # rounded corners at half the radius (12px), same border/blur/shadow/animations
 hyprland/ruixen-lookfeel.sh off     # stock Omarchy: square corners, no blur
 hyprland/ruixen-lookfeel.sh square  # square corners, but keeps the thin border/blur/shadow/animations
 hyprland/ruixen-lookfeel.sh status  # show which one is active
 ```
 
-`square` is for anyone who wants stock Omarchy's own square corners without
+`half` is the middle step between `on` and `square` — the same rounded look
+at half the corner radius, for when 24px reads too soft and sharp reads too
+stark. `square` is for anyone who wants stock Omarchy's own square corners without
 giving up the rest of Ruixen's look. The screen frame's own corner rounding
-follows whichever of the three is active automatically when the bar is
+follows whichever of the four is active automatically when the bar is
 floating. When the bar is docked, the frame's corner always stays rounded
 regardless of which variant is active -- docked mode's own wider gaps
 already keep real window corners well clear of that curve, so nothing

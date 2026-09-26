@@ -310,11 +310,22 @@ Item {
           }
 
           Rectangle {
+            id: headerCountPill
             anchors.verticalCenter: parent.verticalCenter
             implicitWidth: Math.max(18, countText.implicitWidth + 10)
             implicitHeight: 18
             radius: height / 2
             color: Qt.rgba(root.readableAccentColor.r, root.readableAccentColor.g, root.readableAccentColor.b, 0.16)
+            layer.enabled: true
+            layer.smooth: true
+            layer.effect: MultiEffect {
+              shadowEnabled: true
+              shadowColor: "#000000"
+              shadowOpacity: 0.28
+              shadowBlur: 0.18
+              shadowHorizontalOffset: 0
+              shadowVerticalOffset: 1
+            }
 
             Text {
               id: countText
@@ -493,13 +504,22 @@ Item {
               border.color: root.accent
               border.width: 1.5
 
-              onVisibleChanged: if (visible) Qt.callLater(function() { addInput.forceActiveFocus() })
+              onVisibleChanged: if (visible) Qt.callLater(function() {
+                addRow.resetAddInputs()
+                addInput.forceActiveFocus()
+              })
+
+              function resetAddInputs() {
+                addInput.text = ""
+                addDescInput.text = ""
+              }
 
               function commitAdd() {
                 if (addInput.text.trim() === "" || !root.kanbanService) return
                 var cardId = root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)
                 if (cardId !== "" && addDescInput.text.trim() !== "")
                   root.kanbanService.setDescription(cardId, addDescInput.text)
+                addRow.resetAddInputs()
                 root.addColumnId = ""
               }
 
@@ -601,7 +621,7 @@ Item {
               Repeater {
               model: columnRoot.columnCards
 
-              Rectangle {
+              Item {
                 id: cardRoot
                 required property var modelData
                 // This card is the one with the open inline editor /
@@ -617,33 +637,38 @@ Item {
                 // invisible children) would otherwise collapse the card
                 // around the open editor.
                 Layout.preferredHeight: (cardRoot.isEditing ? editContent.implicitHeight : cardContent.implicitHeight) + 16
-                radius: 8
-                // Theme-aware surface, passed from Overlay.qml. It is
-                // derived from text color instead of the pane fill, so
-                // cards remain visible on both dark and light themes.
-                color: root.cardSurface
-                // Accent border on hover -- direct request ("better
-                // visibility on hover of the row... so i know what im
-                // clicking or moving around"). A plain border directly
-                // on this Rectangle, unlike the notification row's own
-                // top-layer overlay trick -- that workaround exists
-                // there specifically because a thumbnail image paints
-                // over a Rectangle's own border; this card has no such
-                // overlapping content, so the direct border just works.
-                border.color: cardRoot.deleteArmed ? root.dangerColor
-                  : (cardArea.containsMouse || editButton.hovered || deleteButton.hovered) ? root.accent
-                  : root.cardBorderColor
-                border.width: cardRoot.deleteArmed || cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 1.5 : 1
-                Behavior on border.color { ColorAnimation { duration: 100 } }
-                layer.enabled: true
-                layer.smooth: true
-                layer.effect: MultiEffect {
-                  shadowEnabled: true
-                  shadowColor: "#000000"
-                  shadowOpacity: cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 0.48 : 0.35
-                  shadowBlur: 0.28
-                  shadowHorizontalOffset: 0
-                  shadowVerticalOffset: cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 4 : 3
+
+                Rectangle {
+                  id: cardBase
+                  anchors.fill: parent
+                  radius: 8
+                  color: root.cardSurface
+                  layer.enabled: true
+                  layer.smooth: true
+                  layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: "#000000"
+                    shadowOpacity: 0.38
+                    shadowBlur: 0.22
+                    shadowHorizontalOffset: 0
+                    shadowVerticalOffset: 3
+                  }
+                }
+
+                Rectangle {
+                  id: cardChrome
+                  anchors.fill: parent
+                  radius: cardBase.radius
+                  color: root.cardSurface
+                  // Hover/armed state only changes the foreground
+                  // border. The shadow source behind this rectangle is
+                  // always borderless, so the accent border cannot cast
+                  // or create an inner-looking shadow artifact.
+                  border.color: cardRoot.deleteArmed ? root.dangerColor
+                    : (cardArea.containsMouse || editButton.hovered || deleteButton.hovered) ? root.accent
+                    : "transparent"
+                  border.width: cardRoot.deleteArmed || cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 1.5 : 0
+                  Behavior on border.color { ColorAnimation { duration: 100 } }
                 }
 
                 // Whole-row click, no chevrons -- direct follow-up
@@ -993,7 +1018,11 @@ Item {
 	      color: Qt.rgba(1, 1, 1, 0.05)
 
 	      property real value: root.doneRatio
+	      property color ringAccent: root.readableAccentColor
+	      property color tipColor: root.textColor
 	      onValueChanged: doneDial.requestPaint()
+	      onRingAccentChanged: doneDial.requestPaint()
+	      onTipColorChanged: doneDial.requestPaint()
 
 	      RowLayout {
 	        anchors.centerIn: parent
@@ -1029,7 +1058,7 @@ Item {
 	                ctx.stroke()
 	              }
 
-	              ctx.strokeStyle = root.accent
+	              ctx.strokeStyle = doneProgressCard.ringAccent
 	              ctx.beginPath()
 	              var progressEnd = Math.max(startAngle, endAngle - gapRad)
 	              ctx.arc(cx, cy, r, startAngle, progressEnd)
@@ -1043,7 +1072,7 @@ Item {
 	              var ty2 = cy + tipR2 * Math.sin(endAngle)
 	              ctx.lineWidth = 5
 	              ctx.lineCap = "round"
-	              ctx.strokeStyle = "#ffffff"
+	              ctx.strokeStyle = doneProgressCard.tipColor
 	              ctx.beginPath()
 	              ctx.moveTo(tx1, ty1)
 	              ctx.lineTo(tx2, ty2)

@@ -74,6 +74,10 @@ check "column header count text uses readable accent color" \
   "$(grep -c 'color: root.readableAccentColor' "$content_qml")" \
   "1"
 
+check "column header count pill has its own raised shadow" \
+  "$(grep -E -c 'id: headerCountPill|shadowOpacity: 0.28|shadowBlur: 0.18|shadowVerticalOffset: 1' "$content_qml")" \
+  "4"
+
 check "column header add action is a wider pill" \
   "$(grep -F -c 'implicitWidth: addActionRow.implicitWidth + 16' "$content_qml")" \
   "1"
@@ -89,6 +93,9 @@ check "add editor commits through KanbanService.addCard with the column + priori
 check "add editor can set description on the newly-created card" \
   "$(grep -m1 'root.kanbanService.setDescription(cardId, addDescInput.text)' "$content_qml")" \
   '                  root.kanbanService.setDescription(cardId, addDescInput.text)'
+
+check "add editor clears stale title and description when opened" \
+  "$(( $(grep -F -c 'function resetAddInputs()' "$content_qml") + $(grep -F -c 'addInput.text = ""' "$content_qml") + $(grep -F -c 'addDescInput.text = ""' "$content_qml") + $(grep -F -c 'addRow.resetAddInputs()' "$content_qml") ))" "5"
 
 check "priority chip cycles default medium to high, then low, then medium" \
   "$(grep -m1 'return priority === "medium" ? "high" : priority === "high" ? "low" : "medium"' "$content_qml")" \
@@ -140,14 +147,11 @@ check "Kanban semantic colors are supplied from the active theme palette" \
 check "Kanban card surfaces are text-contrast derived for dark and light themes" \
   "$(grep -E -c 'cardSurface: Qt.rgba\(root.textColor.r, root.textColor.g, root.textColor.b, 0.055\)|editorSurface: Qt.rgba\(root.textColor.r, root.textColor.g, root.textColor.b, 0.075\)' "$overlay_qml")" "2"
 
-check "Kanban cards get an always-on subtle contrast border" \
-  "$(grep -c 'cardBorderColor: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.14)' "$overlay_qml")" "1"
-
-check "Kanban idle card border falls back to the subtle contrast token" \
-  "$(grep -c ': root.cardBorderColor' "$content_qml")" "1"
+check "Kanban idle cards use no grey outline" \
+  "$(( $(grep -F -c ': "transparent"' "$content_qml") + $(grep -F -c 'border.width: cardRoot.deleteArmed || cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 1.5 : 0' "$content_qml") ))" "2"
 
 check "Kanban task and editor rectangles use surface tokens, not raw black" \
-  "$(grep -E -c 'color: root.cardSurface|color: root.editorSurface' "$content_qml")" "2"
+  "$(grep -E -c 'color: root.cardSurface|color: root.editorSurface' "$content_qml")" "3"
 
 check "Kanban cards import QtQuick effects for raised shadows" \
   "$(grep -c 'import QtQuick.Effects' "$content_qml")" "1"
@@ -155,8 +159,8 @@ check "Kanban cards import QtQuick effects for raised shadows" \
 check "Kanban cards have enough spacing for subtle shadow depth" \
   "$(grep -A4 'id: cardsColumn' "$content_qml" | grep -c 'spacing: 8')" "1"
 
-check "Kanban task cards use a dark raised shadow" \
-  "$(grep -F -c 'shadowEnabled: true' "$content_qml")" "1"
+check "Kanban task cards use a stable borderless base shadow behind hover chrome" \
+  "$(( $(grep -F -c 'id: cardBase' "$content_qml") + $(grep -F -c 'id: cardChrome' "$content_qml") + $(grep -F -c 'shadowOpacity: 0.38' "$content_qml") + $(grep -F -c 'shadowBlur: 0.22' "$content_qml") + $(grep -F -c 'shadowVerticalOffset: 3' "$content_qml") ))" "5"
 
 # --- Edit path ----------------------------------------------------------
 check "edit editor saves through KanbanService.renameCard" \
@@ -266,6 +270,17 @@ check "Done footer shows completion percent" \
 
 check "Done footer dial is driven by the done/total ratio" \
   "$(grep -c 'property real value: root.doneRatio' "$content_qml")" \
+  "1"
+
+check "Done footer dial repaints when theme colors change" \
+  "$(( $(grep -F -c 'property color ringAccent: root.readableAccentColor' "$content_qml") + $(grep -F -c 'property color tipColor: root.textColor' "$content_qml") + $(grep -F -c 'onRingAccentChanged: doneDial.requestPaint()' "$content_qml") + $(grep -F -c 'onTipColorChanged: doneDial.requestPaint()' "$content_qml") ))" "4"
+
+check "Done footer dial arc uses readable theme accent" \
+  "$(grep -c 'ctx.strokeStyle = doneProgressCard.ringAccent' "$content_qml")" \
+  "1"
+
+check "Done footer dial tip uses theme foreground for contrast" \
+  "$(grep -c 'ctx.strokeStyle = doneProgressCard.tipColor' "$content_qml")" \
   "1"
 
 check "Done footer dial does not wrap the remaining-track arc at 100%" \

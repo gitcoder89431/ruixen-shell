@@ -334,7 +334,7 @@ Item {
     id: avatarNotifyProc
   }
 
-  // --- Profile: Window Curvature (Sharp/Rounded). First ported
+  // --- Profile: Window Curvature (Sharp/Half/Rounded). First ported
   // byte-for-byte from ruixen.settings (cornerCurvature/
   // setCornerCurvature), which shells out to the real hyprland/
   // ruixen-lookfeel.sh SCRIPT via a required git checkout path
@@ -386,7 +386,13 @@ Item {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        root.cornerCurvature = String(text || "").indexOf("looknfeel.square.lua") >= 0 ? "sharp" : "rounded"
+        var link = String(text || "")
+        if (link.indexOf("looknfeel.square.lua") >= 0)
+          root.cornerCurvature = "sharp"
+        else if (link.indexOf("looknfeel.half.lua") >= 0)
+          root.cornerCurvature = "half"
+        else
+          root.cornerCurvature = "rounded"
       }
     }
   }
@@ -397,10 +403,12 @@ Item {
   }
 
   function setCornerCurvature(curvature) {
-    if (curvature !== "sharp" && curvature !== "rounded") return
+    if (curvature !== "sharp" && curvature !== "half" && curvature !== "rounded") return
     root.cornerCurvature = curvature
     var target = root.looknfeelTarget
-    var src = root.looknfeelDataDir + "/" + (curvature === "sharp" ? "looknfeel.square.lua" : "looknfeel.ruixen.lua")
+    var src = root.looknfeelDataDir + "/" + (curvature === "sharp" ? "looknfeel.square.lua"
+              : curvature === "half" ? "looknfeel.half.lua"
+              : "looknfeel.ruixen.lua")
     // Same three steps as ruixen-lookfeel.sh's own apply(): back up a
     // real (non-symlink) file rather than clobber it, swap the symlink
     // + reload Hyprland, then always attempt the shell restart last
@@ -419,8 +427,9 @@ Item {
   // spacingProfile/setSpacingProfile. Unlike Window Curvature, this
   // doesn't shell out to a real script or need a repo checkout -- a
   // plain text file + `hyprctl reload`, so no ruixenRepoPath guard
-  // here either. Applies under both Sharp and Rounded curvature (both
-  // looknfeel.ruixen.lua and looknfeel.square.lua read this same
+  // here either. Applies under every curvature variant (all three
+  // Ruixen-look files -- looknfeel.ruixen.lua, looknfeel.square.lua,
+  // looknfeel.half.lua -- read this same
   // file), so this card's own availability never depends on
   // cornerCurvature's current value.
   property string spacingProfile: "comfy"
@@ -1966,7 +1975,7 @@ Item {
       activate: function(id) { root.setGlassTintMode(id) }
     },
     {
-      options: ["rounded", "sharp"],
+      options: ["rounded", "half", "sharp"],
       current: root.cornerCurvature,
       activate: function(id) { root.setCornerCurvature(id) }
     },
@@ -3198,6 +3207,7 @@ Item {
     label: "Window Curvature"
     options: [
       { id: "rounded", label: "Curve" },
+      { id: "half", label: "Half" },
       { id: "sharp", label: "Sharp" }
     ]
     current: root.cornerCurvature

@@ -35,7 +35,7 @@ check "Bar.qml declares barStyle state" \
 check "Bar.qml exposes fullbarStyle as the only fullbar flag" \
   "$(grep -m1 'readonly property bool fullbarStyle: barStyle === "fullbar"' "$bar_qml")" '  readonly property bool fullbarStyle: barStyle === "fullbar"'
 
-check "bar.style, not sharpCorners, selects fullbar" \
+check "bar.style, not the lookfeel variant, selects fullbar" \
   "$(grep -m1 'barStyle = config.style === "fullbar" ? "fullbar" : "notch"' "$bar_qml")" '    barStyle = config.style === "fullbar" ? "fullbar" : "notch"'
 
 check "fullbar removes the notch center reservation" \

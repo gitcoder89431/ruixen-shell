@@ -307,10 +307,15 @@ Item {
     animationProfileWriteProc.running = true
   }
 
-  // Window Curvature (Sharp/Rounded) -- direct request: a Settings UI
+  // Window Curvature (Sharp/Half/Rounded) -- direct request: a Settings UI
   // for the on/square split hyprland/ruixen-lookfeel.sh already has.
   // "Sharp" = the square variant (thin border/blur/shadow/animations
-  // kept, just no rounding), "Rounded" = the original "on" variant.
+  // kept, just no rounding), "Half" = the half variant (the full curve's
+  // own rounding 24 cut to 12 -- direct request: "add a 3rd option that'd
+  // be half the size of the border's curve on the windows"; the free
+  // slider/number input was declined upstream because the frame's own
+  // corner mask is hand-tuned per variant), "Rounded" = the original
+  // "on" variant.
   // Deliberately doesn't expose the full "off" here -- that's a much
   // bigger, all-or-nothing toggle (loses blur/shadow/the thinner
   // border too), stays CLI-only, unchanged.
@@ -335,7 +340,13 @@ Item {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        root.cornerCurvature = String(text || "").indexOf("looknfeel.square.lua") >= 0 ? "sharp" : "rounded"
+        var link = String(text || "")
+        if (link.indexOf("looknfeel.square.lua") >= 0)
+          root.cornerCurvature = "sharp"
+        else if (link.indexOf("looknfeel.half.lua") >= 0)
+          root.cornerCurvature = "half"
+        else
+          root.cornerCurvature = "rounded"
       }
     }
   }
@@ -346,11 +357,11 @@ Item {
   }
 
   function setCornerCurvature(curvature) {
-    if (curvature !== "sharp" && curvature !== "rounded") return
+    if (curvature !== "sharp" && curvature !== "half" && curvature !== "rounded") return
     if (root.ruixenRepoPath === "") return
     root.cornerCurvature = curvature
     var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
-    var variant = curvature === "sharp" ? "square" : "on"
+    var variant = curvature === "sharp" ? "square" : curvature === "half" ? "half" : "on"
     cornerCurvatureWriteProc.command = ["bash", "-c",
       "cd '" + safePath + "' && ./hyprland/ruixen-lookfeel.sh " + variant]
     cornerCurvatureWriteProc.running = true

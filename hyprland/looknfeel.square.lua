@@ -16,9 +16,11 @@
 -- parts (blur/shadow/animation profiles) needs applying in both files
 -- by hand.
 --
--- ruixen.frame-widget/Overlay.qml's own screen-frame corner mask
--- reads which of the three variants is active and matches its
--- rounding automatically (0 here, 24 for looknfeel.ruixen.lua) --
+-- ruixen.bar/Bar.qml's own screen-frame corner mask (v2 moved it out
+-- of the old ruixen.frame-widget plugin into the bar itself) reads
+-- which of the four variants is active and matches its rounding
+-- automatically (0 here, 12 for looknfeel.half.lua, 24 for
+-- looknfeel.ruixen.lua) --
 -- direct bug report, live: mismatched rounding between the real
 -- window and the frame's own hole punch made a square window's real
 -- corner get partly painted over by the frame's still-rounded mask,
@@ -136,7 +138,8 @@ hl.config({
     -- background_opacity, see ../kitty.conf) show a blurred desktop
     -- behind them instead of plain see-through. noise: see
     -- looknfeel.ruixen.lua's own comment on this exact line -- needs
-    -- applying in both files, same as blur/shadow/animation profiles.
+    -- applying in all three Ruixen-look files, same as blur/shadow/
+    -- animation profiles.
     -- size/passes: also Glass-profile-driven, same as inactive_opacity
     -- above.
     blur = {
@@ -179,7 +182,7 @@ hl.config({
 
 -- Frosted glass for ruixen.launcher's own card -- see looknfeel.ruixen.lua's
 -- own comment on this exact block for the full reasoning; needs applying in
--- both files, same as blur/shadow/animation profiles above.
+-- all three Ruixen-look files, same as blur/shadow/animation profiles above.
 hl.layer_rule({
   match = { namespace = "ruixen-launcher" },
   blur = true,

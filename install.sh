@@ -592,7 +592,7 @@ rollback_looknfeel() {
 rollback_looknfeel_data() {
   [[ "$LOOKNFEEL_DATA_TOUCHED" -eq 1 ]] || return 0
   local variant
-  for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua; do
+  for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua looknfeel.half.lua; do
     rm -f "$looknfeel_data_dir/$variant"
     if [[ "${LOOKNFEEL_DATA_HAD_BACKUP[$variant]:-0}" -eq 1 ]]; then
       mv "$looknfeel_data_backup_dir/$variant.bak.$stamp" "$looknfeel_data_dir/$variant" \
@@ -865,7 +865,7 @@ LOOKNFEEL_DATA_TOUCHED=1
 [[ -e "$HOME/.local/share/ruixen-shell" ]] && LOOKNFEEL_DATA_ROOT_PREEXISTED=1 || LOOKNFEEL_DATA_ROOT_PREEXISTED=0
 looknfeel_data_dir="$HOME/.local/share/ruixen-shell/hyprland"
 mkdir -p "$looknfeel_data_dir"
-for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua; do
+for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua looknfeel.half.lua; do
   if [[ -e "$looknfeel_data_dir/$variant" ]]; then
     cp "$looknfeel_data_dir/$variant" "$looknfeel_data_backup_dir/$variant.bak.$stamp"
     LOOKNFEEL_DATA_HAD_BACKUP[$variant]=1
@@ -911,6 +911,9 @@ case "$looknfeel_current_variant" in
     ;;
   looknfeel.square.lua)
     printf '  kept your existing choice: square corners, with the thin border/blur/shadow\n'
+    ;;
+  looknfeel.half.lua)
+    printf '  kept your existing choice: rounded corners at half the radius (12px)\n'
     ;;
   *)
     printf '  applied rounded corners + blur matching the frame (24px)\n'
@@ -1126,7 +1129,7 @@ prune_backups "$backup_retain_count" "${looknfeel_target}.bak.*"
 # other backup here -- left unbounded, it would just reintroduce the
 # exact unbounded-accumulation problem #10 already fixed everywhere
 # else, for a location that happens to be new instead of old.
-for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua; do
+for variant in looknfeel.ruixen.lua looknfeel.square.lua looknfeel.default.lua looknfeel.half.lua; do
   prune_backups "$backup_retain_count" "$looknfeel_data_backup_dir/$variant.bak.*"
 done
 # Same bounded retention, for theme-overlays/ backups -- prune_backups

@@ -394,10 +394,10 @@ ColumnLayout {
 
   // Window Curvature -- own card, same segmented-button treatment as
   // Bar Layout above. Direct request: a Settings UI
-  // for the on/square split hyprland/ruixen-lookfeel.sh already has.
+  // for the on/half/square split hyprland/ruixen-lookfeel.sh already has.
   // "Off" (stock Omarchy, no border/blur/shadow either) isn't offered
   // here -- a much bigger toggle than just corner shape, stays
-  // CLI-only. Clicking either option runs the real script and
+  // CLI-only. Clicking any option runs the real script and
   // restarts the shell (see setCornerCurvature's own comment), so
   // this settings panel itself will visibly reopen fresh a moment
   // after clicking -- expected, not a bug.
@@ -428,6 +428,7 @@ ColumnLayout {
         Repeater {
           model: [
             { id: "sharp", label: "Sharp" },
+            { id: "half", label: "Half" },
             { id: "rounded", label: "Rounded" }
           ]
 

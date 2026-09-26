@@ -42,12 +42,20 @@ check "column header + button opens the add editor for its own column" \
   "$(grep -c 'onClicked: root.openAdd(columnRoot.columnId)' "$content_qml")" \
   "1"
 
-check "column header + button uses green hover fill" \
-  "$(grep -c 'color: addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
+check "column header + button no longer hides while the add editor is open" \
+  "$(grep -F -c 'visible: columnRoot.columnId !== "done" && root.addColumnId !== columnRoot.columnId' "$content_qml")" \
+  "0"
+
+check "column header + button tracks its active add editor state" \
+  "$(grep -c 'readonly property bool active: root.addColumnId === columnRoot.columnId' "$content_qml")" \
   "1"
 
-check "column header + glyph stays green when idle" \
-  "$(grep -c 'color: addMouse.containsMouse ? "#000000" : root.successColor' "$content_qml")" \
+check "column header + button uses green fill when active or hovered" \
+  "$(grep -c 'color: active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
+  "1"
+
+check "column header + glyph inverts when active or hovered" \
+  "$(grep -c 'color: active || addMouse.containsMouse ? "#000000" : root.successColor' "$content_qml")" \
   "2"
 
 check "column header label and count share one compact pill" \

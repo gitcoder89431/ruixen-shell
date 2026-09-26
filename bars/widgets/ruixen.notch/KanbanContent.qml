@@ -305,17 +305,19 @@ Item {
       Item { Layout.fillWidth: true }
 
       // In-panel add button -- opens this column's inline "new card"
-      // row (see the addRow comment inside the card area). Hidden while
-      // this column's editor is already open -- the editor has its own
-      // cancel, and a second add button would just be a second way to do
-      // nothing. Wider than the old tiny "+" target for easier clicking.
+      // row (see the addRow comment inside the card area). It stays
+      // visible as an active green pill while this column's editor is
+      // open, so the header keeps showing what mode the column is in.
+      // Wider than the old tiny "+" target for easier clicking.
       Rectangle {
-        visible: columnRoot.columnId !== "done" && root.addColumnId !== columnRoot.columnId
+        readonly property bool active: root.addColumnId === columnRoot.columnId
+
+        visible: columnRoot.columnId !== "done"
         Layout.alignment: Qt.AlignVCenter
         implicitWidth: addActionRow.implicitWidth + 16
         implicitHeight: 24
         radius: height / 2
-        color: addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)
+        color: active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)
 
         Row {
           id: addActionRow
@@ -325,7 +327,7 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "+"
-            color: addMouse.containsMouse ? "#000000" : root.successColor
+            color: active || addMouse.containsMouse ? "#000000" : root.successColor
             font.family: root.fontFamily
             font.pixelSize: 12
             font.bold: true
@@ -334,7 +336,7 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "Add"
-            color: addMouse.containsMouse ? "#000000" : root.successColor
+            color: active || addMouse.containsMouse ? "#000000" : root.successColor
             font.family: root.fontFamily
             font.pixelSize: 10
             font.bold: true

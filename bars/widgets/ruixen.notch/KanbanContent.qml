@@ -37,6 +37,7 @@ Item {
   property color dangerColor: "#e05252"
   property color warningColor: "#e8c34a"
   property color cardSurface: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.035)
+  property color cardBorderColor: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.12)
   property color editorSurface: Qt.darker(cardSurface, 1.08)
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
@@ -589,9 +590,9 @@ Item {
                 // around the open editor.
                 Layout.preferredHeight: (cardRoot.isEditing ? editContent.implicitHeight : cardContent.implicitHeight) + 16
                 radius: 8
-                // Dark theme-aware surface, passed from Overlay.qml.
-                // Kept near-black for contrast, but no longer one raw
-                // hardcoded black value inside this board.
+                // Theme-aware surface, passed from Overlay.qml. It is
+                // derived from text color instead of the pane fill, so
+                // cards remain visible on both dark and light themes.
                 color: root.cardSurface
                 // Accent border on hover -- direct request ("better
                 // visibility on hover of the row... so i know what im
@@ -603,8 +604,8 @@ Item {
                 // overlapping content, so the direct border just works.
                 border.color: cardRoot.deleteArmed ? root.dangerColor
                   : (cardArea.containsMouse || editButton.hovered || deleteButton.hovered) ? root.accent
-                  : "transparent"
-                border.width: 1.5
+                  : root.cardBorderColor
+                border.width: cardRoot.deleteArmed || cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 1.5 : 1
                 Behavior on border.color { ColorAnimation { duration: 100 } }
 
                 // Whole-row click, no chevrons -- direct follow-up

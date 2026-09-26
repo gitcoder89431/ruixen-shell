@@ -134,8 +134,14 @@ check "Kanban confirm token is supplied from the active theme blue swatch" \
 check "Kanban semantic colors are supplied from the active theme palette" \
   "$(grep -E -c 'successColor: root.kanbanSuccessColor|dangerColor: root.kanbanDangerColor|warningColor: root.kanbanWarningColor' "$overlay_qml")" "3"
 
-check "Kanban card and editor surfaces are explicit theme-fed tokens" \
-  "$(grep -E -c 'cardSurface: Qt.lighter\(root.notchColor, 1.18\)|editorSurface: Qt.darker\(root.notchColor, 1.08\)' "$overlay_qml")" "2"
+check "Kanban card surfaces are text-contrast derived for dark and light themes" \
+  "$(grep -E -c 'cardSurface: Qt.rgba\(root.textColor.r, root.textColor.g, root.textColor.b, 0.055\)|editorSurface: Qt.rgba\(root.textColor.r, root.textColor.g, root.textColor.b, 0.075\)' "$overlay_qml")" "2"
+
+check "Kanban cards get an always-on subtle contrast border" \
+  "$(grep -c 'cardBorderColor: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.14)' "$overlay_qml")" "1"
+
+check "Kanban idle card border falls back to the subtle contrast token" \
+  "$(grep -c ': root.cardBorderColor' "$content_qml")" "1"
 
 check "Kanban task and editor rectangles use surface tokens, not raw black" \
   "$(grep -E -c 'color: root.cardSurface|color: root.editorSurface' "$content_qml")" "2"
@@ -188,7 +194,7 @@ check "all five compact action surfaces use the shared component" \
   "$(grep -c 'KanbanActionButton {' "$content_qml")" "5"
 
 check "card hover border stays active while hovering edit/delete buttons" \
-  "$(grep -c 'cardArea.containsMouse || editButton.hovered || deleteButton.hovered' "$content_qml")" "1"
+  "$(grep -c ': (cardArea.containsMouse || editButton.hovered || deleteButton.hovered) ? root.accent' "$content_qml")" "1"
 
 check "hover edit button uses Font Awesome edit glyph" \
   "$(grep -F -c 'icon: "\uf044"' "$content_qml")" "1"

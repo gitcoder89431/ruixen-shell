@@ -2406,8 +2406,9 @@ Item {
                 successColor: root.kanbanSuccessColor
                 dangerColor: root.kanbanDangerColor
                 warningColor: root.kanbanWarningColor
-                cardSurface: Qt.lighter(root.notchColor, 1.18)
-                editorSurface: Qt.darker(root.notchColor, 1.08)
+                cardSurface: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.055)
+                cardBorderColor: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.14)
+                editorSurface: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.075)
                 fontFamily: root.fontFamily
                 kanbanService: kanbanService
               }

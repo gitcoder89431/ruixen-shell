@@ -53,6 +53,29 @@ Item {
   property string editPriority: "medium"
   property string deleteArmedId: "" // card whose delete button is armed for its confirming second click
 
+  function colorLuminance(c) {
+    return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+  }
+
+  function readableSemanticColor(c) {
+    // Some Omarchy themes intentionally use muted semantic swatches
+    // (Miasma red is closer to brown than alert red). Tiny action
+    // glyphs need more contrast than full-size themed surfaces, so pull
+    // weak semantic tokens toward the readable text color while keeping
+    // the theme hue instead of hardcoding one global red/green/blue.
+    var colorLum = root.colorLuminance(c)
+    var textLum = root.colorLuminance(root.textColor)
+    var needsLift = textLum > 0.5 && colorLum < 0.45
+    var needsDrop = textLum <= 0.5 && colorLum > 0.55
+    if (!needsLift && !needsDrop) return c
+    return Qt.rgba(
+      c.r + (root.textColor.r - c.r) * 0.32,
+      c.g + (root.textColor.g - c.g) * 0.32,
+      c.b + (root.textColor.b - c.b) * 0.32,
+      c.a
+    )
+  }
+
   component KanbanActionButton : Rectangle {
     id: actionButton
 
@@ -63,18 +86,19 @@ Item {
     property color idleColor: Qt.rgba(1, 1, 1, 0.08)
     property bool armed: false
     readonly property bool hovered: actionMouse.containsMouse
+    readonly property color resolvedAccentColor: root.readableSemanticColor(accentColor)
 
     signal clicked()
 
     width: 20
     height: 20
     radius: 6
-    color: (armed || hovered) ? accentColor : idleColor
+    color: (armed || hovered) ? resolvedAccentColor : idleColor
 
     Text {
       anchors.centerIn: parent
       text: actionButton.icon
-      color: (actionButton.armed || actionButton.hovered) ? "#000000" : actionButton.accentColor
+      color: (actionButton.armed || actionButton.hovered) ? "#000000" : actionButton.resolvedAccentColor
       font.family: actionButton.iconFamily
       font.pixelSize: actionButton.iconPixelSize
     }
@@ -314,13 +338,14 @@ Item {
         id: addActionButton
 
         readonly property bool active: root.addColumnId === columnRoot.columnId
+        readonly property color readableSuccessColor: root.readableSemanticColor(root.successColor)
 
         visible: columnRoot.columnId !== "done"
         Layout.alignment: Qt.AlignVCenter
         implicitWidth: addActionRow.implicitWidth + 16
         implicitHeight: 24
         radius: height / 2
-        color: addActionButton.active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)
+        color: addActionButton.active || addMouse.containsMouse ? addActionButton.readableSuccessColor : Qt.rgba(1, 1, 1, 0.12)
 
         Row {
           id: addActionRow
@@ -330,7 +355,7 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "+"
-            color: addActionButton.active || addMouse.containsMouse ? "#000000" : root.successColor
+            color: addActionButton.active || addMouse.containsMouse ? "#000000" : addActionButton.readableSuccessColor
             font.family: root.fontFamily
             font.pixelSize: 12
             font.bold: true
@@ -339,7 +364,7 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "Add"
-            color: addActionButton.active || addMouse.containsMouse ? "#000000" : root.successColor
+            color: addActionButton.active || addMouse.containsMouse ? "#000000" : addActionButton.readableSuccessColor
             font.family: root.fontFamily
             font.pixelSize: 10
             font.bold: true

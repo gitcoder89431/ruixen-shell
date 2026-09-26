@@ -51,11 +51,11 @@ check "column header + button tracks its active add editor state" \
   "1"
 
 check "column header + button uses green fill when active or hovered" \
-  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
+  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? addActionButton.readableSuccessColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
   "1"
 
 check "column header + glyph inverts when active or hovered" \
-  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? "#000000" : root.successColor' "$content_qml")" \
+  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? "#000000" : addActionButton.readableSuccessColor' "$content_qml")" \
   "2"
 
 check "column header label and count share one compact pill" \
@@ -116,8 +116,11 @@ check "add description placeholder is action-oriented" \
 check "Kanban compact icon actions use one reusable button component" \
   "$(grep -c 'component KanbanActionButton : Rectangle' "$content_qml")" "1"
 
-check "reusable action button inverts icon color on hover/armed" \
-  "$(grep -c 'color: (actionButton.armed || actionButton.hovered) ? "#000000" : actionButton.accentColor' "$content_qml")" "1"
+check "Kanban semantic action colors are normalized for contrast" \
+  "$(( $(grep -F -c 'function readableSemanticColor(c)' "$content_qml") + $(grep -F -c 'resolvedAccentColor: root.readableSemanticColor(accentColor)' "$content_qml") ))" "2"
+
+check "reusable action button inverts readable icon color on hover/armed" \
+  "$(grep -c 'color: (actionButton.armed || actionButton.hovered) ? "#000000" : actionButton.resolvedAccentColor' "$content_qml")" "1"
 
 check "add editor confirm uses the reusable action button" \
   "$(grep -c 'id: addCommitButton' "$content_qml")" "1"

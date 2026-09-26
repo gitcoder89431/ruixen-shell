@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import "KanbanModel.js" as KanbanModel
 
@@ -468,7 +469,7 @@ Item {
           ColumnLayout {
             id: cardsColumn
             width: parent.width
-            spacing: 6
+            spacing: 8
 
             // In-panel "new card" row -- the GUI half of the add path,
             // opened by the column header's own "+" (one editor open
@@ -634,6 +635,16 @@ Item {
                   : root.cardBorderColor
                 border.width: cardRoot.deleteArmed || cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 1.5 : 1
                 Behavior on border.color { ColorAnimation { duration: 100 } }
+                layer.enabled: true
+                layer.smooth: true
+                layer.effect: MultiEffect {
+                  shadowEnabled: true
+                  shadowColor: "#000000"
+                  shadowOpacity: cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 0.48 : 0.35
+                  shadowBlur: 0.28
+                  shadowHorizontalOffset: 0
+                  shadowVerticalOffset: cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 4 : 3
+                }
 
                 // Whole-row click, no chevrons -- direct follow-up
                 // ("i need the same pattern to go back from done to in

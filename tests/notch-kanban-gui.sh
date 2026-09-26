@@ -149,6 +149,15 @@ check "Kanban idle card border falls back to the subtle contrast token" \
 check "Kanban task and editor rectangles use surface tokens, not raw black" \
   "$(grep -E -c 'color: root.cardSurface|color: root.editorSurface' "$content_qml")" "2"
 
+check "Kanban cards import QtQuick effects for raised shadows" \
+  "$(grep -c 'import QtQuick.Effects' "$content_qml")" "1"
+
+check "Kanban cards have enough spacing for subtle shadow depth" \
+  "$(grep -A4 'id: cardsColumn' "$content_qml" | grep -c 'spacing: 8')" "1"
+
+check "Kanban task cards use a dark raised shadow" \
+  "$(grep -F -c 'shadowEnabled: true' "$content_qml")" "1"
+
 # --- Edit path ----------------------------------------------------------
 check "edit editor saves through KanbanService.renameCard" \
   "$(grep -m1 'root.kanbanService.renameCard(cardRoot.modelData.id, editTitleInput.text)' "$content_qml")" \

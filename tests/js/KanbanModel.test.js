@@ -109,6 +109,10 @@ check("removeCard: drops just the matching card",
   M.removeCard(threeCards, "b").map(function(c) { return c.id; }), ["a", "c"]);
 check("removeCard: an unknown card id changes nothing",
   M.removeCard(threeCards, "z").length, 3);
+check("clearColumn: drops every card in the requested column",
+  M.clearColumn(threeCards, "done").map(function(c) { return c.id; }), ["a", "b"]);
+check("clearColumn: an invalid column changes nothing",
+  M.clearColumn(threeCards, "someday"), threeCardsNormalized);
 
 check("setPriority: updates just the matching card's priority",
   M.setPriority(threeCards, "b", "high").map(function(c) { return c.priority; }), ["medium", "high", "medium"]);

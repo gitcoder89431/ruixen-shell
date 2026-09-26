@@ -1244,6 +1244,7 @@ Item {
       function kanbanAdvanceCard(cardId: string): void { kanbanService.advanceCard(cardId) }
       function kanbanRegressCard(cardId: string): void { kanbanService.regressCard(cardId) }
       function kanbanRemoveCard(cardId: string): void { kanbanService.removeCard(cardId) }
+      function kanbanClearDone(): void { kanbanService.clearDone() }
       function kanbanRenameColumn(columnId: string, label: string): void {
         kanbanService.renameColumn(columnId, label)
       }

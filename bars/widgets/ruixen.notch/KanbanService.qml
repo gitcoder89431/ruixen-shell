@@ -112,6 +112,11 @@ Item {
     scheduleSave()
   }
 
+  function clearDone() {
+    service.cards = KanbanModel.clearColumn(service.cards, "done")
+    scheduleSave()
+  }
+
   function renameColumn(columnId, label) {
     service.columns = KanbanModel.renameColumn(service.columns, columnId, label)
     scheduleSave()

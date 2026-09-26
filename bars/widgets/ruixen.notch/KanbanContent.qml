@@ -82,6 +82,8 @@ Item {
   // mutation, so both bindings re-evaluate on any add/move/remove.
   readonly property int totalCards: kanbanService ? kanbanService.cards.length : 0
   readonly property int doneCards: kanbanService ? kanbanService.cardsInColumn("done").length : 0
+  readonly property real doneRatio: totalCards > 0 ? Math.min(doneCards / totalCards, 1) : 0
+  readonly property int donePercent: Math.round(doneRatio * 100)
 
   // Delete confirm window -- a second click on the same card's delete
   // button inside this window removes the card; letting it lapse
@@ -202,67 +204,90 @@ Item {
         elide: Text.ElideRight
       }
 
-      // A small tonal pill instead of plain muted text -- Material 3's
-      // own count-badge convention for a section header, and more
-      // legible now that the header floats directly on the notch
-      // background rather than the panel's own tonal fill behind it.
-      // Sized from the count text's own implicitWidth (plus fixed
-      // padding), not a hardcoded slot -- a header count only ever
-      // changes on a card add/move/remove, a discrete state change,
-      // never a live-updating number, so there is no rapid-resize
-      // flicker risk the way a live percentage elsewhere in this
-      // plugin family has to guard against.
+      // Todo/In Progress keep the compact count+add control. Done keeps
+      // the count but swaps "+" for a clear affordance: new work should
+      // not start there, but clearing completed work is a real Done-column
+      // action.
       Rectangle {
         Layout.alignment: Qt.AlignVCenter
-        implicitWidth: Math.max(countText.implicitHeight, countText.implicitWidth + 12)
-        implicitHeight: countText.implicitHeight + 6
+        implicitWidth: countAddRow.implicitWidth + 12
+        implicitHeight: Math.max(24, countAddRow.implicitHeight + 6)
         radius: height / 2
-        color: Qt.rgba(1, 1, 1, 0.12)
+        color: Qt.rgba(1, 1, 1, 0.08)
 
-        Text {
-          id: countText
+        RowLayout {
+          id: countAddRow
           anchors.centerIn: parent
-          text: String(columnRoot.columnCards.length)
-          color: root.textColor
-          font.family: root.fontFamily
-          // Sized up alongside the label (10 -> 11) -- direct
-          // follow-up ("maybe a bit bigger?"). The pill itself needs
-          // no separate change: its own implicitWidth/implicitHeight
-          // are already derived from this Text's own size above.
-          font.pixelSize: 11
-          font.bold: true
-        }
-      }
+          spacing: 6
 
-      // In-panel add button -- opens this column's inline "new card"
-      // row (see the addRow comment inside the card area). Hidden while
-      // this column's editor is already open -- the editor has its own
-      // cancel, and a second "+" would just be a second way to do
-      // nothing. Accent fill on hover so the affordance reads as a
-      // button, not decoration.
-      Rectangle {
-        visible: root.addColumnId !== columnRoot.columnId
-        Layout.alignment: Qt.AlignVCenter
-        implicitWidth: 18
-        implicitHeight: 18
-        radius: 9
-        color: addMouse.containsMouse ? root.accent : Qt.rgba(1, 1, 1, 0.10)
+          Text {
+            id: countText
+            Layout.alignment: Qt.AlignVCenter
+            Layout.minimumWidth: 10
+            horizontalAlignment: Text.AlignHCenter
+            text: String(columnRoot.columnCards.length)
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            font.bold: true
+          }
 
-        Text {
-          anchors.centerIn: parent
-          text: "+"
-          color: addMouse.containsMouse ? "#000000" : root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 12
-          font.bold: true
-        }
+          // In-panel add button -- opens this column's inline "new card"
+          // row (see the addRow comment inside the card area). Hidden while
+          // this column's editor is already open -- the editor has its own
+          // cancel, and a second "+" would just be a second way to do
+          // nothing. Green fill on hover so "add" and "clear" keep the
+          // same button grammar without sharing the same action color.
+          Rectangle {
+            visible: columnRoot.columnId !== "done" && root.addColumnId !== columnRoot.columnId
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: 18
+            implicitHeight: 18
+            radius: 9
+            color: addMouse.containsMouse ? "#3ecf5b" : Qt.rgba(1, 1, 1, 0.12)
 
-        MouseArea {
-          id: addMouse
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.openAdd(columnRoot.columnId)
+	            Text {
+	              anchors.centerIn: parent
+	              text: "+"
+	              color: addMouse.containsMouse ? "#000000" : "#3ecf5b"
+	              font.family: root.fontFamily
+	              font.pixelSize: 12
+	              font.bold: true
+            }
+
+            MouseArea {
+              id: addMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.openAdd(columnRoot.columnId)
+            }
+          }
+
+	          Rectangle {
+	            visible: columnRoot.columnId === "done"
+	            Layout.alignment: Qt.AlignVCenter
+	            implicitWidth: 18
+	            implicitHeight: 18
+	            radius: 9
+		            color: clearDoneMouse.containsMouse ? "#e0a050" : Qt.rgba(1, 1, 1, 0.12)
+
+	            Text {
+	              anchors.centerIn: parent
+	              text: "\udb80\udce2"
+		              color: clearDoneMouse.containsMouse ? "#000000" : "#e0a050"
+	              font.family: root.fontFamily
+	              font.pixelSize: 12
+	            }
+
+            MouseArea {
+              id: clearDoneMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.kanbanService) root.kanbanService.clearDone()
+            }
+          }
         }
       }
     }
@@ -289,24 +314,25 @@ Item {
       // (a top-down ColumnLayout, which only ever put it near the top
       // of the column, not centered in the available height). Direct
       // follow-up: "the empty text are center but not middle".
-      Item {
-        anchors.fill: parent
-        anchors.margins: 10
+	      Item {
+	        anchors.fill: parent
+	        anchors.margins: 10
 
-        Text {
-          visible: columnRoot.columnCards.length === 0
-          anchors.centerIn: parent
-          text: KanbanModel.emptyStateLabel(columnRoot.columnId)
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 11
-        }
+		        Text {
+		          visible: columnRoot.columnCards.length === 0
+		          anchors.centerIn: parent
+		          text: KanbanModel.emptyStateLabel(columnRoot.columnId)
+		          color: root.muted
+		          font.family: root.fontFamily
+		          font.pixelSize: 11
+		        }
 
-        Flickable {
-          anchors.fill: parent
-          clip: true
-          contentHeight: cardsColumn.implicitHeight
-          boundsBehavior: Flickable.StopAtBounds
+		        Flickable {
+		          id: cardsArea
+		          anchors.fill: parent
+		          clip: true
+		          contentHeight: cardsColumn.implicitHeight
+		          boundsBehavior: Flickable.StopAtBounds
 
           ColumnLayout {
             id: cardsColumn
@@ -446,11 +472,12 @@ Item {
                       hoverEnabled: true
                       cursorShape: Qt.PointingHandCursor
                       onClicked: root.addColumnId = ""
-                    }
-                  }
-                }
-              }
-            }
+	            }
+	          }
+	        }
+
+	      }
+	    }
 
               Repeater {
               model: columnRoot.columnCards
@@ -484,9 +511,9 @@ Item {
                 // there specifically because a thumbnail image paints
                 // over a Rectangle's own border; this card has no such
                 // overlapping content, so the direct border just works.
-                border.color: cardRoot.deleteArmed ? "#e05252"
-                  : cardArea.containsMouse ? root.accent
-                  : "transparent"
+	                border.color: cardRoot.deleteArmed ? "#e05252"
+	                  : (cardArea.containsMouse || editBtnMouse.containsMouse || deleteBtnMouse.containsMouse) ? root.accent
+	                  : "transparent"
                 border.width: 1.5
                 Behavior on border.color { ColorAnimation { duration: 100 } }
 
@@ -591,18 +618,19 @@ Item {
                       // PlainText -- card text is user/agent-typed and
                       // Text's AutoText default would interpret markup.
                       textFormat: Text.PlainText
-                      color: root.textColor
-                      font.family: root.fontFamily
-                      font.pixelSize: 11
-                      wrapMode: Text.WordWrap
-                    }
+	                      color: root.textColor
+	                      font.family: root.fontFamily
+	                      font.pixelSize: 11
+	                      elide: Text.ElideRight
+	                      maximumLineCount: 1
+	                    }
 
                     // Fixed right reserve for the hover edit/delete
                     // buttons overlaying this corner (cardActions below)
                     // -- reserved on every card, not just while hovered,
                     // so the title's wrap point never jumps when the
                     // buttons appear.
-                    Item { Layout.preferredWidth: 30 }
+                    Item { Layout.preferredWidth: 48 }
                   }
 
                   // Description -- always a single elided line, never
@@ -865,23 +893,24 @@ Item {
                   id: cardActions
                   anchors.top: parent.top
                   anchors.right: parent.right
-                  anchors.margins: 3
-                  spacing: 2
+	                  anchors.margins: 4
+	                  spacing: 4
                   visible: !cardRoot.isEditing
                     && (cardArea.containsMouse || cardRoot.deleteArmed
                         || editBtnMouse.containsMouse || deleteBtnMouse.containsMouse)
 
                   Rectangle {
-                    width: 16
-                    height: 16
-                    radius: 4
-                    color: editBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
+	                    width: 20
+	                    height: 20
+	                    radius: 6
+		                    color: editBtnMouse.containsMouse ? "#3ecf5b" : Qt.rgba(1, 1, 1, 0.08)
 
                     Text {
-                      anchors.centerIn: parent
-                      text: "✎"
-                      color: root.textColor
-                      font.pixelSize: 9
+	                      anchors.centerIn: parent
+		                      text: "\uf044"
+		                      color: editBtnMouse.containsMouse ? "#000000" : "#3ecf5b"
+		                      font.family: root.fontFamily
+		                      font.pixelSize: 11
                     }
 
                     MouseArea {
@@ -894,21 +923,21 @@ Item {
                   }
 
                   Rectangle {
-                    width: 16
-                    height: 16
-                    radius: 4
+	                    width: 20
+	                    height: 20
+	                    radius: 6
                     // Two-click delete -- the armed red button IS the
                     // confirmation (this plugin has no dialog surface
                     // convention); root's own 3s Timer disarms it.
-                    color: cardRoot.deleteArmed
-                      ? "#e05252"
-                      : (deleteBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent")
+		                    color: cardRoot.deleteArmed
+		                      ? "#e05252"
+		                      : (deleteBtnMouse.containsMouse ? "#e05252" : Qt.rgba(1, 1, 1, 0.08))
 
                     Text {
-                      anchors.centerIn: parent
-                      text: "✕"
-                      color: cardRoot.deleteArmed ? "#ffffff" : root.textColor
-                      font.pixelSize: 9
+		                      anchors.centerIn: parent
+		                      text: "✕"
+		                      color: (cardRoot.deleteArmed || deleteBtnMouse.containsMouse) ? "#000000" : "#e05252"
+		                      font.pixelSize: 11
                     }
 
                     MouseArea {
@@ -932,10 +961,112 @@ Item {
           }
         }
       }
-      }
-    }
 
-    // Superseded -- the "no in-panel text entry" rule this comment used
+	      }
+	    }
+
+	    Rectangle {
+	      id: doneProgressCard
+	      visible: columnRoot.columnId === "done"
+	      Layout.fillWidth: true
+	      Layout.preferredHeight: 92
+	      radius: 10
+	      color: Qt.rgba(1, 1, 1, 0.05)
+
+	      property real value: root.doneRatio
+	      onValueChanged: doneDial.requestPaint()
+
+	      RowLayout {
+	        anchors.centerIn: parent
+	        spacing: 10
+
+	        Item {
+	          Layout.preferredWidth: 58
+	          Layout.preferredHeight: 58
+	          Layout.alignment: Qt.AlignVCenter
+
+	          Canvas {
+	            id: doneDial
+	            anchors.fill: parent
+	            onWidthChanged: requestPaint()
+	            onHeightChanged: requestPaint()
+	            onPaint: {
+	              var ctx = getContext("2d")
+	              ctx.reset()
+	              var cx = width / 2, cy = height / 2, r = width / 2 - 6
+	              var startAngle = Math.PI / 2 + Math.PI / 4
+	              var totalSweep = Math.PI * 2 - Math.PI / 2
+	              var endAngle = startAngle + Math.max(0, Math.min(1, doneProgressCard.value)) * totalSweep
+	              var handleSpacing = 5
+	              var gapRad = handleSpacing / r
+	              ctx.lineWidth = 4
+	              ctx.lineCap = "round"
+	              ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+	              var trackStart = endAngle + gapRad
+	              var trackEnd = startAngle + totalSweep
+	              if (trackStart < trackEnd) {
+	                ctx.beginPath()
+	                ctx.arc(cx, cy, r, trackStart, trackEnd)
+	                ctx.stroke()
+	              }
+
+	              ctx.strokeStyle = root.accent
+	              ctx.beginPath()
+	              var progressEnd = Math.max(startAngle, endAngle - gapRad)
+	              ctx.arc(cx, cy, r, startAngle, progressEnd)
+	              ctx.stroke()
+
+	              var tipR1 = r - 2
+	              var tipR2 = r + 3
+	              var tx1 = cx + tipR1 * Math.cos(endAngle)
+	              var ty1 = cy + tipR1 * Math.sin(endAngle)
+	              var tx2 = cx + tipR2 * Math.cos(endAngle)
+	              var ty2 = cy + tipR2 * Math.sin(endAngle)
+	              ctx.lineWidth = 5
+	              ctx.lineCap = "round"
+	              ctx.strokeStyle = "#ffffff"
+	              ctx.beginPath()
+	              ctx.moveTo(tx1, ty1)
+	              ctx.lineTo(tx2, ty2)
+	              ctx.stroke()
+	            }
+	          }
+
+	          Text {
+	            anchors.centerIn: parent
+	            text: root.donePercent + "%"
+	            color: root.textColor
+	            font.family: root.fontFamily
+	            font.pixelSize: 14
+	            font.weight: Font.DemiBold
+	          }
+	        }
+
+	        ColumnLayout {
+	          Layout.preferredWidth: 74
+	          Layout.alignment: Qt.AlignVCenter
+	          spacing: 4
+
+	          Text {
+	            text: "Progress"
+	            color: root.muted
+	            font.family: root.fontFamily
+	            font.pixelSize: 10
+	            font.bold: true
+	          }
+
+	          Text {
+	            text: root.doneCards + "/" + root.totalCards + " done"
+	            color: root.textColor
+	            font.family: root.fontFamily
+	            font.pixelSize: 13
+	            font.weight: Font.DemiBold
+	          }
+	        }
+	      }
+	    }
+
+	    // Superseded -- the "no in-panel text entry" rule this comment used
     // to document was reversed by the later "its not GUI friendly"
     // request: each column header now has a "+" opening this file's own
     // inline add editor, and each card carries hover edit/delete. The
@@ -944,59 +1075,12 @@ Item {
     // dismiss stay plain clicks, same as they always were.
   }
 
-  // Root is a two-piece ColumnLayout now: a slim progress row (done /
-  // total across the whole board -- the "check progress" half of the
-  // direct GUI request), then the columns row itself. The columns row
-  // keeps every margin it had as anchors -- just translated into
-  // Layout margins, same values, since it is a layout child now.
+  // Root keeps the column row as the only top-level visual now; board
+  // completion lives in the Done header instead of a separate toolbar-like
+  // strip above the board.
   ColumnLayout {
     anchors.fill: parent
-    spacing: 8
-
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.leftMargin: 10
-      Layout.rightMargin: 10
-      spacing: 8
-
-      Text {
-        text: "Progress"
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        font.bold: true
-      }
-
-      // Track + fill -- same tonal-track/accent-fill language as the
-      // rest of this plugin family. width is a plain binding off the
-      // done/total counts (KanbanService reassigns its cards array on
-      // every mutation, so this re-evaluates on any add/move/remove),
-      // never a live-ticking number, so there is no rapid-resize
-      // flicker concern the way a media-progress bar has.
-      Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 5
-        radius: 2.5
-        color: Qt.rgba(1, 1, 1, 0.10)
-
-        Rectangle {
-          anchors.top: parent.top
-          anchors.bottom: parent.bottom
-          anchors.left: parent.left
-          width: parent.width * (root.totalCards > 0 ? Math.min(root.doneCards / root.totalCards, 1) : 0)
-          radius: 2.5
-          color: root.accent
-          Behavior on width { NumberAnimation { duration: 150 } }
-        }
-      }
-
-      Text {
-        text: root.doneCards + "/" + root.totalCards
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 10
-      }
-    }
+    spacing: 0
 
     RowLayout {
       id: columnsRow

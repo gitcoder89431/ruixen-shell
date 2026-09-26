@@ -281,6 +281,11 @@ function removeCard(cards, cardId) {
   return normalizeCards(cards).filter(function(c) { return c.id !== cardId })
 }
 
+function clearColumn(cards, columnId) {
+  if (!isColumnId(columnId)) return normalizeCards(cards)
+  return normalizeCards(cards).filter(function(c) { return c.column !== columnId })
+}
+
 // "Overdue" excludes Done on purpose -- a shipped card with a past due
 // date is not late, it is finished. Encapsulated here (not duplicated
 // in QML's own per-card color logic) so both the panel and any future

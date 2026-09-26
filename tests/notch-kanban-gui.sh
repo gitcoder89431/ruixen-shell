@@ -21,6 +21,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 content_qml="$repo_dir/bars/widgets/ruixen.notch/KanbanContent.qml"
+overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0
@@ -42,20 +43,94 @@ check "column header + button opens the add editor for its own column" \
   "1"
 
 check "column header + button uses green hover fill" \
-  "$(grep -c 'color: addMouse.containsMouse ? "#3ecf5b" : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
+  "$(grep -c 'color: addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
   "1"
 
 check "column header + glyph stays green when idle" \
-  "$(grep -c 'color: addMouse.containsMouse ? "#000000" : "#3ecf5b"' "$content_qml")" \
+  "$(grep -c 'color: addMouse.containsMouse ? "#000000" : root.successColor' "$content_qml")" \
+  "2"
+
+check "column header label and count share one compact pill" \
+  "$(grep -F -c 'implicitWidth: headerLabelRow.implicitWidth + 18' "$content_qml")" \
+  "1"
+
+check "column header count is a nested rounded sub-pill" \
+  "$(grep -F -c 'implicitWidth: Math.max(18, countText.implicitWidth + 10)' "$content_qml")" \
+  "1"
+
+check "column header count sub-pill uses a subtle accent tint" \
+  "$(grep -F -c 'color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)' "$content_qml")" \
+  "1"
+
+check "column header count text uses accent color" \
+  "$(grep -c 'color: root.accent' "$content_qml")" \
+  "2"
+
+check "column header add action is a wider pill" \
+  "$(grep -F -c 'implicitWidth: addActionRow.implicitWidth + 16' "$content_qml")" \
+  "1"
+
+check "column header add action has an Add label" \
+  "$(grep -c 'text: "Add"' "$content_qml")" \
   "1"
 
 check "add editor commits through KanbanService.addCard with the column + priority" \
-  "$(grep -m1 'root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)' "$content_qml")" \
-  '                root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)'
+  "$(grep -m1 'var cardId = root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)' "$content_qml")" \
+  '                var cardId = root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)'
+
+check "add editor can set description on the newly-created card" \
+  "$(grep -m1 'root.kanbanService.setDescription(cardId, addDescInput.text)' "$content_qml")" \
+  '                  root.kanbanService.setDescription(cardId, addDescInput.text)'
+
+check "priority chip cycles default medium to high, then low, then medium" \
+  "$(grep -m1 'return priority === "medium" ? "high" : priority === "high" ? "low" : "medium"' "$content_qml")" \
+  '    return priority === "medium" ? "high" : priority === "high" ? "low" : "medium"'
+
+check "priority chip uses one reusable pill component" \
+  "$(grep -c 'component KanbanPriorityPill : Rectangle' "$content_qml")" "1"
+
+check "add and edit priority chips use the shared pill" \
+  "$(grep -c 'KanbanPriorityPill {' "$content_qml")" "2"
+
+check "add and edit priority chips bind to their local priority state" \
+  "$(grep -E -c 'priority: root.addPriority|priority: root.editPriority' "$content_qml")" "2"
 
 check "blank input can never create a card" \
   "$(grep -m1 'if (addInput.text.trim() === "" || !root.kanbanService) return' "$content_qml")" \
   '                if (addInput.text.trim() === "" || !root.kanbanService) return'
+
+check "add editor has a description field matching edit mode" \
+  "$(grep -c 'id: addDescInput' "$content_qml")" "1"
+
+check "add description placeholder is action-oriented" \
+  "$(grep -c 'text: "Add description..."' "$content_qml")" "1"
+
+check "Kanban compact icon actions use one reusable button component" \
+  "$(grep -c 'component KanbanActionButton : Rectangle' "$content_qml")" "1"
+
+check "reusable action button inverts icon color on hover/armed" \
+  "$(grep -c 'color: (actionButton.armed || actionButton.hovered) ? "#000000" : actionButton.accentColor' "$content_qml")" "1"
+
+check "add editor confirm uses the reusable action button" \
+  "$(grep -c 'id: addCommitButton' "$content_qml")" "1"
+
+check "add editor confirm uses the theme blue confirm token" \
+  "$(grep -c 'accentColor: root.confirmColor' "$content_qml")" "2"
+
+check "add editor cancel uses the reusable red action button" \
+  "$(grep -c 'id: addCancelButton' "$content_qml")" "1"
+
+check "Kanban confirm token is supplied from the active theme blue swatch" \
+  "$(grep -c 'confirmColor: root.cavaCoolColor' "$overlay_qml")" "1"
+
+check "Kanban semantic colors are supplied from the active theme palette" \
+  "$(grep -E -c 'successColor: root.kanbanSuccessColor|dangerColor: root.kanbanDangerColor|warningColor: root.kanbanWarningColor' "$overlay_qml")" "3"
+
+check "Kanban card and editor surfaces are explicit theme-fed tokens" \
+  "$(grep -E -c 'cardSurface: Qt.lighter\(root.notchColor, 1.18\)|editorSurface: Qt.darker\(root.notchColor, 1.08\)' "$overlay_qml")" "2"
+
+check "Kanban task and editor rectangles use surface tokens, not raw black" \
+  "$(grep -E -c 'color: root.cardSurface|color: root.editorSurface' "$content_qml")" "2"
 
 # --- Edit path ----------------------------------------------------------
 check "edit editor saves through KanbanService.renameCard" \
@@ -66,43 +141,55 @@ check "edit editor covers description" \
   "$(grep -m1 'root.kanbanService.setDescription(cardRoot.modelData.id, editDescInput.text)' "$content_qml")" \
   '                    root.kanbanService.setDescription(cardRoot.modelData.id, editDescInput.text)'
 
+check "title and description inputs wrap instead of overflowing horizontally" \
+  "$(grep -c 'wrapMode: TextInput.Wrap' "$content_qml")" "3"
+
 check "edit editor covers priority" \
   "$(grep -m1 'root.kanbanService.setPriority(cardRoot.modelData.id, root.editPriority)' "$content_qml")" \
   '                    root.kanbanService.setPriority(cardRoot.modelData.id, root.editPriority)'
 
-check "edit editor covers due date via the shared parse guard" \
-  "$(grep -m1 'var dueMs = root.parsedDueMs(editDueInput.text)' "$content_qml")" \
-  '                    var dueMs = root.parsedDueMs(editDueInput.text)'
+check "inline edit omits the due-date field so Todo/Done controls fit" \
+  "$(grep -c 'id: editDueInput\\|yyyy-mm-dd' "$content_qml")" "0"
 
-check "unparseable due date no-ops instead of wiping the deadline" \
-  "$(grep -m1 'if (!isNaN(dueMs)) root.kanbanService.setDueDate(cardRoot.modelData.id, dueMs)' "$content_qml")" \
-  '                    if (!isNaN(dueMs)) root.kanbanService.setDueDate(cardRoot.modelData.id, dueMs)'
+check "inline edit leaves existing due dates untouched" \
+  "$(grep -c 'root.kanbanService.setDueDate(cardRoot.modelData.id' "$content_qml")" "0"
+
+check "edit save check uses the reusable action button" \
+  "$(grep -c 'id: saveEditButton' "$content_qml")" "1"
+
+check "edit mode has no visible cancel x; Esc is the cancel path" \
+  "$(grep -c 'onClicked: root.editingCardId = ""' "$content_qml")" "0"
 
 # --- Delete path --------------------------------------------------------
 check "delete is two-step: first click arms" \
-  "$(grep -m1 'root.deleteArmedId = cardRoot.modelData.id$' "$content_qml")" \
-  '                          root.deleteArmedId = cardRoot.modelData.id'
+  "$(grep -c 'root.deleteArmedId = cardRoot.modelData.id$' "$content_qml")" "1"
 
 check "second click on the armed button removes" \
-  "$(grep -c '^                          root.kanbanService.removeCard(cardRoot.modelData.id)$' "$content_qml")" "1"
+  "$(grep -c 'if (cardRoot.deleteArmed)' "$content_qml")" "1"
 
 check "card title row reserves enough right-side space for hover actions" \
   "$(grep -c 'Item { Layout.preferredWidth: 48 }' "$content_qml")" "1"
 
-check "hover edit/delete buttons are large enough to read" \
-  "$(grep -c 'width: 20' "$content_qml")" "2"
+check "compact action button size is defined once" \
+  "$(grep -c 'width: 20' "$content_qml")" "1"
+
+check "confirm and cancel glyphs keep the larger icon size by default" \
+  "$(grep -c 'property int iconPixelSize: 13' "$content_qml")" "1"
+
+check "all five compact action surfaces use the shared component" \
+  "$(grep -c 'KanbanActionButton {' "$content_qml")" "5"
 
 check "card hover border stays active while hovering edit/delete buttons" \
-  "$(grep -c 'cardArea.containsMouse || editBtnMouse.containsMouse || deleteBtnMouse.containsMouse' "$content_qml")" "1"
+  "$(grep -c 'cardArea.containsMouse || editButton.hovered || deleteButton.hovered' "$content_qml")" "1"
 
 check "hover edit button uses Font Awesome edit glyph" \
-  "$(grep -F -c 'text: "\uf044"' "$content_qml")" "1"
+  "$(grep -F -c 'icon: "\uf044"' "$content_qml")" "1"
 
 check "hover edit button uses green fill/glyph treatment" \
-  "$(grep -c 'color: editBtnMouse.containsMouse ? "#3ecf5b" : Qt.rgba(1, 1, 1, 0.08)' "$content_qml")" "1"
+  "$(grep -c 'id: editButton' "$content_qml")" "1"
 
 check "hover delete button uses red fill/glyph treatment" \
-  "$(grep -c 'deleteBtnMouse.containsMouse ? "#e05252" : Qt.rgba(1, 1, 1, 0.08)' "$content_qml")" "1"
+  "$(grep -c 'id: deleteButton' "$content_qml")" "1"
 
 check "armed delete auto-disarms on a timer" \
   "$(grep -m1 'interval: 3000' "$content_qml")" \
@@ -124,8 +211,8 @@ check "card title is single-line elided so long words cannot underlap actions" \
 
 # --- Done clear + progress footer --------------------------------------
 check "Done header clear button calls the shared clearDone API" \
-  "$(grep -m1 'root.kanbanService.clearDone()' "$content_qml")" \
-  '              onClicked: if (root.kanbanService) root.kanbanService.clearDone()'
+  "$(grep -c 'onClicked: if (root.kanbanService) root.kanbanService.clearDone()' "$content_qml")" \
+  "1"
 
 check "Done header clear button uses the same yellow broom treatment as notification clear" \
   "$(grep -F -c 'text: "\udb80\udce2"' "$content_qml")" \

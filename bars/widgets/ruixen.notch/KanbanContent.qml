@@ -32,6 +32,12 @@ Item {
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
+  property color confirmColor: accent
+  property color successColor: "#3ecf5b"
+  property color dangerColor: "#e05252"
+  property color warningColor: "#e8c34a"
+  property color cardSurface: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.035)
+  property color editorSurface: Qt.darker(cardSurface, 1.08)
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
 
@@ -45,6 +51,84 @@ Item {
   property string editingCardId: "" // card with an open inline editor ("" = none)
   property string editPriority: "medium"
   property string deleteArmedId: "" // card whose delete button is armed for its confirming second click
+
+  component KanbanActionButton : Rectangle {
+    id: actionButton
+
+    property string icon: ""
+    property string iconFamily: ""
+    property int iconPixelSize: 13
+    property color accentColor: "#3ecf5b"
+    property color idleColor: Qt.rgba(1, 1, 1, 0.08)
+    property bool armed: false
+    readonly property bool hovered: actionMouse.containsMouse
+
+    signal clicked()
+
+    width: 20
+    height: 20
+    radius: 6
+    color: (armed || hovered) ? accentColor : idleColor
+
+    Text {
+      anchors.centerIn: parent
+      text: actionButton.icon
+      color: (actionButton.armed || actionButton.hovered) ? "#000000" : actionButton.accentColor
+      font.family: actionButton.iconFamily
+      font.pixelSize: actionButton.iconPixelSize
+    }
+
+    MouseArea {
+      id: actionMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: actionButton.clicked()
+    }
+  }
+
+  component KanbanPriorityPill : Rectangle {
+    id: priorityPill
+
+    property string priority: "medium"
+
+    signal clicked()
+
+    implicitWidth: priorityLabel.implicitWidth + 30
+    implicitHeight: priorityLabel.implicitHeight + 6
+    radius: height / 2
+    color: Qt.rgba(1, 1, 1, 0.10)
+
+    Row {
+      anchors.centerIn: parent
+      spacing: 4
+
+      Rectangle {
+        anchors.verticalCenter: parent.verticalCenter
+        width: 6
+        height: 6
+        radius: 3
+        color: priorityPill.priority === "high" ? root.dangerColor
+          : priorityPill.priority === "low" ? root.muted
+          : root.warningColor
+      }
+
+      Text {
+        id: priorityLabel
+        anchors.verticalCenter: parent.verticalCenter
+        text: priorityPill.priority
+        color: root.textColor
+        font.family: root.fontFamily
+        font.pixelSize: 9
+      }
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
+      onClicked: priorityPill.clicked()
+    }
+  }
 
   function openAdd(columnId) {
     root.editingCardId = ""
@@ -61,20 +145,7 @@ Item {
   }
 
   function cyclePriority(priority) {
-    return priority === "high" ? "medium" : priority === "medium" ? "low" : "high"
-  }
-
-  // Same due-date rules as Overlay.qml's own kanbanSetDueDate IPC
-  // function, mirrored here so the in-panel editor and the CLI behave
-  // identically: an empty string clears the due date, anything
-  // Date.parse() recognizes is stored as epoch ms, and an unparseable
-  // string is a no-op (NaN) so a typo cannot silently wipe a real
-  // deadline that was already set.
-  function parsedDueMs(text) {
-    var trimmed = String(text || "").trim()
-    if (trimmed === "") return 0
-    var ms = Date.parse(trimmed)
-    return isNaN(ms) ? NaN : ms
+    return priority === "medium" ? "high" : priority === "high" ? "low" : "medium"
   }
 
   // Progress row inputs -- done/total across the whole board. cards is
@@ -180,114 +251,142 @@ Item {
 
     // Header -- the label itself stays read-only (renaming a column is
     // still CLI/agent-only via kanbanRenameColumn; not part of the GUI
-    // request). What IS new here: the "+" button after the count pill,
-    // the in-panel half of the add path (see this file's own header
-    // comment for the reversed decision).
+    // request). The label and count share one compact pill; the add/
+    // clear action is a separate wider click target.
     RowLayout {
       Layout.fillWidth: true
       Layout.leftMargin: 10
       Layout.rightMargin: 10
       spacing: 6
 
-      Text {
-        Layout.fillWidth: true
-        text: columnRoot.modelData.label
-        color: root.textColor
-        font.family: root.fontFamily
-        // A size step up from the old in-panel version (12 -> 14, via
-        // an intermediate 13) -- now that it reads as its own section
-        // title instead of a row inside the card surface, it earns a
-        // little more presence. Direct follow-up ("maybe a bit
-        // bigger?") after seeing 13 live.
-        font.pixelSize: 14
-        font.bold: true
-        elide: Text.ElideRight
-      }
-
-      // Todo/In Progress keep the compact count+add control. Done keeps
-      // the count but swaps "+" for a clear affordance: new work should
-      // not start there, but clearing completed work is a real Done-column
-      // action.
       Rectangle {
         Layout.alignment: Qt.AlignVCenter
-        implicitWidth: countAddRow.implicitWidth + 12
-        implicitHeight: Math.max(24, countAddRow.implicitHeight + 6)
+        implicitWidth: headerLabelRow.implicitWidth + 18
+        implicitHeight: 24
         radius: height / 2
         color: Qt.rgba(1, 1, 1, 0.08)
 
-        RowLayout {
-          id: countAddRow
+        Row {
+          id: headerLabelRow
           anchors.centerIn: parent
           spacing: 6
 
           Text {
-            id: countText
-            Layout.alignment: Qt.AlignVCenter
-            Layout.minimumWidth: 10
-            horizontalAlignment: Text.AlignHCenter
-            text: String(columnRoot.columnCards.length)
-            color: root.muted
+            anchors.verticalCenter: parent.verticalCenter
+            text: columnRoot.modelData.label
+            color: root.textColor
             font.family: root.fontFamily
-            font.pixelSize: 11
+            font.pixelSize: 12
+            font.bold: true
+            elide: Text.ElideRight
+          }
+
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            implicitWidth: Math.max(18, countText.implicitWidth + 10)
+            implicitHeight: 18
+            radius: height / 2
+            color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+
+            Text {
+              id: countText
+              anchors.centerIn: parent
+              horizontalAlignment: Text.AlignHCenter
+              text: String(columnRoot.columnCards.length)
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              font.bold: true
+            }
+          }
+        }
+      }
+
+      Item { Layout.fillWidth: true }
+
+      // In-panel add button -- opens this column's inline "new card"
+      // row (see the addRow comment inside the card area). Hidden while
+      // this column's editor is already open -- the editor has its own
+      // cancel, and a second add button would just be a second way to do
+      // nothing. Wider than the old tiny "+" target for easier clicking.
+      Rectangle {
+        visible: columnRoot.columnId !== "done" && root.addColumnId !== columnRoot.columnId
+        Layout.alignment: Qt.AlignVCenter
+        implicitWidth: addActionRow.implicitWidth + 16
+        implicitHeight: 24
+        radius: height / 2
+        color: addMouse.containsMouse ? root.successColor : Qt.rgba(1, 1, 1, 0.12)
+
+        Row {
+          id: addActionRow
+          anchors.centerIn: parent
+          spacing: 4
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "+"
+            color: addMouse.containsMouse ? "#000000" : root.successColor
+            font.family: root.fontFamily
+            font.pixelSize: 12
             font.bold: true
           }
 
-          // In-panel add button -- opens this column's inline "new card"
-          // row (see the addRow comment inside the card area). Hidden while
-          // this column's editor is already open -- the editor has its own
-          // cancel, and a second "+" would just be a second way to do
-          // nothing. Green fill on hover so "add" and "clear" keep the
-          // same button grammar without sharing the same action color.
-          Rectangle {
-            visible: columnRoot.columnId !== "done" && root.addColumnId !== columnRoot.columnId
-            Layout.alignment: Qt.AlignVCenter
-            implicitWidth: 18
-            implicitHeight: 18
-            radius: 9
-            color: addMouse.containsMouse ? "#3ecf5b" : Qt.rgba(1, 1, 1, 0.12)
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Add"
+            color: addMouse.containsMouse ? "#000000" : root.successColor
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            font.bold: true
+          }
+        }
 
-	            Text {
-	              anchors.centerIn: parent
-	              text: "+"
-	              color: addMouse.containsMouse ? "#000000" : "#3ecf5b"
-	              font.family: root.fontFamily
-	              font.pixelSize: 12
-	              font.bold: true
-            }
+        MouseArea {
+          id: addMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.openAdd(columnRoot.columnId)
+        }
+      }
 
-            MouseArea {
-              id: addMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.openAdd(columnRoot.columnId)
-            }
+      Rectangle {
+        visible: columnRoot.columnId === "done"
+        Layout.alignment: Qt.AlignVCenter
+        implicitWidth: clearDoneRow.implicitWidth + 16
+        implicitHeight: 24
+        radius: height / 2
+        color: clearDoneMouse.containsMouse ? "#e0a050" : Qt.rgba(1, 1, 1, 0.12)
+
+        Row {
+          id: clearDoneRow
+          anchors.centerIn: parent
+          spacing: 4
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "\udb80\udce2"
+            color: clearDoneMouse.containsMouse ? "#000000" : "#e0a050"
+            font.family: root.fontFamily
+            font.pixelSize: 12
           }
 
-	          Rectangle {
-	            visible: columnRoot.columnId === "done"
-	            Layout.alignment: Qt.AlignVCenter
-	            implicitWidth: 18
-	            implicitHeight: 18
-	            radius: 9
-		            color: clearDoneMouse.containsMouse ? "#e0a050" : Qt.rgba(1, 1, 1, 0.12)
-
-	            Text {
-	              anchors.centerIn: parent
-	              text: "\udb80\udce2"
-		              color: clearDoneMouse.containsMouse ? "#000000" : "#e0a050"
-	              font.family: root.fontFamily
-	              font.pixelSize: 12
-	            }
-
-            MouseArea {
-              id: clearDoneMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.kanbanService) root.kanbanService.clearDone()
-            }
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Clear"
+            color: clearDoneMouse.containsMouse ? "#000000" : "#e0a050"
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            font.bold: true
           }
+        }
+
+        MouseArea {
+          id: clearDoneMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: if (root.kanbanService) root.kanbanService.clearDone()
         }
       }
     }
@@ -345,17 +444,19 @@ Item {
             // through KanbanService.addCard, the same function
             // kanbanAddCard IPC wraps, which does the clamping and
             // priority defaulting, so this row carries none of that
-            // itself. Blank input + Enter is a deliberate no-op (a
-            // card can never be blank); Esc cancels LOCALLY with the
-            // event accepted, so it never bubbles up to notchOuter's
-            // own Escape handling and closes the whole panel mid-edit.
+            // itself. Blank title + Enter is a deliberate no-op (a
+            // card can never be blank); description is optional and is
+            // written immediately after addCard returns the new id.
+            // Esc cancels LOCALLY with the event accepted, so it never
+            // bubbles up to notchOuter's own Escape handling and closes
+            // the whole panel mid-edit.
             Rectangle {
               id: addRow
               visible: root.addColumnId === columnRoot.columnId
               Layout.fillWidth: true
               Layout.preferredHeight: addEditorContent.implicitHeight + 16
               radius: 8
-              color: "#000000"
+              color: root.editorSurface
               border.color: root.accent
               border.width: 1.5
 
@@ -363,7 +464,9 @@ Item {
 
               function commitAdd() {
                 if (addInput.text.trim() === "" || !root.kanbanService) return
-                root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)
+                var cardId = root.kanbanService.addCard(addInput.text, columnRoot.columnId, root.addPriority)
+                if (cardId !== "" && addDescInput.text.trim() !== "")
+                  root.kanbanService.setDescription(cardId, addDescInput.text)
                 root.addColumnId = ""
               }
 
@@ -402,78 +505,61 @@ Item {
                   }
                 }
 
+                TextInput {
+                  id: addDescInput
+                  Layout.fillWidth: true
+                  text: ""
+                  color: root.muted
+                  font.family: root.fontFamily
+                  font.pixelSize: 10
+                  wrapMode: TextInput.Wrap
+                  clip: true
+                  selectByMouse: true
+                  onAccepted: addRow.commitAdd()
+                  Keys.onEscapePressed: function(event) {
+                    event.accepted = true
+                    root.addColumnId = ""
+                  }
+
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: addDescInput.text.length === 0
+                    text: "Add description..."
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: 10
+                  }
+                }
+
                 RowLayout {
                   Layout.fillWidth: true
                   spacing: 6
 
-                  // Priority for the card about to be created -- click
-                  // cycles high -> medium -> low. Default medium, same
-                  // as addCard's own default when the CLI omits it.
-                  Rectangle {
-                    Layout.alignment: Qt.AlignVCenter
-                    implicitWidth: addPriorityLabel.implicitWidth + 30
-                    implicitHeight: addPriorityLabel.implicitHeight + 6
-                    radius: height / 2
-                    color: Qt.rgba(1, 1, 1, 0.10)
-
-                    Row {
-                      anchors.centerIn: parent
-                      spacing: 4
-
-                      Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 6
-                        height: 6
-                        radius: 3
-                        color: root.addPriority === "high" ? "#e05252"
-                          : root.addPriority === "low" ? root.muted
-                          : "#e8c34a"
-                      }
-
-                      Text {
-                        id: addPriorityLabel
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.addPriority
-                        color: root.textColor
-                        font.family: root.fontFamily
-                        font.pixelSize: 9
-                      }
-                    }
-
-                    MouseArea {
-                      anchors.fill: parent
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.addPriority = root.cyclePriority(root.addPriority)
-                    }
-                  }
-
                   Item { Layout.fillWidth: true }
 
-                  Text {
-                    text: "✓"
-                    color: root.accent
-                    font.pixelSize: 13
-
-                    MouseArea {
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: addRow.commitAdd()
-                    }
+                  // Priority for the card about to be created -- click
+                  // cycles medium -> high -> low. Default medium, same
+                  // as addCard's own default when the CLI omits it.
+                  KanbanPriorityPill {
+                    id: addPriorityPill
+                    Layout.alignment: Qt.AlignVCenter
+                    priority: root.addPriority
+                    onClicked: root.addPriority = root.cyclePriority(root.addPriority)
                   }
 
-                  Text {
-                    text: "✕"
-                    color: "#e05252"
-                    font.pixelSize: 13
+                  KanbanActionButton {
+                    id: addCommitButton
+                    icon: "✓"
+                    accentColor: root.confirmColor
+                    onClicked: addRow.commitAdd()
+                  }
 
-                    MouseArea {
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.addColumnId = ""
-	            }
-	          }
+                  KanbanActionButton {
+                    id: addCancelButton
+                    icon: "✕"
+                    accentColor: root.dangerColor
+                    onClicked: root.addColumnId = ""
+                  }
 	        }
 
 	      }
@@ -499,10 +585,10 @@ Item {
                 // around the open editor.
                 Layout.preferredHeight: (cardRoot.isEditing ? editContent.implicitHeight : cardContent.implicitHeight) + 16
                 radius: 8
-                // Black card, white text -- same contrast as the
-                // notification history cards, better readability than
-                // the grey tonal fill this used before.
-                color: "#000000"
+                // Dark theme-aware surface, passed from Overlay.qml.
+                // Kept near-black for contrast, but no longer one raw
+                // hardcoded black value inside this board.
+                color: root.cardSurface
                 // Accent border on hover -- direct request ("better
                 // visibility on hover of the row... so i know what im
                 // clicking or moving around"). A plain border directly
@@ -511,9 +597,9 @@ Item {
                 // there specifically because a thumbnail image paints
                 // over a Rectangle's own border; this card has no such
                 // overlapping content, so the direct border just works.
-	                border.color: cardRoot.deleteArmed ? "#e05252"
-	                  : (cardArea.containsMouse || editBtnMouse.containsMouse || deleteBtnMouse.containsMouse) ? root.accent
-	                  : "transparent"
+                border.color: cardRoot.deleteArmed ? root.dangerColor
+                  : (cardArea.containsMouse || editButton.hovered || deleteButton.hovered) ? root.accent
+                  : "transparent"
                 border.width: 1.5
                 Behavior on border.color { ColorAnimation { duration: 100 } }
 
@@ -598,16 +684,16 @@ Item {
                         // Red/yellow/muted for high/medium/low -- medium
                         // reuses the same yellow the settings page's own
                         // "pending update" dot already established.
-                        color: cardRoot.modelData.priority === "high" ? "#e05252"
+                        color: cardRoot.modelData.priority === "high" ? root.dangerColor
                           : cardRoot.modelData.priority === "low" ? root.muted
-                          : "#e8c34a"
+                          : root.warningColor
                       }
 
                       Text {
                         visible: columnRoot.columnId === "done"
                         anchors.centerIn: parent
                         text: "✓"
-                        color: "#3ecf5b"
+                        color: root.successColor
                         font.pixelSize: 13
                       }
                     }
@@ -690,7 +776,7 @@ Item {
                     Text {
                       visible: cardRoot.modelData.dueAt > 0
                       text: root.formatDueDate(cardRoot.modelData.dueAt)
-                      color: KanbanModel.isOverdue(cardRoot.modelData, Date.now()) ? "#e05252" : root.muted
+                      color: KanbanModel.isOverdue(cardRoot.modelData, Date.now()) ? root.dangerColor : root.muted
                       font.family: root.fontFamily
                       font.pixelSize: 9
                     }
@@ -698,15 +784,16 @@ Item {
                 }
 
                 // Inline edit mode -- the GUI half of rename/describe/
-                // re-prioritize/re-due (hover ✎ on a card, see
+                // re-prioritize (hover ✎ on a card, see
                 // cardActions below). Prefills from the card itself;
-                // saves through the SAME four KanbanService functions
+                // saves through the SAME KanbanService functions
                 // the kanbanRenameCard/kanbanSetDescription/
-                // kanbanSetPriority/kanbanSetDueDate IPC functions
+                // kanbanSetPriority IPC functions
                 // wrap -- identical clamps (title 48 / description 60,
-                // applied by the model), identical blank-title no-op,
-                // identical due-date rules (empty clears, unparseable
-                // no-ops via root.parsedDueMs). Enter in any field
+                // applied by the model), identical blank-title no-op.
+                // Due-date editing stays CLI-only for now: the former
+                // yyyy-mm-dd field made the confirm button overflow in
+                // Todo/Done's narrower columns. Enter in any field
                 // saves; Esc cancels LOCALLY (event accepted) so it
                 // never bubbles up to notchOuter and closes the panel.
                 ColumnLayout {
@@ -723,11 +810,6 @@ Item {
                     root.kanbanService.renameCard(cardRoot.modelData.id, editTitleInput.text)
                     root.kanbanService.setDescription(cardRoot.modelData.id, editDescInput.text)
                     root.kanbanService.setPriority(cardRoot.modelData.id, root.editPriority)
-                    var dueMs = root.parsedDueMs(editDueInput.text)
-                    // NaN (unparseable) deliberately no-ops -- same
-                    // typo-cannot-wipe-a-deadline guard as the IPC
-                    // path; 0 (empty field) clears the due date.
-                    if (!isNaN(dueMs)) root.kanbanService.setDueDate(cardRoot.modelData.id, dueMs)
                     root.editingCardId = ""
                   }
 
@@ -755,6 +837,7 @@ Item {
                     color: root.muted
                     font.family: root.fontFamily
                     font.pixelSize: 10
+                    wrapMode: TextInput.Wrap
                     clip: true
                     selectByMouse: true
                     onAccepted: editContent.commitEdit()
@@ -777,104 +860,26 @@ Item {
                     Layout.fillWidth: true
                     spacing: 6
 
-                    // Priority -- click cycles high -> medium -> low,
+                    Item { Layout.fillWidth: true }
+
+                    // Priority -- click cycles medium -> high -> low,
                     // same order/rank the model sorts by. State lives
                     // on root (editPriority), not in this delegate, so
                     // the chip's own label re-renders on click.
-                    Rectangle {
+                    KanbanPriorityPill {
+                      id: editPriorityPill
                       Layout.alignment: Qt.AlignVCenter
-                      implicitWidth: editPriorityLabel.implicitWidth + 30
-                      implicitHeight: editPriorityLabel.implicitHeight + 6
-                      radius: height / 2
-                      color: Qt.rgba(1, 1, 1, 0.10)
-
-                      Row {
-                        anchors.centerIn: parent
-                        spacing: 4
-
-                        Rectangle {
-                          anchors.verticalCenter: parent.verticalCenter
-                          width: 6
-                          height: 6
-                          radius: 3
-                          color: root.editPriority === "high" ? "#e05252"
-                            : root.editPriority === "low" ? root.muted
-                            : "#e8c34a"
-                        }
-
-                        Text {
-                          id: editPriorityLabel
-                          anchors.verticalCenter: parent.verticalCenter
-                          text: root.editPriority
-                          color: root.textColor
-                          font.family: root.fontFamily
-                          font.pixelSize: 9
-                        }
-                      }
-
-                      MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.editPriority = root.cyclePriority(root.editPriority)
-                      }
+                      priority: root.editPriority
+                      onClicked: root.editPriority = root.cyclePriority(root.editPriority)
                     }
 
-                    // Due date as free text -- same Date.parse()
-                    // convention the IPC function documents ("2026-09-12"
-                    // or anything else Date.parse() recognizes).
-                    TextInput {
-                      id: editDueInput
-                      Layout.preferredWidth: 96
-                      text: cardRoot.modelData.dueAt > 0 ? Qt.formatDate(new Date(cardRoot.modelData.dueAt), "yyyy-MM-dd") : ""
-                      color: root.textColor
-                      font.family: root.fontFamily
-                      font.pixelSize: 10
-                      clip: true
-                      selectByMouse: true
-                      onAccepted: editContent.commitEdit()
-                      Keys.onEscapePressed: function(event) {
-                        event.accepted = true
-                        root.editingCardId = ""
-                      }
-
-                      Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        visible: editDueInput.text.length === 0
-                        text: "yyyy-mm-dd"
-                        color: root.muted
-                        font.family: root.fontFamily
-                        font.pixelSize: 10
-                      }
+                    KanbanActionButton {
+                      id: saveEditButton
+                      icon: "✓"
+                      accentColor: root.confirmColor
+                      onClicked: editContent.commitEdit()
                     }
 
-                    Item { Layout.fillWidth: true }
-
-                    Text {
-                      text: "✓"
-                      color: root.accent
-                      font.pixelSize: 13
-
-                      MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: editContent.commitEdit()
-                      }
-                    }
-
-                    Text {
-                      text: "✕"
-                      color: "#e05252"
-                      font.pixelSize: 13
-
-                      MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.editingCardId = ""
-                      }
-                    }
                   }
                 }
 
@@ -897,62 +902,33 @@ Item {
 	                  spacing: 4
                   visible: !cardRoot.isEditing
                     && (cardArea.containsMouse || cardRoot.deleteArmed
-                        || editBtnMouse.containsMouse || deleteBtnMouse.containsMouse)
+                        || editButton.hovered || deleteButton.hovered)
 
-                  Rectangle {
-	                    width: 20
-	                    height: 20
-	                    radius: 6
-		                    color: editBtnMouse.containsMouse ? "#3ecf5b" : Qt.rgba(1, 1, 1, 0.08)
-
-                    Text {
-	                      anchors.centerIn: parent
-		                      text: "\uf044"
-		                      color: editBtnMouse.containsMouse ? "#000000" : "#3ecf5b"
-		                      font.family: root.fontFamily
-		                      font.pixelSize: 11
-                    }
-
-                    MouseArea {
-                      id: editBtnMouse
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.openEdit(cardRoot.modelData)
-                    }
+                  KanbanActionButton {
+                    id: editButton
+                    icon: "\uf044"
+                    iconFamily: root.fontFamily
+                    iconPixelSize: 11
+                    accentColor: root.successColor
+                    onClicked: root.openEdit(cardRoot.modelData)
                   }
 
-                  Rectangle {
-	                    width: 20
-	                    height: 20
-	                    radius: 6
+                  KanbanActionButton {
+                    id: deleteButton
                     // Two-click delete -- the armed red button IS the
                     // confirmation (this plugin has no dialog surface
                     // convention); root's own 3s Timer disarms it.
-		                    color: cardRoot.deleteArmed
-		                      ? "#e05252"
-		                      : (deleteBtnMouse.containsMouse ? "#e05252" : Qt.rgba(1, 1, 1, 0.08))
-
-                    Text {
-		                      anchors.centerIn: parent
-		                      text: "✕"
-		                      color: (cardRoot.deleteArmed || deleteBtnMouse.containsMouse) ? "#000000" : "#e05252"
-		                      font.pixelSize: 11
-                    }
-
-                    MouseArea {
-                      id: deleteBtnMouse
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: {
-                        if (!root.kanbanService) return
-                        if (cardRoot.deleteArmed) {
-                          root.deleteArmedId = ""
-                          root.kanbanService.removeCard(cardRoot.modelData.id)
-                        } else {
-                          root.deleteArmedId = cardRoot.modelData.id
-                        }
+                    icon: "✕"
+                    iconPixelSize: 11
+                    accentColor: root.dangerColor
+                    armed: cardRoot.deleteArmed
+                    onClicked: {
+                      if (!root.kanbanService) return
+                      if (cardRoot.deleteArmed) {
+                        root.deleteArmedId = ""
+                        root.kanbanService.removeCard(cardRoot.modelData.id)
+                      } else {
+                        root.deleteArmedId = cardRoot.modelData.id
                       }
                     }
                   }

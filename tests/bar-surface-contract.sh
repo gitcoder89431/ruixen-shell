@@ -65,7 +65,7 @@ check "GroupPill no longer owns a raw black fill" \
   "$(grep -A10 'component GroupPill' "$bar_qml" | grep -c 'color: root.floatingPillFill')" "1"
 
 check "GroupPill shadow uses the semantic shadow token" \
-  "$(grep -A40 'component GroupPill' "$bar_qml" | grep -c 'shadowColor: root.surfaceShadow')" "1"
+  "$(grep -A55 'component GroupPill' "$bar_qml" | grep -c 'shadowColor: root.surfaceShadow')" "1"
 
 check "launcher settings labels the shared control as Surface Color" \
   "$(grep -c 'label: "Surface Color"' "$settings_qml")" "1"

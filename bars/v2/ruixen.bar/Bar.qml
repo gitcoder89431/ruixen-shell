@@ -1650,13 +1650,32 @@ Item {
     // the pill's own edge instead of spreading/softening it into a
     // faded halo; opacity 0.6 -> 0.8 makes it read as a real shadow
     // rather than a faint tint.
+    //
+    // Bumped again (0.15/1 -> 0.35/3) per direct follow-up once both
+    // Solid and Glass surface materials landed (#78): at the tight,
+    // low-blur/low-offset settings above the shadow read as barely
+    // there, especially under Glass's own semi-transparent fill --
+    // "can you add a drop shadow to it so it looks a bit raised from
+    // the bg" (asked as if there were none at all).
+    //
+    // 0.35/3 overshot -- direct live correction ("thats a bit too far,
+    // is there a little bit tighter shadow but not as tight as
+    // before"): landed on 0.24/2, the midpoint between the original
+    // barely-there pass and the overshot one.
+    //
+    // shadowColor itself is already pure black (root.surfaceShadow) --
+    // opacity 0.8 blended with the blur is what read as "greyish/muted
+    // black" rather than the color being wrong (direct live question:
+    // "is the shadow black? i feel like it looks more greyish"). Bumped
+    // to 0.95 so the shadow's own core reads solidly black instead of a
+    // washed-out tint, blur/offset unchanged.
     layer.enabled: true
     layer.effect: MultiEffect {
       shadowEnabled: true
       shadowColor: root.surfaceShadow
-      shadowOpacity: 0.8
-      shadowBlur: 0.15
-      shadowVerticalOffset: 1
+      shadowOpacity: 0.95
+      shadowBlur: 0.24
+      shadowVerticalOffset: 2
     }
   }
 

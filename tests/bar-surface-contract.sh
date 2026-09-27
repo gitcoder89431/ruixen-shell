@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Contract for issue #78 Phase 1: define semantic bar surface tokens before
-# splitting Bar.qml into smaller components.
+# Contract for issue #78: define semantic bar surface tokens before splitting
+# Bar.qml into smaller components.
 set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,8 +24,8 @@ check() {
 check "Bar.qml declares the black surface identity token" \
   "$(grep -c 'readonly property color surfaceBlack: "#000000"' "$bar_qml")" "1"
 
-check "Bar.qml declares the phase-1 floating surface color mode" \
-  "$(grep -c 'readonly property string floatingSurfaceColorMode: "black"' "$bar_qml")" "1"
+check "floating surface color follows the shared frame appearance mode" \
+  "$(grep -c 'readonly property string floatingSurfaceColorMode: root.frameColorMode' "$bar_qml")" "1"
 
 check "Bar.qml declares the phase-1 floating material mode" \
   "$(grep -c 'readonly property string floatingSurfaceMaterial: "solid"' "$bar_qml")" "1"
@@ -41,6 +41,12 @@ check "foreground readability is derived from the resolved surface" \
 
 check "readableForegroundForSurface handles light surfaces explicitly" \
   "$(grep -A5 'function readableForegroundForSurface' "$bar_qml" | grep -c 'surfaceIsLight')" "2"
+
+check "light surfaces fall back to a dark safe foreground when needed" \
+  "$(grep -A6 'function readableForegroundForSurface' "$bar_qml" | grep -c 'surfaceSafeDarkForeground')" "1"
+
+check "dark surfaces fall back to a light safe foreground when needed" \
+  "$(grep -A6 'function readableForegroundForSurface' "$bar_qml" | grep -c 'surfaceSafeLightForeground')" "1"
 
 check "frame color uses the shared surface resolver" \
   "$(grep -c 'readonly property color frameColor: resolveSurfaceColor(root.frameColorMode)' "$bar_qml")" "1"

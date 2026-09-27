@@ -79,16 +79,15 @@ Item {
   property color themeForeground: Color.bar.text
   property color themeContrastForeground: Color.background
   property color transparentForeground: Color.bar.text
-  // Phase 1 of #78: bar surfaces resolve through semantic tokens before
+  // #78 surface contract: bar surfaces resolve through semantic tokens before
   // any component extraction or visual redesign. The floating pill identity
-  // is intentionally fixed to Black + Solid for now, preserving today's
-  // look, but GroupPill and foreground selection no longer own the raw
-  // "#000000 means readable" decision themselves.
+  // now follows the same Black/Theme choice as the frame/docked/notch family,
+  // while Material stays Solid until the later glass pass.
   readonly property color surfaceBlack: "#000000"
   readonly property color surfaceSafeLightForeground: "#e8e8e8"
   readonly property color surfaceSafeDarkForeground: "#101010"
   readonly property color surfaceShadow: surfaceBlack
-  readonly property string floatingSurfaceColorMode: "black"
+  readonly property string floatingSurfaceColorMode: root.frameColorMode
   readonly property string floatingSurfaceMaterial: "solid"
   readonly property color floatingPillSurface: resolveSurfaceColor(floatingSurfaceColorMode)
   readonly property real floatingPillSurfaceLuminance: surfaceLuminance(floatingPillSurface)

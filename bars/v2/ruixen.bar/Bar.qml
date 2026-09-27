@@ -135,6 +135,8 @@ Item {
   // so that script's answer has nothing to do with what's readable here.
   readonly property color pillForeground: readableForegroundForSurface(floatingPillSurface, themeForeground)
   property color foreground: pillForeground
+  property string iconTone: "mono"
+  readonly property color iconForeground: iconTone === "accent" ? Color.accent : pillForeground
   // Not readonly -- Behavior on barForeground below needs write access to
   // intercept it, even though nothing assigns it imperatively anymore.
   property color barForeground: pillForeground
@@ -574,6 +576,32 @@ Item {
   // own resolvedFrameColorLuminance/notchColor pair exactly.
   readonly property real frameColorLuminance: surfaceLuminance(root.frameColor)
   readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)
+
+  readonly property string barIconToneStatePath: root.stateHome + "/ruixen/bar-icon-tone.json"
+
+  function normalizeIconTone(tone) {
+    return tone === "accent" ? "accent" : "mono"
+  }
+
+  function loadBarIconTone(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.iconTone = normalizeIconTone(p && p.tone)
+    } catch (e) {
+      root.iconTone = "mono"
+    }
+  }
+
+  FileView {
+    id: barIconToneFile
+    path: root.barIconToneStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadBarIconTone(text())
+    onLoadFailed: root.iconTone = "mono"
+  }
+
   // bar-surface.json is the new #78 state for independent color/material
   // axes. frame-appearance.json remains as a compatibility fallback and
   // notch mirror until the coupled notch/frame surface is migrated too.

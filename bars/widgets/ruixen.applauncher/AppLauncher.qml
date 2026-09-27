@@ -80,15 +80,10 @@ BarWidget {
     // the same undersized/missing-glyph class of problem this comment
     // was originally written to solve.
     text: Glyphs.iconGlyph(root.iconId)
-    // No custom `foreground` override -- back to BarIconButton's own
-    // plain default (bar.barForeground/Color.foreground), same as every
-    // other static bar icon. Direct follow-up after trying both
-    // primary/themeGreen and Color.accent here: coloring every always-on
-    // decorative icon (this one, plugins, settings, info) would turn
-    // accent into visual noise instead of a real signal -- "i feel like
-    // thats a bit too much accent... maybe best arch just stays surface
-    // white or yellow? seems most balance". Accent stays reserved for
-    // actual state (the workspace switcher's focused dot).
+    // Follows the Bar page's Icon Tone setting. Mono keeps the old
+    // readability-safe foreground; Accent deliberately colors decorative
+    // glyphs without changing global text foreground/popup colors.
+    foreground: root.bar ? root.bar.iconForeground : "#ffffff"
     tooltipText: "App Launcher"
     onPressed: function() { root.toggleLauncher() }
   }

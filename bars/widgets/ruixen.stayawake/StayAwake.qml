@@ -27,6 +27,7 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: "󰅶"
+    foreground: root.bar ? root.bar.iconForeground : "#ffffff"
     dimmed: !root.stayAwake
     tooltipText: root.stayAwake ? "Allow Idle Lock & Screensaver" : "Stay Awake"
     onPressed: function() { root.toggle() }

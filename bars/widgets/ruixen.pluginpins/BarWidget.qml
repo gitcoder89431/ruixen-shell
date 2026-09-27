@@ -377,6 +377,7 @@ BarWidget {
     // glyph, Bar.qml's sidebar label) with directly-typed Nerd Font
     // characters.
     text: "\uf00a"
+    foreground: root.bar ? root.bar.iconForeground : "#ffffff"
     tooltipText: "Plugins"
     onPressed: function() { root.popupOpen = !root.popupOpen }
   }

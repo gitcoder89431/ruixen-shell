@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Contract for the Bar page's Icon Tone setting: Mono keeps the existing
+# readable foreground, Accent colors only icon-specific call sites.
+set -Eeuo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$script_dir/.." && pwd)"
+bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
+run_all="$repo_dir/tests/run-all.sh"
+
+pass=0
+fail_count=0
+check() {
+  local desc="$1" got="$2" want="$3"
+  if [[ "$got" == "$want" ]]; then
+    printf 'ok   - %s\n' "$desc"
+    pass=$((pass + 1))
+  else
+    printf 'FAIL - %s\n       got:  %s\n       want: %s\n' "$desc" "$got" "$want"
+    fail_count=$((fail_count + 1))
+  fi
+}
+
+check "Bar.qml exposes an iconTone state with mono default" \
+  "$(grep -c 'property string iconTone: "mono"' "$bar_qml")" "1"
+
+check "Bar.qml resolves Accent icons through Color.accent only at iconForeground" \
+  "$(grep -c 'readonly property color iconForeground: iconTone === "accent" ? Color.accent : pillForeground' "$bar_qml")" "1"
+
+check "Bar.qml keeps global text/popup foreground readable, not accent-driven" \
+  "$(grep -c 'property color foreground: pillForeground' "$bar_qml")" "1"
+
+check "Bar.qml reads the independent icon tone state file" \
+  "$(grep -c 'bar-icon-tone.json' "$bar_qml")" "1"
+
+check "SettingsContent.qml exposes Icon Tone on the Bar page" \
+  "$(grep -c 'label: "Icon Tone"' "$settings_qml")" "1"
+
+check "SettingsContent.qml offers exactly Mono and Accent" \
+  "$(( $(grep -c '{ id: "mono", label: "Mono" }' "$settings_qml") + $(grep -c '{ id: "accent", label: "Accent" }' "$settings_qml") ))" "2"
+
+check "SettingsContent.qml writes the same icon tone state file" \
+  "$(grep -c 'bar-icon-tone.json' "$settings_qml")" "1"
+
+check "decorative Ruixen BarIconButtons use iconForeground" \
+  "$(grep -R -c 'foreground: root\.bar ? root\.bar\.iconForeground : "#ffffff"' "$repo_dir/bars/widgets" | awk -F: '{ total += $2 } END { print total }')" "6"
+
+check "symbolic tray icons use iconForeground" \
+  "$(grep -c 'colorizationColor: root.iconForeground' "$repo_dir/bars/widgets/ruixen.tray/Tray.qml")" "1"
+
+check "screen recording indicator stays urgent red" \
+  "$(grep -c 'foreground: Color.urgent' "$repo_dir/bars/widgets/ruixen.capturestatus/BarWidget.qml")" "1"
+
+check "peripheral battery indicator keeps semantic charge colors" \
+  "$(grep -c 'foreground: root.percentColor(root.selectedDevice)' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml")" "1"
+
+# shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
+check "tests/run-all.sh runs this suite" \
+  "$(grep -m1 'bar-icon-tone-contract.sh' "$run_all")" \
+  '  "$script_dir/bar-icon-tone-contract.sh"'
+
+printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
+[[ "$fail_count" -eq 0 ]]

@@ -69,6 +69,7 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: panelLoader.item ? panelLoader.item.label : ""
+    foreground: root.bar ? root.bar.iconForeground : "#ffffff"
     // Stock used statusSlot (narrower, meant for the denser center
     // cluster next to the clock/indicators). Matched to iconSlot here so
     // it doesn't look undersized next to the other icon-style widgets

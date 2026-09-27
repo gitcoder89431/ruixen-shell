@@ -15,6 +15,7 @@ BarWidget {
   property var activeTrayItem: null
   property var activeTrayAnchor: null
   readonly property color foreground: bar ? bar.foreground : Color.foreground
+  readonly property color iconForeground: bar ? bar.iconForeground : foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   // No pinned/drawer/hidden distinction and no manage popup — every item
   // just shows directly, no chevron. A hover-to-reveal drawer made sense on
@@ -508,7 +509,7 @@ BarWidget {
       source: trayIconImage
       visible: trayIconRoot.symbolic
       colorization: 1.0
-      colorizationColor: root.foreground
+      colorizationColor: root.iconForeground
     }
   }
 

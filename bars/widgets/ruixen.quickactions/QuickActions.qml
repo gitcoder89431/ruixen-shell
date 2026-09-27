@@ -108,6 +108,7 @@ BarWidget {
     bar: root.bar
     // Sliders-vertical (Font Awesome sliders, U+F1DE) -- swapped from a gear icon.
     text: ""
+    foreground: root.bar ? root.bar.iconForeground : "#ffffff"
     tooltipText: "More actions"
     onPressed: function() { root.popupOpen = !root.popupOpen }
   }

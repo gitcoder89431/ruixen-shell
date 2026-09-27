@@ -3591,6 +3591,7 @@ Item {
     required property string moduleName
 
     readonly property color foreground: root.foreground
+    readonly property color iconForeground: root.iconForeground
     readonly property string fontFamily: root.fontFamily
     readonly property color barForeground: root.barForeground
     readonly property bool foregroundAnimationEnabled: root.foregroundAnimationEnabled

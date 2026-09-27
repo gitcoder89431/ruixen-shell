@@ -28,6 +28,9 @@ check "Bar.qml exposes an iconTone state with mono default" \
 check "Bar.qml resolves Accent icons through Color.accent only at iconForeground" \
   "$(grep -c 'readonly property color iconForeground: iconTone === "accent" ? Color.accent : pillForeground' "$bar_qml")" "1"
 
+check "PluginBarFacade exposes iconForeground to bar widgets" \
+  "$(grep -A8 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color iconForeground: root.iconForeground')" "1"
+
 check "Bar.qml keeps global text/popup foreground readable, not accent-driven" \
   "$(grep -c 'property color foreground: pillForeground' "$bar_qml")" "1"
 

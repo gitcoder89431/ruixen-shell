@@ -6,6 +6,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0
@@ -59,6 +60,12 @@ check "GroupPill no longer owns a raw black fill" \
 
 check "GroupPill shadow uses the semantic shadow token" \
   "$(grep -A40 'component GroupPill' "$bar_qml" | grep -c 'shadowColor: root.surfaceShadow')" "1"
+
+check "launcher settings labels the shared control as Surface Color" \
+  "$(grep -c 'label: "Surface Color"' "$settings_qml")" "1"
+
+check "launcher settings keeps frame-appearance as compatibility state" \
+  "$(grep -c 'frame-appearance name for compatibility' "$settings_qml")" "1"
 
 # shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
 check "tests/run-all.sh runs this suite" \

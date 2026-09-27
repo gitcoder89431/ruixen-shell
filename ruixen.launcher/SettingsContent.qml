@@ -1646,8 +1646,10 @@ Item {
     onLoadFailed: root.loadCavaState("")
   }
 
-  // Frame color -- just "theme" (tracking the active theme's own
-  // background live) or "black" (fixed OLED black). Was a Themed/Custom
+  // Bar surface color -- just "theme" (tracking the active theme's own
+  // background live) or "black" (fixed OLED black). The persisted state
+  // file keeps its original frame-appearance name for compatibility even
+  // though the setting now also colors floating pills. Was a Themed/Custom
   // split with a 3-swatch color picker (OLED Black/Charcoal/White) --
   // direct correction after live testing: "some themes uses white like
   // lupine and few other light theme, this would make the notch
@@ -3261,7 +3263,7 @@ Item {
     onActivated: (id) => root.setAnimationProfile(id)
   }
 
-  // Frame color -- theme it (tracks the active theme's own background
+  // Surface color -- theme it (tracks the active theme's own background
   // live) or plain black. Same "Themed"/mode-name wording ruixen.settings'
   // own Glass Tint card already established elsewhere in this file, for
   // consistency across the two closest analogous settings. Was a
@@ -3273,12 +3275,12 @@ Item {
   //
   // Moved here from the Desktop page, above Bar Layout -- direct
   // request: "move the frame color from the setting out of desktop and
-  // lets put it in Bars above bar layout." It shapes the bar's own
-  // frame/docked-shoulder surface (see AGENTS.md #9's "coupled visual
-  // surfaces"), not anything Desktop-page-specific.
+  // lets put it in Bars above bar layout." It now shapes the bar's own
+  // floating pills plus frame/docked-shoulder surface (see AGENTS.md #9's
+  // "coupled visual surfaces"), not anything Desktop-page-specific.
   SettingsSegmentedItem {
     id: frameColorModeItem
-    label: "Frame Color"
+    label: "Surface Color"
     options: [
       { id: "theme", label: "Themed" },
       { id: "black", label: "Black" }

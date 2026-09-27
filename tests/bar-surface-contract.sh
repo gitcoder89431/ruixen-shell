@@ -28,11 +28,17 @@ check "Bar.qml declares the black surface identity token" \
 check "floating surface color follows the shared frame appearance mode" \
   "$(grep -c 'readonly property string floatingSurfaceColorMode: root.frameColorMode' "$bar_qml")" "1"
 
-check "Bar.qml declares the phase-1 floating material mode" \
-  "$(grep -c 'readonly property string floatingSurfaceMaterial: "solid"' "$bar_qml")" "1"
+check "floating surface material follows the bar surface state" \
+  "$(grep -c 'readonly property string floatingSurfaceMaterial: root.barSurfaceMaterial' "$bar_qml")" "1"
 
 check "floating pills resolve their fill through the surface resolver" \
   "$(grep -c 'readonly property color floatingPillSurface: resolveSurfaceColor(floatingSurfaceColorMode)' "$bar_qml")" "1"
+
+check "floating pills resolve material opacity in one helper" \
+  "$(grep -c 'readonly property color floatingPillFill: surfaceFillForMaterial(floatingPillSurface, floatingSurfaceMaterial)' "$bar_qml")" "1"
+
+check "glass material uses a translucent fill" \
+  "$(grep -A4 'function surfaceFillForMaterial' "$bar_qml" | grep -c 'material === "glass" ? 0.78')" "1"
 
 check "surface color identity is resolved in one helper" \
   "$(grep -A2 'function resolveSurfaceColor' "$bar_qml" | grep -c 'mode === "theme" ? Color.background : root.surfaceBlack')" "1"
@@ -56,7 +62,7 @@ check "docked content surface uses the shared content clamp" \
   "$(grep -c 'readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)' "$bar_qml")" "1"
 
 check "GroupPill no longer owns a raw black fill" \
-  "$(grep -A10 'component GroupPill' "$bar_qml" | grep -c 'color: root.floatingPillSurface')" "1"
+  "$(grep -A10 'component GroupPill' "$bar_qml" | grep -c 'color: root.floatingPillFill')" "1"
 
 check "GroupPill shadow uses the semantic shadow token" \
   "$(grep -A40 'component GroupPill' "$bar_qml" | grep -c 'shadowColor: root.surfaceShadow')" "1"
@@ -64,8 +70,23 @@ check "GroupPill shadow uses the semantic shadow token" \
 check "launcher settings labels the shared control as Surface Color" \
   "$(grep -c 'label: "Surface Color"' "$settings_qml")" "1"
 
-check "launcher settings keeps frame-appearance as compatibility state" \
-  "$(grep -c 'frame-appearance name for compatibility' "$settings_qml")" "1"
+check "launcher settings exposes the independent Surface Material control" \
+  "$(grep -c 'label: "Surface Material"' "$settings_qml")" "1"
+
+check "launcher settings offers Solid and Glass material options" \
+  "$(( $(grep -c '{ id: "solid", label: "Solid" }' "$settings_qml") + $(grep -c '{ id: "glass", label: "Glass" }' "$settings_qml") ))" "2"
+
+check "bar reads the new bar surface state file" \
+  "$(grep -c 'readonly property string barSurfaceStatePath: root.stateHome + "/ruixen/bar-surface.json"' "$bar_qml")" "1"
+
+check "launcher writes the new bar surface state file" \
+  "$(grep -c 'bar-surface.json' "$settings_qml")" "2"
+
+check "new bar-surface state wins over frame-appearance fallback" \
+  "$(grep -h -c 'if (root.barSurfaceStateLoaded) return' "$bar_qml" "$settings_qml" | awk '{ total += $1 } END { print total }')" "2"
+
+check "launcher settings keeps frame-appearance as color compatibility state" \
+  "$(grep -c 'frame-appearance.json is still mirrored for compatibility' "$settings_qml")" "1"
 
 # shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
 check "tests/run-all.sh runs this suite" \

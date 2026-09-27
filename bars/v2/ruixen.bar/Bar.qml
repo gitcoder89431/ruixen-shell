@@ -80,16 +80,17 @@ Item {
   property color themeContrastForeground: Color.background
   property color transparentForeground: Color.bar.text
   // #78 surface contract: bar surfaces resolve through semantic tokens before
-  // any component extraction or visual redesign. The floating pill identity
-  // now follows the same Black/Theme choice as the frame/docked/notch family,
-  // while Material stays Solid until the later glass pass.
+  // any component extraction or visual redesign. Color and material are
+  // independent axes; the new bar-surface.json state is authoritative when
+  // present, with the older frame-appearance.json kept as color fallback.
   readonly property color surfaceBlack: "#000000"
   readonly property color surfaceSafeLightForeground: "#e8e8e8"
   readonly property color surfaceSafeDarkForeground: "#101010"
   readonly property color surfaceShadow: surfaceBlack
   readonly property string floatingSurfaceColorMode: root.frameColorMode
-  readonly property string floatingSurfaceMaterial: "solid"
+  readonly property string floatingSurfaceMaterial: root.barSurfaceMaterial
   readonly property color floatingPillSurface: resolveSurfaceColor(floatingSurfaceColorMode)
+  readonly property color floatingPillFill: surfaceFillForMaterial(floatingPillSurface, floatingSurfaceMaterial)
   readonly property real floatingPillSurfaceLuminance: surfaceLuminance(floatingPillSurface)
   readonly property real themeForegroundLuminance: surfaceLuminance(themeForeground)
 
@@ -99,6 +100,11 @@ Item {
 
   function resolveSurfaceColor(mode) {
     return mode === "theme" ? Color.background : root.surfaceBlack
+  }
+
+  function surfaceFillForMaterial(surface, material) {
+    var alpha = material === "glass" ? 0.78 : surface.a
+    return Qt.rgba(surface.r, surface.g, surface.b, alpha)
   }
 
   function readableForegroundForSurface(surface, preferred) {
@@ -553,6 +559,7 @@ Item {
   // "remove white from the setting as an option then and just leave
   // Black and Theme."
   property string frameColorMode: "black"
+  property string barSurfaceMaterial: "solid"
   readonly property color frameColor: resolveSurfaceColor(root.frameColorMode)
   // Docked mode's merged shoulder strip (leftDockedBg/rightDockedBg and
   // their wing pieces below) hides every individual pill's own
@@ -567,6 +574,49 @@ Item {
   // own resolvedFrameColorLuminance/notchColor pair exactly.
   readonly property real frameColorLuminance: surfaceLuminance(root.frameColor)
   readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)
+  // bar-surface.json is the new #78 state for independent color/material
+  // axes. frame-appearance.json remains as a compatibility fallback and
+  // notch mirror until the coupled notch/frame surface is migrated too.
+  readonly property string barSurfaceStatePath: root.stateHome + "/ruixen/bar-surface.json"
+  property bool barSurfaceStateLoaded: false
+
+  function normalizeSurfaceColorMode(mode) {
+    return mode === "theme" ? "theme" : "black"
+  }
+
+  function normalizeSurfaceMaterial(material) {
+    return material === "glass" ? "glass" : "solid"
+  }
+
+  function applyBarSurfaceState(colorMode, material) {
+    root.frameColorMode = normalizeSurfaceColorMode(colorMode)
+    root.barSurfaceMaterial = normalizeSurfaceMaterial(material)
+  }
+
+  function loadBarSurfaceState(raw) {
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.applyBarSurfaceState(p && p.color, p && p.material)
+      root.barSurfaceStateLoaded = true
+    } catch (e) {
+      root.barSurfaceStateLoaded = false
+      frameColorFile.reload()
+    }
+  }
+
+  FileView {
+    id: barSurfaceFile
+    path: root.barSurfaceStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadBarSurfaceState(text())
+    onLoadFailed: {
+      root.barSurfaceStateLoaded = false
+      frameColorFile.reload()
+    }
+  }
+
   // JSON, not a plain string -- kept the shape (an object with a "mode"
   // key) even though customColor is gone, so an old file from before
   // this simplification (mode: "custom", customColor: "#...") degrades
@@ -587,11 +637,14 @@ Item {
   // ruixen.cava's own loadCavaState/onLoadFailed pattern, called with ""
   // on failure.
   function loadFrameAppearance(raw) {
+    if (root.barSurfaceStateLoaded) return
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.frameColorMode = (p && p.mode === "theme") ? "theme" : "black"
+      root.frameColorMode = normalizeSurfaceColorMode(p && p.mode)
+      root.barSurfaceMaterial = "solid"
     } catch (e) {
       root.frameColorMode = "black"
+      root.barSurfaceMaterial = "solid"
     }
   }
 
@@ -1539,7 +1592,7 @@ Item {
   // the token once instead of cloning literals into every pill.
   component GroupPill: Rectangle {
     radius: height / 2
-    color: root.floatingPillSurface
+    color: root.floatingPillFill
     // Without this, a full circle (radius === width/2 === height/2, like
     // the solo menu pill) renders as a faceted octagon instead of a
     // smooth curve — much more visible than on a stadium shape (most of

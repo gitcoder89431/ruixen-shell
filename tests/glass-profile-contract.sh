@@ -78,8 +78,8 @@ check "both Lua files use the same Transparent blur passes (2 vs. Frosted's 3)" 
 
 check "no leftover vibrant/solid branching anywhere in either Lua file" \
   "$(grep -c 'ruixenGlassProfile == "vibrant"\|ruixenGlassProfile == "solid"\|ruixenGlassProfile ~= "solid"' "$ruixen_lua")$(grep -c 'ruixenGlassProfile == "vibrant"\|ruixenGlassProfile == "solid"\|ruixenGlassProfile ~= "solid"' "$square_lua")" "00"
-check "no leftover vibrant/solid ids in SettingsContent.qml's own picker/validation" \
-  "$(grep -c '"vibrant"\|"solid"' "$settings_qml")" "0"
+check "no leftover vibrant/solid ids in Profile Glass picker" \
+  "$(awk '/id: glassProfileItem/ { in_block = 1 } in_block && /id: "vibrant"|id: "solid"/ { count++ } index($0, "onActivated: (id) => root.setGlassProfile(id)") { in_block = 0 } END { print count + 0 }' "$settings_qml")" "0"
 
 # --- the actual decoration block reads the profile-driven variables, not a
 # leftover hardcoded literal ------------------------------------------------

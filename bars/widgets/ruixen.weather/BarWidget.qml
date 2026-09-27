@@ -69,7 +69,18 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: panelLoader.item ? panelLoader.item.label : ""
-    foreground: root.bar ? root.bar.iconForeground : "#ffffff"
+    // No iconForeground override here on purpose, direct live follow-up
+    // ("since we cant change the clock color, lets make the weather back
+    // to before without the accent too then cause the separator is
+    // already accent in this group"): weather shares clockPill with
+    // omarchy.clock, a stock widget whose own color can't be overridden
+    // without cloning it (see ruixen.power's own clone for why that's a
+    // real undertaking, deliberately not done for clock). Weather alone
+    // picking up Icon Tone's accent while clock stays on the plain theme
+    // color read as mismatched within the same pill -- reverted to the
+    // plain default (matches clock) so the two agree; the divider
+    // between them keeps its own Color.accent unchanged, that one was
+    // never in question.
     // Stock used statusSlot (narrower, meant for the denser center
     // cluster next to the clock/indicators). Matched to iconSlot here so
     // it doesn't look undersized next to the other icon-style widgets

@@ -53,7 +53,14 @@ check "SettingsContent.qml writes the same icon tone state file" \
   "$(grep -c 'bar-icon-tone.json' "$settings_qml")" "1"
 
 check "decorative Ruixen BarIconButtons use iconForeground" \
-  "$(grep -R -c 'foreground: root\.bar ? root\.bar\.iconForeground : "#ffffff"' "$repo_dir/bars/widgets" | awk -F: '{ total += $2 } END { print total }')" "6"
+  "$(grep -R -c 'foreground: root\.bar ? root\.bar\.iconForeground : "#ffffff"' "$repo_dir/bars/widgets" | awk -F: '{ total += $2 } END { print total }')" "5"
+
+# ruixen.weather deliberately does NOT use iconForeground -- direct live
+# follow-up: it shares clockPill with the stock omarchy.clock widget,
+# whose own color can't be overridden without cloning it, so weather
+# alone picking up Icon Tone's accent read as mismatched within the pill.
+check "ruixen.weather does not override foreground with iconForeground (mismatched clock pill)" \
+  "$(grep -c 'foreground: root\.bar ? root\.bar\.iconForeground' "$repo_dir/bars/widgets/ruixen.weather/BarWidget.qml" || true)" "0"
 
 check "symbolic tray icons use iconForeground" \
   "$(grep -c 'colorizationColor: root.iconForeground' "$repo_dir/bars/widgets/ruixen.tray/Tray.qml")" "1"

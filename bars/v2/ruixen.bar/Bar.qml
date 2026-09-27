@@ -79,43 +79,56 @@ Item {
   property color themeForeground: Color.bar.text
   property color themeContrastForeground: Color.background
   property color transparentForeground: Color.bar.text
-  // Every pill (component GroupPill below) is hardcoded OLED black
-  // regardless of theme. Color.bar.text (the theme's body-text color) is
-  // fine against that on almost every theme -- checked across Aura Soft,
-  // Everforest, Gruvbox, Nord, Catppuccin, Tokyo Night: foreground is
-  // already light/off-white on all of them, since that's what "readable
-  // body text" means on a dark theme. Two real exceptions: light themes
-  // (e.g. "White"), where foreground flips near-black for readability on
-  // THAT theme's own light background, and Rose Pine specifically, a
-  // dark theme whose foreground (#575279, a muted dark purple) is still
-  // too dark against black despite the theme itself being dark-mode.
-  // Neither is a light/dark toggle -- it's actual luminance -- so measure
-  // it directly and only fall back to a fixed light color when the
-  // theme's own foreground genuinely wouldn't read, instead of
-  // overriding every theme's icon color wholesale (an earlier pass tried
-  // Color.accent for this and lost each theme's actual look for no
-  // reason, since accent is a single "pop" hue, not the resting
-  // icon/text color stock Omarchy uses).
-  readonly property real themeForegroundLuminance: 0.299 * themeForeground.r + 0.587 * themeForeground.g + 0.114 * themeForeground.b
-  readonly property color safeForeground: "#e8e8e8"
+  // Phase 1 of #78: bar surfaces resolve through semantic tokens before
+  // any component extraction or visual redesign. The floating pill identity
+  // is intentionally fixed to Black + Solid for now, preserving today's
+  // look, but GroupPill and foreground selection no longer own the raw
+  // "#000000 means readable" decision themselves.
+  readonly property color surfaceBlack: "#000000"
+  readonly property color surfaceSafeLightForeground: "#e8e8e8"
+  readonly property color surfaceSafeDarkForeground: "#101010"
+  readonly property color surfaceShadow: surfaceBlack
+  readonly property string floatingSurfaceColorMode: "black"
+  readonly property string floatingSurfaceMaterial: "solid"
+  readonly property color floatingPillSurface: resolveSurfaceColor(floatingSurfaceColorMode)
+  readonly property real floatingPillSurfaceLuminance: surfaceLuminance(floatingPillSurface)
+  readonly property real themeForegroundLuminance: surfaceLuminance(themeForeground)
+
+  function surfaceLuminance(c) {
+    return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+  }
+
+  function resolveSurfaceColor(mode) {
+    return mode === "theme" ? Color.background : root.surfaceBlack
+  }
+
+  function readableForegroundForSurface(surface, preferred) {
+    var surfaceIsLight = root.surfaceLuminance(surface) > 0.5
+    var preferredIsLight = root.surfaceLuminance(preferred) > 0.45
+    return surfaceIsLight
+      ? (preferredIsLight ? root.surfaceSafeDarkForeground : preferred)
+      : (preferredIsLight ? preferred : root.surfaceSafeLightForeground)
+  }
+
+  function contentSurfaceFor(surface) {
+    return root.surfaceLuminance(surface) > 0.5 ? root.surfaceBlack : surface
+  }
+
   // themeForeground itself is left theme-following since it also feeds
   // the legacy transparent-bar wallpaper-contrast script below
   // (omarchy-bar-text-color). Most stock widgets (network, audio,
   // bluetooth, etc.) read bar.foreground directly for their icon/text
   // color, not bar.barForeground (that one only feeds WidgetButton's own
-  // default + a few of our pill decorations) -- both need to be pinned,
-  // not just one, or half the icons stay theme-black.
+  // default + a few of our pill decorations) -- both need to be resolved
+  // from the actual pill surface, not from the old always-black assumption.
   //
   // barForeground is unconditionally pillForeground, NOT gated on
   // useTransparentForeground -- that whole subsystem (requestedTransparent
   // / omarchy-bar-text-color) exists for the *stock* bar's fully
   // see-through mode, picking a contrasting text color against whatever
-  // wallpaper shows through. Our GroupPills are always opaque OLED black
-  // regardless of shell.json's bar.transparent setting, so that script's
-  // answer (frequently black, e.g. against a light wallpaper) has nothing
-  // to do with what's actually readable against our pills, and was
-  // silently winning over this fix whenever bar.transparent was on.
-  readonly property color pillForeground: themeForegroundLuminance > 0.45 ? themeForeground : safeForeground
+  // wallpaper shows through. Ruixen pills paint their own semantic surface,
+  // so that script's answer has nothing to do with what's readable here.
+  readonly property color pillForeground: readableForegroundForSurface(floatingPillSurface, themeForeground)
   property color foreground: pillForeground
   // Not readonly -- Behavior on barForeground below needs write access to
   // intercept it, even though nothing assigns it imperatively anymore.
@@ -541,20 +554,20 @@ Item {
   // "remove white from the setting as an option then and just leave
   // Black and Theme."
   property string frameColorMode: "black"
-  readonly property color frameColor: root.frameColorMode === "theme" ? Color.background : "#000000"
+  readonly property color frameColor: resolveSurfaceColor(root.frameColorMode)
   // Docked mode's merged shoulder strip (leftDockedBg/rightDockedBg and
   // their wing pieces below) hides every individual pill's own
   // background (GroupPill { visible: !root.docked }) and renders icons
   // directly against this fill -- same situation ruixen.notch's own
   // notchColor is in, and for the same reason it needs the same clamp:
-  // pillForeground above is computed assuming a permanently-black
-  // backdrop, so a light frameColor (Theme mode on an actual light
-  // theme) would make every docked icon unreadable, not just look
-  // "off". Falls back to plain black instead of frameColor whenever
+  // docked foreground resolves against the floating pill surface for
+  // Phase 1, so a light frameColor (Theme mode on an actual light theme)
+  // would make every docked icon unreadable, not just look "off".
+  // Falls back to plain black instead of frameColor whenever
   // frameColor itself reads too light -- mirrors ruixen.notch/Overlay.qml's
   // own resolvedFrameColorLuminance/notchColor pair exactly.
-  readonly property real frameColorLuminance: 0.299 * root.frameColor.r + 0.587 * root.frameColor.g + 0.114 * root.frameColor.b
-  readonly property color dockedBarColor: root.frameColorLuminance > 0.5 ? "#000000" : root.frameColor
+  readonly property real frameColorLuminance: surfaceLuminance(root.frameColor)
+  readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)
   // JSON, not a plain string -- kept the shape (an object with a "mode"
   // key) even though customColor is gone, so an old file from before
   // this simplification (mode: "custom", customColor: "#...") degrades
@@ -1522,16 +1535,12 @@ Item {
     }
   }
 
-  // Tonal floating-pill background shared by each module group — same hue
-  // as the theme's bar background (Color.bar.background), just opaque, so
-  // each group reads as a "raised" island instead of the bar having one
-  // continuous solid background.
+  // Floating-pill background shared by each module group. The actual color
+  // comes from the root surface resolver so future Theme/Glass work changes
+  // the token once instead of cloning literals into every pill.
   component GroupPill: Rectangle {
     radius: height / 2
-    // Solid OLED black, matching ruixen.frame-widget's hardcoded
-    // frameColor — was Color.bar.background (theme-linked) at 0.85
-    // opacity, read as too close to transparent against the frame.
-    color: "#000000"
+    color: root.floatingPillSurface
     // Without this, a full circle (radius === width/2 === height/2, like
     // the solo menu pill) renders as a faceted octagon instead of a
     // smooth curve — much more visible than on a stadium shape (most of
@@ -1556,7 +1565,7 @@ Item {
     layer.enabled: true
     layer.effect: MultiEffect {
       shadowEnabled: true
-      shadowColor: "#000000"
+      shadowColor: root.surfaceShadow
       shadowOpacity: 0.8
       shadowBlur: 0.15
       shadowVerticalOffset: 1

@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Contract for issue #78 Phase 1: define semantic bar surface tokens before
+# splitting Bar.qml into smaller components.
+set -Eeuo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$script_dir/.." && pwd)"
+bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+run_all="$repo_dir/tests/run-all.sh"
+
+pass=0
+fail_count=0
+check() {
+  local desc="$1" got="$2" want="$3"
+  if [[ "$got" == "$want" ]]; then
+    printf 'ok   - %s\n' "$desc"
+    pass=$((pass + 1))
+  else
+    printf 'FAIL - %s\n       got:  %s\n       want: %s\n' "$desc" "$got" "$want"
+    fail_count=$((fail_count + 1))
+  fi
+}
+
+check "Bar.qml declares the black surface identity token" \
+  "$(grep -c 'readonly property color surfaceBlack: "#000000"' "$bar_qml")" "1"
+
+check "Bar.qml declares the phase-1 floating surface color mode" \
+  "$(grep -c 'readonly property string floatingSurfaceColorMode: "black"' "$bar_qml")" "1"
+
+check "Bar.qml declares the phase-1 floating material mode" \
+  "$(grep -c 'readonly property string floatingSurfaceMaterial: "solid"' "$bar_qml")" "1"
+
+check "floating pills resolve their fill through the surface resolver" \
+  "$(grep -c 'readonly property color floatingPillSurface: resolveSurfaceColor(floatingSurfaceColorMode)' "$bar_qml")" "1"
+
+check "surface color identity is resolved in one helper" \
+  "$(grep -A2 'function resolveSurfaceColor' "$bar_qml" | grep -c 'mode === "theme" ? Color.background : root.surfaceBlack')" "1"
+
+check "foreground readability is derived from the resolved surface" \
+  "$(grep -c 'readonly property color pillForeground: readableForegroundForSurface(floatingPillSurface, themeForeground)' "$bar_qml")" "1"
+
+check "readableForegroundForSurface handles light surfaces explicitly" \
+  "$(grep -A5 'function readableForegroundForSurface' "$bar_qml" | grep -c 'surfaceIsLight')" "2"
+
+check "frame color uses the shared surface resolver" \
+  "$(grep -c 'readonly property color frameColor: resolveSurfaceColor(root.frameColorMode)' "$bar_qml")" "1"
+
+check "docked content surface uses the shared content clamp" \
+  "$(grep -c 'readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)' "$bar_qml")" "1"
+
+check "GroupPill no longer owns a raw black fill" \
+  "$(grep -A10 'component GroupPill' "$bar_qml" | grep -c 'color: root.floatingPillSurface')" "1"
+
+check "GroupPill shadow uses the semantic shadow token" \
+  "$(grep -A40 'component GroupPill' "$bar_qml" | grep -c 'shadowColor: root.surfaceShadow')" "1"
+
+# shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
+check "tests/run-all.sh runs this suite" \
+  "$(grep -m1 'bar-surface-contract.sh' "$run_all")" \
+  '  "$script_dir/bar-surface-contract.sh"'
+
+printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
+[[ "$fail_count" -eq 0 ]]

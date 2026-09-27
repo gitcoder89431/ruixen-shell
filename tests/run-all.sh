@@ -20,6 +20,7 @@ suites=(
   "$script_dir/notch-kanban-gui.sh"
   "$script_dir/glass-profile-contract.sh"
   "$script_dir/glass-tint-contract.sh"
+  "$script_dir/bar-surface-contract.sh"
   "$script_dir/uninstall-bar-restore.sh"
   "$script_dir/merge-uninstall-bar.sh"
   "$script_dir/uninstall-preserve-thirdparty.sh"

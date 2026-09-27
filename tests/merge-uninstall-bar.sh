@@ -49,7 +49,7 @@ check "no-layout pristine bar: returned byte-for-byte unchanged" \
 # --- Case: third-party added after install -------------------------
 out="$(run_merge \
   '{"id":"local.old-bar","layout":{"left":[{"id":"local.launcher"}],"center":[],"right":[]}}' \
-  '{"layout":{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"test.thirdparty.left"}],"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.stayawake"},{"id":"omarchy.agents"},{"id":"ruixen.pluginpins"},{"id":"omarchy.system-update"},{"id":"omarchy.power"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]}}')"
+  '{"layout":{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"test.thirdparty.left"}],"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.stayawake"},{"id":"omarchy.agents"},{"id":"ruixen.pluginpins"},{"id":"omarchy.system-update"},{"id":"ruixen.power"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]}}')"
 check "third-party added after install: appended after the baseline entry" \
   "$(jq -c '.layout.left' <<<"$out")" '[{"id":"local.launcher"},{"id":"test.thirdparty.left"}]'
 check "third-party added after install: every Ruixen-owned entry is gone (center)" \

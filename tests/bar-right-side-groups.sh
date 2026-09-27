@@ -90,7 +90,7 @@ check() {
 # exact id-match list, not a catch-all.
 curated_ids_line="$(grep -m1 'readonly property var curatedRightIds:' "$bar_qml")"
 check "curatedRightIds is the exact, fixed SYSTEM list: system-update, power, capturestatus, quickactions, settingsbutton" \
-  "$curated_ids_line" '  readonly property var curatedRightIds: ["omarchy.system-update", "omarchy.power", "ruixen.capturestatus", "ruixen.quickactions", "ruixen.settingsbutton"]'
+  "$curated_ids_line" '  readonly property var curatedRightIds: ["omarchy.system-update", "ruixen.power", "ruixen.capturestatus", "ruixen.quickactions", "ruixen.settingsbutton"]'
 
 check "there is no separate sideRightIds list anymore (pill 2's own filter is inline: not tray, not curatedRightIds)" \
   "$(grep -c 'sideRightIds' "$bar_qml" || true)" "0"

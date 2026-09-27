@@ -102,24 +102,30 @@ BarWidget {
   // duplicates dictation/screen-recording/reminders/night-light/DND,
   // which ruixen.quickactions already reimplements.
   //
-  // omarchy.system-update and omarchy.power ARE excluded -- both live in
-  // curatedPill's own fixed list (Bar.qml's own curatedRightIds: "system
-  // is POWER UPDATE MORE ACTIONS AND SETTING"), so unpinning either
-  // through here would break that fixed set. ruixen.peripherals passed
-  // through that same curatedRightIds list once (direct follow-up: "its
-  // kinda crowding to put it in the pinplugins group, can we move this so
-  // it works inside the setting more actions group instead"), then back
-  // out again to reduce clutter (direct follow-up: "its not that
-  // important for me to always see it right now") -- pinnable through
-  // here once more, same as stayawake/agents below, not a permanent
-  // curatedPill fixture any more. ruixen.stayawake and omarchy.agents
-  // stay un-excluded on purpose -- final answer, after a few false
-  // starts: they render in ruixen.pluginpins' OWN pill now (the toggle
-  // icon lives together with whatever it toggles -- "microphone network
-  // cofee ai [are] toggleable from the plugins pin so they stay pinnable
-  // or not in the plugin group"), so pinning/unpinning them through this
-  // dropdown is exactly the intended interaction, not something to
-  // guard against.
+  // omarchy.system-update and omarchy.power (now ruixen.power -- Ruixen's
+  // own clone, added for semantic battery-icon coloring, see
+  // lib/build-shell-json.sh's own rename-migration comment) ARE excluded
+  // -- both live in curatedPill's own fixed list (Bar.qml's own
+  // curatedRightIds: "system is POWER UPDATE MORE ACTIONS AND SETTING"),
+  // so unpinning either through here would break that fixed set.
+  // omarchy.power itself stays excluded too even though it's no longer
+  // curatedRightIds' own literal id -- it's still fully superseded (see
+  // superseded_ids), so offering it here would just invite pinning a
+  // redundant, non-recolored duplicate of ruixen.power. ruixen.peripherals
+  // passed through that same curatedRightIds list once (direct follow-up:
+  // "its kinda crowding to put it in the pinplugins group, can we move
+  // this so it works inside the setting more actions group instead"),
+  // then back out again to reduce clutter (direct follow-up: "its not
+  // that important for me to always see it right now") -- pinnable
+  // through here once more, same as stayawake/agents below, not a
+  // permanent curatedPill fixture any more. ruixen.stayawake and
+  // omarchy.agents stay un-excluded on purpose -- final answer, after a
+  // few false starts: they render in ruixen.pluginpins' OWN pill now (the
+  // toggle icon lives together with whatever it toggles -- "microphone
+  // network cofee ai [are] toggleable from the plugins pin so they stay
+  // pinnable or not in the plugin group"), so pinning/unpinning them
+  // through this dropdown is exactly the intended interaction, not
+  // something to guard against.
   // omarchy.active-window is also excluded -- ruixen.notch's own
   // collapsed player pill already shows the active window's title when
   // nothing is playing, so offering it here as a separate pinnable bar
@@ -128,7 +134,7 @@ BarWidget {
   readonly property var excludedIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
-    "ruixen.weather", "ruixen.media", "ruixen.pluginpins",
+    "ruixen.weather", "ruixen.media", "ruixen.pluginpins", "ruixen.power",
     "omarchy.clock", "omarchy.system-update", "omarchy.power",
     "omarchy.keyboard-layout", "omarchy.indicators",
     "omarchy.bar", "omarchy.menu", "omarchy.spacer", "omarchy.active-window",

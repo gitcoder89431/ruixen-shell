@@ -243,7 +243,7 @@ third_party_clock='{
     "layout": {
       "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "ruixen.pinnedapps" }],
       "center": [{ "id": "ruixen.weather" }, { "id": "thirdparty.clock", "timezone": "UTC" }],
-      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "omarchy.power" }]
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "ruixen.power" }]
     }
   },
   "plugins": []
@@ -254,7 +254,7 @@ check "third-party clock survives an update: stays in center, settings intact" \
   '[{"id":"ruixen.weather"},{"id":"thirdparty.clock","timezone":"UTC"}]'
 check "third-party clock survives an update: right is untouched, the clock does not land here" \
   "$(jq -c '.bar.layout.right' <<<"$out8b")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"},{"id":"ruixen.capturestatus"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"ruixen.power"},{"id":"ruixen.capturestatus"}]'
 check "third-party clock survives an update: re-running on its own output is idempotent" \
   "$(printf '%s' "$out8b" | "$build")" "$out8b"
 
@@ -351,7 +351,7 @@ old_missing_peripherals='{
     "layout": {
       "left": [{ "id": "ruixen.applauncher" }, { "id": "ruixen.workspaces" }, { "id": "ruixen.pinnedapps" }],
       "center": [{ "id": "ruixen.weather" }, { "id": "omarchy.clock" }],
-      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "omarchy.power" }, { "id": "ruixen.quickactions" }, { "id": "ruixen.settingsbutton" }]
+      "right": [{ "id": "ruixen.tray" }, { "id": "ruixen.pluginpins" }, { "id": "ruixen.power" }, { "id": "ruixen.quickactions" }, { "id": "ruixen.settingsbutton" }]
     }
   },
   "plugins": []
@@ -359,7 +359,7 @@ old_missing_peripherals='{
 out12="$(printf '%s' "$old_missing_peripherals" | "$build")"
 check "ruixen.peripherals is NOT force-inserted for an install missing it" \
   "$(jq -c '.bar.layout.right' <<<"$out12")" \
-  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"omarchy.power"},{"id":"ruixen.capturestatus"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]'
+  '[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"},{"id":"ruixen.power"},{"id":"ruixen.capturestatus"},{"id":"ruixen.quickactions"},{"id":"ruixen.settingsbutton"}]'
 check "ruixen.peripherals: pinnedapps/pluginpins already present are not touched or duplicated" \
   "$(jq -c '.bar.layout.left' <<<"$out12")" \
   '[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}]'
@@ -494,16 +494,16 @@ check "first takeover: bar.id becomes ruixen.bar" \
   "$(jq -r '.bar.id' <<<"$out14")" "ruixen.bar"
 check "first takeover: every canonical ruixen id is present" \
   "$(jq -c '[.bar.layout[][] | .id] | map(select(startswith("ruixen."))) | sort' <<<"$out14")" \
-  '["ruixen.applauncher","ruixen.capturestatus","ruixen.pinnedapps","ruixen.pluginpins","ruixen.quickactions","ruixen.settingsbutton","ruixen.stayawake","ruixen.tray","ruixen.weather","ruixen.workspaces"]'
+  '["ruixen.applauncher","ruixen.capturestatus","ruixen.pinnedapps","ruixen.pluginpins","ruixen.power","ruixen.quickactions","ruixen.settingsbutton","ruixen.stayawake","ruixen.tray","ruixen.weather","ruixen.workspaces"]'
 check "first takeover: left-side third-party widget survives, in left" \
   "$(jq -c '.bar.layout.left | map(.id)' <<<"$out14")" \
   '["ruixen.applauncher","ruixen.workspaces","ruixen.pinnedapps","local.prayer-times"]'
 check "first takeover: center third-party entries survive, in center" \
   "$(jq -c '.bar.layout.center | map(.id)' <<<"$out14")" \
   '["ruixen.weather","omarchy.clock","gamemode","xak47d.todoist"]'
-check "first takeover: right third-party widgets survive, in right" \
+check "first takeover: right third-party widgets survive, omarchy.power dropped as superseded by ruixen.power" \
   "$(jq -c '.bar.layout.right | map(.id) | map(select(startswith("ruixen.") | not))' <<<"$out14")" \
-  '["omarchy.agents","omarchy.system-update","omarchy.power","lunardi0x01.hue-room-remote","stappmus.activity-monitor","omarchy.tailscale","omarchy.audio"]'
+  '["omarchy.agents","omarchy.system-update","lunardi0x01.hue-room-remote","stappmus.activity-monitor","omarchy.tailscale","omarchy.audio"]'
 # The whole point of carrying the entry object rather than a bare {id}:
 # for an inline custom module the type/exec/interval/onClick ARE the
 # widget, and for a plugin its inline settings are its configuration.

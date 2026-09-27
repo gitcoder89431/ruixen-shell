@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.power",
+  "name": "Ruixen Power",
+  "version": "1.0.0",
+  "author": "Ruixen",
+  "description": "Battery, power profile, and system stats with Ruixen semantic battery coloring",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Power",
+    "description": "Battery, power profile, and system stats with semantic battery coloring",
+    "category": "System",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.power"
+  }
+}

@@ -277,11 +277,26 @@ jq -n \
   # an orphan that happened to be a bar-widget-kind plugin (unlike
   # frame-widget itself, which never was) could otherwise keep rendering
   # from a bar.layout slot even after its own plugin directory is gone.
+  #
+  # omarchy.power -> ruixen.power is a RENAME, not a strip: Ruixen now
+  # ships its own clone of the stock power widget (semantic
+  # good/warn/bad battery-icon coloring, same treatment already given
+  # to ruixen.capturestatus/ruixen.peripherals -- see "Add semantic bar
+  # signal colors") and curatedRightIds/ruixen-bar-canonical.json both
+  # point at ruixen.power now, not omarchy.power. An existing owner bar
+  # is otherwise left completely untouched (see $ownedBar above), so
+  # without this an already-installed users bar.layout would keep
+  # rendering the old, non-recolored omarchy.power forever. The setting
+  # key (showPercentage) is identical between the two, so a plain
+  # id-swap on the entry -- not a strip+re-add -- carries it across
+  # intact. Idempotent: once renamed, a second run finds no more
+  # omarchy.power entries to touch.
   | (if ($ownedBar.layout | type) == "object" then
        $ownedBar | .layout |= with_entries(
          .value |= (if type == "array" then
            map(select(.id as $i | $i != "ruixen.media" and $i != "omarchy.menu"
              and ($orphanPluginIds | index($i)) == null))
+           | map(if .id == "omarchy.power" then .id = "ruixen.power" else . end)
          else . end)
        )
      else $ownedBar end) as $strippedBar
@@ -389,7 +404,7 @@ jq -n \
   # widget must NOT have happen to it.
   | ([
        { id: "ruixen.pinnedapps", section: "left", after: "ruixen.workspaces" },
-       { id: "ruixen.capturestatus", section: "right", after: "omarchy.power" },
+       { id: "ruixen.capturestatus", section: "right", after: "ruixen.power" },
        { id: "ruixen.pluginpins", section: "right", after: "ruixen.tray" }
      ]) as $requiredStructural
   | (if ($centerRescuedBar.layout | type) == "object" then

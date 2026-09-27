@@ -44,7 +44,7 @@ cat >"$shell_json" <<'JSON'
         { "id": "ruixen.tray", "hidden": ["keep.me"] },
         { "id": "ruixen.pluginpins" },
         { "id": "omarchy.system-update" },
-        { "id": "omarchy.power" },
+        { "id": "ruixen.power" },
         { "id": "ruixen.quickactions" }
       ]
     }
@@ -77,7 +77,7 @@ PY
 check "settingsbutton is removed from the wrong left-side placement" \
   "$left_ids" "ruixen.applauncher"
 check "settingsbutton is restored after quickactions in the canonical right-side group" \
-  "$right_ids" "ruixen.tray,ruixen.pluginpins,omarchy.system-update,omarchy.power,ruixen.quickactions,ruixen.settingsbutton"
+  "$right_ids" "ruixen.tray,ruixen.pluginpins,omarchy.system-update,ruixen.power,ruixen.quickactions,ruixen.settingsbutton"
 check "repair preserves unrelated inline widget settings" \
   "$tray_hidden" "keep.me"
 

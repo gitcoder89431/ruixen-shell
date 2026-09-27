@@ -169,11 +169,21 @@ BarWidget {
   // above reads as green/healthy.
   readonly property int mediumBatteryPercent: 50
 
+  function semanticColor(role, fallback) {
+    if (!root.bar) return fallback
+    switch (role) {
+      case "good": return root.bar.semanticGood
+      case "warn": return root.bar.semanticWarn
+      case "bad": return root.bar.semanticBad
+      default: return root.bar.semanticNeutral
+    }
+  }
+
   function percentColor(device) {
-    if (!device || !device.available) return Color.muted
-    if (device.level < root.lowBatteryPercent) return themeColors.red
-    if (device.level < root.mediumBatteryPercent) return themeColors.yellow
-    return themeColors.green
+    if (!device || !device.available) return root.semanticColor("neutral", Color.muted)
+    if (device.level < root.lowBatteryPercent) return root.semanticColor("bad", themeColors.red)
+    if (device.level < root.mediumBatteryPercent) return root.semanticColor("warn", themeColors.yellow)
+    return root.semanticColor("good", themeColors.green)
   }
 
   property bool popupOpen: false

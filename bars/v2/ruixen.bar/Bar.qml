@@ -137,6 +137,14 @@ Item {
   property color foreground: pillForeground
   property string iconTone: "mono"
   readonly property color iconForeground: iconTone === "accent" ? Color.accent : pillForeground
+  // Semantic status colors intentionally bypass Icon Tone. Mono/Accent only
+  // controls decorative icons; stateful indicators still need readable
+  // good/warn/bad colors from the active theme palette.
+  readonly property color semanticGood: themeGreen
+  readonly property color semanticWarn: themeYellow
+  readonly property color semanticBad: themeRed
+  readonly property color semanticInfo: Color.accent
+  readonly property color semanticNeutral: iconForeground
   // Not readonly -- Behavior on barForeground below needs write access to
   // intercept it, even though nothing assigns it imperatively anymore.
   property color barForeground: pillForeground
@@ -3592,6 +3600,11 @@ Item {
 
     readonly property color foreground: root.foreground
     readonly property color iconForeground: root.iconForeground
+    readonly property color semanticGood: root.semanticGood
+    readonly property color semanticWarn: root.semanticWarn
+    readonly property color semanticBad: root.semanticBad
+    readonly property color semanticInfo: root.semanticInfo
+    readonly property color semanticNeutral: root.semanticNeutral
     readonly property string fontFamily: root.fontFamily
     readonly property color barForeground: root.barForeground
     readonly property bool foregroundAnimationEnabled: root.foregroundAnimationEnabled

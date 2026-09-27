@@ -42,7 +42,7 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: "●"
-    foreground: Color.urgent
+    foreground: root.bar ? root.bar.semanticBad : Color.urgent
     fontSize: Style.font.body
     tooltipText: "Screen recording active. Click to stop."
     onPressed: function() {

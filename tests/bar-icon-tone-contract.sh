@@ -31,6 +31,12 @@ check "Bar.qml resolves Accent icons through Color.accent only at iconForeground
 check "PluginBarFacade exposes iconForeground to bar widgets" \
   "$(grep -A8 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color iconForeground: root.iconForeground')" "1"
 
+check "Bar.qml exposes semantic status colors independent of Icon Tone" \
+  "$(( $(grep -c 'readonly property color semanticGood: themeGreen' "$bar_qml") + $(grep -c 'readonly property color semanticWarn: themeYellow' "$bar_qml") + $(grep -c 'readonly property color semanticBad: themeRed' "$bar_qml") ))" "3"
+
+check "PluginBarFacade exposes semantic status colors to widgets" \
+  "$(( $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticGood: root.semanticGood') + $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticWarn: root.semanticWarn') + $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticBad: root.semanticBad') ))" "3"
+
 check "Bar.qml keeps global text/popup foreground readable, not accent-driven" \
   "$(grep -c 'property color foreground: pillForeground' "$bar_qml")" "1"
 
@@ -52,11 +58,14 @@ check "decorative Ruixen BarIconButtons use iconForeground" \
 check "symbolic tray icons use iconForeground" \
   "$(grep -c 'colorizationColor: root.iconForeground' "$repo_dir/bars/widgets/ruixen.tray/Tray.qml")" "1"
 
-check "screen recording indicator stays urgent red" \
-  "$(grep -c 'foreground: Color.urgent' "$repo_dir/bars/widgets/ruixen.capturestatus/BarWidget.qml")" "1"
+check "screen recording indicator uses semantic bad, not decorative icon tone" \
+  "$(grep -c 'foreground: root.bar ? root.bar.semanticBad : Color.urgent' "$repo_dir/bars/widgets/ruixen.capturestatus/BarWidget.qml")" "1"
 
 check "peripheral battery indicator keeps semantic charge colors" \
   "$(grep -c 'foreground: root.percentColor(root.selectedDevice)' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml")" "1"
+
+check "peripheral battery tiers consume the shared semantic signal colors" \
+  "$(( $(grep -c 'root.bar.semanticGood' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml") + $(grep -c 'root.bar.semanticWarn' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml") + $(grep -c 'root.bar.semanticBad' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml") ))" "3"
 
 # shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
 check "tests/run-all.sh runs this suite" \

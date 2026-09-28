@@ -82,18 +82,11 @@ Item {
     onLoadFailed: root.loadShellConfig("")
   }
 
-  // Reads the SAME shared state ruixen.bar's own frame color writes to
-  // (~/.local/state/ruixen/frame-appearance.json) -- direct request:
-  // "the compact notch and expanded notch is also like connected to the
-  // frame... we gotta make the notch bg change with it too to match the
-  // frame". Independent copy of Bar.qml's own frameColorMode/frameColor
-  // resolution (not a cross-plugin reference to ruixen.bar's own object
-  // -- AGENTS.md #2/#67's own "don't depend on another plugin's live
-  // object" rule -- a small versioned state file both plugins read is
-  // exactly the prescribed pattern instead). No new file: this is the
-  // one Settings already writes for the frame itself, so switching
-  // Frame Color in Settings updates the notch too, automatically, with
-  // nothing notch-specific to configure.
+  // Reads the same persisted surface identity as ruixen.bar without
+  // reaching into the bar's live QML object. bar-surface.json is the
+  // #78 source of truth for the new color/material axes; the older
+  // frame-appearance.json remains a compatibility fallback so existing
+  // installs do not reset appearance on update.
   //
   // Just "theme" or "black" now -- was a Themed/Custom split with a
   // 3-swatch color picker (OLED Black/Charcoal/White), direct correction
@@ -114,26 +107,85 @@ Item {
   // use it as-is. The frame itself has nothing painted on it, so it
   // keeps whatever light color Theme mode actually gives it -- this
   // clamp is notch-only.
+  readonly property color surfaceBlack: "#000000"
   property string frameColorMode: "black"
-  readonly property color resolvedFrameColor: frameColorMode === "theme" ? Color.background : "#000000"
-  readonly property real resolvedFrameColorLuminance: 0.299 * resolvedFrameColor.r + 0.587 * resolvedFrameColor.g + 0.114 * resolvedFrameColor.b
-  readonly property color notchColor: resolvedFrameColorLuminance > 0.5 ? "#000000" : resolvedFrameColor
+  property string notchSurfaceMaterial: "solid"
+  property bool barSurfaceStateLoaded: false
+  readonly property color resolvedFrameColor: resolveSurfaceColor(root.frameColorMode)
+  readonly property real resolvedFrameColorLuminance: surfaceLuminance(resolvedFrameColor)
+  readonly property color notchColor: contentSurfaceFor(resolvedFrameColor)
+  readonly property string barSurfaceStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/bar-surface.json"
   readonly property string frameColorStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"
 
-  // Old files from before this simplification (mode: "custom",
-  // customColor: "#...") degrade safely here too -- "custom" isn't a
-  // recognized mode string anymore, so this just falls through to the
-  // new "black" default, same as Bar.qml's own copy of this function.
-  function loadFrameAppearance(raw) {
+  function surfaceLuminance(c) {
+    return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+  }
+
+  function normalizeSurfaceColorMode(mode) {
+    return mode === "theme" ? "theme" : "black"
+  }
+
+  function normalizeSurfaceMaterial(material) {
+    return material === "glass" ? "glass" : "solid"
+  }
+
+  function resolveSurfaceColor(mode) {
+    return mode === "theme" ? Color.background : root.surfaceBlack
+  }
+
+  function contentSurfaceFor(surface) {
+    return root.surfaceLuminance(surface) > 0.5 ? root.surfaceBlack : surface
+  }
+
+  function applyBarSurfaceState(colorMode, material) {
+    root.frameColorMode = normalizeSurfaceColorMode(colorMode)
+    // The notch remains Solid-only until the coupled frame/notch glass
+    // pass. Still store the normalized material so Settings/state have a
+    // compatible contract without accidentally making this surface glass.
+    root.notchSurfaceMaterial = normalizeSurfaceMaterial(material)
+  }
+
+  function loadBarSurfaceState(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.frameColorMode = (p && p.mode === "theme") ? "theme" : "black"
+      root.applyBarSurfaceState(p && p.color, p && p.material)
+      root.barSurfaceStateLoaded = true
     } catch (e) {
-      root.frameColorMode = "black"
+      root.barSurfaceStateLoaded = false
+      frameColorFile.reload()
     }
   }
 
   FileView {
+    id: barSurfaceFile
+    path: root.barSurfaceStatePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadBarSurfaceState(text())
+    onLoadFailed: {
+      root.barSurfaceStateLoaded = false
+      frameColorFile.reload()
+    }
+  }
+
+  // Old frame-appearance files from before the surface-state migration
+  // degrade safely here too: "custom" is no longer recognized, so it
+  // falls through to the new "black" default, same as Bar.qml.
+  function loadFrameAppearance(raw) {
+    if (root.barSurfaceStateLoaded) return
+    try {
+      var p = JSON.parse(String(raw || "").trim() || "{}")
+      root.frameColorMode = normalizeSurfaceColorMode(p && p.mode)
+      root.notchSurfaceMaterial = "solid"
+    } catch (e) {
+      root.frameColorMode = "black"
+      root.notchSurfaceMaterial = "solid"
+    }
+  }
+
+  FileView {
+    id: frameColorFile
     path: root.frameColorStatePath
     watchChanges: true
     printErrors: false

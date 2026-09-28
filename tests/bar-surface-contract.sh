@@ -6,6 +6,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
@@ -60,6 +61,18 @@ check "frame color uses the shared surface resolver" \
 
 check "docked content surface uses the shared content clamp" \
   "$(grep -c 'readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)' "$bar_qml")" "1"
+
+check "notch reads the shared bar surface state file" \
+  "$(grep -c 'readonly property string barSurfaceStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/bar-surface.json"' "$notch_qml")" "1"
+
+check "notch keeps frame appearance as a compatibility fallback" \
+  "$(( $(grep -c 'readonly property string frameColorStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"' "$notch_qml") + $(grep -c 'if (root.barSurfaceStateLoaded) return' "$notch_qml") ))" "2"
+
+check "notch color uses the same surface resolver and content clamp pattern" \
+  "$(( $(grep -c 'readonly property color resolvedFrameColor: resolveSurfaceColor(root.frameColorMode)' "$notch_qml") + $(grep -c 'readonly property color notchColor: contentSurfaceFor(resolvedFrameColor)' "$notch_qml") ))" "2"
+
+check "notch stores but does not render glass material yet" \
+  "$(( $(grep -c 'property string notchSurfaceMaterial: "solid"' "$notch_qml") + $(grep -c 'root.notchSurfaceMaterial = normalizeSurfaceMaterial(material)' "$notch_qml") + $(grep -c 'coupled frame/notch glass' "$notch_qml") ))" "3"
 
 check "GroupPill no longer owns a raw black fill" \
   "$(grep -A10 'component GroupPill' "$bar_qml" | grep -c 'color: root.floatingPillFill')" "1"

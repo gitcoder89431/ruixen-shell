@@ -37,6 +37,9 @@ check "Bar.qml exposes semantic status colors independent of Icon Tone" \
 check "PluginBarFacade exposes semantic status colors to widgets" \
   "$(( $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticGood: root.semanticGood') + $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticWarn: root.semanticWarn') + $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticBad: root.semanticBad') ))" "3"
 
+check "PluginBarFacade exposes secondary theme token to widgets" \
+  "$(grep -A16 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color themeSecondary: root.themeSecondary')" "1"
+
 check "Bar.qml keeps global text/popup foreground readable, not accent-driven" \
   "$(grep -c 'property color foreground: pillForeground' "$bar_qml")" "1"
 
@@ -83,11 +86,23 @@ check "peripheral battery tiers consume the shared semantic signal colors" \
 check "laptop battery icon uses semantic good for full/idle state" \
   "$(grep -c 'if (root.batteryFlowIdle) return root.bar.semanticGood' "$repo_dir/bars/widgets/ruixen.power/Panel.qml")" "1"
 
+check "laptop battery icon uses semantic good while charging" \
+  "$(grep -c 'if (root.charging && !root.batteryFlowIdle) return root.bar.semanticGood' "$repo_dir/bars/widgets/ruixen.power/Panel.qml")" "1"
+
 check "laptop battery icon never falls back to semanticNeutral accent tone" \
   "$(grep -A8 'readonly property color batteryIconColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml" | grep -c 'semanticNeutral' || true)" "0"
 
 check "laptop battery icon ignores active accent override" \
-  "$(grep -A10 'foreground: root.batteryIconColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml" | grep -c 'useActiveColor: false')" "1"
+  "$(grep -A10 'foreground: root.batteryGlyphColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml" | grep -c 'useActiveColor: false')" "1"
+
+check "laptop battery icon uses a horizontal semantic fill meter" \
+  "$(( $(grep -F -c 'id: batteryMeterIcon' "$repo_dir/bars/widgets/ruixen.power/Panel.qml") + $(grep -F -c 'iconComponent: root.showPercentage && !vertical ? null : batteryMeterIcon' "$repo_dir/bars/widgets/ruixen.power/Panel.qml") + $(grep -F -c 'color: root.batteryIconColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml") ))" "3"
+
+check "laptop battery outline and charging mark share the outline color" \
+  "$(( $(grep -F -c 'readonly property color batteryGlyphColor: root.bar ? root.bar.semanticInfo : Color.accent' "$repo_dir/bars/widgets/ruixen.power/Panel.qml") + $(grep -F -c 'readonly property color batteryChargingColor: root.batteryGlyphColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml") + $(grep -F -c 'color: root.batteryChargingColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml") ))" "3"
+
+check "laptop battery fill is level-based and charging bolt is static" \
+  "$(( $(grep -A8 'readonly property color batteryIconColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml" | grep -F -c 'if (!root.discharging)' || true) + $(grep -A70 'id: batteryMeterIcon' "$repo_dir/bars/widgets/ruixen.power/Panel.qml" | grep -c 'SequentialAnimation on opacity' || true) ))" "0"
 
 # shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
 check "tests/run-all.sh runs this suite" \

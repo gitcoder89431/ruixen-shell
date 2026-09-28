@@ -92,12 +92,14 @@ Panel {
   }
   readonly property color batteryIconColor: {
     if (!root.bar) return root.batteryFillColor
+    if (root.charging && !root.batteryFlowIdle) return root.bar.semanticGood
     if (root.batteryFlowIdle) return root.bar.semanticGood
-    if (!root.discharging) return root.bar.semanticGood
     if (root.batteryFraction <= 0.2) return root.bar.semanticBad
     if (root.batteryFraction <= 0.5) return root.bar.semanticWarn
     return root.bar.semanticGood
   }
+  readonly property color batteryGlyphColor: root.bar ? root.bar.semanticInfo : Color.accent
+  readonly property color batteryChargingColor: root.batteryGlyphColor
 
   // Cute agent-flavored phrases shown in the hero status line, rotated on a
   // timer so the panel feels alive when current is flowing (either direction).
@@ -288,14 +290,77 @@ Panel {
     text: root.showPercentage && !vertical
       ? Math.round(root.batteryFraction * 100) + "% " + root.batteryIcon()
       : root.batteryIcon()
-    foreground: root.batteryIconColor
+    foreground: root.batteryGlyphColor
     useActiveColor: false
     slotSize: Style.bar.iconSlot * (root.showPercentage && !vertical ? 2 : 1)
+    iconComponent: root.showPercentage && !vertical ? null : batteryMeterIcon
     tooltipText: ""
     onPressed: function(b) {
       if (!root.batteryPresent) return
       if (b === Qt.RightButton) root.togglePercentage()
       else root.toggle()
+    }
+  }
+
+  Component {
+    id: batteryMeterIcon
+
+    Item {
+      readonly property real clampedFraction: Math.max(0, Math.min(1, root.batteryFraction))
+      readonly property int bodyWidth: Math.max(12, Math.round(parent.width * 0.72))
+      readonly property int bodyHeight: Math.max(7, Math.round(parent.height * 0.48))
+      readonly property int nubWidth: Math.max(1, Math.round(Style.spaceReal(1.8)))
+
+      Rectangle {
+        id: batteryBody
+        anchors.centerIn: parent
+        width: parent.bodyWidth
+        height: parent.bodyHeight
+        radius: Math.max(2, Math.round(height * 0.28))
+        color: "transparent"
+        border.width: Math.max(1, Math.round(Style.spaceReal(1)))
+        border.color: root.batteryGlyphColor
+
+        Rectangle {
+          anchors.left: parent.left
+          anchors.leftMargin: parent.border.width + 1
+          anchors.verticalCenter: parent.verticalCenter
+          width: Math.max(1, Math.round((parent.width - (parent.border.width + 1) * 2) * clampedFraction))
+          height: parent.height - (parent.border.width + 1) * 2
+          radius: Math.max(1, Math.round(height * 0.25))
+          color: root.batteryIconColor
+
+          Behavior on width {
+            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+          }
+
+          Behavior on color {
+            enabled: !root.bar || root.bar.foregroundAnimationEnabled
+            ColorAnimation { duration: 160 }
+          }
+        }
+      }
+
+      Rectangle {
+        anchors.left: batteryBody.right
+        anchors.leftMargin: 1
+        anchors.verticalCenter: batteryBody.verticalCenter
+        width: parent.nubWidth
+        height: Math.max(3, Math.round(batteryBody.height * 0.45))
+        radius: width / 2
+        color: root.batteryGlyphColor
+      }
+
+      OpticalGlyph {
+        visible: root.charging && !root.batteryFlowIdle
+        anchors.centerIn: batteryBody
+        width: Math.max(7, Math.round(Style.spaceReal(8)))
+        height: Math.max(7, Math.round(Style.spaceReal(8)))
+        text: "\uf0e7"
+        fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+        fontSize: Math.max(7, Math.round(Style.font.iconSmall))
+        color: root.batteryChargingColor
+      }
     }
   }
 

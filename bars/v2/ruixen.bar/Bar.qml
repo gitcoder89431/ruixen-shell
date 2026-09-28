@@ -3626,6 +3626,9 @@ Item {
     readonly property color semanticBad: root.semanticBad
     readonly property color semanticInfo: root.semanticInfo
     readonly property color semanticNeutral: root.semanticNeutral
+    readonly property color themePrimary: root.themePrimary
+    readonly property color themeSecondary: root.themeSecondary
+    readonly property bool themeMonochrome: root.themeMonochrome
     readonly property string fontFamily: root.fontFamily
     readonly property color barForeground: root.barForeground
     readonly property bool foregroundAnimationEnabled: root.foregroundAnimationEnabled

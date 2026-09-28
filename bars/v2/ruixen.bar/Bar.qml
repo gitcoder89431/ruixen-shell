@@ -121,11 +121,12 @@ Item {
 
   // themeForeground itself is left theme-following since it also feeds
   // the legacy transparent-bar wallpaper-contrast script below
-  // (omarchy-bar-text-color). Most stock widgets (network, audio,
-  // bluetooth, etc.) read bar.foreground directly for their icon/text
-  // color, not bar.barForeground (that one only feeds WidgetButton's own
-  // default + a few of our pill decorations) -- both need to be resolved
-  // from the actual pill surface, not from the old always-black assumption.
+  // (omarchy-bar-text-color). Keep bar-row text/icons and popup content
+  // separate: WidgetButton/BarIconButton defaults consume barForeground
+  // for the bar pill itself, while stock panel bodies often read
+  // bar.foreground for popup text. Those popup bodies must follow
+  // Color.popups.text, not the bar pill surface, or light/dark surface
+  // combinations can collapse into black-on-black or white-on-white.
   //
   // barForeground is unconditionally pillForeground, NOT gated on
   // useTransparentForeground -- that whole subsystem (requestedTransparent
@@ -134,6 +135,7 @@ Item {
   // wallpaper shows through. Ruixen pills paint their own semantic surface,
   // so that script's answer has nothing to do with what's readable here.
   readonly property color pillForeground: readableForegroundForSurface(floatingPillSurface, themeForeground)
+  readonly property color popupForeground: Color.popups.text
   property color foreground: pillForeground
   property string iconTone: "mono"
   readonly property color iconForeground: iconTone === "accent" ? Color.accent : pillForeground
@@ -3617,7 +3619,7 @@ Item {
 
     required property string moduleName
 
-    readonly property color foreground: root.foreground
+    readonly property color foreground: root.popupForeground
     readonly property color iconForeground: root.iconForeground
     readonly property color semanticGood: root.semanticGood
     readonly property color semanticWarn: root.semanticWarn

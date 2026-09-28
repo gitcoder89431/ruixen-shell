@@ -40,6 +40,12 @@ check "PluginBarFacade exposes semantic status colors to widgets" \
 check "Bar.qml keeps global text/popup foreground readable, not accent-driven" \
   "$(grep -c 'property color foreground: pillForeground' "$bar_qml")" "1"
 
+check "Bar.qml separates popup foreground from bar pill foreground" \
+  "$(grep -c 'readonly property color popupForeground: Color.popups.text' "$bar_qml")" "1"
+
+check "PluginBarFacade exposes popup foreground through bar.foreground" \
+  "$(grep -A8 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color foreground: root.popupForeground')" "1"
+
 check "Bar.qml reads the independent icon tone state file" \
   "$(grep -c 'bar-icon-tone.json' "$bar_qml")" "1"
 

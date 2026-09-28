@@ -74,6 +74,15 @@ check "peripheral battery indicator keeps semantic charge colors" \
 check "peripheral battery tiers consume the shared semantic signal colors" \
   "$(( $(grep -c 'root.bar.semanticGood' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml") + $(grep -c 'root.bar.semanticWarn' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml") + $(grep -c 'root.bar.semanticBad' "$repo_dir/bars/widgets/ruixen.peripherals/BarWidget.qml") ))" "3"
 
+check "laptop battery icon uses semantic good for full/idle state" \
+  "$(grep -c 'if (root.batteryFlowIdle) return root.bar.semanticGood' "$repo_dir/bars/widgets/ruixen.power/Panel.qml")" "1"
+
+check "laptop battery icon never falls back to semanticNeutral accent tone" \
+  "$(grep -A8 'readonly property color batteryIconColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml" | grep -c 'semanticNeutral' || true)" "0"
+
+check "laptop battery icon ignores active accent override" \
+  "$(grep -A10 'foreground: root.batteryIconColor' "$repo_dir/bars/widgets/ruixen.power/Panel.qml" | grep -c 'useActiveColor: false')" "1"
+
 # shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
 check "tests/run-all.sh runs this suite" \
   "$(grep -m1 'bar-icon-tone-contract.sh' "$run_all")" \

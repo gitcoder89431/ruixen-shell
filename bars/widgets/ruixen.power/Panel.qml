@@ -92,7 +92,7 @@ Panel {
   }
   readonly property color batteryIconColor: {
     if (!root.bar) return root.batteryFillColor
-    if (root.batteryFlowIdle) return root.bar.semanticNeutral
+    if (root.batteryFlowIdle) return root.bar.semanticGood
     if (!root.discharging) return root.bar.semanticGood
     if (root.batteryFraction <= 0.2) return root.bar.semanticBad
     if (root.batteryFraction <= 0.5) return root.bar.semanticWarn
@@ -289,6 +289,7 @@ Panel {
       ? Math.round(root.batteryFraction * 100) + "% " + root.batteryIcon()
       : root.batteryIcon()
     foreground: root.batteryIconColor
+    useActiveColor: false
     slotSize: Style.bar.iconSlot * (root.showPercentage && !vertical ? 2 : 1)
     tooltipText: ""
     onPressed: function(b) {

@@ -6,6 +6,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+facade_qml="$repo_dir/bars/v2/ruixen.bar/PluginBarFacade.qml"
 settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
@@ -29,16 +30,16 @@ check "Bar.qml resolves Accent icons through Color.accent only at iconForeground
   "$(grep -c 'readonly property color iconForeground: iconTone === "accent" ? Color.accent : pillForeground' "$bar_qml")" "1"
 
 check "PluginBarFacade exposes iconForeground to bar widgets" \
-  "$(grep -A8 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color iconForeground: root.iconForeground')" "1"
+  "$(grep -c 'readonly property color iconForeground: facade.barRoot.iconForeground' "$facade_qml")" "1"
 
 check "Bar.qml exposes semantic status colors independent of Icon Tone" \
   "$(( $(grep -c 'readonly property color semanticGood: themeGreen' "$bar_qml") + $(grep -c 'readonly property color semanticWarn: themeYellow' "$bar_qml") + $(grep -c 'readonly property color semanticBad: themeRed' "$bar_qml") ))" "3"
 
 check "PluginBarFacade exposes semantic status colors to widgets" \
-  "$(( $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticGood: root.semanticGood') + $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticWarn: root.semanticWarn') + $(grep -A12 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color semanticBad: root.semanticBad') ))" "3"
+  "$(( $(grep -c 'readonly property color semanticGood: facade.barRoot.semanticGood' "$facade_qml") + $(grep -c 'readonly property color semanticWarn: facade.barRoot.semanticWarn' "$facade_qml") + $(grep -c 'readonly property color semanticBad: facade.barRoot.semanticBad' "$facade_qml") ))" "3"
 
 check "PluginBarFacade exposes secondary theme token to widgets" \
-  "$(grep -A16 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color themeSecondary: root.themeSecondary')" "1"
+  "$(grep -c 'readonly property color themeSecondary: facade.barRoot.themeSecondary' "$facade_qml")" "1"
 
 check "Bar.qml keeps global text/popup foreground readable, not accent-driven" \
   "$(grep -c 'property color foreground: pillForeground' "$bar_qml")" "1"
@@ -47,7 +48,7 @@ check "Bar.qml separates popup foreground from bar pill foreground" \
   "$(grep -c 'readonly property color popupForeground: Color.popups.text' "$bar_qml")" "1"
 
 check "PluginBarFacade exposes popup foreground through bar.foreground" \
-  "$(grep -A8 'component PluginBarFacade' "$bar_qml" | grep -c 'readonly property color foreground: root.popupForeground')" "1"
+  "$(grep -c 'readonly property color foreground: facade.barRoot.popupForeground' "$facade_qml")" "1"
 
 check "Bar.qml reads the independent icon tone state file" \
   "$(grep -c 'bar-icon-tone.json' "$bar_qml")" "1"

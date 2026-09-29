@@ -288,6 +288,23 @@ this before touching any of the three.
   compiles and fires once; when something intermittently stops updating
   live, verify the *specific* signal it's listening to is the one
   that's actually still firing on every change, not just the first.
+- **Two separate surface-identity systems, deliberately not unified**
+  (issue #78 raised this as an open "Option A vs. Option B" question;
+  resolved as Option A — kept independent). `frameColorMode`/
+  `barSurfaceMaterial` (`Bar.qml`) govern the bar/frame/notch's own
+  surface — Black vs. Theme color, Solid vs. Glass fill — while
+  `glassTintMode` and the Glass Effect profile
+  (`ruixen.launcher/SettingsContent.qml`) govern the launcher window's
+  own material. These are not the same kind of thing: the bar/frame
+  surface is decorative chrome painted inside a window that's always
+  present, while the launcher's glass is the actual Hyprland-blurred
+  compositor material of a window that opens and closes on demand.
+  Forcing both through one shared state file would mean a single stored
+  value secretly means two different things depending on which plugin
+  reads it. Don't add a third, unifying state file for this — if a
+  future feature needs bar/frame and launcher to visually match, resolve
+  that with a read-only derived mapping in one direction, not a merged
+  state file both sides write to.
 
 ## 10. Keeping this file useful
 

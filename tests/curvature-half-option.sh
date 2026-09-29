@@ -21,6 +21,7 @@ settings_qml="$repo_dir/ruixen.settings/Settings.qml"
 general_qml="$repo_dir/ruixen.settings/GeneralContent.qml"
 launcher_settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0
@@ -116,8 +117,8 @@ check "Bar.qml: read proc detects looknfeel.half.lua" \
   "$(grep -m1 'root.lookFeelVariant = "half"' "$bar_qml")" \
   '          root.lookFeelVariant = "half"'
 
-check "Bar.qml: both frame corner masks map half to 12" \
-  "$(grep -c 'root.lookFeelVariant === "half" ? 12' "$bar_qml")" "2"
+check "FrameWindow.qml: both frame corner masks map half to 12" \
+  "$(grep -c 'barRoot.lookFeelVariant === "half" ? 12' "$frame_qml")" "2"
 
 check "Bar.qml: no stale sharpCorners left behind (any case -- catches onSharpCornersChanged handlers too)" \
   "$(grep -ci 'sharpcorners' "$bar_qml")" "0"

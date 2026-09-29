@@ -7,6 +7,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0
@@ -38,16 +39,16 @@ check "publishing dock metrics copies the map before replacing one screen entry"
   "$(( $(grep -A18 'function publishDockChromeMetrics' "$bar_qml" | grep -F -c 'var next = {}') + $(grep -A18 'function publishDockChromeMetrics' "$bar_qml" | grep -F -c 'next[existing] = root.dockChromeMetricsByScreen[existing]') + $(grep -A22 'function publishDockChromeMetrics' "$bar_qml" | grep -F -c 'root.dockChromeMetricsByScreen = next') ))" "3"
 
 check "FrameWindow consumes the same per-screen dock metric channel" \
-  "$(( $(grep -A12 'component FrameWindow' "$bar_qml" | grep -c 'dockChromeScreenName: root.screenNameForWindow(frameWindow)') + $(grep -A12 'component FrameWindow' "$bar_qml" | grep -c 'dockChromeSerial: root.dockChromeMetricsSerial') + $(grep -A12 'component FrameWindow' "$bar_qml" | grep -c 'return root.dockChromeMetrics(dockChromeScreenName)') ))" "3"
+  "$(( $(grep -c 'dockChromeScreenName: barRoot.screenNameForWindow(frameWindow)' "$frame_qml") + $(grep -c 'dockChromeSerial: barRoot.dockChromeMetricsSerial' "$frame_qml") + $(grep -c 'return barRoot.dockChromeMetrics(dockChromeScreenName)' "$frame_qml") ))" "3"
 
 check "FrameWindow renders the dock chrome skin from published metrics" \
-  "$(( $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'x: root.frameInset - root.seamOverlap') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'width: frameWindow.dockChromeMetrics.screenWidth + root.seamOverlap') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'readonly property int leftWidth: frameWindow.dockChromeMetrics.leftWidth + dockChrome.overlap') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'readonly property int rightX: frameWindow.dockChromeMetrics.rightX + dockChrome.overlap') ))" "4"
+  "$(( $(grep -c 'x: frameWindow.barRoot.frameInset - frameWindow.barRoot.seamOverlap' "$frame_qml") + $(grep -c 'width: frameWindow.dockChromeMetrics.screenWidth + frameWindow.barRoot.seamOverlap' "$frame_qml") + $(grep -c 'readonly property int leftWidth: frameWindow.dockChromeMetrics.leftWidth + dockChrome.overlap' "$frame_qml") + $(grep -c 'readonly property int rightX: frameWindow.dockChromeMetrics.rightX + dockChrome.overlap' "$frame_qml") ))" "4"
 
 check "FrameWindow dock chrome is painted as one continuous canvas path, not stacked patches" \
-  "$(( $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'function dockPath') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'id: dockChromeFillCanvas') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'ctx.arc(leftEnd') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'ctx.arc(rightStart') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'ctx.quadraticCurveTo(leftEnd') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'ctx.quadraticCurveTo(rightStart') ))" "6"
+  "$(( $(grep -c 'function dockPath' "$frame_qml") + $(grep -c 'id: dockChromeFillCanvas' "$frame_qml") + $(grep -c 'ctx.arc(leftEnd' "$frame_qml") + $(grep -c 'ctx.arc(rightStart' "$frame_qml") + $(grep -c 'ctx.quadraticCurveTo(leftEnd' "$frame_qml") + $(grep -c 'ctx.quadraticCurveTo(rightStart' "$frame_qml") ))" "6"
 
 check "FrameWindow dock chrome path owns overlap and disables frame-touching dock shadow" \
-  "$(( $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c 'readonly property int overlap: root.seamOverlap') + $(grep -A190 'id: dockChrome' "$bar_qml" | grep -c -- '-dockChrome.overlap') + $(grep -A190 'id: dockChromeShadowCanvas' "$bar_qml" | grep -c 'visible: false') ))" "4"
+  "$(( $(grep -c 'readonly property int overlap: frameWindow.barRoot.seamOverlap' "$frame_qml") + $(grep -c -- '-dockChrome.overlap' "$frame_qml") + $(grep -A5 'id: dockChromeShadowCanvas' "$frame_qml" | grep -c 'visible: false') ))" "4"
 
 check "old BarPanel dock chrome layers are disabled while frame owns the skin" \
   "$(( $(grep -A3 'id: leftShoulderShadowClip' "$bar_qml" | grep -c 'visible: !root.frameOwnsDockChrome') + $(grep -A3 'id: rightShoulderShadowClip' "$bar_qml" | grep -c 'visible: !root.frameOwnsDockChrome') + $(grep -A3 'id: dockedShoulderShadow' "$bar_qml" | grep -c 'visible: !root.frameOwnsDockChrome') ))" "3"

@@ -8,6 +8,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
 notch_dock_skin_qml="$repo_dir/bars/v2/ruixen.bar/NotchDockedSkin.qml"
 fullbar_dock_skin_qml="$repo_dir/bars/v2/ruixen.bar/FullbarDockedSkin.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
@@ -48,6 +49,12 @@ check "NotchDockedSkin does not span the dock full width (leaves the notch gap o
 
 check "FullbarDockedSkin spans the dock full width (no notch gap)" \
   "$(grep -c 'readonly property bool dockSpansFullWidth: true' "$fullbar_dock_skin_qml")" "1"
+
+check "FrameWindow's own dock-chrome path math reads the same skin flag, not a direct fullbarStyle branch" \
+  "$(grep -c 'frameWindow.barRoot.dockedSkin.dockSpansFullWidth' "$frame_qml")" "5"
+
+check "FrameWindow no longer branches on fullbarStyle directly" \
+  "$(grep -c 'frameWindow.barRoot.fullbarStyle' "$frame_qml")" "0"
 
 check "fullbar removes the notch center reservation" \
   "$(grep -m1 'root.dockedSkin.dockSpansFullWidth ? 0 : root.notchReservedWidth' "$bar_qml")" '    var r = BarModel.reservedCenterRect(root.dockedSkin.dockSpansFullWidth ? 0 : root.notchReservedWidth, containerWidth, root.barSize)'

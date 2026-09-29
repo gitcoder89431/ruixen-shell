@@ -326,10 +326,10 @@ PanelWindow {
       var y0 = -dockChrome.overlap
       var y1 = frameWindow.barRoot.barSize + dockChrome.overlap
       var x0 = -dockChrome.overlap
-      var leftEnd = frameWindow.barRoot.fullbarStyle ? dockChrome.width + dockChrome.overlap : dockChrome.leftWidth
+      var leftEnd = frameWindow.barRoot.dockedSkin.dockSpansFullWidth ? dockChrome.width + dockChrome.overlap : dockChrome.leftWidth
       ctx.moveTo(x0, y0)
-      ctx.lineTo(frameWindow.barRoot.fullbarStyle ? leftEnd : leftEnd, y0)
-      if (!frameWindow.barRoot.fullbarStyle) {
+      ctx.lineTo(frameWindow.barRoot.dockedSkin.dockSpansFullWidth ? leftEnd : leftEnd, y0)
+      if (!frameWindow.barRoot.dockedSkin.dockSpansFullWidth) {
         ctx.lineTo(leftEnd + r, y0)
         ctx.arc(leftEnd + r, y0 + r, r, 1.5 * Math.PI, Math.PI, true)
         ctx.lineTo(leftEnd, y1 - r)
@@ -340,7 +340,7 @@ PanelWindow {
       ctx.lineTo(x0, y1)
       ctx.closePath()
 
-      if (!frameWindow.barRoot.fullbarStyle) {
+      if (!frameWindow.barRoot.dockedSkin.dockSpansFullWidth) {
         var rightStart = dockChrome.rightX
         var rightEnd = dockChrome.rightX + dockChrome.rightWidth + dockChrome.overlap
         ctx.moveTo(rightEnd, y0)
@@ -356,7 +356,7 @@ PanelWindow {
 
       ctx.beginPath()
       wingPath(0, frameWindow.barRoot.barSize, "topLeft")
-      if (!frameWindow.barRoot.fullbarStyle)
+      if (!frameWindow.barRoot.dockedSkin.dockSpansFullWidth)
         wingPath(dockChrome.rightX + dockChrome.rightWidth - r, frameWindow.barRoot.barSize, "topRight")
       ctx.fillStyle = frameHemColor
       ctx.fill()

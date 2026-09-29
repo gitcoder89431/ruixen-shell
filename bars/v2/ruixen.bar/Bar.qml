@@ -1649,6 +1649,7 @@ Item {
 
         screen: modelData
         ghostScreen: modelData
+        barRoot: root
       }
     }
   }
@@ -1662,129 +1663,7 @@ Item {
 
         screen: modelData
         ghostScreen: modelData
-      }
-    }
-  }
-
-  // Floating-pill background shared by each module group. The actual color
-  // comes from the root surface resolver so future Theme/Glass work changes
-  // the token once instead of cloning literals into every pill.
-  component GroupPill: Rectangle {
-    radius: height / 2
-    color: root.floatingPillFill
-    // Without this, a full circle (radius === width/2 === height/2, like
-    // the solo menu pill) renders as a faceted octagon instead of a
-    // smooth curve — much more visible than on a stadium shape (most of
-    // that outline is straight, only the two end-caps curve).
-    antialiasing: true
-
-    // Direct follow-up after the settings card's own shadow ("try the
-    // pill next then") -- every floating pill in the bar shares this
-    // one component, so adding it here covers all of them uniformly.
-    // Lower risk than ruixen.notch's own attempt (reverted, see that
-    // file's own comment): GroupPill is a plain Rectangle with no
-    // existing mask/effect stacking to interact with, unlike notchBg's
-    // own MultiEffect which was already doing custom silhouette
-    // masking before shadow properties were added to it.
-    //
-    // Tighter and darker than the first pass -- direct correction ("the
-    // draw is too far, it looks like faded, gotta closer and darker"):
-    // blur 0.3 -> 0.15 and offset 3 -> 1 pull the shadow in close to
-    // the pill's own edge instead of spreading/softening it into a
-    // faded halo; opacity 0.6 -> 0.8 makes it read as a real shadow
-    // rather than a faint tint.
-    //
-    // Bumped again (0.15/1 -> 0.35/3) per direct follow-up once both
-    // Solid and Glass surface materials landed (#78): at the tight,
-    // low-blur/low-offset settings above the shadow read as barely
-    // there, especially under Glass's own semi-transparent fill --
-    // "can you add a drop shadow to it so it looks a bit raised from
-    // the bg" (asked as if there were none at all).
-    //
-    // 0.35/3 overshot -- direct live correction ("thats a bit too far,
-    // is there a little bit tighter shadow but not as tight as
-    // before"): landed on 0.24/2, the midpoint between the original
-    // barely-there pass and the overshot one.
-    //
-    // shadowColor itself is already pure black (root.surfaceShadow) --
-    // opacity 0.8 blended with the blur is what read as "greyish/muted
-    // black" rather than the color being wrong (direct live question:
-    // "is the shadow black? i feel like it looks more greyish"). Bumped
-    // to 0.95 so the shadow's own core reads solidly black instead of a
-    // washed-out tint, blur/offset unchanged.
-    layer.enabled: true
-    layer.effect: MultiEffect {
-      shadowEnabled: true
-      shadowColor: root.surfaceShadow
-      shadowOpacity: 0.95
-      shadowBlur: 0.24
-      shadowVerticalOffset: 2
-    }
-  }
-
-  // The small concave wing piece a shape needs ADDED at a corner to flow
-  // smoothly into whatever continues past its edge, not a Rectangle
-  // corner cut (which recedes into the shape instead) -- a standard
-  // technique for this (a quarter-circle arc plus a straight line back
-  // to the box's own sharp corner) common to plenty of canvas-based UI
-  // work, written here as a data table rather than a branch per corner.
-  // Used for the docked pill groups' open-facing shoulder, same
-  // technique ruixen.notch's own two shoulders use.
-  component RoundCorner: Item {
-    id: cornerRoot
-    // Plain strings, not an enum -- a `component`-local enum's
-    // qualified values don't resolve from inside an inline component.
-    // One of: "topLeft", "topRight", "bottomLeft", "bottomRight".
-    property string corner: "topLeft"
-    property int size: 25
-    property color color: "#000000"
-
-    onColorChanged: cornerCanvas.requestPaint()
-    onCornerChanged: cornerCanvas.requestPaint()
-    onSizeChanged: cornerCanvas.requestPaint()
-    onVisibleChanged: if (visible) cornerCanvas.requestPaint()
-
-    // implicitWidth/Height alone only sizes this when something else (a
-    // Layout, or a wrapper's anchors.fill) reads it -- placed as a bare
-    // sibling Item like it is below, that never happens and it
-    // silently renders at 0x0. Set the real size directly.
-    width: size
-    height: size
-    implicitWidth: size
-    implicitHeight: size
-
-    // Every corner's wedge is the same shape, just rotated 90 degrees
-    // at a time: a quarter-circle arc of radius `size`, centered on the
-    // box's DIAGONALLY OPPOSITE corner (so the arc passes exactly
-    // through the box's other two corners), closed off by a straight
-    // line back to this wedge's own sharp corner. centerX/centerY/
-    // pointX/pointY below are 0-or-1 multipliers of `size`, not raw
-    // pixel values, so the same four numbers describe all four corners
-    // without repeating a size-dependent literal per case.
-    readonly property var cornerGeometry: ({
-      topLeft: { centerX: 1, centerY: 1, startAngle: Math.PI, endAngle: 1.5 * Math.PI, pointX: 0, pointY: 0 },
-      topRight: { centerX: 0, centerY: 1, startAngle: 1.5 * Math.PI, endAngle: 2 * Math.PI, pointX: 1, pointY: 0 },
-      bottomLeft: { centerX: 1, centerY: 0, startAngle: 0.5 * Math.PI, endAngle: Math.PI, pointX: 0, pointY: 1 },
-      bottomRight: { centerX: 0, centerY: 0, startAngle: 0, endAngle: 0.5 * Math.PI, pointX: 1, pointY: 1 }
-    })
-
-    Canvas {
-      id: cornerCanvas
-      anchors.fill: parent
-      antialiasing: true
-      onPaint: {
-        var ctx = getContext("2d")
-        var size = cornerRoot.size
-        var g = cornerRoot.cornerGeometry[cornerRoot.corner]
-        ctx.clearRect(0, 0, width, height)
-        if (!g) return
-
-        ctx.beginPath()
-        ctx.arc(g.centerX * size, g.centerY * size, size, g.startAngle, g.endAngle)
-        ctx.lineTo(g.pointX * size, g.pointY * size)
-        ctx.closePath()
-        ctx.fillStyle = cornerRoot.color
-        ctx.fill()
+        barRoot: root
       }
     }
   }
@@ -2589,7 +2468,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           Row {
             id: clockRow
@@ -2681,7 +2560,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: centerGenericContent
@@ -2751,7 +2630,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: menuContent
@@ -2778,7 +2657,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: workspacesContent
@@ -2822,7 +2701,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: pinnedappsContent
@@ -2855,7 +2734,7 @@ Item {
           width: leftPluginPinsContent.width > 0 ? leftPluginPinsContent.width + 8 * 2 : 0
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: leftPluginPinsContent
@@ -2889,7 +2768,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: settingsContent
@@ -2924,7 +2803,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: curatedContent
@@ -2974,7 +2853,7 @@ Item {
           width: pluginPinsContent.width + pluginPinsToggle.implicitWidth + 8 * 2
           height: root.barSize - Style.space(2)
 
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: pluginPinsContent
@@ -3043,7 +2922,7 @@ Item {
           // leftDockedBg/rightDockedBg below take over the background for
           // every pill in their group, this pill's own icons just sit on
           // top of that shared shape instead of their own floating pill.
-          GroupPill { anchors.fill: parent; visible: !root.docked }
+          GroupPill { anchors.fill: parent; visible: !root.docked; barRoot: root }
 
           ModuleList {
             id: trayContent
@@ -3089,127 +2968,6 @@ Item {
   }
 
   Component { id: emptyModuleComponent; Item { implicitWidth: 0; implicitHeight: 0; visible: false } }
-
-  component DragGhostPanel: PanelWindow {
-    id: ghostWindow
-
-    required property var ghostScreen
-    readonly property bool screenMatches: root.barDragScreen === ghostScreen ||
-      (root.barDragScreen && ghostScreen && root.barDragScreen.name && ghostScreen.name && root.barDragScreen.name === ghostScreen.name)
-    readonly property bool active: root.barDragSource && root.barDragScreen && screenMatches
-    readonly property var sourceItem: root.barDragSource ? root.barDragSource.activeItem : null
-    readonly property int ghostPadding: Style.space(1)
-    readonly property int ghostWidth: sourceItem ? Math.max(1, Math.ceil(sourceItem.width)) : 1
-    readonly property int ghostHeight: sourceItem ? Math.max(1, Math.ceil(sourceItem.height)) : 1
-
-    visible: active && sourceItem !== null
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omarchy-bar-drag-ghost"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-
-    anchors {
-      top: true
-      bottom: true
-      left: true
-      right: true
-    }
-
-    // Visual-only drag feedback. Keep the input region empty so the ghost can
-    // sit under the cursor without stealing the MouseArea's active pointer grab.
-    mask: Region {}
-
-    Item {
-      visible: ghostWindow.visible
-      x: Math.round(root.barDragScreenX - root.barDragOffsetX - ghostWindow.ghostPadding)
-      y: Math.round(root.barDragScreenY - root.barDragOffsetY - ghostWindow.ghostPadding)
-      width: ghostWindow.ghostWidth + ghostWindow.ghostPadding * 2
-      height: ghostWindow.ghostHeight + ghostWindow.ghostPadding * 2
-
-      BorderSurface {
-        anchors.fill: parent
-        color: root.transparent ? "transparent" : root.background
-        borderSpec: Border.flat(root.barForeground, 1)
-        radius: Math.min(Style.cornerRadius, height / 2)
-        opacity: root.transparent ? 0.45 : 0.94
-      }
-
-      Image {
-        anchors.fill: parent
-        anchors.margins: ghostWindow.ghostPadding
-        source: root.barDragImageUrl
-        fillMode: Image.Stretch
-        smooth: true
-        opacity: 0.84
-      }
-    }
-
-    Rectangle {
-      readonly property var targetRect: root.barDragTargetGeometry
-
-      visible: ghostWindow.active && targetRect !== null
-      x: targetRect ? Math.round(targetRect.x) : 0
-      y: targetRect ? Math.round(targetRect.y) : 0
-      width: targetRect ? targetRect.width : 0
-      height: targetRect ? targetRect.height : 0
-      color: Color.accent
-      radius: Math.min(width, height) / 2
-    }
-  }
-
-  component BarMoveGhostPanel: PanelWindow {
-    id: moveGhostWindow
-
-    required property var ghostScreen
-    readonly property bool screenMatches: root.barMoveScreen === ghostScreen ||
-      (root.barMoveScreen && ghostScreen && root.barMoveScreen.name && ghostScreen.name && root.barMoveScreen.name === ghostScreen.name)
-    visible: root.barMoveActive && screenMatches
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omarchy-bar-move-ghost"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-
-    anchors {
-      top: true
-      bottom: true
-      left: true
-      right: true
-    }
-
-    // Visual-only preview of the candidate edge. Keep the input region empty
-    // so the overlay never steals the gesture area's active pointer grab.
-    mask: Region {}
-
-    // One fixed-geometry slab per edge, crossfaded on candidate changes.
-    // Resizing a single slab between edges repaints mid-transition and
-    // flickers; fading between static ones does not.
-    Repeater {
-      model: ["top", "bottom", "left", "right"]
-
-      BorderSurface {
-        id: edgeSlab
-
-        required property string modelData
-        readonly property bool edgeVertical: modelData === "left" || modelData === "right"
-        readonly property int edgeSize: edgeVertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
-
-        x: modelData === "right" ? parent.width - edgeSize : 0
-        y: modelData === "bottom" ? parent.height - edgeSize : 0
-        width: edgeVertical ? edgeSize : parent.width
-        height: edgeVertical ? parent.height : edgeSize
-        color: root.transparent ? "transparent" : root.background
-        borderSpec: Border.flat(root.barForeground, 1)
-        visible: opacity > 0
-        opacity: root.barMoveCandidate === modelData ? (root.transparent ? 0.45 : 0.7) : 0
-
-        Behavior on opacity {
-          NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
-        }
-      }
-    }
-  }
 
   function findCenterAnchorEntry() {
     var entries = root.layoutEntries("center")

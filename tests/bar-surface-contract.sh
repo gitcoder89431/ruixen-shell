@@ -6,6 +6,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+pill_qml="$repo_dir/bars/v2/ruixen.bar/GroupPill.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
 ruixen_lua="$repo_dir/hyprland/looknfeel.ruixen.lua"
@@ -81,10 +82,10 @@ check "notch stores but does not render glass material yet" \
   "$(( $(grep -c 'property string notchSurfaceMaterial: "solid"' "$notch_qml") + $(grep -c 'root.notchSurfaceMaterial = normalizeSurfaceMaterial(material)' "$notch_qml") + $(grep -c 'coupled frame/notch glass' "$notch_qml") ))" "3"
 
 check "GroupPill no longer owns a raw black fill" \
-  "$(grep -A10 'component GroupPill' "$bar_qml" | grep -c 'color: root.floatingPillFill')" "1"
+  "$(grep -c 'color: pillRoot.barRoot.floatingPillFill' "$pill_qml")" "1"
 
 check "GroupPill shadow uses the semantic shadow token" \
-  "$(grep -A55 'component GroupPill' "$bar_qml" | grep -c 'shadowColor: root.surfaceShadow')" "1"
+  "$(grep -c 'shadowColor: pillRoot.barRoot.surfaceShadow' "$pill_qml")" "1"
 
 check "launcher settings labels the shared control as Surface Color" \
   "$(grep -c 'label: "Surface Color"' "$settings_qml")" "1"

@@ -58,6 +58,15 @@ Item {
   // - fullbar: saved old sharp+docked-style full strip, no notch overlay.
   property string barStyle: "notch"
   readonly property bool fullbarStyle: barStyle === "fullbar"
+  // Docked-skin contract (issue #78 Phase 6, stage 5) -- replaces
+  // scattered `root.fullbarStyle ? X : Y` branches across BarPanel/
+  // FrameWindow with a single selected skin object. Both instances stay
+  // alive permanently (cheap plain QtObjects, no visual cost) rather
+  // than being Loader-swapped, so a live barStyle change re-selects
+  // instantly with no load delay.
+  NotchDockedSkin { id: notchDockedSkin }
+  FullbarDockedSkin { id: fullbarDockedSkin }
+  readonly property QtObject dockedSkin: root.fullbarStyle ? fullbarDockedSkin : notchDockedSkin
   property bool centerSectionHovered: false
   // One bar surface exists per monitor and each reports into this count, so a
   // pointer crossing from one monitor's bar to another's stays counted however
@@ -1159,7 +1168,7 @@ Item {
   // Notch already occupy the same horizontal band by construction (both
   // live at the top of the screen, centered).
   function reservedCenterRect(containerWidth) {
-    var r = BarModel.reservedCenterRect(root.fullbarStyle ? 0 : root.notchReservedWidth, containerWidth, root.barSize)
+    var r = BarModel.reservedCenterRect(root.dockedSkin.dockSpansFullWidth ? 0 : root.notchReservedWidth, containerWidth, root.barSize)
     return Qt.rect(r.x, r.y, r.width, r.height)
   }
 
@@ -2262,7 +2271,7 @@ Item {
         // Historical sharp+docked full-strip corner patch, revived behind
         // bar.style="fullbar" only. Curvature alone must not select it.
         Rectangle {
-          visible: root.docked && root.fullbarStyle
+          visible: root.docked && root.dockedSkin.dockSpansFullWidth
           x: leftDockedBg.width - root.shoulderWingSize
           y: 0
           width: root.shoulderWingSize
@@ -2274,7 +2283,7 @@ Item {
         // In fullbar mode leftDockedBg spans the whole surface and owns this
         // corner instead.
         Rectangle {
-          visible: root.docked && !root.fullbarStyle
+          visible: root.docked && !root.dockedSkin.dockSpansFullWidth
           x: parent.width - root.shoulderWingSize
           y: 0
           width: root.shoulderWingSize
@@ -2290,7 +2299,7 @@ Item {
           onWidthChanged: horizontalBarRoot.publishDockChromeMetrics()
           // Normal notch skin: just the left group's own width. Fullbar skin:
           // stretch across the whole surface for the saved statusline strip.
-          width: root.fullbarStyle ? parent.width : (settingsPill.x + settingsPill.width)
+          width: root.dockedSkin.dockSpansFullWidth ? parent.width : (settingsPill.x + settingsPill.width)
           // root.barSize, not parent.height -- parent (the outer Item,
           // sized to the whole window) is taller than the pill row when
           // docked, to make room for leftFrameHemWing below (renamed from
@@ -2307,7 +2316,7 @@ Item {
           topLeftRadius: 24
           // In fullbar mode this is the true screen edge, so it gets the
           // same rounded frame-touching corner as topLeftRadius.
-          topRightRadius: root.fullbarStyle ? root.shoulderWingSize : 0
+          topRightRadius: root.dockedSkin.dockSpansFullWidth ? root.shoulderWingSize : 0
           // Square, not a plain recede curve -- the actual concave wrap
           // (per direct request: "the smooth curve should face inward")
           // is leftFrameHemWing below, in its own dedicated space
@@ -2318,7 +2327,7 @@ Item {
           bottomLeftRadius: 0
           // Normal notch skin hands off into leftShoulderWing. Fullbar has no
           // open-facing shoulder at the right edge, so keep its bottom flat.
-          bottomRightRadius: root.fullbarStyle ? 0 : root.shoulderWingSize
+          bottomRightRadius: root.dockedSkin.dockSpansFullWidth ? 0 : root.shoulderWingSize
         }
 
         // A small square sitting immediately past the body's own right
@@ -2372,7 +2381,7 @@ Item {
 
         Rectangle {
           id: rightDockedBg
-          visible: root.docked && !root.fullbarStyle && !root.frameOwnsDockChrome
+          visible: root.docked && !root.dockedSkin.dockSpansFullWidth && !root.frameOwnsDockChrome
           x: trayPill.x
           y: 0
           onXChanged: horizontalBarRoot.publishDockChromeMetrics()

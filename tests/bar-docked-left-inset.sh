@@ -50,16 +50,16 @@ check "leftDockedBg's own x stays 0 (fix is internal padding only, not a backgro
   "$left_docked_bg_x" "1"
 
 check "sharp+docked no longer stretches leftDockedBg by itself; only fullbar style does" \
-  "$(grep -m1 'width: root.fullbarStyle ? parent.width : (settingsPill.x + settingsPill.width)' "$bar_qml")" '          width: root.fullbarStyle ? parent.width : (settingsPill.x + settingsPill.width)'
+  "$(grep -m1 'width: root.dockedSkin.dockSpansFullWidth ? parent.width : (settingsPill.x + settingsPill.width)' "$bar_qml")" '          width: root.dockedSkin.dockSpansFullWidth ? parent.width : (settingsPill.x + settingsPill.width)'
 
 check "sharp+docked keeps the normal docked left shoulder radius unless fullbar style is selected" \
-  "$(grep -A40 'id: leftDockedBg$' "$bar_qml" | grep -m1 'bottomRightRadius: root.fullbarStyle ? 0 : root.shoulderWingSize')" '          bottomRightRadius: root.fullbarStyle ? 0 : root.shoulderWingSize'
+  "$(grep -A40 'id: leftDockedBg$' "$bar_qml" | grep -m1 'bottomRightRadius: root.dockedSkin.dockSpansFullWidth ? 0 : root.shoulderWingSize')" '          bottomRightRadius: root.dockedSkin.dockSpansFullWidth ? 0 : root.shoulderWingSize'
 
 check "rightDockedBg's legacy skin is hidden when the frame owns dock chrome" \
-  "$(grep -A5 'id: rightDockedBg$' "$bar_qml" | grep -m1 'visible: root.docked && !root.fullbarStyle && !root.frameOwnsDockChrome')" '          visible: root.docked && !root.fullbarStyle && !root.frameOwnsDockChrome'
+  "$(grep -A5 'id: rightDockedBg$' "$bar_qml" | grep -m1 'visible: root.docked && !root.dockedSkin.dockSpansFullWidth && !root.frameOwnsDockChrome')" '          visible: root.docked && !root.dockedSkin.dockSpansFullWidth && !root.frameOwnsDockChrome'
 
 check "old sharp-only docked corner patch is behind fullbar style, not the lookfeel variant" \
-  "$(grep -A5 'Historical sharp+docked full-strip corner patch' "$bar_qml" | grep -m1 'visible: root.docked && root.fullbarStyle')" '          visible: root.docked && root.fullbarStyle'
+  "$(grep -A5 'Historical sharp+docked full-strip corner patch' "$bar_qml" | grep -m1 'visible: root.docked && root.dockedSkin.dockSpansFullWidth')" '          visible: root.docked && root.dockedSkin.dockSpansFullWidth'
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

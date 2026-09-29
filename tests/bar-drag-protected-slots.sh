@@ -24,6 +24,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+slot_qml="$repo_dir/bars/v2/ruixen.bar/ModuleSlot.qml"
 
 pass=0
 fail_count=0
@@ -101,7 +102,7 @@ check "immovableModuleIds does NOT include ruixen.settingsbutton (it still reord
   "$(grep -A6 'readonly property var immovableModuleIds:' "$bar_qml" | grep -c '"ruixen.settingsbutton"' || true)" "0"
 
 check "canReorder is false for an immovable id, so its drag never even starts" \
-  "$(grep -Fc 'root.immovableModuleIds.indexOf(slot.moduleName) === -1' "$bar_qml" || true)" "1"
+  "$(grep -Fc 'slot.barRoot.immovableModuleIds.indexOf(slot.moduleName) === -1' "$slot_qml" || true)" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

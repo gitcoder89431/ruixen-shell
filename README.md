@@ -37,7 +37,10 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   workspace indicator, pinned quick-launch apps, weather, clock, and a
   settings shortcut, all in one connected pill layout. Fresh installs use
   floating glass pills with accent-toned icons.
-- **`ruixen.notch`** — a center-notch dashboard with metrics, wallpapers,
+- **`ruixen.notch`** — a center-notch dashboard with metrics, wallpapers
+  (and a theme switcher on the same tab: a segmented control above the
+  search box lists every installed Omarchy theme; clicking one applies it
+  via Omarchy's own `omarchy-theme-set`),
   storage, music control, a notification history card (attaches to
   Omarchy's own notification service, adding read/unread tracking and a
   deeper backlog on top of it), and a Kanban board (see below), expanding

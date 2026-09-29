@@ -1316,6 +1316,19 @@ Item {
         if (index >= 0) panel.dashboardTab = index
         panel.pinnedOpen = true
       }
+      // Wallpapers tab's own toggle -- same shape as toggleDashboard
+      // above (a closed notch opens ON the wallpapers tab, an open one
+      // just flips pinnedOpen), so the recommended keybind reads like
+      // the other notch keys instead of always re-opening. Keybind
+      // recipe: o.bind("SUPER + CTRL + SPACE", "Ruixen wallpapers",
+      // "omarchy-shell ruixen.notch toggleWallpapers") -- that key is
+      // Omarchy's default Background switcher, so it needs an explicit
+      // hl.unbind first (install.sh's --with-launcher-keybind recommends
+      // it but leaves a taken key untouched, printing the collision).
+      function toggleWallpapers(): void {
+        if (!panel.pinnedOpen) panel.dashboardTab = 1
+        panel.pinnedOpen = !panel.pinnedOpen
+      }
       // Called by ruixen.settings' General page after Shuffle/Reset
       // writes or removes ~/.face.icon -- this plugin is keepLoaded:
       // true, so nothing else would tell UserAvatar's Image to re-read

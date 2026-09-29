@@ -83,3 +83,20 @@ actually being optional.
 
 `openDashboard`/`closeDashboard` and `openLauncher`/`closeLauncher` also
 exist, if you'd rather have separate open/close keys instead of one toggle.
+
+The Wallpapers tab has its own toggle, same shape as `toggleDashboard` —
+a closed notch opens straight onto the tab, an open one just closes. This
+is the keybind the installer's `--with-launcher-keybind` recommends (as
+SUPER+CTRL+SPACE — note stock Omarchy binds that key to its background
+switcher, so the installer will point at the collision instead of
+stealing the key; unbind it first and add the bind yourself):
+
+```lua
+hl.unbind("SUPER + CTRL + SPACE") -- previously: Background switcher
+o.bind("SUPER + CTRL + SPACE", "Ruixen wallpapers", "omarchy-shell ruixen.notch toggleWallpapers")
+```
+
+That tab is also the notch's theme switcher: a WALLPAPER/THEME sliding
+tab to the right of its search box, where the theme half lists every
+installed Omarchy theme and clicking one runs the real
+`omarchy-theme-set`.

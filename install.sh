@@ -172,7 +172,8 @@ if [[ "$dry_run" == true ]]; then
   if [[ "$install_recommended_keybinds" == true ]]; then
     for spec in \
       "SUPER+R|SUPER+R -> Ruixen Launcher" \
-      "SUPER+SHIFT+R|SUPER+SHIFT+R -> Ruixen Settings"; do
+      "SUPER+SHIFT+R|SUPER+SHIFT+R -> Ruixen Settings" \
+      "SUPER+CTRL+SPACE|SUPER+CTRL+SPACE -> Ruixen wallpapers"; do
       wanted="${spec%%|*}"
       description="${spec#*|}"
       existing_keybind="$(omarchy menu keybindings --print 2>/dev/null | awk -F '→' -v wanted="$wanted" '
@@ -192,7 +193,7 @@ if [[ "$dry_run" == true ]]; then
       fi
     done
   else
-    printf '  not requested; pass --with-launcher-keybind to add SUPER+R/SUPER+SHIFT+R when free\n'
+    printf '  not requested; pass --with-launcher-keybind to add SUPER+R/SUPER+SHIFT+R/SUPER+CTRL+SPACE when free\n'
   fi
 
   printf '\nHyprland window look:\n'
@@ -442,6 +443,10 @@ install_recommended_keybinds() {
     "SUPER+SHIFT+R" \
     "Ruixen Settings" \
     "o.bind(\"SUPER + SHIFT + R\", \"Ruixen Settings\", [[omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"settings\"}']])"
+  install_recommended_keybind \
+    "SUPER+CTRL+SPACE" \
+    "Ruixen wallpapers" \
+    'o.bind("SUPER + CTRL + SPACE", "Ruixen wallpapers", "omarchy-shell ruixen.notch toggleWallpapers")'
 
   if command -v hyprctl >/dev/null 2>&1; then
     hyprctl reload >/dev/null 2>&1 \
@@ -1149,9 +1154,9 @@ cat <<EOF
 
 Ruixen Shell is installed.
 
-Recommended keybinds: SUPER+R for Ruixen Launcher and SUPER+SHIFT+R for
-Ruixen Settings. To have the installer add any missing free keys next time,
-run:
+Recommended keybinds: SUPER+R for Ruixen Launcher, SUPER+SHIFT+R for
+Ruixen Settings, and SUPER+CTRL+SPACE for the notch's wallpaper/theme tab (unbind Omarchy's Background switcher first if present). To
+have the installer add any missing free keys next time, run:
 
   $script_dir/install.sh --with-launcher-keybind
 

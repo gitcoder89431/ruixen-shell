@@ -21,6 +21,7 @@ functions on their own IPC target:
 
 ```bash
 omarchy-shell ruixen.notch toggleLauncher
+omarchy-shell ruixen.notch toggleWallpapers
 omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high
 ```
 

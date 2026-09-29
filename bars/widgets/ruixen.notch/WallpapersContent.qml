@@ -16,6 +16,18 @@ import Quickshell.Widgets
 // tab genuinely has "space left... like a right panel" (this
 // sidebar's own original request) that the launcher's card doesn't.
 //
+// This file is now ALSO the notch's own Theme switcher (a WALLPAPER/
+// THEME sliding tab sharing one row with the search box, tab pill on
+// the right and search filling the rest -- through several follow-ups:
+// two stacked rows collapsed into one, two separate chips merged into
+// one sliding pill, then the pill moved from the search box's left to
+// its right). That mode is deliberately NOT synced to the launcher
+// copy: the keybind that
+// summons this tab (ruixen.notch toggleWallpapers) is the whole point
+// of the feature, the launcher card stays a pure wallpaper picker, and
+// theme discovery/application (list-themes.sh + omarchy-theme-set)
+// lives entirely in the blocks marked "Theme mode" below.
+//
 // Real wallpaper picker for the notch dashboard's own "Wallpapers" tab,
 // replacing the "coming soon" stub. Reads from the exact same two
 // directories Omarchy's own omarchy-theme-bg-switcher does (confirmed
@@ -147,6 +159,46 @@ Item {
   // useful than having to choose one or the other.
   property string kindFilter: "all"
 
+  // ---- Theme mode ---- (the WALLPAPER/THEME sliding tab to the right
+  // of the search box; see the header comment for why this is
+  // notch-only and not synced to the launcher copy).
+  //
+  // Which half of the segmented control is showing: "wallpapers" (the
+  // picker this file has always been) or "themes" (a grid of installed
+  // Omarchy themes; clicking one runs the real omarchy-theme-set, the
+  // same front door Super+Shift+Ctrl+Space's own picker uses -- a
+  // second window onto the same state, not a parallel one, exactly
+  // like this file's wallpaper selection above it).
+  property string mediaMode: "wallpapers"
+
+  // Each entry: { name, display, preview }. name is the theme
+  // directory's basename -- the exact string passed to
+  // omarchy-theme-set (which re-normalizes case/dashes itself).
+  // display is the human-readable label from list-themes.sh's own
+  // title-casing, preview is a representative image path or "" (the
+  // tile renders the name instead). Populated by themeListProc below,
+  // running the same shipped list-themes.sh the test runs.
+  property var themeEntries: []
+
+  // The active theme's directory name, read from the same file
+  // omarchy-theme-set itself writes (~/.local/state/omarchy/current/
+  // theme.name) -- drives the CURRENT highlight, same role
+  // currentBackground plays for wallpaper tiles. Applied optimistically
+  // on click, then confirmed by the post-set refresh().
+  property string currentTheme: ""
+
+  // Search narrowed against the wallpaper list vs the theme list
+  // depending on which mode the segmented control is in -- one
+  // searchInput serves both, only the placeholder text differs.
+  readonly property var filteredThemes: {
+    if (searchText.length === 0) return themeEntries
+    var needle = searchText.toLowerCase()
+    return themeEntries.filter(function(entry) {
+      return entry.name.toLowerCase().indexOf(needle) !== -1 ||
+             entry.display.toLowerCase().indexOf(needle) !== -1
+    })
+  }
+
   readonly property int imageCount: wallpaperPaths.filter(function(e) { return e.kind === "image" }).length
   readonly property int videoCount: wallpaperPaths.filter(function(e) { return e.kind === "video" }).length
   readonly property int gifCount: wallpaperPaths.filter(function(e) { return e.kind === "gif" }).length
@@ -169,6 +221,26 @@ Item {
   function refresh() {
     if (!listProc.running) listProc.running = true
     if (!currentProc.running) currentProc.running = true
+    // Theme mode's two reads ride the same refresh -- both are cheap
+    // (one find + one cat), and re-reading the theme list on every tab
+    // open is what keeps a just-installed theme from needing a shell
+    // restart to show up. Wallpaper reads re-running in themes mode is
+    // harmless (nothing on this side branches on the results while
+    // they're hidden).
+    if (!themeListProc.running) themeListProc.running = true
+    if (!currentThemeProc.running) currentThemeProc.running = true
+  }
+
+  // Segmented-control click handler. Clearing the search on a mode
+  // switch is deliberate: the two modes filter different lists, so a
+  // needle typed for wallpapers sitting in the box while the theme
+  // grid loads would read as "no themes match" noise the user didn't
+  // ask for.
+  function setMediaMode(mode) {
+    if (root.mediaMode === mode) return
+    root.mediaMode = mode
+    searchInput.text = ""
+    if (mode === "themes") refresh()
   }
 
   onActiveChanged: if (active) refresh()
@@ -242,6 +314,42 @@ Item {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.currentBackground = String(text || "").trim()
+    }
+  }
+
+  // Theme mode -- theme discovery via the same shipped-script pattern
+  // as listProc above (list-themes.sh, a sibling file the test suite
+  // runs too, so the format can't drift). Same StdioCollector +
+  // US-splitting shape listProc uses.
+  Process {
+    id: themeListProc
+    command: [Quickshell.env("HOME") + "/.config/omarchy/plugins/ruixen.notch/list-themes.sh"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var lines = String(text || "").split("\n").filter(function(line) { return line.length > 0 })
+        root.themeEntries = lines.map(function(line) {
+          var parts = line.split("\u001f")
+          // preview may legitimately be empty (a theme with no
+          // preview.* and no backgrounds/ -- the tile falls back to
+          // rendering the name), so a missing 3rd field and an empty
+          // one are treated the same way here.
+          return { name: parts[0], display: parts[1], preview: parts[2] !== undefined ? parts[2] : "" }
+        })
+      }
+    }
+  }
+
+  // The active theme's directory name, from the same file
+  // omarchy-theme-set itself writes on every successful set -- nothing
+  // here guesses or caches it across theme changes made outside this
+  // panel (Super+Shift+Ctrl+Space's own picker included).
+  Process {
+    id: currentThemeProc
+    command: ["bash", "-c", "cat \"$HOME/.local/state/omarchy/current/theme.name\" 2>/dev/null"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.currentTheme = String(text || "").trim()
     }
   }
 
@@ -323,6 +431,54 @@ Item {
     }
   }
 
+  // Theme mode -- apply a theme. Same front door the stock
+  // Super+Shift+Ctrl+Space picker uses: omarchy-theme-set with the
+  // theme directory's own name (that script re-normalizes case and
+  // dashes itself, so passing the basename it listed under is exactly
+  // right -- no pre-mangling here).
+  //
+  // The whitelist check is this repo's own fixed-argv rule for
+  // anything that reaches a process argument from outside (here: a
+  // filename on disk -- a theme directory name containing anything
+  // beyond letters/digits/dash/underscore is not something
+  // omarchy-theme-set would accept anyway, so skipping the click
+  // beats letting the CLI's own error be the only line of defense).
+  //
+  // Stopping any playing video/gif first, with a fresh generation:
+  // omarchy-theme-set is about to point current/background at the new
+  // theme's own image, and ruixen.wallpaper's 1s poll would eventually
+  // stop the overlay on its own -- saying so directly, with a
+  // generation this instance minted, keeps the same out-of-order
+  // protection select() has.
+  Process {
+    id: themeStopProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  Process {
+    id: themeSetProc
+    // omarchy-theme-set runs its post-theme hooks to completion
+    // (terminal/editor/app retints, seconds, not ms) -- all this
+    // process does is wait for it off the UI thread, then one refresh
+    // re-reads wallpapers/current background/theme name so every tile
+    // state on BOTH sides of the segmented control matches the new
+    // theme without a tab close/reopen.
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.refresh()
+    }
+  }
+
+  function applyTheme(entry) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(entry.name)) return
+    root.currentTheme = entry.name
+    root.selectGeneration += 1
+    themeStopProc.command = ["omarchy-shell", "ruixen.wallpaper", "stop", String(root.selectGeneration)]
+    themeStopProc.running = true
+    themeSetProc.command = ["omarchy-theme-set", entry.name]
+    themeSetProc.running = true
+  }
+
   // Outer ColumnLayout -- direct follow-up ("put the right panel
   // below the search bar so keep search like before full"): the
   // search bar moved back out to span the FULL panel width again (it
@@ -334,71 +490,193 @@ Item {
     anchors.fill: parent
     spacing: 10
 
-    // Search row -- plain TextInput + placeholder overlay, matching
-    // this plugin's existing self-contained style (no qs.Ui.TextField
-    // pulled in here, unlike ruixen.weather's location search -- that
-    // one already has qs.Ui available; this plugin deliberately stays
-    // on plain QML primitives throughout, see DashboardContent.qml).
-    // Full Layout.fillWidth here now spans the whole panel again,
-    // sidebar included -- it's a sibling of the RowLayout below, not
-    // inside it.
-    Rectangle {
+    // Search + WALLPAPER/THEME tab, collapsed into one row (direct
+    // follow-up -- "instead of the two tabs up top and the search
+    // input, collapse them into one row", then "put them in an actual
+    // tab together but a sliding between them", then "instead of in
+    // front of the search, maybe after it... on the right"). Search
+    // box claims whatever's left via Layout.fillWidth, tab pill sits
+    // fixed-width on the right.
+    //
+    // rightMargin per a further follow-up ("this row with tab
+    // stretches too far to the notch edge... it should line up at the
+    // end with others") -- with none, the pill's flat corner sat
+    // right against the panel's own rounded edge, closer to it than
+    // the filter sidebar below ever gets (that sidebar's own fillWidth
+    // column centers its fixed 76px chips within its leftover space,
+    // which naturally keeps them off the true edge by about this much).
+    // No leftMargin needed -- the search box's left edge already lines
+    // up with the wallpaper grid's own left edge with zero margin.
+    RowLayout {
       Layout.fillWidth: true
-      Layout.preferredHeight: 40
-      radius: 12
-      color: Qt.rgba(1, 1, 1, 0.06)
+      Layout.maximumWidth: Number.POSITIVE_INFINITY
+      Layout.rightMargin: 12
+      spacing: 8
 
-      TextInput {
-        id: searchInput
-        anchors.fill: parent
-        anchors.leftMargin: 12
-        anchors.rightMargin: 34
-        verticalAlignment: TextInput.AlignVCenter
-        color: root.textColor
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        clip: true
+      // Search box -- plain TextInput + placeholder overlay, matching
+      // this plugin's existing self-contained style (no qs.Ui.TextField
+      // pulled in here, unlike ruixen.weather's location search -- that
+      // one already has qs.Ui available; this plugin deliberately stays
+      // on plain QML primitives throughout, see DashboardContent.qml).
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 40
+        radius: 12
+        color: Qt.rgba(1, 1, 1, 0.06)
 
-        onTextChanged: root.searchText = text
-
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Search wallpapers..."
-          color: root.muted
+        TextInput {
+          id: searchInput
+          anchors.fill: parent
+          anchors.leftMargin: 12
+          anchors.rightMargin: 34
+          verticalAlignment: TextInput.AlignVCenter
+          color: root.textColor
           font.family: root.fontFamily
           font.pixelSize: 12
-          visible: searchInput.text.length === 0
+          clip: true
+
+          onTextChanged: root.searchText = text
+
+          // Magnify glyph in front of the placeholder -- direct
+          // request ("add a magnify icon in front of the text so
+          // Magnify Search wallpapers..."). fa-search (U+F002), the
+          // same glyph/family ruixen.settings' own sidebar search
+          // already uses -- placeholder-only (hidden once typing
+          // starts), not a persistent left-side icon, since this
+          // search box already has its own separate clear "✕" button
+          // on the right; no need for a second one doubling as this.
+          Text {
+            id: searchPlaceholderIcon
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            visible: searchInput.text.length === 0
+            text: ""
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: searchPlaceholderIcon.right
+            anchors.leftMargin: 6
+            // Placeholder follows the segmented control -- direct
+            // request: "so theme will say search themes...".
+            text: root.mediaMode === "themes" ? "Search themes..." : "Search wallpapers..."
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 12
+            visible: searchInput.text.length === 0
+          }
+        }
+
+        // Clear button -- direct request ("i type space then select the
+        // wallpaper i like then press the x to clear in the input field
+        // right side to clear it"). Sits in the rightMargin space
+        // reserved above so it never overlaps typed text. Same "✕"
+        // glyph/placement LauncherContent.qml's own app search already
+        // uses, but red per this request rather than muted/textColor --
+        // #e05252 is this plugin's own established red (DashboardContent.qml/
+        // MetricsContent.qml/Overlay.qml all use it for the same
+        // warning-ish/critical-toggle meaning).
+        Text {
+          visible: searchInput.text.length > 0
+          anchors.right: parent.right
+          anchors.rightMargin: 14
+          anchors.verticalCenter: parent.verticalCenter
+          text: "✕"
+          font.pixelSize: 13
+          color: clearSearchMouse.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+
+          MouseArea {
+            id: clearSearchMouse
+            anchors.centerIn: parent
+            width: 20
+            height: 20
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              searchInput.text = ""
+              searchInput.forceActiveFocus()
+            }
+          }
         }
       }
 
-      // Clear button -- direct request ("i type space then select the
-      // wallpaper i like then press the x to clear in the input field
-      // right side to clear it"). Sits in the rightMargin space
-      // reserved above so it never overlaps typed text. Same "✕"
-      // glyph/placement LauncherContent.qml's own app search already
-      // uses, but red per this request rather than muted/textColor --
-      // #e05252 is this plugin's own established red (DashboardContent.qml/
-      // MetricsContent.qml/Overlay.qml all use it for the same
-      // warning-ish/critical-toggle meaning).
-      Text {
-        visible: searchInput.text.length > 0
-        anchors.right: parent.right
-        anchors.rightMargin: 14
-        anchors.verticalCenter: parent.verticalCenter
-        text: "✕"
-        font.pixelSize: 13
-        color: clearSearchMouse.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+      Rectangle {
+        id: modeTab
+        // Both halves sized off the wider label (WALLPAPER) so the
+        // thumb sliding to either side is the same width -- an uneven
+        // thumb would visibly resize on every switch instead of just
+        // sliding.
+        readonly property real chipWidth: Math.max(wallpaperLabel.implicitWidth, themeLabel.implicitWidth) + 28
 
-        MouseArea {
-          id: clearSearchMouse
-          anchors.centerIn: parent
-          width: 20
-          height: 20
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            searchInput.text = ""
-            searchInput.forceActiveFocus()
+        Layout.preferredWidth: modeTab.chipWidth * 2 + 4
+        Layout.preferredHeight: 40
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.04)
+
+        // The sliding thumb -- declared before the labels below so it
+        // paints behind them, animates x only (fixed width/height), so
+        // it reads as one pill moving rather than a second element.
+        Rectangle {
+          x: root.mediaMode === "wallpapers" ? 2 : modeTab.chipWidth + 2
+          y: 2
+          width: modeTab.chipWidth
+          height: parent.height - 4
+          radius: 8
+          color: Qt.rgba(1, 1, 1, 0.08)
+          border.width: 1
+          border.color: root.accent
+
+          Behavior on x {
+            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+          }
+        }
+
+        Row {
+          anchors.fill: parent
+
+          Item {
+            width: modeTab.chipWidth
+            height: parent.height
+
+            Text {
+              id: wallpaperLabel
+              anchors.centerIn: parent
+              text: "WALLPAPER"
+              font.family: root.fontFamily
+              font.pixelSize: 10
+              font.weight: root.mediaMode === "wallpapers" ? Font.DemiBold : Font.Normal
+              color: root.mediaMode === "wallpapers" ? root.accent : root.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.setMediaMode("wallpapers")
+            }
+          }
+
+          Item {
+            width: modeTab.chipWidth
+            height: parent.height
+
+            Text {
+              id: themeLabel
+              anchors.centerIn: parent
+              text: "THEME"
+              font.family: root.fontFamily
+              font.pixelSize: 10
+              font.weight: root.mediaMode === "themes" ? Font.DemiBold : Font.Normal
+              color: root.mediaMode === "themes" ? root.accent : root.muted
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.setMediaMode("themes")
+            }
           }
         }
       }
@@ -414,6 +692,11 @@ Item {
     // exist) -- that's the "space left" the sidebar fills instead of
     // leaving it empty.
     RowLayout {
+      // Wallpaper mode only -- in theme mode the whole grid+sidebar
+      // block below the search bar steps aside for themeGrid ( layouts
+      // skip invisible children, so it yields its height to the theme
+      // grid with no extra geometry work).
+      visible: root.mediaMode === "wallpapers"
       // Layout.maximumWidth freed for the same reason as the sidebar's
       // own comment below -- a nested RowLayout/ColumnLayout's
       // maximumWidth defaults to its own implicitWidth (here, the
@@ -821,6 +1104,204 @@ Item {
 
     Item { Layout.fillHeight: true }
   }
+  }
+
+  // ---- Theme mode content ---- sits as a sibling of the wallpaper
+  // block above (each side visible only in its own mediaMode), so the
+  // wallpaper side's carefully-tuned fixed widths and sidebar layout
+  // are never disturbed by the theme side's presence.
+  Item {
+    id: themeGridWrap
+    Layout.fillWidth: true
+    Layout.maximumWidth: Number.POSITIVE_INFINITY
+    Layout.fillHeight: true
+    visible: root.mediaMode === "themes" && root.filteredThemes.length > 0
+
+    GridView {
+      id: themeGrid
+      // Exactly as wide as the columns it renders, centered in the
+      // wrapper -- flooring the cell math can leave a few dozen px of
+      // dead strip on the right (a real screenshot showed ~40px at the
+      // panel's width), so instead the grid owns only its used width
+      // and the small remainder splits evenly left/right (direct
+      // request: "fill that space on the right ... or center the theme
+      // grid to create equal space on right and left"). The sizing
+      // source is the WRAPPER's width, not the grid's own -- binding
+      // width -> columns -> width would be the circular kind.
+      //
+      // width MUST be columns*cellWidth, not anything smaller -- a
+      // follow-up fix ("grid theme is a bit narrower than what it
+      // should be", then, after a first attempt at that, "the grid in
+      // theme is only three column, if it was 4 it would fit nicely").
+      // The first attempt shaved the trailing per-cell gap off of
+      // width to reclaim it as tile size, which sounds harmless but
+      // GridView decides how many columns it actually lays out per
+      // row as floor(width / cellWidth) -- an internal computation
+      // that has no idea about our own "columns" property. Undersize
+      // width even by a few px below a full columns*cellWidth and
+      // GridView silently renders one fewer column than intended.
+      // width stays exactly columns*cellWidth here; the real fix for
+      // "narrower than it should be" is tileWidth below, which had its
+      // own separate bug.
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: themeGrid.columns * themeGrid.cellWidth
+      height: parent.height
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+      reuseItems: true
+      // Fit as many 170px-minimum columns as the real width allows,
+      // then stretch each cell to consume the row (at the panel's
+      // ~790px that turns 4x170+110-dead into 4x~197, using nearly all
+      // of it). The 10px right/bottom gap per cell -- the same rhythm
+      // the wallpaper grid's 170/110 cells produce -- is kept by
+      // construction (cellWidth = tile + 10), so the tiles themselves
+      // grow (~160 -> ~187) rather than the gaps ballooning. Floor,
+      // not round, on the cell math: a fractional cellWidth would make
+      // GridView round cell origins independently and visibly tear the
+      // grid rhythm column to column.
+      //
+      // tileWidth's own bug (the actual cause of "a bit narrower than
+      // it should be"): the previous formula computed the correct max
+      // tile size for the available width, THEN subtracted an extra,
+      // unearned 10px on top -- as if each column needed its own gap
+      // reserved twice. floor(width / columns) - 10 reserves the gap
+      // exactly once per column (cellWidth = tile + 10, times columns,
+      // covers all of it), nothing left over to wrongly subtract again.
+      readonly property int columns: Math.max(1, Math.floor(themeGridWrap.width / 170))
+      readonly property int tileWidth: Math.max(160, Math.floor(themeGridWrap.width / columns) - 10)
+      cellWidth: themeGrid.tileWidth + 10
+      cellHeight: Math.round(themeGrid.tileWidth * 100 / 160) + 10
+      model: root.filteredThemes
+
+    delegate: Item {
+      id: themeTile
+      required property var modelData
+      readonly property bool hovered: themeTileMouse.containsMouse
+      // Directory-name equality against the value read from
+      // omarchy-theme-set's own theme.name file (kept current
+      // optimistically on click, confirmed on the post-set refresh).
+      readonly property bool active: themeTile.modelData.name === root.currentTheme
+
+      // Fills its cell minus the 10px gap, aspect locked to the
+      // wallpaper tiles' 160x100 so both sides of the segmented
+      // control read as one surface.
+      width: themeGrid.tileWidth
+      height: Math.round(themeGrid.tileWidth * 100 / 160)
+
+      // Image container -- the same static, never-animated container
+      // recipe the wallpaper tiles use (see that block's structural
+      // rewrite comment for why nothing here may animate geometry).
+      // A theme with no preview at all gets a plain quiet tile with
+      // its name instead of a broken image.
+      ClippingRectangle {
+        anchors.fill: parent
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.06)
+        visible: themeTile.modelData.preview === ""
+
+        Text {
+          anchors.centerIn: parent
+          width: parent.width - 12
+          horizontalAlignment: Text.AlignHCenter
+          elide: Text.ElideRight
+          textFormat: Text.PlainText
+          text: themeTile.modelData.display
+          color: themeTile.active ? root.accent : root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+      }
+
+      ClippingRectangle {
+        anchors.fill: parent
+        radius: 10
+        color: "transparent"
+        visible: themeTile.modelData.preview !== ""
+
+        Image {
+          anchors.fill: parent
+          source: themeTile.modelData.preview !== "" ? ("file://" + themeTile.modelData.preview) : ""
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          // Track the tile's real size -- cells stretch to fill the row
+          // (see themeGrid.columns above), and a fixed 160x100 decode
+          // size would blur once the tile renders larger than that.
+          sourceSize: Qt.size(themeTile.width, themeTile.height)
+        }
+      }
+
+      // Hover decoration -- the wallpaper tiles' exact two-band recipe
+      // (accent ring at the edge, black band starting where the ring
+      // ends), copied rather than reinvented.
+      Rectangle {
+        anchors.fill: parent
+        radius: 10
+        color: "transparent"
+        border.width: 2
+        border.color: root.accent
+        visible: themeTile.hovered
+        z: 2
+
+        Rectangle {
+          anchors.fill: parent
+          anchors.margins: 2
+          radius: 8
+          color: "transparent"
+          border.width: 9
+          border.color: "#000000"
+        }
+      }
+
+      // Name label -- hover-only like the wallpaper tiles' own label,
+      // CURRENT in the accent for the applied theme.
+      Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 5
+        height: 26
+        color: Qt.rgba(0, 0, 0, 0.82)
+        visible: themeTile.hovered
+        z: 3
+
+        Text {
+          anchors.centerIn: parent
+          width: parent.width - 12
+          horizontalAlignment: Text.AlignHCenter
+          elide: Text.ElideRight
+          textFormat: Text.PlainText
+          text: themeTile.active ? "CURRENT" : themeTile.modelData.display
+          color: themeTile.active ? root.accent : root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 10
+        }
+      }
+
+      MouseArea {
+        id: themeTileMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.applyTheme(themeTile.modelData)
+        z: 4
+      }
+    }
+  }
+  }
+
+  // Theme mode's own empty state -- a sibling of the wallpaper empty
+  // state (which lives inside the wallpaper block above), each visible
+  // only in its own mode.
+  Text {
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    visible: root.mediaMode === "themes" && root.filteredThemes.length === 0
+    horizontalAlignment: Text.AlignHCenter
+    verticalAlignment: Text.AlignVCenter
+    text: root.themeEntries.length === 0 ? "No themes found" : "No themes match “" + root.searchText + "”"
+    color: root.muted
+    font.family: root.fontFamily
+    font.pixelSize: 12
   }
   }
 }

@@ -70,6 +70,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+barpanel_qml="$repo_dir/bars/v2/ruixen.bar/BarPanel.qml"
 
 pass=0
 fail_count=0
@@ -98,7 +99,7 @@ check "there is no separate sideRightIds list anymore (pill 2's own filter is in
 # --- pill existence -----------------------------------------------------
 for pill_id in curatedPill pluginPinsPill trayPill clockPill; do
   check "pill '$pill_id' exists, exactly once" \
-    "$(grep -c "id: $pill_id\$" "$bar_qml" || true)" "1"
+    "$(grep -c "id: $pill_id\$" "$barpanel_qml" || true)" "1"
 done
 
 # The old togglesPill/rightPill/stayawakePill/stayawakeGroupPill/
@@ -107,7 +108,7 @@ done
 # expected, so this only checks id: declarations, not prose).
 for old_id in togglesPill rightPill stayawakePill stayawakeGroupPill thirdPartyPill; do
   check "no leftover 'id: $old_id' declaration" \
-    "$(grep -c "id: $old_id\$" "$bar_qml" || true)" "0"
+    "$(grep -c "id: $old_id\$" "$barpanel_qml" || true)" "0"
 done
 
 # --- anchor chain: tray -> pluginPins -> curated -> clock
@@ -115,11 +116,11 @@ done
 # This exact order is what makes "third-party lands left of the coffee"
 # true on screen and not just in shell.json's own array order.
 check "curatedPill anchors off clockPill (rightmost of this cluster)" \
-  "$(grep -A2 'id: curatedPill$' "$bar_qml" | grep -c 'anchors.right: clockPill.left' || true)" "1"
+  "$(grep -A2 'id: curatedPill$' "$barpanel_qml" | grep -c 'anchors.right: clockPill.left' || true)" "1"
 check "pluginPinsPill anchors off curatedPill (sits just left of SYSTEM)" \
-  "$(grep -A2 'id: pluginPinsPill$' "$bar_qml" | grep -c 'anchors.right: curatedPill.left' || true)" "1"
+  "$(grep -A2 'id: pluginPinsPill$' "$barpanel_qml" | grep -c 'anchors.right: curatedPill.left' || true)" "1"
 check "trayPill anchors off pluginPinsPill (leftmost of this cluster)" \
-  "$(grep -A2 'id: trayPill$' "$bar_qml" | grep -c 'anchors.right: pluginPinsPill.left' || true)" "1"
+  "$(grep -A2 'id: trayPill$' "$barpanel_qml" | grep -c 'anchors.right: pluginPinsPill.left' || true)" "1"
 
 # --- docked-mode rendering: rightShoulderWing/rightDockedBg seam -------
 #
@@ -135,17 +136,17 @@ check "trayPill anchors off pluginPinsPill (leftmost of this cluster)" \
 # every reorg above, so rightDockedBg/rightShoulderWing's own x formulas
 # (anchored to trayPill.x) are unaffected by any of them.
 check "rightShoulderWing overlaps rightDockedBg by 1px, not flush against it" \
-  "$(grep -m1 'x: rightDockedBg.x - size' "$bar_qml")" '          x: rightDockedBg.x - size + 1'
+  "$(grep -m1 'x: rightDockedBg.x - size' "$barpanel_qml")" '        x: rightDockedBg.x - size + 1'
 
 # --- each pill's own ModuleList filters on the right id list -----------
 check "curatedContent filters on the exact curatedRightIds membership" \
-  "$(grep -A3 'id: curatedContent$' "$bar_qml" | grep -c 'root\.curatedRightIds\.indexOf' || true)" "1"
+  "$(grep -A3 'id: curatedContent$' "$barpanel_qml" | grep -c 'barWindow\.barRoot\.curatedRightIds\.indexOf' || true)" "1"
 check "trayContent is tray ONLY (exact id match, not a catch-all)" \
-  "$(grep -A5 'id: trayContent$' "$bar_qml" | grep -c 'root\.entryId(e) === "ruixen.tray"' || true)" "1"
+  "$(grep -A5 'id: trayContent$' "$barpanel_qml" | grep -c 'barWindow\.barRoot\.entryId(e) === "ruixen.tray"' || true)" "1"
 check "pluginPinsContent is the catch-all now: not tray, not in curatedRightIds" \
-  "$(grep -A5 'id: pluginPinsContent$' "$bar_qml" | grep -c 'curatedRightIds\.indexOf(id) === -1' || true)" "1"
+  "$(grep -A5 'id: pluginPinsContent$' "$barpanel_qml" | grep -c 'curatedRightIds\.indexOf(id) === -1' || true)" "1"
 check "pluginPinsContent also excludes ruixen.pluginpins itself (rendered separately, see pluginPinsToggle)" \
-  "$(grep -A5 'id: pluginPinsContent$' "$bar_qml" | grep -c 'id !== "ruixen.pluginpins"' || true)" "1"
+  "$(grep -A5 'id: pluginPinsContent$' "$barpanel_qml" | grep -c 'id !== "ruixen.pluginpins"' || true)" "1"
 
 # --- pluginpins toggle icon: fixed at this pill's own right edge -------
 #
@@ -158,11 +159,11 @@ check "pluginPinsContent also excludes ruixen.pluginpins itself (rendered separa
 # what makes its position a real structural guarantee instead of a
 # data-order coincidence.
 check "pluginPinsToggle (the toggle icon's own slot) exists, exactly once" \
-  "$(grep -c 'id: pluginPinsToggle$' "$bar_qml" || true)" "1"
+  "$(grep -c 'id: pluginPinsToggle$' "$barpanel_qml" || true)" "1"
 check "pluginPinsToggle anchors to this pill's own right edge" \
-  "$(grep -A2 'id: pluginPinsToggle$' "$bar_qml" | grep -c 'anchors.right: parent.right' || true)" "1"
+  "$(grep -A2 'id: pluginPinsToggle$' "$barpanel_qml" | grep -c 'anchors.right: parent.right' || true)" "1"
 check "pluginPinsToggle reserves its own 8px right margin (not flush against the pill's own edge)" \
-  "$(grep -A12 'id: pluginPinsToggle$' "$bar_qml" | grep -c 'anchors.rightMargin: 8' || true)" "1"
+  "$(grep -A12 'id: pluginPinsToggle$' "$barpanel_qml" | grep -c 'anchors.rightMargin: 8' || true)" "1"
 
 # Direct live report after the toggle was first pulled into its own
 # slot: "it doesnt shrink or expand anymore" and "the pill is lop
@@ -172,7 +173,7 @@ check "pluginPinsToggle reserves its own 8px right margin (not flush against the
 # late-filled entries value; .width does -- see stayawakeGroupPill's
 # own old comment, git history, for the original instance of this).
 check "pluginPinsPill's own width reads pluginPinsContent.width, not .implicitWidth" \
-  "$(grep -c 'width: pluginPinsContent\.width + pluginPinsToggle\.implicitWidth' "$bar_qml" || true)" "1"
+  "$(grep -c 'width: pluginPinsContent\.width + pluginPinsToggle\.implicitWidth' "$barpanel_qml" || true)" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

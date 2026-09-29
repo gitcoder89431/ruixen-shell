@@ -22,7 +22,7 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+barpanel_qml="$repo_dir/bars/v2/ruixen.bar/BarPanel.qml"
 
 pass=0
 fail_count=0
@@ -38,10 +38,10 @@ check() {
 }
 
 check "workspacesContent is a strict single-id match on ruixen.workspaces, not an exclusion list" \
-  "$(grep -A16 'id: workspacesContent$' "$bar_qml" | grep -c 'root\.entryId(e) === "ruixen\.workspaces"' || true)" "1"
+  "$(grep -A16 'id: workspacesContent$' "$barpanel_qml" | grep -c 'barWindow\.barRoot\.entryId(e) === "ruixen\.workspaces"' || true)" "1"
 
 check "workspacesContent no longer excludes by a negative id list (the old accidental catch-all)" \
-  "$(grep -A16 'id: workspacesContent$' "$bar_qml" | grep -c 'entryId(e) !==' || true)" "0"
+  "$(grep -A16 'id: workspacesContent$' "$barpanel_qml" | grep -c 'entryId(e) !==' || true)" "0"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

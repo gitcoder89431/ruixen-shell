@@ -8,6 +8,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
+barpanel_qml="$repo_dir/bars/v2/ruixen.bar/BarPanel.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0
@@ -51,13 +52,13 @@ check "FrameWindow dock chrome path owns overlap and disables frame-touching doc
   "$(( $(grep -c 'readonly property int overlap: frameWindow.barRoot.seamOverlap' "$frame_qml") + $(grep -c -- '-dockChrome.overlap' "$frame_qml") + $(grep -A5 'id: dockChromeShadowCanvas' "$frame_qml" | grep -c 'visible: false') ))" "4"
 
 check "old BarPanel dock chrome layers are disabled while frame owns the skin" \
-  "$(( $(grep -A3 'id: leftShoulderShadowClip' "$bar_qml" | grep -c 'visible: !root.frameOwnsDockChrome') + $(grep -A3 'id: rightShoulderShadowClip' "$bar_qml" | grep -c 'visible: !root.frameOwnsDockChrome') + $(grep -A3 'id: dockedShoulderShadow' "$bar_qml" | grep -c 'visible: !root.frameOwnsDockChrome') ))" "3"
+  "$(( $(grep -A3 'id: leftShoulderShadowClip' "$barpanel_qml" | grep -c 'visible: !barWindow.barRoot.frameOwnsDockChrome') + $(grep -A3 'id: rightShoulderShadowClip' "$barpanel_qml" | grep -c 'visible: !barWindow.barRoot.frameOwnsDockChrome') + $(grep -A3 'id: dockedShoulderShadow' "$barpanel_qml" | grep -c 'visible: !barWindow.barRoot.frameOwnsDockChrome') ))" "3"
 
 check "old BarPanel seam-cover strips are disabled while frame owns dock chrome" \
-  "$(grep -c 'visible: root.docked && root.position === "top" && !root.frameOwnsDockChrome' "$bar_qml")" "3"
+  "$(grep -c 'visible: barWindow.barRoot.docked && barWindow.barRoot.position === "top" && !barWindow.barRoot.frameOwnsDockChrome' "$barpanel_qml")" "3"
 
 check "horizontal dock layout publishes measured left and right extents" \
-  "$(( $(grep -A30 'id: horizontalBarRoot' "$bar_qml" | grep -c 'leftWidth: settingsPill.x + settingsPill.width') + $(grep -A30 'id: horizontalBarRoot' "$bar_qml" | grep -c 'rightX: rightDockedBg.x') + $(grep -A30 'id: horizontalBarRoot' "$bar_qml" | grep -c 'rightWidth: horizontalBarRoot.width - rightDockedBg.x') ))" "3"
+  "$(( $(grep -A30 'id: horizontalBarRoot' "$barpanel_qml" | grep -c 'leftWidth: settingsPill.x + settingsPill.width') + $(grep -A30 'id: horizontalBarRoot' "$barpanel_qml" | grep -c 'rightX: rightDockedBg.x') + $(grep -A30 'id: horizontalBarRoot' "$barpanel_qml" | grep -c 'rightWidth: horizontalBarRoot.width - rightDockedBg.x') ))" "3"
 
 # The docked/top guard lives in publishDockChromeMetricsNow() (the
 # actual publish), not publishDockChromeMetrics() itself -- that
@@ -66,7 +67,7 @@ check "horizontal dock layout publishes measured left and right extents" \
 # change could land after the last onXChanged/onWidthChanged fired,
 # permanently freezing the chrome one step short of the real width).
 check "dock metric publishing is scoped to top docked mode only for this first refactor slice" \
-  "$(grep -A5 'function publishDockChromeMetricsNow()' "$bar_qml" | grep -c 'if (!root.docked || root.position !== "top") return')" "1"
+  "$(grep -A5 'function publishDockChromeMetricsNow()' "$barpanel_qml" | grep -c 'if (!barWindow.barRoot.docked || barWindow.barRoot.position !== "top") return')" "1"
 
 # The settle timer's own lifecycle safety -- direct live report after a
 # rapid-fire live-reload stress test crashed the whole bar: a Timer
@@ -74,10 +75,10 @@ check "dock metric publishing is scoped to top docked mode only for this first r
 # "attempted to evaluate a function in an invalid context" errors.
 # Component.onDestruction must stop it before that window opens.
 check "the dock chrome settle timer is explicitly stopped before its own Item is destroyed" \
-  "$(grep -c 'Component.onDestruction: settleTimer.stop()' "$bar_qml")" "1"
+  "$(grep -c 'Component.onDestruction: settleTimer.stop()' "$barpanel_qml")" "1"
 
 check "dock metric updates are triggered by both left and right dock geometry changes" \
-  "$(( $(grep -A5 'id: leftDockedBg' "$bar_qml" | grep -c 'onWidthChanged: horizontalBarRoot.publishDockChromeMetrics') + $(grep -A8 'id: rightDockedBg' "$bar_qml" | grep -c 'horizontalBarRoot.publishDockChromeMetrics') + $(grep -A20 'id: trayPill' "$bar_qml" | grep -c 'horizontalBarRoot.publishDockChromeMetrics') ))" "5"
+  "$(( $(grep -A5 'id: leftDockedBg' "$barpanel_qml" | grep -c 'onWidthChanged: horizontalBarRoot.publishDockChromeMetrics') + $(grep -A8 'id: rightDockedBg' "$barpanel_qml" | grep -c 'horizontalBarRoot.publishDockChromeMetrics') + $(grep -A20 'id: trayPill' "$barpanel_qml" | grep -c 'horizontalBarRoot.publishDockChromeMetrics') ))" "5"
 
 # shellcheck disable=SC2016 # deliberately literal: expected run-all entry contains $script_dir.
 check "tests/run-all.sh runs this suite" \

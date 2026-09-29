@@ -173,6 +173,25 @@ Before calling non-trivial work done:
 - [ ] Check the journal (`journalctl --user -b 0`) for anything new:
       QML binding loops, TypeErrors, duplicate IPC registrations,
       deleted-object warnings.
+- [ ] Specifically watch for `"<Type> is not a type"`, `"Type <X>
+      unavailable"`, or `"bar option ruixen.bar failed to load, falling
+      back to omarchy.bar"` after ANY change that adds or moves a file
+      using a QML type (a new sibling file, an extracted component,
+      newly-added debug scaffolding). Neither `omarchy plugin validate`
+      nor this repo's own grep-based test suite catches a missing
+      `import` — both check text patterns and manifest shape, neither
+      actually compiles the QML. A missing import (confirmed directly,
+      issue #78 Phase 6 stage 7: `BarPanel.qml` used `MultiEffect`
+      without `import QtQuick.Effects`) makes the WHOLE plugin fail to
+      load and silently fall back to stock `omarchy.bar` — every other
+      widget still renders (via the stock bar instead), so a quick
+      glance at a screenshot can look completely normal while the
+      entire custom plugin isn't actually running. The only reliable
+      signal is the journal line itself, checked after every real
+      `omarchy restart shell`, not just once at the end of a work
+      session -- this failure mode is also intermittent across restarts
+      (qmlcache can paper over it on some runs), so a single clean
+      restart does not clear it as a suspect.
 - [ ] Don't bump `COMPATIBILITY.md`'s `reviewed_omarchy`/
       `reviewed_quickshell` until that target version has actually been
       reviewed per its own ledger rules — bumping it is a claim of

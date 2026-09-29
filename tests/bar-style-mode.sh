@@ -12,6 +12,7 @@ frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
 notch_dock_skin_qml="$repo_dir/bars/v2/ruixen.bar/NotchDockedSkin.qml"
 fullbar_dock_skin_qml="$repo_dir/bars/v2/ruixen.bar/FullbarDockedSkin.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+barpanel_qml="$repo_dir/bars/v2/ruixen.bar/BarPanel.qml"
 style_script="$repo_dir/ruixen-bar-style.sh"
 readme="$repo_dir/README.md"
 install_sh="$repo_dir/install.sh"
@@ -60,13 +61,13 @@ check "fullbar removes the notch center reservation" \
   "$(grep -m1 'root.dockedSkin.dockSpansFullWidth ? 0 : root.notchReservedWidth' "$bar_qml")" '    var r = BarModel.reservedCenterRect(root.dockedSkin.dockSpansFullWidth ? 0 : root.notchReservedWidth, containerWidth, root.barSize)'
 
 check "fullbar restores the saved full-width docked strip" \
-  "$(grep -m1 'width: root.dockedSkin.dockSpansFullWidth ? parent.width' "$bar_qml")" '          width: root.dockedSkin.dockSpansFullWidth ? parent.width : (settingsPill.x + settingsPill.width)'
+  "$(grep -m1 'width: barWindow.barRoot.dockedSkin.dockSpansFullWidth ? parent.width' "$barpanel_qml")" '        width: barWindow.barRoot.dockedSkin.dockSpansFullWidth ? parent.width : (settingsPill.x + settingsPill.width)'
 
 check "fullbar restores the saved right-edge corner patch" \
-  "$(grep -A4 'Historical sharp+docked full-strip corner patch' "$bar_qml" | grep -m1 'visible: root.docked && root.dockedSkin.dockSpansFullWidth')" '          visible: root.docked && root.dockedSkin.dockSpansFullWidth'
+  "$(grep -A4 'Historical sharp+docked full-strip corner patch' "$barpanel_qml" | grep -m1 'visible: barWindow.barRoot.docked && barWindow.barRoot.dockedSkin.dockSpansFullWidth')" '        visible: barWindow.barRoot.docked && barWindow.barRoot.dockedSkin.dockSpansFullWidth'
 
 check "legacy right docked background is disabled in fullbar or when frame owns dock chrome" \
-  "$(grep -A5 'id: rightDockedBg$' "$bar_qml" | grep -m1 'visible: root.docked && !root.dockedSkin.dockSpansFullWidth && !root.frameOwnsDockChrome')" '          visible: root.docked && !root.dockedSkin.dockSpansFullWidth && !root.frameOwnsDockChrome'
+  "$(grep -A5 'id: rightDockedBg$' "$barpanel_qml" | grep -m1 'visible: barWindow.barRoot.docked && !barWindow.barRoot.dockedSkin.dockSpansFullWidth && !barWindow.barRoot.frameOwnsDockChrome')" '        visible: barWindow.barRoot.docked && !barWindow.barRoot.dockedSkin.dockSpansFullWidth && !barWindow.barRoot.frameOwnsDockChrome'
 
 check "notch reads shell.json to learn bar.style" \
   "$(grep -m1 'readonly property string shellConfigPath:' "$notch_qml")" '  readonly property string shellConfigPath: Quickshell.env("HOME") + "/.config/omarchy/shell.json"'

@@ -81,6 +81,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
+barpanel_qml="$repo_dir/bars/v2/ruixen.bar/BarPanel.qml"
 notch_overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 
 pass=0
@@ -165,15 +166,15 @@ check "Overlay.qml's shadow center uses the same seam overlap as the mask" \
 # include that extra height. Floating only paints the pill row; keeping the
 # docked wing band in floating creates a transparent input strip above the
 # visible bar (issue #80: taps in that strip do nothing).
-floating_visible_height_line="$(grep -m1 'readonly property int floatingVisibleBarHeight:' "$bar_qml")"
-docked_visible_height_line="$(grep -m1 'readonly property int dockedVisibleBarHeight:' "$bar_qml")"
-visible_bar_height_line="$(grep -m1 'readonly property int visibleBarHeight:' "$bar_qml")"
+floating_visible_height_line="$(grep -m1 'readonly property int floatingVisibleBarHeight:' "$barpanel_qml")"
+docked_visible_height_line="$(grep -m1 'readonly property int dockedVisibleBarHeight:' "$barpanel_qml")"
+visible_bar_height_line="$(grep -m1 'readonly property int visibleBarHeight:' "$barpanel_qml")"
 check "floating visibleBarHeight clears the notch without including dock-only shoulder wings" \
-  "$floating_visible_height_line" "    readonly property int floatingVisibleBarHeight: Math.max(root.barSize, root.notchCollapsedBottomEdge)"
+  "$floating_visible_height_line" "  readonly property int floatingVisibleBarHeight: Math.max(barWindow.barRoot.barSize, barWindow.barRoot.notchCollapsedBottomEdge)"
 check "docked visibleBarHeight still includes shoulderWingSize for dock chrome" \
-  "$docked_visible_height_line" "    readonly property int dockedVisibleBarHeight: Math.max(root.barSize + root.shoulderWingSize, root.notchCollapsedBottomEdge)"
+  "$docked_visible_height_line" "  readonly property int dockedVisibleBarHeight: Math.max(barWindow.barRoot.barSize + barWindow.barRoot.shoulderWingSize, barWindow.barRoot.notchCollapsedBottomEdge)"
 check "visibleBarHeight branches by docked mode so floating does not get a dead input strip" \
-  "$visible_bar_height_line" "    readonly property int visibleBarHeight: root.vertical ? root.barSize : (root.docked ? dockedVisibleBarHeight : floatingVisibleBarHeight)"
+  "$visible_bar_height_line" "  readonly property int visibleBarHeight: barWindow.barRoot.vertical ? barWindow.barRoot.barSize : (barWindow.barRoot.docked ? dockedVisibleBarHeight : floatingVisibleBarHeight)"
 
 # implicitHeight must stay EITHER exactly visibleBarHeight OR
 # visibleBarHeight + root.seamOverlap -- not some other, larger reach
@@ -189,9 +190,9 @@ check "visibleBarHeight branches by docked mode so floating does not get a dead 
 # the window's real BOTTOM edge (and thus anchorWindow.height for every
 # popup this whole file is about) lands exactly where v1's always did,
 # regardless of the extra room claimed at the top.
-implicit_height_line="$(grep -m1 'implicitHeight: root.vertical ? 0 : ' "$bar_qml")"
+implicit_height_line="$(grep -m1 'implicitHeight: barWindow.barRoot.vertical ? 0 : ' "$barpanel_qml")"
 check "implicitHeight is visibleBarHeight, optionally + root.seamOverlap -- not some other, larger reach" \
-  "$implicit_height_line" "    implicitHeight: root.vertical ? 0 : visibleBarHeight + root.seamOverlap"
+  "$implicit_height_line" "  implicitHeight: barWindow.barRoot.vertical ? 0 : visibleBarHeight + barWindow.barRoot.seamOverlap"
 
 # The docked/floating split top margin (reverted from #29's own attempt
 # to unify it) is unrelated to this fix and must stay untouched by it.
@@ -209,9 +210,9 @@ check "root.topInset (floating's own, separately-tuned top margin) still exists,
 # (now separate) job of "this window's real final on-screen offset,
 # overlap included". Same docked/floating split either property carries,
 # just renamed/split apart for the two different jobs.
-margins_top_line="$(grep -m1 'position === "top".*root.contentTopInset' "$bar_qml")"
+margins_top_line="$(grep -m1 'position === "top".*barWindow.barRoot.contentTopInset' "$barpanel_qml")"
 check "margins.top still resolves per-mode via root.contentTopInset" \
-  "$(printf '%s' "$margins_top_line" | grep -c 'root\.contentTopInset' || true)" "1"
+  "$(printf '%s' "$margins_top_line" | grep -c 'barWindow\.barRoot\.contentTopInset' || true)" "1"
 check "root.contentTopInset exists, exactly once (docked ? frameInset : topInset)" \
   "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : topInset' "$bar_qml" || true)" "1"
 

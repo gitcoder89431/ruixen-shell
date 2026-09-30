@@ -33,7 +33,7 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
 
 ## What's included
 
-- **`ruixen.bar`** — the top bar itself: app launcher, GNOME-style dot
+- **`ruixen.bar`** — the top bar itself: app launcher, dot-style
   workspace indicator, pinned quick-launch apps, weather, clock, and a
   settings shortcut, all in one connected pill layout. Fresh installs use
   floating glass pills with accent-toned icons.

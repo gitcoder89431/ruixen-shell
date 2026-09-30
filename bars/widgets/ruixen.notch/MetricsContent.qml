@@ -1006,6 +1006,13 @@ Item {
         onRingAccentChanged: dialCanvas.requestPaint()
         onValueChanged: dialCanvas.requestPaint()
         onAvailableChanged: dialCanvas.requestPaint()
+        // Tip color, same mirrored-property treatment as ringAccent --
+        // was a hardcoded "#ffffff" (fine on the old OLED-black-only
+        // surface, invisible against a light Theme-mode surface after
+        // ruixen-shell#89). root.textColor is already correct for
+        // whatever surface is actually active.
+        property color tipColor: root.textColor
+        onTipColorChanged: dialCanvas.requestPaint()
 
         ColumnLayout {
           anchors.fill: parent
@@ -1099,7 +1106,7 @@ Item {
                     var ty2 = cy + tipR2 * Math.sin(endAngle)
                     ctx.lineWidth = 5
                     ctx.lineCap = "round"
-                    ctx.strokeStyle = "#ffffff"
+                    ctx.strokeStyle = tile.tipColor
                     ctx.beginPath()
                     ctx.moveTo(tx1, ty1)
                     ctx.lineTo(tx2, ty2)
@@ -1217,7 +1224,12 @@ Item {
                   width: 4
                   height: parent.height + 8
                   radius: 2
-                  color: "#ffffff"
+                  // Was a hardcoded white, invisible against a light
+                  // Theme-mode surface after ruixen-shell#89 --
+                  // root.textColor is already correct for whatever
+                  // surface is actually active, same fix as the dial
+                  // tips above.
+                  color: root.textColor
                   Behavior on x { NumberAnimation { duration: 200 } }
                 }
               }
@@ -1257,6 +1269,13 @@ Item {
         property color ringAccent: root.accent
         onRingAccentChanged: dialCanvas.requestPaint()
         onValueChanged: dialCanvas.requestPaint()
+        // Tip color, same mirrored-property treatment as ringAccent --
+        // was a hardcoded "#ffffff" (fine on the old OLED-black-only
+        // surface, invisible against a light Theme-mode surface after
+        // ruixen-shell#89). root.textColor is already correct for
+        // whatever surface is actually active.
+        property color tipColor: root.textColor
+        onTipColorChanged: dialCanvas.requestPaint()
 
         ColumnLayout {
           anchors.fill: parent
@@ -1329,7 +1348,7 @@ Item {
                 var ty2 = cy + tipR2 * Math.sin(endAngle)
                 ctx.lineWidth = 5
                 ctx.lineCap = "round"
-                ctx.strokeStyle = "#ffffff"
+                ctx.strokeStyle = tile.tipColor
                 ctx.beginPath()
                 ctx.moveTo(tx1, ty1)
                 ctx.lineTo(tx2, ty2)

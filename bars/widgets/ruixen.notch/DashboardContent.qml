@@ -382,7 +382,14 @@ Item {
     property color trackColor: Qt.rgba(1, 1, 1, 0.15)
     property color progressColor: root.accent
     property real ringWidth: 4
-    property color tipColor: "#ffffff"
+    // ruixen-shell: was a hardcoded "#ffffff" -- read fine on this
+    // notch's original OLED-black-only surface, invisible against a
+    // light Theme-mode surface once ruixen-shell#89 stopped forcing
+    // black. root.textColor is already the correctly readable color for
+    // whatever surface is actually active (see Overlay.qml's own
+    // textColor), same fix already shipped for KanbanContent's
+    // doneProgressCard tip.
+    property color tipColor: root.textColor
     property bool wavy: false
     readonly property real startAngle: Math.PI
     readonly property real spanAngle: Math.PI
@@ -403,6 +410,10 @@ Item {
     // component (speaker/mic, no such constant animation) showed the
     // same bug much more plainly, which is what actually surfaced it.
     onProgressColorChanged: requestPaint()
+    // Same class of stuck-color bug as progressColor above, now that
+    // tipColor is theme-linked (root.textColor) instead of a fixed
+    // constant -- a theme switch alone must also repaint the tip.
+    onTipColorChanged: requestPaint()
 
     FrameAnimation {
       running: seek.wavy && seek.visible
@@ -1865,6 +1876,13 @@ Item {
         // inside a Canvas.onPaint, which is plain JS, not a binding.
         property color ringAccent: root.accent
         onRingAccentChanged: dialCanvas.requestPaint()
+        // Same mirrored-property treatment as ringAccent above, for the
+        // tip's own color -- was a hardcoded "#ffffff" (fine on the old
+        // OLED-black-only surface, invisible against a light Theme-mode
+        // surface after ruixen-shell#89). root.textColor is already
+        // correct for whatever surface is actually active.
+        property color tipColor: root.textColor
+        onTipColorChanged: dialCanvas.requestPaint()
         // 48 -> 56, matching the left-rail tab bar's own bump -- also
         // grows the ring radius (width/2-8) and makes the tip's gap
         // relatively easier to see, both per direct request.
@@ -1929,7 +1947,10 @@ Item {
 
             // Thick tip at the current value, same treatment as the
             // player card's own CircularSeek tip -- a fat radial tick,
-            // not a dot, white for contrast against the accent arc.
+            // not a dot, in dialRoot.tipColor (root.textColor, ruixen-
+            // shell#89) for contrast against the accent arc. Was a
+            // hardcoded white; readable on any surface now instead of
+            // just the old OLED-black-only one.
             // Deliberately thicker than the ring itself (not reusing
             // the same lineWidth for both) per direct request ("pretty
             // thick"), matching how the bigger player ring's tip
@@ -1953,7 +1974,7 @@ Item {
               var ty2 = cy + tipR2 * Math.sin(endAngle)
               ctx.lineWidth = 5
               ctx.lineCap = "round"
-              ctx.strokeStyle = "#ffffff"
+              ctx.strokeStyle = dialRoot.tipColor
               ctx.beginPath()
               ctx.moveTo(tx1, ty1)
               ctx.lineTo(tx2, ty2)
@@ -2100,7 +2121,11 @@ Item {
           width: parent.width + 12
           height: 7
           radius: 3.5
-          color: "#ffffff"
+          // Was a hardcoded white, invisible against a light Theme-mode
+          // surface after ruixen-shell#89 -- root.textColor is already
+          // correct for whatever surface is actually active, same fix
+          // as the dial/seek tips above.
+          color: root.textColor
         }
 
         // Click/drag to actually set brightness -- the bar was purely

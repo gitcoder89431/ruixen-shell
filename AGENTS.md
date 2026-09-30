@@ -18,8 +18,8 @@ should grow from real mistakes, not speculative ones.
   standalone `ShellRoot`s.
 - Panel/overlay/menu entry points expose the lifecycle methods the host
   expects (`open(payloadJson)`, `close()`, `toggle(payloadJson)`) — see
-  `ruixen.settings/Settings.qml` or `ruixen.launcher/Launcher.qml` for the
-  proven shape before writing a new one from scratch.
+  `ruixen.launcher/Launcher.qml` for the proven shape before writing a new
+  one from scratch.
 - Prefer whatever interface the host actually injects/scopes for a plugin
   over walking Omarchy's private internals (`/usr/share/omarchy/shell/**`
   is a real, readable reference for understanding what's available and

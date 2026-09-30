@@ -7,7 +7,6 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 helper="$repo_dir/lib/restore-canonical-plugin-layout.sh"
-settings_service="$repo_dir/ruixen.settings/services/PluginService.qml"
 launcher_service="$repo_dir/ruixen.launcher/services/PluginService.qml"
 
 tmpdir="$(mktemp -d)"
@@ -81,12 +80,8 @@ check "settingsbutton is restored after quickactions in the canonical right-side
 check "repair preserves unrelated inline widget settings" \
   "$tray_hidden" "keep.me"
 
-check "standalone settings service repairs canonical placement after enable" \
-  "$(grep -cF 'restore-canonical-plugin-layout.sh' "$settings_service")" "1"
 check "launcher settings service repairs canonical placement after enable" \
   "$(grep -cF 'restore-canonical-plugin-layout.sh' "$launcher_service")" "1"
-check "standalone settings service allows reload failure without hiding enable failure" \
-  "$(grep -cF '&& { omarchy-shell shell reloadConfig >/dev/null 2>&1 || true; }' "$settings_service")" "1"
 check "launcher settings service allows reload failure without hiding enable failure" \
   "$(grep -cF '&& { omarchy-shell shell reloadConfig >/dev/null 2>&1 || true; }' "$launcher_service")" "1"
 

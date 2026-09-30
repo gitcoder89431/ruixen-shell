@@ -24,17 +24,13 @@ o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launch
 
 ## Ruixen Settings
 
-Settings now lives as its own extension inside Ruixen Launcher, not a
+Settings lives as its own extension inside Ruixen Launcher, not a
 separate overlay — open it with an `extension` payload on
-`ruixen.launcher` itself rather than toggling a standalone plugin:
+`ruixen.launcher` itself:
 
 ```lua
 o.bind("SUPER + SHIFT + R", "Ruixen Settings", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"settings"}']])
 ```
-
-(The old standalone `ruixen.settings` plugin still exists and still
-works — `omarchy-shell shell toggle ruixen.settings` — but the launcher's
-own Settings extension is where new work lands going forward.)
 
 Want a keybind that jumps straight to one settings category instead of
 always opening on whichever one was open last? Add a `section` key

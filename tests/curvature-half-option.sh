@@ -5,8 +5,8 @@
 # so the compromise is one discrete half step. Every layer of the chain
 # must know about it or the option silently breaks somewhere: the lua
 # variant itself, ruixen-lookfeel.sh, install.sh's deploy/rollback/
-# prune loops, BOTH settings UIs (ruixen.settings + ruixen.launcher's
-# ported copy), and ruixen.bar's own frame corner mask (which must keep
+# prune loops, ruixen.launcher's own settings UI, and ruixen.bar's own
+# frame corner mask (which must keep
 # matching the real window corners or they clip under the frame -- the
 # exact bug the square variant already hit once, see
 # hyprland/looknfeel.square.lua's own header).
@@ -17,8 +17,6 @@ repo_dir="$(cd -- "$script_dir/.." && pwd)"
 half_lua="$repo_dir/hyprland/looknfeel.half.lua"
 lookfeel="$repo_dir/hyprland/ruixen-lookfeel.sh"
 install_sh="$repo_dir/install.sh"
-settings_qml="$repo_dir/ruixen.settings/Settings.qml"
-general_qml="$repo_dir/ruixen.settings/GeneralContent.qml"
 launcher_settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
@@ -70,24 +68,7 @@ check "install.sh: all three variant loops include looknfeel.half.lua" \
 check "install.sh: kept-choice message covers half" \
   "$(grep -c 'kept your existing choice: rounded corners at half the radius (12px)' "$install_sh")" "1"
 
-# --- ruixen.settings (the General page) --------------------------------
-check "Settings.qml: read proc detects the half variant" \
-  "$(grep -m1 'root.cornerCurvature = "half"' "$settings_qml")" \
-  '          root.cornerCurvature = "half"'
-
-check "Settings.qml: setCornerCurvature accepts half" \
-  "$(grep -m1 'curvature !== "sharp" && curvature !== "half" && curvature !== "rounded"' "$settings_qml")" \
-  '    if (curvature !== "sharp" && curvature !== "half" && curvature !== "rounded") return'
-
-check "Settings.qml: half maps to the half variant" \
-  "$(grep -m1 'curvature === "half" ? "half"' "$settings_qml")" \
-  '    var variant = curvature === "sharp" ? "square" : curvature === "half" ? "half" : "on"'
-
-check "GeneralContent.qml: Half button in the segmented model" \
-  "$(grep -m1 '{ id: "half", label: "Half" }' "$general_qml")" \
-  '            { id: "half", label: "Half" },'
-
-# --- ruixen.launcher (the ported Profile page) --------------------------
+# --- ruixen.launcher (the Profile page) --------------------------
 check "SettingsContent.qml: read proc detects the half variant" \
   "$(grep -m1 'root.cornerCurvature = "half"' "$launcher_settings_qml")" \
   '          root.cornerCurvature = "half"'

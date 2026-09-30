@@ -46,13 +46,10 @@ rlauncher_search="$repo_dir/ruixen.launcher/AppSearch.js"
 notch_frecency="$repo_dir/bars/widgets/ruixen.notch/LauncherFrecency.js"
 pinned_frecency="$repo_dir/bars/widgets/ruixen.pinnedapps/LauncherFrecency.js"
 rlauncher_frecency="$repo_dir/ruixen.launcher/LauncherFrecency.js"
-# Issue #61: same byte-identical-duplicate-across-a-plugin-boundary
-# situation as AppLibrary.qml/AppSearch.js above, just a different pair
-# of plugins (ruixen.launcher consumes it to build the real search root
-# set; ruixen.settings reads/writes it via its own Launcher settings
-# page) -- see LauncherSearchConfig.js's own header for the full "why".
+# Issue #61: ruixen.launcher consumes LauncherSearchConfig.js to build
+# the real search root set -- see that file's own header for the full
+# "why".
 launcher_search_config="$repo_dir/ruixen.launcher/LauncherSearchConfig.js"
-settings_search_config="$repo_dir/ruixen.settings/LauncherSearchConfig.js"
 # Same byte-identical-duplicate situation, different pair again --
 # ruixen.peripherals' own battery-level coloring needs the theme's
 # green/yellow/red (see ThemeColors.qml's own header for the full "why").
@@ -120,9 +117,6 @@ check "the three LauncherFrecency.js copies are byte-identical" \
   "$(diff -q "$notch_frecency" "$pinned_frecency" >/dev/null 2>&1 && diff -q "$notch_frecency" "$rlauncher_frecency" >/dev/null 2>&1 && echo same || echo different)" "same"
 
 check "ruixen.launcher/LauncherSearchConfig.js exists" "$([[ -f "$launcher_search_config" ]] && echo yes)" "yes"
-check "ruixen.settings/LauncherSearchConfig.js exists" "$([[ -f "$settings_search_config" ]] && echo yes)" "yes"
-check "the two LauncherSearchConfig.js copies are byte-identical (plugin folders can't share a file)" \
-  "$(diff -q "$launcher_search_config" "$settings_search_config" >/dev/null 2>&1 && echo same || echo different)" "same"
 
 check "ruixen.launcher/AppLauncherGlyphs.js exists" "$([[ -f "$rlauncher_glyphs" ]] && echo yes)" "yes"
 check "ruixen.applauncher/AppLauncherGlyphs.js exists" "$([[ -f "$bar_applauncher_glyphs" ]] && echo yes)" "yes"

@@ -62,16 +62,13 @@ visual layer that runs as plugins inside the Omarchy shell you already use.
   extracted video frame, an image thumbnail, or a text/markdown/JSON
   snippet — plus metadata (type, dimensions/duration, created/modified,
   permissions), and a contextual action menu (Tab, or right-click a row)
-  for opening its containing folder or copying its path/name. Full
+  for opening its containing folder or copying its path/name. Its own
+  built-in Settings extension is also the full settings app for this
+  shell — Profile, Bar, Audio, Wi-Fi, Bluetooth, Display, Night Light,
+  Plugins — replacing the default Omarchy settings panel entirely. Full
   reference: [`docs/LAUNCHER.md`](docs/LAUNCHER.md).
 - **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
   and notch together visually.
-- **`ruixen.settings`** — a standalone settings app (Audio, Wi-Fi, Bluetooth,
-  Display, Plugins) that can replace the default Omarchy settings panel
-  entirely, or run on its own. Superseded by `ruixen.launcher`'s own
-  built-in Settings extension (same categories, plus Bar/Night Light and a
-  couple more) as the primary way in — still installed and fully working
-  as a fallback, just no longer where new Settings work lands.
 - **`ruixen.pinnedapps`** — quick-launch row for apps pinned in the notch's
   own app launcher.
 - **`ruixen.pluginpins`** — a pin/unpin dropdown on the bar for any other
@@ -245,7 +242,6 @@ Nothing here is a one-way door.
 ```bash
 omarchy plugin disable ruixen.notch
 omarchy plugin disable ruixen.frame-widget
-omarchy plugin disable ruixen.settings
 # same for any of the tray widgets: ruixen.tray, ruixen.weather, etc.
 
 omarchy plugin enable ruixen.notch   # turns it back on

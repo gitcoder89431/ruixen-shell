@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "ruixen",
   "license": "MIT",
-  "description": "Toggles the standalone ruixen.settings overlay plugin's center panel.",
+  "description": "Toggles ruixen.launcher's own Settings extension.",
   "kinds": [
     "bar-widget"
   ],

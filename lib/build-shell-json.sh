@@ -98,7 +98,7 @@ ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 # the bar -- placement is layout-driven only -- confirmed live on this
 # dev machine's own shell.json.
 #
-# ruixen.launcher (kind "overlay", same as ruixen.settings) needed the
+# ruixen.launcher (kind "overlay") needed the
 # identical fix live on this dev machine before it worked at all:
 # `omarchy-shell shell summon` refused it outright ("plugin not
 # enabled, not summoning") until it had a bare {id} entry here --
@@ -111,7 +111,7 @@ ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 # keepLoaded, gated purely on its own enabled flag read from Settings'
 # Visualizer category, but it still needs this bare {id} entry or the
 # plugin never loads at all on a fresh/updated install.
-ruixen_plugin_ids='["ruixen.notch", "ruixen.settings", "ruixen.wallpaper", "ruixen.media", "ruixen.launcher", "ruixen.cava"]'
+ruixen_plugin_ids='["ruixen.notch", "ruixen.wallpaper", "ruixen.media", "ruixen.launcher", "ruixen.cava"]'
 default_idle_json='{"lock": 300, "screensaver": 150}'
 
 # Mirrors Bar.qml's own centerSpecialIds -- keep both in sync if either
@@ -253,8 +253,8 @@ jq -n \
 
   # ruixen.media is deliberately never a real bar-widget entry (its own
   # oversized play/pause badge -- see ruixen-bar-canonical.json own
-  # comment) and is now locked in ruixen.settings plugin list with no
-  # toggle at all, so there is no user-facing way left to remove it if
+  # comment) and is now locked in ruixen.launcher own Plugins list with
+  # no toggle at all, so there is no user-facing way left to remove it if
   # it is already sitting in an EXISTING install own bar.layout from
   # before that fix -- an existing owner bar is otherwise left
   # completely untouched above (see that comment), which would

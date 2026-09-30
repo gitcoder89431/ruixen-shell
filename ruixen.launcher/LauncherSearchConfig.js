@@ -1,16 +1,9 @@
 // Issue #61: configurable Search Files locations/exclusions. Config
 // schema, parsing, and effective-root computation live here so
-// ruixen.launcher (which CONSUMES the config to build its real search
-// root set) and ruixen.settings (which reads/writes it via its own
-// "Launcher" settings page) agree on exactly the same rules -- neither
-// one re-derives "what does this config actually mean" independently.
-//
-// Duplicated byte-identical between the two plugin folders -- the same
-// "third copy" convention AppLibrary.qml/AppSearch.js already
-// established between ruixen.notch/ruixen.pinnedapps/ruixen.launcher:
-// Omarchy's plugin loader rejects symlinks inside a plugin folder, so
-// there is no way to share one real file across two installed plugins.
-// Kept in sync via tests/launcher-search-config-relay.sh.
+// ruixen.launcher's own search (which CONSUMES the config to build its
+// real search root set) and its own "Launcher" settings page (which
+// reads/writes it) agree on exactly the same rules -- neither one
+// re-derives "what does this config actually mean" independently.
 //
 // Mount discovery here (flattenMountTree/isMountCandidate/
 // discoverMountedRoots below) is a SEPARATE, smaller copy of the same
@@ -227,11 +220,10 @@ function isCoverageBrokenByExclusion(candidatePath, parentPath, excludePaths, ho
 // with DIFFERENT policyKeys are never merged, no matter how they nest.
 //
 // policyKey is caller-supplied rather than computed here from a real
-// filesystem type on purpose: this file (LauncherSearchConfig.js) is
-// duplicated byte-identical into ruixen.settings (see this file's own
-// header), which has no access to FileSearchRanking.js's own
-// isLocalFstype classification and shouldn't need to -- each of the two
-// real search providers already knows its own policy (FileSearchProvider's
+// filesystem type on purpose: this file has no access to
+// FileSearchRanking.js's own isLocalFstype classification and
+// shouldn't need to -- each of the two real search providers already
+// knows its own policy (FileSearchProvider's
 // filename search doesn't distinguish local/remote at all, so it can
 // pass one constant key for every root; FileContentSearchProvider's own
 // root list is already local-only BY THE TIME it gets here, #53's own

@@ -17,3 +17,15 @@ jobs:
 
       - name: Run all test suites
         run: ./tests/run-all.sh
+
+      # Issue #34's own CI-level host-contract regression gate. Separate
+      # step, not folded into tests/run-all.sh above -- that suite is
+      # pure static-file greps with no network dependency by design (see
+      # this script's own header comment), so it stays runnable offline
+      # on any dev machine. This one genuinely needs network + GitHub API
+      # auth, which CI always has (the default GITHUB_TOKEN) but a local
+      # dev machine may not.
+      - name: Host contract regression gate (issue #34)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./tests/host-contract-regression.sh

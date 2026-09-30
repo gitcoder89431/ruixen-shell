@@ -373,12 +373,21 @@ rather than discovering it later when a feature quietly doesn't work:
 ./tests/run-all.sh
 ```
 
-Runs everything CI runs (`.github/workflows/ci.yml`) in one go: shell
-script lint (`bash -n` + ShellCheck, when installed), plugin manifest
-validation, the JS model tests, and the installer lifecycle/config/
-uninstall-restore tests. Each suite can also be run on its own --
+Runs almost everything CI runs (`.github/workflows/ci.yml`) in one go:
+shell script lint (`bash -n` + ShellCheck, when installed), plugin
+manifest validation, the JS model tests, and the installer lifecycle/
+config/uninstall-restore tests. Each suite can also be run on its own --
 see `tests/*.sh`, every file has its own header comment explaining
 what it covers.
+
+CI runs one additional step this doesn't: `tests/host-contract-
+regression.sh` (issue #34), which fetches real source from
+`github.com/basecamp/omarchy` at the exact commit `COMPATIBILITY.md`
+records as reviewed and checks it still matches the host contracts this
+repo depends on. Deliberately excluded from `run-all.sh` since it needs
+network access and GitHub API auth that a local run shouldn't require --
+run it directly (`./tests/host-contract-regression.sh`) if you want to
+check it yourself.
 
 The installer tests (`tests/install-lifecycle.sh`, `tests/shell-json-
 merge.sh`, `tests/looknfeel-preserve.sh`, `tests/uninstall-bar-

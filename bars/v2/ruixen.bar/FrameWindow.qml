@@ -396,11 +396,29 @@ PanelWindow {
       // how dark it is -- an opaque layer on top always wins. Above
       // that line is exactly, and only, the strip that ISN'T covered by
       // anything opaque, so that's the one region this shadow actually
-      // needs to stay out of. Left/right/bottom keep their full -40
-      // room, where the dock genuinely does have open wallpaper to
-      // shadow onto, uncovered by any opaque fill.
-      anchors.leftMargin: -40
-      anchors.rightMargin: -40
+      // needs to stay out of.
+      //
+      // Direct live follow-up right after: "on the top and straight
+      // side of the dock edge, it seems like its bleeding some shadow
+      // into it, its doesnt look connected to frame anymore" -- the
+      // left/right vertical sides have the exact same problem the top
+      // did, for the exact same reason: leftDockedBg/rightDockedBg
+      // (BarPanel's own dock-fill rectangles this frame surface
+      // mirrors) both run flush to the true screen edge (x: 0 on the
+      // left, parent.width on the right -- see their own comments),
+      // same as the top ran flush to y: 0, so the same -40 margin had
+      // nowhere real to spread into on those two sides either. Same
+      // fix, same frameInset depth, same condition -- dockChrome's own
+      // parent Item (above) is already gated to exactly
+      // integratedTopDockSurface's own condition (docked && position
+      // === "top"), so every side of this canvas only ever needs to
+      // choose between "open wallpaper, keep the -40 room" and "a real
+      // screen edge, clip to frameInset" under that one state anyway.
+      // Bottom is untouched -- the dock's own bottom edge is never
+      // flush against any screen edge, it always has real open
+      // wallpaper below it to shadow onto.
+      anchors.leftMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40
+      anchors.rightMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40
       anchors.bottomMargin: -40
       anchors.topMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40
       antialiasing: true
@@ -408,7 +426,10 @@ PanelWindow {
         var ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
         ctx.save()
-        ctx.translate(40, frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40)
+        ctx.translate(
+          frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40,
+          frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40
+        )
         dockChrome.dockPath(ctx, frameWindow.barRoot.surfaceShadow)
         ctx.restore()
       }

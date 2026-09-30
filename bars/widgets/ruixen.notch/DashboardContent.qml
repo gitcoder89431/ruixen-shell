@@ -44,6 +44,13 @@ Item {
   readonly property color dashboardSurfaceStrong: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.075) : "#000000"
   readonly property color dashboardCardSurface: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.035) : dashboardSurfaceStrong
   readonly property color dashboardBorder: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.12) : Qt.rgba(1, 1, 1, 0.14)
+  // Same themeSurfaceMode-conditional tint as dashboardSurface* above,
+  // generalized for the handful of one-off tonal surfaces below (seek/
+  // dial progress tracks, the brightness bar's own track) that don't
+  // fit the small named-token vocabulary those already cover.
+  function surfaceTint(alpha) {
+    return root.themeSurfaceMode ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, alpha) : Qt.rgba(1, 1, 1, alpha)
+  }
 
   // Media passthrough -- reads the same root-level properties Overlay.qml
   // itself already computes from ruixen.media, just handed down instead
@@ -379,7 +386,9 @@ Item {
   component CircularSeek: Canvas {
     id: seek
     property real value: 0
-    property color trackColor: Qt.rgba(1, 1, 1, 0.15)
+    // Was a hardcoded Qt.rgba(1,1,1,0.15) -- same light-theme problem
+    // as tipColor below, same fix (root.surfaceTint, see Overlay.qml).
+    property color trackColor: root.surfaceTint(0.15)
     property color progressColor: root.accent
     property real ringWidth: 4
     // ruixen-shell: was a hardcoded "#ffffff" -- read fine on this
@@ -414,6 +423,9 @@ Item {
     // tipColor is theme-linked (root.textColor) instead of a fixed
     // constant -- a theme switch alone must also repaint the tip.
     onTipColorChanged: requestPaint()
+    // trackColor is theme-linked too now (root.surfaceTint) -- same
+    // repaint requirement.
+    onTrackColorChanged: requestPaint()
 
     FrameAnimation {
       running: seek.wavy && seek.visible
@@ -1883,6 +1895,11 @@ Item {
         // correct for whatever surface is actually active.
         property color tipColor: root.textColor
         onTipColorChanged: dialCanvas.requestPaint()
+        // Ring track color, same mirrored-property treatment -- was a
+        // hardcoded Qt.rgba(1,1,1,0.15), same light-theme problem as
+        // tipColor above.
+        property color trackColor: root.surfaceTint(0.15)
+        onTrackColorChanged: dialCanvas.requestPaint()
         // 48 -> 56, matching the left-rail tab bar's own bump -- also
         // grows the ring radius (width/2-8) and makes the tip's gap
         // relatively easier to see, both per direct request.
@@ -1934,7 +1951,7 @@ Item {
             var trackStartAngle = Math.min(startAngle + totalSweep, endAngle + gapRad)
             ctx.lineWidth = 3
             ctx.lineCap = "round"
-            ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+            ctx.strokeStyle = dialRoot.trackColor
             ctx.beginPath()
             ctx.arc(cx, cy, r, trackStartAngle, startAngle + totalSweep)
             ctx.stroke()
@@ -2100,7 +2117,7 @@ Item {
           anchors.top: parent.top
           height: Math.max(0, parent.valueY - parent.gapPx)
           radius: 3
-          color: Qt.rgba(1, 1, 1, 0.15)
+          color: root.surfaceTint(0.15)
         }
 
         Rectangle {

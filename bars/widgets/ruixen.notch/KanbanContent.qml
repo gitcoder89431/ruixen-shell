@@ -40,6 +40,15 @@ Item {
   property color cardSurface: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.035)
   property color cardBorderColor: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.12)
   property color editorSurface: Qt.darker(cardSurface, 1.08)
+  // Same textColor-tint approach as cardSurface/cardBorderColor above,
+  // generalized for the various other one-off tonal surfaces below
+  // (action-button idle state, priority pill, header pill, progress
+  // track...) that were still hardcoding raw white instead of using it
+  // -- ruixen-shell#89 follow-up, same fix as MetricsContent's own
+  // surfaceTint (see that file for the full reasoning).
+  function surfaceTint(alpha) {
+    return Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, alpha)
+  }
   readonly property color readableAccentColor: readableSemanticColor(accent)
   property string fontFamily: "JetBrainsMono Nerd Font"
   property var kanbanService: null
@@ -86,7 +95,7 @@ Item {
     property string iconFamily: ""
     property int iconPixelSize: 13
     property color accentColor: "#3ecf5b"
-    property color idleColor: Qt.rgba(1, 1, 1, 0.08)
+    property color idleColor: root.surfaceTint(0.08)
     property bool armed: false
     readonly property bool hovered: actionMouse.containsMouse
     readonly property color resolvedAccentColor: root.readableSemanticColor(accentColor)
@@ -125,7 +134,7 @@ Item {
     implicitWidth: priorityLabel.implicitWidth + 30
     implicitHeight: priorityLabel.implicitHeight + 6
     radius: height / 2
-    color: Qt.rgba(1, 1, 1, 0.10)
+    color: root.surfaceTint(0.10)
 
     Row {
       anchors.centerIn: parent
@@ -292,7 +301,7 @@ Item {
         implicitWidth: headerLabelRow.implicitWidth + 18
         implicitHeight: 24
         radius: height / 2
-        color: Qt.rgba(1, 1, 1, 0.08)
+        color: root.surfaceTint(0.08)
 
         Row {
           id: headerLabelRow
@@ -359,7 +368,7 @@ Item {
         implicitWidth: addActionRow.implicitWidth + 16
         implicitHeight: 24
         radius: height / 2
-        color: addActionButton.active || addMouse.containsMouse ? addActionButton.readableSuccessColor : Qt.rgba(1, 1, 1, 0.12)
+        color: addActionButton.active || addMouse.containsMouse ? addActionButton.readableSuccessColor : root.surfaceTint(0.12)
 
         Row {
           id: addActionRow
@@ -400,7 +409,7 @@ Item {
         implicitWidth: clearDoneRow.implicitWidth + 16
         implicitHeight: 24
         radius: height / 2
-        color: clearDoneMouse.containsMouse ? "#e0a050" : Qt.rgba(1, 1, 1, 0.12)
+        color: clearDoneMouse.containsMouse ? "#e0a050" : root.surfaceTint(0.12)
 
         Row {
           id: clearDoneRow
@@ -443,7 +452,7 @@ Item {
       Layout.fillWidth: true
       Layout.fillHeight: true
       radius: 10
-      color: Qt.rgba(1, 1, 1, 0.06)
+      color: root.surfaceTint(0.06)
 
       // Cards -- oldest first (KanbanService.cardsInColumn's own
       // order). No drag-and-drop: the manual path is the arrow pair
@@ -1015,11 +1024,13 @@ Item {
 	      Layout.fillWidth: true
 	      Layout.preferredHeight: 92
 	      radius: 10
-	      color: Qt.rgba(1, 1, 1, 0.05)
+	      color: root.surfaceTint(0.05)
 
 	      property real value: root.doneRatio
 	      property color ringAccent: root.readableAccentColor
 	      property color tipColor: root.textColor
+	      property color trackColor: root.surfaceTint(0.15)
+	      onTrackColorChanged: doneDial.requestPaint()
 	      onValueChanged: doneDial.requestPaint()
 	      onRingAccentChanged: doneDial.requestPaint()
 	      onTipColorChanged: doneDial.requestPaint()
@@ -1049,7 +1060,7 @@ Item {
 	              var gapRad = handleSpacing / r
 	              ctx.lineWidth = 4
 	              ctx.lineCap = "round"
-	              ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+	              ctx.strokeStyle = doneProgressCard.trackColor
 	              var trackStart = endAngle + gapRad
 	              var trackEnd = startAngle + totalSweep
 	              if (trackStart < trackEnd) {

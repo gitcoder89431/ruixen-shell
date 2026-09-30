@@ -55,6 +55,18 @@ Item {
   readonly property int contentWidth: 366
   Behavior on opacity { NumberAnimation { duration: 160 } }
 
+  // ruixen-shell#89 follow-up: the search box/toggle/hover surfaces
+  // below were all flat white-tinted translucent overlays
+  // (Qt.rgba(1,1,1,X)) -- fine against the old always-black surface,
+  // washes out against an actually light Theme-mode surface. Same
+  // unconditional textColor-tint approach as KanbanContent's own
+  // surfaceTint (see that file): overlayRoot.textColor is already
+  // guaranteed readable against whatever surface is actually active,
+  // in every mode.
+  function surfaceTint(alpha) {
+    return Qt.rgba(overlayRoot.textColor.r, overlayRoot.textColor.g, overlayRoot.textColor.b, alpha)
+  }
+
   onVisibleChanged: {
     if (visible) {
       selectedIndex = 0
@@ -289,7 +301,7 @@ Item {
     width: launcherContent.contentWidth - 44
     height: 36
     radius: 12
-    color: Qt.rgba(1, 1, 1, 0.06)
+    color: surfaceTint(0.06)
 
     TextInput {
       id: launcherSearchInput
@@ -389,8 +401,8 @@ Item {
     height: 36
     radius: 12
     color: launcherContent.pinnedMode === "favorites"
-      ? Qt.rgba(1, 1, 1, 0.16)
-      : (toggleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06))
+      ? surfaceTint(0.16)
+      : (toggleMouse.containsMouse ? surfaceTint(0.12) : surfaceTint(0.06))
     Behavior on color { ColorAnimation { duration: 120 } }
 
     Text {
@@ -439,7 +451,7 @@ Item {
           height: 52
           radius: 14
           color: (cardMouse.containsMouse || tile.index === launcherContent.selectedIndex)
-            ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.06)
+            ? surfaceTint(0.16) : surfaceTint(0.06)
           Behavior on color { ColorAnimation { duration: 120 } }
 
           Image {

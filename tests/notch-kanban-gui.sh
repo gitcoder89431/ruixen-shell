@@ -51,7 +51,7 @@ check "column header + button tracks its active add editor state" \
   "1"
 
 check "column header + button uses green fill when active or hovered" \
-  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? addActionButton.readableSuccessColor : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
+  "$(grep -c 'color: addActionButton.active || addMouse.containsMouse ? addActionButton.readableSuccessColor : root.surfaceTint(0.12)' "$content_qml")" \
   "1"
 
 check "column header + glyph inverts when active or hovered" \
@@ -249,7 +249,7 @@ check "Done header clear button uses the same yellow broom treatment as notifica
   "1"
 
 check "Done header clear button uses notification-clear yellow" \
-  "$(grep -c 'color: clearDoneMouse.containsMouse ? "#e0a050" : Qt.rgba(1, 1, 1, 0.12)' "$content_qml")" \
+  "$(grep -c 'color: clearDoneMouse.containsMouse ? "#e0a050" : root.surfaceTint(0.12)' "$content_qml")" \
   "1"
 
 check "Done footer is scoped to the Done column" \

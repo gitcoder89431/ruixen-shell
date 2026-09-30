@@ -39,6 +39,24 @@ Item {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
 
+  // ruixen-shell#89 follow-up: every card/hover/track surface in this
+  // file was a flat white-tinted translucent overlay (Qt.rgba(1,1,1,X))
+  // -- reads as a subtle "raised" highlight against the old always-
+  // black surface, but the same white tint stacked on an actually
+  // light Theme-mode surface just washes it out toward solid white
+  // instead of a visible card boundary. No mode flag needed here,
+  // unlike DashboardContent's own conditional dashboardSurface*
+  // tokens -- same unconditional approach as KanbanContent's own
+  // cardSurface (see that file): tint from textColor directly.
+  // textColor is already guaranteed readable against whatever surface
+  // is actually active (ruixen-shell#89's own fix), in every mode --
+  // Black mode's textColor already resolves light (near-white), so
+  // this looks the same as the old hardcoded white there, and only
+  // actually changes anything in the one case that was broken.
+  function surfaceTint(alpha) {
+    return Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, alpha)
+  }
+
   property bool active: false
 
   // Bumped by Overlay.qml's own refreshAvatar IPC handler -- direct
@@ -808,7 +826,7 @@ Item {
                   Layout.fillWidth: true
                   Layout.preferredHeight: 14
                   radius: 4
-                  color: Qt.rgba(1, 1, 1, 0.08)
+                  color: root.surfaceTint(0.08)
 
                   Rectangle {
                     width: parent.width * Math.max(0, Math.min(1, coreItem.modelData))
@@ -887,7 +905,7 @@ Item {
         property real barValue: 0
 
         radius: 10
-        color: Qt.rgba(1, 1, 1, 0.05)
+        color: root.surfaceTint(0.05)
 
         ColumnLayout {
           anchors.fill: parent
@@ -935,7 +953,7 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 6
             radius: 3
-            color: Qt.rgba(1, 1, 1, 0.08)
+            color: root.surfaceTint(0.08)
 
             Rectangle {
               width: parent.width * Math.max(0, Math.min(1, tile.barValue))
@@ -1000,7 +1018,7 @@ Item {
         property real tempMaxC: 105
 
         radius: 10
-        color: Qt.rgba(1, 1, 1, 0.05)
+        color: root.surfaceTint(0.05)
 
         property color ringAccent: root.accent
         onRingAccentChanged: dialCanvas.requestPaint()
@@ -1013,6 +1031,11 @@ Item {
         // whatever surface is actually active.
         property color tipColor: root.textColor
         onTipColorChanged: dialCanvas.requestPaint()
+        // Ring track color, same mirrored-property treatment -- was a
+        // hardcoded Qt.rgba(1,1,1,0.15), same light-theme problem as
+        // tipColor above.
+        property color trackColor: root.surfaceTint(0.15)
+        onTrackColorChanged: dialCanvas.requestPaint()
 
         ColumnLayout {
           anchors.fill: parent
@@ -1085,7 +1108,7 @@ Item {
                     var gapRad = handleSpacing / r
                     ctx.lineWidth = 4
                     ctx.lineCap = "round"
-                    ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+                    ctx.strokeStyle = tile.trackColor
                     ctx.beginPath()
                     ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
                     ctx.stroke()
@@ -1215,7 +1238,7 @@ Item {
                   anchors.bottom: parent.bottom
                   width: Math.max(0, parent.width - parent.valueX - parent.gapPx)
                   radius: 3
-                  color: Qt.rgba(1, 1, 1, 0.08)
+                  color: root.surfaceTint(0.08)
                 }
 
                 Rectangle {
@@ -1264,7 +1287,7 @@ Item {
         property string amountText: ""
 
         radius: 10
-        color: Qt.rgba(1, 1, 1, 0.05)
+        color: root.surfaceTint(0.05)
 
         property color ringAccent: root.accent
         onRingAccentChanged: dialCanvas.requestPaint()
@@ -1276,6 +1299,11 @@ Item {
         // whatever surface is actually active.
         property color tipColor: root.textColor
         onTipColorChanged: dialCanvas.requestPaint()
+        // Ring track color, same mirrored-property treatment -- was a
+        // hardcoded Qt.rgba(1,1,1,0.15), same light-theme problem as
+        // tipColor above.
+        property color trackColor: root.surfaceTint(0.15)
+        onTrackColorChanged: dialCanvas.requestPaint()
 
         ColumnLayout {
           anchors.fill: parent
@@ -1329,7 +1357,7 @@ Item {
                 var gapRad = handleSpacing / r
                 ctx.lineWidth = 4
                 ctx.lineCap = "round"
-                ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.15)
+                ctx.strokeStyle = tile.trackColor
                 ctx.beginPath()
                 ctx.arc(cx, cy, r, endAngle + gapRad, startAngle + totalSweep)
                 ctx.stroke()
@@ -1439,7 +1467,7 @@ Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
           radius: 10
-          color: Qt.rgba(1, 1, 1, 0.05)
+          color: root.surfaceTint(0.05)
 
           ColumnLayout {
             anchors.fill: parent
@@ -1574,7 +1602,7 @@ Item {
               Layout.fillWidth: true
               Layout.preferredHeight: 6
               radius: 3
-              color: Qt.rgba(1, 1, 1, 0.08)
+              color: root.surfaceTint(0.08)
               visible: root.netInterface !== ""
 
               Row {
@@ -1666,7 +1694,7 @@ Item {
         Layout.fillWidth: true
         Layout.preferredHeight: Math.min(Math.max(40, disksColumn.implicitHeight + 20), 100)
         radius: 10
-        color: Qt.rgba(1, 1, 1, 0.05)
+        color: root.surfaceTint(0.05)
 
         Flickable {
           anchors.fill: parent

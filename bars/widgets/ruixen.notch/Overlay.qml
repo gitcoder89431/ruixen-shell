@@ -256,6 +256,15 @@ Item {
   }
   readonly property color textColor: readableForegroundForSurface(notchColor, themeForeground)
   readonly property color muted: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.5)
+  // ruixen-shell#89 follow-up: a few tonal surfaces in this file
+  // (collapsed-row hover states, the mini progress-bar track) were
+  // still flat white-tinted translucent overlays (Qt.rgba(1,1,1,X)),
+  // same bug class as muted above already avoids -- see
+  // MetricsContent/KanbanContent/WallpapersContent/LauncherContent's
+  // own surfaceTint for the full reasoning, ported here identically.
+  function surfaceTint(alpha) {
+    return Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, alpha)
+  }
   // Theme-linked, per direct request ("try the accent color to follow
   // the themes... so they match too") -- was a fixed "media is active"
   // semantic green, same pattern as ruixen.media's own badge. Color.accent
@@ -1130,7 +1139,7 @@ Item {
     Layout.preferredHeight: 56
     Layout.alignment: Qt.AlignHCenter
     radius: 14
-    color: active ? Qt.rgba(1, 1, 1, 0.14) : (tabMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.07) : "transparent")
+    color: active ? root.surfaceTint(0.14) : (tabMouse.containsMouse ? root.surfaceTint(0.07) : "transparent")
     Behavior on color { ColorAnimation { duration: 120 } }
 
     Text {
@@ -2125,7 +2134,7 @@ Item {
                 width: Math.max(0, parent.width - parent.splitX - parent.gapPx)
                 height: 4
                 radius: 2
-                color: Qt.rgba(1, 1, 1, 0.15)
+                color: root.surfaceTint(0.15)
               }
 
               WavyLine {

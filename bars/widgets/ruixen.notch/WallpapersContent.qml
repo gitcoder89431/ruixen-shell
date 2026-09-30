@@ -76,6 +76,18 @@ Item {
   property color secondary: accent
   property string fontFamily: "JetBrainsMono Nerd Font"
 
+  // ruixen-shell#89 follow-up: tonal surfaces/hover states/borders here
+  // were all flat white-tinted translucent overlays (Qt.rgba(1,1,1,X))
+  // -- fine against the old always-black surface, washes out against
+  // an actually light Theme-mode surface. Same unconditional
+  // textColor-tint approach as KanbanContent's own cardSurface/
+  // surfaceTint (see that file): textColor is already guaranteed
+  // readable against whatever surface is actually active, in every
+  // mode, so tinting toward it instead of raw white is always correct.
+  function surfaceTint(alpha) {
+    return Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, alpha)
+  }
+
   // Only visible/active while the tab itself is on screen -- refresh()
   // is cheap (two quick Processes) but no reason to run it while some
   // other tab is showing.
@@ -522,7 +534,7 @@ Item {
         Layout.fillWidth: true
         Layout.preferredHeight: 40
         radius: 12
-        color: Qt.rgba(1, 1, 1, 0.06)
+        color: root.surfaceTint(0.06)
 
         TextInput {
           id: searchInput
@@ -614,7 +626,7 @@ Item {
         Layout.preferredWidth: modeTab.chipWidth * 2 + 4
         Layout.preferredHeight: 40
         radius: 10
-        color: Qt.rgba(1, 1, 1, 0.04)
+        color: root.surfaceTint(0.04)
 
         // The sliding thumb -- declared before the labels below so it
         // paints behind them, animates x only (fixed width/height), so
@@ -625,7 +637,7 @@ Item {
           width: modeTab.chipWidth
           height: parent.height - 4
           radius: 8
-          color: Qt.rgba(1, 1, 1, 0.08)
+          color: root.surfaceTint(0.08)
           border.width: 1
           border.color: root.accent
 
@@ -1010,9 +1022,9 @@ Item {
         Layout.alignment: Qt.AlignHCenter
         Layout.preferredHeight: 64
         radius: 10
-        color: filterChip.selected ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+        color: filterChip.selected ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
         border.width: 1
-        border.color: filterChip.selected ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+        border.color: filterChip.selected ? root.accent : root.surfaceTint(0.12)
 
         ColumnLayout {
           anchors.centerIn: parent
@@ -1067,9 +1079,9 @@ Item {
       // centered line.
       Layout.preferredHeight: 64
       radius: 10
-      color: backToTopArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+      color: backToTopArea.containsMouse ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
       border.width: 1
-      border.color: Qt.rgba(1, 1, 1, 0.12)
+      border.color: root.surfaceTint(0.12)
 
       ColumnLayout {
         anchors.centerIn: parent
@@ -1196,7 +1208,7 @@ Item {
       ClippingRectangle {
         anchors.fill: parent
         radius: 10
-        color: Qt.rgba(1, 1, 1, 0.06)
+        color: root.surfaceTint(0.06)
         visible: themeTile.modelData.preview === ""
 
         Text {

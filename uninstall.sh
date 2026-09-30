@@ -158,6 +158,17 @@ exec {lock_fd}>"$lock_file"
 flock -n "$lock_fd" \
   || fail "another Ruixen install/update/uninstall appears to be running (lock: $lock_file) -- wait for it to finish and try again"
 
+# Issue #32 (see lib/lifecycle-journal.sh's own header comment for the
+# full "why", and install.sh's matching copy of this same hookup).
+# Checked here, under the lock, before any real mutation below. Every
+# step in this script actually mutates something (unlike install.sh,
+# there's no read-only validation phase first here), so the journal is
+# written right away rather than deferred past an early step.
+# shellcheck source=lib/lifecycle-journal.sh
+source "$script_dir/lib/lifecycle-journal.sh"
+check_lifecycle_journal_or_refuse "$state_dir" "$@" || exit 1
+write_lifecycle_journal "$state_dir" uninstall
+
 # Direct review finding ("Make full uninstall best-effort and report
 # partial cleanup failures", #19): every step below used to be a bare
 # statement under set -Eeuo pipefail -- one failed plugin removal, or a
@@ -243,6 +254,7 @@ else
   fi
 fi
 
+update_lifecycle_journal_phase "$state_dir" "2/4 removing Ruixen Shell plugins"
 printf '\n[2/4] Removing Ruixen Shell plugins\n'
 # Curated to "ruixen." ids only, same scoping the Plugins settings page
 # itself uses -- this script has no business touching anyone else's
@@ -407,6 +419,7 @@ do
   done
 done
 
+update_lifecycle_journal_phase "$state_dir" "3/4 restoring Hyprland window look"
 printf '\n[3/4] Restoring Hyprland window look\n'
 # Not a bare `rm -f` on the symlink -- confirmed by reading hyprland.lua
 # and bootstrap.lua directly: `require("hypr.looknfeel")` has no fallback
@@ -517,6 +530,7 @@ if [[ -e "$HOME/.local/share/ruixen-shell" ]]; then
     || record_failure "deleting the deployed looknfeel data dir (~/.local/share/ruixen-shell) failed"
 fi
 
+update_lifecycle_journal_phase "$state_dir" "4/4 restarting Omarchy shell"
 printf '\n[4/4] Restarting Omarchy shell\n'
 omarchy restart shell \
   || record_failure "restarting the Omarchy shell failed -- run 'omarchy restart shell' manually to pick up the changes above"
@@ -537,6 +551,12 @@ elif [[ "$looknfeel_restored" -eq 1 ]]; then
   "$script_dir/lib/reset-pristine-baseline.sh" "$HOME/.local/state/ruixen" looknfeel \
     || record_failure "clearing the pristine looknfeel snapshot failed (harmless -- just means a future reinstall may see a stale baseline)"
 fi
+
+# Issue #32: reached the actual end of the script either way (best-
+# effort failures, if any, are already recorded and about to be
+# reported below) -- only a genuine interruption that skips this point
+# entirely should leave the journal for the next run to find.
+clear_lifecycle_journal "$state_dir"
 
 if print_failure_summary; then
   cat <<EOF

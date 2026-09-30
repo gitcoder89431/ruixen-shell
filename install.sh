@@ -52,15 +52,26 @@ for arg in "$@"; do
     --with-launcher-keybind|--with-recommended-keybinds)
       install_recommended_keybinds=true
       ;;
+    # Issue #32: consumed later by check_lifecycle_journal_or_refuse
+    # (lib/lifecycle-journal.sh), not here -- accepted in this case
+    # statement just so it doesn't hit the "unknown option" fail()
+    # below. A no-op unless a previous run's own journal is actually
+    # sitting there unacknowledged.
+    --acknowledge-interrupted)
+      ;;
     -h|--help)
       cat <<'EOF'
 Usage:
-  ./install.sh [--dry-run] [--with-launcher-keybind]
+  ./install.sh [--dry-run] [--with-launcher-keybind] [--acknowledge-interrupted]
 
 Options:
   --dry-run                   Preview the install without changing files.
   --with-launcher-keybind     Add recommended Ruixen keybinds when free.
   --with-recommended-keybinds Same as --with-launcher-keybind.
+  --acknowledge-interrupted   Proceed despite a previous run's own journal
+                               showing it was interrupted before finishing
+                               (see lib/lifecycle-journal.sh). Only needed
+                               when this script itself printed that message.
 EOF
       exit 0
       ;;
@@ -305,6 +316,19 @@ source "$script_dir/lib/acquire-lifecycle-lock.sh"
 # that subshell exits -- the lock would appear to succeed but never
 # actually stay held for the rest of this script.
 acquire_lifecycle_lock "$state_dir" || exit 1
+
+# Issue #32: checked here, under the lock and before any real mutation
+# below -- a previous run's own journal (see lib/lifecycle-journal.sh)
+# surviving to be seen at this exact point already means it exited
+# without cleaning up (success and ordinary-failure rollback both clear
+# it themselves), regardless of whether that was this same lock file's
+# previous holder or a genuinely separate crash. Not routed through
+# fail() for the same subshell reason as acquire_lifecycle_lock above --
+# this doesn't need one, but matching that convention keeps this file's
+# own two safety checks reading the same way.
+# shellcheck source=lib/lifecycle-journal.sh
+source "$script_dir/lib/lifecycle-journal.sh"
+check_lifecycle_journal_or_refuse "$state_dir" "$@" || exit 1
 
 # Direct review finding ("Add runtime dependency/version preflight and
 # safer release update behavior"): the README stated broad Omarchy
@@ -675,6 +699,12 @@ rollback_all() {
   rollback_looknfeel_data
   rollback_shell_json
   rollback_plugins
+  # Issue #32: an ordinary failure that reaches here has already been
+  # fully unwound above -- nothing left for the next run to warn about.
+  # Only a crash that skips this trap entirely (kill -9, power loss)
+  # should ever leave the journal for check_lifecycle_journal_or_refuse
+  # to find.
+  clear_lifecycle_journal "$state_dir"
   printf 'rollback complete -- your previous installation should be unchanged.\n' >&2
 }
 trap rollback_all ERR
@@ -688,6 +718,15 @@ for dir in "${plugin_source_dirs[@]}"; do
   omarchy plugin validate "$dir" || fail "plugin failed validation: $id -- nothing has been changed"
 done
 printf '  all plugins passed validation\n'
+
+# Issue #32: written here, not any earlier -- steps [1/7]/[2/7] above
+# are read-only (dependency check, manifest validation), so an
+# interruption during either of them never actually changed anything,
+# and journaling before this point would make check_lifecycle_journal_or_refuse
+# ask for an unnecessary --acknowledge-interrupted on a run that had
+# nothing to recover from. From here on, every step below really does
+# mutate something.
+write_lifecycle_journal "$state_dir" install
 
 printf '\n[3/7] Installing plugins\n'
 # Every id this checkout currently ships as a real source directory --
@@ -781,6 +820,7 @@ done
 
 printf '  verified: every deployed plugin exactly matches this checkout\n'
 
+update_lifecycle_journal_phase "$state_dir" "4/7 applying shell layout"
 printf '\n[4/7] Applying shell layout\n'
 # Merged into whatever shell.json already exists (via lib/build-shell-
 # json.sh), not a wholesale `cat > shell.json` overwrite -- direct
@@ -829,6 +869,7 @@ tmp_shell_json="$(mktemp "${shell_json}.XXXXXX")"
 mv "$tmp_shell_json" "$shell_json"
 printf '  wrote %s (unrelated plugins/settings, if any, were preserved)\n' "$shell_json"
 
+update_lifecycle_journal_phase "$state_dir" "5/7 matching Hyprland window look to the frame/bar"
 printf '\n[5/7] Matching Hyprland window look to the frame/bar\n'
 # See lib/apply-looknfeel.sh's own comment for the full "why" -- in
 # short, a pre-existing looknfeel.lua SYMLINK (a dotfiles setup, say)
@@ -931,6 +972,7 @@ case "$looknfeel_effective_variant" in
 esac
 printf '  toggle any time with: %s/hyprland/ruixen-lookfeel.sh off\n' "$script_dir"
 
+update_lifecycle_journal_phase "$state_dir" "6/7 applying theme overlays"
 printf '\n[6/7] Applying theme overlays\n'
 # Per-theme overrides for stock Omarchy themes that ship a real bug or
 # an assumption ruixen.bar breaks (see theme_overlay_backup_dir's own
@@ -1026,6 +1068,7 @@ else
   fi
 fi
 
+update_lifecycle_journal_phase "$state_dir" "7/7 restarting Omarchy shell"
 printf '\n[7/7] Restarting Omarchy shell\n'
 # Direct real-world report: a tester's install/update completed with
 # every plugin file genuinely deployed and up to date, yet the bar
@@ -1084,6 +1127,11 @@ printf '%s\n' "$script_dir" > "$state_dir/repo-path"
 # principle) could never be mistaken for an install failure and trigger
 # an unnecessary rollback of a genuinely successful install.
 trap - ERR
+# Issue #32: a genuinely finished run has nothing left to recover from
+# -- cleared here so the next run's own check_lifecycle_journal_or_refuse
+# finds nothing and proceeds normally, same as it always did before
+# this existed.
+clear_lifecycle_journal "$state_dir"
 
 if [[ "$install_recommended_keybinds" == true ]]; then
   printf '\n[extra] Installing recommended keybinds\n'

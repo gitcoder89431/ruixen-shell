@@ -169,6 +169,29 @@ an existing copy, whether `shell.json` would be created or merged (and
 what would actually change), and the Hyprland look'n'feel plan — then
 exits having touched nothing.
 
+### If a previous run was interrupted
+
+An ordinary failure (a bad plugin, `omarchy restart shell` erroring out)
+already rolls back cleanly on its own — you'll see that reported and don't
+need to do anything special. A hard interruption is different: a closed
+terminal, `kill -9`, a crash, or power loss skips that rollback entirely,
+since there's no chance for it to run. If `install.sh` or `uninstall.sh`
+detects that its own previous run never reached the end, it refuses to
+proceed and tells you exactly which step it had reached:
+
+```
+refusing to proceed: a previous install run appears to have been interrupted before finishing.
+  started: 2026-09-30T03:15:00Z
+  reached: 4/7 applying shell layout
+```
+
+This is almost always safe to just continue from — every plugin is fully
+re-copied from source on each run, and `shell.json`/looknfeel writes are
+atomic, so nothing can be left half-written. Run `./ruixen-doctor.sh`
+first if you want to double-check (read-only, reports plugin drift and
+runtime health), then re-run the same command with
+`--acknowledge-interrupted` to continue.
+
 ## Updating
 
 ```bash

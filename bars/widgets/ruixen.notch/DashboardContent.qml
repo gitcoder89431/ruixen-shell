@@ -77,7 +77,7 @@ Item {
   // value already tints, just a smaller alpha, so stacking the nested
   // pills/cards (dashboardBoardSurface, 0.05) on top of this still
   // lightens further like before, keeping this the darker of the two.
-  readonly property color dashboardSurfaceStrong: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.075) : Qt.rgba(1, 1, 1, 0.03)
+  readonly property color dashboardSurfaceStrong: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.075) : Qt.rgba(1, 1, 1, 0.15)
   // Notification cards -- nested inside a PaneFilled panel that's now
   // solid black in Black mode (see dashboardSurfaceStrong above), so
   // this can no longer fall back to that same color without the cards

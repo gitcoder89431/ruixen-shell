@@ -21,6 +21,16 @@ case "${1:-} ${2:-}" in
       echo "fake omarchy: forced restart failure" >&2
       exit 1
     fi
+    # Regression guard for install.sh's own setsid-detached restart
+    # tail (a real quickshell restart tearing down THIS script's own
+    # process group otherwise silently skips everything after it) --
+    # records this process's own pid/session id so a test can confirm
+    # the restart step actually ran in a different session than the
+    # rest of the script, not just that setsid appears in the source.
+    if [[ -n "${FAKE_OMARCHY_RECORD_RESTART_SESSION:-}" ]]; then
+      printf '%s' "$$" > "${FAKE_OMARCHY_RECORD_RESTART_SESSION}.pid"
+      printf '%s' "$(ps -o sid= -p $$ | tr -d ' ')" > "${FAKE_OMARCHY_RECORD_RESTART_SESSION}.sid"
+    fi
     # Regression guard for install.sh's own orphan-plugin cleanup: a
     # path here is asserted to STILL EXIST at the exact moment a restart
     # happens, standing in for "a still-loaded plugin's directory must

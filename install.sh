@@ -1085,53 +1085,92 @@ printf '\n[7/7] Restarting Omarchy shell\n'
 # failure to be confident this is safe: it is purely compiled
 # bytecode, never data, so deleting it can never lose anything.
 rm -rf "$HOME/.cache/quickshell/qmlcache" 2>/dev/null || true
-omarchy restart shell
 
-# Orphan plugins detected earlier (step [3/7]) are only physically removed
-# now, AFTER the restart above has actually happened -- see that step's
-# own comment for why removing the directory any earlier crashed a live
-# quickshell that still had the plugin loaded. shell.json already stopped
-# referencing these in [4/7], so the freshly restarted process never
-# tried to load them in the first place; this is just deleting the now
-# genuinely-unused files. Best-effort (a stray permission issue here
-# shouldn't fail an install that has already fully succeeded) -- backed
-# up the same way a replaced plugin already is, not just deleted outright.
-for id in "${ORPHAN_PLUGIN_IDS[@]:-}"; do
-  [[ -n "$id" ]] || continue
-  target="$plugins_dir/$id"
-  [[ -d "$target" ]] || continue
-  if mv "$target" "$plugin_backup_dir/$id.bak.$stamp" 2>/dev/null; then
-    printf '  removed orphaned plugin %s (no longer part of this checkout)\n' "$id"
-  else
-    printf '  warning: could not remove orphaned plugin %s -- safe to delete %s by hand\n' "$id" "$target" >&2
-  fi
-done
-
-# Direct review finding ("Make repo-path state part of the successful
-# install transaction", #14): this used to be written right at the top
-# of the script, before plugin validation/deployment even started -- so
-# a failed install from a checkout B, run on top of a working install
-# from checkout A, left repo-path pointing at B (the failed one) even
-# though every other piece of state correctly rolled back to A.
-# Settings' own Update button would then be running update.sh out of a
-# checkout that was never actually the one currently installed.
+# Real live report: the Settings page's own Update button runs this
+# script as a child of the CURRENTLY RUNNING quickshell (see
+# ruixen.launcher/services/PluginService.qml's updateRuixenShell() own
+# comment) -- so `omarchy restart shell` below tears down this script's
+# own process group as an unavoidable side effect of the very restart it
+# just asked for. Confirmed live: shell.json was already correctly
+# stripped of a removed plugin's id by [4/7] above (that part always
+# survives), but everything after the restart -- orphan directory
+# removal, the repo-path write, and clear_lifecycle_journal -- silently
+# never ran, every time, until someone happened to re-run this by hand
+# from a terminal (a process tree that was never a quickshell descendant
+# to begin with, so it was never at risk).
 #
-# Written here instead -- after the restart above, the last step that
-# can still fail -- so repo-path only ever identifies the checkout that
-# actually produced the currently installed state, matching every other
-# piece of this install's rollback coverage.
-printf '%s\n' "$script_dir" > "$state_dir/repo-path"
+# `setsid` moves everything from here on into a brand new session/
+# process group before it runs, immune to whatever reaps THIS script's
+# original group -- `wait` still blocks this outer process on it exactly
+# as a plain sequential call would, so a normal terminal run (already
+# unaffected by this, see above) behaves identically to before. Orphan
+# ids and backup bookkeeping are passed as argv, since a fresh `bash -c`
+# does not inherit this shell's own arrays/variables; lifecycle-journal.sh
+# is re-sourced for the same reason (functions do not cross that
+# boundary either).
+setsid bash -c '
+  set -Eeuo pipefail
+  tail_script_dir="$1" tail_state_dir="$2" tail_plugins_dir="$3" tail_backup_dir="$4" tail_stamp="$5"
+  shift 5
+  # shellcheck source=lib/lifecycle-journal.sh
+  source "$tail_script_dir/lib/lifecycle-journal.sh"
+
+  omarchy restart shell
+
+  # Orphan plugins detected earlier (step [3/7]) are only physically
+  # removed now, AFTER the restart above has actually happened -- see
+  # that step own comment for why removing the directory any earlier
+  # crashed a live quickshell that still had the plugin loaded.
+  # shell.json already stopped referencing these in [4/7], so the
+  # freshly restarted process never tried to load them in the first
+  # place; this is just deleting the now genuinely-unused files.
+  # Best-effort (a stray permission issue here should not fail an
+  # install that has already fully succeeded) -- backed up the same way
+  # a replaced plugin already is, not just deleted outright.
+  for id in "$@"; do
+    [[ -n "$id" ]] || continue
+    target="$tail_plugins_dir/$id"
+    [[ -d "$target" ]] || continue
+    if mv "$target" "$tail_backup_dir/$id.bak.$tail_stamp" 2>/dev/null; then
+      printf "  removed orphaned plugin %s (no longer part of this checkout)\n" "$id"
+    else
+      printf "  warning: could not remove orphaned plugin %s -- safe to delete %s by hand\n" "$id" "$target" >&2
+    fi
+  done
+
+  # Direct review finding ("Make repo-path state part of the successful
+  # install transaction", #14): this used to be written right at the
+  # top of the script, before plugin validation/deployment even
+  # started -- so a failed install from a checkout B, run on top of a
+  # working install from checkout A, left repo-path pointing at B (the
+  # failed one) even though every other piece of state correctly rolled
+  # back to A. Settings own Update button would then be running
+  # update.sh out of a checkout that was never actually the one
+  # currently installed.
+  #
+  # Written here instead -- after the restart above, the last step that
+  # can still fail -- so repo-path only ever identifies the checkout
+  # that actually produced the currently installed state, matching
+  # every other piece of this install rollback coverage.
+  printf "%s\n" "$tail_script_dir" > "$tail_state_dir/repo-path"
+
+  # Issue #32: a genuinely finished run has nothing left to recover
+  # from -- cleared here so the next run own check_lifecycle_journal_or_refuse
+  # finds nothing and proceeds normally, same as it always did before
+  # this existed.
+  clear_lifecycle_journal "$tail_state_dir"
+' -- "$script_dir" "$state_dir" "$plugins_dir" "$plugin_backup_dir" "$stamp" "${ORPHAN_PLUGIN_IDS[@]:-}" &
+tail_pid=$!
+wait "$tail_pid"
 
 # Success -- disarm the rollback trap before the summary below, so a
 # cosmetic failure in the `cat` heredoc itself (there isn't one, but in
 # principle) could never be mistaken for an install failure and trigger
-# an unnecessary rollback of a genuinely successful install.
+# an unnecessary rollback of a genuinely successful install. Placed
+# after the detached tail above has already been waited on, not before
+# -- the same "last step that can still fail" reasoning that tail's own
+# repo-path comment already gives, now just one level further out.
 trap - ERR
-# Issue #32: a genuinely finished run has nothing left to recover from
-# -- cleared here so the next run's own check_lifecycle_journal_or_refuse
-# finds nothing and proceeds normally, same as it always did before
-# this existed.
-clear_lifecycle_journal "$state_dir"
 
 if [[ "$install_recommended_keybinds" == true ]]; then
   printf '\n[extra] Installing recommended keybinds\n'

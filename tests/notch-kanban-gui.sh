@@ -144,8 +144,10 @@ check "Kanban confirm token is supplied from the active theme blue swatch" \
 check "Kanban semantic colors are supplied from the active theme palette" \
   "$(grep -E -c 'successColor: root.kanbanSuccessColor|dangerColor: root.kanbanDangerColor|warningColor: root.kanbanWarningColor' "$overlay_qml")" "3"
 
-check "Kanban card surfaces are text-contrast derived for dark and light themes" \
-  "$(grep -E -c 'cardSurface: Qt.rgba\(root.textColor.r, root.textColor.g, root.textColor.b, 0.055\)|editorSurface: Qt.rgba\(root.textColor.r, root.textColor.g, root.textColor.b, 0.075\)' "$overlay_qml")" "2"
+check "Kanban card surface tints toward white on a light theme (nested lighter than the column it sits on), textColor on a dark one" \
+  "$(( $(grep -c 'root.surfaceLuminance(root.textColor) < 0.5' "$overlay_qml") + $(grep -c '? Qt.rgba(1, 1, 1, 0.65)' "$overlay_qml") ))" "2"
+check "Kanban editor surface is text-contrast derived for dark and light themes" \
+  "$(grep -c 'editorSurface: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.075)' "$overlay_qml")" "1"
 
 check "Kanban idle cards use no grey outline" \
   "$(( $(grep -F -c ': "transparent"' "$content_qml") + $(grep -F -c 'border.width: cardRoot.deleteArmed || cardArea.containsMouse || editButton.hovered || deleteButton.hovered ? 1.5 : 0' "$content_qml") ))" "2"

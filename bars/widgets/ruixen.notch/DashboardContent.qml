@@ -39,10 +39,57 @@ Item {
   readonly property color accentForeground: "#000000"
   readonly property color dashboardHeaderText: accentDashboardHeaders ? accent : textColor
   readonly property color dashboardSurface: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.05) : Qt.rgba(1, 1, 1, 0.05)
-  readonly property color dashboardBoardSurface: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.06) : dashboardSurface
+  // Now the LIGHTER of the calendar/notification pair's two surfaces,
+  // used for the pills/cards nested inside PaneFilled/calendarPane --
+  // was the outer panel's own color before a direct request to swap
+  // which of the two reads darker ("swap them so the darker one is
+  // the larger section panel and the lighter one are the nested stuff
+  // in it"). The name is legacy from when it WAS the outer "board"
+  // surface; left as is rather than renaming every call site.
+  //
+  // Tints toward WHITE, not textColor, in Theme mode now -- this is
+  // rendered ON TOP of PaneFilled/calendarPane's own already-tinted
+  // fill (dashboardSurfaceStrong), not directly on the raw notch
+  // surface. Nesting a second textColor-tint on top of a first one
+  // (the pre-swap approach) always shifts further in the SAME
+  // direction, i.e. darker still on a light theme -- proven live: it
+  // rendered as 221 next to the outer's own 233, in that direction,
+  // the opposite of "lighter nested" no matter how small the second
+  // alpha was made. White is the only tint direction that can
+  // actually read lighter than whatever's already been darkened
+  // underneath it. Black mode's own fallback (dashboardSurface,
+  // unchanged) already tinted toward white for the same reason -- this
+  // just makes Theme mode consistent with that, instead of being the
+  // one branch still going the wrong way.
+  readonly property color dashboardBoardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.5) : dashboardSurface
   readonly property color dashboardSurfaceRaised: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.08) : Qt.rgba(1, 1, 1, 0.08)
+  // dashboardSurfaceStrong is now PaneFilled/calendarPane's own outer
+  // panel color (see those, and the swap comment on dashboardBoardSurface
+  // below) -- its Black-mode "#000000" is a real outer panel background
+  // now, not a nested sub-panel, per direct request to swap which one
+  // is the darker of the two.
   readonly property color dashboardSurfaceStrong: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.075) : "#000000"
-  readonly property color dashboardCardSurface: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.035) : dashboardSurfaceStrong
+  // Notification cards -- nested inside a PaneFilled panel that's now
+  // solid black in Black mode (see dashboardSurfaceStrong above), so
+  // this can no longer fall back to that same color without the cards
+  // disappearing into it. Falls back to dashboardBoardSurface instead
+  // (the lighter of the two, now that they're swapped) -- same
+  // direction as every other nested surface in this file.
+  //
+  // Theme mode tints toward white now too, same reasoning as
+  // dashboardBoardSurface above -- and painted TWICE at the same
+  // bounds (notificationRowBase + notificationRowChrome, see their own
+  // comment on why), which compounds two translucent layers into a
+  // stronger effective tint than either alone. 0.65, matching Kanban's
+  // own cardSurface fix (Overlay.qml) for the identical reason: this
+  // row also carries a MultiEffect drop shadow (shadowOpacity 0.38)
+  // behind its base layer, which bleeds through the card's own
+  // translucent fill and renders meaningfully darker than plain
+  // double-layer alpha math alone predicts -- confirmed live on
+  // Kanban's cards first (0.2 read darker than its column, 0.4 read
+  // equal, 0.65 finally read lighter), ported here since the structure
+  // is identical (same shadowOpacity, same double-paint base+chrome).
+  readonly property color dashboardCardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.65) : dashboardBoardSurface
   readonly property color dashboardBorder: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.12) : Qt.rgba(1, 1, 1, 0.14)
   // Same themeSurfaceMode-conditional tint as dashboardSurface* above,
   // generalized for the handful of one-off tonal surfaces below (seek/
@@ -368,7 +415,12 @@ Item {
   // black+border look above.
   component PaneFilled: Rectangle {
     radius: 10
-    color: root.dashboardBoardSurface
+    // Swapped with the nested pills/rows inside it, per direct
+    // request: the large section panel now takes the stronger/darker
+    // tone, the nested stuff inside it (header pills, cards) takes the
+    // lighter one that used to be here -- reverse of the original
+    // "grey outer, black nested" design.
+    color: root.dashboardSurfaceStrong
     clip: true
   }
 
@@ -1075,7 +1127,10 @@ Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
         radius: 10
-        color: root.dashboardBoardSurface
+        // Swapped, same as PaneFilled above -- outer pane is now the
+        // darker/stronger surface, its nested header pills and
+        // day-grid below take the lighter one it used to have.
+        color: root.dashboardSurfaceStrong
         clip: true
 
         property int monthShift: 0
@@ -1155,7 +1210,7 @@ Item {
               Layout.fillWidth: true
               Layout.fillHeight: true
               radius: 8
-              color: root.dashboardSurfaceStrong
+              color: root.dashboardBoardSurface
 
               Text {
                 anchors.centerIn: parent
@@ -1171,7 +1226,7 @@ Item {
               Layout.preferredWidth: 36
               Layout.fillHeight: true
               radius: 8
-              color: root.dashboardSurfaceStrong
+              color: root.dashboardBoardSurface
 
               Text {
                 anchors.centerIn: parent
@@ -1192,7 +1247,7 @@ Item {
               Layout.preferredWidth: 36
               Layout.fillHeight: true
               radius: 8
-              color: root.dashboardSurfaceStrong
+              color: root.dashboardBoardSurface
 
               Text {
                 anchors.centerIn: parent
@@ -1242,7 +1297,7 @@ Item {
             Layout.maximumHeight: 260
             Layout.alignment: Qt.AlignTop
             radius: 6
-            color: root.dashboardSurfaceStrong
+            color: root.dashboardBoardSurface
 
             ColumnLayout {
               anchors.fill: parent
@@ -1383,7 +1438,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: 10
-            color: root.dashboardSurfaceStrong
+            color: root.dashboardBoardSurface
 
             Text {
               anchors.centerIn: parent
@@ -1409,7 +1464,7 @@ Item {
             Layout.preferredWidth: 32
             Layout.fillHeight: true
             radius: 10
-            color: root.dashboardSurfaceStrong
+            color: root.dashboardBoardSurface
 
             Text {
               anchors.centerIn: parent
@@ -1439,7 +1494,7 @@ Item {
             Layout.preferredWidth: 32
             Layout.fillHeight: true
             radius: 10
-            color: root.dashboardSurfaceStrong
+            color: root.dashboardBoardSurface
 
             Text {
               anchors.centerIn: parent

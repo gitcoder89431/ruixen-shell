@@ -2650,7 +2650,37 @@ Item {
                 successColor: root.kanbanSuccessColor
                 dangerColor: root.kanbanDangerColor
                 warningColor: root.kanbanWarningColor
-                cardSurface: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.055)
+                // Per direct request to swap which of the column panel
+                // and its nested cards reads darker: cards sit ON TOP
+                // of the column's own already-tinted fill (both
+                // double-painted -- KanbanContent's own cardBase +
+                // cardChrome -- and single-painted alike), so tinting
+                // them FURTHER toward textColor only ever pushes darker
+                // still when textColor itself is dark (a light theme) --
+                // confirmed live, no alpha was low enough to escape
+                // that, since it's the wrong tint DIRECTION, not just
+                // too strong a magnitude. Tints toward white instead
+                // specifically when textColor is dark (surface is
+                // light) -- that's the one direction that can actually
+                // read lighter than an already-darkened parent. Keeps
+                // the original textColor-tint on a dark theme (textColor
+                // light there), where that direction already lightens
+                // correctly on its own, same as before. 0.65, tuned
+                // live against the actual rendered card (not derived on
+                // paper): the card's own MultiEffect drop shadow sits
+                // BEHIND cardBase at a real, non-trivial opacity
+                // (shadowOpacity 0.38) and bleeds through the card's own
+                // translucent fill from underneath, darkening the
+                // visible result well past what plain double-layer
+                // alpha compositing alone predicts -- 0.2 (matched to
+                // DashboardContent's own dashboardCardSurface, which
+                // has no such shadow-bleed factor) still rendered
+                // clearly darker than the column live, 0.4 landed
+                // exactly equal to it, 0.65 is what actually reads
+                // lighter on screen.
+                cardSurface: root.surfaceLuminance(root.textColor) < 0.5
+                  ? Qt.rgba(1, 1, 1, 0.65)
+                  : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.055)
                 cardBorderColor: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.14)
                 editorSurface: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.075)
                 fontFamily: root.fontFamily

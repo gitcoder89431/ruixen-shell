@@ -452,7 +452,18 @@ Item {
       Layout.fillWidth: true
       Layout.fillHeight: true
       radius: 10
-      color: root.surfaceTint(0.06)
+      // Bumped 0.06 -> 0.075 (matching DashboardContent's own outer-
+      // panel value) per direct request: the large section panel
+      // (this column) should be the darker of it and the cards nested
+      // inside it, reverse of how it was -- cards were rendering
+      // visibly darker than the column despite their own nominal
+      // alpha (root.cardSurface, see Overlay.qml's instantiation)
+      // being lower, because they're double-painted (cardBase +
+      // cardChrome, same color, same bounds) which compounds two
+      // translucent layers into a visibly stronger tint than either
+      // one alone -- see cardSurface's own value there for the other
+      // half of this fix.
+      color: root.surfaceTint(0.075)
 
       // Cards -- oldest first (KanbanService.cardsInColumn's own
       // order). No drag-and-drop: the manual path is the arrow pair

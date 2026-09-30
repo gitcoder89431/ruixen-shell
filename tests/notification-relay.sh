@@ -122,14 +122,14 @@ check "notification row foreground chrome uses the same surface token as the sha
   "$(grep -A5 'id: notificationRowChrome' "$dashboard_qml" | grep -c 'color: root.dashboardCardSurface')" "1"
 check "notification row frame is hidden in theme-surface mode instead of drawing a thick border" \
   "$(grep -A14 'Dark/black mode keeps the old frame' "$dashboard_qml" | grep -c 'visible: !root.themeSurfaceMode')" "1"
-check "theme-mode dashboard section panels match Kanban board surface strength" \
-  "$(grep -c 'dashboardBoardSurface: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.06)' "$dashboard_qml")" "1"
-check "theme-mode notification bubbles match Kanban card surface strength" \
-  "$(grep -c 'dashboardCardSurface: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.035)' "$dashboard_qml")" "1"
-check "notification outer panel uses the Kanban-matched board surface" \
-  "$(grep -A4 'component PaneFilled' "$dashboard_qml" | grep -c 'color: root.dashboardBoardSurface')" "1"
-check "calendar outer panel uses the Kanban-matched board surface" \
-  "$(grep -A8 'id: calendarPane' "$dashboard_qml" | grep -c 'color: root.dashboardBoardSurface')" "1"
+check "theme-mode nested pills/cards tint toward white, not textColor (must read lighter than the outer panel they sit on, not darker)" \
+  "$(grep -c 'dashboardBoardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.5)' "$dashboard_qml")" "1"
+check "theme-mode notification bubbles tint toward white too, tuned down for their double-painted base+chrome layers" \
+  "$(grep -c 'dashboardCardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.65)' "$dashboard_qml")" "1"
+check "notification outer panel uses the stronger surface (swapped with its nested pills/cards)" \
+  "$(grep -A8 'component PaneFilled' "$dashboard_qml" | grep -c 'color: root.dashboardSurfaceStrong')" "1"
+check "calendar outer panel uses the stronger surface (swapped with its nested pills/grid)" \
+  "$(grep -A12 'id: calendarPane' "$dashboard_qml" | grep -c 'color: root.dashboardSurfaceStrong')" "1"
 check "Accent icon-tone makes inactive quick-control glyphs accent-colored" \
   "$(grep -c 'qt.active ? root.accentForeground : (root.accentDashboardHeaders ? root.accent : root.textColor)' "$dashboard_qml")" "1"
 check "Accent icon-tone makes calendar weekday labels accent-colored" \

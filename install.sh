@@ -1108,6 +1108,8 @@ rm -rf "$HOME/.cache/quickshell/qmlcache" 2>/dev/null || true
 # does not inherit this shell's own arrays/variables; lifecycle-journal.sh
 # is re-sourced for the same reason (functions do not cross that
 # boundary either).
+# shellcheck disable=SC2016 # deliberately single-quoted: $1/$2/... and
+# "$@" below are meant to expand inside the CHILD bash -c, not here.
 setsid bash -c '
   set -Eeuo pipefail
   tail_script_dir="$1" tail_state_dir="$2" tail_plugins_dir="$3" tail_backup_dir="$4" tail_stamp="$5"

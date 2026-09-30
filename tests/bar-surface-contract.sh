@@ -66,8 +66,8 @@ check "dark surfaces fall back to a light safe foreground when needed" \
 check "frame color uses the shared surface resolver" \
   "$(grep -c 'readonly property color frameColor: resolveSurfaceColor(root.frameColorMode)' "$bar_qml")" "1"
 
-check "docked content surface uses the shared content clamp" \
-  "$(grep -c 'readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)' "$bar_qml")" "1"
+check "docked surface is unclamped, same resolved color as the floating pill surface (ruixen-shell#89 follow-up)" \
+  "$(grep -c 'readonly property color dockedBarColor: root.frameColor' "$bar_qml")" "1"
 
 check "notch reads the shared bar surface state file" \
   "$(grep -c 'readonly property string barSurfaceStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/bar-surface.json"' "$notch_qml")" "1"

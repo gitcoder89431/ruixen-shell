@@ -711,15 +711,17 @@ PanelWindow {
       // own real border (BarPanel's own comment above: "a plain
       // frameColor-filled Rectangle... painted the same color as the
       // thing underneath... absorbs that disagreement completely").
-      // dockedBarColor can differ from frameColor (it clamps to black
-      // whenever frameColor itself reads too light, since leftDockedBg/
-      // leftShoulderWing DO host icons) -- direct live report of
-      // exactly that: "this black thing we added to cover up a
-      // triangle gap... its currently possibly leaking through." Once
-      // this wedge's own color no longer matches the frame's real
-      // color underneath, the deliberate few-px overlap that's
-      // supposed to be an invisible seam-fill instead shows up as its
-      // own visibly wrong-colored triangle.
+      // dockedBarColor USED TO be able to differ from frameColor (it
+      // clamped to black whenever frameColor read too light) -- direct
+      // live report of exactly that: "this black thing we added to
+      // cover up a triangle gap... its currently possibly leaking
+      // through." ruixen-shell#89's follow-up removed that clamp
+      // (dockedBarColor is just frameColor now, see Bar.qml's own
+      // comment on why no clamp is needed there at all), so this
+      // specific mismatch can no longer happen -- both properties still
+      // exist separately below since each name documents its own
+      // reason for being read at that call site, not because their
+      // values can diverge any more.
       RoundCorner {
         id: leftFrameHemWing
         visible: barWindow.barRoot.docked && !barWindow.barRoot.frameOwnsDockChrome

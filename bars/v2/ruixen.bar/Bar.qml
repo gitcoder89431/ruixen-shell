@@ -131,10 +131,6 @@ Item {
       : (preferredIsLight ? preferred : root.surfaceSafeLightForeground)
   }
 
-  function contentSurfaceFor(surface) {
-    return root.surfaceLuminance(surface) > 0.5 ? root.surfaceBlack : surface
-  }
-
   function screenNameForWindow(window) {
     return window && window.screen ? String(window.screen.name || "") : ""
   }
@@ -625,16 +621,23 @@ Item {
   // Docked mode's merged shoulder strip (leftDockedBg/rightDockedBg and
   // their wing pieces below) hides every individual pill's own
   // background (GroupPill { visible: !root.docked }) and renders icons
-  // directly against this fill -- same situation ruixen.notch's own
-  // notchColor is in, and for the same reason it needs the same clamp:
-  // docked foreground resolves against the floating pill surface for
-  // Phase 1, so a light frameColor (Theme mode on an actual light theme)
-  // would make every docked icon unreadable, not just look "off".
-  // Falls back to plain black instead of frameColor whenever
-  // frameColor itself reads too light -- mirrors ruixen.notch/Overlay.qml's
-  // own resolvedFrameColorLuminance/notchColor pair exactly.
-  readonly property real frameColorLuminance: surfaceLuminance(root.frameColor)
-  readonly property color dockedBarColor: contentSurfaceFor(root.frameColor)
+  // directly against this fill. Used to clamp to black whenever
+  // frameColor read too light (Theme mode on an actual light theme),
+  // same reasoning ruixen.notch/Overlay.qml's own notchColor had before
+  // ruixen-shell#89 -- direct follow-up after that notch fix shipped:
+  // "the frame and dock bar is still black hard coded... make this
+  // light theme surface able now." No clamp needed here at all, for a
+  // reason the notch didn't have: floatingSurfaceColorMode above is
+  // just frameColorMode itself (same state, not a separate setting),
+  // so floatingPillSurface and frameColor are ALREADY the exact same
+  // value -- dockedBarColor diverging from it was the clamp's own
+  // doing, not a real second surface. pillForeground (used everywhere
+  // for bar icons/text, docked included, via the shared bar/barForeground
+  // facade property) is already computed against floatingPillSurface,
+  // i.e. against this exact color -- so removing the clamp doesn't just
+  // fix the background, the foreground is already correct for it too,
+  // with nothing else to recompute.
+  readonly property color dockedBarColor: root.frameColor
 
   readonly property string barIconToneStatePath: root.stateHome + "/ruixen/bar-icon-tone.json"
 

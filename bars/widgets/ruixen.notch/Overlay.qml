@@ -107,13 +107,33 @@ Item {
   // use it as-is. The frame itself has nothing painted on it, so it
   // keeps whatever light color Theme mode actually gives it -- this
   // clamp is notch-only.
+  //
+  // ruixen-shell#89: that clamp is gone. Direct correction, mid-thought,
+  // from the person who filed it: this must NOT become "follow whatever
+  // the real theme's own light/dark-ness is" -- Black mode has to stay
+  // dark even under a light theme, since bar surface color mode is its
+  // own independent choice from the real theme. notchColor now just
+  // takes resolveSurfaceColor()'s own answer directly, same as
+  // ruixen.bar's own floatingPillSurface -- Black mode already resolves
+  // dark (surfaceBlack) before this point, so nothing here needs to
+  // ALSO know which mode is active; it only needs to stop overriding a
+  // correctly-resolved light Theme-mode color back to black.
+  // textColor below is what changed to make this safe: it now picks a
+  // readable foreground AGAINST notchColor's own real luminance
+  // (readableForegroundForSurface, ported from ruixen.bar's own
+  // already-proven version -- same surfaceSafeLightForeground value,
+  // #e8e8e8, this file's own old safeForeground already used) instead
+  // of judging readability from themeForeground's luminance alone with
+  // no idea what background it would land on.
   readonly property color surfaceBlack: "#000000"
+  readonly property color surfaceSafeLightForeground: "#e8e8e8"
+  readonly property color surfaceSafeDarkForeground: "#101010"
   property string frameColorMode: "black"
   property string notchSurfaceMaterial: "solid"
   property bool barSurfaceStateLoaded: false
   readonly property color resolvedFrameColor: resolveSurfaceColor(root.frameColorMode)
   readonly property real resolvedFrameColorLuminance: surfaceLuminance(resolvedFrameColor)
-  readonly property color notchColor: contentSurfaceFor(resolvedFrameColor)
+  readonly property color notchColor: resolvedFrameColor
   readonly property string barSurfaceStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/bar-surface.json"
   readonly property string frameColorStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"
   readonly property string barIconToneStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/bar-icon-tone.json"
@@ -156,10 +176,6 @@ Item {
 
   function resolveSurfaceColor(mode) {
     return mode === "theme" ? Color.background : root.surfaceBlack
-  }
-
-  function contentSurfaceFor(surface) {
-    return root.surfaceLuminance(surface) > 0.5 ? root.surfaceBlack : surface
   }
 
   function applyBarSurfaceState(colorMode, material) {
@@ -218,18 +234,27 @@ Item {
     onLoaded: root.loadFrameAppearance(text())
     onLoadFailed: root.loadFrameAppearance("")
   }
-  // Same theme-aware-with-safety-net treatment as ruixen.bar's
-  // pillForeground (see Bar.qml for the full reasoning): this notch is
-  // always OLED black too, so use the theme's own foreground when it's
-  // light enough to read against that, else fall back to a fixed light
-  // color. Keeps each theme's actual look (off-white on nearly every
-  // dark theme) instead of a single hardcoded white, while still
-  // catching the real exceptions (light themes, Rose Pine's dark
-  // purple foreground).
+  // ruixen-shell#89: this notch is no longer always OLED black, so
+  // textColor can't just judge readability from the theme's own
+  // foreground luminance in isolation anymore -- that told you nothing
+  // about the background it would actually land on. Same
+  // readableForegroundForSurface pattern as ruixen.bar's own
+  // pillForeground (see Bar.qml), judged against notchColor itself:
+  // prefer the theme's own foreground when it reads fine against
+  // whatever notchColor really resolved to, otherwise fall back to a
+  // fixed safe color on the opposite end from that surface. Keeps each
+  // dark theme's actual look (off-white on nearly every one) instead of
+  // a single hardcoded white, while now also covering Theme mode
+  // resolving to an actually-light background.
   readonly property color themeForeground: Color.bar.text
-  readonly property real themeForegroundLuminance: 0.299 * themeForeground.r + 0.587 * themeForeground.g + 0.114 * themeForeground.b
-  readonly property color safeForeground: "#e8e8e8"
-  readonly property color textColor: themeForegroundLuminance > 0.45 ? themeForeground : safeForeground
+  function readableForegroundForSurface(surface, preferred) {
+    var surfaceIsLight = root.surfaceLuminance(surface) > 0.5
+    var preferredIsLight = root.surfaceLuminance(preferred) > 0.45
+    return surfaceIsLight
+      ? (preferredIsLight ? root.surfaceSafeDarkForeground : preferred)
+      : (preferredIsLight ? preferred : root.surfaceSafeLightForeground)
+  }
+  readonly property color textColor: readableForegroundForSurface(notchColor, themeForeground)
   readonly property color muted: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.5)
   // Theme-linked, per direct request ("try the accent color to follow
   // the themes... so they match too") -- was a fixed "media is active"

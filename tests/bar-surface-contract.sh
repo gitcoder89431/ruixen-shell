@@ -75,8 +75,11 @@ check "notch reads the shared bar surface state file" \
 check "notch keeps frame appearance as a compatibility fallback" \
   "$(( $(grep -c 'readonly property string frameColorStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/frame-appearance.json"' "$notch_qml") + $(grep -c 'if (root.barSurfaceStateLoaded) return' "$notch_qml") ))" "2"
 
-check "notch color uses the same surface resolver and content clamp pattern" \
-  "$(( $(grep -c 'readonly property color resolvedFrameColor: resolveSurfaceColor(root.frameColorMode)' "$notch_qml") + $(grep -c 'readonly property color notchColor: contentSurfaceFor(resolvedFrameColor)' "$notch_qml") ))" "2"
+check "notch color uses the shared surface resolver, unclamped (ruixen-shell#89)" \
+  "$(( $(grep -c 'readonly property color resolvedFrameColor: resolveSurfaceColor(root.frameColorMode)' "$notch_qml") + $(grep -c 'readonly property color notchColor: resolvedFrameColor' "$notch_qml") ))" "2"
+
+check "notch text color is judged readable against the real notch surface, not theme foreground alone" \
+  "$(( $(grep -c 'function readableForegroundForSurface(surface, preferred)' "$notch_qml") + $(grep -c 'readonly property color textColor: readableForegroundForSurface(notchColor, themeForeground)' "$notch_qml") ))" "2"
 
 check "notch stores but does not render glass material yet" \
   "$(( $(grep -c 'property string notchSurfaceMaterial: "solid"' "$notch_qml") + $(grep -c 'root.notchSurfaceMaterial = normalizeSurfaceMaterial(material)' "$notch_qml") + $(grep -c 'coupled frame/notch glass' "$notch_qml") ))" "3"

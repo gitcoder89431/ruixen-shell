@@ -252,22 +252,34 @@ PanelWindow {
       // "the shadow to like appear like the frame is on top" -- the
       // peak needs to nearly fully override the wallpaper's own
       // brightness, then fade, not stay semi-transparent throughout.
+      // No longer excluded across the whole top strip when
+      // integratedTopDockSurface (used to clip every iteration below to
+      // y >= frameInset + barSize) -- direct live follow-up: "for the
+      // top frame, the dropshadow was dropped, can we put it there...
+      // its the frame edge facing the desktop", after confirming they
+      // meant THIS shadow (the one the sides/bottom already show where
+      // the frame's inner edge meets real desktop content), not
+      // dockChromeShadowCanvas above. That blanket exclusion covered
+      // more than it needed to: dockChromeFillCanvas's own OPAQUE fill
+      // (declared later, so painted on top of this whole canvas) already
+      // hides this shadow completely wherever the dock's own left/right
+      // pieces actually cover it -- an opaque layer on top always wins,
+      // same reasoning as dockChromeShadowCanvas's own fix above. The
+      // one place dockChromeFillCanvas does NOT cover is the real gap
+      // between those two pieces in notch (non-fullbar) style, where
+      // this canvas's own hole-punch already leaves genuine open desktop
+      // visible -- exactly "the frame edge facing the desktop" the
+      // sides/bottom already show a shadow against, just also reachable
+      // at the top now instead of being excluded outright.
       for (var i = 0; i < shadowReachPx; i++) {
         var t = 1 - (i / shadowReachPx)
         var alpha = 1.0 * t * t
         if (alpha < 0.004) continue
-        if (frameWindow.barRoot.integratedTopDockSurface) {
-          ctx.save()
-          ctx.beginPath()
-          ctx.rect(0, frameWindow.barRoot.frameInset + frameWindow.barRoot.barSize, width, height - frameWindow.barRoot.frameInset - frameWindow.barRoot.barSize)
-          ctx.clip()
-        }
         ctx.strokeStyle = Qt.rgba(0, 0, 0, alpha)
         roundedRectCorners(ctx, frameWindow.barRoot.frameInset + i, holeY + i,
           width - (frameWindow.barRoot.frameInset + i) * 2, height - holeY - frameWindow.barRoot.frameInset - i * 2,
           Math.max(0, topRadius - i), Math.max(0, frameCornerRadius - i))
         ctx.stroke()
-        if (frameWindow.barRoot.integratedTopDockSurface) ctx.restore()
       }
       ctx.restore()
       // Notch's own shadow used to live here too (a hand-rolled Canvas

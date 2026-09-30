@@ -309,9 +309,9 @@ shoulder curve per side instead of two. Not the default look, but worth
 trying:
 
 ```bash
-./ruixen-bar-mode.sh docked      # merged pills, flush with the frame
-./ruixen-bar-mode.sh floating    # back to the default separate pills
-./ruixen-bar-mode.sh status      # show which one is active
+./dev/ruixen-bar-mode.sh docked      # merged pills, flush with the frame
+./dev/ruixen-bar-mode.sh floating    # back to the default separate pills
+./dev/ruixen-bar-mode.sh status      # show which one is active
 ```
 
 No restart needed either way — it's a live config reload.
@@ -324,12 +324,12 @@ old sharp+docked experiment. It hides the notch overlay and lets the bar own the
 center space again.
 
 ```bash
-./ruixen-bar-style.sh notch      # current island/notch skin
-./ruixen-bar-style.sh fullbar    # full-width statusline skin, no notch
-./ruixen-bar-style.sh status     # show which one is active
+./dev/ruixen-bar-style.sh notch      # current island/notch skin
+./dev/ruixen-bar-style.sh fullbar    # full-width statusline skin, no notch
+./dev/ruixen-bar-style.sh status     # show which one is active
 ```
 
-This is independent from `./ruixen-bar-mode.sh docked|floating` and independent
+This is independent from `./dev/ruixen-bar-mode.sh docked|floating` and independent
 from Hyprland sharp/rounded window corners.
 
 ## Kanban board

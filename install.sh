@@ -1225,18 +1225,18 @@ Want Hyprland's default window look back instead? Run:
 Want to try the bar's docked mode (merged pills, flush with the frame)?
 Run:
 
-  $script_dir/ruixen-bar-mode.sh docked
+  $script_dir/dev/ruixen-bar-mode.sh docked
 
 Want the saved full-width statusline skin without the notch?
 Run:
 
-  $script_dir/ruixen-bar-style.sh fullbar
+  $script_dir/dev/ruixen-bar-style.sh fullbar
 
 Pulling new changes later? Run:
 
   $script_dir/update.sh
 
-ruixen-bar-mode.sh, ruixen-bar-style.sh, and update.sh only work from
+dev/ruixen-bar-mode.sh, dev/ruixen-bar-style.sh, and update.sh only work from
 this checkout -- keep it around after installing (don't delete the cloned
 folder), or note its path above. ruixen-lookfeel.sh itself is also run from here, but the
 actual Hyprland look it applies is copied to a stable path first, so

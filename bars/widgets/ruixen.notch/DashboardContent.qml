@@ -65,10 +65,19 @@ Item {
   readonly property color dashboardSurfaceRaised: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.08) : Qt.rgba(1, 1, 1, 0.08)
   // dashboardSurfaceStrong is now PaneFilled/calendarPane's own outer
   // panel color (see those, and the swap comment on dashboardBoardSurface
-  // below) -- its Black-mode "#000000" is a real outer panel background
-  // now, not a nested sub-panel, per direct request to swap which one
-  // is the darker of the two.
-  readonly property color dashboardSurfaceStrong: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.075) : "#000000"
+  // below), per direct request to swap which of the two is the darker.
+  // Its OLD Black-mode value here was a literal solid "#000000" --
+  // fine as a NESTED sub-panel sitting on top of an already-lighter
+  // outer pane, invisible now that it IS the outer pane sitting
+  // directly on the notch's own equally-black background (Black mode
+  // resolves the notch itself to literal "#000000" too -- direct
+  // report: "the panel section behind the calendar and notification is
+  // black so cant see that panel layer anymore"). A faint white tint
+  // instead -- same direction dashboardBoardSurface's own Black-mode
+  // value already tints, just a smaller alpha, so stacking the nested
+  // pills/cards (dashboardBoardSurface, 0.05) on top of this still
+  // lightens further like before, keeping this the darker of the two.
+  readonly property color dashboardSurfaceStrong: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.075) : Qt.rgba(1, 1, 1, 0.03)
   // Notification cards -- nested inside a PaneFilled panel that's now
   // solid black in Black mode (see dashboardSurfaceStrong above), so
   // this can no longer fall back to that same color without the cards
@@ -1837,7 +1846,13 @@ Item {
               antialiasing: true
               color: "transparent"
               visible: !root.themeSurfaceMode
-              border.color: root.dashboardSurfaceStrong
+              // Literal black again, not root.dashboardSurfaceStrong --
+              // that token now means "the outer panel's own faint
+              // lightening tint" (see its own comment), not "a crisp
+              // dark frame," since the panel/nested swap. This border's
+              // own job is unrelated to that: a solid dark edge around
+              // the notification card, same as it always was.
+              border.color: "#000000"
               border.width: 1.5
             }
           }

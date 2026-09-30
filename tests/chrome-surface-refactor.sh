@@ -51,11 +51,11 @@ check "FrameWindow dock chrome is painted as one continuous canvas path, not sta
 check "FrameWindow dock chrome path owns overlap" \
   "$(( $(grep -c 'readonly property int overlap: frameWindow.barRoot.seamOverlap' "$frame_qml") + $(grep -c -- '-dockChrome.overlap' "$frame_qml") ))" "3"
 
-check "dock chrome shadow is enabled but clipped out of the frame's own border strip on every screen-edge side when docked at the top" \
-  "$(( $(grep -A5 'id: dockChromeShadowCanvas' "$frame_qml" | grep -c 'visible: true') + $(grep -c 'anchors.leftMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40' "$frame_qml") + $(grep -c 'anchors.rightMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40' "$frame_qml") + $(grep -c 'anchors.topMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40' "$frame_qml") + $(grep -c 'anchors.bottomMargin: -40' "$frame_qml") ))" "5"
+check "dock chrome shadow is enabled but clipped past its own blur reach on every screen-edge side when docked at the top" \
+  "$(( $(grep -A5 'id: dockChromeShadowCanvas' "$frame_qml" | grep -c 'visible: true') + $(grep -c 'readonly property int clipDepth: 32' "$frame_qml") + $(grep -c 'anchors.leftMargin: frameWindow.barRoot.integratedTopDockSurface ? dockChromeShadowCanvas.clipDepth : -40' "$frame_qml") + $(grep -c 'anchors.rightMargin: frameWindow.barRoot.integratedTopDockSurface ? dockChromeShadowCanvas.clipDepth : -40' "$frame_qml") + $(grep -c 'anchors.topMargin: frameWindow.barRoot.integratedTopDockSurface ? dockChromeShadowCanvas.clipDepth : -40' "$frame_qml") + $(grep -c 'anchors.bottomMargin: -40' "$frame_qml") ))" "6"
 
 check "dock chrome shadow's own paint translate matches its clipped left/top margins" \
-  "$(grep -A3 'frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40,' "$frame_qml" | grep -c 'frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40$')" "1"
+  "$(grep -A3 'frameWindow.barRoot.integratedTopDockSurface ? -dockChromeShadowCanvas.clipDepth : 40,' "$frame_qml" | grep -c 'frameWindow.barRoot.integratedTopDockSurface ? -dockChromeShadowCanvas.clipDepth : 40$')" "1"
 
 check "old BarPanel dock chrome layers are disabled while frame owns the skin" \
   "$(( $(grep -A3 'id: leftShoulderShadowClip' "$barpanel_qml" | grep -c 'visible: !barWindow.barRoot.frameOwnsDockChrome') + $(grep -A3 'id: rightShoulderShadowClip' "$barpanel_qml" | grep -c 'visible: !barWindow.barRoot.frameOwnsDockChrome') + $(grep -A3 'id: dockedShoulderShadow' "$barpanel_qml" | grep -c 'visible: !barWindow.barRoot.frameOwnsDockChrome') ))" "3"

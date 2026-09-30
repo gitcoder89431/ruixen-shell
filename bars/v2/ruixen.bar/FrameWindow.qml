@@ -399,16 +399,16 @@ PanelWindow {
       // right next to its own source regardless of how much room it
       // has to fade into.
       //
-      // Real fix: shrink the canvas's own top edge down PAST the
-      // border entirely, to frameInset (6px) instead of 0 -- the exact
-      // depth of the frame's own clean border strip (frameCanvas's own
-      // holeY above). Below that line, dockChromeFillCanvas's own
-      // OPAQUE frameColor fill (declared after this canvas, so it
-      // paints on top) already fully covers this shadow regardless of
-      // how dark it is -- an opaque layer on top always wins. Above
-      // that line is exactly, and only, the strip that ISN'T covered by
-      // anything opaque, so that's the one region this shadow actually
-      // needs to stay out of.
+      // Shrink the canvas's own top edge down PAST the border, to
+      // frameInset (6px) instead of 0 -- the exact depth of the frame's
+      // own clean border strip (frameCanvas's own holeY above). Below
+      // that line, dockChromeFillCanvas's own OPAQUE frameColor fill
+      // (declared after this canvas, so it paints on top) already
+      // fully covers this shadow regardless of how dark it is -- an
+      // opaque layer on top always wins. Above that line is exactly,
+      // and only, the strip that ISN'T covered by anything opaque, so
+      // that's the one region this shadow actually needs to stay out
+      // of.
       //
       // Direct live follow-up right after: "on the top and straight
       // side of the dock edge, it seems like its bleeding some shadow
@@ -418,29 +418,41 @@ PanelWindow {
       // (BarPanel's own dock-fill rectangles this frame surface
       // mirrors) both run flush to the true screen edge (x: 0 on the
       // left, parent.width on the right -- see their own comments),
-      // same as the top ran flush to y: 0, so the same -40 margin had
-      // nowhere real to spread into on those two sides either. Same
-      // fix, same frameInset depth, same condition -- dockChrome's own
-      // parent Item (above) is already gated to exactly
-      // integratedTopDockSurface's own condition (docked && position
-      // === "top"), so every side of this canvas only ever needs to
-      // choose between "open wallpaper, keep the -40 room" and "a real
-      // screen edge, clip to frameInset" under that one state anyway.
-      // Bottom is untouched -- the dock's own bottom edge is never
-      // flush against any screen edge, it always has real open
-      // wallpaper below it to shadow onto.
-      anchors.leftMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40
-      anchors.rightMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40
+      // same as the top ran flush to y: 0.
+      //
+      // A second live follow-up after THAT, once frameInset (6px) was
+      // confirmed still visibly bleeding: "check the outer edge again
+      // for the dock, there seems to still be an effect here". Real
+      // cause -- the blur's own reach (blurMax: 32 below) is nowhere
+      // near fully faded out just 6px from its own source; frameInset
+      // only pushes the visible window slightly further from the
+      // peak, it doesn't give the blur anywhere near enough travel
+      // distance to actually reach zero by the time it's visible.
+      // clipDepth below matches the blur's own full reach instead of
+      // the frame border's own unrelated thickness, so nothing visible
+      // is left close enough to the shape's real edge to still read as
+      // a gradient -- confirmed live (see this canvas's own values
+      // below). dockChrome's own parent Item (above) is already gated
+      // to exactly integratedTopDockSurface's own condition (docked &&
+      // position === "top"), so every side of this canvas only ever
+      // needs to choose between "open wallpaper, keep the -40 room"
+      // and "a real screen edge, clip past the blur's own reach"
+      // under that one state anyway. Bottom is untouched -- the dock's
+      // own bottom edge is never flush against any screen edge, it
+      // always has real open wallpaper below it to shadow onto.
+      readonly property int clipDepth: 32
+      anchors.leftMargin: frameWindow.barRoot.integratedTopDockSurface ? dockChromeShadowCanvas.clipDepth : -40
+      anchors.rightMargin: frameWindow.barRoot.integratedTopDockSurface ? dockChromeShadowCanvas.clipDepth : -40
       anchors.bottomMargin: -40
-      anchors.topMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40
+      anchors.topMargin: frameWindow.barRoot.integratedTopDockSurface ? dockChromeShadowCanvas.clipDepth : -40
       antialiasing: true
       onPaint: {
         var ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
         ctx.save()
         ctx.translate(
-          frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40,
-          frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40
+          frameWindow.barRoot.integratedTopDockSurface ? -dockChromeShadowCanvas.clipDepth : 40,
+          frameWindow.barRoot.integratedTopDockSurface ? -dockChromeShadowCanvas.clipDepth : 40
         )
         dockChrome.dockPath(ctx, frameWindow.barRoot.surfaceShadow)
         ctx.restore()

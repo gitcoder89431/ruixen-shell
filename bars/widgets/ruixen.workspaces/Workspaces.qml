@@ -125,30 +125,41 @@ BarWidget {
           // represent real content, should read clearly); only
           // genuinely empty ones use muted.
           //
-          // root.bar.foreground, NOT the raw Color.foreground -- this
-          // dot sits on the bar's own permanently-black GroupPill, not
-          // the theme's own background, same mirror-image mismatch as
-          // ruixen.weather's dropdown (bar.foreground's pill-safe
-          // fallback vs. the theme's own token, just backwards: that
-          // bug was pill-safe-on-theme-surface, this one was raw-theme-
-          // on-pill-surface). Direct report on the White theme (raw
-          // foreground is near-black there): "the open but inactive
-          // workspace is also showing black dot on the workspace
-          // slider... it should be white here."
+          // root.bar.barForeground, NOT root.bar.foreground and NOT
+          // Color.muted -- this dot sits on the bar's own pill surface,
+          // which is no longer "permanently black" (ruixen-shell#89's
+          // surface-mode work made Black vs Theme, Solid vs Glass all
+          // real, independently-chosen states) -- a theme-level token
+          // like Color.foreground/Color.muted, or the facade's own
+          // popup-text foreground (bar.foreground -- see
+          // PluginBarFacade.qml, it's Color.popups.text, meant for an
+          // actual popup surface, not this pill), can land on either
+          // side of that surface's own light/dark-ness by coincidence,
+          // exactly like this dot did on the White theme's solid bar
+          // ("the active and inactive workspace not in focus is like
+          // white and grey so they cant really be seen ... white on
+          // white theme solid"). barForeground (Bar.qml's own
+          // pillForeground, already used for every other bar icon/text)
+          // is resolved against the bar's REAL surface color via
+          // readableForegroundForSurface, so it's correct regardless of
+          // which mode/material combination is actually active.
+          // Empty dots dim it via alpha instead of Color.muted, for the
+          // same reason -- a muted version of the surface-correct
+          // color, not a separate theme token that was never resolved
+          // against this surface at all.
           //
-          // Focused pill white ONLY on the White theme, not a blanket
-          // override -- first pass hardcoded "#ffffff" unconditionally,
-          // which broke every other theme's own accent ("i switch
-          // backed to aura and the workspace slider is stuck on white
-          // now... it should still be accent color from theme except
-          // for that white theme"). Color.accent reads as a muted grey
-          // on White specifically (#6e6e6e); everywhere else, accent is
-          // each theme's own deliberate "pop" color and should stay
-          // exactly that.
+          // Focused pill still gets its own White-theme-specific
+          // override rather than accent everywhere -- Color.accent
+          // reads as a muted grey on White specifically (#6e6e6e);
+          // everywhere else, accent is each theme's own deliberate
+          // "pop" color and should stay exactly that. The override
+          // itself is barForeground now instead of a hardcoded
+          // "#ffffff", so it's readable against the pill regardless of
+          // surface mode/material, not just assumed-black.
           color: indicator.focused
-            ? (root.themeSlug === "white" ? "#ffffff" : Color.accent)
-            : (indicator.occupied ? root.bar.foreground : Color.muted)
-          opacity: indicator.focused ? 1 : (indicator.occupied ? 0.85 : 0.7)
+            ? (root.themeSlug === "white" ? root.bar.barForeground : Color.accent)
+            : (indicator.occupied ? root.bar.barForeground : Qt.rgba(root.bar.barForeground.r, root.bar.barForeground.g, root.bar.barForeground.b, 0.5))
+          opacity: indicator.focused ? 1 : (indicator.occupied ? 0.85 : 1)
           Behavior on color { ColorAnimation { duration: 180 } }
           Behavior on opacity { NumberAnimation { duration: 180 } }
         }

@@ -210,29 +210,35 @@ PanelWindow {
           : frameWindow.barRoot.lookFeelVariant === "half" ? 12
           : 24)
         : 24
-      // Direct live follow-up, top corners only, bottom confirmed
-      // clean: "theres still some specs of dots left on the top right
-      // and left corner". Root cause isn't this canvas's own
-      // antialiasing (already fixed) -- it's that BarPanel's own
-      // docked wing pieces (leftShoulderWing/leftFrameHemWing and
-      // their right-side mirrors, a SEPARATE window layered on top)
-      // already fully cover this exact corner when docked, and only
-      // rightShoulderWing ever got the small sibling-overlap insurance
-      // this repo already uses elsewhere for exactly this class of
-      // gap (#36-era fix) -- leftShoulderWing/both hem-wings never
-      // did. That pre-existing sub-pixel seam was harmless before
-      // (flat frame color peeking through matched the wing's own flat
-      // black almost exactly) but this shadow's own gradient now gives
-      // it something to visibly leak as a fleck. Rather than touch
-      // BarPanel's own wing geometry (a different, more fragile fix,
-      // deliberately deferred earlier this same session pending an
-      // actual report), squaring off just THIS canvas's own top
-      // corners when docked removes the shadow from the only place it
-      // could ever leak into that seam -- the open middle of the top
-      // edge (unclaimed by any wing) keeps its shadow exactly as
-      // before, and bottom corners (nothing overlapping them ever)
-      // are untouched.
-      const topRadius = (frameWindow.barRoot.docked && frameWindow.barRoot.position === "top") ? 0 : frameCornerRadius
+      // WAS forced to 0 for docked+top specifically -- a direct live
+      // follow-up from BEFORE "Integrate dock chrome into frame
+      // surface": "theres still some specs of dots left on the top
+      // right and left corner", root-caused at the time to BarPanel's
+      // own docked wing pieces (leftShoulderWing/leftFrameHemWing and
+      // their right-side mirrors) being "a SEPARATE window layered on
+      // top" of this one, with a sub-pixel seam between the two that a
+      // flat frame color hid but this shadow's own gradient could leak
+      // through as a fleck.
+      //
+      // That's stale now: frameOwnsDockChrome made the wing pieces
+      // (dockChrome.dockPath's own wingPath calls, in
+      // dockChromeFillCanvas just below) live in THIS SAME window/
+      // canvas system, not a separate one -- there's no cross-window
+      // seam left for a rounded shadow to leak through anymore. Direct
+      // live follow-up confirmed why keeping it squared was actually
+      // wrong now, not just unnecessary: "theres just this one white
+      // area around the curve... its the side corner where frame
+      // touches dock" -- the wing's own opaque fill IS rounded
+      // (shoulderWingSize: 24, exactly frameCornerRadius's own docked
+      // value), so a squared shadow traces a completely different path
+      // than the shape it's supposed to be shading, leaving the actual
+      // rounded curve with no depth at all while the shadow instead
+      // shades a square corner that has nothing visible there to shade.
+      // Un-squaring lets this shadow's own curve match the wing's real
+      // silhouette exactly, same reasoning as every other "port the
+      // exact geometry, don't hand-derive a second copy of it" fix in
+      // this codebase.
+      const topRadius = frameCornerRadius
       ctx.save()
       const holeY = frameWindow.barRoot.frameInset
       roundedRectCorners(ctx, frameWindow.barRoot.frameInset, holeY,

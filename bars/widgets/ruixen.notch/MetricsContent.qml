@@ -905,7 +905,18 @@ Item {
         property real barValue: 0
 
         radius: 10
-        color: root.surfaceTint(0.05)
+        // Bumped 0.05 -> 0.075 per direct request ("too light a surface
+        // for the sections") -- matches DashboardContent's own
+        // dashboardSurfaceStrong, the same darker value the calendar/
+        // notification/Kanban section panels use, for a consistent
+        // section-panel weight across every dashboard tab. Same bump
+        // applied to every other section panel below (CPU/GPU dial
+        // tiles, memory dial, network, disks) -- none of them nest
+        // inside another translucent panel the way calendar/
+        // notification/Kanban's own nested pills and cards do, so this
+        // is a plain single-layer darken, no white-tint-direction
+        // concern to work around here.
+        color: root.surfaceTint(0.075)
 
         ColumnLayout {
           anchors.fill: parent
@@ -1018,7 +1029,7 @@ Item {
         property real tempMaxC: 105
 
         radius: 10
-        color: root.surfaceTint(0.05)
+        color: root.surfaceTint(0.075)
 
         property color ringAccent: root.accent
         onRingAccentChanged: dialCanvas.requestPaint()
@@ -1287,7 +1298,7 @@ Item {
         property string amountText: ""
 
         radius: 10
-        color: root.surfaceTint(0.05)
+        color: root.surfaceTint(0.075)
 
         property color ringAccent: root.accent
         onRingAccentChanged: dialCanvas.requestPaint()
@@ -1467,7 +1478,7 @@ Item {
           Layout.fillWidth: true
           Layout.fillHeight: true
           radius: 10
-          color: root.surfaceTint(0.05)
+          color: root.surfaceTint(0.075)
 
           ColumnLayout {
             anchors.fill: parent
@@ -1694,7 +1705,7 @@ Item {
         Layout.fillWidth: true
         Layout.preferredHeight: Math.min(Math.max(40, disksColumn.implicitHeight + 20), 100)
         radius: 10
-        color: root.surfaceTint(0.05)
+        color: root.surfaceTint(0.075)
 
         Flickable {
           anchors.fill: parent

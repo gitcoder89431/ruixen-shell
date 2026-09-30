@@ -936,7 +936,14 @@ Item {
             // real's own (the video's real filename for a video
             // entry, not its poster's hashed cache name).
             text: tile.active ? "CURRENT" : tile.modelData.real.substring(tile.modelData.real.lastIndexOf("/") + 1)
-            color: tile.active ? root.accent : root.textColor
+            // Plain white, not root.textColor -- this overlay's own
+            // background is a fixed near-opaque black regardless of
+            // theme (Qt.rgba(0,0,0,0.82) above), so a light theme's own
+            // dark textColor rendered unreadable on it. Fixed white is
+            // correct here specifically because the overlay itself is
+            // theme-independent too, unlike the dashboard surfaces
+            // fixed elsewhere this session.
+            color: tile.active ? root.accent : "#ffffff"
             font.family: root.fontFamily
             font.pixelSize: 10
           }
@@ -1283,7 +1290,11 @@ Item {
           elide: Text.ElideRight
           textFormat: Text.PlainText
           text: themeTile.active ? "CURRENT" : themeTile.modelData.display
-          color: themeTile.active ? root.accent : root.textColor
+          // Plain white, same reasoning as the wallpaper tile's own
+          // label above -- this overlay is a fixed near-opaque black
+          // regardless of theme, so root.textColor went unreadable on
+          // it on a light theme.
+          color: themeTile.active ? root.accent : "#ffffff"
           font.family: root.fontFamily
           font.pixelSize: 10
         }

@@ -905,7 +905,12 @@ Item {
             // real's own (the video's real filename for a video
             // entry, not its poster's hashed cache name).
             text: tile.isSpacer ? "" : (tile.active ? "CURRENT" : tile.entry.real.substring(tile.entry.real.lastIndexOf("/") + 1))
-            color: tile.active ? root.accent : root.textColor
+            // Plain white, not root.textColor -- this overlay's own
+            // background is a fixed near-opaque black regardless of
+            // theme (Qt.rgba(0,0,0,0.82) above), so a light theme's own
+            // dark textColor rendered unreadable on it. Same fix as
+            // ruixen.notch's own copy of this picker.
+            color: tile.active ? root.accent : "#ffffff"
             font.family: root.fontFamily
             font.pixelSize: 10
           }

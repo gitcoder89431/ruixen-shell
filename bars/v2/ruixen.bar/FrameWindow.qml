@@ -364,15 +364,51 @@ PanelWindow {
 
     Canvas {
       id: dockChromeShadowCanvas
-      visible: false
+      visible: true
       anchors.fill: parent
-      anchors.margins: -40
+      // Was visible: false outright -- ruixen-shell#89's own follow-up,
+      // direct request: "i so wish we can add dropshadow to the dock
+      // mode so it continues from the frame". tests/chrome-surface-
+      // refactor.sh's own name for the old pinned state said why it was
+      // off: "disables frame-touching dock shadow". Confirmed live
+      // exactly what that meant before touching anything further: with
+      // symmetric -40 margins on every side (room for the blur to
+      // spread outward), the TOP side has nowhere real to spread into
+      // when docked at the top -- the dock's own top edge already sits
+      // right at the literal screen edge, so that "outward" blur
+      // immediately hits the window's own bounds and gets truncated,
+      // collapsing into a dark smudge sitting right on top of the
+      // frame's own clean 6px border strip (frameInset) instead of
+      // fading into open wallpaper the way the bottom/side shadows do.
+      // A first pass just zeroed the top margin (no canvas room above
+      // the dock's own real edge) -- measurably softer live, but still
+      // visibly darkened that same 6px strip, since the shadow's own
+      // silhouette edge sits at that same real y=0 and blur is darkest
+      // right next to its own source regardless of how much room it
+      // has to fade into.
+      //
+      // Real fix: shrink the canvas's own top edge down PAST the
+      // border entirely, to frameInset (6px) instead of 0 -- the exact
+      // depth of the frame's own clean border strip (frameCanvas's own
+      // holeY above). Below that line, dockChromeFillCanvas's own
+      // OPAQUE frameColor fill (declared after this canvas, so it
+      // paints on top) already fully covers this shadow regardless of
+      // how dark it is -- an opaque layer on top always wins. Above
+      // that line is exactly, and only, the strip that ISN'T covered by
+      // anything opaque, so that's the one region this shadow actually
+      // needs to stay out of. Left/right/bottom keep their full -40
+      // room, where the dock genuinely does have open wallpaper to
+      // shadow onto, uncovered by any opaque fill.
+      anchors.leftMargin: -40
+      anchors.rightMargin: -40
+      anchors.bottomMargin: -40
+      anchors.topMargin: frameWindow.barRoot.integratedTopDockSurface ? frameWindow.barRoot.frameInset : -40
       antialiasing: true
       onPaint: {
         var ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
         ctx.save()
-        ctx.translate(40, 40)
+        ctx.translate(40, frameWindow.barRoot.integratedTopDockSurface ? -frameWindow.barRoot.frameInset : 40)
         dockChrome.dockPath(ctx, frameWindow.barRoot.surfaceShadow)
         ctx.restore()
       }

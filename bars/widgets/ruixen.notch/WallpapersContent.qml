@@ -9,12 +9,10 @@ import Quickshell.Widgets
 // extension, same "plugin folders can't share a file" reason
 // AppLibrary.qml is copied per-plugin too) -- keep both in sync by
 // hand if kindFilter/searchText/discovery/poster generation change
-// here. Not byte-for-byte anymore: that copy drops this file's own
-// right sidebar (direct report once it shipped in the launcher's wider
-// card -- its filter chips are redundant with a proper dropdown there,
-// see that copy's own removal comment), since this dashboard's own
-// tab genuinely has "space left... like a right panel" (this
-// sidebar's own original request) that the launcher's card doesn't.
+// here. Not byte-for-byte anymore: this file also owns the notch-only
+// theme switcher and the responsive expanded-notch grid layout, while
+// the launcher card stays a pure wallpaper picker with its own wider
+// card/dropdown treatment.
 //
 // This file is now ALSO the notch's own Theme switcher (a WALLPAPER/
 // THEME sliding tab sharing one row with the search box, tab pill on
@@ -181,8 +179,7 @@ Item {
   // One chip row, two different filters depending on mediaMode --
   // direct follow-up ("the theme is omarchy and custom but for
   // wallpapers we have type"). Wallpaper mode's own chips replace the
-  // kind-filter stat tiles that used to live in the sidebar (see its
-  // own comment further down) rather than duplicating them in a second
+  // old kind-filter stat tiles instead of duplicating them in a second
   // place.
   readonly property var activeFilterChips: root.mediaMode === "themes"
     ? [{ value: "all", label: "All" }, { value: "omarchy", label: "Omarchy" }, { value: "custom", label: "Custom" }]
@@ -529,13 +526,9 @@ Item {
     themeSetProc.running = true
   }
 
-  // Outer ColumnLayout -- direct follow-up ("put the right panel
-  // below the search bar so keep search like before full"): the
-  // search bar moved back out to span the FULL panel width again (it
-  // had shrunk to just the grid column's own width once the sidebar
-  // sat beside it at the same row), with a RowLayout now nested below
-  // it instead of wrapping the whole page -- grid on the left,
-  // sidebar on the right, only for the content BELOW the search bar.
+  // Outer ColumnLayout -- the search bar spans the full panel width,
+  // while the wallpaper/theme content below can switch between its own
+  // full-row grids without affecting that top chrome.
   ColumnLayout {
     anchors.fill: parent
     spacing: 10
@@ -745,9 +738,7 @@ Item {
     // sourceFilter (Omarchy/Custom, see list-themes.sh's own
     // USER_THEMES_PATH/OMARCHY_THEMES_PATH precedence), Wallpaper mode
     // now drives kindFilter (All/Images/Video/Gif) instead, replacing
-    // the kind-filter stat tiles that used to live in the sidebar
-    // further down (still there, now just the back-to-top button --
-    // see its own comment). activeFilterChips/activeFilterValue/
+    // the old kind-filter stat tiles. activeFilterChips/activeFilterValue/
     // setActiveFilter below are the one indirection that lets a single
     // Repeater+delegate serve both without duplicating the chip markup
     // a second time for a near-identical row.
@@ -849,29 +840,18 @@ Item {
       }
     }
 
-    // Grid (left) + filter sidebar (right) -- direct request ("on the
-    // right side of the panel, theres some space left like a right
-    // panel, can we use these to toggle between IMAGE and VIDEO and
-    // then GIF too"), then moved below the search bar per this same
-    // follow-up. The grid's own 170px cells never evenly divide this
-    // panel's real content width (790px -> 4 full columns, 680px
-    // used, ~110px dead on the right no matter how many wallpapers
-    // exist) -- that's the "space left" the sidebar fills instead of
-    // leaving it empty.
+    // Wallpaper grid -- fills the same full row as the theme grid now
+    // that the old right sidebar/stat-card layout has been folded into
+    // the shared chip row above.
     RowLayout {
-      // Wallpaper mode only -- in theme mode the whole grid+sidebar
-      // block below the search bar steps aside for themeGrid ( layouts
+      // Wallpaper mode only -- in theme mode this whole wallpaper
+      // block below the search bar steps aside for themeGrid (layouts
       // skip invisible children, so it yields its height to the theme
       // grid with no extra geometry work).
       visible: root.mediaMode === "wallpapers"
-      // Layout.maximumWidth freed for the same reason as the sidebar's
-      // own comment below -- a nested RowLayout/ColumnLayout's
-      // maximumWidth defaults to its own implicitWidth (here, the
-      // wrapper's fixed 680 + the sidebar's natural content width +
-      // spacing), not unbounded, so without this the RowLayout itself
-      // never actually reached the outer ColumnLayout's real 790px and
-      // the sidebar had no genuine leftover space to grow into no
-      // matter what its own fillWidth/maximumWidth said.
+      // maximumWidth freed because nested RowLayout/ColumnLayout items
+      // can otherwise cap themselves at implicitWidth and fail to reach
+      // the outer ColumnLayout's real width.
       Layout.fillWidth: true
       Layout.maximumWidth: Number.POSITIVE_INFINITY
       Layout.fillHeight: true
@@ -1113,9 +1093,8 @@ Item {
   }
 
   // ---- Theme mode content ---- sits as a sibling of the wallpaper
-  // block above (each side visible only in its own mediaMode), so the
-  // wallpaper side's carefully-tuned fixed widths and sidebar layout
-  // are never disturbed by the theme side's presence.
+  // block above (each side visible only in its own mediaMode), so both
+  // grids can own their row sizing independently.
   Item {
     id: themeGridWrap
     Layout.fillWidth: true

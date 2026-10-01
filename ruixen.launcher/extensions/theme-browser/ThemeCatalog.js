@@ -110,12 +110,16 @@ function installedSlugFor(theme, variant) {
 //
 // icon/iconColor -- direct follow-up ("lets make the icons useful, so
 // it is surface if not installed, but if the theme is installed so can
-// it be theme green"): a solid dot, muted when the variant currently
+// it be theme green"). Same fa-paint-brush glyph the landing list's own
+// Themes extension row uses (Launcher.qml's themeBrowserRow -- U+F1FC;
+// fa-palette, U+F53F, tried first, rendered as a broken/missing glyph
+// live, confirmed not just assumed before settling on this one), so
+// the two read as the same feature. Muted when the variant currently
 // being previewed (installedSlugs/variant) isn't installed under
 // ~/.config/omarchy/themes, or tinted with THIS theme's own real green
 // (from its own colors, already in memory -- no extra fetch) once it
-// is. Same dot glyph either way -- installed/not-installed is a color
-// difference, not a shape one, same as this project's own existing
+// is -- installed/not-installed is a color difference on the same
+// glyph, not a shape one, same as this project's own existing
 // semantic-good/bad status-color conventions elsewhere (see
 // ruixen.power/ruixen.peripherals's own battery coloring) -- just
 // without a `bar` facade available in here to read that convention's
@@ -134,7 +138,7 @@ function themeRows(themes, installedSlugs, variant, mutedColor) {
     rows.push({
       id: "theme:" + theme.slug,
       providerId: "theme-browser-entry",
-      icon: "●",
+      icon: "",
       iconColor: installed ? themeGreen : mutedColor,
       label: theme.name,
       breadcrumb: motifLabel(theme.motif),

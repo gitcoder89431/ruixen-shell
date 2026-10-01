@@ -74,7 +74,7 @@ check("themeRows: shape matches every other ResultsList model in this plugin, la
   [{
     id: "theme:neon-wave",
     providerId: "theme-browser-entry",
-    icon: "●",
+    icon: "",
     iconColor: "#888888",
     label: "Neon Wave",
     breadcrumb: "",

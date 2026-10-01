@@ -788,16 +788,20 @@ Item {
     }
   }
 
-  // Same shape/dispatch again -- fa-palette, no existing precedent
-  // elsewhere in this plugin to match, picked fresh for "browse/
-  // install a theme" specifically (distinct from the gear Settings
-  // uses below for its own Window Curvature/corner controls, a
-  // different concept -- picking a theme, not tuning one).
+  // Same shape/dispatch again -- fa-paint-brush (U+F1FC), no existing
+  // precedent elsewhere in this plugin to match, picked fresh for
+  // "browse/install a theme" specifically (distinct from the gear
+  // Settings uses below for its own Window Curvature/corner controls,
+  // a different concept -- picking a theme, not tuning one). fa-palette
+  // (U+F53F) was the first real choice, confirmed live as a broken/
+  // missing glyph in this font rather than just assumed -- this is the
+  // same icon ThemeBrowserContent.qml's own per-theme installed-status
+  // indicator uses too, so the two read as the same feature.
   function themeBrowserRow() {
     return {
       id: "extension:theme-browser",
       providerId: "theme-browser-extension",
-      icon: "",
+      icon: "",
       label: "Themes",
       breadcrumb: "Ruixen",
       kind: "Extension",

@@ -5,70 +5,80 @@
 // without a running QML engine -- same convention as every other *.js
 // file in this plugin (FileSearchRanking.js, LauncherHelpers.js, ...).
 //
-// Both repos' colors.toml is already Omarchy's own native theme schema
-// byte-for-byte (confirmed directly by reading it, not guessed) -- no
-// translation step, parseColorsToml below just reads the same flat
-// key = "value" lines every theme in both repos uses, verified
-// identical across all 100 before writing this (one md5 of each
-// theme's own sorted key list, all 100 the same hash).
+// Each repo publishes its own assets/themes.js: a single static
+// `window.THEMES = [...]` array covering every theme's real display
+// name, slug, motif, icons, full colors (already Omarchy's own native
+// theme schema, confirmed directly, no TOML parsing needed), and ansi
+// set, in one file -- confirmed directly by reading it, and this
+// repo's own gallery page (index.html) reads it the exact same way.
+// Fetching this ONE file per variant replaces what would otherwise be
+// a GitHub API catalog call plus a separate colors.toml fetch per
+// theme: every theme's name/motif/colors is already in memory the
+// moment this loads, no per-theme network round trip needed for any
+// of it (only the actual preview.png/background images still need
+// their own per-theme fetch).
 
-// Non-theme folders at the root of bjarneo/100-themes (confirmed
-// directly: every real theme folder has a colors.toml, these two
-// don't) -- excluded so neither ever shows up as a fake "theme" in the
-// catalog.
-var NON_THEME_DIRS = ["assets", "tools"]
+// Real, human motif labels -- not a mechanical title-case of the slug
+// itself, several genuinely differ (confirmed directly against the
+// repo's own gallery page's MOTIFS dict in index.html): "blobs" reads
+// as "Light Spots", "depths" as "Deep Water", "pixels" as "Pixel Art",
+// "scanlines" as "VHS", "tubes" as "Neon Tubes". All 15 values that
+// actually appear across the full 100-theme catalog are covered here
+// (confirmed directly, not assumed complete).
+var MOTIF_LABELS = {
+  "sunset-grid": "Sunset Grid",
+  "code-rain": "Code Rain",
+  "nebula": "Nebula",
+  "aurora": "Aurora",
+  "skyline": "Skyline",
+  "equalizer": "Equalizer",
+  "waveform": "Waveform",
+  "blobs": "Light Spots",
+  "depths": "Deep Water",
+  "embers": "Embers",
+  "pixels": "Pixel Art",
+  "scanlines": "VHS",
+  "contours": "Contours",
+  "tubes": "Neon Tubes",
+  "planet": "Planet"
+}
 
-// GitHub's Contents API response for a repo's root -- an array of
-// {name, type, ...}. Scoped to type === "dir" (a real theme is a
-// folder), minus the two non-theme folders above. Malformed/empty
-// input (a network failure's own error body, say) fails closed to an
-// empty list rather than throwing -- the caller's own "could not load
-// the catalog" state is what should show, not a crash.
-function parseContentsListing(jsonText) {
-  var entries
+// Falls back to the raw motif slug itself for anything not in the
+// table above (fails open to something visible rather than a blank
+// field, in case upstream ever adds a new motif this hasn't been
+// updated for yet).
+function motifLabel(motif) {
+  return MOTIF_LABELS[motif] || String(motif || "")
+}
+
+// Pulls the `window.THEMES = [...]` array literal out of a fetched
+// assets/themes.js file's raw text and parses it as JSON -- the file
+// is pure, safe-to-JSON-parse data (a plain array/object literal, no
+// function calls or other real JS executed), confirmed by reading it
+// directly rather than assumed. Malformed/empty input (a network
+// failure's own error body, say) fails closed to an empty list rather
+// than throwing.
+function parseThemesJs(text) {
+  var m = /window\.THEMES\s*=\s*(\[[\s\S]*\]);?/.exec(String(text || ""))
+  if (!m) return []
+  var data
   try {
-    entries = JSON.parse(jsonText)
+    data = JSON.parse(m[1])
   } catch (e) {
     return []
   }
-  if (!Array.isArray(entries)) return []
-  var names = []
-  for (var i = 0; i < entries.length; i++) {
-    var e = entries[i]
-    if (!e || e.type !== "dir" || !e.name) continue
-    if (NON_THEME_DIRS.indexOf(e.name) !== -1) continue
-    names.push(e.name)
-  }
-  names.sort()
-  return names
+  return Array.isArray(data) ? data : []
 }
 
-// Every key colors.toml actually has is a plain top-level
-// `key = "value"` or `key = value` line (hyprland_active_border/
-// hyprland_inactive_border are quoted strings too, same as every
-// color) -- no nested tables, no arrays, confirmed directly against
-// all 100 themes before writing this, so a real TOML parser would be
-// pure overhead. Lines that don't match (blank lines, this format
-// never has comments) are silently skipped.
-function parseColorsToml(text) {
-  var result = {}
-  var lines = String(text || "").split("\n")
-  for (var i = 0; i < lines.length; i++) {
-    var m = /^([a-z_]+)\s*=\s*"([^"]*)"/.exec(lines[i])
-    if (m) result[m[1]] = m[2]
-  }
-  return result
-}
-
-// Case-insensitive substring match against the base (dark) theme name
-// only -- "-day" is a presentation detail (the variant toggle in the
-// detail panel), never something to type separately in the search box.
-function filterThemeNames(names, query) {
+// Case-insensitive substring match against the real display name
+// (e.g. "Neon Wave", not the folder slug "neon-wave") -- operates on
+// the full theme objects parseThemesJs returns, not bare strings.
+function filterThemes(themes, query) {
   var q = String(query || "").trim().toLowerCase()
-  if (q === "") return names
+  if (q === "") return themes
   var out = []
-  for (var i = 0; i < names.length; i++) {
-    if (names[i].toLowerCase().indexOf(q) !== -1) out.push(names[i])
+  for (var i = 0; i < themes.length; i++) {
+    if (String(themes[i].name || "").toLowerCase().indexOf(q) !== -1) out.push(themes[i])
   }
   return out
 }
@@ -78,15 +88,17 @@ function filterThemeNames(names, query) {
 // breadcrumb/kind/providerName/score/sectionLabel) -- same convention
 // SettingsContent.qml's own sectionRows already documents: ResultRow
 // itself never needs to know these came from the theme browser rather
-// than a real search provider.
-function themeRows(names) {
+// than a real search provider. label is the real display name; id
+// keys off the real slug (stable, unique) rather than the display name
+// (two themes could theoretically share a label, slugs never do).
+function themeRows(themes) {
   var rows = []
-  for (var i = 0; i < names.length; i++) {
+  for (var i = 0; i < themes.length; i++) {
     rows.push({
-      id: "theme:" + names[i],
+      id: "theme:" + themes[i].slug,
       providerId: "theme-browser-entry",
       icon: "",
-      label: names[i],
+      label: themes[i].name,
       breadcrumb: "",
       kind: "",
       providerName: "",
@@ -97,24 +109,22 @@ function themeRows(names) {
   return rows
 }
 
-// The real per-variant slug/URL path segment -- "day" maps a dark base
-// name to its light companion repo's own folder name ("synthwave" ->
-// "synthwave-day"); "dark" is already the real folder name as-is.
-function themeSlugFor(name, variant) {
-  return variant === "light" ? name + "-day" : name
-}
-
 // gh-pages static file URLs -- no git, no API rate limit, the same
 // access path the upstream repo's own README documents
-// (https://bjarneo.github.io/100-themes/<slug>/colors.toml), confirmed
-// directly against that README's own aether:// example rather than
-// guessed. Each repo serves its own gh-pages site under its own name.
-function themeFileUrl(name, variant, relativePath) {
+// (https://bjarneo.github.io/100-themes/synthwave/colors.toml),
+// confirmed directly against that README's own aether:// example
+// rather than guessed. Each repo serves its own gh-pages site under
+// its own name.
+function themesDataUrl(variant) {
   var repo = variant === "light" ? "100-themes-day" : "100-themes"
-  var slug = themeSlugFor(name, variant)
-  return "https://bjarneo.github.io/" + repo + "/" + slug + "/" + relativePath
+  return "https://bjarneo.github.io/" + repo + "/assets/themes.js"
 }
 
-function contentsApiUrl() {
-  return "https://api.github.com/repos/bjarneo/100-themes/contents/"
+// slug here is the REAL per-variant slug (e.g. "synthwave-day" for
+// light, already the exact value that variant's own themes.js entry
+// carries) -- callers already have the right one in hand from the
+// loaded data, this never needs to derive it from a base name.
+function themeFileUrl(slug, variant, relativePath) {
+  var repo = variant === "light" ? "100-themes-day" : "100-themes"
+  return "https://bjarneo.github.io/" + repo + "/" + slug + "/" + relativePath
 }

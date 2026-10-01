@@ -18,13 +18,16 @@ import "ThemeCatalog.js" as ThemeCatalog
 // at a time (whichever is currently selected), regardless of how many
 // themes are in the list.
 //
-// Each theme folder in the upstream repo is already Omarchy's own
-// native colors.toml schema byte-for-byte (confirmed directly, not
-// guessed) -- browsing here never downloads more than the catalog
-// listing (one API call) plus whichever single theme's colors.toml/
-// preview.png is currently selected. The real background images and
-// the actual install (writing into ~/.config/omarchy/themes/<name>/)
-// are stage 2.
+// Each repo publishes its own assets/themes.js -- a single static file
+// covering every theme's real display name, slug, motif, and full
+// colors (already Omarchy's own native theme schema, confirmed
+// directly, no TOML parsing needed) in one fetch. Browsing here never
+// downloads more than that one file per variant (two fetches, total,
+// for the whole 100-theme catalog) plus whichever single theme's
+// preview.png is currently selected -- see ThemeCatalog.parseThemesJs's
+// own comment for the full "why". The real background images and the
+// actual install (writing into ~/.config/omarchy/themes/<name>/) are
+// stage 2.
 Item {
   id: root
 
@@ -59,22 +62,33 @@ Item {
   // controls, may add them).
   readonly property string searchPlaceholder: "Search Themes"
 
-  // --- Catalog: the 100 base (dark) theme names, fetched once via a
-  // single GitHub Contents API call (see ThemeCatalog.contentsApiUrl's
-  // own comment for why this URL specifically, not git). "-day" light
-  // variants share the exact same base names (confirmed directly) --
-  // deriving them via ThemeCatalog.themeSlugFor means this never needs
-  // a second listing call against the companion repo at all.
-  property var themeNames: []
+  // --- Catalog: all 100 themes (real display name/slug/motif/colors/
+  // ansi), fetched once via each repo's own assets/themes.js -- see
+  // ThemeCatalog.parseThemesJs's own comment for why this single file
+  // replaces what would otherwise be a GitHub API catalog call plus a
+  // colors.toml fetch per theme. darkThemes is this extension's own
+  // canonical list/order; light colors are looked up by slug (dark
+  // slug + "-day", confirmed directly: every light entry's own slug is
+  // exactly that) only when actually needed for display -- a failed/
+  // empty light fetch is not fatal to browsing overall, dark still
+  // works either way.
+  property var darkThemes: []
+  property var lightThemesBySlug: ({})
   property bool catalogLoading: false
   property bool catalogFailed: false
 
-  readonly property var filteredThemeNames: ThemeCatalog.filterThemeNames(root.themeNames, root.searchText)
-  readonly property var themeRows: ThemeCatalog.themeRows(root.filteredThemeNames)
+  readonly property var filteredThemes: ThemeCatalog.filterThemes(root.darkThemes, root.searchText)
+  readonly property var themeRows: ThemeCatalog.themeRows(root.filteredThemes)
 
   property int selectedIndex: 0
-  readonly property string selectedThemeName: (root.selectedIndex >= 0 && root.selectedIndex < root.filteredThemeNames.length)
-    ? root.filteredThemeNames[root.selectedIndex] : ""
+  readonly property var selectedDarkTheme: (root.selectedIndex >= 0 && root.selectedIndex < root.filteredThemes.length)
+    ? root.filteredThemes[root.selectedIndex] : null
+  readonly property string selectedThemeName: root.selectedDarkTheme ? root.selectedDarkTheme.name : ""
+  readonly property string selectedThemeSlug: root.selectedDarkTheme ? root.selectedDarkTheme.slug : ""
+  // Real, human label (e.g. "Sunset Grid") -- same regardless of which
+  // variant is previewed, the motif itself never differs between dark
+  // and light (confirmed directly).
+  readonly property string selectedThemeStyle: root.selectedDarkTheme ? ThemeCatalog.motifLabel(root.selectedDarkTheme.motif) : ""
 
   // Live-preview-on-highlight, like Search Files' own selectedResult ->
   // FileDetailsPanel (direct reference point: "like file search
@@ -96,8 +110,8 @@ Item {
   // query that matches fewer themes than the previous selectedIndex) --
   // same convention Launcher.qml's own onQueryChanged already uses for
   // its own selectedIndex.
-  onFilteredThemeNamesChanged: {
-    if (root.selectedIndex >= root.filteredThemeNames.length) root.selectedIndex = Math.max(0, root.filteredThemeNames.length - 1)
+  onFilteredThemesChanged: {
+    if (root.selectedIndex >= root.filteredThemes.length) root.selectedIndex = Math.max(0, root.filteredThemes.length - 1)
   }
 
   // --- Required core of the generic extension-content interface.
@@ -105,7 +119,7 @@ Item {
     if (root.selectedIndex > 0) root.selectedIndex--
   }
   function moveSelectionDown() {
-    if (root.selectedIndex < root.filteredThemeNames.length - 1) root.selectedIndex++
+    if (root.selectedIndex < root.filteredThemes.length - 1) root.selectedIndex++
   }
   // Reserved for the install flow (stage 2) -- a no-op for now, same
   // "wire the shape first, the action later" sequencing Settings' own
@@ -114,37 +128,67 @@ Item {
   function activateSelection() {}
 
   onActiveChanged: {
-    if (root.active && root.themeNames.length === 0 && !root.catalogLoading) root.loadCatalog()
+    if (root.active && root.darkThemes.length === 0 && !root.catalogLoading) root.loadCatalog()
   }
 
   function loadCatalog() {
     root.catalogLoading = true
     root.catalogFailed = false
-    catalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.contentsApiUrl()]
-    catalogProc.running = true
+    darkCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl("dark")]
+    darkCatalogProc.running = true
+    // Fired alongside, not gating catalogLoading -- light is a
+    // secondary enhancement (the Light toggle just shows nothing yet
+    // if this is still in flight or fails), not something worth
+    // blocking the whole browsable list on.
+    lightCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl("light")]
+    lightCatalogProc.running = true
   }
 
   Process {
-    id: catalogProc
+    id: darkCatalogProc
     stdout: StdioCollector {
-      id: catalogStdout
+      id: darkCatalogStdout
       waitForEnd: true
     }
     onExited: function(exitCode) {
       root.catalogLoading = false
       if (exitCode !== 0) { root.catalogFailed = true; return }
-      var names = ThemeCatalog.parseContentsListing(catalogStdout.text)
-      if (names.length === 0) { root.catalogFailed = true; return }
-      root.themeNames = names
+      var themes = ThemeCatalog.parseThemesJs(darkCatalogStdout.text)
+      if (themes.length === 0) { root.catalogFailed = true; return }
+      root.darkThemes = themes
     }
   }
 
-  // --- Per-theme preview: colors.toml (the swatch, effectively
-  // instant) plus preview.png (a progressive upgrade over the swatch,
-  // fetched to a local cache file -- same "curl to disk, then Image
-  // reads the real file" pattern this plugin's own avatar picker
-  // already uses for a remote image, see SettingsContent.qml's own
-  // ruixen-avatar-dicebear call site; QML's Image loading a bare
+  Process {
+    id: lightCatalogProc
+    stdout: StdioCollector {
+      id: lightCatalogStdout
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) return
+      var themes = ThemeCatalog.parseThemesJs(lightCatalogStdout.text)
+      var bySlug = {}
+      for (var i = 0; i < themes.length; i++) bySlug[themes[i].slug] = themes[i]
+      root.lightThemesBySlug = bySlug
+    }
+  }
+
+  // Colors are synchronous now -- already in memory from the catalog
+  // fetch above, no per-theme network round trip needed at all (unlike
+  // the old colors.toml-per-selection design this replaced).
+  readonly property var previewColors: {
+    if (!root.selectedDarkTheme) return {}
+    if (root.previewVariant === "dark") return root.selectedDarkTheme.colors || {}
+    var light = root.lightThemesBySlug[root.selectedDarkTheme.slug + "-day"]
+    return light ? (light.colors || {}) : {}
+  }
+
+  // --- Preview image: the one thing that still needs a real per-
+  // selection network fetch -- curled to a local cache file, then
+  // Image reads the real file (same pattern this plugin's own avatar
+  // picker already uses for a remote image, see SettingsContent.qml's
+  // own ruixen-avatar-dicebear call site; QML's Image loading a bare
   // https:// source directly has no existing precedent in this repo to
   // trust).
   //
@@ -153,19 +197,24 @@ Item {
   // for a moment gets fetched. 150ms matches this plugin's own existing
   // feel for "fast enough to feel live, slow enough not to spam" (see
   // ruixen.weather's own geocodeDebounce for the same convention).
-  property var previewColors: ({})
   property string previewImagePath: ""
   property bool previewImageLoading: false
 
-  // Keyed "<name>:<variant>" -- avoids re-fetching colors.toml/
-  // preview.png for a theme+variant pair already seen this session
-  // (arrowing back and forth across the same few themes while browsing
-  // is the common case). Session-only, never persisted -- nothing here
-  // needs to survive a relaunch, and a stale cached preview is
-  // harmless (it's read-only browsing, not state that could drift from
-  // reality).
-  property var previewCache: ({})
-  function previewCacheKey(name, variant) { return name + ":" + variant }
+  // Keyed "<slug>:<variant>" -> local path (or "" for a failed fetch,
+  // itself cached so a known-dead theme/variant pair doesn't retry on
+  // every revisit this session). Session-only, never persisted --
+  // nothing here needs to survive a relaunch.
+  property var previewImageCache: ({})
+  function previewImageCacheKey(slug, variant) { return slug + ":" + variant }
+
+  // The real slug for whichever variant is currently selected --
+  // "-day" only ever applies to the light companion repo's own copy,
+  // confirmed directly against its own catalog data rather than
+  // derived blindly.
+  function variantSlug() {
+    if (!root.selectedDarkTheme) return ""
+    return root.previewVariant === "light" ? root.selectedDarkTheme.slug + "-day" : root.selectedDarkTheme.slug
+  }
 
   readonly property string cacheDir: Quickshell.env("HOME") + "/.cache/ruixen/theme-browser"
 
@@ -176,68 +225,36 @@ Item {
   Component.onCompleted: ensureCacheDirProc.running = true
 
   Timer {
-    id: previewDebounce
+    id: previewImageDebounce
     interval: 150
-    onTriggered: root.fetchPreview()
+    onTriggered: root.fetchPreviewImage()
   }
-  onSelectedThemeNameChanged: previewDebounce.restart()
-  onPreviewVariantChanged: previewDebounce.restart()
+  onSelectedThemeSlugChanged: previewImageDebounce.restart()
+  onPreviewVariantChanged: previewImageDebounce.restart()
 
-  function fetchPreview() {
-    var name = root.selectedThemeName
-    if (name === "") {
-      root.previewColors = {}
-      root.previewImagePath = ""
-      return
-    }
-    var key = root.previewCacheKey(name, root.previewVariant)
-    var cached = root.previewCache[key]
-    if (cached) {
-      root.previewColors = cached.colors
-      root.previewImagePath = cached.imagePath
-      return
-    }
-    root.previewColors = {}
+  function fetchPreviewImage() {
+    var slug = root.variantSlug()
+    if (slug === "") { root.previewImagePath = ""; return }
+    var key = root.previewImageCacheKey(slug, root.previewVariant)
+    var cached = root.previewImageCache[key]
+    if (cached !== undefined) { root.previewImagePath = cached; return }
+
     root.previewImagePath = ""
-
-    colorsProc.requestKey = key
-    colorsProc.command = ["curl", "-fsS", "--max-time", "8", ThemeCatalog.themeFileUrl(name, root.previewVariant, "colors.toml")]
-    colorsProc.running = true
-
     root.previewImageLoading = true
     var imageTarget = root.cacheDir + "/" + key.replace(":", "-") + "-preview.png"
     previewImageProc.requestKey = key
     previewImageProc.targetPath = imageTarget
-    previewImageProc.command = ["curl", "-fsS", "--max-time", "10", "-o", imageTarget, ThemeCatalog.themeFileUrl(name, root.previewVariant, "preview.png")]
+    previewImageProc.command = ["curl", "-fsS", "--max-time", "10", "-o", imageTarget, ThemeCatalog.themeFileUrl(slug, root.previewVariant, "preview.png")]
     previewImageProc.running = true
   }
 
-  // Stores into previewCache under requestKey, not under whatever is
-  // CURRENTLY selected -- a slow response arriving after the user has
-  // already moved on to a different theme must still cache correctly
-  // for if they arrow back to it, but must never overwrite what's
-  // actively showing for the (different) theme now selected. Only
-  // applies live to root.previewColors/previewImagePath when
-  // requestKey still matches the live selection.
-  Process {
-    id: colorsProc
-    property string requestKey: ""
-    stdout: StdioCollector {
-      id: colorsStdout
-      waitForEnd: true
-    }
-    onExited: function(exitCode) {
-      var colors = exitCode === 0 ? ThemeCatalog.parseColorsToml(colorsStdout.text) : {}
-      var existing = root.previewCache[colorsProc.requestKey] || { colors: {}, imagePath: "" }
-      existing.colors = colors
-      var cache = root.previewCache
-      cache[colorsProc.requestKey] = existing
-      root.previewCache = cache
-      if (colorsProc.requestKey === root.previewCacheKey(root.selectedThemeName, root.previewVariant))
-        root.previewColors = colors
-    }
-  }
-
+  // Stores into previewImageCache under requestKey, not under whatever
+  // is CURRENTLY selected -- a slow response arriving after the user
+  // has already moved on to a different theme must still cache
+  // correctly for if they arrow back to it, but must never overwrite
+  // what's actively showing for the (different) theme now selected.
+  // Only applies live to root.previewImagePath when requestKey still
+  // matches the live selection.
   Process {
     id: previewImageProc
     property string requestKey: ""
@@ -245,12 +262,10 @@ Item {
     onExited: function(exitCode) {
       root.previewImageLoading = false
       var path = exitCode === 0 ? previewImageProc.targetPath : ""
-      var existing = root.previewCache[previewImageProc.requestKey] || { colors: {}, imagePath: "" }
-      existing.imagePath = path
-      var cache = root.previewCache
-      cache[previewImageProc.requestKey] = existing
-      root.previewCache = cache
-      if (previewImageProc.requestKey === root.previewCacheKey(root.selectedThemeName, root.previewVariant))
+      var cache = root.previewImageCache
+      cache[previewImageProc.requestKey] = path
+      root.previewImageCache = cache
+      if (previewImageProc.requestKey === root.previewImageCacheKey(root.variantSlug(), root.previewVariant))
         root.previewImagePath = path
     }
   }
@@ -278,7 +293,7 @@ Item {
     parent: panel.leftPane
     anchors.centerIn: parent
     width: parent.width - 16
-    visible: !root.catalogLoading && !root.catalogFailed && root.themeNames.length > 0 && root.filteredThemeNames.length === 0
+    visible: !root.catalogLoading && !root.catalogFailed && root.darkThemes.length > 0 && root.filteredThemes.length === 0
     horizontalAlignment: Text.AlignHCenter
     wrapMode: Text.WordWrap
     text: "No matches"
@@ -450,7 +465,42 @@ Item {
         }
       }
 
-      // --- Variant row (odd -- no tint). Same field-row shape, but the
+      // --- Style row (odd -- no tint). The theme's real motif label
+      // (e.g. "Sunset Grid" for Synthwave) -- same from the upstream
+      // gallery's own grouping, confirmed directly against its own
+      // MOTIFS table rather than derived mechanically from the slug
+      // (several genuinely differ, see ThemeCatalog.motifLabel's own
+      // comment). Same regardless of the Dark/Light toggle below --
+      // the motif itself never changes between variants.
+      Item {
+        Layout.fillWidth: true
+        height: 19
+
+        Text {
+          id: styleFieldLabel
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Style"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          font.capitalization: Font.AllUppercase
+        }
+        Text {
+          anchors.left: styleFieldLabel.right
+          anchors.leftMargin: 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideMiddle
+          text: root.selectedThemeStyle
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 13
+        }
+      }
+
+      // --- Variant row (even -- tinted). Same field-row shape, but the
       // value side is the actual Dark/Light toggle instead of plain
       // text -- mouse-only for stage 1 (no keyboard path to it yet, see
       // this file's own header comment on why rightFocused/
@@ -458,6 +508,16 @@ Item {
       Item {
         Layout.fillWidth: true
         height: 24
+
+        Rectangle {
+          anchors.fill: parent
+          anchors.leftMargin: -10
+          anchors.rightMargin: -10
+          anchors.topMargin: -4
+          anchors.bottomMargin: -4
+          radius: 4
+          color: Qt.rgba(0, 0, 0, 0.18)
+        }
 
         Text {
           anchors.left: parent.left
@@ -522,24 +582,14 @@ Item {
         }
       }
 
-      // --- Palette row (even -- tinted again). Same single-line
-      // field-row shape as Name/Variant above (label left, value right)
-      // instead of its own label-on-top-of-a-grid layout -- direct
-      // follow-up: small round swatches on the right, not a full-width
-      // row of square blocks.
+      // --- Palette row (odd -- no tint, now that Style sits between
+      // Name and Variant above). Same single-line field-row shape as
+      // Name/Variant (label left, value right) instead of its own
+      // label-on-top-of-a-grid layout -- direct follow-up: small round
+      // swatches on the right, not a full-width row of square blocks.
       Item {
         Layout.fillWidth: true
         height: 24
-
-        Rectangle {
-          anchors.fill: parent
-          anchors.leftMargin: -10
-          anchors.rightMargin: -10
-          anchors.topMargin: -4
-          anchors.bottomMargin: -4
-          radius: 4
-          color: Qt.rgba(0, 0, 0, 0.18)
-        }
 
         Text {
           anchors.left: parent.left

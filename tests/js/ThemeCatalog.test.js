@@ -4,76 +4,71 @@ const { loadModule, check, summary } = require("./harness");
 
 const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "extensions", "theme-browser", "ThemeCatalog.js"));
 
-// ---- parseContentsListing ---------------------------------------------------
+// ---- motifLabel ---------------------------------------------------------
 
-check("parseContentsListing: real-shaped response, dirs only, sorted",
-  M.parseContentsListing(JSON.stringify([
-    { name: "synthwave", type: "dir" },
-    { name: "abyss", type: "dir" },
-    { name: "README.md", type: "file" }
-  ])),
-  ["abyss", "synthwave"]);
+check("motifLabel: a plain motif with no special-case label", M.motifLabel("aurora"), "Aurora");
+check("motifLabel: a motif whose real label genuinely differs from its own slug (not a mechanical title-case)",
+  M.motifLabel("blobs"), "Light Spots");
+check("motifLabel: the all-caps exception", M.motifLabel("scanlines"), "VHS");
+check("motifLabel: an unknown motif falls back to the raw slug itself, not a blank field",
+  M.motifLabel("some-future-motif"), "some-future-motif");
+check("motifLabel: empty/undefined input fails to an empty string, not a throw", M.motifLabel(), "");
 
-check("parseContentsListing: assets and tools are excluded even though they're real dirs",
-  M.parseContentsListing(JSON.stringify([
-    { name: "assets", type: "dir" },
-    { name: "tools", type: "dir" },
-    { name: "hacker", type: "dir" }
-  ])),
-  ["hacker"]);
+// ---- parseThemesJs --------------------------------------------------------
 
-check("parseContentsListing: malformed JSON fails closed to an empty list, not a throw",
-  M.parseContentsListing("not json"), []);
+const sampleJs = 'window.THEMES = [{"index":1,"name":"Synthwave","slug":"synthwave",'
+  + '"motif":"sunset-grid","icons":"Yaru-purple","colors":{"accent":"#d563fe"},'
+  + '"ansi":["#190f2e","#fe288f"]}];\n';
 
-check("parseContentsListing: a JSON value that isn't an array fails closed to an empty list",
-  M.parseContentsListing(JSON.stringify({ message: "rate limited" })), []);
+check("parseThemesJs: real-shaped file, full object preserved",
+  M.parseThemesJs(sampleJs),
+  [{
+    index: 1, name: "Synthwave", slug: "synthwave", motif: "sunset-grid", icons: "Yaru-purple",
+    colors: { accent: "#d563fe" }, ansi: ["#190f2e", "#fe288f"]
+  }]);
 
-check("parseContentsListing: an entry missing its own name is skipped",
-  M.parseContentsListing(JSON.stringify([{ type: "dir" }, { name: "ok", type: "dir" }])),
-  ["ok"]);
+check("parseThemesJs: malformed JS fails closed to an empty list, not a throw",
+  M.parseThemesJs("not a themes file"), []);
 
-// ---- parseColorsToml ---------------------------------------------------------
+check("parseThemesJs: empty input fails closed to an empty list",
+  M.parseThemesJs(""), []);
 
-check("parseColorsToml: real shape, every key extracted",
-  M.parseColorsToml('mode = "dark"\n\naccent = "#8593fd"\nbackground = "#000614"\n'),
-  { mode: "dark", accent: "#8593fd", background: "#000614" });
+check("parseThemesJs: valid JSON but not an array fails closed to an empty list",
+  M.parseThemesJs("window.THEMES = {\"oops\": true};"), []);
 
-check("parseColorsToml: the hyprland border strings parse the same as any other quoted value",
-  M.parseColorsToml('hyprland_active_border = "rgba(17eeecee) rgba(8593fdee) 45deg"\n'),
-  { hyprland_active_border: "rgba(17eeecee) rgba(8593fdee) 45deg" });
+// ---- filterThemes ---------------------------------------------------------
 
-check("parseColorsToml: blank input yields an empty object, not a throw",
-  M.parseColorsToml(""), {});
+const themes = [
+  { name: "Abyss", slug: "abyss" },
+  { name: "Synthwave", slug: "synthwave" },
+  { name: "Hacker", slug: "hacker" },
+  { name: "Neon Wave", slug: "neon-wave" }
+];
 
-check("parseColorsToml: a line that doesn't match key = \"value\" is silently skipped",
-  M.parseColorsToml('not a real line\naccent = "#ffffff"\n'),
-  { accent: "#ffffff" });
+check("filterThemes: empty query returns every theme, untouched order",
+  M.filterThemes(themes, ""), themes);
 
-// ---- filterThemeNames ---------------------------------------------------------
+check("filterThemes: case-insensitive substring match against the real display name",
+  M.filterThemes(themes, "NEON"), [{ name: "Neon Wave", slug: "neon-wave" }]);
 
-const names = ["abyss", "synthwave", "hacker", "neon-tokyo"];
+check("filterThemes: matches the display name, not the slug (a query only the slug would match finds nothing)",
+  M.filterThemes(themes, "neon-wave"), []);
 
-check("filterThemeNames: empty query returns every name, untouched order",
-  M.filterThemeNames(names, ""), names);
+check("filterThemes: a query matching nothing returns an empty list",
+  M.filterThemes(themes, "zzz"), []);
 
-check("filterThemeNames: case-insensitive substring match",
-  M.filterThemeNames(names, "NEON"), ["neon-tokyo"]);
-
-check("filterThemeNames: a query matching nothing returns an empty list",
-  M.filterThemeNames(names, "zzz"), []);
-
-check("filterThemeNames: whitespace-only query behaves like empty (returns everything)",
-  M.filterThemeNames(names, "   "), names);
+check("filterThemes: whitespace-only query behaves like empty (returns everything)",
+  M.filterThemes(themes, "   "), themes);
 
 // ---- themeRows ---------------------------------------------------------------
 
-check("themeRows: shape matches every other ResultsList model in this plugin",
-  M.themeRows(["abyss"]),
+check("themeRows: shape matches every other ResultsList model in this plugin, label is the real display name, id keys off the slug",
+  M.themeRows([{ name: "Neon Wave", slug: "neon-wave" }]),
   [{
-    id: "theme:abyss",
+    id: "theme:neon-wave",
     providerId: "theme-browser-entry",
     icon: "",
-    label: "abyss",
+    label: "Neon Wave",
     breadcrumb: "",
     kind: "",
     providerName: "",
@@ -83,20 +78,20 @@ check("themeRows: shape matches every other ResultsList model in this plugin",
 
 check("themeRows: empty input yields an empty list", M.themeRows([]), []);
 
-// ---- themeSlugFor / themeFileUrl / contentsApiUrl ----------------------------
+// ---- themesDataUrl / themeFileUrl ----------------------------------------
 
-check("themeSlugFor: dark variant is the plain theme name", M.themeSlugFor("synthwave", "dark"), "synthwave");
-check("themeSlugFor: light variant appends -day", M.themeSlugFor("synthwave", "light"), "synthwave-day");
+check("themesDataUrl: dark variant points at the 100-themes repo's own gh-pages site",
+  M.themesDataUrl("dark"), "https://bjarneo.github.io/100-themes/assets/themes.js");
 
-check("themeFileUrl: dark variant points at the 100-themes repo's own gh-pages site",
-  M.themeFileUrl("synthwave", "dark", "colors.toml"),
-  "https://bjarneo.github.io/100-themes/synthwave/colors.toml");
+check("themesDataUrl: light variant points at the 100-themes-day repo",
+  M.themesDataUrl("light"), "https://bjarneo.github.io/100-themes-day/assets/themes.js");
 
-check("themeFileUrl: light variant points at the 100-themes-day repo, slug suffixed",
-  M.themeFileUrl("synthwave", "light", "colors.toml"),
-  "https://bjarneo.github.io/100-themes-day/synthwave-day/colors.toml");
+check("themeFileUrl: dark variant, real slug used as-is",
+  M.themeFileUrl("synthwave", "dark", "preview.png"),
+  "https://bjarneo.github.io/100-themes/synthwave/preview.png");
 
-check("contentsApiUrl: the GitHub Contents API root for bjarneo/100-themes",
-  M.contentsApiUrl(), "https://api.github.com/repos/bjarneo/100-themes/contents/");
+check("themeFileUrl: light variant, real slug used as-is (already carries its own -day suffix)",
+  M.themeFileUrl("synthwave-day", "light", "preview.png"),
+  "https://bjarneo.github.io/100-themes-day/synthwave-day/preview.png");
 
 summary();

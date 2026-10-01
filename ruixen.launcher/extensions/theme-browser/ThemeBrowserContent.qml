@@ -707,6 +707,46 @@ Item {
         }
       }
 
+      // Dark/Light -- direct follow-up ("make one of these chips
+      // toggle between light and dark... it controls left panel stuff
+      // right then metadata"): previewVariant was living as a pair of
+      // buttons down in the metadata panel, but it actually drives the
+      // LEFT panel too (themeRows' own installed/current icon reads
+      // whichever variant this is currently set to, same as the
+      // preview on the right) -- a view-mode control like Style, that
+      // happened to be parked next to Name/the palette instead of up
+      // here with the other ones. One cycling chip (Dark <-> Light),
+      // same plain two-state-cycle shape Style's own chip uses, not the
+      // metadata panel's old two-separate-buttons layout -- there's
+      // only ever two states here, a single click-to-flip reads just as
+      // clearly and matches this row's own rhythm better. The metadata
+      // panel's own Variant row is gone now that this is its one home,
+      // not duplicated in both places.
+      Rectangle {
+        id: variantChip
+        width: variantChipLabel.implicitWidth + 20
+        height: 24
+        radius: 6
+        color: Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: variantChipLabel
+          anchors.centerIn: parent
+          text: root.previewVariant === "light" ? "Light" : "Dark"
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.toggleVariant()
+        }
+      }
+
       // Name/By Style -- exactly one is ever the active sort key, same
       // accent-tinted "exactly one of these is selected" shape
       // SearchFiltersBar's own scope row (Both/Names/Contents) uses.
@@ -1074,11 +1114,16 @@ Item {
         }
       }
 
-      // --- Variant row (even -- tinted). Same field-row shape, but the
-      // value side is the actual Dark/Light toggle instead of plain
-      // text -- mouse-only for stage 1 (no keyboard path to it yet, see
-      // this file's own header comment on why rightFocused/
-      // focusRightPanel aren't part of the interface here yet).
+      // --- Palette row (even -- tinted, now that Variant moved up into
+      // filterChipsRow and left this the third/last row instead of the
+      // fourth -- direct follow-up: "it controls left panel stuff...
+      // then metadata", moving the Dark/Light toggle off this panel
+      // entirely rather than leaving it duplicated in both places; see
+      // filterChipsRow's own variantChip for where it lives now). Same
+      // single-line field-row shape as Name/Style (label left, value
+      // right) instead of its own label-on-top-of-a-grid layout --
+      // direct follow-up: small round swatches on the right, not a
+      // full-width row of square blocks.
       Item {
         Layout.fillWidth: true
         height: 24
@@ -1092,78 +1137,6 @@ Item {
           radius: 4
           color: Qt.rgba(0, 0, 0, 0.18)
         }
-
-        Text {
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Variant"
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          font.capitalization: Font.AllUppercase
-        }
-
-        Row {
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          spacing: 4
-
-          Rectangle {
-            width: darkLabel.implicitWidth + 16
-            height: 24
-            radius: 6
-            color: root.previewVariant === "dark" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
-            border.width: 1
-            border.color: root.previewVariant === "dark" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              id: darkLabel
-              anchors.centerIn: parent
-              text: "Dark"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              color: root.previewVariant === "dark" ? root.textColor : root.muted
-            }
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.previewVariant !== "dark") root.toggleVariant()
-            }
-          }
-
-          Rectangle {
-            width: lightLabel.implicitWidth + 16
-            height: 24
-            radius: 6
-            color: root.previewVariant === "light" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
-            border.width: 1
-            border.color: root.previewVariant === "light" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              id: lightLabel
-              anchors.centerIn: parent
-              text: "Light"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              color: root.previewVariant === "light" ? root.textColor : root.muted
-            }
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.previewVariant !== "light") root.toggleVariant()
-            }
-          }
-        }
-      }
-
-      // --- Palette row (odd -- no tint, now that Style sits between
-      // Name and Variant above). Same single-line field-row shape as
-      // Name/Variant (label left, value right) instead of its own
-      // label-on-top-of-a-grid layout -- direct follow-up: small round
-      // swatches on the right, not a full-width row of square blocks.
-      Item {
-        Layout.fillWidth: true
-        height: 24
 
         Text {
           anchors.left: parent.left

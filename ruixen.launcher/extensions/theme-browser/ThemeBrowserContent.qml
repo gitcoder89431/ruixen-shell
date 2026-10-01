@@ -522,11 +522,14 @@ Item {
         }
       }
 
-      // --- Palette row (even -- tinted again). Same field-row shape,
-      // value side is the 8-swatch grid instead of text.
+      // --- Palette row (even -- tinted again). Same single-line
+      // field-row shape as Name/Variant above (label left, value right)
+      // instead of its own label-on-top-of-a-grid layout -- direct
+      // follow-up: small round swatches on the right, not a full-width
+      // row of square blocks.
       Item {
         Layout.fillWidth: true
-        height: paletteLabel.implicitHeight + 6 + 28
+        height: 24
 
         Rectangle {
           anchors.fill: parent
@@ -539,9 +542,8 @@ Item {
         }
 
         Text {
-          id: paletteLabel
-          anchors.top: parent.top
           anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
           text: "Palette"
           color: root.muted
           font.family: root.fontFamily
@@ -549,22 +551,20 @@ Item {
           font.capitalization: Font.AllUppercase
         }
 
-        GridLayout {
-          anchors.top: paletteLabel.bottom
-          anchors.topMargin: 6
-          anchors.left: parent.left
+        Row {
           anchors.right: parent.right
-          columns: 8
-          rowSpacing: 6
-          columnSpacing: 6
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 5
 
           Repeater {
             model: ["red", "orange", "yellow", "green", "cyan", "blue", "magenta", "brown"]
             Rectangle {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 28
-              radius: 6
+              width: 16
+              height: 16
+              radius: 8
               color: root.previewColors[modelData] || Qt.rgba(1, 1, 1, 0.06)
+              border.width: 1
+              border.color: Qt.rgba(1, 1, 1, 0.15)
             }
           }
         }

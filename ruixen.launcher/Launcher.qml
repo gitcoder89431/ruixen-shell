@@ -1016,9 +1016,11 @@ Item {
   // off the exact same list it visually shows, never a second hand-
   // rolled copy that could drift from it.
   function dropdownOptions() {
-    return root.activeExtensionId === "wallpapers"
-      ? [{ id: "", label: "All Types", path: "" }].concat(root.wallpaperTypeOptions)
-      : [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
+    if (root.activeExtensionId === "wallpapers")
+      return [{ id: "", label: "All Types", path: "" }].concat(root.wallpaperTypeOptions)
+    if (root.activeExtensionId === "theme-browser")
+      return [{ id: "", label: "All Styles", path: "" }].concat(themeBrowserContent.styleFilterOptions)
+    return [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
   }
 
   // Seeds dropdownSelectedIndex from whatever's ALREADY active
@@ -1030,7 +1032,9 @@ Item {
   // open, so a mouse click on the button (which just toggles the plain
   // boolean directly, unchanged) seeds it exactly the same way.
   function seedDropdownSelection() {
-    var current = root.activeExtensionId === "wallpapers" ? wallpapersContent.kindFilter : root.selectedSourcePath
+    var current = root.activeExtensionId === "wallpapers" ? wallpapersContent.kindFilter
+      : root.activeExtensionId === "theme-browser" ? themeBrowserContent.styleFilter
+      : root.selectedSourcePath
     var options = root.dropdownOptions()
     var idx = 0
     for (var i = 0; i < options.length; i++) {
@@ -1047,6 +1051,8 @@ Item {
     if (!opt) { searchHeader.dropdownOpen = false; return }
     if (root.activeExtensionId === "wallpapers") {
       wallpapersContent.kindFilter = opt.path === "" ? "all" : opt.path
+    } else if (root.activeExtensionId === "theme-browser") {
+      themeBrowserContent.styleFilter = opt.path
     } else {
       root.selectedSourcePath = opt.path
     }
@@ -1643,7 +1649,7 @@ Item {
         // reusing filesMode alone here showed "All Sources" floating
         // over Settings' own detail panel with nothing real for it to
         // filter.
-        showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers"
+        showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser"
         // Every extension reads this same outer query directly now (see
         // wallpapersContent/settingsContent's own searchText below),
         // no second inner search box any of them owns -- each one's own
@@ -1654,16 +1660,25 @@ Item {
         placeholderOverride: (root.activeExtensionContent && root.activeExtensionContent.searchPlaceholder) || ""
         resultCount: root.results.length
         showSettingsHints: !!(root.activeExtensionContent && root.activeExtensionContent.showsEnterHint)
-        // Wallpapers mode feeds this same button/dropdown its own type
-        // options instead of real Search Files sources -- see
-        // wallpaperTypeOptions' own comment. wallpapersContent.kindFilter
-        // is "all"/"image"/"video"/"gif"; "" (this control's own "no
-        // selection" sentinel) maps to "all" both ways below.
+        // Wallpapers/Theme Browser mode each feed this same button/
+        // dropdown their own options instead of real Search Files
+        // sources -- see wallpaperTypeOptions' and
+        // ThemeBrowserContent.styleFilter's own comments.
+        // wallpapersContent.kindFilter is "all"/"image"/"video"/"gif";
+        // "" (this control's own "no selection" sentinel) maps to "all"
+        // both ways below. themeBrowserContent.styleFilter already uses
+        // "" as its own "no style picked" value, so it needs no mapping.
         selectedSourcePath: root.activeExtensionId === "wallpapers"
           ? (wallpapersContent.kindFilter === "all" ? "" : wallpapersContent.kindFilter)
+          : root.activeExtensionId === "theme-browser"
+          ? themeBrowserContent.styleFilter
           : root.selectedSourcePath
-        sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions : fileSearchProvider.sources
-        allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types" : "All Sources"
+        sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions
+          : root.activeExtensionId === "theme-browser" ? themeBrowserContent.styleFilterOptions
+          : fileSearchProvider.sources
+        allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types"
+          : root.activeExtensionId === "theme-browser" ? "All Styles"
+          : "All Sources"
         sourceFilterWidth: root.sourceFilterWidth
         // Each extension's own interceptsArrowKeys decides this now --
         // see this property's own comment in SearchHeader.qml for what
@@ -1808,7 +1823,7 @@ Item {
         onShiftTabPressed: {
           if (searchHeader.dropdownOpen) { searchHeader.dropdownOpen = false; return }
           if (root.actionsMenuOpen) return
-          if (root.activeExtensionId === "wallpapers" || root.filesMode) root.openDropdown()
+          if (root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.filesMode) root.openDropdown()
         }
       }
 
@@ -1870,12 +1885,16 @@ Item {
         // button's right edge, same as this width matches its width.
         anchors.rightMargin: 12
         width: root.sourceFilterWidth
-        // "All Sources"/"All Types" plus one row per real option (file
-        // search's own discovered sources, or Wallpapers' fixed 3 types)
-        // -- height follows that count directly rather than scrolling,
-        // since either list is at most a small handful of rows. 28
-        // matches sourceRow's own height below.
-        height: ((root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions.length : fileSearchProvider.sources.length) + 1) * 28 + 8
+        // "All Sources"/"All Types"/"All Styles" plus one row per real
+        // option (file search's own discovered sources, Wallpapers'
+        // fixed 3 types, or the Theme Browser's own distinct motifs) --
+        // height follows that count directly rather than scrolling,
+        // since every one of these lists is at most a small handful of
+        // rows (15 motifs at most across the whole 100-theme catalog,
+        // confirmed directly). 28 matches sourceRow's own height below.
+        height: ((root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions.length
+          : root.activeExtensionId === "theme-browser" ? themeBrowserContent.styleFilterOptions.length
+          : fileSearchProvider.sources.length) + 1) * 28 + 8
         radius: 10
         // Genuinely near-opaque, not glassBackground's own translucency
         // -- direct follow-up after real use: unlike the card (whose

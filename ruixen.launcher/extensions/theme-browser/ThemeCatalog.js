@@ -83,6 +83,53 @@ function filterThemes(themes, query) {
   return out
 }
 
+// style is a motif slug (e.g. "sunset-grid"), or "" for "every style" --
+// same sentinel Search Files' own source-path dropdown already uses for
+// "All Sources", reused here rather than inventing a second convention
+// for the exact same "no filter selected" idea.
+function filterByStyle(themes, style) {
+  if (!style) return themes
+  var out = []
+  for (var i = 0; i < themes.length; i++) {
+    if (themes[i].motif === style) out.push(themes[i])
+  }
+  return out
+}
+
+// Direct follow-up ("how would we order this") -- the upstream
+// catalog's own order is just whatever index its author curated it in
+// (Synthwave=1, Neon Wave=2, ...), not alphabetical, so left on its own
+// it reads as arbitrary. Plain alphabetical by the real display name is
+// the obvious, predictable default to browse a 100-entry list by.
+// localeCompare so "Neon Wave" vs "Nebula" sorts the same way a human
+// skimming the list would expect, not raw UTF-16 code-unit order.
+function sortByName(themes) {
+  var out = themes.slice()
+  out.sort(function(a, b) { return String(a.name || "").localeCompare(String(b.name || "")) })
+  return out
+}
+
+// The distinct motifs actually present in the given theme list, each
+// shaped as {id, label, path} -- the exact shape sourceFilterList's own
+// Repeater model (Launcher.qml's wallpaperTypeOptions/fileSearchProvider
+// sources) already uses, so the Theme Browser's own "All Styles"
+// dropdown is just a third model for that same shared component rather
+// than a new one. Sorted by label, same alphabetical-for-browsing
+// reasoning sortByName uses above -- a style dropdown is itself just a
+// short list to scan.
+function styleOptions(themes) {
+  var seen = {}
+  var out = []
+  for (var i = 0; i < themes.length; i++) {
+    var motif = themes[i].motif
+    if (!motif || seen[motif]) continue
+    seen[motif] = true
+    out.push({ id: motif, label: motifLabel(motif), path: motif })
+  }
+  out.sort(function(a, b) { return a.label.localeCompare(b.label) })
+  return out
+}
+
 // The real installed-theme folder name to check for a given base theme
 // + variant -- "-day" only ever applies to the light companion repo's
 // own copy (same rule themeFileUrl/themeSlugFor-equivalent logic uses

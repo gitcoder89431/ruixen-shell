@@ -78,7 +78,29 @@ Item {
   property bool catalogLoading: false
   property bool catalogFailed: false
 
-  readonly property var filteredThemes: ThemeCatalog.filterThemes(root.darkThemes, root.searchText)
+  // Direct follow-up ("how would we order this... sort and filter by
+  // style") -- reuses the exact same top-right dropdown Wallpapers' own
+  // "All Types" button already opens (Launcher.qml's dropdownOptions/
+  // confirmDropdownSelection, branched a third way there by
+  // activeExtensionId), rather than a new control invented for this
+  // extension alone. "" is "All Styles", same sentinel Search Files'
+  // own source dropdown already uses for "All Sources" -- styleFilter
+  // just IS the real motif slug once a style is picked, so Launcher.qml
+  // never needs a second mapping the way wallpapersContent.kindFilter's
+  // "all"/"" pair does. Deliberately NOT reset when this tab is
+  // re-entered -- same session-persistence convention kindFilter/
+  // categoryFilter already use elsewhere in this plugin.
+  property string styleFilter: ""
+  readonly property var styleFilterOptions: ThemeCatalog.styleOptions(root.darkThemes)
+
+  // Alphabetical by real display name, not whatever curated index order
+  // the upstream catalog happens to ship in (Synthwave=1, Neon Wave=2,
+  // ...) -- see ThemeCatalog.sortByName's own comment. Style filter
+  // narrows first, then the (possibly already-narrowed) set is sorted,
+  // so "Style: Sunset Grid" always reads alphabetically too, not in
+  // whatever order those particular entries happened to appear upstream.
+  readonly property var filteredThemes: ThemeCatalog.sortByName(
+    ThemeCatalog.filterByStyle(ThemeCatalog.filterThemes(root.darkThemes, root.searchText), root.styleFilter))
   // {slug: true} set of every theme folder actually present under
   // ~/.config/omarchy/themes right now -- refreshed each time this
   // extension is (re)opened (see refreshInstalledThemes below), so it

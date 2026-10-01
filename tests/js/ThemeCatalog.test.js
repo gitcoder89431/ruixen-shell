@@ -60,6 +60,53 @@ check("filterThemes: a query matching nothing returns an empty list",
 check("filterThemes: whitespace-only query behaves like empty (returns everything)",
   M.filterThemes(themes, "   "), themes);
 
+// ---- filterByStyle ---------------------------------------------------------
+
+const motifThemes = [
+  { name: "Synthwave", slug: "synthwave", motif: "sunset-grid" },
+  { name: "Hacker", slug: "hacker", motif: "code-rain" },
+  { name: "Neon Wave", slug: "neon-wave", motif: "sunset-grid" }
+];
+
+check("filterByStyle: empty/falsy style returns every theme, untouched order (the 'All Styles' case)",
+  M.filterByStyle(motifThemes, ""), motifThemes);
+
+check("filterByStyle: a real motif keeps only themes sharing it",
+  M.filterByStyle(motifThemes, "sunset-grid"),
+  [{ name: "Synthwave", slug: "synthwave", motif: "sunset-grid" },
+   { name: "Neon Wave", slug: "neon-wave", motif: "sunset-grid" }]);
+
+check("filterByStyle: a motif matching nothing returns an empty list",
+  M.filterByStyle(motifThemes, "scanlines"), []);
+
+// ---- sortByName -------------------------------------------------------------
+
+check("sortByName: alphabetical by display name, not the upstream curated index order",
+  M.sortByName([{ name: "Synthwave" }, { name: "Abyss" }, { name: "Neon Wave" }]),
+  [{ name: "Abyss" }, { name: "Neon Wave" }, { name: "Synthwave" }]);
+
+check("sortByName: does not mutate the input array",
+  (function() { var src = [{ name: "B" }, { name: "A" }]; M.sortByName(src); return src; })(),
+  [{ name: "B" }, { name: "A" }]);
+
+// ---- styleOptions -------------------------------------------------------------
+
+check("styleOptions: one entry per distinct motif, shaped like every other sourceFilterList model (id/label/path)",
+  M.styleOptions([{ motif: "code-rain" }, { motif: "sunset-grid" }, { motif: "code-rain" }]),
+  [{ id: "code-rain", label: "Code Rain", path: "code-rain" },
+   { id: "sunset-grid", label: "Sunset Grid", path: "sunset-grid" }]);
+
+check("styleOptions: sorted by label, not first-seen order",
+  M.styleOptions([{ motif: "tubes" }, { motif: "aurora" }]),
+  [{ id: "aurora", label: "Aurora", path: "aurora" },
+   { id: "tubes", label: "Neon Tubes", path: "tubes" }]);
+
+check("styleOptions: themes with no motif are skipped, not turned into a blank entry",
+  M.styleOptions([{ motif: "" }, { }, { motif: "planet" }]),
+  [{ id: "planet", label: "Planet", path: "planet" }]);
+
+check("styleOptions: empty input yields an empty list", M.styleOptions([]), []);
+
 // ---- installedSlugFor -----------------------------------------------------
 
 check("installedSlugFor: dark variant is the plain theme slug",

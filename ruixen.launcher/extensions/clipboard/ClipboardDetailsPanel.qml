@@ -22,6 +22,12 @@ Rectangle {
 
   property bool deleteArmed: false
   property bool filtered: false
+  property bool revealed: false
+  property string pathStatus: ""
+  readonly property bool masked: !!root.entry && root.entry.secret === true && !root.revealed
+  readonly property bool isTextual: !!root.entry && root.entry.type !== "image"
+
+  signal revealRequested()
 
   function characterCount(text) {
     return String(text || "").length
@@ -49,20 +55,38 @@ Rectangle {
 
       Rectangle {
         anchors.fill: parent
-        visible: root.entry && (root.entry.type === "text" || root.entry.type === "link")
+        visible: root.isTextual
         radius: 12
         color: Qt.rgba(0, 0, 0, 0.18)
         clip: true
 
+        // Color entries: a large swatch (checkerboard-free; alpha shows
+        // the panel through it) above the value text.
+        Rectangle {
+          visible: !!root.entry && root.entry.subtype === "color"
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.margins: 12
+          height: 96
+          radius: 8
+          color: root.entry && root.entry.swatch ? root.entry.swatch : "transparent"
+          border.width: 1
+          border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.2)
+        }
+
         Text {
           anchors.fill: parent
           anchors.margins: 12
-          text: root.entry ? ClipboardHistory.previewText(root.entry.text) : ""
+          anchors.topMargin: root.entry && root.entry.subtype === "color" ? 120 : 12
+          text: !root.entry ? ""
+            : root.masked ? ("\u2022".repeat(Math.min(String(root.entry.text).trim().length, 32)) + "\n\nHidden \u2014 Alt+R to reveal")
+            : ClipboardHistory.previewText(root.entry.preview || root.entry.text)
           color: root.textColor
           font.family: root.fontFamily
           font.pixelSize: 12
           lineHeight: 1.15
-          wrapMode: Text.Wrap
+          wrapMode: root.entry && root.entry.subtype === "json" ? Text.NoWrap : Text.Wrap
           elide: Text.ElideRight
         }
       }
@@ -106,13 +130,17 @@ Rectangle {
         model: root.entry ? (function() {
           var fields = [
             { label: "Type", value: root.entry.kind },
-            { label: "Captured", value: root.entry.capturedAt || "Unknown" },
-            { label: root.entry.type === "link" ? "URL" : "Mime", value: root.entry.type === "link" ? root.entry.text : (root.entry.mime || "Unknown") }
+            { label: "Captured", value: root.entry.capturedAt || "Unknown" }
           ]
+          var facts = root.entry.facts || []
+          for (var f = 0; f < facts.length; f++) fields.push(facts[f])
+          if (root.entry.subtype === "path") fields.push({ label: "Status", value: root.pathStatus || "Checking..." })
+          if (root.entry.type === "link") fields.push({ label: "URL", value: root.entry.text })
+          else if (root.entry.type === "image") fields.push({ label: "Mime", value: root.entry.mime || "Unknown" })
           if (root.entry.type === "image") {
             fields.push({ label: "Dimensions", value: root.imageDimensions || "Loading..." })
             fields.push({ label: "Size", value: root.imageSize || "Loading..." })
-          } else {
+          } else if (!root.entry.secret) {
             fields.push({ label: "Characters", value: String(root.characterCount(root.entry.text)) })
             fields.push({ label: "Words", value: String(root.wordCount(root.entry.text)) })
           }
@@ -209,6 +237,15 @@ Rectangle {
         hint: "Alt+P"
         textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
         onClicked: root.pastePathRequested()
+      }
+
+      ClipboardActionRow {
+        visible: !!root.entry && root.entry.secret === true
+        label: root.revealed ? "Hide" : "Reveal"
+        icon: "\uf06e"
+        hint: "Alt+R"
+        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+        onClicked: root.revealRequested()
       }
 
       ClipboardActionRow {

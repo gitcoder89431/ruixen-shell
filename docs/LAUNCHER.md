@@ -131,6 +131,18 @@ helpers rather than a second clipboard backend.
 | `Alt+O` | Open |
 | `Alt+P` | Paste an image's file path |
 | `Alt+D` | Delete (press twice to confirm) |
+| `Alt+R` | Reveal / hide a masked possible secret |
+
+Text entries are sorted into kinds, each with its own icon and metadata:
+**Link** (host, scheme, parameter count), **Color** (hex/rgb()/hsl() with a
+swatch and converted values), **Email** (domain; Open uses `mailto:`),
+**Path** (name, extension, and whether it exists; Open uses `xdg-open`),
+**JSON** (object/array summary, pretty-printed preview), and plain text
+(characters, words, lines). Anything shaped like a credential (known token
+prefixes, JWTs, private keys, or a long high-entropy string) is a
+**Secret**: its row and preview are masked until revealed, and its text is
+not searchable. This is a heuristic for masking only — it never blocks
+copying or pasting.
 
 Delete rewrites the history file atomically and matches the entry by
 identity, not position; an entry that has changed or vanished since it was

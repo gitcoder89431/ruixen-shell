@@ -70,6 +70,8 @@ Item {
 
   onSelectedEntryChanged: {
     root.deleteArmedKey = ""
+    root.revealedKey = ""
+    root.loadPathStatus()
     root.loadImageDetails()
   }
 
@@ -113,7 +115,14 @@ Item {
 
   function openSelected() {
     if (!root.selectedEntry) return
-    openProc.exec(["omarchy-clipboard-open", "--history-index", String(root.selectedEntry.sourceIndex)])
+    var e = root.selectedEntry
+    if (e.subtype === "path") {
+      openProc.exec(["xdg-open", ClipboardHistory.expandHome(e.text, Quickshell.env("HOME"))])
+    } else if (e.subtype === "email") {
+      openProc.exec(["xdg-open", "mailto:" + e.text.trim()])
+    } else {
+      openProc.exec(["omarchy-clipboard-open", "--history-index", String(e.sourceIndex)])
+    }
   }
 
   // Two-step delete: the first request arms it for the highlighted entry
@@ -180,12 +189,22 @@ Item {
       e.type === "image" ? e.path : String(e.text.length), String(e.sourceIndex)])
   }
 
+  // Masked-secret reveal is per-entry and resets with the selection.
+  property string revealedKey: ""
+  readonly property bool revealed: root.selectedEntry !== null && root.revealedKey === ClipboardHistory.entryKey(root.selectedEntry)
+
+  function toggleReveal() {
+    if (!root.selectedEntry || !root.selectedEntry.secret) return
+    root.revealedKey = root.revealed ? "" : ClipboardHistory.entryKey(root.selectedEntry)
+  }
+
   // Alt+<key>, routed here by Launcher.qml via the generic extension
   // handleShortcut(key) hook.
   function handleShortcut(key) {
     if (key === Qt.Key_C) root.copySelected()
     else if (key === Qt.Key_O) root.openSelected()
     else if (key === Qt.Key_P) root.pasteSelectedPath()
+    else if (key === Qt.Key_R) root.toggleReveal()
     else if (key === Qt.Key_D || key === Qt.Key_Delete || key === Qt.Key_Backspace) root.deleteSelected()
   }
 
@@ -201,6 +220,21 @@ Item {
       "  *) wtype -M ctrl -k v -m ctrl 2>/dev/null || true ;;\n" +
       "esac",
       "ruixen-clipboard-paste-path", root.selectedEntry.path])
+  }
+
+  property string pendingPathStatusPath: ""
+  property string pathStatus: ""
+
+  function loadPathStatus() {
+    root.pendingPathStatusPath = ""
+    root.pathStatus = ""
+    pathStatusProc.running = false
+    var e = root.selectedEntry
+    if (!e || e.subtype !== "path") return
+    root.pendingPathStatusPath = e.text.trim()
+    pathStatusProc.exec(["bash", "-c",
+      "printf '%s\\n' \"$1\"; if [ -e \"$2\" ]; then stat --format='%F|%s' -- \"$2\"; else printf MISSING; fi",
+      "ruixen-clipboard-path-status", e.text.trim(), ClipboardHistory.expandHome(e.text, Quickshell.env("HOME"))])
   }
 
   function loadImageDetails() {
@@ -259,6 +293,24 @@ Item {
   Process { id: pasteFileProc }
   Process { id: openProc }
   Process { id: pastePathProc }
+  Process {
+    id: pathStatusProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var nl = text.indexOf("\n")
+        if (nl < 0) return
+        if (text.slice(0, nl) !== root.pendingPathStatusPath) return
+        var info = text.slice(nl + 1).trim()
+        if (info === "MISSING") { root.pathStatus = "Not found"; return }
+        var parts = info.split("|")
+        var kind = (parts[0] || "").toLowerCase()
+        root.pathStatus = kind === "regular file" || kind === "regular empty file"
+          ? "File, " + LauncherHelpers.formatSize(parseInt(parts[1], 10) || 0)
+          : (kind || "Exists")
+      }
+    }
+  }
   Process {
     id: deleteProc
     stdout: StdioCollector {
@@ -358,6 +410,9 @@ Item {
     onCopyRequested: root.copySelected()
     onOpenRequested: root.openSelected()
     deleteArmed: root.deleteArmed
+    revealed: root.revealed
+    pathStatus: root.pathStatus
+    onRevealRequested: root.toggleReveal()
     filtered: root.searchText.trim() !== "" && root.entries.length > 0
     onPastePathRequested: root.pasteSelectedPath()
     onDeleteRequested: root.deleteSelected()

@@ -317,14 +317,28 @@ function backgroundsApiUrl(slug, variant) {
   return "https://api.github.com/repos/bjarneo/" + repo + "/contents/" + slug + "/backgrounds"
 }
 
+// Same character class isSafeThemeSlug enforces on a theme's own slug,
+// applied here too -- a real gap, caught on review: unlike the slug,
+// which gets checked before it's ever used to build a path, a
+// background's own `name` was going straight from this API response
+// into "backgrounds/" + name with nothing standing in the way of a
+// "../../colors.toml"-shaped entry writing outside that folder
+// entirely. No reason the two should be held to different standards --
+// both are a third-party network response about to become part of a
+// filesystem path.
+function isSafeBackgroundFilename(name) {
+  return /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(String(name || ""))
+}
+
 // Parses that listing into just {name, url} pairs this needs to
 // download each file -- fails closed to an empty list (no backgrounds
 // to fetch, not a fatal install error) for a 404 (a theme with no
 // backgrounds/ folder at all -- the API returns a plain {message:
 // "Not Found"} object, not an array, same "valid JSON but not an
 // array" shape parseThemesJs already guards against), malformed JSON,
-// or an entry missing its own download_url (a nested directory inside
-// backgrounds/, say, which this never expects but shouldn't choke on).
+// an entry missing its own download_url (a nested directory inside
+// backgrounds/, say, which this never expects but shouldn't choke on),
+// or an entry whose own name fails isSafeBackgroundFilename.
 function parseBackgroundsListing(jsonText) {
   var data
   try { data = JSON.parse(jsonText) } catch (e) { return [] }
@@ -332,7 +346,8 @@ function parseBackgroundsListing(jsonText) {
   var out = []
   for (var i = 0; i < data.length; i++) {
     var item = data[i]
-    if (item && item.type === "file" && item.name && item.download_url) out.push({ name: item.name, url: item.download_url })
+    if (item && item.type === "file" && item.name && item.download_url && isSafeBackgroundFilename(item.name))
+      out.push({ name: item.name, url: item.download_url })
   }
   return out
 }

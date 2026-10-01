@@ -272,4 +272,24 @@ check("parseBackgroundsListing: a non-file entry (nested dir) is skipped, not a 
 check("parseBackgroundsListing: an entry missing download_url is skipped",
   M.parseBackgroundsListing(JSON.stringify([{ name: "x.jpg", type: "file" }])), []);
 
+// ---- isSafeBackgroundFilename ---------------------------------------------------
+
+check("isSafeBackgroundFilename: a real catalog filename passes",
+  M.isSafeBackgroundFilename("1-sunset-grid.jpg"), true);
+check("isSafeBackgroundFilename: path traversal is rejected",
+  M.isSafeBackgroundFilename("../../colors.toml"), false);
+check("isSafeBackgroundFilename: a bare slash is rejected (can't escape backgrounds/)",
+  M.isSafeBackgroundFilename("sub/evil.jpg"), false);
+check("isSafeBackgroundFilename: a leading dot is rejected", M.isSafeBackgroundFilename(".hidden"), false);
+check("isSafeBackgroundFilename: a leading dash is rejected", M.isSafeBackgroundFilename("-x.jpg"), false);
+check("isSafeBackgroundFilename: empty/undefined fails closed", M.isSafeBackgroundFilename(""), false);
+check("isSafeBackgroundFilename: empty/undefined fails closed (no arg at all)", M.isSafeBackgroundFilename(), false);
+
+check("parseBackgroundsListing: an entry whose name is path traversal is dropped, not trusted just because type/download_url look real",
+  M.parseBackgroundsListing(JSON.stringify([
+    { name: "../../colors.toml", type: "file", download_url: "https://raw.example/evil" },
+    { name: "1-sunset-grid.jpg", type: "file", download_url: "https://raw.example/real.jpg" }
+  ])),
+  [{ name: "1-sunset-grid.jpg", url: "https://raw.example/real.jpg" }]);
+
 summary();

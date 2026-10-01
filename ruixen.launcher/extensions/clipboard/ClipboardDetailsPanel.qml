@@ -18,6 +18,9 @@ Rectangle {
   signal copyRequested()
   signal openRequested()
   signal pastePathRequested()
+  signal deleteRequested()
+
+  property bool deleteArmed: false
 
   function characterCount(text) {
     return String(text || "").length
@@ -85,52 +88,6 @@ Rectangle {
       }
     }
 
-    Row {
-      width: parent.width
-      spacing: 8
-
-      ClipboardActionButton {
-        label: "Paste"
-        icon: "\uf0ea"
-        textColor: root.textColor
-        muted: root.muted
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onClicked: root.pasteRequested()
-      }
-
-      ClipboardActionButton {
-        label: "Copy"
-        icon: "\uf0c5"
-        textColor: root.textColor
-        muted: root.muted
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onClicked: root.copyRequested()
-      }
-
-      ClipboardActionButton {
-        label: "Open"
-        icon: "\uf35d"
-        textColor: root.textColor
-        muted: root.muted
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onClicked: root.openRequested()
-      }
-
-      ClipboardActionButton {
-        visible: root.entry && root.entry.type === "image"
-        label: "Path"
-        icon: "\uf101"
-        textColor: root.textColor
-        muted: root.muted
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onClicked: root.pastePathRequested()
-      }
-    }
-
     Text {
       text: "Metadata"
       color: root.muted
@@ -140,62 +97,127 @@ Rectangle {
       font.bold: true
     }
 
-    Repeater {
-      model: root.entry ? (function() {
-        var fields = [
-          { label: "Type", value: root.entry.kind },
-          { label: "Captured", value: root.entry.capturedAt || "Unknown" },
-          { label: root.entry.type === "link" ? "URL" : "Mime", value: root.entry.type === "link" ? root.entry.text : (root.entry.mime || "Unknown") }
-        ]
-        if (root.entry.type === "image") {
-          fields.push({ label: "Dimensions", value: root.imageDimensions || "Loading..." })
-          fields.push({ label: "Size", value: root.imageSize || "Loading..." })
-        } else {
-          fields.push({ label: "Characters", value: String(root.characterCount(root.entry.text)) })
-          fields.push({ label: "Words", value: String(root.wordCount(root.entry.text)) })
-        }
-        return fields
-      })() : []
+    Column {
+      width: parent.width
+      spacing: 8
 
-      Item {
-        required property var modelData
-        required property int index
-        width: parent.width
-        height: 19
+      Repeater {
+        model: root.entry ? (function() {
+          var fields = [
+            { label: "Type", value: root.entry.kind },
+            { label: "Captured", value: root.entry.capturedAt || "Unknown" },
+            { label: root.entry.type === "link" ? "URL" : "Mime", value: root.entry.type === "link" ? root.entry.text : (root.entry.mime || "Unknown") }
+          ]
+          if (root.entry.type === "image") {
+            fields.push({ label: "Dimensions", value: root.imageDimensions || "Loading..." })
+            fields.push({ label: "Size", value: root.imageSize || "Loading..." })
+          } else {
+            fields.push({ label: "Characters", value: String(root.characterCount(root.entry.text)) })
+            fields.push({ label: "Words", value: String(root.wordCount(root.entry.text)) })
+          }
+          return fields
+        })() : []
 
-        Rectangle {
-          anchors.fill: parent
-          anchors.leftMargin: -10
-          anchors.rightMargin: -10
-          anchors.topMargin: -4
-          anchors.bottomMargin: -4
-          radius: 4
-          color: index % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
-        }
+        Item {
+          required property var modelData
+          required property int index
+          width: parent.width
+          height: 19
 
-        Text {
-          id: fieldLabel
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          text: modelData.label
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          font.capitalization: Font.AllUppercase
-        }
+          Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: -10
+            anchors.rightMargin: -10
+            anchors.topMargin: -4
+            anchors.bottomMargin: -4
+            radius: 4
+            color: index % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
+          }
 
-        Text {
-          anchors.left: fieldLabel.right
-          anchors.leftMargin: 12
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          horizontalAlignment: Text.AlignRight
-          elide: Text.ElideMiddle
-          text: modelData.value
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 13
+          Text {
+            id: fieldLabel
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: modelData.label
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            font.capitalization: Font.AllUppercase
+          }
+
+          Text {
+            anchors.left: fieldLabel.right
+            anchors.leftMargin: 12
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight
+            elide: Text.ElideMiddle
+            text: modelData.value
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 13
+          }
         }
+      }
+    }
+
+    Text {
+      topPadding: 6
+      text: "Actions"
+      color: root.muted
+      font.family: root.fontFamily
+      font.pixelSize: 10
+      font.capitalization: Font.AllUppercase
+      font.bold: true
+    }
+
+    Column {
+      width: parent.width
+      spacing: 8
+
+      ClipboardActionRow {
+        striped: true
+        label: "Paste"
+        icon: "\uf0ea"
+        hint: "\u21b5"
+        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+        onClicked: root.pasteRequested()
+      }
+
+      ClipboardActionRow {
+        label: "Copy"
+        icon: "\uf0c5"
+        hint: "Alt+C"
+        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+        onClicked: root.copyRequested()
+      }
+
+      ClipboardActionRow {
+        striped: true
+        label: "Open"
+        icon: "\uf35d"
+        hint: "Alt+O"
+        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+        onClicked: root.openRequested()
+      }
+
+      ClipboardActionRow {
+        visible: !!root.entry && root.entry.type === "image"
+        label: "Paste path"
+        icon: "\uf101"
+        hint: "Alt+P"
+        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+        onClicked: root.pastePathRequested()
+      }
+
+      ClipboardActionRow {
+        striped: !!root.entry && root.entry.type !== "image"
+        danger: true
+        label: root.deleteArmed ? "Press again to delete" : "Delete"
+        icon: "\uf1f8"
+        hint: "Alt+D"
+        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+        onClicked: root.deleteRequested()
       }
     }
   }

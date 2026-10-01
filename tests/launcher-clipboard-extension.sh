@@ -50,7 +50,7 @@ check "Clipboard model classifies URL-shaped text as Link with a link icon" \
 check "Clipboard model labels image rows by dimensions instead of filename" \
   "$(grep -c 'Image (" + dims + ")"' "$model_js")" "1"
 check "ClipboardDetailsPanel exposes an image path action" \
-  "$(grep -c 'onPastePathRequested' "$content_qml")$(grep -c 'label: "Path"' "$details_qml")" "11"
+  "$(grep -c 'onPastePathRequested' "$content_qml")$(grep -c 'label: "Paste path"' "$details_qml")" "11"
 check "ClipboardDetailsPanel omits temporary/internal path metadata rows" \
   "$(grep -c 'value: root.entry.path' "$details_qml")" "0"
 check "ClipboardContent fetches image dimensions through the shared file parser" \
@@ -69,9 +69,23 @@ check "Clipboard model preserves source history indexes" \
 check "ClipboardContent probes image labels through a bounded, cached, single worker" \
   "$(( $(grep -c 'imageProbeLimit' "$content_qml") + $(grep -c 'imageLabelsDirty' "$content_qml") + $(grep -c 'mergeDimensions' "$content_qml") ))" "7"
 check "ClipboardContent keeps the selection by identity across history reloads" \
-  "$(grep -c 'ClipboardHistory.entryKey' "$content_qml")" "2"
+  "$(grep -c 'ClipboardHistory.entryKey' "$content_qml")" "4"
 check "ClipboardDetailsPanel caps the text preview" \
   "$(grep -c 'ClipboardHistory.previewText' "$details_qml")" "1"
+
+launcher_header="$repo_dir/ruixen.launcher/SearchHeader.qml"
+check "Actions render as rows in the details panel, not floating buttons" \
+  "$(grep -c 'ClipboardActionRow {' "$details_qml")$(grep -c 'ClipboardActionButton' "$details_qml")" "50"
+check "Action rows advertise their Alt shortcuts" \
+  "$(grep -c 'hint: "Alt+[COPD]"' "$details_qml")" "4"
+check "ClipboardContent maps Alt+C/O/P/D through handleShortcut" \
+  "$(grep -c 'function handleShortcut' "$content_qml")$(grep -c 'Qt.Key_[COPD])' "$content_qml")" "13"
+check "SearchHeader only consumes Alt shortcuts when an extension opts in" \
+  "$(grep -c 'interceptShortcuts && (event.modifiers & Qt.AltModifier)' "$launcher_header")" "1"
+check "Launcher forwards shortcuts to the active extension's handleShortcut" \
+  "$(grep -c 'handleShortcut' "$launcher_qml")" "4"
+check "Delete is two-step, identity-matched and atomic" \
+  "$(grep -c 'deleteArmedKey' "$content_qml")$(grep -c 'os.replace(tmp, history)' "$content_qml")$(grep -c "'ambiguous' if hits" "$content_qml")" "611"
 
 check "run-all includes launcher clipboard extension contract" \
   "$(grep -c 'launcher-clipboard-extension\.sh' "$script_dir/run-all.sh")" "1"

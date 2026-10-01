@@ -68,7 +68,10 @@ Item {
 
   onSelectedIndexChanged: root.ensureSelectionVisible()
 
-  onSelectedEntryChanged: root.loadImageDetails()
+  onSelectedEntryChanged: {
+    root.deleteArmedKey = ""
+    root.loadImageDetails()
+  }
 
   onActiveChanged: {
     if (root.active) {
@@ -111,6 +114,79 @@ Item {
   function openSelected() {
     if (!root.selectedEntry) return
     openProc.exec(["omarchy-clipboard-open", "--history-index", String(root.selectedEntry.sourceIndex)])
+  }
+
+  // Two-step delete: the first request arms it for the highlighted entry
+  // (the details panel relabels to "Press again to delete"), the second
+  // on that same entry removes it. Moving the selection disarms.
+  property string deleteArmedKey: ""
+  readonly property bool deleteArmed: root.selectedEntry !== null && root.deleteArmedKey === ClipboardHistory.entryKey(root.selectedEntry)
+
+  function deleteSelected() {
+    if (!root.selectedEntry) return
+    var key = ClipboardHistory.entryKey(root.selectedEntry)
+    if (root.deleteArmedKey !== key) {
+      root.deleteArmedKey = key
+      return
+    }
+    root.deleteArmedKey = ""
+    var e = root.selectedEntry
+    // Identity-matched, never a bare index: the history file can have
+    // shifted since this row was drawn. Atomic temp+rename rewrite; an
+    // ambiguous or vanished entry aborts rather than guessing.
+    deleteProc.exec(["python3", "-c",
+      "import json, os, sys, tempfile\n" +
+      "history, kind, captured, ident, hint = sys.argv[1:6]\n" +
+      "try:\n" +
+      "    with open(history) as f:\n" +
+      "        data = json.load(f)\n" +
+      "except Exception:\n" +
+      "    print('error'); raise SystemExit\n" +
+      "if not isinstance(data, list):\n" +
+      "    print('error'); raise SystemExit\n" +
+      "def utf16len(s):\n" +
+      "    return len(s.encode('utf-16-le', 'surrogatepass')) // 2\n" +
+      "def same(e):\n" +
+      "    if not isinstance(e, dict) or e.get('type') != kind:\n" +
+      "        return False\n" +
+      "    if (e.get('capturedAt') or '') != captured:\n" +
+      "        return False\n" +
+      "    if kind == 'image':\n" +
+      "        return e.get('path') == ident\n" +
+      "    return isinstance(e.get('text'), str) and str(utf16len(e['text'])) == ident\n" +
+      "hits = [i for i, e in enumerate(data) if same(e)]\n" +
+      "try:\n" +
+      "    hint = int(hint)\n" +
+      "except ValueError:\n" +
+      "    hint = -1\n" +
+      "idx = hint if hint in hits else (hits[0] if len(hits) == 1 else -1)\n" +
+      "if idx < 0:\n" +
+      "    print('ambiguous' if hits else 'gone'); raise SystemExit\n" +
+      "removed = data.pop(idx)\n" +
+      "fd, tmp = tempfile.mkstemp(dir=os.path.dirname(history), prefix='.clipboard-history.')\n" +
+      "with os.fdopen(fd, 'w') as f:\n" +
+      "    json.dump(data, f)\n" +
+      "os.replace(tmp, history)\n" +
+      "if kind == 'image':\n" +
+      "    path = removed.get('path') or ''\n" +
+      "    still = any(isinstance(e, dict) and e.get('path') == path for e in data)\n" +
+      "    if path and not still and os.path.basename(os.path.dirname(path)) == 'clipboard-images':\n" +
+      "        try:\n" +
+      "            os.remove(path)\n" +
+      "        except OSError:\n" +
+      "            pass\n" +
+      "print('ok')\n",
+      root.historyPath, e.type === "image" ? "image" : "text", e.capturedAt || "",
+      e.type === "image" ? e.path : String(e.text.length), String(e.sourceIndex)])
+  }
+
+  // Alt+<key>, routed here by Launcher.qml via the generic extension
+  // handleShortcut(key) hook.
+  function handleShortcut(key) {
+    if (key === Qt.Key_C) root.copySelected()
+    else if (key === Qt.Key_O) root.openSelected()
+    else if (key === Qt.Key_P) root.pasteSelectedPath()
+    else if (key === Qt.Key_D || key === Qt.Key_Delete || key === Qt.Key_Backspace) root.deleteSelected()
   }
 
   function pasteSelectedPath() {
@@ -183,6 +259,13 @@ Item {
   Process { id: pasteFileProc }
   Process { id: openProc }
   Process { id: pastePathProc }
+  Process {
+    id: deleteProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.reloadHistory()
+    }
+  }
 
   Process {
     id: imageRowLabelsProc
@@ -274,6 +357,8 @@ Item {
     onPasteRequested: root.pasteSelected()
     onCopyRequested: root.copySelected()
     onOpenRequested: root.openSelected()
+    deleteArmed: root.deleteArmed
     onPastePathRequested: root.pasteSelectedPath()
+    onDeleteRequested: root.deleteSelected()
   }
 }

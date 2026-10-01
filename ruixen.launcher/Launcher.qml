@@ -436,6 +436,9 @@ Item {
   //       extension that needs the wide/tall panel (Wallpapers)
   //     searchPlaceholder (string) -- shown in the outer search box
   //       instead of the generic placeholder
+  //     handleShortcut(key) -- called with the Qt key code for every
+  //       Alt+<key> press while this extension is active (Clipboard:
+  //       Alt+C copy / O open / P paste path / D delete)
   //     showsEnterHint (bool) -- the small "↵" chip meaning "Enter
   //       opens/activates the highlighted row" (Settings' own 2-panel
   //       interaction; a plain grid has nothing analogous to hint at)
@@ -1741,6 +1744,12 @@ Item {
         // focused, Left/Right should still just move the search box's
         // own text cursor normally.
         interceptArrowKeys: !!(root.activeExtensionContent && root.activeExtensionContent.interceptsArrowKeys)
+        // Optional, duck-typed like the rest of the extension contract:
+        // an extension declaring handleShortcut(key) gets Alt+<key>.
+        interceptShortcuts: !!(root.activeExtensionContent && root.activeExtensionContent.handleShortcut)
+        onShortcutPressed: (key) => {
+          if (root.activeExtensionContent && root.activeExtensionContent.handleShortcut) root.activeExtensionContent.handleShortcut(key)
+        }
         textColor: root.textColor
         mutedColor: root.muted
         fontFamily: root.fontFamily

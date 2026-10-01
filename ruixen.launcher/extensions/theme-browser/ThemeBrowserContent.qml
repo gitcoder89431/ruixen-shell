@@ -144,6 +144,53 @@ Item {
     if (root.selectedIndex >= root.filteredThemes.length) root.selectedIndex = Math.max(0, root.filteredThemes.length - 1)
   }
 
+  // Direct follow-up ("check the left panel scroll, it needs smart
+  // scroll that follows on kbd") -- ResultsList.qml is a plain ListView
+  // with no scroll-follow of its own (see its own header comment: every
+  // consumer wires that externally), and this extension's own
+  // moveSelectionUp/Down just mutate selectedIndex with nothing
+  // positioning the viewport, so arrowing past the visible rows left
+  // the highlight scrolling off-screen while the list itself sat still.
+  // Same Contain-based technique Launcher.qml's own main results list
+  // already uses, same scrollOff=2 margin (so the list scrolls a beat
+  // before the selection would actually reach the edge; Contain never
+  // overscrolls past the minimum needed either way).
+  readonly property int scrollOff: 2
+
+  // First live test of the scroll-follow above reproduced the exact
+  // snapback this plugin has already hit (and fixed) twice before, in
+  // two different shapes -- Launcher.qml's own main results list
+  // (hoverArmed/hoverArmBaseline) and WallpapersContent's own grid
+  // (its header comment documents a SECOND, worse version of the same
+  // bug: a naive one-way "armed forever" latch silently broke keyboard
+  // nav too, since a content shift under a physically still cursor
+  // looks IDENTICAL to a real hover to a plain MouseArea.onEntered).
+  // ResultsList/ResultRow is a plain ListView + per-row MouseArea,
+  // structurally the same shape the MAIN list already uses (not the
+  // grid's bespoke indexAt-driven design, which only existed because a
+  // GridView's 2D navigation needed hover to drive currentIndex
+  // directly) -- so this reuses that simpler, already-proven mechanism
+  // rather than the heavier one: hoverArmed stays false (onRowHovered
+  // below is a no-op) until the HoverHandler below observes the
+  // pointer at a DIFFERENT position than wherever it last rested.
+  // Resetting BOTH to false/(-1,-1) on every onSelectedIndexChanged --
+  // not just once at open -- means the very next pointer-position
+  // reading after a keyboard-driven scroll is treated as establishing
+  // a fresh baseline, not as the user having moved anything, even if
+  // the compositor's content-shift-under-a-still-cursor sends an
+  // event. Only a SECOND, genuinely different reading re-arms it.
+  property bool hoverArmed: false
+  property point hoverArmBaseline: Qt.point(-1, -1)
+
+  onSelectedIndexChanged: {
+    root.hoverArmed = false
+    root.hoverArmBaseline = Qt.point(-1, -1)
+    var lastIndex = root.filteredThemes.length - 1
+    themeResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
+    themeResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
+    themeResultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
+  }
+
   // --- Required core of the generic extension-content interface.
   function moveSelectionUp() {
     if (root.selectedIndex > 0) root.selectedIndex--
@@ -159,7 +206,13 @@ Item {
 
   onActiveChanged: {
     if (root.active && root.darkThemes.length === 0 && !root.catalogLoading) root.loadCatalog()
-    if (root.active) root.refreshInstalledThemes()
+    if (root.active) {
+      root.refreshInstalledThemes()
+      // Same re-arm-on-(re)open as Launcher.qml's own hoverArmed/
+      // WallpapersContent's own copy of the same thing.
+      root.hoverArmed = false
+      root.hoverArmBaseline = Qt.point(-1, -1)
+    }
   }
 
   // Plain `ls` of the real themes directory -- cheap, local, no reason
@@ -348,6 +401,7 @@ Item {
   // but this extension's whole point is surfacing it right here in the
   // list, so it deliberately opts out of that mode instead.
   ResultsList {
+    id: themeResultsList
     parent: panel.leftPane
     anchors.fill: parent
     model: root.themeRows
@@ -356,8 +410,30 @@ Item {
     mutedColor: root.muted
     accentColor: root.accent
     fontFamily: root.fontFamily
-    onRowHovered: (idx) => { root.selectedIndex = idx }
+    onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
     onRowActivated: (idx) => { root.selectedIndex = idx }
+
+    // Arms hoverArmed (see its own property comment) on the first REAL
+    // pointer movement -- a passive input handler, not a MouseArea, so
+    // it observes pointer events over the whole list without stealing
+    // anything from each row's own MouseArea beneath it. Matches
+    // Launcher.qml's own card-level HoverHandler exactly: the first
+    // onPointChanged after any reset is captured as a baseline instead
+    // of treated as movement, so a content-shift-under-a-still-cursor
+    // (this list scrolling itself under the keyboard above) is never
+    // mistaken for the user's hand actually moving.
+    HoverHandler {
+      onPointChanged: {
+        if (root.hoverArmed) return
+        if (root.hoverArmBaseline.x < 0) {
+          root.hoverArmBaseline = point.position
+          return
+        }
+        if (Math.abs(point.position.x - root.hoverArmBaseline.x) > 0.5
+            || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5)
+          root.hoverArmed = true
+      }
+    }
   }
 
   Text {

@@ -332,79 +332,14 @@ Item {
       anchors.margins: 16
       spacing: 12
 
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Text {
-          Layout.fillWidth: true
-          text: root.selectedThemeName
-          font.family: root.fontFamily
-          font.pixelSize: 16
-          font.bold: true
-          color: root.textColor
-          elide: Text.ElideRight
-        }
-
-        // Plain Dark/Light toggle -- mouse-only for stage 1 (no
-        // keyboard path to it yet, see this file's own header comment
-        // on why rightFocused/focusRightPanel aren't part of the
-        // interface here yet).
-        Row {
-          spacing: 4
-
-          Rectangle {
-            width: darkLabel.implicitWidth + 16
-            height: 24
-            radius: 6
-            color: root.previewVariant === "dark" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
-            border.width: 1
-            border.color: root.previewVariant === "dark" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              id: darkLabel
-              anchors.centerIn: parent
-              text: "Dark"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              color: root.previewVariant === "dark" ? root.textColor : root.muted
-            }
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.previewVariant !== "dark") root.toggleVariant()
-            }
-          }
-
-          Rectangle {
-            width: lightLabel.implicitWidth + 16
-            height: 24
-            radius: 6
-            color: root.previewVariant === "light" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
-            border.width: 1
-            border.color: root.previewVariant === "light" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-            Text {
-              id: lightLabel
-              anchors.centerIn: parent
-              text: "Light"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-              color: root.previewVariant === "light" ? root.textColor : root.muted
-            }
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: if (root.previewVariant !== "light") root.toggleVariant()
-            }
-          }
-        }
-      }
-
       // Preview image once it lands; the swatch grid underneath stays
       // visible the whole time as a loading placeholder/fallback (a
       // failed or slow image fetch still leaves a real color preview on
-      // screen, never a blank pane).
+      // screen, never a blank pane). Direct follow-up on the overall
+      // layout: preview first, then the Dark/Light toggle, then name +
+      // palette grouped together as one metadata field below -- the
+      // image is the actual preview, name/palette are plain facts
+      // about the theme rather than something that belongs above it.
       Rectangle {
         id: previewBox
         Layout.fillWidth: true
@@ -458,22 +393,104 @@ Item {
         }
       }
 
-      // The rest of the 16-color ANSI set, as a plain small swatch grid
-      // -- metadata beyond the headline colors above, same spirit as a
-      // terminal color-scheme preview.
-      GridLayout {
-        Layout.fillWidth: true
-        columns: 8
-        rowSpacing: 6
-        columnSpacing: 6
+      // Plain Dark/Light toggle -- mouse-only for stage 1 (no
+      // keyboard path to it yet, see this file's own header comment on
+      // why rightFocused/focusRightPanel aren't part of the interface
+      // here yet). Between the preview and the metadata field below --
+      // it decides which variant BOTH of those show, so it reads as
+      // its own step, not glued to either one.
+      Row {
+        spacing: 4
 
-        Repeater {
-          model: ["red", "orange", "yellow", "green", "cyan", "blue", "magenta", "brown"]
-          Rectangle {
+        Rectangle {
+          width: darkLabel.implicitWidth + 16
+          height: 24
+          radius: 6
+          color: root.previewVariant === "dark" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: 1
+          border.color: root.previewVariant === "dark" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+          Text {
+            id: darkLabel
+            anchors.centerIn: parent
+            text: "Dark"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: root.previewVariant === "dark" ? root.textColor : root.muted
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: if (root.previewVariant !== "dark") root.toggleVariant()
+          }
+        }
+
+        Rectangle {
+          width: lightLabel.implicitWidth + 16
+          height: 24
+          radius: 6
+          color: root.previewVariant === "light" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: 1
+          border.color: root.previewVariant === "light" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+          Text {
+            id: lightLabel
+            anchors.centerIn: parent
+            text: "Light"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: root.previewVariant === "light" ? root.textColor : root.muted
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: if (root.previewVariant !== "light") root.toggleVariant()
+          }
+        }
+      }
+
+      // Metadata field -- name + the rest of the 16-color ANSI set
+      // (the palette) grouped together as one labeled card, direct
+      // follow-up moving both out of the header row above the preview.
+      Rectangle {
+        Layout.fillWidth: true
+        implicitHeight: metaColumn.implicitHeight + 24
+        radius: 10
+        color: Qt.rgba(1, 1, 1, 0.04)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.08)
+
+        ColumnLayout {
+          id: metaColumn
+          anchors.fill: parent
+          anchors.margins: 12
+          spacing: 10
+
+          Text {
             Layout.fillWidth: true
-            Layout.preferredHeight: 28
-            radius: 6
-            color: root.previewColors[modelData] || Qt.rgba(1, 1, 1, 0.06)
+            text: root.selectedThemeName
+            font.family: root.fontFamily
+            font.pixelSize: 16
+            font.bold: true
+            color: root.textColor
+            elide: Text.ElideRight
+          }
+
+          GridLayout {
+            Layout.fillWidth: true
+            columns: 8
+            rowSpacing: 6
+            columnSpacing: 6
+
+            Repeater {
+              model: ["red", "orange", "yellow", "green", "cyan", "blue", "magenta", "brown"]
+              Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 28
+                radius: 6
+                color: root.previewColors[modelData] || Qt.rgba(1, 1, 1, 0.06)
+              }
+            }
           }
         }
       }

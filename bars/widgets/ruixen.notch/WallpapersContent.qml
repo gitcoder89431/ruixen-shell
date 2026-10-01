@@ -9,12 +9,10 @@ import Quickshell.Widgets
 // extension, same "plugin folders can't share a file" reason
 // AppLibrary.qml is copied per-plugin too) -- keep both in sync by
 // hand if kindFilter/searchText/discovery/poster generation change
-// here. Not byte-for-byte anymore: that copy drops this file's own
-// right sidebar (direct report once it shipped in the launcher's wider
-// card -- its filter chips are redundant with a proper dropdown there,
-// see that copy's own removal comment), since this dashboard's own
-// tab genuinely has "space left... like a right panel" (this
-// sidebar's own original request) that the launcher's card doesn't.
+// here. Not byte-for-byte anymore: this file also owns the notch-only
+// theme switcher and the responsive expanded-notch grid layout, while
+// the launcher card stays a pure wallpaper picker with its own wider
+// card/dropdown treatment.
 //
 // This file is now ALSO the notch's own Theme switcher (a WALLPAPER/
 // THEME sliding tab sharing one row with the search box, tab pill on
@@ -181,8 +179,7 @@ Item {
   // One chip row, two different filters depending on mediaMode --
   // direct follow-up ("the theme is omarchy and custom but for
   // wallpapers we have type"). Wallpaper mode's own chips replace the
-  // kind-filter stat tiles that used to live in the sidebar (see its
-  // own comment further down) rather than duplicating them in a second
+  // old kind-filter stat tiles instead of duplicating them in a second
   // place.
   readonly property var activeFilterChips: root.mediaMode === "themes"
     ? [{ value: "all", label: "All" }, { value: "omarchy", label: "Omarchy" }, { value: "custom", label: "Custom" }]
@@ -529,13 +526,9 @@ Item {
     themeSetProc.running = true
   }
 
-  // Outer ColumnLayout -- direct follow-up ("put the right panel
-  // below the search bar so keep search like before full"): the
-  // search bar moved back out to span the FULL panel width again (it
-  // had shrunk to just the grid column's own width once the sidebar
-  // sat beside it at the same row), with a RowLayout now nested below
-  // it instead of wrapping the whole page -- grid on the left,
-  // sidebar on the right, only for the content BELOW the search bar.
+  // Outer ColumnLayout -- the search bar spans the full panel width,
+  // while the wallpaper/theme content below can switch between its own
+  // full-row grids without affecting that top chrome.
   ColumnLayout {
     anchors.fill: parent
     spacing: 10
@@ -745,14 +738,18 @@ Item {
     // sourceFilter (Omarchy/Custom, see list-themes.sh's own
     // USER_THEMES_PATH/OMARCHY_THEMES_PATH precedence), Wallpaper mode
     // now drives kindFilter (All/Images/Video/Gif) instead, replacing
-    // the kind-filter stat tiles that used to live in the sidebar
-    // further down (still there, now just the back-to-top button --
-    // see its own comment). activeFilterChips/activeFilterValue/
+    // the old kind-filter stat tiles. activeFilterChips/activeFilterValue/
     // setActiveFilter below are the one indirection that lets a single
     // Repeater+delegate serve both without duplicating the chip markup
     // a second time for a near-identical row.
-    Row {
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.maximumWidth: Number.POSITIVE_INFINITY
+      Layout.rightMargin: 12
       spacing: 6
+
+      Row {
+        spacing: 6
 
       Repeater {
         model: root.activeFilterChips
@@ -785,51 +782,92 @@ Item {
           }
         }
       }
+      }
+
+      Item { Layout.fillWidth: true }
+
+      // Back to top -- moved here from the right sidebar (direct
+      // follow-up: "move the top button up to the same top row but
+      // right aligned"), then extended to Theme mode too ("we can do
+      // this for the themes too"). Always present so the row doesn't reflow,
+      // but dimmed and inert until the grid has actually scrolled
+      // (grid.contentY > 0 -- GridView is itself a Flickable, so its
+      // own contentY is the real scroll position). Plain contentY
+      // assignment on click, matching this repo's scroll-to-top
+      // convention (ruixen.tray's trayMenuFlick.contentY = 0).
+      Rectangle {
+        id: backToTopButton
+        // Drives whichever grid is showing -- wallpaper grid or theme
+        // grid (both GridViews, so both are Flickables with a real
+        // contentY).
+        readonly property var targetGrid: root.mediaMode === "themes" ? themeGrid : grid
+        readonly property bool active: backToTopButton.targetGrid.contentY > 0
+        Layout.preferredWidth: backToTopContent.implicitWidth + 20
+        Layout.preferredHeight: 28
+        radius: 8
+        opacity: backToTopButton.active ? 1 : 0.35
+        color: backToTopArea.containsMouse ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Row {
+          id: backToTopContent
+          anchors.centerIn: parent
+          spacing: 4
+
+          Text {
+            text: "↑"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: backToTopArea.containsMouse ? root.accent : root.secondary
+          }
+
+          Text {
+            text: "Top"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: backToTopArea.containsMouse ? root.accent : root.textColor
+          }
+        }
+
+        MouseArea {
+          id: backToTopArea
+          anchors.fill: parent
+          enabled: backToTopButton.active
+          hoverEnabled: true
+          cursorShape: backToTopButton.active ? Qt.PointingHandCursor : Qt.ArrowCursor
+          onClicked: backToTopButton.targetGrid.contentY = 0
+        }
+      }
     }
 
-    // Grid (left) + filter sidebar (right) -- direct request ("on the
-    // right side of the panel, theres some space left like a right
-    // panel, can we use these to toggle between IMAGE and VIDEO and
-    // then GIF too"), then moved below the search bar per this same
-    // follow-up. The grid's own 170px cells never evenly divide this
-    // panel's real content width (790px -> 4 full columns, 680px
-    // used, ~110px dead on the right no matter how many wallpapers
-    // exist) -- that's the "space left" the sidebar fills instead of
-    // leaving it empty.
+    // Wallpaper grid -- fills the same full row as the theme grid now
+    // that the old right sidebar/stat-card layout has been folded into
+    // the shared chip row above.
     RowLayout {
-      // Wallpaper mode only -- in theme mode the whole grid+sidebar
-      // block below the search bar steps aside for themeGrid ( layouts
+      // Wallpaper mode only -- in theme mode this whole wallpaper
+      // block below the search bar steps aside for themeGrid (layouts
       // skip invisible children, so it yields its height to the theme
       // grid with no extra geometry work).
       visible: root.mediaMode === "wallpapers"
-      // Layout.maximumWidth freed for the same reason as the sidebar's
-      // own comment below -- a nested RowLayout/ColumnLayout's
-      // maximumWidth defaults to its own implicitWidth (here, the
-      // wrapper's fixed 680 + the sidebar's natural content width +
-      // spacing), not unbounded, so without this the RowLayout itself
-      // never actually reached the outer ColumnLayout's real 790px and
-      // the sidebar had no genuine leftover space to grow into no
-      // matter what its own fillWidth/maximumWidth said.
+      // maximumWidth freed because nested RowLayout/ColumnLayout items
+      // can otherwise cap themselves at implicitWidth and fail to reach
+      // the outer ColumnLayout's real width.
       Layout.fillWidth: true
       Layout.maximumWidth: Number.POSITIVE_INFINITY
       Layout.fillHeight: true
       spacing: 10
 
     ColumnLayout {
-      // Fixed width (matches the grid's own real 4-column content, see
-      // GridView's own comment), not fillWidth -- this wrapper needs
-      // to stop claiming the leftover space too, or the sidebar below
-      // still has nothing real to center within even after the
-      // GridView itself stopped stretching past its own content.
-      // Layout.fillWidth: false is NOT redundant with preferredWidth
-      // here -- a nested ColumnLayout/RowLayout child defaults
-      // Layout.fillWidth to true even when never set (the same gotcha
-      // already hit once on the sidebar itself, see its own comment
-      // below), so leaving this unset would silently keep it
-      // competing for the RowLayout's leftover space regardless of
-      // the preferredWidth given here.
-      Layout.preferredWidth: 680
-      Layout.fillWidth: false
+      id: wallpaperGridWrap
+      // Fills the whole row now -- the right sidebar that used to claim
+      // the leftover space past the grid's fixed 680px is gone, so the
+      // grid sizes itself the same way themeGrid does (columns from
+      // this wrapper's width, tiles stretched to consume the row).
+      // maximumWidth freed because a nested ColumnLayout defaults it to
+      // its own implicitWidth, which would cap it short of the row.
+      Layout.fillWidth: true
+      Layout.maximumWidth: Number.POSITIVE_INFINITY
       Layout.fillHeight: true
       spacing: 10
 
@@ -868,29 +906,28 @@ Item {
     // the library has 4 wallpapers or 4000.
     GridView {
       id: grid
-      // Fixed width (4 columns * 170 cellWidth), not fillWidth --
-      // direct follow-up ("theres still a bit of a gap between where
-      // the stats are and the last wallpaper column, i think try and
-      // center middle the three stats, so its not too leaning to the
-      // right edge"). fillWidth made the grid claim every pixel the
-      // RowLayout gave it, even the ~32px slack past its own real
-      // 4-column content (170 doesn't evenly divide the available
-      // width) -- that slack, plus the RowLayout's own spacing, is
-      // exactly what read as "a gap before the stats". Fixing the
-      // grid's own width to what it actually uses frees that leftover
-      // space for the sidebar to legitimately claim and center within
-      // instead, rather than the sidebar just sitting flush against
-      // the panel's own right edge past an unclaimed gap.
-      Layout.preferredWidth: 680
+      // Same fill-the-row sizing as themeGrid (see its own comments for
+      // the full "why"): as many 170px-minimum columns as the wrapper's
+      // width allows, each cell stretched to consume the row, with the
+      // 10px right/bottom gap kept by construction (cellWidth = tile +
+      // 10). Width is exactly columns*cellWidth -- GridView lays out
+      // floor(width / cellWidth) columns, so undersizing it by even a
+      // pixel silently drops a column -- and centered, so any small
+      // remainder splits evenly left/right. Sized from the WRAPPER's
+      // width, not the grid's own, to avoid a width -> columns -> width
+      // loop.
+      Layout.alignment: Qt.AlignHCenter
+      Layout.preferredWidth: grid.columns * grid.cellWidth
       Layout.fillHeight: true
       visible: root.filteredPaths.length > 0
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       reuseItems: true
-      // 160x100 tile + 10px gap on the right/bottom of each cell --
-      // same visual spacing Flow's own `spacing: 10` produced.
-      cellWidth: 170
-      cellHeight: 110
+      readonly property int columns: Math.max(1, Math.floor(wallpaperGridWrap.width / 170))
+      readonly property int tileWidth: Math.max(160, Math.floor(wallpaperGridWrap.width / grid.columns) - 10)
+      readonly property int tileHeight: Math.round(grid.tileWidth * 100 / 160)
+      cellWidth: grid.tileWidth + 10
+      cellHeight: grid.tileHeight + 10
       model: root.filteredPaths
 
       // Any deliberate scroll means the user is actively looking for
@@ -948,8 +985,8 @@ Item {
         // lit at rest.
         readonly property bool active: tile.modelData.identity === root.currentBackground
 
-        width: 160
-        height: 100
+        width: grid.tileWidth
+        height: grid.tileHeight
 
         // Image container -- always exactly `width`x`height`, no
         // margins, no border, no animated properties at all. This
@@ -974,7 +1011,7 @@ Item {
             source: tile.index <= root.loadGate ? ("file://" + tile.modelData.display) : ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            sourceSize: Qt.size(160, 100)
+            sourceSize: Qt.size(grid.tileWidth, grid.tileHeight)
           }
         }
 
@@ -1054,95 +1091,11 @@ Item {
     }
   }
 
-  // Right sidebar -- IMAGE/VIDEO/GIF stat tiles that used to live here
-  // moved up into the top chip row instead (direct follow-up: "for the
-  // wallpaper, instead of all omarchy and custom, can we convert this
-  // to All Images Video and Gif... im thinking about converting that
-  // side panel stuff we have into the chips here instead for
-  // wallpaper"), so this is just the back-to-top button now. Kept
-  // (not removed outright) because it still does real layout work:
-  // fillWidth: true + Layout.maximumWidth freed (a nested ColumnLayout
-  // child defaults maximumWidth to its own implicitWidth, unlike a
-  // plain Item/Rectangle, so fillWidth alone is a no-op without this)
-  // is what claims the real leftover RowLayout space past the grid's
-  // own fixed 680px content -- confirmed live, this repo's own established
-  // way to find this kind of gap: a debug width readout, not a guess.
-  // Leaving the button centered in that same space keeps it exactly
-  // where it's always been instead of also needing a separate reflow.
-  ColumnLayout {
-    id: sidebar
-    Layout.fillWidth: true
-    Layout.maximumWidth: Number.POSITIVE_INFINITY
-    Layout.fillHeight: true
-    Layout.alignment: Qt.AlignTop
-    spacing: 8
-
-    // Back to top -- direct follow-up ("theres still some room left
-    // under the gif stat, you think we can do a back to top button, i
-    // feel like when im all the way scrolled down, theres no way back
-    // up to the top of the list"). Only shown once there's actually
-    // somewhere to go back to (grid.contentY > 0) -- GridView is
-    // itself a Flickable, so its own contentY is the real scroll
-    // position, no separate tracking needed. Plain contentY
-    // assignment on click, matching this repo's own existing
-    // scroll-to-top convention (ruixen.tray's trayMenuFlick.contentY
-    // = 0), not a new animated-scroll pattern.
-    Rectangle {
-      id: backToTopButton
-      visible: grid.contentY > 0
-      Layout.preferredWidth: 76
-      Layout.alignment: Qt.AlignHCenter
-      // Same 64px height as the filter chips above, not a smaller
-      // 36px -- direct follow-up ("try and make it consistenly the
-      // same size stat card") -- and the same number-then-label
-      // two-line layout, with the arrow standing in for the number
-      // and TOP standing in for the kind label, rather than a single
-      // centered line.
-      Layout.preferredHeight: 64
-      radius: 10
-      color: backToTopArea.containsMouse ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
-      border.width: 1
-      border.color: root.surfaceTint(0.12)
-
-      ColumnLayout {
-        anchors.centerIn: parent
-        spacing: 2
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "↑"
-          font.family: root.fontFamily
-          font.pixelSize: 18
-          font.weight: Font.DemiBold
-          color: backToTopArea.containsMouse ? root.accent : root.secondary
-        }
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "TOP"
-          font.family: root.fontFamily
-          font.pixelSize: 9
-          color: root.muted
-        }
-      }
-
-      MouseArea {
-        id: backToTopArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: grid.contentY = 0
-      }
-    }
-
-    Item { Layout.fillHeight: true }
-  }
   }
 
   // ---- Theme mode content ---- sits as a sibling of the wallpaper
-  // block above (each side visible only in its own mediaMode), so the
-  // wallpaper side's carefully-tuned fixed widths and sidebar layout
-  // are never disturbed by the theme side's presence.
+  // block above (each side visible only in its own mediaMode), so both
+  // grids can own their row sizing independently.
   Item {
     id: themeGridWrap
     Layout.fillWidth: true

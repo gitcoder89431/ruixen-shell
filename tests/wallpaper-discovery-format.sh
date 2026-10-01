@@ -128,5 +128,27 @@ check "gif: identity matches Service.qml's own playGif() poster-hash formula (#2
 check "gif: no poster file was generated just for discovery (no ffmpeg cost until actually selected)" \
   "$([[ -f "$expected_identity" ]] && echo present || echo absent)" "absent"
 
+# --- Case 5: source field (#"add chips for All Omarchy Custom") ------
+# Everything above lives under ~/Pictures/ruixen-wallpapers, the SAME
+# directory the real script's second find|process pipeline tags
+# "custom" -- confirms that tag directly rather than assuming the field
+# is there just because earlier cases (which only checked $2/$3/$4)
+# kept passing. A theme-backgrounds fixture confirms the OTHER source
+# value and that the two groups stay in their documented order (omarchy
+# records before custom ones), not just that each is tagged correctly
+# in isolation.
+check "custom: Pictures wallpapers are tagged source=custom" \
+  "$(awk -F'\x1f' '$2 ~ /normal\.png$/ { print $5 }' <<<"$output3")" "custom"
+
+theme_bg_dir="$HOME/.local/state/omarchy/current/theme/backgrounds"
+mkdir -p "$theme_bg_dir"
+touch "$theme_bg_dir/omarchy-provided.png"
+output4="$(run_discovery)"
+check "omarchy: theme-backgrounds wallpapers are tagged source=omarchy" \
+  "$(awk -F'\x1f' '$2 ~ /omarchy-provided\.png$/ { print $5 }' <<<"$output4")" "omarchy"
+first_source=$(printf '%s\n' "$output4" | head -1 | awk -F'\x1f' '{print $5}')
+check "omarchy wallpapers are still discovered before custom ones (group order unchanged)" \
+  "$first_source" "omarchy"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

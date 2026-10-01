@@ -129,8 +129,13 @@ check "theme grid renders labels as PlainText" \
 check "theme grid shows only in theme mode" \
   "$(grep -c 'visible: root.mediaMode === "themes" && root.filteredThemes.length > 0' "$content_qml")" "1"
 
-check "wallpaper block shows only in wallpaper mode" \
-  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "1"
+# 2, not 1, since the source-filter chip row (direct follow-up: "add
+# chips for All Omarchy Custom so we can filter between these") is a
+# second, separate block gated the same way, alongside the original
+# grid+sidebar block -- both legitimately wallpaper-mode-only (Theme
+# mode's own grid has no "omarchy vs custom" distinction to filter by).
+check "wallpaper block and the source-filter chip row both show only in wallpaper mode" \
+  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "2"
 
 check "theme grid fills the row instead of leaving a dead right strip" \
   "$(grep -c 'readonly property int columns: Math.max(1, Math.floor(themeGridWrap.width / 170))' "$content_qml")" "1"

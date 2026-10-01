@@ -82,27 +82,34 @@ disown 2>/dev/null || true
 # would orphan the old poster file forever with nothing to ever clean
 # it up, where overwriting the same filename in place needs no separate
 # pruning step at all.
-# Each record is kind<US>display<US>real<US>identity -- the 4th field
-# added for "[P2] Keep GIF wallpaper CURRENT state in sync with its
-# static poster fallback" (#23). display is what the tile thumbnail
-# renders (Image source); real is what gets passed to playback/set
-# calls; identity is what the picker should compare against
-# $HOME/.local/state/omarchy/current/background to decide whether a
-# tile is the currently active one. For image and video, identity is
-# always the same value as display already -- video's display already
-# IS the poster #12 made canonical, and current/background for a plain
-# image is just the image itself. GIF is the one case where those
-# diverge: display/real stay the raw .gif (Image already renders a
-# gif's own first frame directly, no poster file needed for the
-# thumbnail), but current/background for an active GIF is the cached
-# poster JPG (#12, to avoid the ImageMagick memory blowup a raw
-# multi-frame GIF caused there) -- so identity is computed with the
-# EXACT same hash formula ruixen.wallpaper/Service.qml's own playGif()
-# uses, WITHOUT actually generating the poster file here (nothing reads
-# it as an image for a gif tile, only compares its path), so a GIF
-# that's never been selected yet still gets a correct identity value
-# with no extra ffmpeg cost paid at discovery time.
+# Each record is kind<US>display<US>real<US>identity<US>source -- the
+# 4th field added for "[P2] Keep GIF wallpaper CURRENT state in sync
+# with its static poster fallback" (#23), the 5th ("source": "omarchy"
+# or "custom") for a direct follow-up ("add chips for All Omarchy
+# Custom so we can filter between these"). display is what the tile
+# thumbnail renders (Image source); real is what gets passed to
+# playback/set calls; identity is what the picker should compare
+# against $HOME/.local/state/omarchy/current/background to decide
+# whether a tile is the currently active one. For image and video,
+# identity is always the same value as display already -- video's
+# display already IS the poster #12 made canonical, and current/
+# background for a plain image is just the image itself. GIF is the
+# one case where those diverge: display/real stay the raw .gif (Image
+# already renders a gif's own first frame directly, no poster file
+# needed for the thumbnail), but current/background for an active GIF
+# is the cached poster JPG (#12, to avoid the ImageMagick memory
+# blowup a raw multi-frame GIF caused there) -- so identity is
+# computed with the EXACT same hash formula ruixen.wallpaper/Service.qml's
+# own playGif() uses, WITHOUT actually generating the poster file here
+# (nothing reads it as an image for a gif tile, only compares its
+# path), so a GIF that's never been selected yet still gets a correct
+# identity value with no extra ffmpeg cost paid at discovery time.
+# source is passed in by the caller (process's own first argument),
+# not derived per-file here -- it's which of the two find|process
+# pipelines below a file came through, a property of the SEARCH
+# location, not anything inspectable from the file itself.
 process() {
+  local source="$1"
   while IFS= read -r -d '' f; do
     case "${f,,}" in
       *.mp4 | *.mkv | *.webm | *.mov | *.m4v)
@@ -115,15 +122,15 @@ process() {
           # header for the full pruning policy this feeds.
           [[ -f "$poster" ]] && printf '%s' "$f" > "$poster.src"
         fi
-        [[ -f "$poster" ]] && printf 'video%s%s%s%s%s%s\n' "$US" "$poster" "$US" "$f" "$US" "$poster"
+        [[ -f "$poster" ]] && printf 'video%s%s%s%s%s%s%s%s\n' "$US" "$poster" "$US" "$f" "$US" "$poster" "$US" "$source"
         ;;
       *.gif)
         gif_hash=$(printf '%s' "$f" | md5sum | cut -d' ' -f1)
         gif_identity="$HOME/.cache/ruixen/wallpaper-posters/$gif_hash.jpg"
-        printf 'gif%s%s%s%s%s%s\n' "$US" "$f" "$US" "$f" "$US" "$gif_identity"
+        printf 'gif%s%s%s%s%s%s%s%s\n' "$US" "$f" "$US" "$f" "$US" "$gif_identity" "$US" "$source"
         ;;
       *)
-        printf 'image%s%s%s%s%s%s\n' "$US" "$f" "$US" "$f" "$US" "$f"
+        printf 'image%s%s%s%s%s%s%s%s\n' "$US" "$f" "$US" "$f" "$US" "$f" "$US" "$source"
         ;;
     esac
   done
@@ -153,8 +160,8 @@ process() {
 find -L "$HOME/.local/state/omarchy/current/theme/backgrounds" "$HOME/.config/omarchy/backgrounds/$theme" \
   -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.webp" \
   -o -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.mov" -o -iname "*.m4v" \) \
-  -print0 2>/dev/null | sort -z | process
+  -print0 2>/dev/null | sort -z | process omarchy
 find -L "$HOME/Pictures/ruixen-wallpapers" \
   -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.webp" \
   -o -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.mov" -o -iname "*.m4v" \) \
-  -print0 2>/dev/null | sort -z | process
+  -print0 2>/dev/null | sort -z | process custom

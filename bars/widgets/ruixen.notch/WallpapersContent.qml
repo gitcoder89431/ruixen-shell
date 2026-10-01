@@ -171,6 +171,13 @@ Item {
   // useful than having to choose one or the other.
   property string kindFilter: "all"
 
+  // "all", "omarchy", or "custom" -- direct follow-up ("add chips for
+  // All Omarchy Custom so we can filter between these"). Combines with
+  // kindFilter/searchText the same way they already combine with each
+  // other -- each one only ever narrows further, never replaces
+  // another.
+  property string sourceFilter: "all"
+
   // ---- Theme mode ---- (the WALLPAPER/THEME sliding tab to the right
   // of the search box; see the header comment for why this is
   // notch-only and not synced to the launcher copy).
@@ -218,10 +225,13 @@ Item {
   // Filename substring match against the REAL path (the video's own
   // filename, not its poster's hashed cache name) -- a plain
   // independent filter, deliberately not carrying any per-screen/OLED/
-  // tint/scheme state this notch doesn't have. kindFilter narrows
-  // first, search narrows further -- either or both can be active.
+  // tint/scheme state this notch doesn't have. kindFilter and
+  // sourceFilter narrow first (order between the two doesn't matter,
+  // each only ever removes entries), search narrows further -- any
+  // combination can be active at once.
   readonly property var filteredPaths: {
     var result = kindFilter === "all" ? wallpaperPaths : wallpaperPaths.filter(function(e) { return e.kind === kindFilter })
+    result = sourceFilter === "all" ? result : result.filter(function(e) { return e.source === sourceFilter })
     if (searchText.length === 0) return result
     var needle = searchText.toLowerCase()
     return result.filter(function(entry) {
@@ -313,7 +323,14 @@ Item {
           // fresh -- but a silently-undefined identity would break
           // every GIF's CURRENT state instead of degrading gracefully
           // to the old, still-correct-for-image/video behavior).
-          return { kind: parts[0], display: parts[1], real: parts[2], identity: parts[3] !== undefined ? parts[3] : parts[1] }
+          // source (direct follow-up: "add chips for All Omarchy Custom
+          // so we can filter between these") -- "omarchy" or "custom",
+          // which of list-wallpapers.sh's own two find|process
+          // pipelines this entry came from. Falls back to "omarchy",
+          // same "shouldn't happen, degrade toward the larger/default
+          // group rather than silently miscategorizing" reasoning as
+          // identity's own fallback above.
+          return { kind: parts[0], display: parts[1], real: parts[2], identity: parts[3] !== undefined ? parts[3] : parts[1], source: parts[4] !== undefined ? parts[4] : "omarchy" }
         })
         root.loadGate = 0
       }
@@ -689,6 +706,59 @@ Item {
               cursorShape: Qt.PointingHandCursor
               onClicked: root.setMediaMode("themes")
             }
+          }
+        }
+      }
+    }
+
+    // Source filter -- direct follow-up ("in the expanded notch,
+    // between the search input and tab row and where the image
+    // thumbnail start, can we add chips for All Omarchy Custom so we
+    // can filter between these?"). Wallpaper mode only, same as the
+    // grid+sidebar below -- Theme mode's own grid is a different data
+    // source (themeEntries) with no "omarchy vs custom" distinction to
+    // filter by. Same three-pill shape as the kind-filter sidebar's own
+    // chips further down, just horizontal and driving sourceFilter
+    // instead of kindFilter -- a plain direct set on click (not that
+    // sidebar's own toggle-back-to-"all" convention), since "All" is
+    // its own explicit chip here rather than something only reachable
+    // by deselecting another option.
+    Row {
+      visible: root.mediaMode === "wallpapers"
+      spacing: 6
+
+      Repeater {
+        model: [
+          { value: "all", label: "All" },
+          { value: "omarchy", label: "Omarchy" },
+          { value: "custom", label: "Custom" }
+        ]
+
+        Rectangle {
+          id: sourceChip
+          required property var modelData
+          readonly property bool selected: root.sourceFilter === sourceChip.modelData.value
+
+          width: sourceChipLabel.implicitWidth + 20
+          height: 28
+          radius: 8
+          color: sourceChip.selected ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
+          border.width: 1
+          border.color: sourceChip.selected ? root.accent : root.surfaceTint(0.12)
+
+          Text {
+            id: sourceChipLabel
+            anchors.centerIn: parent
+            text: sourceChip.modelData.label
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: sourceChip.selected ? root.accent : root.textColor
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.sourceFilter = sourceChip.modelData.value
           }
         }
       }

@@ -8,6 +8,54 @@ fail() {
   exit 1
 }
 
+# Issue #90: a real argument parser, matching install.sh -- this script
+# used to compare "$1" against exactly two strings and let everything
+# else (--help, a typo, --acknowledge-interrupted) fall through to a
+# real pull-and-reinstall with no warning, then call install.sh with no
+# arguments at all. Flags that only matter to a real reinstall are
+# collected in install_args and forwarded to install.sh below; an
+# unknown option is a hard error before anything is touched.
+dry_run=false
+check_json=false
+install_args=()
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      dry_run=true
+      ;;
+    --check-json)
+      check_json=true
+      ;;
+    --with-launcher-keybind|--with-recommended-keybinds|--acknowledge-interrupted)
+      install_args+=("$arg")
+      ;;
+    -h|--help)
+      cat <<'EOF'
+Usage:
+  ./update.sh [--dry-run | --check-json] [--with-launcher-keybind] [--acknowledge-interrupted]
+
+Pulls the latest changes (fast-forward only), then runs ./install.sh.
+
+Options:
+  --dry-run                   Preview the update without changing anything.
+  --check-json                Print update availability as JSON (read-only).
+  --with-launcher-keybind     Forwarded to install.sh: add recommended Ruixen
+  --with-recommended-keybinds keybinds when free.
+  --acknowledge-interrupted   Forwarded to install.sh: proceed despite a
+                               previous run's own journal showing it was
+                               interrupted (see lib/lifecycle-journal.sh).
+EOF
+      exit 0
+      ;;
+    *)
+      fail "unknown option: $arg (see --help)"
+      ;;
+  esac
+done
+if [[ "$dry_run" == true && "$check_json" == true ]]; then
+  fail "--dry-run and --check-json can't be combined"
+fi
+
 [[ -d "$script_dir/.git" ]] || fail "$script_dir isn't a git checkout -- clone the repo with git instead of copying files out of it"
 
 command -v git >/dev/null 2>&1 || fail "git is required (command 'git' not found)"
@@ -21,7 +69,7 @@ command -v git >/dev/null 2>&1 || fail "git is required (command 'git' not found
 # the same reasoning ruixen-doctor.sh's own real-fetch fix already
 # established (a --dry-run fetch never actually refreshes that ref,
 # which would make this report stale/wrong the moment it mattered).
-if [[ "${1:-}" == "--dry-run" ]]; then
+if [[ "$dry_run" == true ]]; then
   printf '=== Ruixen Update -- dry run, nothing will be changed ===\n\n'
 
   current_sha="$(git -C "$script_dir" rev-parse --short HEAD 2>/dev/null || echo unknown)"
@@ -51,7 +99,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   fi
 
   printf -- '--- What a real reinstall (install.sh) would then do, against the code currently on disk ---\n\n'
-  exec "$script_dir/install.sh" --dry-run
+  exec "$script_dir/install.sh" --dry-run "${install_args[@]+"${install_args[@]}"}"
 fi
 
 # ruixen.settings' own Plugins page "check for updates" icon -- a
@@ -65,7 +113,7 @@ fi
 # actually among the pending commits, even though update.sh always
 # pulls (and install.sh reinstalls) every plugin together as one unit
 # regardless of which ones actually changed.
-if [[ "${1:-}" == "--check-json" ]]; then
+if [[ "$check_json" == true ]]; then
   if [[ -n "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]]; then
     printf '{"error":"dirty checkout"}\n'
     exit 0
@@ -204,4 +252,4 @@ printf '\n[2/2] Reinstalling\n'
 # started while this one is running still can't race it -- its own
 # fresh acquire_lifecycle_lock call finds the lock genuinely held and
 # fails with a clear message instead of interleaving.
-"$script_dir/install.sh"
+"$script_dir/install.sh" "${install_args[@]+"${install_args[@]}"}"

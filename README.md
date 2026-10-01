@@ -172,7 +172,8 @@ An ordinary failure (a bad plugin, `omarchy restart shell` erroring out)
 already rolls back cleanly on its own — you'll see that reported and don't
 need to do anything special. A hard interruption is different: a closed
 terminal, `kill -9`, a crash, or power loss skips that rollback entirely,
-since there's no chance for it to run. If `install.sh` or `uninstall.sh`
+since there's no chance for it to run. If `install.sh`, `update.sh` (which
+hands off to `install.sh`) or `uninstall.sh`
 detects that its own previous run never reached the end, it refuses to
 proceed and tells you exactly which step it had reached:
 
@@ -187,7 +188,9 @@ re-copied from source on each run, and `shell.json`/looknfeel writes are
 atomic, so nothing can be left half-written. Run `./ruixen-doctor.sh`
 first if you want to double-check (read-only, reports plugin drift and
 runtime health), then re-run the same command with
-`--acknowledge-interrupted` to continue.
+`--acknowledge-interrupted` to continue. All of `install.sh`, `update.sh`
+and `uninstall.sh` accept it, and reject any option they don't recognize
+(`--help` lists what each takes).
 
 ## Updating
 

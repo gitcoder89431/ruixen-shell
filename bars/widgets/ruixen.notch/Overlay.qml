@@ -1145,7 +1145,11 @@ Item {
     Text {
       anchors.centerIn: parent
       text: tabBtn.glyph
-      color: tabBtn.active ? root.accent : root.textColor
+      // Direct request: always the theme accent color, not just while
+      // active -- the active/inactive distinction stays on the pill
+      // background behind this (tabBtn's own color: active ? surfaceTint
+      // ... above), not on the glyph itself anymore.
+      color: root.accent
       font.family: root.fontFamily
       font.pixelSize: 20
     }

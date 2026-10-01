@@ -101,6 +101,13 @@ Item {
     var idx = slugs.indexOf(root.styleFilter)
     root.styleFilter = slugs[(idx + 1) % slugs.length]
   }
+  // Direct follow-up ("right click on styles chip to go back to all...
+  // once i start clicking cause like its a long list") -- 15 motifs
+  // means up to 14 left-clicks to cycle all the way back around to
+  // "All" from wherever you land. Right-click jumps straight there
+  // instead, same second-button-does-something-else shape ResultRow's
+  // own right-click-for-actions-menu already uses in this plugin.
+  function resetStyleFilter() { root.styleFilter = "" }
   readonly property string styleFilterLabel: root.styleFilter === "" ? "All" : ThemeCatalog.motifLabel(root.styleFilter)
 
   // Direct follow-up ("im thinking about making that between All and
@@ -691,8 +698,12 @@ Item {
 
         MouseArea {
           anchors.fill: parent
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.cycleStyleFilter()
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) root.resetStyleFilter()
+            else root.cycleStyleFilter()
+          }
         }
       }
 

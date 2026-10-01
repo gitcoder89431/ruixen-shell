@@ -37,27 +37,36 @@ Item {
   }
 
   function loadHistory(raw) {
+    // sourceIndex is just a position in the file and shifts when a new
+    // item is copied while the launcher is open, so re-find the
+    // highlighted entry by identity instead of keeping the old index.
+    var keepKey = root.active ? ClipboardHistory.entryKey(root.selectedEntry) : ""
     root.entries = ClipboardHistory.parseHistory(raw)
-    root.loadImageRowLabels()
+    if (keepKey !== "") {
+      for (var i = 0; i < root.rows.length; i++) {
+        if (ClipboardHistory.entryKey(root.rows[i].clipboardEntry) === keepKey) {
+          root.selectedIndex = i
+          break
+        }
+      }
+    }
+    root.requestImageLabels()
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
+  }
+
+  function ensureSelectionVisible() {
+    if (clipboardResultsList.count === 0) return
+    clipboardResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, root.rows.length - 1), ListView.Contain)
+    clipboardResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
+    clipboardResultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
   }
 
   onRowsChanged: {
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
-    if (clipboardResultsList.count > 0) {
-      clipboardResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, root.rows.length - 1), ListView.Contain)
-      clipboardResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
-      clipboardResultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
-    }
+    root.ensureSelectionVisible()
   }
 
-  onSelectedIndexChanged: {
-    if (clipboardResultsList.count > 0) {
-      clipboardResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, root.rows.length - 1), ListView.Contain)
-      clipboardResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
-      clipboardResultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
-    }
-  }
+  onSelectedIndexChanged: root.ensureSelectionVisible()
 
   onSelectedEntryChanged: root.loadImageDetails()
 
@@ -127,33 +136,37 @@ Item {
     if (!root.selectedEntry || root.selectedEntry.type !== "image" || !root.selectedEntry.path) return
     root.pendingImageDetailsPath = root.selectedEntry.path
     imageStatProc.exec(["stat", "--format=%s|%n", "--", root.selectedEntry.path])
-    imageDimensionsProc.exec(["bash", "-c", "printf '%s|' \"$1\"; file -- \"$1\"", "ruixen-clipboard-image-dimensions", root.selectedEntry.path])
+    imageDimensionsProc.exec(["bash", "-c", "printf '%s|' \"$1\"; if [ -e \"$1\" ]; then file -- \"$1\"; else printf MISSING; fi", "ruixen-clipboard-image-dimensions", root.selectedEntry.path])
   }
 
-  function loadImageRowLabels() {
+  // Image row labels ("Image (1600x1200)"): probe only paths we haven't
+  // seen yet, capped per run, in one worker at a time. Results merge by
+  // path (a path's dimensions never change), so a late result from an
+  // older run can't overwrite anything newer; a reload that arrives
+  // mid-run just marks the worker dirty and reruns after its real exit.
+  readonly property int imageProbeLimit: 40
+  readonly property int imageCacheLimit: 300
+  property bool imageLabelsDirty: false
+
+  function requestImageLabels() {
+    if (imageRowLabelsProc.running) {
+      root.imageLabelsDirty = true
+      return
+    }
+    var paths = ClipboardHistory.pathsToProbe(root.entries, root.imageDimensionsByPath, root.imageProbeLimit)
+    if (paths.length === 0) return
     imageRowLabelsProc.exec(["python3", "-c",
       "import json, re, subprocess, sys\n" +
-      "history = sys.argv[1]\n" +
-      "try:\n" +
-      "    data = json.load(open(history))\n" +
-      "except Exception:\n" +
-      "    print('{}')\n" +
-      "    raise SystemExit\n" +
       "out = {}\n" +
-      "for entry in data if isinstance(data, list) else []:\n" +
-      "    path = entry.get('path') if isinstance(entry, dict) and entry.get('type') == 'image' else None\n" +
-      "    if not path or path in out:\n" +
-      "        continue\n" +
+      "for path in sys.argv[1:]:\n" +
       "    try:\n" +
       "        info = subprocess.run(['file', '--', path], check=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=1).stdout\n" +
       "    except Exception:\n" +
+      "        out[path] = ''\n" +
       "        continue\n" +
       "    matches = re.findall(r'(\\d+)\\s*x\\s*(\\d+)', info, re.I)\n" +
-      "    if matches:\n" +
-      "        w, h = matches[-1]\n" +
-      "        out[path] = f'{w}x{h}'\n" +
-      "print(json.dumps(out, separators=(',', ':')))",
-      root.historyPath])
+      "    out[path] = f'{matches[-1][0]}x{matches[-1][1]}' if matches else ''\n" +
+      "print(json.dumps(out, separators=(',', ':')))"].concat(paths))
   }
 
   FileView {
@@ -178,10 +191,15 @@ Item {
       onStreamFinished: {
         try {
           var parsed = JSON.parse(text || "{}")
-          root.imageDimensionsByPath = parsed && typeof parsed === "object" ? parsed : ({})
-        } catch (e) {
-          root.imageDimensionsByPath = ({})
-        }
+          if (parsed && typeof parsed === "object")
+            root.imageDimensionsByPath = ClipboardHistory.mergeDimensions(root.imageDimensionsByPath, parsed, root.imageCacheLimit)
+        } catch (e) {}
+      }
+    }
+    onRunningChanged: {
+      if (!running && root.imageLabelsDirty) {
+        root.imageLabelsDirty = false
+        root.requestImageLabels()
       }
     }
   }
@@ -209,7 +227,13 @@ Item {
         if (parts.length < 2) return
         var path = parts.shift()
         if (path !== root.pendingImageDetailsPath) return
-        root.imageDimensions = FileSearchRanking.parseFileDimensions(parts.join("|"))
+        var info = parts.join("|")
+        if (info === "MISSING") {
+          root.imageDimensions = "File missing"
+          root.imageSize = "File missing"
+          return
+        }
+        root.imageDimensions = FileSearchRanking.parseFileDimensions(info) || "Unknown"
       }
     }
   }

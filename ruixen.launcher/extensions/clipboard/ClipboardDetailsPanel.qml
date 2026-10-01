@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import "ClipboardHistory.js" as ClipboardHistory
 
 Rectangle {
   id: root
@@ -52,7 +53,7 @@ Rectangle {
         Text {
           anchors.fill: parent
           anchors.margins: 12
-          text: root.entry ? root.entry.text : ""
+          text: root.entry ? ClipboardHistory.previewText(root.entry.text) : ""
           color: root.textColor
           font.family: root.fontFamily
           font.pixelSize: 12

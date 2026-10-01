@@ -66,6 +66,13 @@ check "ClipboardDetailsPanel previews links through the same text preview surfac
 check "Clipboard model preserves source history indexes" \
   "$(grep -c 'sourceIndex: index' "$model_js")" "2"
 
+check "ClipboardContent probes image labels through a bounded, cached, single worker" \
+  "$(( $(grep -c 'imageProbeLimit' "$content_qml") + $(grep -c 'imageLabelsDirty' "$content_qml") + $(grep -c 'mergeDimensions' "$content_qml") ))" "7"
+check "ClipboardContent keeps the selection by identity across history reloads" \
+  "$(grep -c 'ClipboardHistory.entryKey' "$content_qml")" "2"
+check "ClipboardDetailsPanel caps the text preview" \
+  "$(grep -c 'ClipboardHistory.previewText' "$details_qml")" "1"
+
 check "run-all includes launcher clipboard extension contract" \
   "$(grep -c 'launcher-clipboard-extension\.sh' "$script_dir/run-all.sh")" "1"
 

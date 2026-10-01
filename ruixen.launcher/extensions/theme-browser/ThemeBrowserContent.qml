@@ -372,24 +372,13 @@ Item {
         clip: true
         color: Qt.rgba(0, 0, 0, 0.25)
 
-        Row {
-          anchors.fill: parent
-          visible: previewImage.status !== Image.Ready
-
-          Repeater {
-            model: [
-              root.previewColors.background, root.previewColors.foreground, root.previewColors.accent,
-              root.previewColors.red, root.previewColors.green, root.previewColors.yellow,
-              root.previewColors.blue, root.previewColors.magenta, root.previewColors.cyan
-            ]
-            Rectangle {
-              width: parent.width / 9
-              height: parent.height
-              color: modelData || "#00000000"
-            }
-          }
-        }
-
+        // Direct follow-up: the per-theme color swatch that used to
+        // fill this box while the image loaded was flashing a new set
+        // of colors on every arrow-key move (a real visual effect, not
+        // a bug -- previewColors itself updates instantly now that
+        // it's synchronous, see this file's own header comment). A
+        // plain "Loading…" text reads as a calmer, more normal loading
+        // state instead of a strobing color placeholder.
         Text {
           anchors.centerIn: parent
           visible: root.previewImageLoading && previewImage.status !== Image.Ready

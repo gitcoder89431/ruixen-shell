@@ -122,10 +122,24 @@ check "notification row foreground chrome uses the same surface token as the sha
   "$(grep -A5 'id: notificationRowChrome' "$dashboard_qml" | grep -c 'color: root.dashboardCardSurface')" "1"
 check "notification row frame is hidden in theme-surface mode instead of drawing a thick border" \
   "$(grep -A14 'Dark/black mode keeps the old frame' "$dashboard_qml" | grep -c 'visible: !root.themeSurfaceMode')" "1"
-check "theme-mode nested pills/cards tint toward white, not textColor (must read lighter than the outer panel they sit on, not darker)" \
-  "$(grep -c 'dashboardBoardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.5)' "$dashboard_qml")" "1"
-check "theme-mode notification bubbles tint toward white too, tuned down for their double-painted base+chrome layers" \
-  "$(grep -c 'dashboardCardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.65)' "$dashboard_qml")" "1"
+# Direct report, live on an installed dark theme: these two used to tint
+# toward white whenever themeSurfaceMode was true, full stop -- correct
+# for the light Omarchy themes this was tuned against (white reads
+# lighter than an already-darkened nested parent), but on a DARK theme
+# (textColor itself light) that white tint was the whole visible bug,
+# not a lightening effect. Now gated on dashboardNeedsWhiteTint
+# (themeSurfaceMode AND textColor reads dark), same
+# surfaceLuminance(textColor) < 0.5 branch Kanban's own cardSurface
+# fix (Overlay.qml) already uses -- a dark theme falls through to a
+# real textColor-tint instead of inheriting the wrong-direction white.
+check "nested pills/cards only tint toward white on a light theme (dashboardNeedsWhiteTint), not whenever themeSurfaceMode is on" \
+  "$(grep -c 'dashboardNeedsWhiteTint: themeSurfaceMode && dashboardTextLuminance < 0.5' "$dashboard_qml")" "1"
+check "dashboardBoardSurface only goes pure white under dashboardNeedsWhiteTint" \
+  "$(grep -c 'dashboardBoardSurface: dashboardNeedsWhiteTint ? Qt.rgba(1, 1, 1, 0.5)' "$dashboard_qml")" "1"
+check "dashboardCardSurface only goes pure white under dashboardNeedsWhiteTint" \
+  "$(grep -c 'dashboardCardSurface: dashboardNeedsWhiteTint' "$dashboard_qml")" "1"
+check "dashboardCardSurface falls through to a real textColor-tint on a dark theme, matching Kanban's own cardSurface fix, not dashboardBoardSurface's wrong-direction value" \
+  "$(grep -c 'Qt.rgba(textColor.r, textColor.g, textColor.b, 0.055)' "$dashboard_qml")" "1"
 check "notification outer panel uses the stronger surface (swapped with its nested pills/cards)" \
   "$(grep -A8 'component PaneFilled' "$dashboard_qml" | grep -c 'color: root.dashboardSurfaceStrong')" "1"
 check "calendar outer panel uses the stronger surface (swapped with its nested pills/grid)" \

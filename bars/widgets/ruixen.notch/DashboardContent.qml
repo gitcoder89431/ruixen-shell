@@ -47,21 +47,48 @@ Item {
   // in it"). The name is legacy from when it WAS the outer "board"
   // surface; left as is rather than renaming every call site.
   //
-  // Tints toward WHITE, not textColor, in Theme mode now -- this is
-  // rendered ON TOP of PaneFilled/calendarPane's own already-tinted
-  // fill (dashboardSurfaceStrong), not directly on the raw notch
-  // surface. Nesting a second textColor-tint on top of a first one
-  // (the pre-swap approach) always shifts further in the SAME
-  // direction, i.e. darker still on a light theme -- proven live: it
-  // rendered as 221 next to the outer's own 233, in that direction,
-  // the opposite of "lighter nested" no matter how small the second
-  // alpha was made. White is the only tint direction that can
-  // actually read lighter than whatever's already been darkened
-  // underneath it. Black mode's own fallback (dashboardSurface,
+  // Direct report, live on an installed dark theme ("the expanded
+  // notch panel for notifications and calendar is using the wrong
+  // surface, its like white... the kanban expanded notch surfaces are
+  // fine there with those"): the comment below ("White is the only
+  // tint direction that can actually read lighter than whatever's
+  // already been darkened underneath it") is true ONLY when textColor
+  // itself is dark -- i.e. a LIGHT theme, which is what this was
+  // tuned/tested against (the stock light Omarchy themes this repo
+  // ships theme-overlays for). On a DARK theme, textColor is already
+  // light, so Kanban's own cardSurface (Overlay.qml) branches on the
+  // SAME surfaceLuminance(textColor) < 0.5 check this now matches --
+  // white only when textColor reads dark; textColor's own tint
+  // otherwise, same direction dashboardSurface already uses
+  // unconditionally above (correct there since it's a single,
+  // non-nested layer with no "must read lighter than an already-
+  // darkened parent" requirement to break). dashboardTextLuminance
+  // duplicates Overlay.qml's own surfaceLuminance formula rather than
+  // sharing it -- same "independent resolution" convention AGENTS.md
+  // already documents for this coupled-surface area (ruixen.bar's
+  // frameColor/resolvedFrameColor): each consumer computes its own
+  // answer from properties it already receives, not a shared function
+  // reached across plugin/file boundaries.
+  readonly property real dashboardTextLuminance: 0.299 * textColor.r + 0.587 * textColor.g + 0.114 * textColor.b
+  readonly property bool dashboardNeedsWhiteTint: themeSurfaceMode && dashboardTextLuminance < 0.5
+  // Tints toward WHITE, not textColor, in Theme mode AND a light theme
+  // (dashboardNeedsWhiteTint) -- this is rendered ON TOP of
+  // PaneFilled/calendarPane's own already-tinted fill
+  // (dashboardSurfaceStrong), not directly on the raw notch surface.
+  // Nesting a second textColor-tint on top of a first one (the
+  // pre-swap approach) always shifts further in the SAME direction,
+  // i.e. darker still on a light theme -- proven live: it rendered as
+  // 221 next to the outer's own 233, in that direction, the opposite
+  // of "lighter nested" no matter how small the second alpha was made.
+  // White is the only tint direction that can actually read lighter
+  // than whatever's already been darkened underneath it, on a light
+  // theme specifically. Black mode's own fallback (dashboardSurface,
   // unchanged) already tinted toward white for the same reason -- this
-  // just makes Theme mode consistent with that, instead of being the
-  // one branch still going the wrong way.
-  readonly property color dashboardBoardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.5) : dashboardSurface
+  // just makes Theme mode consistent with that for a light theme,
+  // instead of being the one branch still going the wrong way; a dark
+  // theme falls through to dashboardSurface's own already-correct
+  // textColor-tint instead (see dashboardNeedsWhiteTint's own comment).
+  readonly property color dashboardBoardSurface: dashboardNeedsWhiteTint ? Qt.rgba(1, 1, 1, 0.5) : dashboardSurface
   readonly property color dashboardSurfaceRaised: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.08) : Qt.rgba(1, 1, 1, 0.08)
   // dashboardSurfaceStrong is now PaneFilled/calendarPane's own outer
   // panel color (see those, and the swap comment on dashboardBoardSurface
@@ -85,20 +112,31 @@ Item {
   // (the lighter of the two, now that they're swapped) -- same
   // direction as every other nested surface in this file.
   //
-  // Theme mode tints toward white now too, same reasoning as
-  // dashboardBoardSurface above -- and painted TWICE at the same
-  // bounds (notificationRowBase + notificationRowChrome, see their own
-  // comment on why), which compounds two translucent layers into a
-  // stronger effective tint than either alone. 0.65, matching Kanban's
-  // own cardSurface fix (Overlay.qml) for the identical reason: this
-  // row also carries a MultiEffect drop shadow (shadowOpacity 0.38)
-  // behind its base layer, which bleeds through the card's own
-  // translucent fill and renders meaningfully darker than plain
-  // double-layer alpha math alone predicts -- confirmed live on
-  // Kanban's cards first (0.2 read darker than its column, 0.4 read
-  // equal, 0.65 finally read lighter), ported here since the structure
-  // is identical (same shadowOpacity, same double-paint base+chrome).
-  readonly property color dashboardCardSurface: themeSurfaceMode ? Qt.rgba(1, 1, 1, 0.65) : dashboardBoardSurface
+  // Theme mode tints toward white now too, on a LIGHT theme only (same
+  // dashboardNeedsWhiteTint this now shares with dashboardBoardSurface
+  // above) -- and painted TWICE at the same bounds (notificationRowBase
+  // + notificationRowChrome, see their own comment on why), which
+  // compounds two translucent layers into a stronger effective tint
+  // than either alone. 0.65, matching Kanban's own cardSurface fix
+  // (Overlay.qml) for the identical reason: this row also carries a
+  // MultiEffect drop shadow (shadowOpacity 0.38) behind its base layer,
+  // which bleeds through the card's own translucent fill and renders
+  // meaningfully darker than plain double-layer alpha math alone
+  // predicts -- confirmed live on Kanban's cards first (0.2 read darker
+  // than its column, 0.4 read equal, 0.65 finally read lighter), ported
+  // here since the structure is identical (same shadowOpacity, same
+  // double-paint base+chrome). On a DARK theme (dashboardNeedsWhiteTint
+  // false), this was unconditionally inheriting that same white tint
+  // via dashboardBoardSurface -- the actual reported bug. Kanban's own
+  // cardSurface keeps a real textColor-tint for that case instead
+  // ("that direction already lightens correctly on its own" -- no
+  // shadow-bleed compensation needed, the problem that 0.65 solves only
+  // exists in the white-on-light-theme direction), 0.055 specifically;
+  // matched here rather than falling through to dashboardBoardSurface's
+  // own smaller-but-still-wrong-direction value.
+  readonly property color dashboardCardSurface: dashboardNeedsWhiteTint
+    ? Qt.rgba(1, 1, 1, 0.65)
+    : (themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.055) : dashboardBoardSurface)
   readonly property color dashboardBorder: themeSurfaceMode ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.12) : Qt.rgba(1, 1, 1, 0.14)
   // Same themeSurfaceMode-conditional tint as dashboardSurface* above,
   // generalized for the handful of one-off tonal surfaces below (seek/

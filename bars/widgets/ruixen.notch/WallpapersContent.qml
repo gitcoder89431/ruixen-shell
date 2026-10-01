@@ -209,10 +209,15 @@ Item {
   // Search narrowed against the wallpaper list vs the theme list
   // depending on which mode the segmented control is in -- one
   // searchInput serves both, only the placeholder text differs.
+  // sourceFilter applies here too now (direct follow-up: "the themes
+  // can have those chips [too]") -- the SAME chip row/property the
+  // wallpaper grid already uses, same "all/omarchy/custom only ever
+  // narrows further" composition with search.
   readonly property var filteredThemes: {
-    if (searchText.length === 0) return themeEntries
+    var result = sourceFilter === "all" ? themeEntries : themeEntries.filter(function(e) { return e.source === sourceFilter })
+    if (searchText.length === 0) return result
     var needle = searchText.toLowerCase()
-    return themeEntries.filter(function(entry) {
+    return result.filter(function(entry) {
       return entry.name.toLowerCase().indexOf(needle) !== -1 ||
              entry.display.toLowerCase().indexOf(needle) !== -1
     })
@@ -363,7 +368,12 @@ Item {
           // preview.* and no backgrounds/ -- the tile falls back to
           // rendering the name), so a missing 3rd field and an empty
           // one are treated the same way here.
-          return { name: parts[0], display: parts[1], preview: parts[2] !== undefined ? parts[2] : "" }
+          // source (direct follow-up: "the themes can have those chips
+          // [too]") -- "omarchy" or "custom", same meaning as
+          // wallpaperPaths' own source field, just resolved from
+          // list-themes.sh's own USER_THEMES_PATH/OMARCHY_THEMES_PATH
+          // precedence instead of which find|process pipeline.
+          return { name: parts[0], display: parts[1], preview: parts[2] !== undefined ? parts[2] : "", source: parts[3] !== undefined ? parts[3] : "custom" }
         })
       }
     }
@@ -714,17 +724,20 @@ Item {
     // Source filter -- direct follow-up ("in the expanded notch,
     // between the search input and tab row and where the image
     // thumbnail start, can we add chips for All Omarchy Custom so we
-    // can filter between these?"). Wallpaper mode only, same as the
-    // grid+sidebar below -- Theme mode's own grid is a different data
-    // source (themeEntries) with no "omarchy vs custom" distinction to
-    // filter by. Same three-pill shape as the kind-filter sidebar's own
-    // chips further down, just horizontal and driving sourceFilter
-    // instead of kindFilter -- a plain direct set on click (not that
+    // can filter between these?", then "the themes can have those
+    // chips [too]" after this first shipped wallpaper-only). Shown in
+    // BOTH modes now -- list-themes.sh resolves the exact same
+    // "omarchy vs custom" distinction from USER_THEMES_PATH/
+    // OMARCHY_THEMES_PATH precedence that list-wallpapers.sh resolves
+    // from which find|process pipeline a wallpaper came from, so one
+    // sourceFilter property and one chip row serves filteredPaths and
+    // filteredThemes alike -- not two near-identical rows. Same
+    // three-pill shape as the kind-filter sidebar's own chips further
+    // down, just horizontal -- a plain direct set on click (not that
     // sidebar's own toggle-back-to-"all" convention), since "All" is
     // its own explicit chip here rather than something only reachable
     // by deselecting another option.
     Row {
-      visible: root.mediaMode === "wallpapers"
       spacing: 6
 
       Repeater {

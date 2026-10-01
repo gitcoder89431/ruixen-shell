@@ -75,8 +75,14 @@ out="$(HOME="$fake_home" OMARCHY_PATH="$fake_omarchy" bash "$list_themes")"
 check "list-themes.sh lists every theme exactly once" \
   "$(printf '%s\n' "$out" | grep -c 'delta\|alpha\|beta\|gamma\|shared')" "5"
 
+# -oF (only-matching), not a plain -F whole-line match, on all four of
+# these now -- the new source field (see below) appends after preview,
+# which a whole-line check would otherwise need updating for on every
+# future field addition too; matching just the name/display/preview
+# prefix as a substring, same as "user preview wins over system"
+# already did, stays correct regardless of what comes after it.
 check "list-themes.sh emits name<US>display<US>preview with title-cased display" \
-  "$(printf '%s\n' "$out" | grep -F "alpha${US}Alpha${US}$fake_home/.config/omarchy/themes/alpha/preview.png")" \
+  "$(printf '%s\n' "$out" | grep -oF "alpha${US}Alpha${US}$fake_home/.config/omarchy/themes/alpha/preview.png")" \
   "alpha${US}Alpha${US}$fake_home/.config/omarchy/themes/alpha/preview.png"
 
 check "list-themes.sh title-cases multi-word names" \
@@ -84,11 +90,11 @@ check "list-themes.sh title-cases multi-word names" \
   "delta${US}Delta${US}$fake_omarchy/themes/delta/preview.png"
 
 check "list-themes.sh falls back to first sorted background" \
-  "$(printf '%s\n' "$out" | grep -F "beta${US}Beta${US}$fake_home/.config/omarchy/themes/beta/backgrounds/aaa-early.jpg")" \
+  "$(printf '%s\n' "$out" | grep -oF "beta${US}Beta${US}$fake_home/.config/omarchy/themes/beta/backgrounds/aaa-early.jpg")" \
   "beta${US}Beta${US}$fake_home/.config/omarchy/themes/beta/backgrounds/aaa-early.jpg"
 
 check "list-themes.sh falls back to same-name system preview" \
-  "$(printf '%s\n' "$out" | grep -F "gamma${US}Gamma${US}$fake_omarchy/themes/gamma/preview.jpeg")" \
+  "$(printf '%s\n' "$out" | grep -oF "gamma${US}Gamma${US}$fake_omarchy/themes/gamma/preview.jpeg")" \
   "gamma${US}Gamma${US}$fake_omarchy/themes/gamma/preview.jpeg"
 
 check "list-themes.sh user preview wins over system" \
@@ -97,6 +103,25 @@ check "list-themes.sh user preview wins over system" \
 
 check "list-themes.sh skips dot-dirs" \
   "$(printf '%s\n' "$out" | grep -c 'hidden')" "0"
+
+# --- source field (direct follow-up: "the themes can have those chips
+# [too]", same All/Omarchy/Custom chips the wallpaper grid already
+# got) -- "custom" whenever a dir/symlink exists under USER_THEMES_PATH
+# at all (alpha/beta/gamma/shared all do, even though gamma/shared's
+# own PREVIEW is partly or fully borrowed from the system copy),
+# "omarchy" only when it exists purely under OMARCHY_THEMES_PATH
+# (delta). Checked with the field in isolation (awk field 4), not a
+# full-line grep like the preview checks above -- this is the one
+# field whose value depends on BOTH directories' state, not a single
+# fixture's own content.
+check "list-themes.sh: a user-only theme is tagged source=custom" \
+  "$(printf '%s\n' "$out" | awk -F"$US" '$1 == "alpha" { print $4 }')" "custom"
+check "list-themes.sh: a system-only theme is tagged source=omarchy" \
+  "$(printf '%s\n' "$out" | awk -F"$US" '$1 == "delta" { print $4 }')" "omarchy"
+check "list-themes.sh: a theme in BOTH dirs is tagged source=custom (user copy wins, same precedence as its preview)" \
+  "$(printf '%s\n' "$out" | awk -F"$US" '$1 == "shared" { print $4 }')" "custom"
+check "list-themes.sh: a user dir with no preview of its own, borrowing the system copy's preview, is STILL tagged source=custom" \
+  "$(printf '%s\n' "$out" | awk -F"$US" '$1 == "gamma" { print $4 }')" "custom"
 
 # --- The picker QML ----------------------------------------------------
 check "WallpapersContent carries the mediaMode state" \
@@ -129,13 +154,15 @@ check "theme grid renders labels as PlainText" \
 check "theme grid shows only in theme mode" \
   "$(grep -c 'visible: root.mediaMode === "themes" && root.filteredThemes.length > 0' "$content_qml")" "1"
 
-# 2, not 1, since the source-filter chip row (direct follow-up: "add
-# chips for All Omarchy Custom so we can filter between these") is a
-# second, separate block gated the same way, alongside the original
-# grid+sidebar block -- both legitimately wallpaper-mode-only (Theme
-# mode's own grid has no "omarchy vs custom" distinction to filter by).
-check "wallpaper block and the source-filter chip row both show only in wallpaper mode" \
-  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "2"
+# Back to 1 -- the source-filter chip row (direct follow-up: "add chips
+# for All Omarchy Custom", then "the themes can have those chips [too]")
+# briefly duplicated this exact visible condition on its own Row before
+# that follow-up, but now applies to BOTH modes (one sourceFilter
+# property, one chip row, filtering filteredPaths or filteredThemes
+# depending on which is showing), so only the original grid+sidebar
+# block is still wallpaper-mode-only.
+check "wallpaper block shows only in wallpaper mode" \
+  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "1"
 
 check "theme grid fills the row instead of leaving a dead right strip" \
   "$(grep -c 'readonly property int columns: Math.max(1, Math.floor(themeGridWrap.width / 170))' "$content_qml")" "1"

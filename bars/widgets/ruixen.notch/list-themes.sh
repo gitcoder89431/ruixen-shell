@@ -76,13 +76,22 @@ find_preview() {
   [[ "$name" != .* ]] || continue
   if [[ -d "$USER_THEMES_PATH/$name" || -L "$USER_THEMES_PATH/$name" ]]; then
     theme_path="$USER_THEMES_PATH/$name"
+    source="custom"
   else
     theme_path="$OMARCHY_THEMES_PATH/$name"
+    source="omarchy"
   fi
   preview=$(find_preview "$theme_path")
   if [[ -z "$preview" && "$theme_path" != "$OMARCHY_THEMES_PATH/$name" ]]; then
     preview=$(find_preview "$OMARCHY_THEMES_PATH/$name")
   fi
   display=$(printf '%s' "$name" | sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g')
-  printf '%s%s%s%s%s\n' "$name" "$US" "$display" "$US" "$preview"
+  # source (direct follow-up: "the themes can have those chips [too]",
+  # after the same All/Omarchy/Custom chips shipped for the wallpaper
+  # grid first) -- "custom" whenever a dir/symlink exists under
+  # USER_THEMES_PATH at all, same precedence this function already
+  # resolves theme_path with above, even when that entry's own PREVIEW
+  # ends up borrowed from the system copy (a user theme with no preview
+  # of its own is still the user's own theme, not Omarchy's).
+  printf '%s%s%s%s%s%s%s\n' "$name" "$US" "$display" "$US" "$preview" "$US" "$source"
 done

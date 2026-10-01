@@ -276,11 +276,19 @@ Item {
     anchors.fill: parent
   }
 
+  // Direct follow-up: a small motif/style subtitle beside each theme's
+  // name, same treatment the landing list's own rows get ("similar to
+  // ruixen launcher home"). ResultRow.qml only renders that subtitle
+  // (and the real kind tag, this file's own kind always stays "" so
+  // that column renders nothing) outside filesMode -- Settings/
+  // Wallpapers use filesMode specifically to suppress it (Search
+  // Files' details panel already repeats that information elsewhere),
+  // but this extension's whole point is surfacing it right here in the
+  // list, so it deliberately opts out of that mode instead.
   ResultsList {
     parent: panel.leftPane
     anchors.fill: parent
     model: root.themeRows
-    filesMode: true
     selectedIndex: root.selectedIndex
     textColor: root.textColor
     mutedColor: root.muted

@@ -91,6 +91,14 @@ function filterThemes(themes, query) {
 // than a real search provider. label is the real display name; id
 // keys off the real slug (stable, unique) rather than the display name
 // (two themes could theoretically share a label, slugs never do).
+// breadcrumb is the motif's real label (e.g. "Sunset Grid") -- same
+// subtitle-beside-the-name treatment the landing list's own Omarchy
+// Actions/Ruixen rows already get from ResultRow.qml, direct follow-up
+// ("similar to ruixen launcher home... a small subtitle after the
+// theme name for the style"). Only rendered when the caller's own
+// ResultsList/ResultRow is NOT in filesMode -- see
+// ThemeBrowserContent.qml's own comment on why this extension
+// deliberately isn't.
 function themeRows(themes) {
   var rows = []
   for (var i = 0; i < themes.length; i++) {
@@ -99,7 +107,7 @@ function themeRows(themes) {
       providerId: "theme-browser-entry",
       icon: "",
       label: themes[i].name,
-      breadcrumb: "",
+      breadcrumb: motifLabel(themes[i].motif),
       kind: "",
       providerName: "",
       score: 0,

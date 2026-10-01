@@ -824,38 +824,14 @@ Item {
         }
       }
 
-      // Name/By Style -- exactly one is ever the active sort key, same
+      // By Style/Name -- exactly one is ever the active sort key, same
       // accent-tinted "exactly one of these is selected" shape
       // SearchFiltersBar's own scope row (Both/Names/Contents) uses.
       // Clicking the ALREADY-active one flips direction instead of
       // doing nothing -- direct request ("click name chip to order it
-      // from z-a").
-      Rectangle {
-        id: nameSortChip
-        readonly property bool isActive: root.sortKey === "name"
-        width: nameSortLabel.implicitWidth + 16
-        height: 24
-        radius: 6
-        color: nameSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
-        border.width: 1
-        border.color: nameSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
-
-        Text {
-          id: nameSortLabel
-          anchors.centerIn: parent
-          text: "Name" + (nameSortChip.isActive ? (root.sortDirection === "asc" ? " ↑" : " ↓") : "")
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 11
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.toggleSortByName()
-        }
-      }
-
+      // from z-a"). By Style first, Name last -- matches sortKey's own
+      // default (direct follow-up: "swap places so By Style and then
+      // Names is last chip", after making Style the default sort).
       Rectangle {
         id: styleSortChip
         readonly property bool isActive: root.sortKey === "style"
@@ -879,6 +855,32 @@ Item {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
           onClicked: root.toggleSortByStyle()
+        }
+      }
+
+      Rectangle {
+        id: nameSortChip
+        readonly property bool isActive: root.sortKey === "name"
+        width: nameSortLabel.implicitWidth + 16
+        height: 24
+        radius: 6
+        color: nameSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: nameSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: nameSortLabel
+          anchors.centerIn: parent
+          text: "Name" + (nameSortChip.isActive ? (root.sortDirection === "asc" ? " ↑" : " ↓") : "")
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.toggleSortByName()
         }
       }
     }

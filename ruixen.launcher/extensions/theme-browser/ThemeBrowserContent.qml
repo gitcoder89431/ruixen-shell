@@ -79,7 +79,14 @@ Item {
   property bool catalogFailed: false
 
   readonly property var filteredThemes: ThemeCatalog.filterThemes(root.darkThemes, root.searchText)
-  readonly property var themeRows: ThemeCatalog.themeRows(root.filteredThemes)
+  // {slug: true} set of every theme folder actually present under
+  // ~/.config/omarchy/themes right now -- refreshed each time this
+  // extension is (re)opened (see refreshInstalledThemes below), so it
+  // reflects reality even if something was installed/removed by other
+  // means (the stock Settings page, omarchy theme install, a previous
+  // stage-2 install here) since the last time this tab was open.
+  property var installedSlugs: ({})
+  readonly property var themeRows: ThemeCatalog.themeRows(root.filteredThemes, root.installedSlugs, root.previewVariant, root.muted)
 
   property int selectedIndex: 0
   readonly property var selectedDarkTheme: (root.selectedIndex >= 0 && root.selectedIndex < root.filteredThemes.length)
@@ -130,6 +137,39 @@ Item {
 
   onActiveChanged: {
     if (root.active && root.darkThemes.length === 0 && !root.catalogLoading) root.loadCatalog()
+    if (root.active) root.refreshInstalledThemes()
+  }
+
+  // Plain `ls` of the real themes directory -- cheap, local, no reason
+  // to cache/skip this the way loadCatalog() above skips a re-fetch
+  // once already loaded, since this needs to reflect CURRENT disk
+  // state every time the tab is (re)opened, not just the first time.
+  function refreshInstalledThemes() {
+    installedThemesProc.command = ["ls", "-1", Quickshell.env("HOME") + "/.config/omarchy/themes"]
+    installedThemesProc.running = true
+  }
+
+  Process {
+    id: installedThemesProc
+    stdout: StdioCollector {
+      id: installedThemesStdout
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      var set = {}
+      if (exitCode === 0) {
+        var lines = String(installedThemesStdout.text || "").trim().split("\n")
+        for (var i = 0; i < lines.length; i++) {
+          var name = lines[i].trim()
+          if (name !== "") set[name] = true
+        }
+      }
+      // A failed/empty `ls` (no themes directory yet, say, on a
+      // genuinely fresh install) just means nothing shows as
+      // installed -- fails closed to "nothing installed", never
+      // throws or leaves the previous (possibly stale) set showing.
+      root.installedSlugs = set
+    }
   }
 
   function loadCatalog() {

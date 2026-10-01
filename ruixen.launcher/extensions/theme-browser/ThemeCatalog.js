@@ -83,6 +83,14 @@ function filterThemes(themes, query) {
   return out
 }
 
+// The real installed-theme folder name to check for a given base theme
+// + variant -- "-day" only ever applies to the light companion repo's
+// own copy (same rule themeFileUrl/themeSlugFor-equivalent logic uses
+// elsewhere in this file).
+function installedSlugFor(theme, variant) {
+  return variant === "light" ? theme.slug + "-day" : theme.slug
+}
+
 // Reshaped into the exact same row object shape every other ResultsList
 // model in this plugin already uses (id/providerId/icon/label/
 // breadcrumb/kind/providerName/score/sectionLabel) -- same convention
@@ -99,15 +107,37 @@ function filterThemes(themes, query) {
 // ResultsList/ResultRow is NOT in filesMode -- see
 // ThemeBrowserContent.qml's own comment on why this extension
 // deliberately isn't.
-function themeRows(themes) {
+//
+// icon/iconColor -- direct follow-up ("lets make the icons useful, so
+// it is surface if not installed, but if the theme is installed so can
+// it be theme green"): a solid dot, muted when the variant currently
+// being previewed (installedSlugs/variant) isn't installed under
+// ~/.config/omarchy/themes, or tinted with THIS theme's own real green
+// (from its own colors, already in memory -- no extra fetch) once it
+// is. Same dot glyph either way -- installed/not-installed is a color
+// difference, not a shape one, same as this project's own existing
+// semantic-good/bad status-color conventions elsewhere (see
+// ruixen.power/ruixen.peripherals's own battery coloring) -- just
+// without a `bar` facade available in here to read that convention's
+// own token through, so this falls back to a plain hardcoded green
+// when a theme's own colors.green is somehow missing. installedSlugs
+// is a plain {slug: true} set (ThemeBrowserContent.qml's own
+// refreshInstalledThemes result); mutedColor is the caller's real
+// muted token (root.muted), plumbed through since this is a pure JS
+// file with no QML property access of its own.
+function themeRows(themes, installedSlugs, variant, mutedColor) {
   var rows = []
   for (var i = 0; i < themes.length; i++) {
+    var theme = themes[i]
+    var installed = !!(installedSlugs && installedSlugs[installedSlugFor(theme, variant)])
+    var themeGreen = (theme.colors && theme.colors.green) || "#3ecf5b"
     rows.push({
-      id: "theme:" + themes[i].slug,
+      id: "theme:" + theme.slug,
       providerId: "theme-browser-entry",
-      icon: "",
-      label: themes[i].name,
-      breadcrumb: motifLabel(themes[i].motif),
+      icon: "●",
+      iconColor: installed ? themeGreen : mutedColor,
+      label: theme.name,
+      breadcrumb: motifLabel(theme.motif),
       kind: "",
       providerName: "",
       score: 0,

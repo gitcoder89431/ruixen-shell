@@ -111,8 +111,12 @@ Rectangle {
     // kind "Folder") pick up the active theme's own accent color, same
     // as every other accent-colored element in this repo's own theme
     // convention -- files stay the plain textColor every other icon
-    // uses.
-    color: row.modelData.kind === "Folder" ? row.accentColor : row.textColor
+    // uses. modelData.iconColor is an opt-in override ahead of both
+    // (the Theme Browser's own installed/not-installed status dot,
+    // direct follow-up: "make the icons useful... theme green" if
+    // installed) -- undefined for every other existing provider, so
+    // this changes nothing for them.
+    color: row.modelData.iconColor || (row.modelData.kind === "Folder" ? row.accentColor : row.textColor)
     font.family: row.fontFamily
     font.pixelSize: 16
   }

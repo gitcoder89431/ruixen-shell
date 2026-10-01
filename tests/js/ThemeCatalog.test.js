@@ -60,14 +60,22 @@ check("filterThemes: a query matching nothing returns an empty list",
 check("filterThemes: whitespace-only query behaves like empty (returns everything)",
   M.filterThemes(themes, "   "), themes);
 
+// ---- installedSlugFor -----------------------------------------------------
+
+check("installedSlugFor: dark variant is the plain theme slug",
+  M.installedSlugFor({ slug: "synthwave" }, "dark"), "synthwave");
+check("installedSlugFor: light variant appends -day",
+  M.installedSlugFor({ slug: "synthwave" }, "light"), "synthwave-day");
+
 // ---- themeRows ---------------------------------------------------------------
 
 check("themeRows: shape matches every other ResultsList model in this plugin, label is the real display name, id keys off the slug",
-  M.themeRows([{ name: "Neon Wave", slug: "neon-wave" }]),
+  M.themeRows([{ name: "Neon Wave", slug: "neon-wave", colors: {} }], {}, "dark", "#888888"),
   [{
     id: "theme:neon-wave",
     providerId: "theme-browser-entry",
-    icon: "",
+    icon: "●",
+    iconColor: "#888888",
     label: "Neon Wave",
     breadcrumb: "",
     kind: "",
@@ -76,7 +84,23 @@ check("themeRows: shape matches every other ResultsList model in this plugin, la
     sectionLabel: "Themes"
   }]);
 
-check("themeRows: empty input yields an empty list", M.themeRows([]), []);
+check("themeRows: an installed theme (dark variant) gets its own real green, not the muted fallback",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: { green: "#39ff14" } }], { "hacker": true }, "dark", "#888888")[0].iconColor,
+  "#39ff14");
+
+check("themeRows: installed status is checked against the CURRENTLY PREVIEWED variant's own slug, not always the dark one",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: { green: "#39ff14" } }], { "hacker-day": true }, "light", "#888888")[0].iconColor,
+  "#39ff14");
+
+check("themeRows: that same installed set does NOT mark it installed while still previewing dark",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: { green: "#39ff14" } }], { "hacker-day": true }, "dark", "#888888")[0].iconColor,
+  "#888888");
+
+check("themeRows: a theme with no green of its own falls back to a plain hardcoded green, not undefined",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: {} }], { "hacker": true }, "dark", "#888888")[0].iconColor,
+  "#3ecf5b");
+
+check("themeRows: empty input yields an empty list", M.themeRows([], {}, "dark", "#888888"), []);
 
 // ---- themesDataUrl / themeFileUrl ----------------------------------------
 

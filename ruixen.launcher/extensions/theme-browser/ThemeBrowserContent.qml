@@ -393,103 +393,178 @@ Item {
         }
       }
 
-      // Plain Dark/Light toggle -- mouse-only for stage 1 (no
-      // keyboard path to it yet, see this file's own header comment on
-      // why rightFocused/focusRightPanel aren't part of the interface
-      // here yet). Between the preview and the metadata field below --
-      // it decides which variant BOTH of those show, so it reads as
-      // its own step, not glued to either one.
-      Row {
-        spacing: 4
+      // Metadata -- same section-header/zebra-striped-row convention
+      // Search Files' own FileDetailsPanel.qml uses (ghost, no bordered
+      // card of its own; muted/uppercase/bold 10px header; each row
+      // label left, value right, alternating row tint), not a separate
+      // look invented for this extension. Direct follow-up: Name,
+      // Variant (the Dark/Light toggle folded in as a row here instead
+      // of sitting on its own between the preview and this section),
+      // and Palette.
+      Text {
+        text: "Metadata"
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        font.capitalization: Font.AllUppercase
+        font.bold: true
+      }
+
+      // --- Name row (even -- tinted, same zebra parity FileDetailsPanel
+      // itself uses: index % 2 === 0).
+      Item {
+        Layout.fillWidth: true
+        height: 19
 
         Rectangle {
-          width: darkLabel.implicitWidth + 16
-          height: 24
-          radius: 6
-          color: root.previewVariant === "dark" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
-          border.width: 1
-          border.color: root.previewVariant === "dark" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-
-          Text {
-            id: darkLabel
-            anchors.centerIn: parent
-            text: "Dark"
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: root.previewVariant === "dark" ? root.textColor : root.muted
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: if (root.previewVariant !== "dark") root.toggleVariant()
-          }
+          anchors.fill: parent
+          anchors.leftMargin: -10
+          anchors.rightMargin: -10
+          anchors.topMargin: -4
+          anchors.bottomMargin: -4
+          radius: 4
+          color: Qt.rgba(0, 0, 0, 0.18)
         }
 
-        Rectangle {
-          width: lightLabel.implicitWidth + 16
-          height: 24
-          radius: 6
-          color: root.previewVariant === "light" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
-          border.width: 1
-          border.color: root.previewVariant === "light" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+        Text {
+          id: nameFieldLabel
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Name"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          font.capitalization: Font.AllUppercase
+        }
+        Text {
+          anchors.left: nameFieldLabel.right
+          anchors.leftMargin: 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideMiddle
+          text: root.selectedThemeName
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 13
+        }
+      }
 
-          Text {
-            id: lightLabel
-            anchors.centerIn: parent
-            text: "Light"
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: root.previewVariant === "light" ? root.textColor : root.muted
+      // --- Variant row (odd -- no tint). Same field-row shape, but the
+      // value side is the actual Dark/Light toggle instead of plain
+      // text -- mouse-only for stage 1 (no keyboard path to it yet, see
+      // this file's own header comment on why rightFocused/
+      // focusRightPanel aren't part of the interface here yet).
+      Item {
+        Layout.fillWidth: true
+        height: 24
+
+        Text {
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Variant"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          font.capitalization: Font.AllUppercase
+        }
+
+        Row {
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 4
+
+          Rectangle {
+            width: darkLabel.implicitWidth + 16
+            height: 24
+            radius: 6
+            color: root.previewVariant === "dark" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
+            border.width: 1
+            border.color: root.previewVariant === "dark" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              id: darkLabel
+              anchors.centerIn: parent
+              text: "Dark"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              color: root.previewVariant === "dark" ? root.textColor : root.muted
+            }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.previewVariant !== "dark") root.toggleVariant()
+            }
           }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: if (root.previewVariant !== "light") root.toggleVariant()
+
+          Rectangle {
+            width: lightLabel.implicitWidth + 16
+            height: 24
+            radius: 6
+            color: root.previewVariant === "light" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : Qt.rgba(1, 1, 1, 0.06)
+            border.width: 1
+            border.color: root.previewVariant === "light" ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              id: lightLabel
+              anchors.centerIn: parent
+              text: "Light"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+              color: root.previewVariant === "light" ? root.textColor : root.muted
+            }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: if (root.previewVariant !== "light") root.toggleVariant()
+            }
           }
         }
       }
 
-      // Metadata field -- name + the rest of the 16-color ANSI set
-      // (the palette) grouped together as one labeled card, direct
-      // follow-up moving both out of the header row above the preview.
-      Rectangle {
+      // --- Palette row (even -- tinted again). Same field-row shape,
+      // value side is the 8-swatch grid instead of text.
+      Item {
         Layout.fillWidth: true
-        implicitHeight: metaColumn.implicitHeight + 24
-        radius: 10
-        color: Qt.rgba(1, 1, 1, 0.04)
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.08)
+        height: paletteLabel.implicitHeight + 6 + 28
 
-        ColumnLayout {
-          id: metaColumn
+        Rectangle {
           anchors.fill: parent
-          anchors.margins: 12
-          spacing: 10
+          anchors.leftMargin: -10
+          anchors.rightMargin: -10
+          anchors.topMargin: -4
+          anchors.bottomMargin: -4
+          radius: 4
+          color: Qt.rgba(0, 0, 0, 0.18)
+        }
 
-          Text {
-            Layout.fillWidth: true
-            text: root.selectedThemeName
-            font.family: root.fontFamily
-            font.pixelSize: 16
-            font.bold: true
-            color: root.textColor
-            elide: Text.ElideRight
-          }
+        Text {
+          id: paletteLabel
+          anchors.top: parent.top
+          anchors.left: parent.left
+          text: "Palette"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          font.capitalization: Font.AllUppercase
+        }
 
-          GridLayout {
-            Layout.fillWidth: true
-            columns: 8
-            rowSpacing: 6
-            columnSpacing: 6
+        GridLayout {
+          anchors.top: paletteLabel.bottom
+          anchors.topMargin: 6
+          anchors.left: parent.left
+          anchors.right: parent.right
+          columns: 8
+          rowSpacing: 6
+          columnSpacing: 6
 
-            Repeater {
-              model: ["red", "orange", "yellow", "green", "cyan", "blue", "magenta", "brown"]
-              Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 28
-                radius: 6
-                color: root.previewColors[modelData] || Qt.rgba(1, 1, 1, 0.06)
-              }
+          Repeater {
+            model: ["red", "orange", "yellow", "green", "cyan", "blue", "magenta", "brown"]
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 28
+              radius: 6
+              color: root.previewColors[modelData] || Qt.rgba(1, 1, 1, 0.06)
             }
           }
         }

@@ -406,8 +406,16 @@ Item {
       // failed or slow image fetch still leaves a real color preview on
       // screen, never a blank pane).
       Rectangle {
+        id: previewBox
         Layout.fillWidth: true
-        Layout.preferredHeight: 160
+        // Square (1:1), not a short wide strip -- direct follow-up:
+        // the real preview.png (1920x1200, confirmed directly) is a
+        // two-up composite of a desktop view and a terminal view, and
+        // a short wide crop was cutting far more off top/bottom than a
+        // square crop does. Bound to its own actual width (not a
+        // fixed 160), so it stays square at this pane's real
+        // runtime size, whatever that ends up being.
+        Layout.preferredHeight: width
         radius: 10
         clip: true
         color: Qt.rgba(0, 0, 0, 0.25)

@@ -217,3 +217,67 @@ function themeFileUrl(slug, variant, relativePath) {
   var repo = variant === "light" ? "100-themes-day" : "100-themes"
   return "https://bjarneo.github.io/" + repo + "/" + slug + "/" + relativePath
 }
+
+// --- Stage 2: install -------------------------------------------------
+//
+// Direct follow-up ("so when i press enter it installs it right and
+// then switches to it too, if already installed it works as a theme
+// switcher?"). Confirmed directly against a real install: each theme's
+// own colors object (already parsed from assets/themes.js) is a 1:1
+// match for omarchy's own colors.toml schema, but the repo ALSO
+// publishes a real colors.toml directly per theme (plus icons.theme,
+// preview.png, and a backgrounds/ folder), so installing just curls
+// those real files straight into ~/.config/omarchy/themes/<slug>/
+// rather than re-serializing the JSON ourselves -- the theme's own
+// hyprland_active_border/hyprland_inactive_border fields, which
+// assets/themes.js doesn't carry at all, only exist in the real file.
+// omarchy-theme-set (Omarchy's own, already-installed CLI) then does
+// everything a real theme switch needs -- background selection,
+// Hyprland/terminal/GTK/VSCode retheme, shell IPC -- so this never
+// reimplements any of that, only stages the files it reads.
+
+// Same character class omarchy-theme-install itself enforces on a
+// theme name before using it as a directory -- applied here BEFORE any
+// path is built from a theme's own `slug` field, which originates from
+// a third-party network response (assets/themes.js) rather than
+// anything the user typed. Fails closed (false) on anything else,
+// including the empty string, so a compromised/malformed feed can
+// never turn into a path-traversal write under ~/.config/omarchy/themes.
+function isSafeThemeSlug(slug) {
+  return /^[a-z0-9_][a-z0-9._+-]*$/.test(String(slug || ""))
+}
+
+// GitHub's Contents API for a theme's own backgrounds/ folder -- the
+// one piece per theme that assets/themes.js never carries at all (it's
+// real image files, not data), so unlike colors.toml/icons.theme/
+// preview.png (flat, predictable gh-pages paths -- see themeFileUrl)
+// this needs an actual directory listing first to learn each
+// background's real filename (confirmed directly: they're index-
+// prefixed and differ per theme, e.g. "1-sunset-grid.jpg", never a
+// fixed name this could guess). One listing call per actual INSTALL
+// (never during browsing), well inside GitHub's unauthenticated rate
+// limit for how infrequently a real install happens.
+function backgroundsApiUrl(slug, variant) {
+  var repo = variant === "light" ? "100-themes-day" : "100-themes"
+  return "https://api.github.com/repos/bjarneo/" + repo + "/contents/" + slug + "/backgrounds"
+}
+
+// Parses that listing into just {name, url} pairs this needs to
+// download each file -- fails closed to an empty list (no backgrounds
+// to fetch, not a fatal install error) for a 404 (a theme with no
+// backgrounds/ folder at all -- the API returns a plain {message:
+// "Not Found"} object, not an array, same "valid JSON but not an
+// array" shape parseThemesJs already guards against), malformed JSON,
+// or an entry missing its own download_url (a nested directory inside
+// backgrounds/, say, which this never expects but shouldn't choke on).
+function parseBackgroundsListing(jsonText) {
+  var data
+  try { data = JSON.parse(jsonText) } catch (e) { return [] }
+  if (!Array.isArray(data)) return []
+  var out = []
+  for (var i = 0; i < data.length; i++) {
+    var item = data[i]
+    if (item && item.type === "file" && item.name && item.download_url) out.push({ name: item.name, url: item.download_url })
+  }
+  return out
+}

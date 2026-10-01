@@ -7,28 +7,32 @@ import qs.Commons
 import "../.."
 import "ThemeCatalog.js" as ThemeCatalog
 
-// Stage 1 (browse-only, no install yet -- see the project's own staged
-// plan): browse bjarneo/100-themes (100 community Omarchy themes) and
-// its light companion bjarneo/100-themes-day (same hues, "-day"
-// suffix), without ever downloading the ~180MB full repo. Direct
-// design decision after walking through the upstream repo together:
-// "this isnt a theme picker grid, its more of a installer or browser"
-// -- shaped as a left list + right detail pane (ExtensionTwoPanel,
-// same component Settings already uses), not a Wallpapers-style grid,
-// specifically so only ONE theme's preview image is ever being fetched
-// at a time (whichever is currently selected), regardless of how many
-// themes are in the list.
+// Browse bjarneo/100-themes (100 community Omarchy themes) and its
+// light companion bjarneo/100-themes-day (same hues, "-day" suffix),
+// without ever downloading the ~180MB full repo. Direct design decision
+// after walking through the upstream repo together: "this isnt a theme
+// picker grid, its more of a installer or browser" -- shaped as a left
+// list + right detail pane (ExtensionTwoPanel, same component Settings
+// already uses), not a Wallpapers-style grid, specifically so only ONE
+// theme's preview image is ever being fetched at a time (whichever is
+// currently selected), regardless of how many themes are in the list.
 //
 // Each repo publishes its own assets/themes.js -- a single static file
 // covering every theme's real display name, slug, motif, and full
 // colors (already Omarchy's own native theme schema, confirmed
-// directly, no TOML parsing needed) in one fetch. Browsing here never
+// directly, no TOML parsing needed) in one fetch. Browsing never
 // downloads more than that one file per variant (two fetches, total,
 // for the whole 100-theme catalog) plus whichever single theme's
 // preview.png is currently selected -- see ThemeCatalog.parseThemesJs's
-// own comment for the full "why". The real background images and the
-// actual install (writing into ~/.config/omarchy/themes/<name>/) are
-// stage 2.
+// own comment for the full "why".
+//
+// Install (direct follow-up: "when i press enter it installs it right
+// and then switches to it too, if already installed it works as a
+// theme switcher?") only ever runs on Enter, for the one theme actually
+// selected -- see activateSelection()/installTheme()/switchToTheme()
+// below, and ThemeCatalog.js's own "Stage 2: install" header comment
+// for the full file-by-file design and the security reasoning behind
+// isSafeThemeSlug.
 Item {
   id: root
 
@@ -58,10 +62,12 @@ Item {
   // one-line, no-other-change toggle -- this is that toggle, just
   // never turned on in the first place rather than turned back off.
   // nothing here needs moveSelectionLeft/Right or the rightFocused/
-  // focusRightPanel trio -- there is no sub-focus concept yet (stage 2,
-  // once Install/the variant toggle become real keyboard-reachable
-  // controls, may add them).
+  // focusRightPanel trio -- there is no sub-focus concept yet (the
+  // variant toggle is still mouse-only).
   readonly property string searchPlaceholder: "Search Themes"
+  // Enter now installs/switches (see activateSelection below) --
+  // same "↵" chip Settings' own category-open already shows.
+  readonly property bool showsEnterHint: true
 
   // --- Catalog: all 100 themes (real display name/slug/motif/colors/
   // ansi), fetched once via each repo's own assets/themes.js -- see
@@ -198,11 +204,27 @@ Item {
   function moveSelectionDown() {
     if (root.selectedIndex < root.filteredThemes.length - 1) root.selectedIndex++
   }
-  // Reserved for the install flow (stage 2) -- a no-op for now, same
-  // "wire the shape first, the action later" sequencing Settings' own
-  // layout-only first pass used (see SettingsContent.qml's own header
-  // comment).
-  function activateSelection() {}
+
+  // Direct follow-up ("when i press enter it installs it right and then
+  // switches to it too, if already installed it works as a theme
+  // switcher?") -- exactly that branch: an already-installed variant
+  // (installedSlugs already keys off the SAME installedSlugFor(theme,
+  // previewVariant) themeRows uses for the green/muted icon, so this
+  // reads as "install" right up until the icon is already green) just
+  // runs omarchy-theme-set directly; everything else goes through the
+  // real fetch pipeline first. Ignored entirely while one is already
+  // running, rather than queuing a second -- Enter held down/mashed
+  // should not spawn overlapping installs of two different themes.
+  function activateSelection() {
+    if (!root.selectedDarkTheme) return
+    if (root.installState !== "idle") return
+    var slug = ThemeCatalog.installedSlugFor(root.selectedDarkTheme, root.previewVariant)
+    if (root.installedSlugs[slug]) {
+      root.switchToTheme(slug, root.selectedThemeName)
+    } else {
+      root.installTheme(root.selectedDarkTheme, root.previewVariant, slug)
+    }
+  }
 
   onActiveChanged: {
     if (root.active && root.darkThemes.length === 0 && !root.catalogLoading) root.loadCatalog()
@@ -215,12 +237,14 @@ Item {
     }
   }
 
+  readonly property string themesDir: Quickshell.env("HOME") + "/.config/omarchy/themes"
+
   // Plain `ls` of the real themes directory -- cheap, local, no reason
   // to cache/skip this the way loadCatalog() above skips a re-fetch
   // once already loaded, since this needs to reflect CURRENT disk
   // state every time the tab is (re)opened, not just the first time.
   function refreshInstalledThemes() {
-    installedThemesProc.command = ["ls", "-1", Quickshell.env("HOME") + "/.config/omarchy/themes"]
+    installedThemesProc.command = ["ls", "-1", root.themesDir]
     installedThemesProc.running = true
   }
 
@@ -244,6 +268,174 @@ Item {
       // installed -- fails closed to "nothing installed", never
       // throws or leaves the previous (possibly stale) set showing.
       root.installedSlugs = set
+    }
+  }
+
+  // --- Install/switch pipeline -----------------------------------------
+  //
+  // "idle" the rest of the time; "installing"/"switching" while a real
+  // omarchy-theme-set (or the fetch that precedes it) is in flight;
+  // "error" briefly after a failed install (see installErrorTimer).
+  // installingName is the display name of whichever theme this is
+  // CURRENTLY running for -- captured at kickoff rather than read live
+  // off selectedDarkTheme, since arrow-key navigation during a slow
+  // network fetch must not relabel an in-flight install after a
+  // different row the user has since moved to.
+  property string installState: "idle"
+  property string installingName: ""
+  property string installErrorMessage: ""
+
+  Timer {
+    id: installErrorTimer
+    interval: 2500
+    onTriggered: { root.installState = "idle"; root.installErrorMessage = "" }
+  }
+
+  function switchToTheme(slug, displayName) {
+    root.installState = "switching"
+    root.installingName = displayName
+    themeSetProc.command = ["omarchy-theme-set", slug]
+    themeSetProc.running = true
+  }
+
+  // Four fixed, parallel units of work once the theme's own directory
+  // exists: colors.toml (the one load-bearing fetch -- everything else
+  // is best-effort), icons.theme, preview.png, and the backgrounds/
+  // folder (its own listing call, then a short sequential download
+  // chain -- see downloadNextBackground). installPendingCount starts at
+  // this fixed 4 rather than growing dynamically with how many
+  // backgrounds a theme turns out to have, since the backgrounds UNIT
+  // as a whole only reports done once, after its own chain finishes.
+  property int installPendingCount: 0
+  property bool installColorsOk: false
+  property string installThemeDir: ""
+  property string installSlug: ""
+  property var installBackgroundsQueue: []
+
+  function installTheme(theme, variant, slug) {
+    if (!ThemeCatalog.isSafeThemeSlug(slug)) {
+      root.installState = "error"
+      root.installErrorMessage = "Could not install this theme"
+      installErrorTimer.restart()
+      return
+    }
+    root.installState = "installing"
+    root.installingName = theme.name
+    root.installSlug = slug
+    root.installThemeDir = root.themesDir + "/" + slug
+    root.installColorsOk = false
+    root.installPendingCount = 4
+    installMkdirProc.variant = variant
+    installMkdirProc.command = ["mkdir", "-p", root.installThemeDir, root.installThemeDir + "/backgrounds"]
+    installMkdirProc.running = true
+  }
+
+  Process {
+    id: installMkdirProc
+    property string variant: "dark"
+    onExited: function(exitCode) {
+      if (exitCode !== 0) { root.failInstall(); return }
+      var slug = root.installSlug
+      var variant = installMkdirProc.variant
+      installColorsProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/colors.toml", ThemeCatalog.themeFileUrl(slug, variant, "colors.toml")]
+      installColorsProc.running = true
+      installIconsProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/icons.theme", ThemeCatalog.themeFileUrl(slug, variant, "icons.theme")]
+      installIconsProc.running = true
+      installPreviewProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/preview.png", ThemeCatalog.themeFileUrl(slug, variant, "preview.png")]
+      installPreviewProc.running = true
+      installBackgroundsListProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.backgroundsApiUrl(slug, variant)]
+      installBackgroundsListProc.running = true
+    }
+  }
+
+  Process {
+    id: installColorsProc
+    onExited: function(exitCode) {
+      root.installColorsOk = exitCode === 0
+      root.installStepDone()
+    }
+  }
+
+  // Best-effort -- a missing icon theme name degrades to whatever icon
+  // theme was already active, never blocks the install.
+  Process {
+    id: installIconsProc
+    onExited: function(exitCode) { root.installStepDone() }
+  }
+
+  // Best-effort -- Omarchy's own theme pickers fall back fine without
+  // one; this plugin's own browse/preview path never depends on it.
+  Process {
+    id: installPreviewProc
+    onExited: function(exitCode) { root.installStepDone() }
+  }
+
+  Process {
+    id: installBackgroundsListProc
+    stdout: StdioCollector {
+      id: installBackgroundsListStdout
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      // A 404 (no backgrounds/ folder for this theme) and a real
+      // network failure both just mean nothing to download -- see
+      // omarchy-theme-set's own choose_theme_background, which already
+      // tolerates a theme with no backgrounds at all.
+      root.installBackgroundsQueue = exitCode === 0 ? ThemeCatalog.parseBackgroundsListing(installBackgroundsListStdout.text) : []
+      root.downloadNextBackground()
+    }
+  }
+
+  // Sequential, not parallel -- a theme has at most a small handful of
+  // backgrounds (every one checked directly so far has exactly 2), so
+  // there is no real latency win worth a second Process/queue-slot
+  // bookkeeping for.
+  function downloadNextBackground() {
+    if (root.installBackgroundsQueue.length === 0) { root.installStepDone(); return }
+    var job = root.installBackgroundsQueue.shift()
+    installBackgroundDownloadProc.command = ["curl", "-fsS", "--max-time", "15", "-o", root.installThemeDir + "/backgrounds/" + job.name, job.url]
+    installBackgroundDownloadProc.running = true
+  }
+
+  Process {
+    id: installBackgroundDownloadProc
+    onExited: function(exitCode) { root.downloadNextBackground() }
+  }
+
+  function installStepDone() {
+    root.installPendingCount--
+    if (root.installPendingCount > 0) return
+    if (!root.installColorsOk) { root.failInstall(); return }
+    themeSetProc.command = ["omarchy-theme-set", root.installSlug]
+    themeSetProc.running = true
+  }
+
+  // Leaves nothing half-written behind for a colors.toml that never
+  // arrived -- a retry (selecting the same row and pressing Enter
+  // again) should start clean, not find a theme folder that `ls`
+  // already considers "installed" with no real palette inside it.
+  function failInstall() {
+    installCleanupProc.command = ["rm", "-rf", root.installThemeDir]
+    installCleanupProc.running = true
+    root.installState = "error"
+    root.installErrorMessage = "Could not install this theme"
+    installErrorTimer.restart()
+  }
+
+  Process { id: installCleanupProc }
+
+  Process {
+    id: themeSetProc
+    onExited: function(exitCode) {
+      root.refreshInstalledThemes()
+      if (exitCode === 0) {
+        root.installState = "idle"
+        root.installErrorMessage = ""
+      } else {
+        root.installState = "error"
+        root.installErrorMessage = "Could not switch to this theme"
+        installErrorTimer.restart()
+      }
     }
   }
 
@@ -525,14 +717,40 @@ Item {
         // a bug -- previewColors itself updates instantly now that
         // it's synchronous, see this file's own header comment). A
         // plain "Loading…" text reads as a calmer, more normal loading
-        // state instead of a strobing color placeholder.
+        // state instead of a strobing color placeholder. Hidden while
+        // an install/switch is in flight -- that status (below) takes
+        // over this same spot instead of the two overlapping.
         Text {
           anchors.centerIn: parent
-          visible: root.previewImageLoading && previewImage.status !== Image.Ready
+          visible: root.installState === "idle" && root.previewImageLoading && previewImage.status !== Image.Ready
           text: "Loading preview…"
           font.family: root.fontFamily
           font.pixelSize: 11
           color: root.muted
+        }
+
+        // Install/switch status -- direct follow-up ("when i press
+        // enter it installs it right and then switches to it too, if
+        // already installed it works as a theme switcher?"). A dimmed
+        // backing fill keeps the message legible over whatever preview
+        // image/colors happen to be showing underneath (the actual
+        // palette, not a fixed color, so a plain text shadow can't be
+        // trusted to contrast against all 100 of them).
+        Rectangle {
+          anchors.fill: parent
+          radius: previewBox.radius
+          color: Qt.rgba(0, 0, 0, 0.55)
+          visible: root.installState !== "idle"
+        }
+        Text {
+          anchors.centerIn: parent
+          visible: root.installState !== "idle"
+          text: root.installState === "installing" ? "Installing " + root.installingName + "…"
+            : root.installState === "switching" ? "Switching to " + root.installingName + "…"
+            : root.installErrorMessage
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: root.installState === "error" ? "#ff6b6b" : root.textColor
         }
 
         // clip on a Rectangle only clips to its plain bounding box --

@@ -165,4 +165,52 @@ check("themeFileUrl: light variant, real slug used as-is (already carries its ow
   M.themeFileUrl("synthwave-day", "light", "preview.png"),
   "https://bjarneo.github.io/100-themes-day/synthwave-day/preview.png");
 
+// ---- isSafeThemeSlug ---------------------------------------------------
+
+check("isSafeThemeSlug: a real catalog slug passes", M.isSafeThemeSlug("synthwave"), true);
+check("isSafeThemeSlug: a real light-variant slug passes", M.isSafeThemeSlug("synthwave-day"), true);
+check("isSafeThemeSlug: path traversal is rejected, not just slashes",
+  M.isSafeThemeSlug("../../etc"), false);
+check("isSafeThemeSlug: a bare slash is rejected", M.isSafeThemeSlug("a/b"), false);
+check("isSafeThemeSlug: a leading dot is rejected (same rule omarchy-theme-install itself enforces)",
+  M.isSafeThemeSlug(".hidden"), false);
+check("isSafeThemeSlug: a leading dash is rejected", M.isSafeThemeSlug("-x"), false);
+check("isSafeThemeSlug: empty/undefined fails closed", M.isSafeThemeSlug(""), false);
+check("isSafeThemeSlug: empty/undefined fails closed (no arg at all)", M.isSafeThemeSlug(), false);
+check("isSafeThemeSlug: a shell metacharacter is rejected", M.isSafeThemeSlug("a;rm -rf ~"), false);
+
+// ---- backgroundsApiUrl ---------------------------------------------------
+
+check("backgroundsApiUrl: dark variant points at the 100-themes repo's own contents API",
+  M.backgroundsApiUrl("synthwave", "dark"),
+  "https://api.github.com/repos/bjarneo/100-themes/contents/synthwave/backgrounds");
+
+check("backgroundsApiUrl: light variant points at the 100-themes-day repo",
+  M.backgroundsApiUrl("synthwave-day", "light"),
+  "https://api.github.com/repos/bjarneo/100-themes-day/contents/synthwave-day/backgrounds");
+
+// ---- parseBackgroundsListing ---------------------------------------------------
+
+const realListing = JSON.stringify([
+  { name: "0-omarchy-wordmark.jpg", type: "file", download_url: "https://raw.example/0-omarchy-wordmark.jpg" },
+  { name: "1-sunset-grid.jpg", type: "file", download_url: "https://raw.example/1-sunset-grid.jpg" }
+]);
+
+check("parseBackgroundsListing: real-shaped listing, just {name, url} pairs kept",
+  M.parseBackgroundsListing(realListing),
+  [{ name: "0-omarchy-wordmark.jpg", url: "https://raw.example/0-omarchy-wordmark.jpg" },
+   { name: "1-sunset-grid.jpg", url: "https://raw.example/1-sunset-grid.jpg" }]);
+
+check("parseBackgroundsListing: a 404's own {message: 'Not Found'} object fails closed to an empty list",
+  M.parseBackgroundsListing(JSON.stringify({ message: "Not Found" })), []);
+
+check("parseBackgroundsListing: malformed JSON fails closed to an empty list, not a throw",
+  M.parseBackgroundsListing("not json"), []);
+
+check("parseBackgroundsListing: a non-file entry (nested dir) is skipped, not a throw",
+  M.parseBackgroundsListing(JSON.stringify([{ name: "sub", type: "dir" }])), []);
+
+check("parseBackgroundsListing: an entry missing download_url is skipped",
+  M.parseBackgroundsListing(JSON.stringify([{ name: "x.jpg", type: "file" }])), []);
+
 summary();

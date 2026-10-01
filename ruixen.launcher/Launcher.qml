@@ -1015,11 +1015,23 @@ Item {
   // here so opening/navigating/confirming the dropdown by keyboard reads
   // off the exact same list it visually shows, never a second hand-
   // rolled copy that could drift from it.
+  // Theme Browser's own two-item list -- direct follow-up ("im thinking
+  // about making that between All and Installed"): the style filter
+  // moved to its own cycling chip inside the extension itself (see
+  // ThemeBrowserContent.qml's own filterChipsRow, same "no popup,
+  // click to cycle" shape Search Files' own SearchFiltersBar already
+  // uses), so this dropdown's only remaining job here is the plain
+  // browse-everything/installed-only distinction -- a real boolean,
+  // not a short list like Wallpapers' own types, but kept as a one-
+  // item dropdown rather than inventing a third kind of control for
+  // just this one extension.
+  readonly property var installedFilterOptions: [{ id: "installed", label: "Installed", path: "installed" }]
+
   function dropdownOptions() {
     if (root.activeExtensionId === "wallpapers")
       return [{ id: "", label: "All Types", path: "" }].concat(root.wallpaperTypeOptions)
     if (root.activeExtensionId === "theme-browser")
-      return [{ id: "", label: "All Styles", path: "" }].concat(themeBrowserContent.styleFilterOptions)
+      return [{ id: "", label: "All", path: "" }].concat(root.installedFilterOptions)
     return [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
   }
 
@@ -1033,7 +1045,7 @@ Item {
   // boolean directly, unchanged) seeds it exactly the same way.
   function seedDropdownSelection() {
     var current = root.activeExtensionId === "wallpapers" ? wallpapersContent.kindFilter
-      : root.activeExtensionId === "theme-browser" ? themeBrowserContent.styleFilter
+      : root.activeExtensionId === "theme-browser" ? (themeBrowserContent.installedOnlyFilter ? "installed" : "")
       : root.selectedSourcePath
     var options = root.dropdownOptions()
     var idx = 0
@@ -1052,7 +1064,7 @@ Item {
     if (root.activeExtensionId === "wallpapers") {
       wallpapersContent.kindFilter = opt.path === "" ? "all" : opt.path
     } else if (root.activeExtensionId === "theme-browser") {
-      themeBrowserContent.styleFilter = opt.path
+      themeBrowserContent.installedOnlyFilter = opt.path === "installed"
     } else {
       root.selectedSourcePath = opt.path
     }
@@ -1663,21 +1675,22 @@ Item {
         // Wallpapers/Theme Browser mode each feed this same button/
         // dropdown their own options instead of real Search Files
         // sources -- see wallpaperTypeOptions' and
-        // ThemeBrowserContent.styleFilter's own comments.
+        // installedFilterOptions' own comments.
         // wallpapersContent.kindFilter is "all"/"image"/"video"/"gif";
         // "" (this control's own "no selection" sentinel) maps to "all"
-        // both ways below. themeBrowserContent.styleFilter already uses
-        // "" as its own "no style picked" value, so it needs no mapping.
+        // both ways below. themeBrowserContent.installedOnlyFilter is a
+        // plain bool, so it needs its own "" <-> "installed" mapping
+        // too, just a simpler one (only ever two states).
         selectedSourcePath: root.activeExtensionId === "wallpapers"
           ? (wallpapersContent.kindFilter === "all" ? "" : wallpapersContent.kindFilter)
           : root.activeExtensionId === "theme-browser"
-          ? themeBrowserContent.styleFilter
+          ? (themeBrowserContent.installedOnlyFilter ? "installed" : "")
           : root.selectedSourcePath
         sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions
-          : root.activeExtensionId === "theme-browser" ? themeBrowserContent.styleFilterOptions
+          : root.activeExtensionId === "theme-browser" ? root.installedFilterOptions
           : fileSearchProvider.sources
         allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types"
-          : root.activeExtensionId === "theme-browser" ? "All Styles"
+          : root.activeExtensionId === "theme-browser" ? "All"
           : "All Sources"
         sourceFilterWidth: root.sourceFilterWidth
         // Each extension's own interceptsArrowKeys decides this now --
@@ -1885,15 +1898,14 @@ Item {
         // button's right edge, same as this width matches its width.
         anchors.rightMargin: 12
         width: root.sourceFilterWidth
-        // "All Sources"/"All Types"/"All Styles" plus one row per real
-        // option (file search's own discovered sources, Wallpapers'
-        // fixed 3 types, or the Theme Browser's own distinct motifs) --
-        // height follows that count directly rather than scrolling,
+        // "All Sources"/"All Types"/"All" plus one row per real option
+        // (file search's own discovered sources, Wallpapers' fixed 3
+        // types, or the Theme Browser's own single "Installed" entry)
+        // -- height follows that count directly rather than scrolling,
         // since every one of these lists is at most a small handful of
-        // rows (15 motifs at most across the whole 100-theme catalog,
-        // confirmed directly). 28 matches sourceRow's own height below.
+        // rows. 28 matches sourceRow's own height below.
         height: ((root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions.length
-          : root.activeExtensionId === "theme-browser" ? themeBrowserContent.styleFilterOptions.length
+          : root.activeExtensionId === "theme-browser" ? root.installedFilterOptions.length
           : fileSearchProvider.sources.length) + 1) * 28 + 8
         radius: 10
         // Genuinely near-opaque, not glassBackground's own translucency

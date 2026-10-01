@@ -79,14 +79,53 @@ check("filterByStyle: a real motif keeps only themes sharing it",
 check("filterByStyle: a motif matching nothing returns an empty list",
   M.filterByStyle(motifThemes, "scanlines"), []);
 
-// ---- sortByName -------------------------------------------------------------
+// ---- filterByInstalled -------------------------------------------------------
 
-check("sortByName: alphabetical by display name, not the upstream curated index order",
-  M.sortByName([{ name: "Synthwave" }, { name: "Abyss" }, { name: "Neon Wave" }]),
+const installThemes = [
+  { name: "Abyss", slug: "abyss" },
+  { name: "Synthwave", slug: "synthwave" }
+];
+
+check("filterByInstalled: disabled is a no-op, untouched order, regardless of installedSlugs",
+  M.filterByInstalled(installThemes, {}, false), installThemes);
+
+check("filterByInstalled: enabled keeps only installed themes (dark slug installed)",
+  M.filterByInstalled(installThemes, { "synthwave": true }, true),
+  [{ name: "Synthwave", slug: "synthwave" }]);
+
+check("filterByInstalled: enabled also matches on just the LIGHT slug being installed -- a real live bug, caught live: this used to be gated on whichever variant was currently being previewed, so toggling Dark -> Light while a dark-only-installed theme's list was filtered to Installed emptied it outright, taking the Dark/Light toggle (only reachable with a theme selected) down with it",
+  M.filterByInstalled(installThemes, { "synthwave-day": true }, true),
+  [{ name: "Synthwave", slug: "synthwave" }]);
+
+check("filterByInstalled: a theme installed in BOTH variants is still only listed once",
+  M.filterByInstalled(installThemes, { "synthwave": true, "synthwave-day": true }, true),
+  [{ name: "Synthwave", slug: "synthwave" }]);
+
+check("filterByInstalled: enabled with nothing installed returns an empty list",
+  M.filterByInstalled(installThemes, {}, true), []);
+
+// ---- sortThemes -------------------------------------------------------------
+
+check("sortThemes: name/asc -- alphabetical by display name, not the upstream curated index order",
+  M.sortThemes([{ name: "Synthwave" }, { name: "Abyss" }, { name: "Neon Wave" }], "name", "asc"),
   [{ name: "Abyss" }, { name: "Neon Wave" }, { name: "Synthwave" }]);
 
-check("sortByName: does not mutate the input array",
-  (function() { var src = [{ name: "B" }, { name: "A" }]; M.sortByName(src); return src; })(),
+check("sortThemes: name/desc -- reverse alphabetical (\"order it from z-a\")",
+  M.sortThemes([{ name: "Abyss" }, { name: "Neon Wave" }, { name: "Synthwave" }], "name", "desc"),
+  [{ name: "Synthwave" }, { name: "Neon Wave" }, { name: "Abyss" }]);
+
+check("sortThemes: style/asc -- orders by the motif's real label, not the theme's own name",
+  M.sortThemes(
+    [{ name: "Zeta", motif: "aurora" }, { name: "Alpha", motif: "tubes" }],
+    "style", "asc"),
+  [{ name: "Zeta", motif: "aurora" }, { name: "Alpha", motif: "tubes" }]);
+
+check("sortThemes: an unrecognized direction fails open to ascending, not a throw",
+  M.sortThemes([{ name: "B" }, { name: "A" }], "name", "sideways"),
+  [{ name: "A" }, { name: "B" }]);
+
+check("sortThemes: does not mutate the input array",
+  (function() { var src = [{ name: "B" }, { name: "A" }]; M.sortThemes(src, "name", "asc"); return src; })(),
   [{ name: "B" }, { name: "A" }]);
 
 // ---- styleOptions -------------------------------------------------------------

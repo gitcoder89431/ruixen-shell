@@ -84,29 +84,50 @@ Item {
   property bool catalogLoading: false
   property bool catalogFailed: false
 
-  // Direct follow-up ("how would we order this... sort and filter by
-  // style") -- reuses the exact same top-right dropdown Wallpapers' own
-  // "All Types" button already opens (Launcher.qml's dropdownOptions/
-  // confirmDropdownSelection, branched a third way there by
-  // activeExtensionId), rather than a new control invented for this
-  // extension alone. "" is "All Styles", same sentinel Search Files'
-  // own source dropdown already uses for "All Sources" -- styleFilter
-  // just IS the real motif slug once a style is picked, so Launcher.qml
-  // never needs a second mapping the way wallpapersContent.kindFilter's
-  // "all"/"" pair does. Deliberately NOT reset when this tab is
-  // re-entered -- same session-persistence convention kindFilter/
-  // categoryFilter already use elsewhere in this plugin.
+  // Direct follow-up ("the types... moved to the stuff below it like
+  // how file search has these chips thing") -- a cycling chip
+  // (filterChipsRow below), not a dropdown, same "click to cycle, no
+  // popup" shape Search Files' own SearchFiltersBar Type button already
+  // uses (see its own header comment for why: avoids a z-stacking trap
+  // a real popup would reintroduce). "" is "All Styles" -- styleFilter
+  // just IS the real motif slug once a style is picked. Deliberately
+  // NOT reset when this tab is re-entered -- same session-persistence
+  // convention kindFilter/categoryFilter already use elsewhere in this
+  // plugin.
   property string styleFilter: ""
   readonly property var styleFilterOptions: ThemeCatalog.styleOptions(root.darkThemes)
+  function cycleStyleFilter() {
+    var slugs = [""].concat(root.styleFilterOptions.map(function(o) { return o.path }))
+    var idx = slugs.indexOf(root.styleFilter)
+    root.styleFilter = slugs[(idx + 1) % slugs.length]
+  }
+  readonly property string styleFilterLabel: root.styleFilter === "" ? "All" : ThemeCatalog.motifLabel(root.styleFilter)
 
-  // Alphabetical by real display name, not whatever curated index order
-  // the upstream catalog happens to ship in (Synthwave=1, Neon Wave=2,
-  // ...) -- see ThemeCatalog.sortByName's own comment. Style filter
-  // narrows first, then the (possibly already-narrowed) set is sorted,
-  // so "Style: Sunset Grid" always reads alphabetically too, not in
-  // whatever order those particular entries happened to appear upstream.
-  readonly property var filteredThemes: ThemeCatalog.sortByName(
-    ThemeCatalog.filterByStyle(ThemeCatalog.filterThemes(root.darkThemes, root.searchText), root.styleFilter))
+  // Direct follow-up ("im thinking about making that between All and
+  // Installed") -- what the top-right dropdown now controls (see
+  // Launcher.qml's own installedFilterOptions comment) instead of
+  // style. A real browse/manage distinction, not session-persisted on
+  // purpose: re-entering this tab should default back to browsing
+  // everything, not silently stay narrowed to Installed from a
+  // previous visit.
+  property bool installedOnlyFilter: false
+
+  // Direct follow-up ("click name chip to order it from z-a and then
+  // Style so it orders it by subtitles instead") -- "name" | "style",
+  // "asc" | "desc". See filterChipsRow's own Name/By Style chips for
+  // how these toggle, and ThemeCatalog.sortThemes's own comment for the
+  // actual compare.
+  property string sortKey: "name"
+  property string sortDirection: "asc"
+  function toggleSortByName() {
+    if (root.sortKey === "name") root.sortDirection = root.sortDirection === "asc" ? "desc" : "asc"
+    else { root.sortKey = "name"; root.sortDirection = "asc" }
+  }
+  function toggleSortByStyle() {
+    if (root.sortKey === "style") root.sortDirection = root.sortDirection === "asc" ? "desc" : "asc"
+    else { root.sortKey = "style"; root.sortDirection = "asc" }
+  }
+
   // {slug: true} set of every theme folder actually present under
   // ~/.config/omarchy/themes right now -- refreshed each time this
   // extension is (re)opened (see refreshInstalledThemes below), so it
@@ -114,6 +135,18 @@ Item {
   // means (the stock Settings page, omarchy theme install, a previous
   // stage-2 install here) since the last time this tab was open.
   property var installedSlugs: ({})
+
+  // Filter order: text search, then style, then installed-only -- each
+  // one only ever narrows, so the order between them doesn't change the
+  // result, just how early a cheap check can skip a theme. Sorted last,
+  // over whatever subset survives, so "Style: Sunset Grid" or
+  // "Installed" both still read alphabetically (or by-style) rather
+  // than in upstream's own curated order.
+  readonly property var filteredThemes: ThemeCatalog.sortThemes(
+    ThemeCatalog.filterByInstalled(
+      ThemeCatalog.filterByStyle(ThemeCatalog.filterThemes(root.darkThemes, root.searchText), root.styleFilter),
+      root.installedSlugs, root.installedOnlyFilter),
+    root.sortKey, root.sortDirection)
   // The REAL active theme's own name, read from
   // ~/.local/state/omarchy/current/theme.name (see
   // refreshCurrentTheme below) -- direct follow-up ("icons color isnt
@@ -610,9 +643,125 @@ Item {
     }
   }
 
+  // Direct follow-up ("the types... moved to the stuff below it like
+  // how file search has these chips thing... click name chip to order
+  // it from z-a and then Style so it orders it by subtitles instead")
+  // -- visually matches SearchFiltersBar.qml's own chip row (same 24px
+  // pill buttons, same spacing/radius/tint), but built fresh rather
+  // than reused: that component's own props (categoryFilter/
+  // searchScope/hiddenEnabled, its three signals) are Search-Files-
+  // specific, and ExtensionTwoPanel's own header comment already
+  // settles this exact question for Wallpapers' grid -- a genuinely
+  // different shape "isn't forced through" a shared component that
+  // doesn't fit it, it just matches the same look.
+  Item {
+    id: filterChipsRow
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    height: 32
+
+    Row {
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 6
+
+      // Style filter -- cycles on click through every motif present in
+      // the loaded catalog, "All" wrapping back around, same plain
+      // cycle-on-click shape (and lack of active/inactive tint -- this
+      // is always exactly one of its own options showing, never a
+      // multi-choice row) SearchFiltersBar's own Type button uses.
+      Rectangle {
+        id: styleChip
+        width: Math.max(76, styleChipLabel.implicitWidth + 20)
+        height: 24
+        radius: 6
+        color: Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: styleChipLabel
+          anchors.centerIn: parent
+          text: "Style: " + root.styleFilterLabel
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.cycleStyleFilter()
+        }
+      }
+
+      // Name/By Style -- exactly one is ever the active sort key, same
+      // accent-tinted "exactly one of these is selected" shape
+      // SearchFiltersBar's own scope row (Both/Names/Contents) uses.
+      // Clicking the ALREADY-active one flips direction instead of
+      // doing nothing -- direct request ("click name chip to order it
+      // from z-a").
+      Rectangle {
+        id: nameSortChip
+        readonly property bool isActive: root.sortKey === "name"
+        width: nameSortLabel.implicitWidth + 16
+        height: 24
+        radius: 6
+        color: nameSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: nameSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: nameSortLabel
+          anchors.centerIn: parent
+          text: "Name" + (nameSortChip.isActive ? (root.sortDirection === "asc" ? " ↑" : " ↓") : "")
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.toggleSortByName()
+        }
+      }
+
+      Rectangle {
+        id: styleSortChip
+        readonly property bool isActive: root.sortKey === "style"
+        width: styleSortLabel.implicitWidth + 16
+        height: 24
+        radius: 6
+        color: styleSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: styleSortChip.isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: styleSortLabel
+          anchors.centerIn: parent
+          text: "By Style" + (styleSortChip.isActive ? (root.sortDirection === "asc" ? " ↑" : " ↓") : "")
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.toggleSortByStyle()
+        }
+      }
+    }
+  }
+
   ExtensionTwoPanel {
     id: panel
-    anchors.fill: parent
+    anchors.top: filterChipsRow.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
   }
 
   // Direct follow-up: a small motif/style subtitle beside each theme's

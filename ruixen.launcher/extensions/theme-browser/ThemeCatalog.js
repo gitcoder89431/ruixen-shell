@@ -84,9 +84,8 @@ function filterThemes(themes, query) {
 }
 
 // style is a motif slug (e.g. "sunset-grid"), or "" for "every style" --
-// same sentinel Search Files' own source-path dropdown already uses for
-// "All Sources", reused here rather than inventing a second convention
-// for the exact same "no filter selected" idea.
+// same "no filter selected" sentinel this file's own installedSlugFor-
+// adjacent conventions already use elsewhere.
 function filterByStyle(themes, style) {
   if (!style) return themes
   var out = []
@@ -96,27 +95,70 @@ function filterByStyle(themes, style) {
   return out
 }
 
-// Direct follow-up ("how would we order this") -- the upstream
-// catalog's own order is just whatever index its author curated it in
-// (Synthwave=1, Neon Wave=2, ...), not alphabetical, so left on its own
-// it reads as arbitrary. Plain alphabetical by the real display name is
-// the obvious, predictable default to browse a 100-entry list by.
-// localeCompare so "Neon Wave" vs "Nebula" sorts the same way a human
-// skimming the list would expect, not raw UTF-16 code-unit order.
-function sortByName(themes) {
+// Direct follow-up ("im thinking about making that between All and
+// Installed") -- the left-panel equivalent of Wallpapers' own "All
+// Types" dropdown became an installed-only toggle instead (a real
+// browse/manage distinction now that install is real), not a third
+// kind of style filter. enabled false is a no-op so this composes with
+// filterByStyle/filterThemes above in any order without special-casing
+// "the toggle is off" at each call site.
+//
+// Checks BOTH variants' slugs, not just whichever one is currently
+// being previewed -- a real live bug, caught live: gated on the
+// previewed variant alone, toggling Dark -> Light while "Installed"
+// was active found zero of the (dark-only-installed) themes still
+// installed under THAT variant's own slug, emptying the list outright.
+// Worse than a plain empty state too -- the right panel (Dark/Light
+// toggle included) only shows once a theme is selected, so an emptied
+// list took the one control that could undo this down with it,
+// leaving no way back except this dropdown itself. "Installed" here
+// means the THEME is installed, in whichever variant, not "is this
+// exact preview installed" -- matches how a person would actually ask
+// the question, and can't be emptied out from under itself by the
+// Dark/Light toggle again.
+function filterByInstalled(themes, installedSlugs, enabled) {
+  if (!enabled) return themes
+  var out = []
+  for (var i = 0; i < themes.length; i++) {
+    var theme = themes[i]
+    var anyVariantInstalled = !!(installedSlugs && (installedSlugs[installedSlugFor(theme, "dark")] || installedSlugs[installedSlugFor(theme, "light")]))
+    if (anyVariantInstalled) out.push(theme)
+  }
+  return out
+}
+
+// Direct follow-up ("how would we order this... click name chip to
+// order it from z-a and then Style so it orders it by subtitles
+// instead") -- the upstream catalog's own order is just whatever index
+// its author curated it in (Synthwave=1, Neon Wave=2, ...), not
+// alphabetical, so left on its own it reads as arbitrary. sortKey picks
+// which field to compare ("name", the real display name, or "style",
+// the same motif label the breadcrumb subtitle already shows);
+// direction is "asc" or "desc" (anything else behaves as "asc", same
+// fail-open-to-the-sane-default convention motifLabel's own fallback
+// uses). localeCompare so "Neon Wave" vs "Nebula" sorts the same way a
+// human skimming the list would expect, not raw UTF-16 code-unit order.
+function sortThemes(themes, sortKey, direction) {
   var out = themes.slice()
-  out.sort(function(a, b) { return String(a.name || "").localeCompare(String(b.name || "")) })
+  var dir = direction === "desc" ? -1 : 1
+  out.sort(function(a, b) {
+    var av = sortKey === "style" ? motifLabel(a.motif) : String(a.name || "")
+    var bv = sortKey === "style" ? motifLabel(b.motif) : String(b.name || "")
+    return dir * av.localeCompare(bv)
+  })
   return out
 }
 
 // The distinct motifs actually present in the given theme list, each
-// shaped as {id, label, path} -- the exact shape sourceFilterList's own
-// Repeater model (Launcher.qml's wallpaperTypeOptions/fileSearchProvider
-// sources) already uses, so the Theme Browser's own "All Styles"
-// dropdown is just a third model for that same shared component rather
-// than a new one. Sorted by label, same alphabetical-for-browsing
-// reasoning sortByName uses above -- a style dropdown is itself just a
-// short list to scan.
+// shaped as {id, label, path} -- same {id, label, path} shape this
+// plugin's own sourceFilterList Repeater model (Launcher.qml's
+// wallpaperTypeOptions/fileSearchProvider sources) already uses, kept
+// here even though the Style filter is now a cycling chip (direct
+// follow-up: "the types... moved to the stuff below it like how file
+// search has these chips") rather than a dropdown, since
+// cycleStyleFilter (ThemeBrowserContent.qml) still needs an ordered
+// list of real options to cycle through. Sorted by label, same
+// alphabetical-for-browsing reasoning sortThemes uses above.
 function styleOptions(themes) {
   var seen = {}
   var out = []

@@ -1,5 +1,5 @@
 import QtQuick
-import "OmarchyMenuParser.js" as OmarchyMenuParser
+import "search/OmarchyMenuParser.js" as OmarchyMenuParser
 
 // Issue #57: extracted verbatim from Launcher.qml's own ListView
 // delegate. A ListView delegate can be any Item type, so this can be a

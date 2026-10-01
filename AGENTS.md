@@ -101,7 +101,7 @@ Ruixen has hit real stale-process races more than once. The house rules:
 - Bound search/output/cache work — no unbounded scans, unbounded output
   buffers, or unbounded cache growth.
 
-Don't reinvent this from scratch. `ruixen.launcher/WorkerPool.js` (see
+Don't reinvent this from scratch. `ruixen.launcher/search/WorkerPool.js` (see
 `tests/js/WorkerPool.test.js`) and `ruixen.wallpaper/GenerationGuard.js`
 (see `tests/js/GenerationGuard.test.js`) are the existing, unit-tested
 building blocks — reuse or extend them before writing a new variant.
@@ -313,7 +313,7 @@ this before touching any of the three.
   `barSurfaceMaterial` (`Bar.qml`) govern the bar/frame/notch's own
   surface — Black vs. Theme color, Solid vs. Glass fill — while
   `glassTintMode` and the Glass Effect profile
-  (`ruixen.launcher/SettingsContent.qml`) govern the launcher window's
+  (`ruixen.launcher/extensions/settings/SettingsContent.qml`) govern the launcher window's
   own material. These are not the same kind of thing: the bar/frame
   surface is decorative chrome painted inside a window that's always
   present, while the launcher's glass is the actual Hyprland-blurred

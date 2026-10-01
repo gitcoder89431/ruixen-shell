@@ -7,7 +7,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 facade_qml="$repo_dir/bars/v2/ruixen.bar/PluginBarFacade.qml"
-settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
+settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0

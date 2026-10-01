@@ -5,7 +5,7 @@ import Quickshell.Io
 import Quickshell.Widgets
 
 // A second copy of this file's own picker LOGIC lives at
-// ruixen.launcher/WallpapersContent.qml (a launcher "Wallpapers"
+// ruixen.launcher/extensions/wallpapers/WallpapersContent.qml (a launcher "Wallpapers"
 // extension, same "plugin folders can't share a file" reason
 // AppLibrary.qml is copied per-plugin too) -- keep both in sync by
 // hand if kindFilter/searchText/discovery/poster generation change

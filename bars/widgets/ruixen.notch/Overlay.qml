@@ -431,7 +431,7 @@ Item {
 
   // Bar page's own Notch "Show / On Hover / Hidden" setting -- Hidden
   // goes through the real plugin enable/disable (unloads this whole
-  // service entirely, see ruixen.launcher/SettingsContent.qml's own
+  // service entirely, see ruixen.launcher/extensions/settings/SettingsContent.qml's own
   // comment), so this file only ever needs to distinguish "always
   // show the collapsed pill" from "only reveal it on hover" for the
   // other two. Same watched-FileView pattern as dndStateFile above --

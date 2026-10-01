@@ -29,7 +29,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 manifest_json="$repo_dir/ruixen.cava/manifest.json"
 overlay_qml="$repo_dir/ruixen.cava/Overlay.qml"
-settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
+settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
 
 pass=0
 fail_count=0

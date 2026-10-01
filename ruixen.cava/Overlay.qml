@@ -31,7 +31,7 @@ Item {
   property var manifest: null
 
   // State read from ~/.local/state/ruixen/cava-visualizer.json --
-  // written by ruixen.launcher/SettingsContent.qml's own Visualizer
+  // written by ruixen.launcher/extensions/settings/SettingsContent.qml's own Visualizer
   // category, same Settings-writes/this-reads split already
   // established for notch-visibility.json and applauncher-icon.json.
   property bool vizEnabled: false

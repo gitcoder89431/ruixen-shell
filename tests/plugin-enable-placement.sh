@@ -7,7 +7,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 helper="$repo_dir/lib/restore-canonical-plugin-layout.sh"
-launcher_service="$repo_dir/ruixen.launcher/services/PluginService.qml"
+launcher_service="$repo_dir/ruixen.launcher/extensions/settings/services/PluginService.qml"
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT

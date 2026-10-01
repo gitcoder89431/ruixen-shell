@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "LauncherQueryOperators.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "search", "LauncherQueryOperators.js"));
 
 // ---- parseQuery: the issue's own worked examples ---------------------------
 

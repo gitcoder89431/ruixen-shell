@@ -10,7 +10,7 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-launcher_settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
+launcher_settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 metrics_qml="$repo_dir/bars/widgets/ruixen.notch/MetricsContent.qml"
 

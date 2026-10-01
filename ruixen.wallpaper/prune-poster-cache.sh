@@ -2,7 +2,7 @@
 # Issue #66: conservative disk-cache hygiene for the shared poster cache
 # ($HOME/.cache/ruixen/wallpaper-posters). Three real producers write
 # into it -- ruixen.wallpaper/Service.qml's own video/GIF poster
-# generation (play()/playGif()), ruixen.launcher/FileSearchProvider.qml's
+# generation (play()/playGif()), ruixen.launcher/search/FileSearchProvider.qml's
 # own Search Files video preview, and ruixen.notch/list-wallpapers.sh's
 # own picker thumbnails -- all keyed by an md5 hash of the SOURCE path.
 # That's a one-way hash: a poster whose source has since been deleted,

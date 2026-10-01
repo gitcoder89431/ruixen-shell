@@ -42,7 +42,7 @@ check() {
 }
 
 check "Launcher.qml imports the shared frecency module" \
-  "$(grep -c 'import "LauncherFrecency.js" as Frecency' "$launcher_qml")" "1"
+  "$(grep -c 'import "search/LauncherFrecency.js" as Frecency' "$launcher_qml")" "1"
 
 # --- recording: all 4 activation paths now call recordLaunch ------------
 

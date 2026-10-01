@@ -48,7 +48,7 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 launcher_qml="$repo_dir/ruixen.launcher/Launcher.qml"
-provider_qml="$repo_dir/ruixen.launcher/OmarchyActionsProvider.qml"
+provider_qml="$repo_dir/ruixen.launcher/search/OmarchyActionsProvider.qml"
 
 pass=0
 fail_count=0

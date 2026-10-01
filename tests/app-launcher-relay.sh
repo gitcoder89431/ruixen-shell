@@ -8,10 +8,10 @@
 #
 # Quickshell.DesktopEntries is a real, core Quickshell type independent
 # of Omarchy -- ruixen.notch/AppLibrary.qml, ruixen.pinnedapps/AppLibrary.qml,
-# and ruixen.launcher/AppLibrary.qml (issue #52: added to this guard when
+# and ruixen.launcher/search/AppLibrary.qml (issue #52: added to this guard when
 # ruixen.launcher's own copy was discovered NOT covered here, even though
 # it's kept byte-identical to the other two by the same convention -- see
-# ruixen.launcher/AppLibrary.qml's own header) are a from-scratch wrapper
+# ruixen.launcher/search/AppLibrary.qml's own header) are a from-scratch wrapper
 # around it, with AppSearch.js (ranking algorithm only) ported verbatim
 # from Omarchy's own real /usr/share/omarchy/shell/services/AppSearch.js
 # (MIT).
@@ -37,19 +37,19 @@ pinned_lib="$repo_dir/bars/widgets/ruixen.pinnedapps/AppLibrary.qml"
 pinned_search="$repo_dir/bars/widgets/ruixen.pinnedapps/AppSearch.js"
 # "rlauncher_*", not "launcher_*" -- that name's already taken below by
 # ruixen.notch/LauncherContent.qml, a completely different file.
-rlauncher_lib="$repo_dir/ruixen.launcher/AppLibrary.qml"
-rlauncher_search="$repo_dir/ruixen.launcher/AppSearch.js"
+rlauncher_lib="$repo_dir/ruixen.launcher/search/AppLibrary.qml"
+rlauncher_search="$repo_dir/ruixen.launcher/search/AppSearch.js"
 # Same byte-identical-duplicate situation as AppLibrary.qml/AppSearch.js
 # above -- LauncherFrecency.js is the shared frecency-scoring module
 # both AppLibrary.qml (apps) and OmarchyActionsProvider.qml (Omarchy
 # Actions, ruixen.launcher-only, no copy needed there) import.
 notch_frecency="$repo_dir/bars/widgets/ruixen.notch/LauncherFrecency.js"
 pinned_frecency="$repo_dir/bars/widgets/ruixen.pinnedapps/LauncherFrecency.js"
-rlauncher_frecency="$repo_dir/ruixen.launcher/LauncherFrecency.js"
+rlauncher_frecency="$repo_dir/ruixen.launcher/search/LauncherFrecency.js"
 # Issue #61: ruixen.launcher consumes LauncherSearchConfig.js to build
 # the real search root set -- see that file's own header for the full
 # "why".
-launcher_search_config="$repo_dir/ruixen.launcher/LauncherSearchConfig.js"
+launcher_search_config="$repo_dir/ruixen.launcher/search/LauncherSearchConfig.js"
 # Same byte-identical-duplicate situation, different pair again --
 # ruixen.peripherals' own battery-level coloring needs the theme's
 # green/yellow/red (see ThemeColors.qml's own header for the full "why").
@@ -72,9 +72,9 @@ pinned_widget="$repo_dir/bars/widgets/ruixen.pinnedapps/BarWidget.qml"
 # can load (both live inside a QML Item), so this is a grep-based static
 # check on the real source instead, same convention this file's own
 # "no leftover restricted API calls" section above already uses.
-rfiles_search="$repo_dir/ruixen.launcher/FileSearchProvider.qml"
-rcontent_search="$repo_dir/ruixen.launcher/FileContentSearchProvider.qml"
-rlauncher_glyphs="$repo_dir/ruixen.launcher/AppLauncherGlyphs.js"
+rfiles_search="$repo_dir/ruixen.launcher/search/FileSearchProvider.qml"
+rcontent_search="$repo_dir/ruixen.launcher/search/FileContentSearchProvider.qml"
+rlauncher_glyphs="$repo_dir/ruixen.launcher/search/AppLauncherGlyphs.js"
 bar_applauncher_glyphs="$repo_dir/bars/widgets/ruixen.applauncher/AppLauncherGlyphs.js"
 
 pass=0
@@ -104,7 +104,7 @@ check "BarWidget.qml (pinnedapps) has no leftover REAL bar.shell.appLibrary read
 
 check "ruixen.notch/AppLibrary.qml exists" "$([[ -f "$notch_lib" ]] && echo yes)" "yes"
 check "ruixen.pinnedapps/AppLibrary.qml exists" "$([[ -f "$pinned_lib" ]] && echo yes)" "yes"
-check "ruixen.launcher/AppLibrary.qml exists" "$([[ -f "$rlauncher_lib" ]] && echo yes)" "yes"
+check "ruixen.launcher/search/AppLibrary.qml exists" "$([[ -f "$rlauncher_lib" ]] && echo yes)" "yes"
 check "the three AppLibrary.qml copies are byte-identical (plugin folders can't share a file)" \
   "$(diff -q "$notch_lib" "$pinned_lib" >/dev/null 2>&1 && diff -q "$notch_lib" "$rlauncher_lib" >/dev/null 2>&1 && echo same || echo different)" "same"
 check "the three AppSearch.js copies are byte-identical" \
@@ -112,13 +112,13 @@ check "the three AppSearch.js copies are byte-identical" \
 
 check "ruixen.notch/LauncherFrecency.js exists" "$([[ -f "$notch_frecency" ]] && echo yes)" "yes"
 check "ruixen.pinnedapps/LauncherFrecency.js exists" "$([[ -f "$pinned_frecency" ]] && echo yes)" "yes"
-check "ruixen.launcher/LauncherFrecency.js exists" "$([[ -f "$rlauncher_frecency" ]] && echo yes)" "yes"
+check "ruixen.launcher/search/LauncherFrecency.js exists" "$([[ -f "$rlauncher_frecency" ]] && echo yes)" "yes"
 check "the three LauncherFrecency.js copies are byte-identical" \
   "$(diff -q "$notch_frecency" "$pinned_frecency" >/dev/null 2>&1 && diff -q "$notch_frecency" "$rlauncher_frecency" >/dev/null 2>&1 && echo same || echo different)" "same"
 
-check "ruixen.launcher/LauncherSearchConfig.js exists" "$([[ -f "$launcher_search_config" ]] && echo yes)" "yes"
+check "ruixen.launcher/search/LauncherSearchConfig.js exists" "$([[ -f "$launcher_search_config" ]] && echo yes)" "yes"
 
-check "ruixen.launcher/AppLauncherGlyphs.js exists" "$([[ -f "$rlauncher_glyphs" ]] && echo yes)" "yes"
+check "ruixen.launcher/search/AppLauncherGlyphs.js exists" "$([[ -f "$rlauncher_glyphs" ]] && echo yes)" "yes"
 check "ruixen.applauncher/AppLauncherGlyphs.js exists" "$([[ -f "$bar_applauncher_glyphs" ]] && echo yes)" "yes"
 check "the two AppLauncherGlyphs.js copies are byte-identical (plugin folders can't share a file)" \
   "$(diff -q "$rlauncher_glyphs" "$bar_applauncher_glyphs" >/dev/null 2>&1 && echo same || echo different)" "same"
@@ -192,7 +192,7 @@ check "list-wallpapers.sh backgrounds the prune call, never blocks on it" \
 
 check "ruixen.wallpaper/Service.qml's video poster generation writes a .src sidecar" \
   "$(grep -c 'poster\.src' "$repo_dir/ruixen.wallpaper/Service.qml")" "2"
-check "ruixen.launcher/FileSearchProvider.qml's video poster generation writes a .src sidecar" \
+check "ruixen.launcher/search/FileSearchProvider.qml's video poster generation writes a .src sidecar" \
   "$(grep -c 'poster\.src' "$rfiles_search")" "1"
 check "ruixen.notch/list-wallpapers.sh's own poster generation writes a .src sidecar" \
   "$(grep -c 'poster\.src' "$list_wallpapers_sh")" "1"

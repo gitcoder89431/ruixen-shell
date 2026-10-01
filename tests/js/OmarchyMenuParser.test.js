@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "OmarchyMenuParser.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "search", "OmarchyMenuParser.js"));
 
 // ---- stripJsonc / parseMenuEntries -------------------------------------
 

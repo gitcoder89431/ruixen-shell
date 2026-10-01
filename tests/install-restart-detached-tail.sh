@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Real live report: the Settings page's own Update button runs
 # update.sh/install.sh as a child of the CURRENTLY RUNNING quickshell
-# (see ruixen.launcher/services/PluginService.qml's updateRuixenShell()
+# (see ruixen.launcher/extensions/settings/services/PluginService.qml's updateRuixenShell()
 # own comment) -- `omarchy restart shell` tearing that same quickshell
 # process down killed this script's own process group as a side effect,
 # silently skipping orphan-plugin removal, the repo-path write, and

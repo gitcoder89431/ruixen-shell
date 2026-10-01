@@ -4,10 +4,21 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
-import "LauncherHelpers.js" as LauncherHelpers
-import "FileSearchRanking.js" as FileSearchRanking
-import "LauncherQueryOperators.js" as LauncherQueryOperators
-import "LauncherFrecency.js" as Frecency
+// Folder reorg (theme-browser and future extensions prep): search
+// providers/helpers live in search/, each full-screen extension gets its
+// own extensions/<name>/ -- these two directory imports expose their
+// unqualified QML types (AppLibrary, OmarchyActionsProvider,
+// FileSearchProvider, FileContentSearchProvider, SettingsContent,
+// WallpapersContent below) the same way a same-directory file always
+// has, no per-type import needed. JS modules still need their own
+// explicit path (QML directory imports only cover .qml types).
+import "search"
+import "extensions/settings"
+import "extensions/wallpapers"
+import "search/LauncherHelpers.js" as LauncherHelpers
+import "search/FileSearchRanking.js" as FileSearchRanking
+import "search/LauncherQueryOperators.js" as LauncherQueryOperators
+import "search/LauncherFrecency.js" as Frecency
 
 // Raycast/Spotlight-style command palette. Root contract copied from
 // ruixen.settings/Settings.qml (confirmed by reading it directly --

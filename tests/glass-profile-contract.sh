@@ -17,7 +17,7 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-settings_qml="$repo_dir/ruixen.launcher/SettingsContent.qml"
+settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
 ruixen_lua="$repo_dir/hyprland/looknfeel.ruixen.lua"
 square_lua="$repo_dir/hyprland/looknfeel.square.lua"
 

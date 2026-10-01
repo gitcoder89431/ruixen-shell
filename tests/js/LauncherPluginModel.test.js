@@ -5,7 +5,7 @@ const { loadModule, check, summary } = require("./harness");
 // ruixen.launcher's own copy self-locks ruixen.launcher (the plugin THIS
 // Settings extension renders from) -- every other ruixen.* id is just an
 // ordinary row here.
-const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "services", "PluginModel.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "extensions", "settings", "services", "PluginModel.js"));
 
 check("pluginIsProtected: null row is protected", M.pluginIsProtected(null), true);
 check("pluginIsProtected: ruixen.launcher is always protected, canDisable or not", M.pluginIsProtected({ id: "ruixen.launcher", canDisable: true }), true);

@@ -328,7 +328,7 @@ Item {
   // one, .audio.volume writes silently don't propagate. .audio.muted's
   // own toggle happens to still work untracked (a simpler property),
   // which is exactly why only the dial's click (mute) worked and the
-  // scroll (volume) did nothing. ruixen.launcher/SettingsContent.qml's
+  // scroll (volume) did nothing. ruixen.launcher/extensions/settings/SettingsContent.qml's
   // own Audio page already tracks its own output/input device lists
   // this same way -- same fix, just for the two live default-device
   // properties here instead of a full enumerated list. Filtered for

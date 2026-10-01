@@ -1088,7 +1088,7 @@ rm -rf "$HOME/.cache/quickshell/qmlcache" 2>/dev/null || true
 
 # Real live report: the Settings page's own Update button runs this
 # script as a child of the CURRENTLY RUNNING quickshell (see
-# ruixen.launcher/services/PluginService.qml's updateRuixenShell() own
+# ruixen.launcher/extensions/settings/services/PluginService.qml's updateRuixenShell() own
 # comment) -- so `omarchy restart shell` below tears down this script's
 # own process group as an unavoidable side effect of the very restart it
 # just asked for. Confirmed live: shell.json was already correctly

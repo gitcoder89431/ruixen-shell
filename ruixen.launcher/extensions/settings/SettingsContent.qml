@@ -6,8 +6,14 @@ import Quickshell.Services.Pipewire
 import Quickshell.Networking
 import Quickshell.Bluetooth
 import "services"
-import "LauncherSearchConfig.js" as LauncherSearchConfig
-import "AppLauncherGlyphs.js" as AppLauncherGlyphs
+// Folder reorg: this extension now lives in extensions/settings/, two
+// levels below the plugin root -- "../.." reaches the shared chrome
+// (ExtensionTwoPanel/ResultsList below) the same way "services" above
+// still reaches this extension's own backend, just one level further
+// out. search/ holds the two JS modules below.
+import "../.."
+import "../../search/LauncherSearchConfig.js" as LauncherSearchConfig
+import "../../search/AppLauncherGlyphs.js" as AppLauncherGlyphs
 
 // Layout-only shell for the "Settings" extension -- direct request:
 // "lets do the Settings as Extension so Settings 2nd Column Ruixen and
@@ -3221,7 +3227,7 @@ Item {
       Process {
         id: avatarFileDialog
         command: ["env", "GTK_USE_PORTAL=1", "QT_FORCE_STDERR_LOGGING=1",
-          "qml6", Quickshell.env("HOME") + "/.config/omarchy/plugins/ruixen.launcher/avatar-file-picker.qml"]
+          "qml6", Quickshell.env("HOME") + "/.config/omarchy/plugins/ruixen.launcher/extensions/settings/avatar-file-picker.qml"]
         stderr: StdioCollector {
           id: avatarFileDialogStderr
           waitForEnd: true

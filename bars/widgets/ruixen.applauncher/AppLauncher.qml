@@ -16,7 +16,7 @@ BarWidget {
   // Configurable "Launcher Mark" -- direct request, after Arch became
   // the fixed default: "can we allow more glyph as an option in the
   // bars panel setting so user can pick different ones". Written by
-  // ruixen.launcher/SettingsContent.qml's own Bar page (a different
+  // ruixen.launcher/extensions/settings/SettingsContent.qml's own Bar page (a different
   // plugin folder), same Settings-writes/this-reads split already
   // established for notch-visibility.json. Glyphs.js is a byte-for-
   // byte copy in both folders, same convention as AppLibrary.qml/

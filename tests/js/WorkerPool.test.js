@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "WorkerPool.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "search", "WorkerPool.js"));
 
 // ---- createPool / isBusy / idleSlotIndex -----------------------------------
 

@@ -165,27 +165,40 @@ function installedSlugFor(theme, variant) {
 // being previewed (installedSlugs/variant) isn't installed under
 // ~/.config/omarchy/themes, or tinted with THIS theme's own real green
 // (from its own colors, already in memory -- no extra fetch) once it
-// is -- installed/not-installed is a color difference on the same
-// glyph, not a shape one, same as this project's own existing
+// is -- plain installed/not-installed is a color difference on the
+// same glyph, not a shape one, same as this project's own existing
 // semantic-good/bad status-color conventions elsewhere (see
 // ruixen.power/ruixen.peripherals's own battery coloring) -- just
 // without a `bar` facade available in here to read that convention's
 // own token through, so this falls back to a plain hardcoded green
-// when a theme's own colors.green is somehow missing. installedSlugs
-// is a plain {slug: true} set (ThemeBrowserContent.qml's own
-// refreshInstalledThemes result); mutedColor is the caller's real
-// muted token (root.muted), plumbed through since this is a pure JS
-// file with no QML property access of its own.
-function themeRows(themes, installedSlugs, variant, mutedColor) {
+// when a theme's own colors.green is somehow missing.
+//
+// Direct follow-up once install actually shipped: "icons color isnt
+// enough to tell" installed apart from the one theme actually active
+// right now -- both read as the same green brush. currentSlug (the
+// REAL active theme's own installedSlugFor-shaped name, read from
+// ~/.local/state/omarchy/current/theme.name) gets its own distinct
+// glyph (fa-check-circle, U+F058 -- confirmed rendering live before
+// settling on it, same discipline as the brush swap above) instead of
+// another color on the same brush, so "installed" and "the one that's
+// actually on right now" stay tellable apart at a glance, not just on
+// close inspection of a color. installedSlugs is a plain {slug: true}
+// set (ThemeBrowserContent.qml's own refreshInstalledThemes result);
+// mutedColor is the caller's real muted token (root.muted), plumbed
+// through since this is a pure JS file with no QML property access of
+// its own.
+function themeRows(themes, installedSlugs, variant, mutedColor, currentSlug) {
   var rows = []
   for (var i = 0; i < themes.length; i++) {
     var theme = themes[i]
-    var installed = !!(installedSlugs && installedSlugs[installedSlugFor(theme, variant)])
+    var slug = installedSlugFor(theme, variant)
+    var installed = !!(installedSlugs && installedSlugs[slug])
+    var isCurrent = !!currentSlug && currentSlug === slug
     var themeGreen = (theme.colors && theme.colors.green) || "#3ecf5b"
     rows.push({
       id: "theme:" + theme.slug,
       providerId: "theme-browser-entry",
-      icon: "",
+      icon: isCurrent ? "" : "",
       iconColor: installed ? themeGreen : mutedColor,
       label: theme.name,
       breadcrumb: motifLabel(theme.motif),

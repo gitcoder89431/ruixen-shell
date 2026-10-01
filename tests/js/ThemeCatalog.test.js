@@ -149,6 +149,26 @@ check("themeRows: a theme with no green of its own falls back to a plain hardcod
 
 check("themeRows: empty input yields an empty list", M.themeRows([], {}, "dark", "#888888"), []);
 
+check("themeRows: no currentSlug passed at all -- every row still gets the plain brush, not a throw",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: {} }], { "hacker": true }, "dark", "#888888")[0].icon,
+  "");
+
+check("themeRows: the real active theme gets its own distinct check-circle glyph, not just a color",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: {} }], { "hacker": true }, "dark", "#888888", "hacker")[0].icon,
+  "");
+
+check("themeRows: currentSlug is matched against the PREVIEWED variant's own slug, not the bare theme slug",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: {} }], { "hacker-day": true }, "light", "#888888", "hacker-day")[0].icon,
+  "");
+
+check("themeRows: a currentSlug that matches a DIFFERENT row's variant leaves this one with the plain brush",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: {} }], { "hacker": true }, "dark", "#888888", "hacker-day")[0].icon,
+  "");
+
+check("themeRows: current is still colored by install status like any other row (installed here, so green)",
+  M.themeRows([{ name: "Hacker", slug: "hacker", colors: { green: "#39ff14" } }], { "hacker": true }, "dark", "#888888", "hacker")[0].iconColor,
+  "#39ff14");
+
 // ---- themesDataUrl / themeFileUrl ----------------------------------------
 
 check("themesDataUrl: dark variant points at the 100-themes repo's own gh-pages site",

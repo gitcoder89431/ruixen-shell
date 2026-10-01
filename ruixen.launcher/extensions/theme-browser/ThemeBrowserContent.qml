@@ -114,7 +114,13 @@ Item {
   // means (the stock Settings page, omarchy theme install, a previous
   // stage-2 install here) since the last time this tab was open.
   property var installedSlugs: ({})
-  readonly property var themeRows: ThemeCatalog.themeRows(root.filteredThemes, root.installedSlugs, root.previewVariant, root.muted)
+  // The REAL active theme's own name, read from
+  // ~/.local/state/omarchy/current/theme.name (see
+  // refreshCurrentTheme below) -- direct follow-up ("icons color isnt
+  // enough to tell" installed apart from current; see
+  // ThemeCatalog.themeRows's own comment for the distinct-glyph fix).
+  property string currentThemeSlug: ""
+  readonly property var themeRows: ThemeCatalog.themeRows(root.filteredThemes, root.installedSlugs, root.previewVariant, root.muted, root.currentThemeSlug)
 
   property int selectedIndex: 0
   readonly property var selectedDarkTheme: (root.selectedIndex >= 0 && root.selectedIndex < root.filteredThemes.length)
@@ -230,6 +236,7 @@ Item {
     if (root.active && root.darkThemes.length === 0 && !root.catalogLoading) root.loadCatalog()
     if (root.active) {
       root.refreshInstalledThemes()
+      root.refreshCurrentTheme()
       // Same re-arm-on-(re)open as Launcher.qml's own hoverArmed/
       // WallpapersContent's own copy of the same thing.
       root.hoverArmed = false
@@ -246,6 +253,30 @@ Item {
   function refreshInstalledThemes() {
     installedThemesProc.command = ["ls", "-1", root.themesDir]
     installedThemesProc.running = true
+  }
+
+  // Plain `cat` of omarchy's own current-theme marker -- the same file
+  // omarchy-theme-current itself reads, so this always agrees with
+  // whatever Omarchy considers active, including a switch made from
+  // outside this extension entirely (the stock Settings page, a
+  // keybind, omarchy theme set run directly).
+  function refreshCurrentTheme() {
+    currentThemeProc.command = ["cat", Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"]
+    currentThemeProc.running = true
+  }
+
+  Process {
+    id: currentThemeProc
+    stdout: StdioCollector {
+      id: currentThemeStdout
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      // No marker file at all (a genuinely fresh install, say) just
+      // means nothing reads as "current" -- fails closed, same
+      // convention installedThemesProc's own onExited already uses.
+      root.currentThemeSlug = exitCode === 0 ? String(currentThemeStdout.text || "").trim() : ""
+    }
   }
 
   Process {
@@ -428,6 +459,7 @@ Item {
     id: themeSetProc
     onExited: function(exitCode) {
       root.refreshInstalledThemes()
+      root.refreshCurrentTheme()
       if (exitCode === 0) {
         root.installState = "idle"
         root.installErrorMessage = ""

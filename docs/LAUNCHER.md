@@ -144,6 +144,11 @@ prefixes, JWTs, private keys, or a long high-entropy string) is a
 not searchable. This is a heuristic for masking only — it never blocks
 copying or pasting.
 
+A chip row above the list filters and sorts it: **Type** cycles through the
+kinds actually present (right-click resets to All), and **Recent** / **By
+Type** pick the sort — clicking the active one flips its direction. By Type
+also groups the list under per-kind headers.
+
 Delete rewrites the history file atomically and matches the entry by
 identity, not position; an entry that has changed or vanished since it was
 drawn is left alone. Deleting an image also removes its file from

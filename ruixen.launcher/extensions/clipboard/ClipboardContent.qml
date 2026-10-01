@@ -23,7 +23,24 @@ Item {
   readonly property string historyPath: Quickshell.env("HOME") + "/.local/state/omarchy/clipboard-history.json"
   property var entries: []
   property var imageDimensionsByPath: ({})
-  readonly property var rows: ClipboardHistory.rows(root.entries, root.searchText, root.accent, root.imageDimensionsByPath)
+  // Chip-row view state (see chipRow below): Type filter + sort.
+  property string kindFilter: ""
+  property string sortKey: "recent"
+  property string sortDirection: "asc"
+  readonly property var kindsPresent: ClipboardHistory.kindsPresent(root.entries)
+  readonly property var view: ({ kind: root.kindFilter, sort: root.sortKey, direction: root.sortDirection })
+  readonly property var rows: ClipboardHistory.rows(root.entries, root.searchText, root.accent, root.imageDimensionsByPath, root.view)
+
+  function cycleKindFilter() {
+    var options = [""].concat(root.kindsPresent)
+    var idx = options.indexOf(root.kindFilter)
+    root.kindFilter = options[(idx + 1) % options.length]
+  }
+
+  function toggleSort(key) {
+    if (root.sortKey === key) root.sortDirection = root.sortDirection === "asc" ? "desc" : "asc"
+    else { root.sortKey = key; root.sortDirection = "asc" }
+  }
   property int selectedIndex: 0
   readonly property var selectedRow: root.rows[root.selectedIndex] || null
   readonly property var selectedEntry: root.selectedRow && root.selectedRow.clipboardEntry ? root.selectedRow.clipboardEntry : null
@@ -50,6 +67,7 @@ Item {
         }
       }
     }
+    if (root.kindFilter !== "" && root.kindsPresent.indexOf(root.kindFilter) === -1) root.kindFilter = ""
     root.requestImageLabels()
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
   }
@@ -373,9 +391,88 @@ Item {
     }
   }
 
+  // Same look as the theme browser's chip row (24px pills, same tint):
+  // Type cycles through the kinds present (right-click resets to All);
+  // Recent / Type are the sort key, and clicking the active one flips
+  // direction.
+  Item {
+    id: chipRow
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    height: 32
+
+    Row {
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 6
+
+      Rectangle {
+        width: Math.max(76, kindChipLabel.implicitWidth + 20)
+        height: 24
+        radius: 6
+        color: root.kindFilter !== "" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: root.kindFilter !== "" ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: kindChipLabel
+          anchors.centerIn: parent
+          text: "Type: " + (root.kindFilter === "" ? "All" : root.kindFilter)
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          cursorShape: Qt.PointingHandCursor
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) root.kindFilter = ""
+            else root.cycleKindFilter()
+          }
+        }
+      }
+
+      Repeater {
+        model: [{ key: "recent", label: "Recent" }, { key: "type", label: "By Type" }]
+
+        Rectangle {
+          required property var modelData
+          readonly property bool isActive: root.sortKey === modelData.key
+          width: sortChipLabel.implicitWidth + 16
+          height: 24
+          radius: 6
+          color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: 1
+          border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+          Text {
+            id: sortChipLabel
+            anchors.centerIn: parent
+            text: modelData.label + (isActive ? (root.sortDirection === "asc" ? " \u2191" : " \u2193") : "")
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleSort(modelData.key)
+          }
+        }
+      }
+    }
+  }
+
   ExtensionTwoPanel {
     id: panel
-    anchors.fill: parent
+    anchors.top: chipRow.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
     detailRatio: 0.6
   }
 
@@ -413,7 +510,7 @@ Item {
     revealed: root.revealed
     pathStatus: root.pathStatus
     onRevealRequested: root.toggleReveal()
-    filtered: root.searchText.trim() !== "" && root.entries.length > 0
+    filtered: (root.searchText.trim() !== "" || root.kindFilter !== "") && root.entries.length > 0
     onPastePathRequested: root.pasteSelectedPath()
     onDeleteRequested: root.deleteSelected()
   }

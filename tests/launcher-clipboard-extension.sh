@@ -99,6 +99,11 @@ check "Secrets are masked by default and revealed per entry (Alt+R)" \
 check "Path and email entries open through xdg-open" \
   "$(grep -c 'xdg-open' "$content_qml")" "2"
 
+check "ClipboardContent has a Type filter chip and Recent/By Type sort chips" \
+  "$(grep -c 'function cycleKindFilter' "$content_qml")$(grep -c 'function toggleSort' "$content_qml")$(grep -c 'id: chipRow' "$content_qml")" "111"
+check "Clipboard model filters and sorts through one view object" \
+  "$(grep -c 'function visibleEntries\|function kindsPresent' "$model_js")" "2"
+
 check "run-all includes launcher clipboard extension contract" \
   "$(grep -c 'launcher-clipboard-extension\.sh' "$script_dir/run-all.sh")" "1"
 

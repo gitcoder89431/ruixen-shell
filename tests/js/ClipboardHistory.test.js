@@ -107,4 +107,19 @@ check("secret: still pastes as plain text", one("ghp_" + "a".repeat(36)).type, "
 check("link: host/scheme/params facts", [fact(one("https://example.com/p?a=1&b=2"), "Host"), fact(one("https://example.com/p?a=1&b=2"), "Scheme"), fact(one("https://example.com/p?a=1&b=2"), "Parameters")], ["example.com", "https", "2"]);
 check("text: multi-line gets a Lines fact", fact(one("a\nb\nc"), "Lines"), "3");
 
+const mixed = M.parseHistory(JSON.stringify([
+  { type: "text", text: "plain one" },
+  { type: "text", text: "https://a.example.com" },
+  { type: "image", path: "/x/clipboard-images/a.png", mime: "image/png" },
+  { type: "text", text: "#ff0000" },
+  { type: "text", text: "plain two" }
+]));
+check("kindsPresent: stable display order, only present kinds", M.kindsPresent(mixed), ["Text", "Link", "Image", "Color"]);
+check("view: kind filter", M.rows(mixed, "", "#fff", {}, { kind: "Text" }).map((r) => r.id), ["clipboard:0", "clipboard:4"]);
+check("view: desc reverses history order", M.rows(mixed, "", "#fff", {}, { sort: "recent", direction: "desc" }).map((r) => r.id), ["clipboard:4", "clipboard:3", "clipboard:2", "clipboard:1", "clipboard:0"]);
+check("view: by type groups kinds, history order within", M.rows(mixed, "", "#fff", {}, { sort: "type", direction: "asc" }).map((r) => r.id), ["clipboard:0", "clipboard:4", "clipboard:1", "clipboard:2", "clipboard:3"]);
+check("view: by type uses the kind as section label", M.rows(mixed, "", "#fff", {}, { sort: "type" }).map((r) => r.sectionLabel), ["Text", "Text", "Link", "Image", "Color"]);
+check("view: default section label stays Clipboard", M.rows(mixed, "", "#fff", {})[0].sectionLabel, "Clipboard");
+check("view: filter and search combine", M.rows(mixed, "two", "#fff", {}, { kind: "Text" }).map((r) => r.id), ["clipboard:4"]);
+
 summary();

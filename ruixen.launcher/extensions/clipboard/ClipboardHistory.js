@@ -350,11 +350,51 @@ function mergeDimensions(cache, fresh, maxEntries) {
   return out
 }
 
-function rows(entries, query, accent, dimensionsByPath) {
+var KIND_ORDER = ["Text", "Link", "Image", "Color", "Path", "Email", "JSON", "Secret"]
+
+// Kinds actually present in the history, in a stable display order --
+// the Type chip cycles through exactly these.
+function kindsPresent(entries) {
+  var seen = {}
+  for (var i = 0; i < entries.length; i++) seen[entries[i].kind] = true
+  return KIND_ORDER.filter(function(k) { return seen[k] })
+}
+
+// view: { kind: "" | one of KIND_ORDER, sort: "recent" | "type",
+//         direction: "asc" | "desc" } -- "recent" asc is history order
+// (newest first, as Omarchy stores it); desc reverses it. "type" groups
+// by kind (in KIND_ORDER) and keeps history order within a group.
+function visibleEntries(entries, query, view) {
+  var kind = view && view.kind ? view.kind : ""
+  var sort = view && view.sort ? view.sort : "recent"
+  var desc = !!view && view.direction === "desc"
   var out = []
   for (var i = 0; i < entries.length; i++) {
-    var entry = entries[i]
-    if (!matches(entry, query)) continue
+    var e = entries[i]
+    if (kind !== "" && e.kind !== kind) continue
+    if (!matches(e, query)) continue
+    out.push(e)
+  }
+  if (sort === "type") {
+    out = out.map(function(e, n) { return { e: e, n: n } })
+    out.sort(function(a, b) {
+      var d = KIND_ORDER.indexOf(a.e.kind) - KIND_ORDER.indexOf(b.e.kind)
+      if (d !== 0) return desc ? -d : d
+      return a.n - b.n
+    })
+    out = out.map(function(x) { return x.e })
+  } else if (desc) {
+    out.reverse()
+  }
+  return out
+}
+
+function rows(entries, query, accent, dimensionsByPath, view) {
+  var out = []
+  var visible = visibleEntries(entries, query, view)
+  var grouped = !!view && view.sort === "type"
+  for (var i = 0; i < visible.length; i++) {
+    var entry = visible[i]
     var label = entry.type === "image" ? imageLabel(entry, dimensionsByPath) : entry.title
     out.push({
       id: "clipboard:" + entry.sourceIndex,
@@ -365,7 +405,7 @@ function rows(entries, query, accent, dimensionsByPath) {
       breadcrumb: entry.subtitle,
       kind: entry.kind,
       providerName: "",
-      sectionLabel: "Clipboard",
+      sectionLabel: grouped ? entry.kind : "Clipboard",
       score: 0,
       clipboardEntry: entry
     })

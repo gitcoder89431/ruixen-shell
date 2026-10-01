@@ -71,6 +71,10 @@ BarWidget {
     root.bar.run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
   }
 
+  // The one resolved color for "active, or has real content" -- see
+  // its own call site's comment for the White-theme override reasoning.
+  readonly property color focusedColor: root.themeSlug === "white" ? root.bar.barForeground : Color.accent
+
   // Dot/pill geometry -- classic GNOME Shell look: small round dots,
   // the focused one stretches into a horizontal capsule instead of
   // just changing color or swapping a glyph.
@@ -111,54 +115,36 @@ BarWidget {
         Rectangle {
           anchors.fill: parent
           radius: height / 2
-          // Real token issue, not just "needs more opacity" -- was
-          // Color.foreground (the theme's PRIMARY text token) dimmed
-          // via opacity for BOTH occupied and empty dots, double-
-          // dimming an already low-contrast base on some themes
-          // instead of using Color.muted, the design system's own
-          // dedicated token for exactly this "present but de-
-          // emphasized" purpose (every theme tunes it for readable-
-          // but-calm contrast against its own background, unlike an
-          // arbitrary opacity cut on foreground which varies wildly
-          // with that theme's actual foreground hue/lightness).
-          // Occupied dots now use foreground near-full-strength (they
-          // represent real content, should read clearly); only
-          // genuinely empty ones use muted.
+          // Direct follow-up: "we are using the accent color, and then
+          // white and grey for the round one, we dont need that... the
+          // accent wide is the active, accent dots can be opened but
+          // not focus, and then for the inactive... muted accent" --
+          // moved off root.bar.barForeground (a theme-neutral
+          // readable-on-this-surface white/grey, see the removed
+          // comment below for why that existed) onto the theme's own
+          // accent at three strengths instead: full for focused/
+          // occupied, a muted (low-alpha) tint for genuinely empty.
+          // Checked directly: this design system (Commons/Color.qml)
+          // has no "secondary" token at all, only foreground/background/
+          // accent/urgent/muted -- a muted accent is the real,
+          // theme-tuned answer here, not a guessed-at color nothing
+          // actually sets per theme.
           //
-          // root.bar.barForeground, NOT root.bar.foreground and NOT
-          // Color.muted -- this dot sits on the bar's own pill surface,
-          // which is no longer "permanently black" (ruixen-shell#89's
-          // surface-mode work made Black vs Theme, Solid vs Glass all
-          // real, independently-chosen states) -- a theme-level token
-          // like Color.foreground/Color.muted, or the facade's own
-          // popup-text foreground (bar.foreground -- see
-          // PluginBarFacade.qml, it's Color.popups.text, meant for an
-          // actual popup surface, not this pill), can land on either
-          // side of that surface's own light/dark-ness by coincidence,
-          // exactly like this dot did on the White theme's solid bar
-          // ("the active and inactive workspace not in focus is like
-          // white and grey so they cant really be seen ... white on
-          // white theme solid"). barForeground (Bar.qml's own
-          // pillForeground, already used for every other bar icon/text)
-          // is resolved against the bar's REAL surface color via
-          // readableForegroundForSurface, so it's correct regardless of
-          // which mode/material combination is actually active.
-          // Empty dots dim it via alpha instead of Color.muted, for the
-          // same reason -- a muted version of the surface-correct
-          // color, not a separate theme token that was never resolved
-          // against this surface at all.
-          //
-          // Focused pill still gets its own White-theme-specific
-          // override rather than accent everywhere -- Color.accent
-          // reads as a muted grey on White specifically (#6e6e6e);
-          // everywhere else, accent is each theme's own deliberate
-          // "pop" color and should stay exactly that. The override
-          // itself is barForeground now instead of a hardcoded
-          // "#ffffff", so it's readable against the pill regardless of
-          // surface mode/material, not just assumed-black.
-          color: indicator.focused
-            ? (root.themeSlug === "white" ? root.bar.barForeground : Color.accent)
-            : (indicator.occupied ? root.bar.barForeground : Qt.rgba(root.bar.barForeground.r, root.bar.barForeground.g, root.bar.barForeground.b, 0.5))
+          // root.focusedColor (below) is the single resolved color for
+          // "this represents the active workspace, or a workspace with
+          // real content" -- occupied dots now share it outright rather
+          // than their own separate token, so focused/occupied always
+          // agree. Still gets its own White-theme-specific override
+          // rather than accent everywhere -- Color.accent reads as a
+          // muted grey on White specifically (#6e6e6e); everywhere
+          // else, accent is each theme's own deliberate "pop" color and
+          // should stay exactly that. Empty dots are that SAME resolved
+          // color at a low alpha, not a different hue entirely -- keeps
+          // all three states reading as one coherent accent family
+          // instead of mixing in a theme-neutral grey.
+          color: indicator.focused || indicator.occupied
+            ? root.focusedColor
+            : Qt.rgba(root.focusedColor.r, root.focusedColor.g, root.focusedColor.b, 0.35)
           opacity: indicator.focused ? 1 : (indicator.occupied ? 0.85 : 1)
           Behavior on color { ColorAnimation { duration: 180 } }
           Behavior on opacity { NumberAnimation { duration: 180 } }

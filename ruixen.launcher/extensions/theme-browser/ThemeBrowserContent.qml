@@ -124,7 +124,15 @@ Item {
   // "asc" | "desc". See filterChipsRow's own Name/By Style chips for
   // how these toggle, and ThemeCatalog.sortThemes's own comment for the
   // actual compare.
-  property string sortKey: "name"
+  //
+  // Defaults to "style", not "name" -- direct follow-up ("instead of
+  // names a-z order for default lets do the style a-z order default,
+  // its easier to pick when looking at them by styles"): grouping by
+  // motif first reads as "here are all the Sunset Grid ones, here are
+  // all the Aurora ones" at a glance, which is the actual way most
+  // people pick a theme to try, rather than an alphabetical name list
+  // that scatters same-style themes throughout it.
+  property string sortKey: "style"
   property string sortDirection: "asc"
   function toggleSortByName() {
     if (root.sortKey === "name") root.sortDirection = root.sortDirection === "asc" ? "desc" : "asc"

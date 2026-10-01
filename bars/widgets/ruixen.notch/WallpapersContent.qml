@@ -751,8 +751,13 @@ Item {
     // setActiveFilter below are the one indirection that lets a single
     // Repeater+delegate serve both without duplicating the chip markup
     // a second time for a near-identical row.
-    Row {
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.maximumWidth: Number.POSITIVE_INFINITY
       spacing: 6
+
+      Row {
+        spacing: 6
 
       Repeater {
         model: root.activeFilterChips
@@ -783,6 +788,60 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onClicked: root.setActiveFilter(topFilterChip.modelData.value)
           }
+        }
+      }
+      }
+
+      Item { Layout.fillWidth: true }
+
+      // Back to top -- moved here from the right sidebar (direct
+      // follow-up: "move the top button up to the same top row but
+      // right aligned"). Wallpaper mode only (the theme grid has no
+      // equivalent button). Always present so the row doesn't reflow,
+      // but dimmed and inert until the grid has actually scrolled
+      // (grid.contentY > 0 -- GridView is itself a Flickable, so its
+      // own contentY is the real scroll position). Plain contentY
+      // assignment on click, matching this repo's scroll-to-top
+      // convention (ruixen.tray's trayMenuFlick.contentY = 0).
+      Rectangle {
+        id: backToTopButton
+        visible: root.mediaMode !== "themes"
+        readonly property bool active: grid.contentY > 0
+        Layout.preferredWidth: backToTopContent.implicitWidth + 20
+        Layout.preferredHeight: 28
+        radius: 8
+        opacity: backToTopButton.active ? 1 : 0.35
+        color: backToTopArea.containsMouse ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Row {
+          id: backToTopContent
+          anchors.centerIn: parent
+          spacing: 4
+
+          Text {
+            text: "↑"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: backToTopArea.containsMouse ? root.accent : root.secondary
+          }
+
+          Text {
+            text: "Top"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: backToTopArea.containsMouse ? root.accent : root.textColor
+          }
+        }
+
+        MouseArea {
+          id: backToTopArea
+          anchors.fill: parent
+          enabled: backToTopButton.active
+          hoverEnabled: true
+          cursorShape: backToTopButton.active ? Qt.PointingHandCursor : Qt.ArrowCursor
+          onClicked: grid.contentY = 0
         }
       }
     }
@@ -1059,7 +1118,8 @@ Item {
   // wallpaper, instead of all omarchy and custom, can we convert this
   // to All Images Video and Gif... im thinking about converting that
   // side panel stuff we have into the chips here instead for
-  // wallpaper"), so this is just the back-to-top button now. Kept
+  // wallpaper"), and the back-to-top button later moved up to that
+  // same row too (right-aligned), so this is an empty spacer now. Kept
   // (not removed outright) because it still does real layout work:
   // fillWidth: true + Layout.maximumWidth freed (a nested ColumnLayout
   // child defaults maximumWidth to its own implicitWidth, unlike a
@@ -1067,8 +1127,6 @@ Item {
   // is what claims the real leftover RowLayout space past the grid's
   // own fixed 680px content -- confirmed live, this repo's own established
   // way to find this kind of gap: a debug width readout, not a guess.
-  // Leaving the button centered in that same space keeps it exactly
-  // where it's always been instead of also needing a separate reflow.
   ColumnLayout {
     id: sidebar
     Layout.fillWidth: true
@@ -1076,64 +1134,6 @@ Item {
     Layout.fillHeight: true
     Layout.alignment: Qt.AlignTop
     spacing: 8
-
-    // Back to top -- direct follow-up ("theres still some room left
-    // under the gif stat, you think we can do a back to top button, i
-    // feel like when im all the way scrolled down, theres no way back
-    // up to the top of the list"). Only shown once there's actually
-    // somewhere to go back to (grid.contentY > 0) -- GridView is
-    // itself a Flickable, so its own contentY is the real scroll
-    // position, no separate tracking needed. Plain contentY
-    // assignment on click, matching this repo's own existing
-    // scroll-to-top convention (ruixen.tray's trayMenuFlick.contentY
-    // = 0), not a new animated-scroll pattern.
-    Rectangle {
-      id: backToTopButton
-      visible: grid.contentY > 0
-      Layout.preferredWidth: 76
-      Layout.alignment: Qt.AlignHCenter
-      // Same 64px height as the filter chips above, not a smaller
-      // 36px -- direct follow-up ("try and make it consistenly the
-      // same size stat card") -- and the same number-then-label
-      // two-line layout, with the arrow standing in for the number
-      // and TOP standing in for the kind label, rather than a single
-      // centered line.
-      Layout.preferredHeight: 64
-      radius: 10
-      color: backToTopArea.containsMouse ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
-      border.width: 1
-      border.color: root.surfaceTint(0.12)
-
-      ColumnLayout {
-        anchors.centerIn: parent
-        spacing: 2
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "↑"
-          font.family: root.fontFamily
-          font.pixelSize: 18
-          font.weight: Font.DemiBold
-          color: backToTopArea.containsMouse ? root.accent : root.secondary
-        }
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "TOP"
-          font.family: root.fontFamily
-          font.pixelSize: 9
-          color: root.muted
-        }
-      }
-
-      MouseArea {
-        id: backToTopArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: grid.contentY = 0
-      }
-    }
 
     Item { Layout.fillHeight: true }
   }

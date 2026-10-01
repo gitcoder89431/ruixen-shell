@@ -803,7 +803,15 @@ Item {
       providerId: "theme-browser-extension",
       icon: "",
       label: "Themes",
-      breadcrumb: "Ruixen",
+      // "bjarneo", not "Ruixen" like every sibling row here -- direct
+      // decision: the other rows' breadcrumb names which Ruixen module
+      // owns them, but every theme/palette/preview this extension
+      // browses and installs is bjarneo's own original work (the
+      // bjarneo/100-themes and bjarneo/100-themes-day catalogs), not
+      // ours -- this is their own self-chosen name (confirmed directly
+      // against their GitHub profile: login and display name are both
+      // "bjarneo", no separate real name set), not a guess.
+      breadcrumb: "bjarneo",
       kind: "Extension",
       providerName: "",
       score: 0

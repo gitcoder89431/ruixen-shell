@@ -802,16 +802,24 @@ Item {
       id: "extension:theme-browser",
       providerId: "theme-browser-extension",
       icon: "",
-      label: "Themes",
-      // "bjarneo", not "Ruixen" like every sibling row here -- direct
-      // decision: the other rows' breadcrumb names which Ruixen module
-      // owns them, but every theme/palette/preview this extension
-      // browses and installs is bjarneo's own original work (the
-      // bjarneo/100-themes and bjarneo/100-themes-day catalogs), not
-      // ours -- this is their own self-chosen name (confirmed directly
-      // against their GitHub profile: login and display name are both
-      // "bjarneo", no separate real name set), not a guess.
-      breadcrumb: "bjarneo",
+      // "Bjarneo Themes", not bare "Themes" -- direct follow-up: Omarchy's
+      // own native actions already include "Change Theme" and "Install
+      // Theme" (see scoreEntry's own comment in OmarchyMenuParser.js),
+      // so a plain "Themes" row reads as a third, easily-confused
+      // theme-related entry searching "theme" turns up. Naming the
+      // actual catalog this browses (bjarneo/100-themes,
+      // bjarneo/100-themes-day -- their own original work, confirmed
+      // "bjarneo" is their real self-chosen name, not a guess) directly
+      // in the label disambiguates it from those AND credits them, in
+      // one move.
+      label: "Bjarneo Themes",
+      // Back to "Ruixen", matching every sibling row here -- this
+      // extension (the browse/install UI itself) is Ruixen's own, even
+      // though the theme content it browses is bjarneo's; the label
+      // above already carries that credit, so the breadcrumb goes back
+      // to meaning what it means everywhere else: which Ruixen module
+      // owns this row.
+      breadcrumb: "Ruixen",
       kind: "Extension",
       providerName: "",
       score: 0

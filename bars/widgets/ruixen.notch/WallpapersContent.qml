@@ -878,20 +878,15 @@ Item {
       spacing: 10
 
     ColumnLayout {
-      // Fixed width (matches the grid's own real 4-column content, see
-      // GridView's own comment), not fillWidth -- this wrapper needs
-      // to stop claiming the leftover space too, or the sidebar below
-      // still has nothing real to center within even after the
-      // GridView itself stopped stretching past its own content.
-      // Layout.fillWidth: false is NOT redundant with preferredWidth
-      // here -- a nested ColumnLayout/RowLayout child defaults
-      // Layout.fillWidth to true even when never set (the same gotcha
-      // already hit once on the sidebar itself, see its own comment
-      // below), so leaving this unset would silently keep it
-      // competing for the RowLayout's leftover space regardless of
-      // the preferredWidth given here.
-      Layout.preferredWidth: 680
-      Layout.fillWidth: false
+      id: wallpaperGridWrap
+      // Fills the whole row now -- the right sidebar that used to claim
+      // the leftover space past the grid's fixed 680px is gone, so the
+      // grid sizes itself the same way themeGrid does (columns from
+      // this wrapper's width, tiles stretched to consume the row).
+      // maximumWidth freed because a nested ColumnLayout defaults it to
+      // its own implicitWidth, which would cap it short of the row.
+      Layout.fillWidth: true
+      Layout.maximumWidth: Number.POSITIVE_INFINITY
       Layout.fillHeight: true
       spacing: 10
 
@@ -930,29 +925,28 @@ Item {
     // the library has 4 wallpapers or 4000.
     GridView {
       id: grid
-      // Fixed width (4 columns * 170 cellWidth), not fillWidth --
-      // direct follow-up ("theres still a bit of a gap between where
-      // the stats are and the last wallpaper column, i think try and
-      // center middle the three stats, so its not too leaning to the
-      // right edge"). fillWidth made the grid claim every pixel the
-      // RowLayout gave it, even the ~32px slack past its own real
-      // 4-column content (170 doesn't evenly divide the available
-      // width) -- that slack, plus the RowLayout's own spacing, is
-      // exactly what read as "a gap before the stats". Fixing the
-      // grid's own width to what it actually uses frees that leftover
-      // space for the sidebar to legitimately claim and center within
-      // instead, rather than the sidebar just sitting flush against
-      // the panel's own right edge past an unclaimed gap.
-      Layout.preferredWidth: 680
+      // Same fill-the-row sizing as themeGrid (see its own comments for
+      // the full "why"): as many 170px-minimum columns as the wrapper's
+      // width allows, each cell stretched to consume the row, with the
+      // 10px right/bottom gap kept by construction (cellWidth = tile +
+      // 10). Width is exactly columns*cellWidth -- GridView lays out
+      // floor(width / cellWidth) columns, so undersizing it by even a
+      // pixel silently drops a column -- and centered, so any small
+      // remainder splits evenly left/right. Sized from the WRAPPER's
+      // width, not the grid's own, to avoid a width -> columns -> width
+      // loop.
+      Layout.alignment: Qt.AlignHCenter
+      Layout.preferredWidth: grid.columns * grid.cellWidth
       Layout.fillHeight: true
       visible: root.filteredPaths.length > 0
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       reuseItems: true
-      // 160x100 tile + 10px gap on the right/bottom of each cell --
-      // same visual spacing Flow's own `spacing: 10` produced.
-      cellWidth: 170
-      cellHeight: 110
+      readonly property int columns: Math.max(1, Math.floor(wallpaperGridWrap.width / 170))
+      readonly property int tileWidth: Math.max(160, Math.floor(wallpaperGridWrap.width / grid.columns) - 10)
+      readonly property int tileHeight: Math.round(grid.tileWidth * 100 / 160)
+      cellWidth: grid.tileWidth + 10
+      cellHeight: grid.tileHeight + 10
       model: root.filteredPaths
 
       // Any deliberate scroll means the user is actively looking for
@@ -1010,8 +1004,8 @@ Item {
         // lit at rest.
         readonly property bool active: tile.modelData.identity === root.currentBackground
 
-        width: 160
-        height: 100
+        width: grid.tileWidth
+        height: grid.tileHeight
 
         // Image container -- always exactly `width`x`height`, no
         // margins, no border, no animated properties at all. This
@@ -1036,7 +1030,7 @@ Item {
             source: tile.index <= root.loadGate ? ("file://" + tile.modelData.display) : ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            sourceSize: Qt.size(160, 100)
+            sourceSize: Qt.size(grid.tileWidth, grid.tileHeight)
           }
         }
 
@@ -1116,30 +1110,6 @@ Item {
     }
   }
 
-  // Right sidebar -- IMAGE/VIDEO/GIF stat tiles that used to live here
-  // moved up into the top chip row instead (direct follow-up: "for the
-  // wallpaper, instead of all omarchy and custom, can we convert this
-  // to All Images Video and Gif... im thinking about converting that
-  // side panel stuff we have into the chips here instead for
-  // wallpaper"), and the back-to-top button later moved up to that
-  // same row too (right-aligned), so this is an empty spacer now. Kept
-  // (not removed outright) because it still does real layout work:
-  // fillWidth: true + Layout.maximumWidth freed (a nested ColumnLayout
-  // child defaults maximumWidth to its own implicitWidth, unlike a
-  // plain Item/Rectangle, so fillWidth alone is a no-op without this)
-  // is what claims the real leftover RowLayout space past the grid's
-  // own fixed 680px content -- confirmed live, this repo's own established
-  // way to find this kind of gap: a debug width readout, not a guess.
-  ColumnLayout {
-    id: sidebar
-    Layout.fillWidth: true
-    Layout.maximumWidth: Number.POSITIVE_INFINITY
-    Layout.fillHeight: true
-    Layout.alignment: Qt.AlignTop
-    spacing: 8
-
-    Item { Layout.fillHeight: true }
-  }
   }
 
   // ---- Theme mode content ---- sits as a sibling of the wallpaper

@@ -28,8 +28,12 @@ check "Overlay reads the active theme's secondary color" \
   "$(grep -c 'themeSecondaryColor = root.parseCavaThemeColor(t, "secondary", Color.accent)' "$overlay_qml")" "1"
 check "Overlay passes theme secondary into WallpapersContent" \
   "$(grep -A8 'WallpapersContent {' "$overlay_qml" | grep -c 'secondary: root.themeSecondaryColor')" "1"
-check "wallpaper image/video/gif counts are always accent-colored" \
-  "$(grep -A8 'text: filterChip.modelData.count' "$wallpapers_qml" | grep -c 'color: root.accent')" "1"
+# The image/video/gif count tiles this used to pin are gone -- direct
+# follow-up ("convert that side panel stuff we have into the chips
+# here instead for wallpaper"): the kind filter itself moved to the top
+# chip row (plain All/Images/Video/Gif labels, no counts, same style as
+# the Theme-mode Omarchy/Custom chips it shares a row with), and the
+# sidebar is just the back-to-top button now.
 check "back-to-top arrow uses secondary at rest and accent on hover" \
   "$(grep -A8 'text: "↑"' "$wallpapers_qml" | grep -c 'color: backToTopArea.containsMouse ? root.accent : root.secondary')" "1"
 check "tests/run-all.sh runs this suite" \

@@ -178,6 +178,21 @@ Item {
   // another.
   property string sourceFilter: "all"
 
+  // One chip row, two different filters depending on mediaMode --
+  // direct follow-up ("the theme is omarchy and custom but for
+  // wallpapers we have type"). Wallpaper mode's own chips replace the
+  // kind-filter stat tiles that used to live in the sidebar (see its
+  // own comment further down) rather than duplicating them in a second
+  // place.
+  readonly property var activeFilterChips: root.mediaMode === "themes"
+    ? [{ value: "all", label: "All" }, { value: "omarchy", label: "Omarchy" }, { value: "custom", label: "Custom" }]
+    : [{ value: "all", label: "All" }, { value: "image", label: "Images" }, { value: "video", label: "Video" }, { value: "gif", label: "Gif" }]
+  readonly property string activeFilterValue: root.mediaMode === "themes" ? root.sourceFilter : root.kindFilter
+  function setActiveFilter(value) {
+    if (root.mediaMode === "themes") root.sourceFilter = value
+    else root.kindFilter = value
+  }
+
   // ---- Theme mode ---- (the WALLPAPER/THEME sliding tab to the right
   // of the search box; see the header comment for why this is
   // notch-only and not synced to the launcher copy).
@@ -222,10 +237,6 @@ Item {
              entry.display.toLowerCase().indexOf(needle) !== -1
     })
   }
-
-  readonly property int imageCount: wallpaperPaths.filter(function(e) { return e.kind === "image" }).length
-  readonly property int videoCount: wallpaperPaths.filter(function(e) { return e.kind === "video" }).length
-  readonly property int gifCount: wallpaperPaths.filter(function(e) { return e.kind === "gif" }).length
 
   // Filename substring match against the REAL path (the video's own
   // filename, not its poster's hashed cache name) -- a plain
@@ -721,57 +732,56 @@ Item {
       }
     }
 
-    // Source filter -- direct follow-up ("in the expanded notch,
+    // Filter chips -- direct follow-up ("in the expanded notch,
     // between the search input and tab row and where the image
     // thumbnail start, can we add chips for All Omarchy Custom so we
     // can filter between these?", then "the themes can have those
-    // chips [too]" after this first shipped wallpaper-only). Shown in
-    // BOTH modes now -- list-themes.sh resolves the exact same
-    // "omarchy vs custom" distinction from USER_THEMES_PATH/
-    // OMARCHY_THEMES_PATH precedence that list-wallpapers.sh resolves
-    // from which find|process pipeline a wallpaper came from, so one
-    // sourceFilter property and one chip row serves filteredPaths and
-    // filteredThemes alike -- not two near-identical rows. Same
-    // three-pill shape as the kind-filter sidebar's own chips further
-    // down, just horizontal -- a plain direct set on click (not that
-    // sidebar's own toggle-back-to-"all" convention), since "All" is
-    // its own explicit chip here rather than something only reachable
-    // by deselecting another option.
+    // chips [too]", then "for the wallpaper, instead of all omarchy and
+    // custom, can we convert this to All Images Video and Gif... the
+    // theme is omarchy and custom but for wallpapers we have type, im
+    // thinking about converting that side panel stuff we have into the
+    // chips here instead for wallpaper"). One row, one shape, but which
+    // filter it drives depends on mediaMode -- Theme mode keeps
+    // sourceFilter (Omarchy/Custom, see list-themes.sh's own
+    // USER_THEMES_PATH/OMARCHY_THEMES_PATH precedence), Wallpaper mode
+    // now drives kindFilter (All/Images/Video/Gif) instead, replacing
+    // the kind-filter stat tiles that used to live in the sidebar
+    // further down (still there, now just the back-to-top button --
+    // see its own comment). activeFilterChips/activeFilterValue/
+    // setActiveFilter below are the one indirection that lets a single
+    // Repeater+delegate serve both without duplicating the chip markup
+    // a second time for a near-identical row.
     Row {
       spacing: 6
 
       Repeater {
-        model: [
-          { value: "all", label: "All" },
-          { value: "omarchy", label: "Omarchy" },
-          { value: "custom", label: "Custom" }
-        ]
+        model: root.activeFilterChips
 
         Rectangle {
-          id: sourceChip
+          id: topFilterChip
           required property var modelData
-          readonly property bool selected: root.sourceFilter === sourceChip.modelData.value
+          readonly property bool selected: root.activeFilterValue === topFilterChip.modelData.value
 
-          width: sourceChipLabel.implicitWidth + 20
+          width: topFilterChipLabel.implicitWidth + 20
           height: 28
           radius: 8
-          color: sourceChip.selected ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
+          color: topFilterChip.selected ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
           border.width: 1
-          border.color: sourceChip.selected ? root.accent : root.surfaceTint(0.12)
+          border.color: topFilterChip.selected ? root.accent : root.surfaceTint(0.12)
 
           Text {
-            id: sourceChipLabel
+            id: topFilterChipLabel
             anchors.centerIn: parent
-            text: sourceChip.modelData.label
+            text: topFilterChip.modelData.label
             font.family: root.fontFamily
             font.pixelSize: 11
-            color: sourceChip.selected ? root.accent : root.textColor
+            color: topFilterChip.selected ? root.accent : root.textColor
           }
 
           MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.sourceFilter = sourceChip.modelData.value
+            onClicked: root.setActiveFilter(topFilterChip.modelData.value)
           }
         }
       }
@@ -1044,107 +1054,28 @@ Item {
     }
   }
 
-  // Right sidebar -- narrowed 92 -> 68, and Layout.fillWidth: false
-  // added explicitly -- direct follow-up ("can we make the right
-  // panel narrower? theres a gap of 1 column between right panel
-  // stats and wallpapaper"). Real cause of the gap, confirmed live
-  // via a debug width readout, not guessed: a ColumnLayout child
-  // defaults Layout.fillWidth to true even when never set (unlike a
-  // plain Item/Rectangle, which default it false -- the exact same
-  // gotcha this repo has hit before). So this sidebar was ALSO
-  // competing for the RowLayout's leftover space alongside the grid's
-  // own explicit fillWidth, not just taking its 92px preferredWidth
-  // and stopping -- it had actually grown to 189px, leaving the grid
-  // with only 591px (591/170 = 3 columns, not 4), which is exactly
-  // the "gap of 1 column" reported. IMAGE/VIDEO/GIF, each a real
-  // toggle (click again to clear back to "all", not a fixed always-
-  // one-active segmented group -- there's a genuine "show everything"
-  // state here that a plain radio-button set doesn't have). Centered
-  // number-then-label per direct request ("we can do like center
-  // kinda design so number of images and then label IMAGE etc").
-  //
-  // Follow-up fix ("theres still a bit of a gap between where the
-  // stats are and the last wallpaper column, i think try and center
-  // middle the three stats, so its not too leaning to the right edge
-  // of the notch"): narrowing this sidebar to a fixed 68px left the
-  // RowLayout's real leftover space (everything past the grid's own
-  // fixed 680px content, see the two ColumnLayout/GridView comments
-  // above) unclaimed by anyone -- it just sat as a gap in front of
-  // the sidebar, which was itself still pinned to the panel's right
-  // edge. Fixed at the source instead of by nudging this element:
-  // this sidebar goes back to fillWidth: true (now safe, since the
-  // grid's own wrapper no longer over-claims), so it legitimately
-  // spans the whole leftover region: and each chip below switches
-  // from fillWidth (which would stretch it edge-to-edge across that
-  // now-wider region) to a fixed width + Qt.AlignHCenter, so the chip
-  // stack renders as a centered column within the sidebar's real
-  // space instead of stretching or sitting flush right.
+  // Right sidebar -- IMAGE/VIDEO/GIF stat tiles that used to live here
+  // moved up into the top chip row instead (direct follow-up: "for the
+  // wallpaper, instead of all omarchy and custom, can we convert this
+  // to All Images Video and Gif... im thinking about converting that
+  // side panel stuff we have into the chips here instead for
+  // wallpaper"), so this is just the back-to-top button now. Kept
+  // (not removed outright) because it still does real layout work:
+  // fillWidth: true + Layout.maximumWidth freed (a nested ColumnLayout
+  // child defaults maximumWidth to its own implicitWidth, unlike a
+  // plain Item/Rectangle, so fillWidth alone is a no-op without this)
+  // is what claims the real leftover RowLayout space past the grid's
+  // own fixed 680px content -- confirmed live, this repo's own established
+  // way to find this kind of gap: a debug width readout, not a guess.
+  // Leaving the button centered in that same space keeps it exactly
+  // where it's always been instead of also needing a separate reflow.
   ColumnLayout {
     id: sidebar
-    // Layout.maximumWidth explicitly freed -- a nested RowLayout/
-    // ColumnLayout child has its OWN Layout.maximumWidth implicitly
-    // bound to its implicitWidth by default (unlike a plain Item/
-    // Rectangle, whose maximumWidth defaults to unbounded), so
-    // fillWidth alone is a no-op here: without this, the sidebar
-    // stayed pinned to its content's own natural width (76px, the
-    // chip width below) instead of stretching into the real leftover
-    // RowLayout space, leaving the same unclaimed gap this whole fix
-    // is meant to close.
     Layout.fillWidth: true
     Layout.maximumWidth: Number.POSITIVE_INFINITY
     Layout.fillHeight: true
     Layout.alignment: Qt.AlignTop
     spacing: 8
-
-    Repeater {
-      model: [
-        { kind: "image", label: "IMAGE", count: root.imageCount },
-        { kind: "video", label: "VIDEO", count: root.videoCount },
-        { kind: "gif", label: "GIF", count: root.gifCount }
-      ]
-
-      Rectangle {
-        id: filterChip
-        required property var modelData
-        readonly property bool selected: root.kindFilter === modelData.kind
-
-        Layout.preferredWidth: 76
-        Layout.alignment: Qt.AlignHCenter
-        Layout.preferredHeight: 64
-        radius: 10
-        color: filterChip.selected ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
-        border.width: 1
-        border.color: filterChip.selected ? root.accent : root.surfaceTint(0.12)
-
-        ColumnLayout {
-          anchors.centerIn: parent
-          spacing: 2
-
-          Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: filterChip.modelData.count
-            font.family: root.fontFamily
-            font.pixelSize: 18
-            font.weight: Font.DemiBold
-            color: root.accent
-          }
-
-          Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: filterChip.modelData.label
-            font.family: root.fontFamily
-            font.pixelSize: 9
-            color: root.muted
-          }
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.kindFilter = filterChip.selected ? "all" : filterChip.modelData.kind
-        }
-      }
-    }
 
     // Back to top -- direct follow-up ("theres still some room left
     // under the gif stat, you think we can do a back to top button, i

@@ -232,11 +232,23 @@ Item {
   // as "press this key" at a glance, same convention every real
   // Raycast-style launcher uses for its own primary-action hint. Only
   // where sourceFilterButton isn't already occupying this same right-
-  // aligned spot (Search Files mode), and only when there's actually
-  // something Enter would do -- an empty results list (no Suggestions,
-  // no matches, nothing) has no primary action to hint at.
+  // aligned spot, and only when there's actually something Enter would
+  // do -- an empty results list (no Suggestions, no matches, nothing)
+  // has no primary action to hint at.
+  //
+  // !root.filesMode alone used to be the same thing as
+  // !root.showSourceFilter (back when Search Files was the only mode
+  // that ever showed a source filter at all), but showSourceFilter
+  // later grew to cover Wallpapers/Theme Browser too, outside
+  // filesMode -- same overlap bug direct report caught on
+  // settingsEnterHint below (that dropdown and this chip anchor to the
+  // exact same spot), just less reliably: root.results (what
+  // resultCount counts) only depends on the live query text, not
+  // activeExtensionId, so this could have been showing and overlapping
+  // the dropdown in Wallpapers mode too, any time typed text happened
+  // to match a real Application/Command.
   Rectangle {
-    visible: !root.filesMode && root.resultCount > 0
+    visible: !root.filesMode && !root.showSourceFilter && root.resultCount > 0
     anchors.right: parent.right
     anchors.rightMargin: 12
     anchors.verticalCenter: parent.verticalCenter
@@ -263,9 +275,18 @@ Item {
   // click tab and enter at the same time, just show the enter"):
   // showing both together read as a chord, not two separate, sequenced
   // actions, so this stays Enter-only.
+  //
+  // Direct report ("the All and Installed chevron is overlapping with
+  // a kbd thing, we dont need the kbd then there"): this chip and
+  // sourceFilterButton both anchor to the exact same right-aligned
+  // spot, and the Theme Browser is the first mode where showSourceFilter
+  // AND showSettingsHints can both be true at once (Settings itself
+  // never shows a source filter, so this never came up before). The
+  // dropdown already occupies that corner, so the hint just steps
+  // aside rather than drawing underneath it.
   Rectangle {
     id: settingsEnterHint
-    visible: root.showSettingsHints
+    visible: root.showSettingsHints && !root.showSourceFilter
     anchors.right: parent.right
     anchors.rightMargin: 12
     anchors.verticalCenter: parent.verticalCenter

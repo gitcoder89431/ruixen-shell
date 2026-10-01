@@ -15,6 +15,7 @@ import qs.Commons
 import "search"
 import "extensions/settings"
 import "extensions/wallpapers"
+import "extensions/theme-browser"
 import "search/LauncherHelpers.js" as LauncherHelpers
 import "search/FileSearchRanking.js" as FileSearchRanking
 import "search/LauncherQueryOperators.js" as LauncherQueryOperators
@@ -191,7 +192,7 @@ Item {
         // "wallpapers-extension" branches). Same value either way, so
         // this just forwards it rather than a separate if-branch per
         // extension.
-        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers")) {
+        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser")) {
           root.suppressResizeAnimation = true
           root.activeExtensionId = payload.extension
           root.openedDirectlyToExtension = true
@@ -443,7 +444,8 @@ Item {
   // declares one of the optional ones above needs no explicit "false"/
   // empty-string default of its own, it just doesn't show up here.
   readonly property Item activeExtensionContent: root.activeExtensionId === "wallpapers" ? wallpapersContent
-    : root.activeExtensionId === "settings" ? settingsContent : null
+    : root.activeExtensionId === "settings" ? settingsContent
+    : root.activeExtensionId === "theme-browser" ? themeBrowserContent : null
   // Suppresses the panel's own width/height resize Behaviors below --
   // set true for exactly one synchronous open() call that jumps
   // straight to an extension via payload, so the window's first paint
@@ -786,6 +788,24 @@ Item {
     }
   }
 
+  // Same shape/dispatch again -- fa-palette, no existing precedent
+  // elsewhere in this plugin to match, picked fresh for "browse/
+  // install a theme" specifically (distinct from the gear Settings
+  // uses below for its own Window Curvature/corner controls, a
+  // different concept -- picking a theme, not tuning one).
+  function themeBrowserRow() {
+    return {
+      id: "extension:theme-browser",
+      providerId: "theme-browser-extension",
+      icon: "",
+      label: "Themes",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      providerName: "",
+      score: 0
+    }
+  }
+
   // Same shape/dispatch as wallpapersRow above -- fa-gear (U+F013),
   // the same glyph OmarchyActionsProvider'''s own synthetic "Ruixen
   // Settings" row already uses, so this reads as the same feature
@@ -867,9 +887,10 @@ Item {
       var extNow = Date.now()
       var extBoost = {
         "extension:wallpapers": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.wallpapers"), extNow),
-        "extension:settings": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.settings"), extNow)
+        "extension:settings": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.settings"), extNow),
+        "extension:theme-browser": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.theme-browser"), extNow)
       }
-      var extRows = [root.wallpapersRow(), root.settingsRow()]
+      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow()]
       extRows.sort(function(a, b) { return extBoost[b.id] - extBoost[a.id] })
       var ext = tag(extRows, "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
@@ -1281,6 +1302,13 @@ Item {
       searchHeader.text = ""
       root.query = ""
       omarchyActionsProvider.recordLaunch("ruixen.settings")
+      return
+    }
+    if (result.providerId === "theme-browser-extension") {
+      root.activeExtensionId = "theme-browser"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.theme-browser")
       return
     }
     // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
@@ -2136,6 +2164,29 @@ Item {
         // happens once on open (Qt.callLater(searchHeader.focusInput)
         // above), so Launcher.qml's own key routing resumes.
         onReturnFocusRequested: searchHeader.focusInput()
+      }
+
+      // Third extension view -- stage 1 (browse-only, see this file's
+      // own header comment on ThemeBrowserContent.qml for the staged
+      // plan). Same standardized anchors/active/searchText convention
+      // as Wallpapers and Settings above.
+      ThemeBrowserContent {
+        id: themeBrowserContent
+        anchors.top: filtersBar.bottom
+        anchors.topMargin: 4
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        anchors.left: parent.left
+        anchors.leftMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        visible: root.activeExtensionId === "theme-browser"
+        active: root.activeExtensionId === "theme-browser"
+        searchText: root.activeExtensionId === "theme-browser" ? root.query : ""
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        fontFamily: root.fontFamily
       }
 
       // Same shared component Search Files' own empty state uses, just

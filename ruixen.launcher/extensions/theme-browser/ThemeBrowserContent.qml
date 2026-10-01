@@ -285,6 +285,22 @@ Item {
       // WallpapersContent's own copy of the same thing.
       root.hoverArmed = false
       root.hoverArmBaseline = Qt.point(-1, -1)
+      // Direct follow-up ("when i come back to theme, can i start at
+      // the top of the list, when i back out its like putting the
+      // active somewhere down below") -- selectedIndex and the list's
+      // own scroll position both persist for the rest of the session
+      // (same convention styleFilter/installedOnlyFilter already use),
+      // so backing out right after installing/switching to something
+      // alphabetically far down and coming back landed right back on
+      // that same row whenever it was, not a clean view. Same
+      // Qt.callLater(positionViewAtBeginning()) convention Launcher.qml's
+      // own onQueryChanged/onFilesModeChanged already use for the exact
+      // same "fresh view, start from the top" reset -- selectedIndex's
+      // own change (when it was something other than 0 already) fires
+      // the usual Contain-based scroll-follow too, this just guarantees
+      // the exact flush-at-the-top position regardless.
+      root.selectedIndex = 0
+      Qt.callLater(function() { themeResultsList.positionViewAtBeginning() })
     }
   }
 

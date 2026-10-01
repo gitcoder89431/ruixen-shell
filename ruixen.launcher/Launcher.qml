@@ -16,6 +16,7 @@ import "search"
 import "extensions/settings"
 import "extensions/wallpapers"
 import "extensions/theme-browser"
+import "extensions/clipboard"
 import "search/LauncherHelpers.js" as LauncherHelpers
 import "search/FileSearchRanking.js" as FileSearchRanking
 import "search/LauncherQueryOperators.js" as LauncherQueryOperators
@@ -192,7 +193,7 @@ Item {
         // "wallpapers-extension" branches). Same value either way, so
         // this just forwards it rather than a separate if-branch per
         // extension.
-        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser")) {
+        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser" || payload.extension === "clipboard")) {
           root.suppressResizeAnimation = true
           root.activeExtensionId = payload.extension
           root.openedDirectlyToExtension = true
@@ -445,7 +446,8 @@ Item {
   // empty-string default of its own, it just doesn't show up here.
   readonly property Item activeExtensionContent: root.activeExtensionId === "wallpapers" ? wallpapersContent
     : root.activeExtensionId === "settings" ? settingsContent
-    : root.activeExtensionId === "theme-browser" ? themeBrowserContent : null
+    : root.activeExtensionId === "theme-browser" ? themeBrowserContent
+    : root.activeExtensionId === "clipboard" ? clipboardContent : null
   // Suppresses the panel's own width/height resize Behaviors below --
   // set true for exactly one synchronous open() call that jumps
   // straight to an extension via payload, so the window's first paint
@@ -853,6 +855,19 @@ Item {
     }
   }
 
+  function clipboardRow() {
+    return {
+      id: "extension:clipboard",
+      providerId: "clipboard-extension",
+      icon: "",
+      label: "Clipboard History",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      providerName: "",
+      score: 0
+    }
+  }
+
   // A single flat list, each row tagged with its own sectionLabel --
   // fed straight into ResultsList's own model, which draws the group
   // headers and keeps the list virtualized (real perf concern once
@@ -908,9 +923,10 @@ Item {
       var extBoost = {
         "extension:wallpapers": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.wallpapers"), extNow),
         "extension:settings": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.settings"), extNow),
-        "extension:theme-browser": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.theme-browser"), extNow)
+        "extension:theme-browser": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.theme-browser"), extNow),
+        "extension:clipboard": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.clipboard"), extNow)
       }
-      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow()]
+      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow(), root.clipboardRow()]
       extRows.sort(function(a, b) { return extBoost[b.id] - extBoost[a.id] })
       var ext = tag(extRows, "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
@@ -1347,6 +1363,13 @@ Item {
       searchHeader.text = ""
       root.query = ""
       omarchyActionsProvider.recordLaunch("ruixen.theme-browser")
+      return
+    }
+    if (result.providerId === "clipboard-extension") {
+      root.activeExtensionId = "clipboard"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.clipboard")
       return
     }
     // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
@@ -2234,6 +2257,25 @@ Item {
         visible: root.activeExtensionId === "theme-browser"
         active: root.activeExtensionId === "theme-browser"
         searchText: root.activeExtensionId === "theme-browser" ? root.query : ""
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        fontFamily: root.fontFamily
+      }
+
+      ClipboardContent {
+        id: clipboardContent
+        anchors.top: filtersBar.bottom
+        anchors.topMargin: 4
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        anchors.left: parent.left
+        anchors.leftMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        visible: root.activeExtensionId === "clipboard"
+        active: root.activeExtensionId === "clipboard"
+        searchText: root.activeExtensionId === "clipboard" ? root.query : ""
         textColor: root.textColor
         muted: root.muted
         accent: root.accent

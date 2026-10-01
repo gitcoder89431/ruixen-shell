@@ -745,6 +745,7 @@ Item {
     RowLayout {
       Layout.fillWidth: true
       Layout.maximumWidth: Number.POSITIVE_INFINITY
+      Layout.rightMargin: 12
       spacing: 6
 
       Row {

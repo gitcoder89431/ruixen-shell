@@ -37,6 +37,8 @@ check "Overlay passes theme secondary into WallpapersContent" \
 # Back-to-top affordance moved into that row too.
 check "back-to-top arrow uses secondary at rest and accent on hover" \
   "$(grep -A8 'text: "↑"' "$wallpapers_qml" | grep -c 'color: backToTopArea.containsMouse ? root.accent : root.secondary')" "1"
+check "chip row keeps the same right inset as the search/tab row" \
+  "$(awk 'index($0, "activeFilterChips/activeFilterValue") { in_block = 1 } in_block && /Layout.rightMargin: 12/ { count++ } in_block && /id: backToTopButton/ { in_block = 0 } END { print count + 0 }' "$wallpapers_qml")" "1"
 check "wallpaper grid wrapper fills the row like the theme grid" \
   "$(grep -A10 'id: wallpaperGridWrap' "$wallpapers_qml" | grep -c 'Layout.fillWidth: true')" "1"
 check "wallpaper grid derives columns from the wrapper width" \

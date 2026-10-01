@@ -2014,6 +2014,20 @@ Item {
       root.openIndex = root.filteredSections[root.selectedIndex].originalIndex
   }
 
+  // --- Generic extension-content interface -- what Launcher.qml reads/
+  // calls through its own activeExtensionContent lookup instead of a
+  // per-call-site "activeExtensionId === ..." branch. moveSelectionUp/
+  // Down/activateSelection above are already part of it (every 2-panel
+  // or grid extension implements those three); everything below is
+  // this extension's own opt-in beyond that core. See
+  // activeExtensionContent's own comment in Launcher.qml for the full
+  // contract and why duck-typed existence checks, not a formal
+  // interface, is how QML does this.
+  readonly property bool prefersCompactWindow: true
+  readonly property bool interceptsArrowKeys: root.rightFocused
+  readonly property string searchPlaceholder: "Search Settings"
+  readonly property bool showsEnterHint: true
+
   // Deep-link support -- direct follow-up: "our last setting menu had
   // keybinds that opens directly to bluetooth wifi audio etc... do we
   // need to update these doc or backend to support the new setting
@@ -2700,6 +2714,15 @@ Item {
     if (!item.options || item.options.length === 0) return
     root.focusedOptionIndex = (root.focusedOptionIndex + 1) % item.options.length
   }
+
+  // Generic extension-content interface (see the property block above
+  // moveOptionLeft/Right's own comment) -- plain forwards, so this
+  // file's own left/right handling keeps the name that actually
+  // describes what it does here (shifting a focused option's value),
+  // while Launcher.qml's dispatch still only ever has one pair of
+  // names to call across every extension.
+  function moveSelectionLeft() { root.moveOptionLeft() }
+  function moveSelectionRight() { root.moveOptionRight() }
 
   // Enter's meaning depends on the focused item's own kind -- a
   // toggle/volume-control/select item all act directly with no args

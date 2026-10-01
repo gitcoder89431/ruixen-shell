@@ -399,6 +399,51 @@ Item {
   // activateSelected()'s own dispatch below for both.
   property string activeExtensionId: ""
   readonly property bool inExtensionMode: root.activeExtensionId !== ""
+  // Single lookup an extension's own content Item, instead of every
+  // caller below re-branching on activeExtensionId itself -- adding a
+  // future extension (another 2-panel one, or a new grid one) means
+  // one more line here, not editing every dispatch site that used to
+  // repeat "activeExtensionId === wallpapers ? wallpapersContent.X() :
+  // activeExtensionId === settings ? settingsContent.X() : ..." on its
+  // own. Direct follow-up after mapping all ~20 of those sites out by
+  // hand ahead of adding a third extension: "is there an easier way to
+  // design the launcher so adding more extensions... is easier in the
+  // future".
+  //
+  // What every extension's content Item is expected to expose, read/
+  // called generically through this property rather than by name:
+  //   REQUIRED (every extension, grid or 2-panel alike):
+  //     moveSelectionUp(), moveSelectionDown(), activateSelection()
+  //   OPTIONAL, duck-typed (existence-checked at each call site, never
+  //   assumed) -- an extension only implements the ones its own shape
+  //   actually needs:
+  //     moveSelectionLeft()/moveSelectionRight() -- real grid movement
+  //       (Wallpapers), or shifting a focused option's value (Settings,
+  //       via its own moveOptionLeft/Right under these generic names)
+  //     rightFocused (bool) + focusRightPanel() + blurToLeftPanel() --
+  //       the 2-panel "Tab into the detail pane, Escape drills back
+  //       out one step" trio (Settings today; any future list+detail
+  //       extension that wants the same sub-focus behavior)
+  //     interceptsArrowKeys (bool) -- true while this extension (or,
+  //       for a 2-panel one, its own right-pane focus state) wants
+  //       Left/Right/Up/Down itself rather than the search box's
+  //       normal text-cursor movement
+  //     prefersCompactWindow (bool) -- true for a 2-panel extension
+  //       whose ExtensionTwoPanel split scales down cleanly (Settings);
+  //       left undeclared (reads as undefined/falsy) by a real grid
+  //       extension that needs the wide/tall panel (Wallpapers)
+  //     searchPlaceholder (string) -- shown in the outer search box
+  //       instead of the generic placeholder
+  //     showsEnterHint (bool) -- the small "↵" chip meaning "Enter
+  //       opens/activates the highlighted row" (Settings' own 2-panel
+  //       interaction; a plain grid has nothing analogous to hint at)
+  //
+  // Reading an undeclared property off a QML Item returns undefined
+  // (falsy), the same as a plain JS object -- an extension that never
+  // declares one of the optional ones above needs no explicit "false"/
+  // empty-string default of its own, it just doesn't show up here.
+  readonly property Item activeExtensionContent: root.activeExtensionId === "wallpapers" ? wallpapersContent
+    : root.activeExtensionId === "settings" ? settingsContent : null
   // Suppresses the panel's own width/height resize Behaviors below --
   // set true for exactly one synchronous open() call that jumps
   // straight to an extension via payload, so the window's first paint
@@ -1402,25 +1447,27 @@ Item {
       // wide... there seems to be alot of empty space... the size
       // should match the app launcher main panel size." Not a new
       // third size (the comment below still holds: only ever plain
-      // landing or wide/tall) -- settings just reuses the plain
-      // landing width instead of the wide one, since its own left
-      // category list + right detail pane (ExtensionTwoPanel, a
-      // proportional 40/60 split) scales down cleanly, unlike
+      // landing or wide/tall) -- an extension whose own
+      // prefersCompactWindow reads true (Settings today; any future
+      // 2-panel extension, see activeExtensionContent's own comment)
+      // reuses the plain landing width instead of the wide one, since
+      // its ExtensionTwoPanel split scales down cleanly, unlike
       // Wallpapers' grid or Search Files' fixed-column layout, which
       // still need the extra room.
       //
-      // To switch settings back to the wide/tall panel (some people
-      // may end up preferring that over this compact default, per
-      // direct follow-up): delete ` && root.activeExtensionId !==
-      // "settings"` from this line AND the matching height line
-      // below -- that's the whole revert, ExtensionTwoPanel's own
-      // proportional split just re-expands to fill it, no other
-      // change needed. If this ever becomes a real user-facing
-      // toggle instead of a hand edit, swap that literal condition
-      // for a persisted property (own state file, same pattern as
-      // avatarCollection/cornerCurvature elsewhere in this plugin)
-      // read by both this line and the height line below.
-      width: (root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 920 : 640
+      // To switch a given 2-panel extension back to the wide/tall
+      // panel (some people may end up preferring that over this
+      // compact default, per direct follow-up): make that extension's
+      // own prefersCompactWindow false (or remove the property
+      // entirely) -- that's the whole revert, ExtensionTwoPanel's own
+      // proportional split just re-expands to fill it, no change
+      // needed here or in the matching height line below. If this ever
+      // becomes a real user-facing toggle instead of a hand edit, back
+      // prefersCompactWindow with a persisted property (own state
+      // file, same pattern as avatarCollection/cornerCurvature
+      // elsewhere in this plugin) instead of the plain readonly it is
+      // today.
+      width: (root.filesMode || (root.inExtensionMode && !(root.activeExtensionContent && root.activeExtensionContent.prefersCompactWindow))) ? 920 : 640
       // Same 140ms/OutCubic as the open/dismiss fade+scale above --
       // direct follow-up on that same polish request ("i notice on
       // size change... theres some animation right? can we make these
@@ -1461,7 +1508,7 @@ Item {
       // just matching the plain landing size it's now sized like. Revert
       // this in lockstep with the width line above -- see its own
       // comment for the exact edit and the future-settings-toggle note.
-      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || (root.inExtensionMode && root.activeExtensionId !== "settings")) ? 36 : 0)
+      height: 64 + root.visibleRowCount * root.rowHeight + 2 * root.headerHeight + 8 + ((root.filesMode || (root.inExtensionMode && !(root.activeExtensionContent && root.activeExtensionContent.prefersCompactWindow))) ? 36 : 0)
       // Matches width's own Behavior above -- same comment applies.
       Behavior on height {
         enabled: !root.suppressResizeAnimation
@@ -1565,17 +1612,16 @@ Item {
         // over Settings' own detail panel with nothing real for it to
         // filter.
         showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers"
-        // "Wallpapers"/"Search Settings", not the generic "Search
-        // files..." filesMode itself would fall back to -- both
-        // extensions read this same outer query directly now (see
+        // Every extension reads this same outer query directly now (see
         // wallpapersContent/settingsContent's own searchText below),
-        // no second inner search box either one owns. "Search
-        // Settings", not bare "Settings" -- direct follow-up: "lets
-        // make it say Search Settings so later we search for stuff".
-        placeholderOverride: root.activeExtensionId === "wallpapers" ? "Search Wallpapers"
-          : root.activeExtensionId === "settings" ? "Search Settings" : ""
+        // no second inner search box any of them owns -- each one's own
+        // searchPlaceholder (see activeExtensionContent's own comment)
+        // names itself here. "Search Settings", not bare "Settings" --
+        // direct follow-up: "lets make it say Search Settings so later
+        // we search for stuff".
+        placeholderOverride: (root.activeExtensionContent && root.activeExtensionContent.searchPlaceholder) || ""
         resultCount: root.results.length
-        showSettingsHints: root.activeExtensionId === "settings"
+        showSettingsHints: !!(root.activeExtensionContent && root.activeExtensionContent.showsEnterHint)
         // Wallpapers mode feeds this same button/dropdown its own type
         // options instead of real Search Files sources -- see
         // wallpaperTypeOptions' own comment. wallpapersContent.kindFilter
@@ -1587,15 +1633,15 @@ Item {
         sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions : fileSearchProvider.sources
         allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types" : "All Sources"
         sourceFilterWidth: root.sourceFilterWidth
-        // Wallpapers is the only extension with anything 2D to
-        // navigate on its OWN grid -- see this property's own comment
-        // in SearchHeader.qml. Settings' own right panel needs the
-        // same interception too, but only while that panel actually
-        // has keyboard focus (settingsContent.rightFocused) -- with
-        // the left category list focused, Left/Right should still
-        // just move the search box's own text cursor normally.
-        interceptArrowKeys: root.activeExtensionId === "wallpapers"
-          || (root.activeExtensionId === "settings" && settingsContent.rightFocused)
+        // Each extension's own interceptsArrowKeys decides this now --
+        // see this property's own comment in SearchHeader.qml for what
+        // it does once true. Wallpapers wants it unconditionally (a
+        // real 2D grid); Settings only while its own right panel
+        // actually has keyboard focus (interceptsArrowKeys reads
+        // rightFocused directly) -- with the left category list
+        // focused, Left/Right should still just move the search box's
+        // own text cursor normally.
+        interceptArrowKeys: !!(root.activeExtensionContent && root.activeExtensionContent.interceptsArrowKeys)
         textColor: root.textColor
         mutedColor: root.muted
         fontFamily: root.fontFamily
@@ -1620,30 +1666,31 @@ Item {
         // the view.
         onUpPressed: {
           if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex > 0) root.dropdownSelectedIndex-- }
-          else if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionUp()
-          else if (root.activeExtensionId === "settings") settingsContent.moveSelectionUp()
+          else if (root.activeExtensionContent) root.activeExtensionContent.moveSelectionUp()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex-- }
           else if (root.selectedIndex > 0) root.selectedIndex--
         }
         onDownPressed: {
           if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex < root.dropdownOptions().length - 1) root.dropdownSelectedIndex++ }
-          else if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionDown()
-          else if (root.activeExtensionId === "settings") settingsContent.moveSelectionDown()
+          else if (root.activeExtensionContent) root.activeExtensionContent.moveSelectionDown()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
           else if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
         }
+        // moveSelectionLeft/Right are optional (see
+        // activeExtensionContent's own comment) -- existence-checked,
+        // not just a null guard on the content item itself, since an
+        // extension with nothing to move left/right across (a plain
+        // vertical list, no grid or option-shifting) simply never
+        // declares them.
         onLeftPressed: {
-          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionLeft()
-          else if (root.activeExtensionId === "settings") settingsContent.moveOptionLeft()
+          if (root.activeExtensionContent && root.activeExtensionContent.moveSelectionLeft) root.activeExtensionContent.moveSelectionLeft()
         }
         onRightPressed: {
-          if (root.activeExtensionId === "wallpapers") wallpapersContent.moveSelectionRight()
-          else if (root.activeExtensionId === "settings") settingsContent.moveOptionRight()
+          if (root.activeExtensionContent && root.activeExtensionContent.moveSelectionRight) root.activeExtensionContent.moveSelectionRight()
         }
         onEnterPressed: {
           if (searchHeader.dropdownOpen) root.confirmDropdownSelection()
-          else if (root.activeExtensionId === "wallpapers") wallpapersContent.activateSelection()
-          else if (root.activeExtensionId === "settings") settingsContent.activateSelection()
+          else if (root.activeExtensionContent) root.activeExtensionContent.activateSelection()
           else if (root.actionsMenuOpen) root.runResultAction(root.resultActions[root.actionsSelectedIndex].id)
           else root.activateSelected()
         }
@@ -1660,14 +1707,16 @@ Item {
             root.hasScopeHistory = false
           } else if (root.filesMode) {
             root.filesMode = false
-          } else if (root.activeExtensionId === "settings" && settingsContent.rightFocused) {
+          } else if (root.activeExtensionContent && root.activeExtensionContent.rightFocused) {
             // Direct request: "up down is only used for the left panel
             // or esc back to left panel?" -- Escape backs focus OUT of
             // the right panel first, same drill-back-out-one-step-at-
             // a-time shape hasScopeHistory already uses above, rather
             // than jumping straight past it to exiting the whole
-            // extension.
-            settingsContent.blurToLeftPanel()
+            // extension. rightFocused true is this extension's own
+            // promise that blurToLeftPanel() exists too (see
+            // activeExtensionContent's own comment on that trio).
+            root.activeExtensionContent.blurToLeftPanel()
           } else if (root.inExtensionMode && root.openedDirectlyToExtension) {
             // Direct report: a keybind that jumps straight to an
             // extension (openedDirectlyToExtension, see its own
@@ -1711,7 +1760,11 @@ Item {
           // not redundant with Enter the way it was in the version
           // that prompted the earlier merge, since the two now do
           // genuinely different things.
-          if (root.activeExtensionId === "settings") { settingsContent.focusRightPanel(); return }
+          // Optional, duck-typed (see activeExtensionContent's own
+          // comment) -- an extension with no right-pane focus concept
+          // of its own (Wallpapers' grid) simply never declares this,
+          // and Tab falls through to the actions-menu handling below.
+          if (root.activeExtensionContent && root.activeExtensionContent.focusRightPanel) { root.activeExtensionContent.focusRightPanel(); return }
           if (root.actionsMenuOpen) root.closeActionsMenu()
           else root.openActionsMenu()
         }

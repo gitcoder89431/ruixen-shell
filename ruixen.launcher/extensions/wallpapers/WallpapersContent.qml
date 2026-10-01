@@ -384,6 +384,15 @@ Item {
     if (cell && !cell.spacer) root.select(cell.entry)
   }
 
+  // Generic extension-content interface -- see activeExtensionContent's
+  // own comment in Launcher.qml for the full contract. prefersCompactWindow/
+  // showsEnterHint are left undeclared (read as undefined/falsy there) --
+  // this is the one extension that genuinely needs the wide/tall panel
+  // (a real 2D grid, not a list+detail split) and has no "Enter opens a
+  // category" hint to show.
+  readonly property bool interceptsArrowKeys: true
+  readonly property string searchPlaceholder: "Search Wallpapers"
+
   // Reset to the first REAL tile whenever the visible set changes (kind
   // filter or search text, or the hero itself appearing/disappearing
   // and shifting what "first" even means) -- same convention

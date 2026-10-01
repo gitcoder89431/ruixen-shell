@@ -21,6 +21,7 @@ Rectangle {
   signal deleteRequested()
 
   property bool deleteArmed: false
+  property bool filtered: false
 
   function characterCount(text) {
     return String(text || "").length
@@ -225,7 +226,7 @@ Rectangle {
   Text {
     anchors.centerIn: parent
     visible: root.entry === null
-    text: "Clipboard history is empty"
+    text: root.filtered ? "No matching clipboard entries" : "Clipboard history is empty"
     color: root.muted
     font.family: root.fontFamily
     font.pixelSize: 13

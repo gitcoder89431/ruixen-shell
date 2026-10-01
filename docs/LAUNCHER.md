@@ -116,6 +116,27 @@ Available actions (folders get one extra):
   the exact real value, never the abbreviated `~` form shown in the
   metadata panel
 
+## Clipboard History
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"clipboard"}'` — see [`docs/KEYBINDS.md`](KEYBINDS.md))
+that lists Omarchy's clipboard history (`~/.local/state/omarchy/clipboard-history.json`)
+with a preview and metadata panel. It reuses Omarchy's own paste/open
+helpers rather than a second clipboard backend.
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Paste the highlighted entry |
+| `Alt+C` | Copy only |
+| `Alt+O` | Open |
+| `Alt+P` | Paste an image's file path |
+| `Alt+D` | Delete (press twice to confirm) |
+
+Delete rewrites the history file atomically and matches the entry by
+identity, not position; an entry that has changed or vanished since it was
+drawn is left alone. Deleting an image also removes its file from
+`clipboard-images` if no other entry uses it.
+
 ## Configuring search locations
 
 By default, Search Files walks your home directory plus every

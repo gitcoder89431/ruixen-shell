@@ -358,6 +358,7 @@ Item {
     onCopyRequested: root.copySelected()
     onOpenRequested: root.openSelected()
     deleteArmed: root.deleteArmed
+    filtered: root.searchText.trim() !== "" && root.entries.length > 0
     onPastePathRequested: root.pasteSelectedPath()
     onDeleteRequested: root.deleteSelected()
   }

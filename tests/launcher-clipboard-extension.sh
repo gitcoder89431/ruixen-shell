@@ -87,6 +87,11 @@ check "Launcher forwards shortcuts to the active extension's handleShortcut" \
 check "Delete is two-step, identity-matched and atomic" \
   "$(grep -c 'deleteArmedKey' "$content_qml")$(grep -c 'os.replace(tmp, history)' "$content_qml")$(grep -c "'ambiguous' if hits" "$content_qml")" "611"
 
+check "Empty state distinguishes no-matches from empty history" \
+  "$(grep -c 'No matching clipboard entries' "$details_qml")" "1"
+check "Clipboard shortcuts are documented" \
+  "$(grep -c 'Alt+D' "$repo_dir/docs/LAUNCHER.md")$(grep -c 'Alt+D' "$repo_dir/docs/KEYBINDS.md")" "11"
+
 check "run-all includes launcher clipboard extension contract" \
   "$(grep -c 'launcher-clipboard-extension\.sh' "$script_dir/run-all.sh")" "1"
 

@@ -45,13 +45,18 @@ Item {
 
   // --- Generic extension-content interface -- see Launcher.qml's own
   // activeExtensionContent comment for the full contract this is part
-  // of. A 2-panel list+detail extension, same shape as Settings, so it
-  // wants the same compact window and outer-search placeholder;
+  // of. A 2-panel list+detail extension like Settings, but deliberately
+  // NOT prefersCompactWindow -- direct follow-up after seeing it next
+  // to Settings' own compact panel: the preview image/swatch grid here
+  // wants the same wide/tall room Wallpapers' own grid gets, not the
+  // narrower default. Settings' own comment at that width/height
+  // binding (Launcher.qml) already documents this exact revert as a
+  // one-line, no-other-change toggle -- this is that toggle, just
+  // never turned on in the first place rather than turned back off.
   // nothing here needs moveSelectionLeft/Right or the rightFocused/
   // focusRightPanel trio -- there is no sub-focus concept yet (stage 2,
   // once Install/the variant toggle become real keyboard-reachable
   // controls, may add them).
-  readonly property bool prefersCompactWindow: true
   readonly property string searchPlaceholder: "Search Themes"
 
   // --- Catalog: the 100 base (dark) theme names, fetched once via a

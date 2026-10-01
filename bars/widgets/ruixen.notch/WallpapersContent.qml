@@ -796,8 +796,8 @@ Item {
 
       // Back to top -- moved here from the right sidebar (direct
       // follow-up: "move the top button up to the same top row but
-      // right aligned"). Wallpaper mode only (the theme grid has no
-      // equivalent button). Always present so the row doesn't reflow,
+      // right aligned"), then extended to Theme mode too ("we can do
+      // this for the themes too"). Always present so the row doesn't reflow,
       // but dimmed and inert until the grid has actually scrolled
       // (grid.contentY > 0 -- GridView is itself a Flickable, so its
       // own contentY is the real scroll position). Plain contentY
@@ -805,8 +805,11 @@ Item {
       // convention (ruixen.tray's trayMenuFlick.contentY = 0).
       Rectangle {
         id: backToTopButton
-        visible: root.mediaMode !== "themes"
-        readonly property bool active: grid.contentY > 0
+        // Drives whichever grid is showing -- wallpaper grid or theme
+        // grid (both GridViews, so both are Flickables with a real
+        // contentY).
+        readonly property var targetGrid: root.mediaMode === "themes" ? themeGrid : grid
+        readonly property bool active: backToTopButton.targetGrid.contentY > 0
         Layout.preferredWidth: backToTopContent.implicitWidth + 20
         Layout.preferredHeight: 28
         radius: 8
@@ -841,7 +844,7 @@ Item {
           enabled: backToTopButton.active
           hoverEnabled: true
           cursorShape: backToTopButton.active ? Qt.PointingHandCursor : Qt.ArrowCursor
-          onClicked: grid.contentY = 0
+          onClicked: backToTopButton.targetGrid.contentY = 0
         }
       }
     }

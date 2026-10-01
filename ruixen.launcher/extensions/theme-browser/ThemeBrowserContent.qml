@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import qs.Commons
@@ -388,12 +389,40 @@ Item {
           color: root.muted
         }
 
+        // clip on a Rectangle only clips to its plain bounding box --
+        // radius never participates in child clipping (confirmed
+        // directly, same gotcha FilePreview.qml's own comment already
+        // documents for the exact same reason: without this, a loaded
+        // preview image still rendered with square corners, hiding
+        // previewBox's own rounded ones underneath it). Same MultiEffect
+        // mask technique that file already uses, copied verbatim: a
+        // hidden source Image, a hidden rounded mask Rectangle, and a
+        // MultiEffect that composites the two.
         Image {
           id: previewImage
           anchors.fill: parent
           fillMode: Image.PreserveAspectCrop
           source: root.previewImagePath !== "" ? "file://" + root.previewImagePath : ""
           asynchronous: true
+          visible: false
+        }
+
+        Rectangle {
+          id: previewMask
+          anchors.fill: parent
+          radius: previewBox.radius
+          color: "#ffffff"
+          visible: false
+          layer.enabled: true
+        }
+
+        MultiEffect {
+          anchors.fill: parent
+          source: previewImage
+          maskEnabled: true
+          maskSource: previewMask
+          maskThresholdMin: 0.5
+          maskThresholdMax: 1.0
         }
       }
 

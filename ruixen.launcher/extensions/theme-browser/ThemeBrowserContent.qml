@@ -408,14 +408,16 @@ Item {
       Rectangle {
         id: previewBox
         Layout.fillWidth: true
-        // Square (1:1), not a short wide strip -- direct follow-up:
-        // the real preview.png (1920x1200, confirmed directly) is a
-        // two-up composite of a desktop view and a terminal view, and
-        // a short wide crop was cutting far more off top/bottom than a
-        // square crop does. Bound to its own actual width (not a
-        // fixed 160), so it stays square at this pane's real
-        // runtime size, whatever that ends up being.
-        Layout.preferredHeight: width
+        // Neither a short wide strip nor a square was right -- both
+        // cropped real content (the first cut off top/bottom, the
+        // second cut off the sides). Checked the real files directly
+        // this time instead of guessing again: every preview.png
+        // across the whole catalog is exactly 1920x1200 (confirmed
+        // against several themes, not just one), so this box is just
+        // that same real ratio -- PreserveAspectCrop below then has
+        // nothing to crop at all, the full composite always shows.
+        readonly property real sourceAspectRatio: 1200 / 1920
+        Layout.preferredHeight: width * previewBox.sourceAspectRatio
         radius: 10
         clip: true
         color: Qt.rgba(0, 0, 0, 0.25)

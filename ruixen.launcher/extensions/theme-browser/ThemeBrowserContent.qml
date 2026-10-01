@@ -237,6 +237,10 @@ Item {
   onSelectedIndexChanged: {
     root.hoverArmed = false
     root.hoverArmBaseline = Qt.point(-1, -1)
+    // Moving to a different row disarms a pending Remove confirm --
+    // see requestRemove's own comment for why this matters (a stale
+    // "Confirm?" shouldn't carry over to whatever's now selected).
+    root.removeArmed = false
     var lastIndex = root.filteredThemes.length - 1
     themeResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
     themeResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
@@ -367,6 +371,55 @@ Item {
     root.installingName = displayName
     themeSetProc.command = ["omarchy-theme-set", slug]
     themeSetProc.running = true
+  }
+
+  // --- Remove -------------------------------------------------------
+  //
+  // Direct follow-up ("how would remove work?... i dont think we need
+  // a warning if it doesn't fail" -- confirmed directly: omarchy-theme-
+  // remove never refuses the currently active theme, it just deletes
+  // the folder; the active theme keeps working exactly as installed
+  // until the next real switch, which would then need a fresh install
+  // to come back). No special-casing for "this is the current theme"
+  // here as a result -- removeButton's own visibility is purely "is
+  // THIS variant installed", same installedSlugs check the row's own
+  // icon already uses.
+  //
+  // Click-to-arm, click-again-to-confirm instead of firing on the
+  // first click -- Install/Switch (Enter) are both easily undone
+  // (switch back, or reinstall over the network), but a removal
+  // actually deletes local files, so this gets a little more friction
+  // than a plain click-through. removeArmedSlug (not just a bare bool)
+  // means navigating to a DIFFERENT theme while one is armed can't
+  // leave a stale "Confirm?" that then deletes whatever you've since
+  // selected -- see onSelectedIndexChanged's own disarm below.
+  property bool removeArmed: false
+  property string removeArmedSlug: ""
+
+  Timer {
+    id: removeArmTimer
+    interval: 3000
+    onTriggered: root.removeArmed = false
+  }
+
+  function requestRemove(slug) {
+    if (root.installState !== "idle") return
+    if (root.removeArmed && root.removeArmedSlug === slug) {
+      root.removeArmed = false
+      if (ThemeCatalog.isSafeThemeSlug(slug)) {
+        removeThemeProc.command = ["omarchy-theme-remove", slug]
+        removeThemeProc.running = true
+      }
+    } else {
+      root.removeArmed = true
+      root.removeArmedSlug = slug
+      removeArmTimer.restart()
+    }
+  }
+
+  Process {
+    id: removeThemeProc
+    onExited: function(exitCode) { root.refreshInstalledThemes() }
   }
 
   // Four fixed, parallel units of work once the theme's own directory
@@ -1163,6 +1216,58 @@ Item {
               border.width: 1
               border.color: Qt.rgba(1, 1, 1, 0.15)
             }
+          }
+        }
+      }
+
+      // --- Remove row (odd -- no tint). Only shows once there's
+      // actually something to remove -- same installedSlugs check the
+      // row's own icon color already uses, keyed to whichever variant
+      // is currently being previewed/toggled (the Dark/Light chip),
+      // same as Install/Switch (Enter) itself operates on. Hidden
+      // (not just disabled) when not installed, rather than a greyed-
+      // out button with nothing real behind it.
+      Item {
+        Layout.fillWidth: true
+        height: 24
+        visible: !!(root.selectedDarkTheme && root.installedSlugs[ThemeCatalog.installedSlugFor(root.selectedDarkTheme, root.previewVariant)])
+
+        Text {
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Manage"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          font.capitalization: Font.AllUppercase
+        }
+
+        Rectangle {
+          id: removeButton
+          readonly property string targetSlug: root.selectedDarkTheme ? ThemeCatalog.installedSlugFor(root.selectedDarkTheme, root.previewVariant) : ""
+          readonly property bool armed: root.removeArmed && root.removeArmedSlug === removeButton.targetSlug
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          width: removeLabel.implicitWidth + 16
+          height: 24
+          radius: 6
+          color: removeButton.armed ? Qt.rgba(1, 0.33, 0.33, 0.22) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: 1
+          border.color: removeButton.armed ? "#ff6b6b" : Qt.rgba(1, 1, 1, 0.12)
+
+          Text {
+            id: removeLabel
+            anchors.centerIn: parent
+            text: removeButton.armed ? "Confirm?" : "Remove"
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            color: removeButton.armed ? "#ff6b6b" : root.textColor
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.requestRemove(removeButton.targetSlug)
           }
         }
       }

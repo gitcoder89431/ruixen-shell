@@ -58,11 +58,18 @@ check "IPC: addMany takes the source explicitly" "$(grep -c 'service.addPaths(pa
 #
 # These assert the ENCODING on both sides. They cannot prove the host's
 # splitting behavior (that needs a live shell), so they pin the contract
-# that avoids it instead -- see the real end-to-end check below.
-check "IPC: addMany splits on newlines, not commas" \
-  "$(grep -cF 'trimmed.split("\n")' "$shelf")" "1"
-check "IPC: addMany does not JSON.stringify a plain payload" \
-  "$(grep -c 'paths = \[\]' "$shelf")" "1"
+# that avoids it instead. The decoding itself is behavior-tested in
+# tests/js/ShelfModel.test.js (parsePathsArg/joinPathsArg, incl. a round
+# trip), and the boundary is exercised for real by tests/live-shelf-ipc.sh,
+# which needs a running shell and so lives outside run-all.sh/CI.
+check "IPC: addMany decodes through the tested ShelfModel.parsePathsArg" \
+  "$(grep -c 'ShelfModel.parsePathsArg(pathsArg)' "$shelf")" "1"
+check "IPC: Shelf.qml imports ShelfModel.js (a missing import would silently break the whole plugin)" \
+  "$(grep -c '^import "ShelfModel.js" as ShelfModel$' "$shelf")" "1"
+check "Model: parsePathsArg splits on newlines, never on commas or semicolons" \
+  "$(grep -cF 'return s.split("\n").map' "$model")" "1"
+check "Model: parsePathsArg is the only decoder (no inline JSON.parse of the IPC argument in Shelf.qml)" \
+  "$(grep -c 'JSON.parse(pathsArg\|JSON.parse(trimmed' "$shelf" || true)" "0"
 check "Notch: relay sends newline-delimited batch, not JSON.stringify(urls)" \
   "$(grep -cF 'urls.join("\n")' "$notch")" "1"
 check "Notch: relay does not JSON.stringify the batch" \

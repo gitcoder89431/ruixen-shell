@@ -503,7 +503,7 @@ Item {
   Process { id: dndActionProcess; running: false }
 
   // Quick-drop relay (see shelfQuickDrop below): one `omarchy-shell
-  // ruixin.shelf addMany` call per drop, carrying the whole batch as one
+  // ruixen.shelf addMany` call per drop, carrying the whole batch as one
   // newline-delimited argument -- not a process per path. A drop that
   // lands while a previous relay is still running is queued and sent
   // after that one's real exit (never reassigning the Process out from

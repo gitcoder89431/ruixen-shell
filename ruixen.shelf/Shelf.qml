@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import "ShelfModel.js" as ShelfModel
 
 // Ruixen Shelf: a drop pocket for file references, as its own overlay
 // plugin. It is deliberately NOT a notch dashboard tab: the expanded
@@ -184,18 +185,12 @@ Item {
     // A leading "[" is still parsed as JSON, purely so an in-process
     // caller can keep passing an array literal.
     function addMany(pathsArg: string, source: string): string {
-      var trimmed = String(pathsArg || "").trim()
-      var paths = []
-      if (trimmed.charAt(0) === "[") {
-        try {
-          var parsed = JSON.parse(trimmed)
-          if (Array.isArray(parsed)) paths = parsed.map(String)
-        } catch (e) {
-          return JSON.stringify({ ok: false, error: "pathsArg is not a JSON array" })
-        }
-      } else {
-        paths = trimmed.split("\n").map(function (p) { return p.trim() }).filter(function (p) { return p !== "" })
-      }
+      // Decoding lives in ShelfModel.parsePathsArg so it has real unit
+      // tests (tests/js/ShelfModel.test.js); null = bracketed but not a
+      // valid JSON array.
+      var paths = ShelfModel.parsePathsArg(pathsArg)
+      if (paths === null)
+        return JSON.stringify({ ok: false, error: "pathsArg is not a JSON array" })
       var result = service.addPaths(paths, source)
       return JSON.stringify({ ok: result.added.length > 0, added: result.added.length, rejected: result.rejected })
     }

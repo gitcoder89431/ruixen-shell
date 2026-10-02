@@ -87,4 +87,26 @@ check("listEntries: source passes through for agents", listed.map((l) => l.sourc
 
 check("countLabel", [M.countLabel(1), M.countLabel(0), M.countLabel(5)], ["1 item", "0 items", "5 items"]);
 
+// ---- addMany's IPC argument ------------------------------------------
+
+check("parsePathsArg: newline-delimited batch", M.parsePathsArg("/a\n/b c\n/d#1 (2).txt"), ["/a", "/b c", "/d#1 (2).txt"]);
+check("parsePathsArg: single path", M.parsePathsArg("/only"), ["/only"]);
+check("parsePathsArg: trailing newline, CRLF and blank lines are dropped", M.parsePathsArg("/a\r\n\n/b\n"), ["/a", "/b"]);
+check("parsePathsArg: empty / blank / missing is an empty batch", [M.parsePathsArg(""), M.parsePathsArg("  \n "), M.parsePathsArg(undefined), M.parsePathsArg(null)], [[], [], [], []]);
+check("parsePathsArg: commas and semicolons are NOT delimiters (they are legal in paths)", M.parsePathsArg("/a,b;c"), ["/a,b;c"]);
+check("parsePathsArg: a leading [ still parses a JSON array for in-process callers", M.parsePathsArg('["/a","/b"]'), ["/a", "/b"]);
+check("parsePathsArg: a one-element JSON array is an array, not a scalar", M.parsePathsArg('["/only"]'), ["/only"]);
+check("parsePathsArg: bracketed text that isn't a JSON array is rejected, not guessed at", [M.parsePathsArg("[not json"), M.parsePathsArg("[]x")], [null, null]);
+check("parsePathsArg: JSON elements are coerced to strings", M.parsePathsArg("[1,\"/a\"]"), ["1", "/a"]);
+
+// Round trip through what the notch relay sends (file:// URLs, awkward names).
+const awkward = ["/tmp/dir with spaces/file #1 (2).txt", "/tmp/ü ñ/100%.txt", "/tmp/a,b;c.txt", "/tmp/plain"];
+check("round trip: joinPathsArg -> parsePathsArg is lossless for awkward paths", M.parsePathsArg(M.joinPathsArg(awkward)), awkward);
+check("round trip: URLs survive and normalize to the same paths",
+  M.parsePathsArg(M.joinPathsArg(awkward.map(M.uriFor))).map((u) => M.normalizePath(u)), awkward);
+check("round trip: end to end through addPaths, bad entries counted not lost",
+  (() => { const r = M.addPaths([], M.parsePathsArg(M.joinPathsArg(["/ok/a", "relative/b", "/ok/c"])), "user", 1); return [r.items.map((i) => i.path), r.rejected]; })(),
+  [["/ok/a", "/ok/c"], 1]);
+check("joinPathsArg: empty / missing", [M.joinPathsArg([]), M.joinPathsArg(undefined)], ["", ""]);
+
 summary();

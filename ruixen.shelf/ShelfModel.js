@@ -50,6 +50,36 @@ function normalizePath(raw, home) {
   return s === "" ? "" : s
 }
 
+// addMany's single IPC argument. NEWLINE-delimited -- never a JSON array: a
+// bracketed array does not survive the IPC boundary as one argument (the
+// host split '["/a","/b"]' into three arguments and refused the call; a
+// one-element array arrived as a bare scalar and silently added nothing --
+// found live). Newline can't occur inside a real path because normalizePath
+// already rejects \n and \r, so the delimiter is unambiguous. A leading "["
+// is still parsed as JSON for an in-process caller passing an array
+// literal. Returns an array of strings, or null when the argument looked
+// like JSON but wasn't a valid array. Blank lines and surrounding
+// whitespace (incl. a trailing \r or \n) are dropped.
+function parsePathsArg(arg) {
+  var s = String(arg === undefined || arg === null ? "" : arg).trim()
+  if (s.charAt(0) === "[") {
+    try {
+      var parsed = JSON.parse(s)
+      return Array.isArray(parsed) ? parsed.map(String) : null
+    } catch (e) {
+      return null
+    }
+  }
+  return s.split("\n").map(function(p) { return p.trim() }).filter(function(p) { return p !== "" })
+}
+
+// The sending side of parsePathsArg: what ruixen.notch's quick-drop relay
+// does inline (it can't import this file across plugins), kept here so the
+// round trip is tested in one place.
+function joinPathsArg(paths) {
+  return (paths || []).join("\n")
+}
+
 function baseName(path) {
   var p = String(path || "")
   return p.slice(p.lastIndexOf("/") + 1) || p

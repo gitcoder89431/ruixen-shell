@@ -92,6 +92,8 @@ check "Clipboard action menu uses Launcher's theme-aware glass colors" \
   "$(( $(grep -A20 'ClipboardContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint') + $(grep -A20 'ClipboardContent {' "$launcher_qml" | grep -c 'glassBorder: root.glassBorder') + $(grep -c 'property color glassTint' "$content_qml") + $(grep -c 'property color glassBorder' "$content_qml") + $(grep -c 'glassTint: root.glassTint' "$content_qml") + $(grep -c 'glassBorder: root.glassBorder' "$content_qml") ))" "6"
 check "Launcher does not pass clipboard-only glass props to other extensions" \
   "$(( $(grep -A30 'WallpapersContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint\\|glassBorder: root.glassBorder') + $(grep -A30 'ThemeBrowserContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint\\|glassBorder: root.glassBorder') ))" "0"
+check "Launcher result action menu starts at the row column but keeps compact row-highlight width" \
+  "$(( $(grep -c 'root.actionsMenuX = Math.max(8, Math.min(localPos.x,' "$launcher_qml") + $(grep -c 'menuWidth: resultsList.width - 12' "$launcher_qml") + $(grep -c 'localPos.x + 6' "$launcher_qml") + $(grep -c 'menuWidth: resultsList.width$' "$launcher_qml") ))" "2"
 check "Clipboard action menu supports paste/copy/open/path/reveal/delete actions" \
   "$(( $(grep -c 'id: "paste"' "$content_qml") + $(grep -c 'id: "copy"' "$content_qml") + $(grep -c 'id: "open"' "$content_qml") + $(grep -c 'id: "path"' "$content_qml") + $(grep -c 'id: "reveal"' "$content_qml") + $(grep -c 'id: "delete"' "$content_qml") ))" "6"
 check "ClipboardContent maps Alt+C/O/P/D through handleShortcut" \

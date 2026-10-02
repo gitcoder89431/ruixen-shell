@@ -1137,17 +1137,11 @@ Item {
     // because the menu's real height needs to be known BEFORE
     // positioning it, not after.
     var menuHeight = root.resultActions.length * 34 + 8
-    // +6 / -12, matching ResultRow.qml's own highlight Rectangle
-    // exactly (anchors.leftMargin/rightMargin: 6 there) -- direct
-    // report: "the drop down for the file search is a bit wider now
-    // then the row active focus hover." localPos.x/resultsList.width
-    // are the ROW's own true bounds, not its highlight bubble's (that
-    // bubble is inset 6px on each side from them) -- the menu was
-    // binding straight to the row's raw bounds instead of the visibly
-    // highlighted area it's actually supposed to look like a
-    // continuation of, landing 6px further out on both edges (12px
-    // wider overall) than the highlight it should match.
-    root.actionsMenuX = Math.max(8, Math.min(localPos.x + 6, card.width - resultsList.width - 8))
+    // Align to the row's real left edge, not the inset highlight
+    // bubble. The menu opens from Tab/right-click as a result-row
+    // action surface, so visually it should track the left-panel item
+    // column rather than drifting 6px to the right with the focus fill.
+    root.actionsMenuX = Math.max(8, Math.min(localPos.x, card.width - resultsList.width - 8))
     root.actionsMenuY = Math.max(8, Math.min(localPos.y + 4, card.height - menuHeight - 8))
   }
 
@@ -2324,11 +2318,9 @@ Item {
         // relationship to another element.
         x: root.actionsMenuX
         y: root.actionsMenuY
-        // Direct request: matches the row it's for -- specifically its
-        // own visible HIGHLIGHT bubble (resultsList.width minus the
-        // same 6+6 inset ResultRow.qml's own highlight Rectangle uses),
-        // not resultsList's raw width. See positionActionsMenuNearSelection's
-        // own +6 x-offset for the matching left-edge half of this fix.
+        // Line up with the left-panel result item column, but keep the
+        // old compact width so the popup does not read wider than the
+        // selected row's visible focus surface.
         menuWidth: resultsList.width - 12
         actions: root.actionsMenuOpen ? root.resultActions : []
         selectedIndex: root.actionsSelectedIndex

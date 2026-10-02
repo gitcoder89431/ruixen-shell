@@ -40,15 +40,15 @@ Item {
   readonly property var filtered: ShelfModel.filterEntries(root.rows, root.query)
   readonly property bool filtering: root.query.trim() !== ""
   readonly property var visibleRows: root.filtering ? root.filtered : root.rows
-  // Panel padding. Side and bottom are generous because the shelf hangs
-  // from a rounded notch with wings on both sides -- cards sitting 12px
-  // from those edges read as crowding the notch's own curve, and the
-  // bottom edge is the panel's real outer edge. The top stays tight: it butts
-  // up against the notch above it, so extra room there only adds a gap.
   // How far one arrow press moves the strip. A card plus its gap, so a
   // press lands on a card boundary instead of half-way through one.
   readonly property int keyScrollStep: 132
 
+  // Panel padding. Side and bottom are generous because the shelf hangs
+  // from a rounded notch with wings on both sides -- cards sitting close to
+  // those edges read as crowding the notch's own curve, and the bottom edge
+  // is the panel's real outer edge. The top stays tight: it butts up
+  // against the notch above it, so extra room there only adds a gap.
   readonly property int padTop: 12
   readonly property int padSide: 24
   readonly property int padBottom: 24
@@ -56,13 +56,15 @@ Item {
   readonly property color tint: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
   readonly property color tintStrong: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
 
-  // The count for the chip on the search row: "Shelf 16", or "Shelf 3 of 16"
-  // while filtering. While filtering, report how many of the TOTAL matched,
-  // not just the filtered count -- "16" flipping to "1" as you type reads
-  // like items are being deleted.
-  readonly property string chipCount: root.filtering
-    ? (root.visibleRows.length === 1 ? "1 of " : root.visibleRows.length + " of ") + String(root.rows.length)
-    : String(root.rows.length)
+  // The chip's counter: how many items the shelf holds, full stop.
+  //
+  // Deliberately NOT "3 of 12" while filtering. That was the original
+  // reasoning (a count falling from 12 to 1 as you type reads like items
+  // are being deleted), but it makes the chip a different width on every
+  // keystroke and the whole row visibly jumps. A fixed total keeps the row
+  // still, and "Inbox" alone still tells you the filter is active because
+  // the results themselves are right there underneath it.
+  readonly property string chipCount: String(root.rows.length)
 
   // Paths can disappear while the notch is closed; re-check on open.
   onActiveChanged: if (root.active && root.shelfService) root.shelfService.refreshStats()
@@ -211,7 +213,7 @@ Item {
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
-          text: "Shelf"
+          text: "Inbox"
           color: root.textColor
           font.family: root.fontFamily
           font.pixelSize: 11

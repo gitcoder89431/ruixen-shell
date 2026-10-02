@@ -229,10 +229,11 @@ check "Search: filtering goes through the tested model helper, not inline in QML
 check "Search: an empty query shows every row (no rebuild, no filter loop)" \
   "$(grep -c 'visibleRows: root.filtering ? root.filtered : root.rows' "$content")" "1"
 # The count is on the chip now and there is no header left, so chipCount is
-# the single place it is computed. "16" flipping to "1" as you type reads
-# like items are being deleted, hence the X of Y.
+# the single place it is computed. It is a plain total, NOT "X of Y": the
+# chip is sized to its text, so a count that changes width on every
+# keystroke made the whole search row jump around while typing.
 check "Count: chipCount is the one place the count is computed" \
-  "$(grep -c 'root.visibleRows.length === 1 ? "1 of "' "$content")$(grep -c 'root.visibleRows.length + " of "' "$content")$(grep -c 'countLabel' "$content")" "110"
+  "$(grep -c 'chipCount: String(root.rows.length)' "$content")$(grep -c 'root.visibleRows.length === 1 ? "1 of "' "$content" || true)$(grep -c 'countLabel' "$content" || true)" "100"
 # The old title/count bar is gone: one count, one place, no X button.
 check "Header row: gone entirely (no title bar, no close X)" \
   "$(grep -c 'id: header' "$content" || true)$(grep -cF 'text: "\uf00d"' "$content" || true)" "00"
@@ -251,13 +252,17 @@ check "Chip: its own shape to the left of the field, NOT nested in it" \
   "$(sed -n '/id: searchBox/,/^    }$/p' "$content" | grep -c 'id: shelfChip' || true)$(grep -cF 'anchors.left: shelfChip.right' "$content")" "01"
 check "Chip: left-anchored to the panel, on the search box's row" \
   "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'anchors.left: parent.left' || true)$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'anchors.verticalCenter: searchBox.verticalCenter' || true)" "11"
-# "16" flipping to "1" as you type reads like items are being deleted, so
-# the chip carries the same X-of-Y guard the header does.
-check "Chip: reports X of Y while filtering, not a shrinking bare number" \
-  "$(grep -c 'root.chipCount' "$content")$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'root.chipCount' || true)" "11"
-# The box is what the user clicks to type into, so the chip must not put a
-# MouseArea between the click and the field.
-check "Chip: no MouseArea of its own -- a click on it reaches the field" \
+# A fixed total means the chip's width cannot change with the query. Pin
+# both halves: the binding is rows.length only, and nothing filter-aware
+# creeps back into the chip's own text.
+check "Chip: a plain total, so the row cannot resize while typing" \
+  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'root.chipCount' || true)$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'filtering|visibleRows|filtered' || true)" "10"
+check "Chip: labelled Inbox" \
+  "$(grep -cF 'text: "Inbox"' "$content" || true)$(grep -cF 'text: "Shelf"' "$content" || true)" "10"
+# The chip must not put a MouseArea over the field. It has none, so a click
+# on the chip falls through to the panel behind it -- it does NOT focus the
+# field, only the field's own area does that.
+check "Chip: no MouseArea of its own, so it never eats the field's clicks" \
   "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'MouseArea' || true)" "0"
 
 # Chip, field and Clear are one row, so all three are the same height.

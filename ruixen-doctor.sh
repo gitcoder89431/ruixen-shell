@@ -354,6 +354,61 @@ done
 [[ "$any_backup" -eq 0 ]] && printf '(no backups found for any ruixen.* plugin -- install.sh has never replaced an existing copy of any of them)\n'
 printf '\n'
 
+# --- Clipboard capture -- answers "Ruixen's Clipboard History opens and
+# shows old entries, but new copies never appear". Ruixen only READS
+# ~/.local/state/omarchy/clipboard-history.json; it never captures
+# anything (it has no wl-paste watcher of its own). Capture belongs to
+# Omarchy's built-in clipboard service (omarchy.clipboard), which keeps
+# persistent `wl-paste --watch` processes running. So this reports the
+# capture side only: are the watchers alive, is the history file still
+# being written, and is something else (another clipboard manager or a
+# third-party clipboard plugin) sitting in the same space. Process and
+# plugin NAMES/ids and counts only -- never command lines or clipboard
+# content.
+printf -- '-- Clipboard capture (Omarchy-owned; Ruixen only reads it) --\n'
+history_file="$HOME/.local/state/omarchy/clipboard-history.json"
+if [[ -f "$history_file" ]]; then
+  if jq empty "$history_file" >/dev/null 2>&1; then
+    entry_count="$(jq -r 'if type == "array" then length else "?" end' "$history_file" 2>/dev/null || echo "?")"
+    age="$(( $(date +%s) - $(stat -c %Y "$history_file" 2>/dev/null || date +%s) ))"
+    printf 'history file: valid, %s entries, last written %s ago\n' "$entry_count" "$(human_ago "$age")"
+  else
+    printf 'history file: exists but is NOT valid JSON -- Omarchy wrote a corrupt file, Ruixen shows whatever it last parsed\n'
+  fi
+else
+  printf 'history file: not found -- Omarchy has never captured anything here\n'
+fi
+
+if command -v wl-paste >/dev/null 2>&1; then
+  watch_count="$(pgrep -fc 'wl-paste.*--watch' 2>/dev/null || true)"
+  watch_count="${watch_count:-0}"
+  printf 'wl-paste --watch processes: %s\n' "$watch_count"
+  if [[ "$watch_count" == "0" ]]; then
+    printf 'LIKELY CAUSE: no clipboard watcher is running, so nothing new can be recorded -- Omarchy'"'"'s clipboard service is not up (omarchy restart shell; if it persists, check it is enabled and look at the journal for omarchy.clipboard errors)\n'
+  fi
+else
+  printf 'wl-paste: NOT FOUND -- Omarchy'"'"'s clipboard capture depends on wl-clipboard (pacman -S --needed wl-clipboard)\n'
+fi
+
+other_managers=""
+for proc in cliphist copyq clipse clipman wl-clip-persist gpaste-daemon klipper parcellite; do
+  pgrep -x "$proc" >/dev/null 2>&1 && other_managers+="$proc "
+done
+if [[ -n "$other_managers" ]]; then
+  printf 'other clipboard managers running: %s-- two managers fighting over the selection can drop or reorder copies; try stopping them to confirm\n' "$other_managers"
+else
+  printf 'other clipboard managers running: none\n'
+fi
+
+if [[ -f "$HOME/.config/omarchy/shell.json" ]] && jq empty "$HOME/.config/omarchy/shell.json" >/dev/null 2>&1; then
+  clip_ids="$(jq -r '[.. | strings | select(test("clip"; "i"))] | unique | join(", ")' "$HOME/.config/omarchy/shell.json" 2>/dev/null || true)"
+  printf 'clipboard-related ids in shell.json: [%s]\n' "$clip_ids"
+  if [[ -z "$clip_ids" ]]; then
+    printf 'NOTE: no clipboard plugin id is listed in shell.json at all -- if Omarchy'"'"'s own clipboard service is not enabled by default on this version, nothing is capturing\n'
+  fi
+fi
+printf '\n'
+
 # --- Bar layout shape -- ids only, never inline settings values, so
 # nothing personal (a custom clock format, a hidden app list) ever
 # prints here. -------------------------------------------------------

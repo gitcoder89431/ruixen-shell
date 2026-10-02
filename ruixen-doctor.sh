@@ -372,6 +372,18 @@ if [[ -f "$history_file" ]]; then
     entry_count="$(jq -r 'if type == "array" then length else "?" end' "$history_file" 2>/dev/null || echo "?")"
     age="$(( $(date +%s) - $(stat -c %Y "$history_file" 2>/dev/null || date +%s) ))"
     printf 'history file: valid, %s entries, last written %s ago\n' "$entry_count" "$(human_ago "$age")"
+    # Ruixen's parser (ClipboardHistory.js normalizeEntry) only shows
+    # {type:"text", text:<string>} and {type:"image", path:<string>};
+    # any other shape is skipped with no error. Count them and print
+    # their SHAPE (type value + key names), never their content, so a
+    # format change in Omarchy shows up here instead of as "new copies
+    # silently never appear".
+    skipped="$(jq -r 'if type == "array" then [.[] | select(((type == "object") and ((.type == "text" and (.text | type) == "string") or (.type == "image" and (.path | type) == "string"))) | not)] | length else 0 end' "$history_file" 2>/dev/null || echo "?")"
+    printf 'entries Ruixen cannot display (unknown shape): %s\n' "$skipped"
+    if [[ "$skipped" != "0" && "$skipped" != "?" ]]; then
+      shapes="$(jq -r '[.[] | select(((type == "object") and ((.type == "text" and (.text | type) == "string") or (.type == "image" and (.path | type) == "string"))) | not) | (if type == "object" then "type=" + ((.type // "none") | tostring) + " keys=" + (keys | join("+")) else type end)] | group_by(.) | map(.[0] + " x" + (length | tostring)) | join("; ")' "$history_file" 2>/dev/null || true)"
+      printf 'unknown shapes: %s\n' "$shapes"
+    fi
   else
     printf 'history file: exists but is NOT valid JSON -- Omarchy wrote a corrupt file, Ruixen shows whatever it last parsed\n'
   fi

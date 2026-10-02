@@ -382,8 +382,43 @@ check "Notch: relays one batched IPC call to ruixen.shelf, not one per path" \
   "$(grep -c '"omarchy-shell", "ruixen.shelf", "addMany"' "$notch")" "1"
 check "Notch: relay queues behind a running relay (never reassigns a live Process)" \
   "$(grep -c 'shelfRelayQueue' "$notch")" "5"
-check "Notch: no spring-loading/dwell timer in this move" \
+# --- drag over the notch opens the shelf (spring-loaded, no dwell) -----
+check "Notch: no highlight is drawn behind the pill -- the Shelf opening is the feedback" \
+  "$(grep -c 'shelfQuickDrop.containsDrag' "$notch" || true)" "0"
+check "Notch: a local-file drag entering the pill asks the Shelf to open" \
+  "$(sed -n '/id: shelfQuickDrop/,/onExited:/p' "$notch" | grep -c 'root.relayShelfOpen()')" "1"
+check "Notch: the open request is one IPC call to ruixen.shelf openFromDrag" \
+  "$(grep -c '\["omarchy-shell", "ruixen.shelf", "openFromDrag"\]' "$notch")" "1"
+check "Notch: opens immediately on drag-enter -- no dwell/spring timer" \
   "$(grep -cE 'dwellTimer|springLoad|openShelfTimer' "$notch")" "0"
+check "Notch: a drop on the pill itself is still relayed, so a fast release never loses the files" \
+  "$(sed -n '/onDropped:/,/^      }/p' "$notch" | grep -c 'root.relayToShelf(urls)')" "1"
+check "Shelf: openFromDrag is part of the plugin's own IPC surface" \
+  "$(grep -c 'function openFromDrag(): void' "$shelf")" "1"
+check "Shelf: openFromDrag does nothing if the shelf is already open (never takes over a keybind open)" \
+  "$(sed -n '/^  function openFromDrag/,/^  }/p' "$shelf" | grep -c 'if (root.opened) return')" "1"
+check "Shelf: auto-hide only ever fires for a shelf that a drag opened, and not while a drag is still over it" \
+  "$(grep -c 'if (!root.opened || !root.openedByDrag || root.dragInside()) return' "$shelf")" "1"
+check "Shelf: an explicit open, close or dismiss clears the opened-by-drag flag" \
+  "$(sed -n '/^  function open(/,/^  }/p;/^  function close(/,/^  }/p;/^  function dismiss(/,/^  }/p' "$shelf" | grep -c 'root.openedByDrag = false')" "3"
+check "Shelf: a drop that lands keeps it open (clears the flag, stops the timer)" \
+  "$(sed -n '/^  function dropLanded/,/^  }/p' "$shelf" | grep -c 'root.openedByDrag = false')$(grep -c 'onDropped: root.dropLanded()' "$shelf")" "11"
+check "Shelf: the drag leaving starts a short grace timer that coming back cancels" \
+  "$(grep -c 'dragLeaveGraceMs: 350' "$shelf")$(sed -n '/^  function dragEnteredShelf/,/^  }/p' "$shelf" | grep -c 'dragHideTimer.stop()')" "11"
+check "Shelf: a drag that never reaches it is caught by a watchdog" \
+  "$(grep -c 'dragWatchdogMs: 2500' "$shelf")" "1"
+check "Shelf: a cooldown after an auto-hide stops a parked drag flapping it open and shut" \
+  "$(grep -c 'root.autoDismissedAt = Date.now()' "$shelf")$(grep -c 'dragReopenCooldownMs' "$shelf")" "12"
+check "Shelf: the whole panel (wings and padding too) is a drop target, accepting copy only" \
+  "$(grep -c 'id: panelDrop' "$shelf")$(sed -n '/id: panelDrop/,/onDropped:/p' "$shelf" | grep -c 'drag.accept(Qt.CopyAction)')" "11"
+check "Shelf: 'is a drag still over me' asks both drop targets (either may hold it) at decision time" \
+  "$(sed -n '/^  function dragInside/,/^  }/p' "$shelf" | grep -c 'panelDrop.containsDrag || shelfContent.dropContainsDrag')" "1"
+check "Shelf: drag state is not watched through a Connections block (AGENTS.md section 9)" \
+  "$(grep -c 'Connections {' "$shelf" || true)" "0"
+check "Content: drag lifecycle reaches the shelf as explicit signals" \
+  "$(grep -c 'signal dragEntered()' "$content")$(grep -c 'signal dragLeft()' "$content")$(grep -c 'signal dropped(int added)' "$content")$(grep -c 'onExited: root.dragLeft()' "$content")" "1111"
+check "Content: dropped(added) is emitted only after something was actually added" \
+  "$(grep -B2 'root.dropped(result.added.length)' "$content" | grep -c 'drop.accept(Qt.CopyAction)')" "1"
 check "Notch: does not import or reach into the shelf plugin's objects" \
   "$(grep -c 'ruixen.shelf/' "$notch")" "0"
 

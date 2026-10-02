@@ -29,6 +29,16 @@ Item {
   property var shelfService: null
 
   signal closeRequested()
+  // Drag lifecycle, forwarded to Shelf.qml (which owns the "opened by a drag,
+  // so hide again if it goes nowhere" logic). Explicit signals rather than a
+  // Connections watching containsDrag: AGENTS.md section 9 documents a
+  // Connections on a derived property firing once and going silent.
+  signal dragEntered()
+  signal dragLeft()
+  signal dropped(int added)
+  // Read at decision time (never bound to), so the auto-hide timer can ask
+  // "is a drag still over the content?" without a derived-property watcher.
+  readonly property bool dropContainsDrag: dropArea.containsDrag
 
   readonly property var rows: root.shelfService
     ? ShelfModel.listEntries(root.shelfService.items, root.shelfService.stats, root.shelfService.checked)
@@ -171,7 +181,10 @@ Item {
     var paths = root.dropPaths(drop)
     if (paths.length === 0 || !root.shelfService) return
     var result = root.shelfService.addPaths(paths, "user")
-    if (result.added.length > 0) drop.accept(Qt.CopyAction)
+    if (result.added.length > 0) {
+      drop.accept(Qt.CopyAction)
+      root.dropped(result.added.length)
+    }
   }
 
   Process { id: copyProc }
@@ -180,7 +193,13 @@ Item {
   DropArea {
     id: dropArea
     anchors.fill: parent
-    onEntered: (drag) => { if (!drag.source && root.dropPaths(drag).length > 0) drag.accept(Qt.CopyAction) }
+    onEntered: (drag) => {
+      if (!drag.source && root.dropPaths(drag).length > 0) {
+        drag.accept(Qt.CopyAction)
+        root.dragEntered()
+      }
+    }
+    onExited: root.dragLeft()
     onDropped: (drop) => root.handleDrop(drop)
 
     // "Shelf 16" identity + count, left of the search box on the same row.

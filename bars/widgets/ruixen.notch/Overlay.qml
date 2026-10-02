@@ -535,6 +535,16 @@ Item {
     onRunningChanged: if (!running) root.drainShelfRelay()
   }
 
+  // Asks ruixen.shelf to open for a drag that just entered the pill. One
+  // call per drag-enter; a call still in flight is not queued behind (the
+  // Shelf ignores a second open anyway, and a stale one is worthless).
+  Process { id: shelfOpenProcess }
+
+  function relayShelfOpen() {
+    if (shelfOpenProcess.running) return
+    shelfOpenProcess.exec(["omarchy-shell", "ruixen.shelf", "openFromDrag"])
+  }
+
   // The notch's own notification-history backing store (Column 3 of
   // the Widgets dashboard) -- independent of the dnd property above,
   // sweeping the real service's own on-disk state to add a read flag
@@ -1542,21 +1552,27 @@ Item {
       }
     }
 
-    // Quick-drop onto the Shelf: dragging local files over the collapsed
-    // pill highlights it, and dropping hands the paths to ruixen.shelf
-    // over its own IPC target -- no live object shared between the two
-    // plugins, and the Shelf window itself does NOT need to be open. Same
-    // footprint as notchHoverZone above (a sibling of notchOuter, so it
-    // keeps working while the pill is slid out of view in "On Hover"
-    // mode; entering it reveals the pill the way hovering does). A drag
-    // doesn't deliver ordinary hover events, which is why this reuses
-    // notchHoverEntered/Exited explicitly. Inert while the notch is
-    // expanded -- the dashboard/launcher own the surface then.
+    // Drag onto the Shelf: dragging local files over the collapsed pill asks
+    // ruixen.shelf to open (over its own IPC target -- no live object shared
+    // between the two plugins), so the drop can land in the open Shelf and be
+    // seen. No highlight here: the Shelf opening IS the feedback. The Shelf
+    // owns what happens next (it hides itself if the drag leaves without a
+    // drop, and stays open once something lands -- see Shelf.qml).
     //
-    // Deliberately only the quick-drop half of the Shelf's activation: no
-    // dwell-to-open spring loading. Whether a drag already in progress can
-    // continue into a freshly mapped layer surface is compositor-sensitive
-    // and has to be verified live before it is built on.
+    // A drop that lands on the pill itself, before the Shelf has taken over
+    // the drag, is still accepted and relayed (addMany), so a fast release
+    // never loses the files. Same footprint as notchHoverZone above (a
+    // sibling of notchOuter, so it keeps working while the pill is slid out
+    // of view in "On Hover" mode; entering it reveals the pill the way
+    // hovering does -- a drag doesn't deliver ordinary hover events, which is
+    // why this reuses notchHoverEntered/Exited explicitly). Inert while the
+    // notch is expanded: the dashboard/launcher own the surface then.
+    //
+    // Opening happens immediately on drag-enter (no dwell timer). Whether a
+    // drag already in progress carries into the freshly mapped Shelf window is
+    // compositor behavior that has to be confirmed live; if it does not, the
+    // single call to remove is relayShelfOpen() in onEntered below, which
+    // leaves the plain drop-on-the-pill path working.
     DropArea {
       id: shelfQuickDrop
       anchors.top: parent.top
@@ -1584,6 +1600,7 @@ Item {
         if (shelfQuickDrop.localUrls(drag.urls).length > 0) {
           drag.accept(Qt.CopyAction)
           root.notchHoverEntered()
+          root.relayShelfOpen()
         }
       }
       onExited: root.notchHoverExited()
@@ -1593,18 +1610,6 @@ Item {
         if (urls.length === 0) return
         root.relayToShelf(urls)
         drop.accept(Qt.CopyAction)
-      }
-
-      Rectangle {
-        visible: shelfQuickDrop.containsDrag
-        x: 0
-        y: notchOuter.restY
-        width: parent.width
-        height: notchOuter.height
-        radius: 22
-        color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
-        border.width: 2
-        border.color: root.accent
       }
     }
 

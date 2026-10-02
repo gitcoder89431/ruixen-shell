@@ -347,7 +347,8 @@ how the click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
 `ruixen.shelf` is a panel that grows out of the frame at the notch's position — the notch's expanded silhouette, with concave wing shoulders, hanging from the top edge: drag files in
 from any app, drag them back out into another app or a terminal. It
 remembers file paths, never copies anything. Drag local files over the
-collapsed notch and drop to add them without opening the window. It's
+collapsed notch and the Shelf opens so you can drop them in and see them land
+(it hides again if you drag back out without dropping). It's
 agent-readable too — `omarchy-shell ruixen.shelf list` shows an agent what
 you dropped, and `add /abs/path` lets it put a file on the shelf for you to
 drag out. It's its own plugin rather than a notch tab so other apps stay

@@ -117,6 +117,9 @@ Item {
   // --- lifecycle (host contract: open(payloadJson)/close()/toggle(payloadJson))
 
   function open(payloadJson) {
+    // An explicit open (keybind, IPC) is never auto-hidden: only openFromDrag
+    // sets this again, after calling open().
+    root.openedByDrag = false
     root.opened = true
     service.refreshStats()
     Qt.callLater(function() { focusScope.forceActiveFocus() })
@@ -124,6 +127,8 @@ Item {
 
   function close() {
     root.opened = false
+    root.openedByDrag = false
+    dragHideTimer.stop()
   }
 
   // A user-initiated close (Escape, the close button, toggle while open):
@@ -131,6 +136,8 @@ Item {
   // own notion of which overlay is showing stays in sync.
   function dismiss() {
     root.opened = false
+    root.openedByDrag = false
+    dragHideTimer.stop()
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide((root.manifest && root.manifest.id) || "ruixen.shelf")
   }
@@ -138,6 +145,68 @@ Item {
   function toggle(payloadJson) {
     if (root.opened) root.dismiss()
     else root.open(payloadJson)
+  }
+
+  // --- opened by a drag over the notch ------------------------------------
+  //
+  // ruixen.notch asks for this (over IPC, no shared objects) when a local-file
+  // drag enters the collapsed pill. The shelf opens so the drop can land IN it
+  // and be seen; it then looks after itself:
+  //   - a drop lands            -> stays open (Escape / toggle / `close`
+  //                                dismiss it), so you can see it arrived
+  //   - the drag leaves it      -> hides again after a short grace period
+  //                                (cancelled if the drag comes back)
+  //   - the drag never reaches it (it opened under the pointer but no drag
+  //                                ever entered) -> hides after a watchdog
+  // A shelf opened any other way (keybind, IPC `open`) is never auto-hidden.
+  //
+  // After an auto-hide, a further openFromDrag is ignored for a few seconds so
+  // a drag parked over the notch can't make it flap open and shut.
+  property bool openedByDrag: false
+  property double autoDismissedAt: 0
+  readonly property int dragWatchdogMs: 2500
+  readonly property int dragLeaveGraceMs: 350
+  readonly property int dragReopenCooldownMs: 3000
+
+  function openFromDrag() {
+    if (root.opened) return
+    if (Date.now() - root.autoDismissedAt < root.dragReopenCooldownMs) return
+    root.open("")
+    root.openedByDrag = true
+    dragHideTimer.interval = root.dragWatchdogMs
+    dragHideTimer.restart()
+  }
+
+  // Asked at decision time, never bound to. The panel-wide DropArea and the
+  // content's own can each be the one holding the drag (the topmost accepting
+  // area gets it), so either counts.
+  function dragInside() {
+    return panelDrop.containsDrag || shelfContent.dropContainsDrag
+  }
+
+  function dragEnteredShelf() {
+    dragHideTimer.stop()
+  }
+
+  function dragLeftShelf() {
+    if (!root.openedByDrag) return
+    dragHideTimer.interval = root.dragLeaveGraceMs
+    dragHideTimer.restart()
+  }
+
+  function dropLanded() {
+    root.openedByDrag = false
+    dragHideTimer.stop()
+  }
+
+  Timer {
+    id: dragHideTimer
+    repeat: false
+    onTriggered: {
+      if (!root.opened || !root.openedByDrag || root.dragInside()) return
+      root.autoDismissedAt = Date.now()
+      root.dismiss()
+    }
   }
 
 
@@ -162,6 +231,10 @@ Item {
     function open(): void { root.open("") }
     function close(): void { if (root.opened) root.dismiss() }
     function toggle(): void { root.toggle("") }
+    // Called by ruixen.notch when a local-file drag enters its pill. Opens the
+    // shelf for that drag and arms the auto-hide described above. A no-op if
+    // the shelf is already open.
+    function openFromDrag(): void { root.openFromDrag() }
 
     // Absolute path, file:// URL or ~/ path. Relative paths are rejected
     // (the shell's own working directory is not the caller's).
@@ -436,6 +509,24 @@ Item {
         }
       }
 
+      // The whole panel is a drop target, wings and padding included, so there
+      // is no dead strip where the drag is "over the shelf" but nothing accepts
+      // it (which would also read as the drag having left, and hide the shelf).
+      // Declared before the content so the content's own DropArea, being above
+      // it, still gets the drag first where it applies.
+      DropArea {
+        id: panelDrop
+        anchors.fill: parent
+        onEntered: (drag) => {
+          if (!drag.source && shelfContent.dropPaths(drag).length > 0) {
+            drag.accept(Qt.CopyAction)
+            root.dragEnteredShelf()
+          }
+        }
+        onExited: root.dragLeftShelf()
+        onDropped: (drop) => shelfContent.handleDrop(drop)
+      }
+
       // Content: a sibling of the masked fill (like the notch's own rows),
       // inset by the shoulders so it lives inside the body, not the wings.
       FocusScope {
@@ -467,6 +558,9 @@ Item {
           // grey band instead of an edge.
           surfaceColor: root.surfaceColor
           onCloseRequested: root.dismiss()
+          onDragEntered: root.dragEnteredShelf()
+          onDragLeft: root.dragLeftShelf()
+          onDropped: root.dropLanded()
         }
       }
     }

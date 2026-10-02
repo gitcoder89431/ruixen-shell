@@ -379,6 +379,21 @@ else
   printf 'history file: not found -- Omarchy has never captured anything here\n'
 fi
 
+# Every clipboard-looking file/dir Omarchy keeps next to the history
+# file, with its age. If Omarchy ever starts writing new copies to a
+# different file than the one Ruixen reads, the old file's age stays
+# frozen while a sibling here keeps getting newer -- names and ages only.
+omarchy_state="$HOME/.local/state/omarchy"
+if [[ -d "$omarchy_state" ]]; then
+  now_s="$(date +%s)"
+  found_any=0
+  while IFS= read -r -d '' p; do
+    found_any=1
+    printf 'state: %s (written %s ago)\n' "$(basename "$p")" "$(human_ago "$(( now_s - $(stat -c %Y "$p" 2>/dev/null || echo "$now_s") ))")"
+  done < <(find "$omarchy_state" -maxdepth 1 -iname '*clip*' -print0 2>/dev/null)
+  [[ "$found_any" -eq 0 ]] && printf 'state: no clipboard-looking files under the Omarchy state dir\n'
+fi
+
 if command -v wl-paste >/dev/null 2>&1; then
   watch_count="$(pgrep -fc 'wl-paste.*--watch' 2>/dev/null || true)"
   watch_count="${watch_count:-0}"

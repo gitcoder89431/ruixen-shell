@@ -20,6 +20,10 @@ Item {
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
+  // The window's own surface color, passed in: the right-edge scroll fade
+  // has to terminate on exactly what is behind it or it reads as a grey
+  // band rather than an edge.
+  property color surfaceColor: "#000000"
   property string fontFamily: "JetBrainsMono Nerd Font"
   property bool active: false
   property var shelfService: null
@@ -29,6 +33,13 @@ Item {
   readonly property var rows: root.shelfService
     ? ShelfModel.listEntries(root.shelfService.items, root.shelfService.stats, root.shelfService.checked)
     : []
+
+  // The search box, and the rows it leaves visible. Empty query = every
+  // row (no copy, no rebuild), so typing and clearing stay cheap.
+  property string query: ""
+  readonly property var filtered: ShelfModel.filterEntries(root.rows, root.query)
+  readonly property bool filtering: root.query.trim() !== ""
+  readonly property var visibleRows: root.filtering ? root.filtered : root.rows
   readonly property color tint: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
   readonly property color tintStrong: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
 
@@ -125,7 +136,13 @@ Item {
       }
 
       Text {
-        text: ShelfModel.countLabel(root.rows.length)
+        // While filtering, report how many of the TOTAL matched, not just
+        // the filtered count -- "3 items" flipping to "1 item" as you type
+        // reads like items are being deleted.
+        text: root.filtering
+          ? (root.visibleRows.length === 1 ? "1 of " : root.visibleRows.length + " of ")
+            + ShelfModel.countLabel(root.rows.length).replace(/ items?$/, "")
+          : ShelfModel.countLabel(root.rows.length)
         color: root.muted
         font.family: root.fontFamily
         font.pixelSize: 11
@@ -184,10 +201,118 @@ Item {
       }
     }
 
+    // Search box, directly under the header. Plain TextInput rather than
+    // anything fancier: it takes focus only on click, so it never steals
+    // the keyboard from the app the user is about to drag into (the same
+    // reason the window is OnDemand and not Exclusive).
+    Rectangle {
+      id: searchBox
+      anchors.top: header.bottom
+      anchors.topMargin: 6
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.leftMargin: 12
+      anchors.rightMargin: 12
+      height: 30
+      radius: 9
+      color: searchInput.activeFocus ? root.tintStrong : root.tint
+      border.width: 1
+      border.color: searchInput.activeFocus
+        ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.5)
+        : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
+
+      Text {
+        id: searchGlyph
+        anchors.left: parent.left
+        anchors.leftMargin: 9
+        anchors.verticalCenter: parent.verticalCenter
+        text: ""
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 12
+      }
+
+      TextInput {
+        id: searchInput
+        anchors.left: searchGlyph.right
+        anchors.leftMargin: 7
+        anchors.right: clearQuery.left
+        anchors.rightMargin: 6
+        anchors.verticalCenter: parent.verticalCenter
+        color: root.textColor
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        selectByMouse: true
+        clip: true
+        onTextChanged: root.query = text
+        Keys.onEscapePressed: {
+          // Escape clears the filter first, and only dismisses the window
+          // once there is nothing left to clear -- otherwise a stray
+          // Escape mid-search throws away both the query and the shelf.
+          if (root.query !== "") { text = ""; root.query = "" }
+          else root.closeRequested()
+        }
+        Keys.onDownPressed: list.forceActiveFocus()
+        Keys.onUpPressed: list.forceActiveFocus()
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          visible: searchInput.text === ""
+          text: "Filter by name or folder"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 12
+        }
+      }
+
+      // Clear-search affordance. Deliberately NOT the header's Clear
+      // (which empties the whole shelf): a destructive "Clear" sitting one
+      // button away from a "clear the textbox" one, with no label
+      // difference, is a real footgun.
+      Rectangle {
+        id: clearQuery
+        visible: searchInput.text !== ""
+        anchors.right: parent.right
+        anchors.rightMargin: 6
+        width: 20
+        height: 20
+        radius: 6
+        color: clearQueryArea.containsMouse ? root.tintStrong : "transparent"
+
+        Text {
+          anchors.centerIn: parent
+          text: ""
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          id: clearQueryArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: { searchInput.text = ""; root.query = ""; searchInput.forceActiveFocus() }
+        }
+      }
+
+      // Clicking anywhere in the box focuses the field. Declared last so
+      // it can reference the field's x, but pushed UNDER it with z: -1 --
+      // at the default z it would render on top of both the TextInput and
+      // the clear button and swallow their clicks entirely.
+      MouseArea {
+        z: -1
+        anchors.fill: parent
+        anchors.leftMargin: searchInput.x - searchGlyph.width - 7
+        anchors.rightMargin: clearQuery.width
+        onClicked: searchInput.forceActiveFocus()
+      }
+    }
+
     // Empty state: the drop target itself.
     Rectangle {
       visible: root.rows.length === 0
-      anchors.top: header.bottom
+      anchors.top: searchBox.bottom
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
@@ -232,19 +357,101 @@ Item {
       }
     }
 
-    // Items
-    ListView {
-      id: list
-      visible: root.rows.length > 0
-      anchors.top: header.bottom
+    // A filter that matched nothing. Deliberately distinct from the empty
+    // shelf above: "nothing on the shelf" and "nothing MATCHES what you
+    // typed" need different words, and only one of them is fixed by
+    // dropping a different file in.
+    Rectangle {
+      visible: root.rows.length > 0 && root.filtering && root.visibleRows.length === 0
+      anchors.top: searchBox.bottom
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.margins: 12
+      radius: 14
+      color: "transparent"
+      border.width: 2
+      border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.18)
+
+      Column {
+        anchors.centerIn: parent
+        spacing: 8
+        width: parent.width - 48
+
+        Text {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "No match"
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 14
+          font.bold: true
+        }
+
+        Text {
+          width: parent.width
+          horizontalAlignment: Text.AlignHCenter
+          wrapMode: Text.Wrap
+          text: "Nothing on the shelf matches “" + root.query.trim() + "”."
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+      }
+    }
+
+    // Items, as a HORIZONTAL strip.
+    //
+    // Horizontal, not vertical, because that is what actually makes this a
+    // drop pocket: the panel keeps a short fixed height (236) no matter how
+    // many files are on it, so it stays out of the way of whatever you are
+    // dragging into, and the whole thing still reads as a pocket growing
+    // out of the notch. A vertical list instead grows downward into the
+    // screen -- it was capped at 420px and then simply stopped showing new
+    // items, which is the one thing a drop pocket must never do.
+    //
+    // contentWidth rather than no-width at all: an unbounded strip would
+    // let a long row stretch the window. Wheel -> horizontal too, since
+    // that is the only scroll axis here (a vertical wheel event over a
+    // horizontal list does nothing on its own).
+    ListView {
+      id: list
+      visible: root.visibleRows.length > 0
+      anchors.top: searchBox.bottom
       anchors.topMargin: 6
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.margins: 12
       clip: true
-      spacing: 6
-      model: root.rows
+      orientation: ListView.Horizontal
+      spacing: 8
+      model: root.visibleRows
+      contentWidth: count > 0 ? childrenRect.width : 0
+      flickDeceleration: 4000
+      boundsBehavior: Flickable.StopAtBounds
+
+      // Map the wheel onto the strip's own axis. Qt's Flickable does try
+      // to handle a perpendicular wheel event itself, but not uniformly
+      // across versions/orientations, and here there IS no perpendicular
+      // axis to fall back on: if this handler is wrong, the shelf has no
+      // way to scroll at all and files past the right edge are simply
+      // unreachable. target: null keeps it deterministic instead of
+      // letting it fight the view's own handling.
+      WheelHandler {
+        target: null
+        onWheel: (wheel) => {
+          if (list.contentWidth <= list.width) return
+          var dx = wheel.angleDelta.x + wheel.pixelDelta.x
+          var dy = wheel.angleDelta.y + wheel.pixelDelta.y
+          var delta = dx !== 0 ? dx : dy
+          if (delta === 0) return
+          var max = Math.max(0, list.contentWidth - list.width)
+          var next = Math.max(0, Math.min(max, list.contentX - delta))
+          if (next === list.contentX) return
+          list.contentX = next
+          wheel.accepted = true
+        }
+      }
 
       delegate: Item {
         id: row
@@ -252,8 +459,12 @@ Item {
         required property int index
         readonly property var entry: modelData
         readonly property bool missing: entry.exists === false
-        width: ListView.view.width
-        height: 56
+        // A card, not a full-width row: the strip scrolls, so width is a
+        // property of the item rather than of the panel. Fixed rather than
+        // content-sized because a name of wildly different length must
+        // not change how much of the strip is on screen.
+        width: 124
+        height: ListView.view.height
 
         Rectangle {
           anchors.fill: parent
@@ -299,16 +510,20 @@ Item {
           onDoubleClicked: openProc.exec(["xdg-open", row.entry.path])
         }
 
-        RowLayout {
+        // Card body: thumbnail on top, name + subtitle stacked under it.
+        // Vertical INSIDE the card because the card itself is what moved --
+        // turning the item into a horizontal strip is what buys the
+        // thumbnail enough room to be recognisable at all.
+        ColumnLayout {
           anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 8
-          spacing: 10
+          anchors.margins: 8
+          spacing: 6
 
-          // Thumbnail for images, glyph otherwise.
+          // Sized to fill the card rather than a fixed square, so no list
+          // height is baked into it.
           Rectangle {
-            Layout.preferredWidth: 38
-            Layout.preferredHeight: 38
+            Layout.fillWidth: true
+            Layout.fillHeight: true
             radius: 8
             color: Qt.rgba(0, 0, 0, 0.2)
             clip: true
@@ -320,8 +535,8 @@ Item {
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
               cache: false
-              sourceSize.width: 76
-              sourceSize.height: 76
+              sourceSize.width: 248
+              sourceSize.height: 248
             }
 
             Text {
@@ -330,75 +545,88 @@ Item {
               text: root.glyphFor(row.entry)
               color: row.missing ? root.muted : root.accent
               font.family: root.fontFamily
-              font.pixelSize: 18
+              font.pixelSize: 26
             }
           }
 
-          ColumnLayout {
+          RowLayout {
             Layout.fillWidth: true
-            spacing: 2
-
-            RowLayout {
-              Layout.fillWidth: true
-              spacing: 6
-
-              Text {
-                Layout.fillWidth: true
-                text: row.entry.name
-                elide: Text.ElideMiddle
-                color: root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: 13
-                font.strikeout: row.missing
-              }
-
-              Rectangle {
-                visible: row.entry.source === "agent"
-                Layout.preferredWidth: agentLabel.implicitWidth + 12
-                Layout.preferredHeight: 16
-                radius: 8
-                color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
-
-                Text {
-                  id: agentLabel
-                  anchors.centerIn: parent
-                  text: "agent"
-                  color: root.accent
-                  font.family: root.fontFamily
-                  font.pixelSize: 9
-                  font.bold: true
-                }
-              }
-            }
+            spacing: 4
 
             Text {
               Layout.fillWidth: true
-              text: root.subtitleFor(row.entry)
-              elide: Text.ElideMiddle
-              color: root.muted
+              text: row.entry.name
+              // ElideRight, not ElideMiddle: in a 124px card the tail is
+              // the informative part (-2, .tar.gz, final char), and
+              // ElideMiddle dropping a middle character makes two
+              // differently-named files look identically named.
+              elide: Text.ElideRight
+              color: root.textColor
               font.family: root.fontFamily
-              font.pixelSize: 10
+              font.pixelSize: 11
+              font.strikeout: row.missing
+            }
+
+            Rectangle {
+              visible: row.entry.source === "agent"
+              Layout.preferredWidth: agentLabel.implicitWidth + 10
+              Layout.preferredHeight: 14
+              radius: 7
+              color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
+
+              Text {
+                id: agentLabel
+                anchors.centerIn: parent
+                text: "agent"
+                color: root.accent
+                font.family: root.fontFamily
+                font.pixelSize: 8
+                font.bold: true
+              }
             }
           }
 
-          // Hover actions (kept out of the drag MouseArea's way: they sit
-          // above it, so a click on a button never starts a drag).
+          Text {
+            Layout.fillWidth: true
+            text: root.subtitleFor(row.entry)
+            elide: Text.ElideRight
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 9
+          }
+        }
+
+        // Hover actions, overlaid on the thumbnail rather than sitting in
+        // the text stack: at 124px wide there is no room for three 24px
+        // buttons beside a name, and in the layout they collided with the
+        // elided name instead of with nothing.
+        Rectangle {
+          visible: rowHover.hovered
+          anchors.top: parent.top
+          anchors.right: parent.right
+          anchors.margins: 6
+          width: actionsRow.width
+          height: actionsRow.height
+          radius: 8
+          color: Qt.rgba(0, 0, 0, 0.55)
+
           Row {
-            visible: rowHover.hovered
-            spacing: 4
+            id: actionsRow
+            anchors.centerIn: parent
+            spacing: 2
 
             Repeater {
               model: [
-                { id: "copy", glyph: "" },
-                { id: "open", glyph: "" },
-                { id: "remove", glyph: "" }
+                { id: "copy", glyph: "\uf0c5" },
+                { id: "open", glyph: "\uf35d" },
+                { id: "remove", glyph: "\uf00d" }
               ]
 
               Rectangle {
                 required property var modelData
-                width: 26
-                height: 26
-                radius: 7
+                width: 24
+                height: 24
+                radius: 6
                 color: btnArea.containsMouse ? root.tintStrong : "transparent"
 
                 Text {
@@ -406,7 +634,7 @@ Item {
                   text: modelData.glyph
                   color: modelData.id === "remove" && btnArea.containsMouse ? "#e5484d" : root.textColor
                   font.family: root.fontFamily
-                  font.pixelSize: 12
+                  font.pixelSize: 11
                 }
 
                 MouseArea {
@@ -424,6 +652,24 @@ Item {
             }
           }
         }
+      }
+    }
+
+    // Right-edge fade. Anything past the edge fades instead of being
+    // guillotined: a card sliced down the middle reads as broken, and this
+    // window is a fixed size that deliberately cannot grow to reveal the
+    // rest. Only shown when there IS more to scroll to -- a permanent fade
+    // on a shelf that fits is just a grey smudge over the last card.
+    Rectangle {
+      visible: list.contentWidth > list.width && list.contentX < list.contentWidth - list.width - 1
+      anchors.right: list.right
+      anchors.top: list.top
+      anchors.bottom: list.bottom
+      width: 28
+      gradient: Gradient {
+        orientation: Gradient.Horizontal
+        GradientStop { position: 0.0; color: "transparent" }
+        GradientStop { position: 1.0; color: root.surfaceColor }
       }
     }
 

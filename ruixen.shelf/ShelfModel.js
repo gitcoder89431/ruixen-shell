@@ -248,3 +248,33 @@ function listEntries(items, stats, checked) {
 function countLabel(n) {
   return n === 1 ? "1 item" : n + " items"
 }
+
+// The shelf's search box, filtering the horizontal row strip.
+//
+// Plain case-insensitive SUBSTRING matching, deliberately not a fuzzy or
+// subsequence matcher: this filters file names, where users type a fragment
+// of a name they already know, and a fuzzy matcher on short fragments
+// ("img", "log") ranks near-misses above the one file they meant. Every
+// term must match somewhere (AND across whitespace-separated terms), which
+// makes "shot log" narrow rather than widen the way an OR would.
+//
+// Matches the basename OR the full path, and also the directory part
+// alone: with rows laid out horizontally and elided, "screenshots" is
+// often how someone remembers where a file is, not its name.
+function filterEntries(entries, query) {
+  var list = Array.isArray(entries) ? entries : []
+  var q = String(query === undefined || query === null ? "" : query).trim().toLowerCase()
+  if (q === "") return list
+  var terms = q.split(/\s+/).filter(function (t) { return t !== "" })
+  if (terms.length === 0) return list
+  return list.filter(function (e) {
+    var name = String((e && e.name) || "").toLowerCase()
+    var path = String((e && e.path) || "").toLowerCase()
+    var dir = dirName(path).toLowerCase()
+    for (var i = 0; i < terms.length; i++) {
+      var t = terms[i]
+      if (name.indexOf(t) === -1 && path.indexOf(t) === -1 && dir.indexOf(t) === -1) return false
+    }
+    return true
+  })
+}

@@ -107,6 +107,54 @@ check "Service stat: async, one worker, merged by path" \
 check "Service never stats on the UI thread (Process, not sync)" "$(grep -c 'statProc.exec' "$service")" "1"
 check "Model has no Qt/Quickshell globals" "$(grep -cE '\b(Quickshell|Qt\.|Process)\b' "$model")" "0"
 
+# --- the surface: the notch silhouette -------------------------------
+#
+# The shelf's shape is copied from ruixin.notch's own Overlay.qml rather
+# than invented, and these pin the two properties of that copy that are
+# easy to "tidy up" by accident and very visible when you do.
+check "Shape: 420 wide, the same width as the notch's own launcherOpen" \
+  "$(grep -c 'readonly property int shelfWidth: 420' "$shelf")" "1"
+check "Shape: fixed height, not item-count driven (rows scroll sideways now)" \
+  "$(grep -cE 'shelfHeight: [0-9]+$' "$shelf" || true)" "1"
+# The silhouette is ONE rounded Rectangle per surface here, not the
+# notch's 3-piece RoundCorner/centerMask split -- that split exists only
+# because the notch's flank wings tuck under its shoulders, and this window
+# has no flank pieces. Same radii, no seam to hide.
+check "Shape: the fill is a single rounded box (notch's own 3-piece split)" \
+  "$(grep -c 'RoundCorner {' "$shelf" || true)" "0"
+check "Shape: the mask is a real, named shape source (a typo here renders nothing)" \
+  "$(grep -c 'maskSource: shelfMask' "$shelf")$(grep -c 'id: shelfMask' "$shelf")" "11"
+# 2 surfaces x 4 radii = 8, all bound to the notch's own numbers.
+check "Shape: all four radii are set on both the fill and the mask" \
+  "$(grep -c 'Radius: root.cornerSize' "$shelf")$(grep -c 'Radius: root.bottomRadius' "$shelf")" "44"
+check "Shape: the shoulders use the notch's own 28" \
+  "$(grep -c 'readonly property int cornerSize: 28' "$shelf")" "1"
+check "Shape: the bottom radius is 44, i.e. the notch's own expanded radius" \
+  "$(grep -c 'readonly property int bottomRadius: 44' "$shelf")$(grep -c 'bottomLeftRadius: root.bottomRadius' "$shelf")$(grep -c 'bottomRightRadius: root.bottomRadius' "$shelf")" "122"
+check "Shadow: a separate blurred duplicate of the shape, clipped (notchShadowBlur's own arrangement)" \
+  "$(grep -c 'id: shadowBlur' "$shelf")$(grep -c 'id: shadowClip' "$shelf")$(grep -c 'clip: true' "$shelf")" "111"
+check "Shadow: uses the notch's own recipe, not a nearby mask-safe one (AGENTS.md section 9)" \
+  "$(grep -c 'blurMax: 32' "$shelf")$(grep -c 'blur: 0.6' "$shelf")" "11"
+check "Shadow: no directional offset -- the notch's own shadow has none, a lift shadow does" \
+  "$(grep -cE 'shadowVerticalOffset|shadowHorizontalOffset|shadowEnabled' "$shelf" || true)" "0"
+check "Shadow: clipped flush to the top edge (it has to meet the notch), room elsewhere" \
+  "$(grep -c 'readonly property int shadowClipMargin: 40' "$shelf")$(grep -c 'anchors.topMargin: 0' "$shelf")" "12"
+# The live "almost square edges" report from Overlay.qml: adding shadow*
+# to the MASKED shape reproducibly destroys the silhouette. If someone ever
+# "improves" this by shadowing the mask effect directly, this check is the
+# one that says no.
+check "Shape: the masked fill carries NO shadow properties (that combination breaks the silhouette)" \
+  "$(sed -n '/id: shelfBg/,/FocusScope/p' "$shelf" | grep -cE 'shadow|blurEnabled' || true)" "0"
+check "Shape: QtQuick.Effects is imported -- a missing import kills the WHOLE plugin silently" \
+  "$(grep -c '^import QtQuick.Effects$' "$shelf")" "1"
+check "Shape: the mask source is hidden (a visible mask paints over the fill)" \
+  "$(sed -n '/id: shelfMask/,/^      }/p' "$shelf" | grep -c 'visible: false' || true)" "1"
+# RoundCorner is an INLINE component inside the notch's own Overlay.qml, not a
+# qs.Commons type -- importing it as if it were one renders nothing at all,
+# and the plugin still loads (only the surface goes missing).
+check "Shape: does NOT reach for the notch's private inline RoundCorner" \
+  "$(grep -c 'RoundCorner' "$shelf" || true)" "1"
+
 # --- content ----------------------------------------------------------
 check "Content: drops via DropArea" "$(grep -c 'DropArea {' "$content")" "1"
 check "Content: drags out with Drag.Automatic" "$(grep -c 'Drag.dragType: Drag.Automatic' "$content")" "1"
@@ -114,6 +162,48 @@ check "Content: offers uri-list and plain text on drag out" \
   "$(grep -c '"text/uri-list"' "$content")$(grep -c '"text/plain"' "$content")" "11"
 check "Content: drag MouseArea stops the ListView stealing the gesture" \
   "$(grep -c 'preventStealing: true' "$content")" "1"
+
+# --- the inbox layout: horizontal strip + search ----------------------
+#
+# The strip is what makes the panel keep a fixed height no matter how full
+# the shelf is, and the filter is now the only way to reach a card that
+# isn't currently on screen -- so "the strip scrolls" and "the filter
+# narrows" are load-bearing, not cosmetic.
+
+check "Inbox: the item list is horizontal" \
+  "$(grep -c 'orientation: ListView.Horizontal' "$content")" "1"
+check "Inbox: the strip is bounded, so a long shelf cannot stretch the window" \
+  "$(grep -c 'contentWidth: count > 0 ? childrenRect.width : 0' "$content")" "1"
+check "Inbox: the wheel scrolls the strip (target: null, not fighting the view's own handling)" \
+  "$(grep -c 'WheelHandler {' "$content")" "1"
+check "Inbox: wheel scrolling is clamped to the content, so it cannot rubber-band past the end" \
+  "$(grep -c 'Math.min(max, list.contentX - delta)' "$content")" "1"
+check "Inbox: the cards are a fixed width, not content-sized" \
+  "$(grep -cE '^\s*width: 124$' "$content")" "1"
+check "Inbox: the right edge fades only when there is more to scroll to" \
+  "$(grep -cF 'list.contentWidth > list.width && list.contentX < list.contentWidth - list.width - 1' "$content")" "1"
+check "Search: a real TextInput, not a fake Text" \
+  "$(grep -c 'TextInput {' "$content")$(grep -c 'onTextChanged: root.query = text' "$content")" "11"
+check "Search: filtering goes through the tested model helper, not inline in QML" \
+  "$(grep -c 'ShelfModel.filterEntries(root.rows, root.query)' "$content")" "1"
+check "Search: an empty query shows every row (no rebuild, no filter loop)" \
+  "$(grep -c 'visibleRows: root.filtering ? root.filtered : root.rows' "$content")" "1"
+check "Search: the header reports X of Y while filtering, so it does not read as deletions" \
+  "$(grep -c 'root.visibleRows.length === 1 ? "1 of "' "$content")$(grep -c 'root.visibleRows.length + " of "' "$content")" "11"
+check "Search: Escape clears the query before it dismisses the shelf" \
+  "$(grep -cF 'if (root.query !== "") { text = ""; root.query = "" }' "$content")" "1"
+check "Search: the search box is under the header, and the list under the search box" \
+  "$(grep -c 'id: searchBox' "$content")$(grep -c 'anchors.top: searchBox.bottom' "$content")" "13"
+# A destructive \"Clear\" (empties the whole shelf) one button away from a
+# \"clear the textbox\" with no label difference is a real footgun.
+check "Search: clear-the-text is a separate affordance from the shelf-wide Clear" \
+  "$(grep -c 'id: clearQuery' "$content")$(grep -cF 'onClicked: { searchInput.text = ""; root.query = ""' "$content")" "21"
+check "Search: the focus-catcher MouseArea sits UNDER the input (at default z it would eat its clicks)" \
+  "$(grep -B4 'onClicked: searchInput.forceActiveFocus()' "$content" | grep -c 'z: -1' || true)" "1"
+check "Search: 'no match' is its own state, distinct from an empty shelf" \
+  "$(grep -c 'root.rows.length > 0 && root.filtering && root.visibleRows.length === 0' "$content")" "1"
+check "Search: typing in the box never steals keyboard focus from the app below (OnDemand only)" \
+  "$(grep -c 'WlrKeyboardFocus.Exclusive' "$shelf" || true)" "0"
 check "Content: thumbnails use the tested URI encoder, not string concat" \
   "$(grep -c 'ShelfModel.uriFor(row.entry.path)' "$content")$(grep -c '"file://" + ' "$content")" "10"
 check "Copy semantics: acceptProposedAction() is never used in the shelf or the notch quick-drop" \

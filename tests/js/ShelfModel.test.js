@@ -87,6 +87,68 @@ check("listEntries: source passes through for agents", listed.map((l) => l.sourc
 
 check("countLabel", [M.countLabel(1), M.countLabel(0), M.countLabel(5)], ["1 item", "0 items", "5 items"]);
 
+// ---- search filter ------------------------------------------------------
+//
+// The shelf's rows are a horizontal strip now, so the filter is how you
+// reach an item that isn't currently on screen -- filtering away every row
+// (or narrowing to one) has to be as reliable as scrolling, and neither
+// may mutate the backing list.
+
+const pool = [
+  { name: "Screenshot.png", path: "/home/me/Pictures/Screenshot.png" },
+  { name: "screenshot2.png", path: "/home/me/Pictures/screenshot2.png" },
+  { name: "notes.md", path: "/home/me/Documents/notes.md" },
+  { name: "notes.tar.gz", path: "/home/me/Documents/notes.tar.gz" },
+  { name: "report.pdf", path: "/tmp/work/report.pdf" },
+  { name: "LOG", path: "/tmp/work/LOG" }
+];
+const names = (list) => list.map((e) => e.name);
+const q = (query) => M.filterEntries(pool, query);
+
+check("filterEntries: empty / blank / whitespace query shows everything",
+  names(M.filterEntries(pool, "")), names(pool));
+check("filterEntries: a blank-only query is the same as no query",
+  names(M.filterEntries(pool, "   \t ")), names(pool));
+check("filterEntries: missing query is not a crash", names(M.filterEntries(pool, undefined)), names(pool));
+check("filterEntries: non-array input is not a crash", M.filterEntries(undefined, "a"), []);
+
+check("filterEntries: matches the basename, case-insensitively",
+  names(q("screenshot")), ["Screenshot.png", "screenshot2.png"]);
+check("filterEntries: matches the folder name too, not just the file name",
+  names(q("Pictures")), ["Screenshot.png", "screenshot2.png"]);
+check("filterEntries: matches the full path",
+  names(q("/tmp/work")), ["report.pdf", "LOG"]);
+check("filterEntries: a term matching neither field drops the row", q("pictures notes"), []);
+check("filterEntries: multiple terms AND together",
+  names(q("notes documents")), ["notes.md", "notes.tar.gz"]);
+check("filterEntries: terms are order-independent",
+  names(q("documents notes")), ["notes.md", "notes.tar.gz"]);
+check("filterEntries: a single letter matching every row lists every row",
+  names(q("o")), ["Screenshot.png", "screenshot2.png", "notes.md", "notes.tar.gz", "report.pdf", "LOG"]);
+check("filterEntries: no match is an empty list, never null",
+  q("zzzz-nothing-here"), []);
+check("filterEntries: substring, not prefix -- 'port' finds report",
+  names(q("port")), ["report.pdf"]);
+check("filterEntries: substring, not prefix -- 'og' finds LOG",
+  names(q("og")), ["LOG"]);
+check("filterEntries: a folder term and a name term match different fields",
+  names(q("work pdf")), ["report.pdf"]);
+check("filterEntries: extra whitespace between terms is ignored",
+  names(q("  notes   documents  ")), ["notes.md", "notes.tar.gz"]);
+check("filterEntries: does not mutate the input list", (() => {
+  const before = names(pool);
+  q("screenshot");
+  return names(pool).join(",");
+})(), ["Screenshot.png", "screenshot2.png", "notes.md", "notes.tar.gz", "report.pdf", "LOG"].join(","));
+check("filterEntries: a no-match query still returns the same list object when the query is empty",
+  M.filterEntries(pool, "") === pool, true);
+check("filterEntries: rows with no name/path are dropped, not crashed on",
+  names(M.filterEntries([{ name: "", path: "" }, { name: "ok", path: "/a/ok" }], "ok")), ["ok"]);
+check("filterEntries: an all-nonstring row set does not crash",
+  M.filterEntries([null, undefined, { name: "ok" }], "ok").length, 1);
+
+summary();
+
 // ---- addMany's IPC argument ------------------------------------------
 
 check("parsePathsArg: newline-delimited batch", M.parsePathsArg("/a\n/b c\n/d#1 (2).txt"), ["/a", "/b c", "/d#1 (2).txt"]);

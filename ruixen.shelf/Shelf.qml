@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -209,12 +210,53 @@ Item {
 
   // --- the window --------------------------------------------------------
 
-  readonly property int shelfWidth: 400
-  // Grows with the item count, clamped; the window is only ever as big as
-  // the visible shelf (no fullscreen surface, no input mask needed).
-  readonly property int shelfHeight: service.items.length === 0
-    ? 200
-    : Math.min(420, 52 + service.items.length * 62 + 12)
+  // Deliberately the SAME width as ruixen.notch's own launcherOpen mode
+  // (Overlay.qml:1715's 420), so the shelf reads as one more step of the
+  // notch's own size progression rather than its own separate family:
+  //
+  //   284 collapsed -> 420 launcherOpen -> [shelf, also 420] -> 900 pinned
+  //
+  // 420 is chosen over anything wider deliberately: it is a size this notch
+  // has already proven safe, and Overlay.qml's own history (1718-1723, and
+  // the "almost square edges" report at 1770-1787) is a history of NEW
+  // sizes breaking the notch silhouette's mask non-deterministically, with
+  // the breakage only showing up at the larger end. Reusing a proven number
+  // is the whole point.
+  readonly property int shelfWidth: 420
+
+  // Fixed height now, not item-count driven: the rows scroll HORIZONTALLY
+  // (see ShelfContent's own comment), so there is no "taller as it fills"
+  // case left to grow into, and a stable footprint is what lets the
+  // silhouette below stay one proven shape instead of a resizing one.
+  readonly property int shelfHeight: 236
+
+// --- the silhouette ----------------------------------------------------
+  //
+  // Deliberately NOT reusing ruixin.notch's own notchBg MultiEffect
+  // instance, and deliberately not adding shadow properties to an effect of
+  // our own here either. Overlay.qml:1770-1787 documents, from a live
+  // report, that adding shadow* to that masked shape reproducibly destroys
+  // the silhouette ("almost square edges, the curves are gone") and does so
+  // non-deterministically -- confirmed absent at the collapsed and 420x190
+  // sizes, then present at 900x400. That is why the notch's own shadow
+  // works at all: notchShadowBlur duplicates the SAME geometry into its own
+  // shape and blurs that, with a separate outer Item (notchShadowClip)
+  // deciding where the blur is allowed to spill, rather than shadowing the
+  // masked shape directly. This mirrors that arrangement exactly.
+  //
+  // The geometry itself is simpler than the notch's: it builds the shape
+  // from two RoundCorner shoulders plus a square-topped centerMask, because
+  // its own flank pieces have to tuck UNDER the shoulders. This window has
+  // no such pieces -- it is one plain rounded box -- so a single Rectangle
+  // with all four radii set draws exactly the same silhouette, with no seam
+  // to hide and nothing to keep in sync. The visible result is identical;
+  // the radii below are still the notch's own numbers.
+  readonly property int cornerSize: 28
+  readonly property int bottomRadius: 44
+  // Asymmetric, in the same direction as the notch's own notchShadowClip:
+  // flush against the top edge (no gap upward, it has to meet the notch),
+  // expanded on the open sides so the blur has room to actually be visible.
+  readonly property int shadowClipMargin: 40
 
   PanelWindow {
     id: win
@@ -239,12 +281,76 @@ Item {
     // shelf has been clicked.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    Rectangle {
+    // Where the blur is allowed to spill: asymmetric clip, flush top, room
+    // on the other three sides. Same shape of idea as the notch's own.
+    Item {
+      id: shadowClip
       anchors.fill: parent
-      radius: 18
+      anchors.margins: root.shadowClipMargin
+      anchors.topMargin: 0
+      clip: true
+
+      // The shadow: a solid duplicate of the real silhouette, blurred into
+      // a halo. notchShadowBlur's own recipe byte-for-byte (opacity 1.0,
+      // plain blurEnabled/blurMax 32/blur 0.6, NO directional offset) --
+      // per AGENTS.md section 9, this is the recipe that was tuned live
+      // against the frame's own hand-rolled ring shadow, and it is the one
+      // new pieces of this surface are supposed to copy rather than
+      // borrowing whatever mask-safe example happens to be nearby.
+      Rectangle {
+        id: shadowBlur
+        anchors.fill: parent
+        anchors.margins: root.shadowClipMargin
+        anchors.topMargin: 0
+        opacity: 1.0
+
+        layer.enabled: true
+        layer.smooth: true
+        layer.effect: MultiEffect {
+          blurEnabled: true
+          blurMax: 32
+          blur: 0.6
+        }
+
+        color: "#000000"
+        topLeftRadius: root.cornerSize
+        topRightRadius: root.cornerSize
+        bottomLeftRadius: root.bottomRadius
+        bottomRightRadius: root.bottomRadius
+      }
+    }
+
+    // The real surface, masked into the same silhouette. Same split as
+    // notchBg/notchMask: a MultiEffect that only masks (no shadow), over a
+    // plain always-opaque fill.
+    Rectangle {
+      id: shelfBg
+      anchors.fill: parent
       color: root.surfaceColor
-      border.width: 1
-      border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.1)
+
+      layer.enabled: true
+      layer.smooth: true
+      layer.effect: MultiEffect {
+        maskEnabled: true
+        maskSource: shelfMask
+        maskThresholdMin: 0.5
+        maskThresholdMax: 1.0
+        maskSpreadAtMin: 1.0
+      }
+
+      Rectangle {
+        id: shelfMask
+        visible: false
+        anchors.fill: parent
+        layer.enabled: true
+        layer.smooth: true
+
+        color: "#ffffff"
+        topLeftRadius: root.cornerSize
+        topRightRadius: root.cornerSize
+        bottomLeftRadius: root.bottomRadius
+        bottomRightRadius: root.bottomRadius
+      }
 
       FocusScope {
         id: focusScope
@@ -260,6 +366,11 @@ Item {
           accent: root.accent
           fontFamily: root.fontFamily
           shelfService: service
+          // The right-edge fade in ShelfContent has to end on the SAME color
+          // the window behind it is filled with, or the fade is a visible
+          // grey band instead of an edge. The window's own surfaceColor is
+          // not otherwise visible to the content, so it is passed in.
+          surfaceColor: root.surfaceColor
           onCloseRequested: root.dismiss()
         }
       }

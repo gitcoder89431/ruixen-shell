@@ -183,8 +183,17 @@ check "Content: drag MouseArea stops the ListView stealing the gesture" \
 
 check "Inbox: the item list is horizontal" \
   "$(grep -c 'orientation: ListView.Horizontal' "$content")" "1"
-check "Inbox: the strip is bounded, so a long shelf cannot stretch the window" \
-  "$(grep -c 'contentWidth: count > 0 ? childrenRect.width : 0' "$content")" "1"
+# Binding contentWidth to childrenRect.width is circular -- the view sizes
+# its own content item FROM contentWidth -- and Qt reported a binding loop
+# for that on every shell restart. The view derives it itself, and the
+# anchors (not a content-driven width) are what stop the strip stretching
+# the window, so the check is the ABSENCE of the binding plus the anchors.
+check "Inbox: no circular contentWidth binding (it caused a live binding loop)" \
+  "$(grep -c 'contentWidth:' "$content" || true)" "0"
+check "Inbox: the strip is bounded by anchors, not by content, so it cannot stretch the window" \
+  "$(grep -c 'orientation: ListView.Horizontal' "$content")" "1"
+check "Inbox: the window itself is a fixed size, so nothing content-driven can grow it" \
+  "$(grep -c 'implicitWidth: root.shapeWidth + root.haloPad \* 2' "$shelf")$(grep -c 'implicitHeight: root.shapeHeight + root.haloPad' "$shelf")" "11"
 check "Inbox: the wheel scrolls the strip (target: null, not fighting the view's own handling)" \
   "$(grep -c 'WheelHandler {' "$content")" "1"
 check "Inbox: wheel scrolling is clamped to the content, so it cannot rubber-band past the end" \

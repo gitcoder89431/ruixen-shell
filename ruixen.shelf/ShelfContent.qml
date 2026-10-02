@@ -409,10 +409,6 @@ Item {
     // screen -- it was capped at 420px and then simply stopped showing new
     // items, which is the one thing a drop pocket must never do.
     //
-    // contentWidth rather than no-width at all: an unbounded strip would
-    // let a long row stretch the window. Wheel -> horizontal too, since
-    // that is the only scroll axis here (a vertical wheel event over a
-    // horizontal list does nothing on its own).
     ListView {
       id: list
       visible: root.visibleRows.length > 0
@@ -426,7 +422,15 @@ Item {
       orientation: ListView.Horizontal
       spacing: 8
       model: root.visibleRows
-      contentWidth: count > 0 ? childrenRect.width : 0
+      // NO explicit contentWidth here, deliberately. Binding it to
+      // childrenRect.width looks harmless and is not: the view sizes its
+      // own content item FROM contentWidth, so the binding is circular and
+      // Qt reports a binding loop for the life of the window (it did, in
+      // the journal, on every restart). The list already derives
+      // contentWidth from its delegates' positions, which is what we
+      // want, and the window itself has a fixed size -- an unbounded strip
+      // cannot stretch it, because the view is anchored left and right
+      // rather than sized to its content.
       flickDeceleration: 4000
       boundsBehavior: Flickable.StopAtBounds
 

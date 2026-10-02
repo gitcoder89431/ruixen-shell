@@ -2288,6 +2288,8 @@ Item {
         textColor: root.textColor
         muted: root.muted
         accent: root.accent
+        glassTint: root.glassTint
+        glassBorder: root.glassBorder
         fontFamily: root.fontFamily
       }
 

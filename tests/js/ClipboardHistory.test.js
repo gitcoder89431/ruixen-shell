@@ -31,6 +31,15 @@ check("rows: image label uses dimensions when available",
   M.rows(entries, "", "#89b4fa", { "/home/dev/.local/state/omarchy/clipboard-images/abc.png": "1600x1200" }).map((r) => r.label),
   ["hello world", "https://example.com/path?q=1", "Image (1600x1200)"]);
 
+const qrEntries = M.parseHistory(sample, { "/home/dev/.local/state/omarchy/clipboard-images/abc.png": "https://omarchy.org" });
+check("parseHistory: image entries merge decoded QR payloads from cache", [qrEntries[2].qr, qrEntries[2].qrUrl], ["https://omarchy.org", "https://omarchy.org"]);
+check("rows: QR images are labeled distinctly",
+  M.rows(qrEntries, "", "#89b4fa", { "/home/dev/.local/state/omarchy/clipboard-images/abc.png": "1600x1200" }).map((r) => r.label)[2],
+  "QR Image (1600x1200)");
+check("rows: query matches decoded QR payloads",
+  M.rows(qrEntries, "omarchy", "#89b4fa").map((r) => r.id),
+  ["clipboard:2"]);
+
 check("rows: query matches text content",
   M.rows(entries, "world", "#89b4fa").map((r) => r.id),
   ["clipboard:0"]);
@@ -67,9 +76,20 @@ check("pathsToProbe: skips known, dedups, honors limit",
   ], { "/b": "1x1" }, 2),
   ["/a", "/c"]);
 
+check("qrPathsToProbe: skips known QR cache entries, including misses",
+  M.qrPathsToProbe([
+    { type: "image", path: "/a" }, { type: "image", path: "/a" },
+    { type: "image", path: "/b" }, { type: "image", path: "/c" }
+  ], { "/b": "" }, 2),
+  ["/a", "/c"]);
+
 check("mergeDimensions: merges by path and stays bounded",
   Object.keys(M.mergeDimensions({ "/a": "1x1", "/b": "2x2" }, { "/c": "3x3" }, 2)),
   ["/b", "/c"]);
+
+check("mergeQr: stores payloads and bounded misses",
+  M.mergeQr({ "/a": "old", "/b": "" }, { "/c": "https://c.example" }, 2),
+  { "/b": "", "/c": "https://c.example" });
 
 const one = (t) => M.parseHistory(JSON.stringify([{ type: "text", text: t }]))[0];
 const fact = (e, label) => (e.facts.find((f) => f.label === label) || {}).value;

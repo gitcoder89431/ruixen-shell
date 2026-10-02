@@ -58,7 +58,7 @@ Omarchy's own clipboard history). Open it directly with:
 o.bind("SUPER + SHIFT + V", "Clipboard History", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"clipboard"}']])
 ```
 
-Inside it, `Enter` pastes the highlighted entry; `Alt+C` copies it, `Alt+O`
+Inside it, `Enter` copies the highlighted entry; `Alt+C` copies it, `Alt+O`
 opens it, `Alt+P` pastes an image's file path, and `Alt+D` deletes it (press
 twice to confirm), and `Alt+R` reveals a masked possible secret.
 

@@ -19,7 +19,8 @@ function basename(path) {
 
 function imageLabel(entry, dimensionsByPath) {
   var dims = dimensionsByPath && entry.path ? dimensionsByPath[entry.path] : ""
-  return dims ? ("Image (" + dims + ")") : "Image"
+  var prefix = entry.qr ? "QR Image" : "Image"
+  return dims ? (prefix + " (" + dims + ")") : prefix
 }
 
 // Bare "word.tld" is only a link when the TLD is a well-known one --
@@ -38,6 +39,13 @@ function looksLikeLink(text) {
   if (/^www\.[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/[^\s]*)?$/i.test(s)) return true
   var m = /^[A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+)*\.([A-Za-z]{2,})(?:\/[^\s]*)?$/.exec(s)
   return !!m && BARE_LINK_TLDS[m[1].toLowerCase()] === 1
+}
+
+function openableUrl(text) {
+  var s = String(text || "").trim()
+  if (/^https?:\/\//i.test(s) && looksLikeLink(s)) return s
+  if (/^www\./i.test(s) && looksLikeLink(s)) return "https://" + s
+  return looksLikeLink(s) ? "https://" + s : ""
 }
 
 function hex2(n) {
@@ -256,7 +264,7 @@ function previewText(text, limit) {
   return s.length > max ? s.slice(0, max) + "\n\u2026 (preview truncated)" : s
 }
 
-function normalizeEntry(entry, index) {
+function normalizeEntry(entry, index, qrByPath) {
   if (!entry || typeof entry !== "object") return null
   if (entry.type === "text" && typeof entry.text === "string") {
     var c = classifyText(entry.text)
@@ -281,15 +289,18 @@ function normalizeEntry(entry, index) {
     }
   }
   if (entry.type === "image" && typeof entry.path === "string") {
+    var qr = String(entry.qr || (qrByPath && qrByPath[entry.path]) || "")
     return {
       sourceIndex: index,
       type: "image",
       text: "",
       path: entry.path,
+      qr: qr,
+      qrUrl: openableUrl(qr),
       mime: entry.mime || "image/png",
       capturedAt: entry.capturedAt || "",
       title: basename(entry.path) || "Image",
-      subtitle: entry.capturedAt || entry.mime || "Image",
+      subtitle: qr ? ("QR: " + summarizeText(qr)) : (entry.capturedAt || entry.mime || "Image"),
       icon: "\uf1c5",
       kind: "Image",
       subtype: "image",
@@ -297,19 +308,19 @@ function normalizeEntry(entry, index) {
       secret: false,
       facts: [],
       preview: "",
-      searchBlob: (entry.path + "\n" + (entry.mime || "image/png") + "\n" + (entry.capturedAt || "") + "\nimage").toLowerCase()
+      searchBlob: (entry.path + "\n" + (entry.mime || "image/png") + "\n" + (entry.capturedAt || "") + "\nimage\n" + qr).toLowerCase()
     }
   }
   return null
 }
 
-function parseHistory(raw) {
+function parseHistory(raw, qrByPath) {
   var parsed = []
   try {
     var data = JSON.parse(String(raw || "[]"))
     if (!Array.isArray(data)) return []
     for (var i = 0; i < data.length; i++) {
-      var entry = normalizeEntry(data[i], i)
+      var entry = normalizeEntry(data[i], i, qrByPath || {})
       if (entry) parsed.push(entry)
     }
   } catch (e) {
@@ -336,6 +347,29 @@ function pathsToProbe(entries, known, limit) {
     if (known && known[e.path] !== undefined) continue
     out.push(e.path)
   }
+  return out
+}
+
+function qrPathsToProbe(entries, known, limit) {
+  var out = []
+  var seen = {}
+  for (var i = 0; i < entries.length && out.length < limit; i++) {
+    var e = entries[i]
+    if (e.type !== "image" || !e.path || seen[e.path]) continue
+    seen[e.path] = true
+    if (known && known[e.path] !== undefined) continue
+    out.push(e.path)
+  }
+  return out
+}
+
+function mergeQr(cache, fresh, maxEntries) {
+  var out = {}
+  var keys = Object.keys(cache || {})
+  var freshKeys = Object.keys(fresh || {})
+  var drop = Math.max(0, keys.length + freshKeys.length - maxEntries)
+  for (var i = drop; i < keys.length; i++) out[keys[i]] = cache[keys[i]]
+  for (var j = 0; j < freshKeys.length; j++) out[freshKeys[j]] = String(fresh[freshKeys[j]] || "")
   return out
 }
 

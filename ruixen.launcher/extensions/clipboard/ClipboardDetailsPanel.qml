@@ -26,6 +26,26 @@ Rectangle {
   property string pathStatus: ""
   readonly property bool masked: !!root.entry && root.entry.secret === true && !root.revealed
   readonly property bool isTextual: !!root.entry && root.entry.type !== "image"
+  readonly property var metadataFields: root.entry ? (function() {
+    var fields = [
+      { label: "Type", value: root.entry.kind },
+      { label: "Captured", value: root.entry.capturedAt || "Unknown" }
+    ]
+    var facts = root.entry.facts || []
+    for (var f = 0; f < facts.length; f++) fields.push(facts[f])
+    if (root.entry.subtype === "path") fields.push({ label: "Status", value: root.pathStatus || "Checking..." })
+    if (root.entry.type === "link") fields.push({ label: "URL", value: root.entry.text })
+    else if (root.entry.type === "image") fields.push({ label: "Mime", value: root.entry.mime || "Unknown" })
+    if (root.entry.type === "image") {
+      if (root.entry.qr) fields.push({ label: "QR", value: root.entry.qr })
+      fields.push({ label: "Dimensions", value: root.imageDimensions || "Loading..." })
+      fields.push({ label: "Size", value: root.imageSize || "Loading..." })
+    } else if (root.entry.type === "text" && !root.entry.secret) {
+      fields.push({ label: "Characters", value: String(root.characterCount(root.entry.text)) })
+      fields.push({ label: "Words", value: String(root.wordCount(root.entry.text)) })
+    }
+    return fields
+  })() : []
 
   signal revealRequested()
 
@@ -80,7 +100,7 @@ Rectangle {
           anchors.margins: 12
           anchors.topMargin: root.entry && root.entry.subtype === "color" ? 120 : 12
           text: !root.entry ? ""
-            : root.masked ? ("\u2022".repeat(Math.min(String(root.entry.text).trim().length, 32)) + "\n\nHidden \u2014 Alt+R to reveal")
+            : root.masked ? ("\u2022".repeat(Math.min(String(root.entry.text).trim().length, 32)) + "\n\nHidden")
             : ClipboardHistory.previewText(root.entry.preview || root.entry.text)
           color: root.textColor
           font.family: root.fontFamily
@@ -127,25 +147,7 @@ Rectangle {
       spacing: 8
 
       Repeater {
-        model: root.entry ? (function() {
-          var fields = [
-            { label: "Type", value: root.entry.kind },
-            { label: "Captured", value: root.entry.capturedAt || "Unknown" }
-          ]
-          var facts = root.entry.facts || []
-          for (var f = 0; f < facts.length; f++) fields.push(facts[f])
-          if (root.entry.subtype === "path") fields.push({ label: "Status", value: root.pathStatus || "Checking..." })
-          if (root.entry.type === "link") fields.push({ label: "URL", value: root.entry.text })
-          else if (root.entry.type === "image") fields.push({ label: "Mime", value: root.entry.mime || "Unknown" })
-          if (root.entry.type === "image") {
-            fields.push({ label: "Dimensions", value: root.imageDimensions || "Loading..." })
-            fields.push({ label: "Size", value: root.imageSize || "Loading..." })
-          } else if (!root.entry.secret) {
-            fields.push({ label: "Characters", value: String(root.characterCount(root.entry.text)) })
-            fields.push({ label: "Words", value: String(root.wordCount(root.entry.text)) })
-          }
-          return fields
-        })() : []
+        model: root.metadataFields
 
         Item {
           required property var modelData
@@ -188,74 +190,82 @@ Rectangle {
           }
         }
       }
-    }
 
-    Text {
-      topPadding: 6
-      text: "Actions"
-      color: root.muted
-      font.family: root.fontFamily
-      font.pixelSize: 10
-      font.capitalization: Font.AllUppercase
-      font.bold: true
-    }
+      Item {
+        width: parent.width
+        height: 26
 
-    Column {
-      width: parent.width
-      spacing: 8
+        Rectangle {
+          anchors.fill: parent
+          anchors.leftMargin: -10
+          anchors.rightMargin: -10
+          anchors.topMargin: -3
+          anchors.bottomMargin: -3
+          radius: 4
+          color: root.metadataFields.length % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
+        }
 
-      ClipboardActionRow {
-        striped: true
-        label: "Paste"
-        icon: "\uf0ea"
-        hint: "\u21b5"
-        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-        onClicked: root.pasteRequested()
-      }
+        Text {
+          id: actionsLabel
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Actions"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          font.capitalization: Font.AllUppercase
+        }
 
-      ClipboardActionRow {
-        label: "Copy"
-        icon: "\uf0c5"
-        hint: "Alt+C"
-        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-        onClicked: root.copyRequested()
-      }
+        Row {
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 6
 
-      ClipboardActionRow {
-        striped: true
-        label: "Open"
-        icon: "\uf35d"
-        hint: "Alt+O"
-        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-        onClicked: root.openRequested()
-      }
+          ClipboardMetaActionButton {
+            label: "Paste"
+            icon: "\uf0ea"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.pasteRequested()
+          }
 
-      ClipboardActionRow {
-        visible: !!root.entry && root.entry.type === "image"
-        label: "Paste path"
-        icon: "\uf101"
-        hint: "Alt+P"
-        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-        onClicked: root.pastePathRequested()
-      }
+          ClipboardMetaActionButton {
+            label: "Copy"
+            icon: "\uf0c5"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.copyRequested()
+          }
 
-      ClipboardActionRow {
-        visible: !!root.entry && root.entry.secret === true
-        label: root.revealed ? "Hide" : "Reveal"
-        icon: "\uf06e"
-        hint: "Alt+R"
-        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-        onClicked: root.revealRequested()
-      }
+          ClipboardMetaActionButton {
+            label: "Open"
+            icon: "\uf35d"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.openRequested()
+          }
 
-      ClipboardActionRow {
-        striped: !!root.entry && root.entry.type !== "image"
-        danger: true
-        label: root.deleteArmed ? "Press again to delete" : "Delete"
-        icon: "\uf1f8"
-        hint: "Alt+D"
-        textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-        onClicked: root.deleteRequested()
+          ClipboardMetaActionButton {
+            visible: !!root.entry && root.entry.type === "image"
+            label: "Path"
+            icon: "\uf101"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.pastePathRequested()
+          }
+
+          ClipboardMetaActionButton {
+            visible: !!root.entry && root.entry.secret === true
+            label: root.revealed ? "Hide" : "Reveal"
+            icon: "\uf06e"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.revealRequested()
+          }
+
+          ClipboardMetaActionButton {
+            danger: true
+            label: root.deleteArmed ? "Confirm" : "Delete"
+            icon: "\uf1f8"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.deleteRequested()
+          }
+        }
       }
     }
   }

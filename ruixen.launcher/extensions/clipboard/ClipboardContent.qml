@@ -12,6 +12,8 @@ Item {
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
+  property color glassTint: "#000000"
+  property color glassBorder: Qt.rgba(1, 1, 1, 0.08)
   property string fontFamily: "JetBrainsMono Nerd Font"
   property bool active: false
   property string searchText: ""
@@ -19,10 +21,14 @@ Item {
   readonly property string searchPlaceholder: "Search Clipboard"
   readonly property bool showsEnterHint: true
   readonly property bool interceptsArrowKeys: true
+  readonly property bool rightFocused: root.actionsMenuOpen
 
   readonly property string historyPath: Quickshell.env("HOME") + "/.local/state/omarchy/clipboard-history.json"
+  readonly property string qrCachePath: Quickshell.env("HOME") + "/.local/state/ruixen/clipboard-qr-cache.json"
+  property string lastHistoryRaw: "[]"
   property var entries: []
   property var imageDimensionsByPath: ({})
+  property var qrByPath: ({})
   // Chip-row view state (see chipRow below): Type filter + sort.
   property string kindFilter: ""
   property string sortKey: "recent"
@@ -48,6 +54,23 @@ Item {
   property string pendingImageDetailsPath: ""
   property string imageDimensions: ""
   property string imageSize: ""
+  property bool actionsMenuOpen: false
+  property int actionsSelectedIndex: 0
+  property real actionsMenuX: 0
+  property real actionsMenuY: 0
+  readonly property var clipboardActions: root.selectedEntry ? (function() {
+    var out = [
+      { id: "paste", label: "Paste" },
+      { id: "copy", label: "Copy" },
+      { id: "open", label: "Open" }
+    ]
+    if (root.selectedEntry.qr) out.push({ id: "copy-qr", label: "Copy QR Text" })
+    if (root.selectedEntry.qrUrl) out.push({ id: "open-qr", label: "Open QR Link" })
+    if (root.selectedEntry.type === "image") out.push({ id: "path", label: "Paste Path" })
+    if (root.selectedEntry.secret) out.push({ id: "reveal", label: root.revealed ? "Hide" : "Reveal" })
+    out.push({ id: "delete", label: root.deleteArmed ? "Confirm Delete" : "Delete" })
+    return out
+  })() : []
 
   function reloadHistory() {
     historyFile.reload()
@@ -58,7 +81,8 @@ Item {
     // item is copied while the launcher is open, so re-find the
     // highlighted entry by identity instead of keeping the old index.
     var keepKey = root.active ? ClipboardHistory.entryKey(root.selectedEntry) : ""
-    root.entries = ClipboardHistory.parseHistory(raw)
+    root.lastHistoryRaw = String(raw || "[]")
+    root.entries = ClipboardHistory.parseHistory(root.lastHistoryRaw, root.qrByPath)
     if (keepKey !== "") {
       for (var i = 0; i < root.rows.length; i++) {
         if (ClipboardHistory.entryKey(root.rows[i].clipboardEntry) === keepKey) {
@@ -69,7 +93,19 @@ Item {
     }
     if (root.kindFilter !== "" && root.kindsPresent.indexOf(root.kindFilter) === -1) root.kindFilter = ""
     root.requestImageLabels()
+    root.requestQrPayloads()
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
+  }
+
+  function loadQrCache(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "{}"))
+      root.qrByPath = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}
+    } catch (e) {
+      root.qrByPath = {}
+    }
+    root.entries = ClipboardHistory.parseHistory(root.lastHistoryRaw, root.qrByPath)
+    root.requestQrPayloads()
   }
 
   function ensureSelectionVisible() {
@@ -89,6 +125,7 @@ Item {
   onSelectedEntryChanged: {
     root.deleteArmedKey = ""
     root.revealedKey = ""
+    root.actionsMenuOpen = false
     root.loadPathStatus()
     root.loadImageDetails()
   }
@@ -102,15 +139,73 @@ Item {
   }
 
   function moveSelectionUp() {
+    if (root.actionsMenuOpen) {
+      if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex--
+      return
+    }
     if (root.selectedIndex > 0) root.selectedIndex--
   }
 
   function moveSelectionDown() {
+    if (root.actionsMenuOpen) {
+      if (root.actionsSelectedIndex < root.clipboardActions.length - 1) root.actionsSelectedIndex++
+      return
+    }
     if (root.selectedIndex < root.rows.length - 1) root.selectedIndex++
   }
 
   function activateSelection() {
-    root.pasteSelected()
+    if (root.actionsMenuOpen) {
+      var action = root.clipboardActions[root.actionsSelectedIndex]
+      if (action) root.runClipboardAction(action.id)
+      return
+    }
+    root.copySelected()
+  }
+
+  function focusRightPanel() {
+    if (root.actionsMenuOpen) {
+      root.closeActionsMenu()
+      return
+    }
+    root.openActionsMenu()
+  }
+
+  function blurToLeftPanel() {
+    root.closeActionsMenu()
+  }
+
+  function openActionsMenu() {
+    if (root.clipboardActions.length === 0) return
+    root.actionsSelectedIndex = 0
+    root.actionsMenuOpen = true
+    root.positionActionsMenuNearSelection()
+  }
+
+  function closeActionsMenu() {
+    root.actionsMenuOpen = false
+  }
+
+  function positionActionsMenuNearSelection() {
+    var item = clipboardResultsList.itemAtIndex(root.selectedIndex)
+    if (!item) return
+    var scenePos = item.mapToItem(null, 0, item.height)
+    var localPos = root.mapFromItem(null, scenePos.x, scenePos.y)
+    var menuHeight = root.clipboardActions.length * 34 + 8
+    root.actionsMenuX = Math.max(8, Math.min(localPos.x + 6, root.width - clipboardResultsList.width - 8))
+    root.actionsMenuY = Math.max(chipRow.height + 8, Math.min(localPos.y + 4, root.height - menuHeight - 8))
+  }
+
+  function runClipboardAction(id) {
+    if (id === "paste") root.pasteSelected()
+    else if (id === "copy") root.copySelected()
+    else if (id === "open") root.openSelected()
+    else if (id === "copy-qr") root.copyQrSelected()
+    else if (id === "open-qr") root.openQrSelected()
+    else if (id === "path") root.pasteSelectedPath()
+    else if (id === "reveal") root.toggleReveal()
+    else if (id === "delete") root.deleteSelected()
+    if (!(id === "delete" && root.deleteArmed)) root.closeActionsMenu()
   }
 
   function pasteSelected() {
@@ -138,9 +233,21 @@ Item {
       openProc.exec(["xdg-open", ClipboardHistory.expandHome(e.text, Quickshell.env("HOME"))])
     } else if (e.subtype === "email") {
       openProc.exec(["xdg-open", "mailto:" + e.text.trim()])
+    } else if (e.qrUrl) {
+      openProc.exec(["omarchy-launch-browser", e.qrUrl])
     } else {
       openProc.exec(["omarchy-clipboard-open", "--history-index", String(e.sourceIndex)])
     }
+  }
+
+  function copyQrSelected() {
+    if (!root.selectedEntry || !root.selectedEntry.qr) return
+    qrTextProc.exec(["wl-copy", root.selectedEntry.qr])
+  }
+
+  function openQrSelected() {
+    if (!root.selectedEntry || !root.selectedEntry.qrUrl) return
+    openProc.exec(["omarchy-launch-browser", root.selectedEntry.qrUrl])
   }
 
   // Two-step delete: the first request arms it for the highlighted entry
@@ -274,7 +381,10 @@ Item {
   // mid-run just marks the worker dirty and reruns after its real exit.
   readonly property int imageProbeLimit: 40
   readonly property int imageCacheLimit: 300
+  readonly property int qrProbeLimit: 20
+  readonly property int qrCacheLimit: 300
   property bool imageLabelsDirty: false
+  property bool qrPayloadsDirty: false
 
   function requestImageLabels() {
     if (imageRowLabelsProc.running) {
@@ -297,6 +407,30 @@ Item {
       "print(json.dumps(out, separators=(',', ':')))"].concat(paths))
   }
 
+  function requestQrPayloads() {
+    if (qrPayloadsProc.running) {
+      root.qrPayloadsDirty = true
+      return
+    }
+    var paths = ClipboardHistory.qrPathsToProbe(root.entries, root.qrByPath, root.qrProbeLimit)
+    if (paths.length === 0) return
+    qrPayloadsProc.exec(["python3", "-c",
+      "import json, shutil, subprocess, sys\n" +
+      "out = {}\n" +
+      "zbar = shutil.which('zbarimg')\n" +
+      "for path in sys.argv[1:]:\n" +
+      "    payload = ''\n" +
+      "    if zbar:\n" +
+      "        try:\n" +
+      "            r = subprocess.run([zbar, '-q', '--raw', '--', path], check=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=3)\n" +
+      "            if r.returncode == 0:\n" +
+      "                payload = r.stdout.decode('utf-8', 'replace').rstrip('\\n')\n" +
+      "        except Exception:\n" +
+      "            payload = ''\n" +
+      "    out[path] = payload\n" +
+      "print(json.dumps(out, separators=(',', ':')))"].concat(paths))
+  }
+
   FileView {
     id: historyFile
     path: root.historyPath
@@ -307,10 +441,21 @@ Item {
     onLoadFailed: root.loadHistory("[]")
   }
 
+  FileView {
+    id: qrCacheFile
+    path: root.qrCachePath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadQrCache(text())
+    onLoadFailed: root.loadQrCache("{}")
+  }
+
   Process { id: pasteTextProc }
   Process { id: pasteFileProc }
   Process { id: openProc }
   Process { id: pastePathProc }
+  Process { id: qrTextProc }
   Process {
     id: pathStatusProc
     stdout: StdioCollector {
@@ -353,6 +498,29 @@ Item {
       if (!running && root.imageLabelsDirty) {
         root.imageLabelsDirty = false
         root.requestImageLabels()
+      }
+    }
+  }
+
+  Process {
+    id: qrPayloadsProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try {
+          var parsed = JSON.parse(text || "{}")
+          if (parsed && typeof parsed === "object") {
+            root.qrByPath = ClipboardHistory.mergeQr(root.qrByPath, parsed, root.qrCacheLimit)
+            qrCacheFile.setText(JSON.stringify(root.qrByPath, null, 2) + "\n")
+            root.entries = ClipboardHistory.parseHistory(root.lastHistoryRaw, root.qrByPath)
+          }
+        } catch (e) {}
+      }
+    }
+    onRunningChanged: {
+      if (!running && root.qrPayloadsDirty) {
+        root.qrPayloadsDirty = false
+        root.requestQrPayloads()
       }
     }
   }
@@ -490,7 +658,28 @@ Item {
     rowHeightPx: 44
     sectionHeaderHeight: 26
     onRowHovered: (idx) => root.selectedIndex = idx
-    onRowActivated: (idx) => { root.selectedIndex = idx; root.pasteSelected() }
+    onRowActivated: (idx) => { root.selectedIndex = idx; root.copySelected() }
+    onRowActionsRequested: (idx) => {
+      root.selectedIndex = idx
+      root.openActionsMenu()
+    }
+  }
+
+  ResultActionsMenu {
+    parent: root
+    x: root.actionsMenuX
+    y: root.actionsMenuY
+    visible: root.actionsMenuOpen
+    actions: root.clipboardActions
+    selectedIndex: root.actionsSelectedIndex
+    textColor: root.textColor
+    accentColor: root.accent
+    glassTint: root.glassTint
+    glassBorder: root.glassBorder
+    fontFamily: root.fontFamily
+    menuWidth: clipboardResultsList.width - 12
+    onActionHovered: (idx) => root.actionsSelectedIndex = idx
+    onActionActivated: (id) => root.runClipboardAction(id)
   }
 
   ClipboardDetailsPanel {

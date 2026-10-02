@@ -58,8 +58,8 @@ function motifLabel(motif) {
 // directly rather than assumed. Malformed/empty input (a network
 // failure's own error body, say) fails closed to an empty list rather
 // than throwing.
-function parseThemesJs(text) {
-  var m = /window\.THEMES\s*=\s*(\[[\s\S]*\]);?/.exec(String(text || ""))
+function parseThemesJs(text, preferredVariant) {
+  var m = /window\.THEMES\s*=\s*([\s\S]*?)\s*;?\s*$/.exec(String(text || ""))
   if (!m) return []
   var data
   try {
@@ -67,7 +67,29 @@ function parseThemesJs(text) {
   } catch (e) {
     return []
   }
-  return Array.isArray(data) ? data : []
+  if (Array.isArray(data)) return data
+  if (!data || !Array.isArray(data.themes)) return []
+
+  var variantKey = preferredVariant || "dark"
+  var out = []
+  for (var i = 0; i < data.themes.length; i++) {
+    var base = data.themes[i] || {}
+    var variants = base.variants || {}
+    var variant = variants[variantKey]
+    if (!variant) continue
+    out.push({
+      index: base.index,
+      name: variant.name || base.name || "",
+      base: base.name || "",
+      night: base.slug || "",
+      slug: variant.install || variant.slug || base.slug || "",
+      motif: base.motif || "",
+      icons: variant.icons || base.icons || "",
+      colors: variant.colors || {},
+      ansi: variant.ansi || []
+    })
+  }
+  return out
 }
 
 // Case-insensitive substring match against the real display name
@@ -260,17 +282,29 @@ function themeRows(themes, installedSlugs, variant, mutedColor, currentSlug) {
 // rather than guessed. Each repo serves its own gh-pages site under
 // its own name.
 function themesDataUrl(variant) {
-  var repo = variant === "light" ? "100-themes-day" : "100-themes"
-  return "https://bjarneo.github.io/" + repo + "/assets/themes.js"
+  return "https://bjarneo.github.io/100-themes/assets/themes.js"
 }
 
-// slug here is the REAL per-variant slug (e.g. "synthwave-day" for
-// light, already the exact value that variant's own themes.js entry
-// carries) -- callers already have the right one in hand from the
-// loaded data, this never needs to derive it from a base name.
+function upstreamVariantFor(variant) {
+  return variant === "light" ? "day" : "dark"
+}
+
+function upstreamThemeSlugFor(slug, variant) {
+  var text = String(slug || "")
+  if (variant === "light" && text.slice(-4) === "-day") return text.slice(0, -4)
+  return text
+}
+
+// The upstream catalog now serves every variant from bjarneo/100-themes
+// under <theme>/<variant>/... (e.g. synthwave/dark/preview.png and
+// synthwave/day/colors.toml). The local installed slug still follows
+// Omarchy's real theme name convention (synthwave-day), so derive the
+// upstream base slug here before building the fetch URL.
 function themeFileUrl(slug, variant, relativePath) {
-  var repo = variant === "light" ? "100-themes-day" : "100-themes"
-  return "https://bjarneo.github.io/" + repo + "/" + slug + "/" + relativePath
+  return "https://raw.githubusercontent.com/bjarneo/100-themes/main/"
+    + upstreamThemeSlugFor(slug, variant) + "/"
+    + upstreamVariantFor(variant) + "/"
+    + relativePath
 }
 
 // --- Stage 2: install -------------------------------------------------
@@ -313,8 +347,9 @@ function isSafeThemeSlug(slug) {
 // (never during browsing), well inside GitHub's unauthenticated rate
 // limit for how infrequently a real install happens.
 function backgroundsApiUrl(slug, variant) {
-  var repo = variant === "light" ? "100-themes-day" : "100-themes"
-  return "https://api.github.com/repos/bjarneo/" + repo + "/contents/" + slug + "/backgrounds"
+  return "https://api.github.com/repos/bjarneo/100-themes/contents/"
+    + upstreamThemeSlugFor(slug, variant) + "/"
+    + upstreamVariantFor(variant) + "/backgrounds"
 }
 
 // Same character class isSafeThemeSlug enforces on a theme's own slug,

@@ -126,8 +126,8 @@ helpers rather than a second clipboard backend.
 
 | Key | Action |
 | --- | --- |
-| `Enter` | Paste the highlighted entry |
-| `Alt+C` | Copy only |
+| `Enter` | Copy the highlighted entry |
+| `Alt+C` | Copy the highlighted entry |
 | `Alt+O` | Open |
 | `Alt+P` | Paste an image's file path |
 | `Alt+D` | Delete (press twice to confirm) |

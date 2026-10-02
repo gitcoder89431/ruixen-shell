@@ -89,12 +89,24 @@ check "Content: drag MouseArea stops the ListView stealing the gesture" \
   "$(grep -c 'preventStealing: true' "$content")" "1"
 check "Content: thumbnails use the tested URI encoder, not string concat" \
   "$(grep -c 'ShelfModel.uriFor(row.entry.path)' "$content")$(grep -c '"file://" + ' "$content")" "10"
+check "Copy semantics: acceptProposedAction() is never used in the shelf or the notch quick-drop" \
+  "$(cat "$shelf_dir"/*.qml "$notch" | grep -c '\.acceptProposedAction(' || true)" "0"
+check "Copy semantics: the open Shelf accepts drags and drops with Qt.CopyAction explicitly" \
+  "$(grep -c 'drag.accept(Qt.CopyAction)\|drop.accept(Qt.CopyAction)' "$content")" "2"
+check "Copy semantics: the notch quick-drop accepts with Qt.CopyAction explicitly" \
+  "$(grep -A45 'id: shelfQuickDrop' "$notch" | grep -c 'drag.accept(Qt.CopyAction)\|drop.accept(Qt.CopyAction)')" "2"
+check "Copy semantics: drag-out only advertises CopyAction" \
+  "$(grep -c 'Drag.supportedActions: Qt.CopyAction' "$content")" "1"
+check "Content: a drop is only accepted once the shelf actually added something" \
+  "$(grep -B1 'drop.accept(Qt.CopyAction)' "$content" | grep -c 'result.added.length > 0')" "1"
+check "Content: drag-enter and drop use the same acceptability gate as the service" \
+  "$(grep -c 'ShelfModel.normalizePath' "$content")" "3"
 check "Content: ignores drags that started from its own rows" "$(grep -c 'if (drop.source) return' "$content")" "1"
 check "Content: only local files from a drop" "$(grep -c 'ShelfModel.fileUrlToPath' "$content")" "1"
 check "Content: drag out copies; nothing removes an item automatically" \
   "$(grep -c 'onDragFinished' "$content")$(grep -c 'removeItem' "$content")" "11"
 check "Shelf holds references only: no cp/mv/rm in the QML" \
-  "$(grep -E '"(cp|mv|rm)"' "$service" "$content" | wc -l | tr -d ' ')" "0"
+  "$(cat "$service" "$content" | grep -cE '"(cp|mv|rm)"' || true)" "0"
 
 # --- the notch: only the quick-drop relay, no Shelf UI ----------------
 check "Notch: no Shelf service/content/tab left behind" \
@@ -104,7 +116,8 @@ check "Notch: quick-drop DropArea on the collapsed footprint" \
   "$(grep -c 'id: shelfQuickDrop' "$notch")" "1"
 check "Notch: quick-drop is inert while expanded" \
   "$(grep -A8 'id: shelfQuickDrop' "$notch" | grep -c 'enabled: !panel.expanded')" "1"
-check "Notch: quick-drop only accepts local file URLs" "$(grep -c 'indexOf("file://") === 0' "$notch")" "1"
+check "Notch: quick-drop only accepts local file URLs with a real path" \
+  "$(grep -c 'file:\\/\\/(?:localhost)?\\/\.+' "$notch")" "1"
 check "Notch: relays one batched IPC call to ruixen.shelf, not one per path" \
   "$(grep -c '"omarchy-shell", "ruixen.shelf", "addMany"' "$notch")" "1"
 check "Notch: relay queues behind a running relay (never reassigns a live Process)" \

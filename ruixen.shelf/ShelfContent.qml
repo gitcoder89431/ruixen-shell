@@ -59,30 +59,42 @@ Item {
     return parts.join(" · ")
   }
 
-  // Drops: only local files/folders go on the shelf (a dragged web
-  // image arrives as an http URL and is ignored). A drag that started
-  // from one of this shelf's own rows (drop.source is set for
-  // in-process drags) is ignored too, so dragging out and releasing
-  // back over the panel doesn't reshuffle the list.
-  function handleDrop(drop) {
-    if (drop.source) return
+  // Candidate shelf paths in a drag/drop event: local file URLs first, else
+  // plain-text lines that are themselves absolute paths (a terminal or text
+  // field can drag one). ShelfModel.normalizePath is the same gate the
+  // service applies, so "acceptable here" and "accepted by the shelf" agree.
+  // A dragged web image arrives as an http(s) URL and yields nothing.
+  function dropPaths(ev) {
     var paths = []
-    var urls = drop.urls || []
+    var urls = ev.urls || []
     for (var i = 0; i < urls.length; i++) {
       var p = ShelfModel.fileUrlToPath(String(urls[i]))
-      if (p !== "") paths.push(p)
+      if (ShelfModel.normalizePath(p) !== "") paths.push(p)
     }
-    if (paths.length === 0 && drop.hasText) {
-      var lines = String(drop.text).split("\n")
+    if (paths.length === 0 && ev.hasText) {
+      var lines = String(ev.text).split("\n")
       for (var j = 0; j < lines.length; j++) {
         var line = lines[j].trim()
-        if (line !== "") paths.push(line)
+        if (ShelfModel.normalizePath(line) !== "") paths.push(line)
       }
     }
-    if (paths.length > 0 && root.shelfService) {
-      root.shelfService.addPaths(paths, "user")
-      drop.acceptProposedAction()
-    }
+    return paths
+  }
+
+  // The shelf stores references and never moves or deletes the source, so
+  // it only ever advertises/accepts COPY semantics -- explicitly, never
+  // acceptProposedAction(), which would echo back a MoveAction a source app
+  // proposed and let it believe the move succeeded.
+  //
+  // A drag that started from one of this shelf's own rows (drop.source is
+  // set for in-process drags) is ignored, so dragging out and releasing back
+  // over the panel doesn't reshuffle the list.
+  function handleDrop(drop) {
+    if (drop.source) return
+    var paths = root.dropPaths(drop)
+    if (paths.length === 0 || !root.shelfService) return
+    var result = root.shelfService.addPaths(paths, "user")
+    if (result.added.length > 0) drop.accept(Qt.CopyAction)
   }
 
   Process { id: copyProc }
@@ -91,7 +103,7 @@ Item {
   DropArea {
     id: dropArea
     anchors.fill: parent
-    onEntered: (drag) => { drag.accepted = !drag.source && (drag.hasUrls || drag.hasText) }
+    onEntered: (drag) => { if (!drag.source && root.dropPaths(drag).length > 0) drag.accept(Qt.CopyAction) }
     onDropped: (drop) => root.handleDrop(drop)
 
     // Header

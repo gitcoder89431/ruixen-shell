@@ -1563,13 +1563,20 @@ Item {
         var out = []
         for (var i = 0; i < (urls || []).length; i++) {
           var s = String(urls[i])
-          if (s.indexOf("file://") === 0) out.push(s)
+          // A real path after the scheme -- "file:///" (the filesystem
+          // root) is rejected by the Shelf anyway, so don't accept it here.
+          if (/^file:\/\/(?:localhost)?\/.+/i.test(s)) out.push(s)
         }
         return out
       }
+      // Copy semantics only, explicitly (never acceptProposedAction(),
+      // which would echo a source app's proposed MoveAction): the Shelf
+      // stores a reference and never moves or deletes the source.
       onEntered: (drag) => {
-        drag.accepted = shelfQuickDrop.localUrls(drag.urls).length > 0
-        if (drag.accepted) root.notchHoverEntered()
+        if (shelfQuickDrop.localUrls(drag.urls).length > 0) {
+          drag.accept(Qt.CopyAction)
+          root.notchHoverEntered()
+        }
       }
       onExited: root.notchHoverExited()
       onDropped: (drop) => {
@@ -1577,7 +1584,7 @@ Item {
         root.notchHoverExited()
         if (urls.length === 0) return
         root.relayToShelf(urls)
-        drop.acceptProposedAction()
+        drop.accept(Qt.CopyAction)
       }
 
       Rectangle {

@@ -342,6 +342,15 @@ per-column add buttons, hover edit/delete on each card, and a done/total
 progress bar. Renaming a column stays CLI-only. Full command reference and
 how the click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
 
+## Shelf (drop pocket)
+
+`ruixen.notch`'s dashboard has a 5th tab: a drop pocket. Drag files in from any
+app, drag them back out into another app or a terminal. It remembers file
+paths, never copies anything. It's agent-readable too — `omarchy-shell
+ruixen.notch shelfList` shows an agent what you dropped, and `shelfAdd
+/abs/path` lets it put a file on the shelf for you to drag out. Details:
+[`docs/CONTROL.md`](docs/CONTROL.md).
+
 ## Window look'n'feel (Hyprland)
 
 Ruixen also rounds window corners and adds blur, to match the frame/bar.

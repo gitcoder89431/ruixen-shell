@@ -74,7 +74,7 @@ o.bind("SUPER + L", "App launcher", "omarchy-shell ruixen.notch toggleLauncher")
 ```
 
 `toggleDashboard`/`openDashboard` open on whichever tab (Widgets/
-Wallpapers/Metrics/Kanban) was last selected. Want a keybind that jumps
+Wallpapers/Metrics/Kanban/Shelf) was last selected. Want a keybind that jumps
 straight to one tab instead — e.g. to check the Kanban board? Use
 `openDashboardTab` with the tab name instead:
 
@@ -82,7 +82,14 @@ straight to one tab instead — e.g. to check the Kanban board? Use
 o.bind("SUPER + K", "Kanban board", "omarchy-shell ruixen.notch openDashboardTab kanban")
 ```
 
-Valid tab names: `widgets`, `wallpapers`, `metrics`, `kanban`. Unlike
+The Shelf (drop pocket) has its own open/close toggle, handy to press right
+before you start dragging a file — a drop needs the notch already expanded:
+
+```lua
+o.bind("SUPER + SHIFT + S", "Ruixen shelf", "omarchy-shell ruixen.notch toggleShelf")
+```
+
+Valid tab names: `widgets`, `wallpapers`, `metrics`, `kanban`, `shelf`. Unlike
 Settings' `summon` above, this is its own dedicated function taking a
 plain string, not a JSON payload on `openDashboard` itself — Quickshell's
 IpcHandler enforces exact argument count against a function's declared

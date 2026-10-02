@@ -519,6 +519,13 @@ Item {
     id: kanbanService
   }
 
+  // The notch's own Shelf tab backing store (5th dashboard tab) -- a
+  // drop pocket of file references, readable/writable by agents over
+  // the shelf* IPC functions below. See ShelfService.qml's own header.
+  ShelfService {
+    id: shelfService
+  }
+
   // ruixen-shell issue #44/#38: shell.appLibrary only populates for a
   // plugin declaring manifest kind "menu" -- this file has no reason to
   // claim that kind, so LauncherContent.qml's own search/launch/icons
@@ -1349,7 +1356,7 @@ Item {
       // to bottom. An unrecognized name is a no-op on the tab (still
       // opens on whichever tab was already selected).
       function openDashboardTab(tab: string): void {
-        var tabNames = ["widgets", "wallpapers", "metrics", "kanban"]
+        var tabNames = ["widgets", "wallpapers", "metrics", "kanban", "shelf"]
         var index = tabNames.indexOf(tab)
         if (index >= 0) panel.dashboardTab = index
         panel.pinnedOpen = true
@@ -1445,6 +1452,41 @@ Item {
       // script (or me, driving the board on your behalf) reads it back
       // without any QML access at all.
       function kanbanListCards(): string { return kanbanService.listCards() }
+
+      // Shelf tab (5th dashboard tab) -- a drop pocket of file
+      // references. Same agent-native shape as the kanban* functions
+      // above: the panel's own drops/buttons call these same
+      // ShelfService functions, so the CLI and the GUI are one API.
+      //
+      // Opens the notch ON the shelf tab (a closed notch opens there,
+      // an open one just flips pinnedOpen), same shape as
+      // toggleWallpapers. Handy before a drag: the notch has to be
+      // expanded for the shelf to receive a drop.
+      function toggleShelf(): void {
+        if (!panel.pinnedOpen) panel.dashboardTab = 4
+        panel.pinnedOpen = !panel.pinnedOpen
+      }
+      // Puts an absolute path (or file:// URL, or ~/ path) on the
+      // shelf, tagged source "agent" so the panel shows who added it --
+      // the way an agent hands you a file to drag out. Relative paths
+      // are rejected (the shell's own working directory is not yours).
+      // Returns JSON: {"ok":true,"id":...,"path":...} or
+      // {"ok":false,"error":...}.
+      function shelfAdd(path: string): string {
+        var result = shelfService.addPaths([path], "agent")
+        if (result.added.length === 0)
+          return JSON.stringify({ ok: false, error: "not an absolute local path: " + path })
+        return JSON.stringify({ ok: true, id: result.added[0] })
+      }
+      // By id (from shelfList) or by path. {"ok":false} when nothing matched.
+      function shelfRemove(idOrPath: string): string {
+        return JSON.stringify({ ok: shelfService.removeItem(idOrPath) })
+      }
+      function shelfClear(): void { shelfService.clear() }
+      // Returns {"items":[{id,path,name,source,addedAt,exists,kind,size}]}
+      // -- how an agent sees what you dropped (then reads the paths
+      // itself). "exists" is null until a path has been checked.
+      function shelfList(): string { return shelfService.listItems() }
     }
 
     // Fire-once, not auto-running -- triggered by the tab bar's bottom
@@ -1550,7 +1592,7 @@ Item {
           panel.launcherOpen = false
           event.accepted = true
         } else if (event.key === Qt.Key_Tab && panel.pinnedOpen && !panel.launcherOpen) {
-          panel.dashboardTab = (panel.dashboardTab + 1) % 4
+          panel.dashboardTab = (panel.dashboardTab + 1) % 5
           event.accepted = true
         }
       }
@@ -2526,7 +2568,10 @@ Item {
               Layout.preferredWidth: 78
               Layout.maximumWidth: 78
               Layout.fillHeight: true
-              spacing: 8
+              // 6, not 8 -- five tabs plus the gear at 56px each need
+              // 6*56 + 5*gap to fit the notch's 368px of usable
+              // height (400 - 20 top - 12 bottom): 8 overflowed by 8px.
+              spacing: 6
 
               // Explicitly sets pinnedOpen: true too, even though it's
               // already true by the time a tab is clickable at all
@@ -2552,6 +2597,11 @@ Item {
                 glyph: ""
                 active: panel.dashboardTab === 3
                 onActivated: { panel.dashboardTab = 3; panel.pinnedOpen = true }
+              }
+              TabButton {
+                glyph: ""
+                active: panel.dashboardTab === 4
+                onActivated: { panel.dashboardTab = 4; panel.pinnedOpen = true }
               }
 
               Item { Layout.fillHeight: true }
@@ -2689,6 +2739,17 @@ Item {
                 editorSurface: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.075)
                 fontFamily: root.fontFamily
                 kanbanService: kanbanService
+              }
+
+              ShelfContent {
+                anchors.fill: parent
+                visible: panel.dashboardTab === 4
+                active: panel.dashboardTab === 4 && panel.expanded
+                textColor: root.textColor
+                muted: root.muted
+                accent: root.accent
+                fontFamily: root.fontFamily
+                shelfService: shelfService
               }
             }
           }

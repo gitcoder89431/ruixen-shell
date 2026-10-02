@@ -199,8 +199,23 @@ check "Inbox: the strip is bounded by anchors, not by content, so it cannot stre
   "$(grep -c 'orientation: ListView.Horizontal' "$content")" "1"
 check "Inbox: the window itself is a fixed size, so nothing content-driven can grow it" \
   "$(grep -c 'implicitWidth: root.shapeWidth + root.haloPad \* 2' "$shelf")$(grep -c 'implicitHeight: root.shapeHeight + root.haloPad' "$shelf")" "11"
-check "Inbox: the wheel scrolls the strip (target: null, not fighting the view's own handling)" \
-  "$(grep -c 'WheelHandler {' "$content")" "1"
+# Wheel scrolling: a wheel-only MouseArea laid over the strip as a SIBLING,
+# not a WheelHandler inside the ListView (that one did not scroll live: a
+# pointer handler declared in a Flickable attaches to its content item, so it
+# depends on event delivery order). NoButton so it takes no presses and the
+# cards' clicks / double-click / drag-out still reach what is underneath.
+check "Inbox: the wheel is received by a wheel-only MouseArea over the strip, not a WheelHandler" \
+  "$(grep -c 'id: stripWheel' "$content")$(grep -c 'WheelHandler {' "$content" || true)" "10"
+check "Inbox: that MouseArea covers exactly the strip and takes NO mouse buttons (clicks and drag-out pass through)" \
+  "$(sed -n '/id: stripWheel/,/onWheel:/p' "$content" | grep -c 'anchors.fill: list')$(sed -n '/id: stripWheel/,/onWheel:/p' "$content" | grep -c 'acceptedButtons: Qt.NoButton')" "11"
+check "Inbox: the wheel handler passes the event on when it cannot scroll (does not swallow it)" \
+  "$(grep -c 'wheel.accepted = delta !== 0 && root.scrollStrip(-delta)' "$content")" "1"
+check "Inbox: the wheel MouseArea is declared AFTER the list, so it sits above it" \
+  "$(awk '/^    ListView \{/{l=NR} /id: stripWheel/{w=NR} END{print (l>0 && w>l) ? "after" : "before"}' "$content")" "after"
+check "Keyboard: pressing a card focuses the strip, so the arrows have a target once the shelf is full" \
+  "$(sed -n '/id: rowArea/,/onDoubleClicked/p' "$content" | grep -c 'list.forceActiveFocus()')" "1"
+check "Keyboard: the shelf's focus scope forwards arrows/Home/End to the strip (works after a click anywhere)" \
+  "$(grep -c 'Keys.onPressed: (event) => shelfContent.handleStripKey(event)' "$shelf")$(grep -c 'id: shelfContent' "$shelf")" "11"
 check "Inbox: wheel scrolling is clamped to the content, so it cannot rubber-band past the end" \
   "$(grep -c 'var next = Math.max(0, Math.min(max, list.contentX + step))' "$content")" "1"
 check "Inbox: the cards are a fixed width, not content-sized" \

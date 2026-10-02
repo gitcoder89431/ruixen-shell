@@ -446,8 +446,15 @@ Item {
         anchors.topMargin: root.contentTopInset
         focus: true
         Keys.onEscapePressed: root.dismiss()
+        // Arrows/Home/End scroll the strip whenever the shelf has keyboard
+        // focus, not only when the search field or the list holds item
+        // focus (clicking a card or empty space leaves neither focused).
+        // Only those keys are accepted; everything else, Escape included,
+        // falls through to the handlers below and above.
+        Keys.onPressed: (event) => shelfContent.handleStripKey(event)
 
         ShelfContent {
+          id: shelfContent
           anchors.fill: parent
           active: root.opened
           textColor: root.textColor

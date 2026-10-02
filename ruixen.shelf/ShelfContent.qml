@@ -534,41 +534,6 @@ Item {
       flickDeceleration: 4000
       boundsBehavior: Flickable.StopAtBounds
 
-      // Map the wheel onto the strip's own axis. Qt's Flickable does try
-      // to handle a perpendicular wheel event itself, but not uniformly
-      // across versions/orientations, and here there IS no perpendicular
-      // axis to fall back on: if this handler is wrong, the shelf has no
-      // way to scroll at all and files past the right edge are simply
-      // unreachable. target: null keeps it deterministic instead of
-      // letting it fight the view's own handling.
-      // UNVERIFIED: this handler does not scroll in practice (the strip is
-      // 2104px of content in an ~850px view, so there is definitely room to
-      // move). Whether the handler is never invoked at all, or fires and the
-      // math is wrong, is still unknown -- it could not be reproduced
-      // headlessly because synthesizing a wheel event needs /dev/uinput
-      // write access, which is not available. To settle it in one step, put
-      // this back in onWheel and scroll with the cursor over the open shelf:
-      //
-      //   console.log("cw=" + list.contentWidth + " w=" + list.width
-      //     + " cx=" + list.contentX + " dy=" + wheel.angleDelta.y)
-      //   journalctl --user -b 0 --since "-1min" | grep cw=
-      //
-      // cw=2104 w=850  -> the handler IS firing, so the bug is below here.
-      // (no output)      -> wheel events never reach this layer surface at
-      //                    all, and the handler is the wrong place to fix it.
-      WheelHandler {
-        target: null
-        onWheel: (wheel) => {
-          // Wheel-up/deltaY-positive has always scrolled leftward here, and
-          // that is the right way round for a horizontal strip.
-          var dy = wheel.angleDelta.y + wheel.pixelDelta.y
-          var dx = wheel.angleDelta.x + wheel.pixelDelta.x
-          var delta = dx !== 0 ? dx : dy
-          if (delta === 0) return
-          if (root.scrollStrip(-delta)) wheel.accepted = true
-        }
-      }
-
       delegate: Item {
         id: row
         required property var modelData
@@ -622,7 +587,13 @@ Item {
           // the press/gesture (it wants to scroll) before a drag out can
           // begin.
           preventStealing: true
-          onPressed: row.grabToImage(function(result) { dragProxy.Drag.imageSource = result.url })
+          // Pressing a card focuses the strip: with a full shelf there is no
+          // bare strip left to click, and the arrow keys only reach the
+          // list once it has focus.
+          onPressed: {
+            list.forceActiveFocus()
+            row.grabToImage(function(result) { dragProxy.Drag.imageSource = result.url })
+          }
           onDoubleClicked: openProc.exec(["xdg-open", row.entry.path])
         }
 
@@ -768,6 +739,34 @@ Item {
             }
           }
         }
+      }
+    }
+
+    // Wheel -> strip. A wheel-only MouseArea laid over the strip as a SIBLING
+    // of the ListView, not a WheelHandler declared inside it. The handler
+    // version did not scroll live (the journal probe for why was never
+    // run), and a pointer handler declared in a Flickable is attached to its
+    // scrolling content item, so whether it sees the wheel depends on event
+    // delivery order. This does not: a MouseArea with onWheel connected
+    // accepts wheel events under it, and acceptedButtons: NoButton means it
+    // takes NO presses, so clicks, double-clicks and the cards' drag-out
+    // all still reach what is underneath. Declared after the list, so it
+    // sits above it.
+    MouseArea {
+      id: stripWheel
+      anchors.fill: list
+      visible: list.visible
+      acceptedButtons: Qt.NoButton
+      onWheel: (wheel) => {
+        // A mouse wheel notch is 120 on the y axis, a horizontal wheel or
+        // touchpad swipe reports x: use whichever axis moved. Wheel down
+        // (negative y) moves the strip toward the right.
+        var dy = wheel.angleDelta.y + wheel.pixelDelta.y
+        var dx = wheel.angleDelta.x + wheel.pixelDelta.x
+        var delta = dx !== 0 ? dx : dy
+        // Not scrolled (nothing to scroll, or already at that end): let the
+        // event pass on instead of swallowing it.
+        wheel.accepted = delta !== 0 && root.scrollStrip(-delta)
       }
     }
 

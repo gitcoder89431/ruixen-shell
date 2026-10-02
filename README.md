@@ -344,7 +344,7 @@ how the click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
 
 ## Shelf (drop pocket)
 
-`ruixen.shelf` is a small window that opens under the notch: drag files in
+`ruixen.shelf` is a panel that grows out of the frame at the notch's position — the notch's expanded silhouette, with concave wing shoulders, hanging from the top edge: drag files in
 from any app, drag them back out into another app or a terminal. It
 remembers file paths, never copies anything. Drag local files over the
 collapsed notch and drop to add them without opening the window. It's

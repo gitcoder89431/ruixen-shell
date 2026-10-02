@@ -210,15 +210,22 @@ shadow). This bit hard during the frame-color/docked-shadow work
 (2026-09-24) and will bite again on any future glass-surface pass — read
 this before touching any of the three.
 
-- **`ruixen.shelf` is a fourth, looser consumer.** Its window (a drop
-  pocket that opens under the notch — `ruixen.shelf/Shelf.qml`) reads the
-  same Black/Theme surface state (`bar-surface.json`, legacy
-  `frame-appearance.json` fallback) and keeps its own copy of the resolve +
-  readable-foreground logic, Solid only. It is deliberately NOT part of the
-  notch's window or a notch tab (the expanded notch is modal; cross-app
-  drag-and-drop needs a window that is only as big as the shelf, with no
-  fullscreen mask and no Exclusive focus). Any future glass/corner/shadow
-  pass on the frame/notch surface has to consider it too.
+- **`ruixen.shelf` is a fourth consumer, and its shape is a copy of the
+  notch's.** Its panel (`ruixen.shelf/Shelf.qml`) hangs from the frame at
+  the notch's position in the notch's own expanded silhouette: left flank +
+  square-topped center + right flank (`ShelfRoundCorner.qml` is its own
+  copy of the notch's *inline* `RoundCorner` — that type is not shared, and
+  importing it as if it were is the "is not a type" trap), 28 shoulders, 44
+  bottom radius, `restY` inset 4, and the `notchShadowBlur` shadow recipe
+  with a clip that extends OUT past the shape (the window is padded for the
+  halo; its input `mask` is only the shape). It reads the same Black/Theme
+  surface state (`bar-surface.json`, legacy `frame-appearance.json`
+  fallback) with its own copy of the resolve + readable-foreground logic,
+  Solid only. It is deliberately NOT part of the notch's window or a notch
+  tab (the expanded notch is modal; cross-app drag-and-drop needs a window
+  with no fullscreen mask and no Exclusive focus). Any change to the notch's
+  corner numbers, `restY`, surface color or shadow has to be mirrored there
+  (`cornerSize`/`bottomRadius`/`frameInset` in `Shelf.qml`).
 - **Shared color state, independent resolution.** All three read the same
   `~/.local/state/ruixen/frame-appearance.json` (`{"mode":"theme"|"black"}`),
   but each keeps its own copy of the resolve logic (`frameColorMode`/

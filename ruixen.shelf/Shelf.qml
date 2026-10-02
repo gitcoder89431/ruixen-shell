@@ -210,53 +210,43 @@ Item {
 
   // --- the window --------------------------------------------------------
 
-  // Deliberately the SAME width as ruixen.notch's own launcherOpen mode
-  // (Overlay.qml:1715's 420), so the shelf reads as one more step of the
-  // notch's own size progression rather than its own separate family:
+  // --- the silhouette: an expanded notch hanging from the frame ------------
   //
-  //   284 collapsed -> 420 launcherOpen -> [shelf, also 420] -> 900 pinned
+  // The same family as ruixen.notch's expanded launcher shape, not a
+  // floating box: a body flush with the top of the screen, with a concave
+  // "wing" shoulder on each side flaring out to meet the frame, and rounded
+  // bottom corners. Built the way the notch builds it -- left flank +
+  // square-topped center + right flank, the center overlapping both flanks
+  // by seamOverlap so fractional output scales can't show a hairline -- and
+  // with the notch's own numbers: 28 shoulders, 44 bottom radius, a 420
+  // body (the launcher's width: 284 collapsed -> 420 launcher -> 900
+  // pinned). Fixed height: the inbox strip scrolls horizontally, so the
+  // panel never has to grow.
   //
-  // 420 is chosen over anything wider deliberately: it is a size this notch
-  // has already proven safe, and Overlay.qml's own history (1718-1723, and
-  // the "almost square edges" report at 1770-1787) is a history of NEW
-  // sizes breaking the notch silhouette's mask non-deterministically, with
-  // the breakage only showing up at the larger end. Reusing a proven number
-  // is the whole point.
-  readonly property int shelfWidth: 420
-
-  // Fixed height now, not item-count driven: the rows scroll HORIZONTALLY
-  // (see ShelfContent's own comment), so there is no "taller as it fills"
-  // case left to grow into, and a stable footprint is what lets the
-  // silhouette below stay one proven shape instead of a resizing one.
-  readonly property int shelfHeight: 236
-
-// --- the silhouette ----------------------------------------------------
-  //
-  // Deliberately NOT reusing ruixin.notch's own notchBg MultiEffect
-  // instance, and deliberately not adding shadow properties to an effect of
-  // our own here either. Overlay.qml:1770-1787 documents, from a live
-  // report, that adding shadow* to that masked shape reproducibly destroys
-  // the silhouette ("almost square edges, the curves are gone") and does so
-  // non-deterministically -- confirmed absent at the collapsed and 420x190
-  // sizes, then present at 900x400. That is why the notch's own shadow
-  // works at all: notchShadowBlur duplicates the SAME geometry into its own
-  // shape and blurs that, with a separate outer Item (notchShadowClip)
-  // deciding where the blur is allowed to spill, rather than shadowing the
-  // masked shape directly. This mirrors that arrangement exactly.
-  //
-  // The geometry itself is simpler than the notch's: it builds the shape
-  // from two RoundCorner shoulders plus a square-topped centerMask, because
-  // its own flank pieces have to tuck UNDER the shoulders. This window has
-  // no such pieces -- it is one plain rounded box -- so a single Rectangle
-  // with all four radii set draws exactly the same silhouette, with no seam
-  // to hide and nothing to keep in sync. The visible result is identical;
-  // the radii below are still the notch's own numbers.
+  // Where it sits: flush under the frame at the notch's own resting offset
+  // (notchOuter.restY, 4), centered, so it reads as the notch expanded into
+  // a bigger panel rather than a window parked below it. It is wider than
+  // the collapsed pill, so while open it covers the pill, the way the
+  // launcher's expansion does. (Both are Overlay-layer surfaces; the shelf
+  // maps later, so it stacks on top -- live-test item in the PR.)
   readonly property int cornerSize: 28
   readonly property int bottomRadius: 44
-  // Asymmetric, in the same direction as the notch's own notchShadowClip:
-  // flush against the top edge (no gap upward, it has to meet the notch),
-  // expanded on the open sides so the blur has room to actually be visible.
-  readonly property int shadowClipMargin: 40
+  readonly property int seamOverlap: 2
+  readonly property int bodyWidth: 420
+  readonly property int shapeWidth: bodyWidth + cornerSize * 2
+  readonly property int shapeHeight: 236
+  // Mirrors ruixen.notch's notchOuter.restY. Keep the two in step.
+  readonly property int frameInset: 4
+  // The frame visually eats the top few px (it merges into the shelf's own
+  // top edge), so content sits a little lower than the shape's top, same
+  // nudge the notch applies to its own collapsed row.
+  readonly property int contentTopInset: 6
+  // Room around the shape for the shadow halo (the window is bigger than
+  // the shape by this much on the left, right and bottom, never the top --
+  // it has to meet the frame). The INPUT region is still only the shape
+  // (mask below), so the halo area is click-through and other apps stay
+  // reachable; this is not a fullscreen blocker.
+  readonly property int haloPad: 40
 
   PanelWindow {
     id: win
@@ -264,12 +254,9 @@ Item {
     // Top-anchored only: a layer surface anchored to one edge is centered
     // along the perpendicular axis, which is where the notch is.
     anchors { top: true }
-    // The notch's collapsed bottom edge is 48px (notchCollapsedBottomEdge);
-    // a small gap keeps the two surfaces reading as attached without
-    // overlapping the notch's own input region.
-    margins.top: 52
-    implicitWidth: root.shelfWidth
-    implicitHeight: root.shelfHeight
+    margins.top: root.frameInset
+    implicitWidth: root.shapeWidth + root.haloPad * 2
+    implicitHeight: root.shapeHeight + root.haloPad
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
 
@@ -281,80 +268,161 @@ Item {
     // shelf has been clicked.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    // Where the blur is allowed to spill: asymmetric clip, flush top, room
-    // on the other three sides. Same shape of idea as the notch's own.
-    Item {
-      id: shadowClip
-      anchors.fill: parent
-      anchors.margins: root.shadowClipMargin
-      anchors.topMargin: 0
-      clip: true
+    // Input only where the visible shape is. Without this the halo padding
+    // above would silently become a dead strip around the shelf.
+    mask: Region {
+      x: root.haloPad
+      y: 0
+      width: root.shapeWidth
+      height: root.shapeHeight
+    }
 
-      // The shadow: a solid duplicate of the real silhouette, blurred into
-      // a halo. notchShadowBlur's own recipe byte-for-byte (opacity 1.0,
-      // plain blurEnabled/blurMax 32/blur 0.6, NO directional offset) --
-      // per AGENTS.md section 9, this is the recipe that was tuned live
-      // against the frame's own hand-rolled ring shadow, and it is the one
-      // new pieces of this surface are supposed to copy rather than
-      // borrowing whatever mask-safe example happens to be nearby.
+    // The shape's own coordinate space, positioned inside the padded window.
+    Item {
+      id: shape
+      x: root.haloPad
+      y: 0
+      width: root.shapeWidth
+      height: root.shapeHeight
+
+      // Shadow. Overlay.qml documents (from a live report) that adding
+      // shadow* properties to a MASKED shape destroys the silhouette
+      // non-deterministically ("almost square edges, the curves are gone"),
+      // so the notch's own shadow is a separate, blurred DUPLICATE of the
+      // shape behind it, spilling through an outward-extended clip. This is
+      // that arrangement, byte-for-byte on the recipe (AGENTS.md section 9:
+      // opacity 1.0, plain blurEnabled / blurMax 32 / blur 0.6, no
+      // directional offset), and the clip extends OUT by haloPad on the left,
+      // right and bottom, flush at the top where the shape meets the frame.
+      Item {
+        id: shadowClip
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.leftMargin: -root.haloPad
+        anchors.right: parent.right
+        anchors.rightMargin: -root.haloPad
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: -root.haloPad
+        z: -1
+        clip: true
+
+        Item {
+          id: shadowBlur
+          anchors.fill: parent
+          anchors.margins: root.haloPad
+          anchors.topMargin: 0
+          opacity: 1.0
+
+          ShelfRoundCorner {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            cornerSize: root.cornerSize
+            corner: 1
+            fillColor: "#000000"
+          }
+
+          Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.leftMargin: root.cornerSize - root.seamOverlap
+            anchors.right: parent.right
+            anchors.rightMargin: root.cornerSize - root.seamOverlap
+            height: parent.height
+            color: "#000000"
+            topLeftRadius: 0
+            topRightRadius: 0
+            bottomLeftRadius: root.bottomRadius
+            bottomRightRadius: root.bottomRadius
+          }
+
+          ShelfRoundCorner {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            cornerSize: root.cornerSize
+            corner: 0
+            fillColor: "#000000"
+          }
+
+          layer.enabled: true
+          layer.smooth: true
+          layer.effect: MultiEffect {
+            blurEnabled: true
+            blurMax: 32
+            blur: 0.6
+          }
+        }
+      }
+
+      // The real surface, masked into the silhouette. Same split as the
+      // notch's notchBg/notchMask: a MultiEffect that only masks (no
+      // shadow), over a plain always-opaque fill.
       Rectangle {
-        id: shadowBlur
+        id: shelfBg
         anchors.fill: parent
-        anchors.margins: root.shadowClipMargin
-        anchors.topMargin: 0
-        opacity: 1.0
+        color: root.surfaceColor
 
         layer.enabled: true
         layer.smooth: true
         layer.effect: MultiEffect {
-          blurEnabled: true
-          blurMax: 32
-          blur: 0.6
+          maskEnabled: true
+          maskSource: shelfMask
+          maskThresholdMin: 0.5
+          maskThresholdMax: 1.0
+          maskSpreadAtMin: 1.0
         }
-
-        color: "#000000"
-        topLeftRadius: root.cornerSize
-        topRightRadius: root.cornerSize
-        bottomLeftRadius: root.bottomRadius
-        bottomRightRadius: root.bottomRadius
-      }
-    }
-
-    // The real surface, masked into the same silhouette. Same split as
-    // notchBg/notchMask: a MultiEffect that only masks (no shadow), over a
-    // plain always-opaque fill.
-    Rectangle {
-      id: shelfBg
-      anchors.fill: parent
-      color: root.surfaceColor
-
-      layer.enabled: true
-      layer.smooth: true
-      layer.effect: MultiEffect {
-        maskEnabled: true
-        maskSource: shelfMask
-        maskThresholdMin: 0.5
-        maskThresholdMax: 1.0
-        maskSpreadAtMin: 1.0
       }
 
-      Rectangle {
+      // Mask silhouette: left flank (concave toward the body) + center block
+      // (square top, round bottom) + right flank. Never drawn directly --
+      // only sampled as a texture by shelfBg's layer.effect above.
+      Item {
         id: shelfMask
         visible: false
         anchors.fill: parent
         layer.enabled: true
         layer.smooth: true
 
-        color: "#ffffff"
-        topLeftRadius: root.cornerSize
-        topRightRadius: root.cornerSize
-        bottomLeftRadius: root.bottomRadius
-        bottomRightRadius: root.bottomRadius
+        ShelfRoundCorner {
+          id: leftFlank
+          anchors.top: parent.top
+          anchors.left: parent.left
+          cornerSize: root.cornerSize
+          corner: 1
+          fillColor: "#ffffff"
+        }
+
+        Rectangle {
+          anchors.top: parent.top
+          anchors.left: leftFlank.right
+          anchors.leftMargin: -root.seamOverlap
+          anchors.right: rightFlank.left
+          anchors.rightMargin: -root.seamOverlap
+          height: parent.height
+          color: "#ffffff"
+          topLeftRadius: 0
+          topRightRadius: 0
+          bottomLeftRadius: root.bottomRadius
+          bottomRightRadius: root.bottomRadius
+        }
+
+        ShelfRoundCorner {
+          id: rightFlank
+          anchors.top: parent.top
+          anchors.right: parent.right
+          cornerSize: root.cornerSize
+          corner: 0
+          fillColor: "#ffffff"
+        }
       }
 
+      // Content: a sibling of the masked fill (like the notch's own rows),
+      // inset by the shoulders so it lives inside the body, not the wings.
       FocusScope {
         id: focusScope
         anchors.fill: parent
+        anchors.leftMargin: root.cornerSize
+        anchors.rightMargin: root.cornerSize
+        anchors.topMargin: root.contentTopInset
         focus: true
         Keys.onEscapePressed: root.dismiss()
 
@@ -368,8 +436,7 @@ Item {
           shelfService: service
           // The right-edge fade in ShelfContent has to end on the SAME color
           // the window behind it is filled with, or the fade is a visible
-          // grey band instead of an edge. The window's own surfaceColor is
-          // not otherwise visible to the content, so it is passed in.
+          // grey band instead of an edge.
           surfaceColor: root.surfaceColor
           onCloseRequested: root.dismiss()
         }

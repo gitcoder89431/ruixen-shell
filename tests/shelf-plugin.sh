@@ -83,10 +83,12 @@ check "Window: top-anchored only (no fullscreen surface)" \
   "$(grep -c 'anchors { top: true }' "$shelf")" "1"
 check "Window: never anchored left/right/bottom" \
   "$(grep -cE 'anchors \{[^}]*(left|right|bottom): true' "$shelf")" "0"
-check "Window: sized to the shelf itself" \
-  "$(grep -c 'implicitWidth: root.shelfWidth' "$shelf")$(grep -c 'implicitHeight: root.shelfHeight' "$shelf")" "11"
-check "Window: no input mask / click-away catcher" \
-  "$(grep -cE '^\s*mask:|Region \{' "$shelf")" "0"
+check "Window: sized to the shape plus shadow room, never the screen" \
+  "$(grep -c 'implicitWidth: root.shapeWidth + root.haloPad \* 2' "$shelf")$(grep -c 'implicitHeight: root.shapeHeight + root.haloPad' "$shelf")" "11"
+check "Window: input region is ONLY the visible shape (halo padding stays click-through)" \
+  "$(grep -c 'mask: Region {' "$shelf")$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'width: root.shapeWidth')$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'height: root.shapeHeight')" "111"
+check "Window: no click-away catcher (no MouseArea at window level)" \
+  "$(sed -n '/PanelWindow {/,/id: shape/p' "$shelf" | grep -c 'MouseArea' || true)" "0"
 check "Window: reserves no screen space" "$(grep -c 'ExclusionMode.Ignore' "$shelf")" "2"
 check "Window: keyboard focus is on demand, never exclusive" \
   "$(grep -c 'WlrKeyboardFocus.OnDemand' "$shelf")$(grep -c 'WlrKeyboardFocus.Exclusive' "$shelf")" "10"
@@ -107,53 +109,62 @@ check "Service stat: async, one worker, merged by path" \
 check "Service never stats on the UI thread (Process, not sync)" "$(grep -c 'statProc.exec' "$service")" "1"
 check "Model has no Qt/Quickshell globals" "$(grep -cE '\b(Quickshell|Qt\.|Process)\b' "$model")" "0"
 
-# --- the surface: the notch silhouette -------------------------------
+# --- the surface: an expanded notch hanging from the frame -----------
 #
-# The shelf's shape is copied from ruixin.notch's own Overlay.qml rather
-# than invented, and these pin the two properties of that copy that are
-# easy to "tidy up" by accident and very visible when you do.
-check "Shape: 420 wide, the same width as the notch's own launcherOpen" \
-  "$(grep -c 'readonly property int shelfWidth: 420' "$shelf")" "1"
-check "Shape: fixed height, not item-count driven (rows scroll sideways now)" \
-  "$(grep -cE 'shelfHeight: [0-9]+$' "$shelf" || true)" "1"
-# The silhouette is ONE rounded Rectangle per surface here, not the
-# notch's 3-piece RoundCorner/centerMask split -- that split exists only
-# because the notch's flank wings tuck under its shoulders, and this window
-# has no flank pieces. Same radii, no seam to hide.
-check "Shape: the fill is a single rounded box (notch's own 3-piece split)" \
-  "$(grep -c 'RoundCorner {' "$shelf" || true)" "0"
+# The shelf is not a floating box. It is built the way ruixen.notch builds
+# its expanded launcher shape -- left flank + square-topped center + right
+# flank, concave "wing" shoulders flaring out to the frame -- with the
+# notch's own numbers, flush under the frame at the notch's own resting
+# offset. These pin the properties that are easy to "tidy up" by accident
+# and very visible when you do.
+check "Shape: attached to the frame at the notch's resting offset, no floating gap" \
+  "$(grep -c 'readonly property int frameInset: 4' "$shelf")$(grep -c 'margins.top: root.frameInset' "$shelf")$(grep -c 'margins.top: 52' "$shelf" || true)" "110"
+check "Shape: 420 body, the notch launcher's width" \
+  "$(grep -c 'readonly property int bodyWidth: 420' "$shelf")" "1"
+check "Shape: the window shape is body plus a shoulder on each side" \
+  "$(grep -c 'readonly property int shapeWidth: bodyWidth + cornerSize \* 2' "$shelf")" "1"
+check "Shape: fixed height, not item-count driven (rows scroll sideways)" \
+  "$(grep -cE 'readonly property int shapeHeight: [0-9]+$' "$shelf" || true)" "1"
+check "Shape: wings are real concave shoulders (4 ShelfRoundCorner pieces: 2 in the shadow, 2 in the mask)" \
+  "$(grep -c 'ShelfRoundCorner {' "$shelf")" "4"
+check "Shape: left flank is corner 1 and right flank is corner 0, as in the notch" \
+  "$(grep -c 'corner: 1' "$shelf")$(grep -c 'corner: 0' "$shelf")" "22"
+check "Shape: the center is square-topped (meets the frame) with the notch's round bottom" \
+  "$(grep -c 'topLeftRadius: 0' "$shelf")$(grep -c 'topRightRadius: 0' "$shelf")$(grep -c 'bottomLeftRadius: root.bottomRadius' "$shelf")$(grep -c 'bottomRightRadius: root.bottomRadius' "$shelf")" "2222"
+check "Shape: the center overlaps both flanks by seamOverlap (no fractional-scale hairline)" \
+  "$(grep -c 'readonly property int seamOverlap: 2' "$shelf")$(grep -c 'root.seamOverlap' "$shelf")" "14"
 check "Shape: the mask is a real, named shape source (a typo here renders nothing)" \
   "$(grep -c 'maskSource: shelfMask' "$shelf")$(grep -c 'id: shelfMask' "$shelf")" "11"
-# 2 surfaces x 4 radii = 8, all bound to the notch's own numbers.
-check "Shape: all four radii are set on both the fill and the mask" \
-  "$(grep -c 'Radius: root.cornerSize' "$shelf")$(grep -c 'Radius: root.bottomRadius' "$shelf")" "44"
 check "Shape: the shoulders use the notch's own 28" \
   "$(grep -c 'readonly property int cornerSize: 28' "$shelf")" "1"
 check "Shape: the bottom radius is 44, i.e. the notch's own expanded radius" \
-  "$(grep -c 'readonly property int bottomRadius: 44' "$shelf")$(grep -c 'bottomLeftRadius: root.bottomRadius' "$shelf")$(grep -c 'bottomRightRadius: root.bottomRadius' "$shelf")" "122"
+  "$(grep -c 'readonly property int bottomRadius: 44' "$shelf")" "1"
+check "Shape: content is inset by the shoulders (it lives in the body, not the wings)" \
+  "$(grep -c 'anchors.leftMargin: root.cornerSize$' "$shelf")$(grep -c 'anchors.rightMargin: root.cornerSize$' "$shelf")" "11"
+check "Shape: content clears the frame's top edge" \
+  "$(grep -c 'anchors.topMargin: root.contentTopInset' "$shelf")" "1"
+check "Shape: the wing component is the shelf's own copy (a missing file would silently blank the surface)" \
+  "$([[ -f "$shelf_dir/ShelfRoundCorner.qml" ]] && echo yes)$(grep -c 'property int corner: 0' "$shelf_dir/ShelfRoundCorner.qml")" "yes1"
+check "Shape: does NOT reach for the notch's private inline RoundCorner by its bare name" \
+  "$(grep -cE '(^|[^A-Za-z])RoundCorner \{' "$shelf" || true)" "0"
 check "Shadow: a separate blurred duplicate of the shape, clipped (notchShadowBlur's own arrangement)" \
   "$(grep -c 'id: shadowBlur' "$shelf")$(grep -c 'id: shadowClip' "$shelf")$(grep -c 'clip: true' "$shelf")" "111"
 check "Shadow: uses the notch's own recipe, not a nearby mask-safe one (AGENTS.md section 9)" \
   "$(grep -c 'blurMax: 32' "$shelf")$(grep -c 'blur: 0.6' "$shelf")" "11"
 check "Shadow: no directional offset -- the notch's own shadow has none, a lift shadow does" \
   "$(grep -cE 'shadowVerticalOffset|shadowHorizontalOffset|shadowEnabled' "$shelf" || true)" "0"
-check "Shadow: clipped flush to the top edge (it has to meet the notch), room elsewhere" \
-  "$(grep -c 'readonly property int shadowClipMargin: 40' "$shelf")$(grep -c 'anchors.topMargin: 0' "$shelf")" "12"
+check "Shadow: the clip extends OUT by the halo on left/right/bottom, flush at the top" \
+  "$(grep -c 'anchors.leftMargin: -root.haloPad' "$shelf")$(grep -c 'anchors.rightMargin: -root.haloPad' "$shelf")$(grep -c 'anchors.bottomMargin: -root.haloPad' "$shelf")$(sed -n '/id: shadowClip/,/clip: true/p' "$shelf" | grep -c 'anchors.top: parent.top')" "1111"
 # The live "almost square edges" report from Overlay.qml: adding shadow*
 # to the MASKED shape reproducibly destroys the silhouette. If someone ever
 # "improves" this by shadowing the mask effect directly, this check is the
 # one that says no.
 check "Shape: the masked fill carries NO shadow properties (that combination breaks the silhouette)" \
-  "$(sed -n '/id: shelfBg/,/FocusScope/p' "$shelf" | grep -cE 'shadow|blurEnabled' || true)" "0"
+  "$(sed -n '/id: shelfBg/,/id: shelfMask/p' "$shelf" | grep -cE 'shadow|blurEnabled' || true)" "0"
 check "Shape: QtQuick.Effects is imported -- a missing import kills the WHOLE plugin silently" \
   "$(grep -c '^import QtQuick.Effects$' "$shelf")" "1"
 check "Shape: the mask source is hidden (a visible mask paints over the fill)" \
-  "$(sed -n '/id: shelfMask/,/^      }/p' "$shelf" | grep -c 'visible: false' || true)" "1"
-# RoundCorner is an INLINE component inside the notch's own Overlay.qml, not a
-# qs.Commons type -- importing it as if it were one renders nothing at all,
-# and the plugin still loads (only the surface goes missing).
-check "Shape: does NOT reach for the notch's private inline RoundCorner" \
-  "$(grep -c 'RoundCorner' "$shelf" || true)" "1"
+  "$(sed -n '/id: shelfMask/,/anchors.fill: parent/p' "$shelf" | grep -c 'visible: false' || true)" "1"
 
 # --- content ----------------------------------------------------------
 check "Content: drops via DropArea" "$(grep -c 'DropArea {' "$content")" "1"

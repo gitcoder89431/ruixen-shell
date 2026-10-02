@@ -8,7 +8,7 @@ import "ShelfModel.js" as ShelfModel
 // drag them back out into another app or a terminal. Backing store +
 // agent-facing API live in ShelfService.qml -- this file only renders it
 // and calls the same service functions the IPC does. Hosted by Shelf.qml
-// (its own small window under the notch, not a notch dashboard tab).
+// (its own panel that hangs from the frame at the notch's position, not a notch dashboard tab).
 //
 // Dragging OUT uses QML's own Drag.Automatic with both text/uri-list
 // (file managers, browsers, chat apps) and text/plain (terminals: the

@@ -96,8 +96,9 @@ and vice versa.
 
 ## Worked example: the Shelf (drop pocket)
 
-`ruixen.shelf` is its own overlay plugin — a small window that opens under
-the notch. Drag files in from any app; drag them back out into another app or
+`ruixen.shelf` is its own overlay plugin — a panel that hangs from the frame at
+the notch's position, in the notch's expanded silhouette (concave wing
+shoulders flaring out to the frame, rounded bottom). Drag files in from any app; drag them back out into another app or
 a terminal (the path is inserted as text there). It holds **references** to
 files by absolute path — it never copies, moves or deletes anything on disk,
 and a referenced file that later disappears just shows as missing.

@@ -40,11 +40,75 @@ Item {
   readonly property var filtered: ShelfModel.filterEntries(root.rows, root.query)
   readonly property bool filtering: root.query.trim() !== ""
   readonly property var visibleRows: root.filtering ? root.filtered : root.rows
+  // Panel padding. Side and bottom are generous because the shelf hangs
+  // from a rounded notch with wings on both sides -- cards sitting 12px
+  // from those edges read as crowding the notch's own curve, and the
+  // bottom edge is the panel's real outer edge. The top stays tight: it butts
+  // up against the notch above it, so extra room there only adds a gap.
+  // How far one arrow press moves the strip. A card plus its gap, so a
+  // press lands on a card boundary instead of half-way through one.
+  readonly property int keyScrollStep: 132
+
+  readonly property int padTop: 12
+  readonly property int padSide: 24
+  readonly property int padBottom: 24
+
   readonly property color tint: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
   readonly property color tintStrong: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
 
+  // The count for the chip on the search row: "Shelf 16", or "Shelf 3 of 16"
+  // while filtering. While filtering, report how many of the TOTAL matched,
+  // not just the filtered count -- "16" flipping to "1" as you type reads
+  // like items are being deleted.
+  readonly property string chipCount: root.filtering
+    ? (root.visibleRows.length === 1 ? "1 of " : root.visibleRows.length + " of ") + String(root.rows.length)
+    : String(root.rows.length)
+
   // Paths can disappear while the notch is closed; re-check on open.
   onActiveChanged: if (root.active && root.shelfService) root.shelfService.refreshStats()
+
+  // One place that moves the strip and clamps it. The wheel handler and the
+  // arrow keys both go through this so they cannot drift apart on the bounds
+  // math -- and it is the only thing allowed to write contentX.
+  //
+  // `step` is in pixels, positive meaning "toward the right".
+  function scrollStripMax() {
+    if (!list) return 0
+    return Math.max(0, list.contentWidth - list.width)
+  }
+
+  // 0 = the left end, 1 = the right end, anything between is proportional.
+  function scrollStripTo(fraction) {
+    var max = root.scrollStripMax()
+    if (max <= 0) return
+    list.contentX = Math.max(0, Math.min(max, max * fraction))
+  }
+
+  // Arrows drive the strip. One handler, shared by the field and the list,
+  // switching on the key explicitly: Qt's Keys attached type has no
+  // onHomePressed/onEndPressed convenience signals, and guessing those
+  // names fails at LOAD time ("Cannot assign to non-existent property"),
+  // which takes the whole plugin down over a single key.
+  function handleStripKey(event) {
+    var step = root.keyScrollStep
+    switch (event.key) {
+      case Qt.Key_Left:  root.scrollStrip(-step); break
+      case Qt.Key_Right: root.scrollStrip(step); break
+      case Qt.Key_Home:  root.scrollStripTo(0); break
+      case Qt.Key_End:   root.scrollStripTo(1); break
+      default: return
+    }
+    event.accepted = true
+  }
+
+  function scrollStrip(step) {
+    var max = root.scrollStripMax()
+    if (max <= 0) return false
+    var next = Math.max(0, Math.min(max, list.contentX + step))
+    if (next === list.contentX) return false
+    list.contentX = next
+    return true
+  }
 
   function formatSize(bytes) {
     if (bytes === null || bytes === undefined) return ""
@@ -117,78 +181,73 @@ Item {
     onEntered: (drag) => { if (!drag.source && root.dropPaths(drag).length > 0) drag.accept(Qt.CopyAction) }
     onDropped: (drop) => root.handleDrop(drop)
 
-    // Header
-    RowLayout {
-      id: header
-      anchors.top: parent.top
+    // "Shelf 16" identity + count, left of the search box on the same row.
+    // Its own shape, not nested in the field: a chip drawn inside the
+    // rounded box reads as part of the text input, and a click on it should
+    // focus the field rather than land on the chip.
+    Rectangle {
+      id: shelfChip
       anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.margins: 12
-      height: 28
-      spacing: 8
+      anchors.leftMargin: root.padSide
+      // On the search box's row, not the panel's middle. searchBox is
+      // declared below this, which is fine -- QML resolves ids regardless
+      // of declaration order.
+      anchors.verticalCenter: searchBox.verticalCenter
+      width: chipRow.implicitWidth + 16
+      // Same height as the field beside it, bound rather than repeated:
+      // these are three controls on one row, and a row whose middle piece
+      // is taller than its neighbours reads as broken, not nested.
+      height: searchBox.height
+      // Same radius as the field, for the same reason as the height.
+      radius: searchBox.radius
+      color: root.tint
+      border.width: 1
+      border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
 
-      Text {
-        text: "Shelf"
-        color: root.textColor
-        font.family: root.fontFamily
-        font.pixelSize: 14
-        font.bold: true
-      }
-
-      Text {
-        // While filtering, report how many of the TOTAL matched, not just
-        // the filtered count -- "3 items" flipping to "1 item" as you type
-        // reads like items are being deleted.
-        text: root.filtering
-          ? (root.visibleRows.length === 1 ? "1 of " : root.visibleRows.length + " of ")
-            + ShelfModel.countLabel(root.rows.length).replace(/ items?$/, "")
-          : ShelfModel.countLabel(root.rows.length)
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 11
-      }
-
-      Item { Layout.fillWidth: true }
-
-      Rectangle {
-        Layout.preferredWidth: 24
-        Layout.preferredHeight: 24
-        radius: 6
-        color: closeArea.containsMouse ? root.tintStrong : "transparent"
+      Row {
+        id: chipRow
+        anchors.centerIn: parent
+        spacing: 5
 
         Text {
-          anchors.centerIn: parent
-          text: "\uf00d"
-          color: root.muted
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Shelf"
+          color: root.textColor
           font.family: root.fontFamily
-          font.pixelSize: 12
+          font.pixelSize: 11
+          font.bold: true
         }
 
-        MouseArea {
-          id: closeArea
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.closeRequested()
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.chipCount
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 11
         }
       }
     }
 
-    // Search box, directly under the header. Plain TextInput rather than
-    // anything fancier: it takes focus only on click, so it never steals
-    // the keyboard from the app the user is about to drag into (the same
-    // reason the window is OnDemand and not Exclusive).
+    // Search box, and the count chip beside it, are the top row now. The
+    // title/count bar that used to sit above them is gone: the chip carries
+    // the same count, and Escape is the dismiss (there is no X).
+    //
+    // Plain TextInput rather than anything fancier: it takes focus only on
+    // click, so it never steals the keyboard from the app the user is about
+    // to drag into (the same reason the window is OnDemand, not Exclusive).
     Rectangle {
       id: searchBox
-      anchors.top: header.bottom
-      anchors.topMargin: 6
-      anchors.left: parent.left
+      anchors.top: parent.top
+      anchors.topMargin: root.padTop
+      // Starts after the count chip on the same row, rather than at the
+      // panel's edge: the chip is its own shape, not part of the field.
+      anchors.left: shelfChip.right
       anchors.right: parent.right
-      anchors.leftMargin: 12
+      anchors.leftMargin: 6
       // Gives up room on the right for the shelf-wide Clear that now sits on
       // this row, and takes it back when Clear hides (nothing to clear), so
       // the box never ends up with a mystery gap in an empty shelf.
-      anchors.rightMargin: 12 + (clearShelfButton.visible ? clearShelfButton.width + 6 : 0)
+      anchors.rightMargin: root.padSide + (clearShelfButton.visible ? clearShelfButton.width + 6 : 0)
       height: 30
       radius: 9
       color: searchInput.activeFocus ? root.tintStrong : root.tint
@@ -230,6 +289,10 @@ Item {
         }
         Keys.onDownPressed: list.forceActiveFocus()
         Keys.onUpPressed: list.forceActiveFocus()
+        // Left/right scroll the strip even with the field focused. A
+        // single-line filter has no use for the caret to move along the
+        // text, and the results are what the user is looking at.
+        Keys.onPressed: (event) => root.handleStripKey(event)
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
@@ -242,9 +305,9 @@ Item {
       }
 
       // Clear-search affordance, for the filter text only. The shelf-wide
-      // Clear now sits to the right of this box instead of in the header,
-      // so the two are on the same row -- which is why this one is an
-      // unlabelled glyph (the field's own X) and that one reads "Clear".
+      // Clear sits to the right of this box, so the two are on the same
+      // row -- which is why this one is an unlabelled glyph (the field's
+      // own X) and that one reads "Clear".
       Rectangle {
         id: clearQuery
         visible: searchInput.text !== ""
@@ -293,11 +356,11 @@ Item {
         id: clearShelfButton
         visible: root.rows.length > 0
         anchors.right: parent.right
-        anchors.rightMargin: 12
+        anchors.rightMargin: root.padSide
         anchors.verticalCenter: searchBox.verticalCenter
         width: clearLabel.implicitWidth + 20
-        height: 24
-        radius: 6
+        height: searchBox.height
+        radius: searchBox.radius
         color: clearArea.containsMouse ? root.tintStrong : root.tint
         border.width: 1
         border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
@@ -327,7 +390,10 @@ Item {
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
-      anchors.margins: 12
+      anchors.topMargin: root.padTop
+      anchors.bottomMargin: root.padBottom
+      anchors.leftMargin: root.padSide
+      anchors.rightMargin: root.padSide
       radius: 14
       color: dropArea.containsDrag ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.1) : "transparent"
       border.width: 2
@@ -378,7 +444,10 @@ Item {
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
-      anchors.margins: 12
+      anchors.topMargin: root.padTop
+      anchors.bottomMargin: root.padBottom
+      anchors.leftMargin: root.padSide
+      anchors.rightMargin: root.padSide
       radius: 14
       color: "transparent"
       border.width: 2
@@ -423,12 +492,32 @@ Item {
     ListView {
       id: list
       visible: root.visibleRows.length > 0
+
+      // Arrows drive the strip once the list itself has focus. Down/Up from
+      // the search field hand focus over, and clicking the strip does too --
+      // without the latter the arrows are unreachable for anyone who never
+      // touches the field.
+      Keys.onPressed: (event) => root.handleStripKey(event)
+      Keys.onEscapePressed: root.closeRequested()
+
+      // Clicking bare strip focuses the list, so the arrows are reachable
+      // without going through the search field first. z: -1 puts it UNDER
+      // the delegates, which own their own clicks and their drag-out.
+      MouseArea {
+        anchors.fill: parent
+        z: -1
+        acceptedButtons: Qt.LeftButton
+        onClicked: list.forceActiveFocus()
+      }
+
       anchors.top: searchBox.bottom
-      anchors.topMargin: 6
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
-      anchors.margins: 12
+      anchors.topMargin: root.padTop
+      anchors.bottomMargin: root.padBottom
+      anchors.leftMargin: root.padSide
+      anchors.rightMargin: root.padSide
       clip: true
       orientation: ListView.Horizontal
       spacing: 8
@@ -452,19 +541,31 @@ Item {
       // way to scroll at all and files past the right edge are simply
       // unreachable. target: null keeps it deterministic instead of
       // letting it fight the view's own handling.
+      // UNVERIFIED: this handler does not scroll in practice (the strip is
+      // 2104px of content in an ~850px view, so there is definitely room to
+      // move). Whether the handler is never invoked at all, or fires and the
+      // math is wrong, is still unknown -- it could not be reproduced
+      // headlessly because synthesizing a wheel event needs /dev/uinput
+      // write access, which is not available. To settle it in one step, put
+      // this back in onWheel and scroll with the cursor over the open shelf:
+      //
+      //   console.log("cw=" + list.contentWidth + " w=" + list.width
+      //     + " cx=" + list.contentX + " dy=" + wheel.angleDelta.y)
+      //   journalctl --user -b 0 --since "-1min" | grep cw=
+      //
+      // cw=2104 w=850  -> the handler IS firing, so the bug is below here.
+      // (no output)      -> wheel events never reach this layer surface at
+      //                    all, and the handler is the wrong place to fix it.
       WheelHandler {
         target: null
         onWheel: (wheel) => {
-          if (list.contentWidth <= list.width) return
-          var dx = wheel.angleDelta.x + wheel.pixelDelta.x
+          // Wheel-up/deltaY-positive has always scrolled leftward here, and
+          // that is the right way round for a horizontal strip.
           var dy = wheel.angleDelta.y + wheel.pixelDelta.y
+          var dx = wheel.angleDelta.x + wheel.pixelDelta.x
           var delta = dx !== 0 ? dx : dy
           if (delta === 0) return
-          var max = Math.max(0, list.contentWidth - list.width)
-          var next = Math.max(0, Math.min(max, list.contentX - delta))
-          if (next === list.contentX) return
-          list.contentX = next
-          wheel.accepted = true
+          if (root.scrollStrip(-delta)) wheel.accepted = true
         }
       }
 

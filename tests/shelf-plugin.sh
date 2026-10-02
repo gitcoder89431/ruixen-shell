@@ -202,7 +202,7 @@ check "Inbox: the window itself is a fixed size, so nothing content-driven can g
 check "Inbox: the wheel scrolls the strip (target: null, not fighting the view's own handling)" \
   "$(grep -c 'WheelHandler {' "$content")" "1"
 check "Inbox: wheel scrolling is clamped to the content, so it cannot rubber-band past the end" \
-  "$(grep -c 'Math.min(max, list.contentX - delta)' "$content")" "1"
+  "$(grep -c 'var next = Math.max(0, Math.min(max, list.contentX + step))' "$content")" "1"
 check "Inbox: the cards are a fixed width, not content-sized" \
   "$(grep -cE '^\s*width: 124$' "$content")" "1"
 check "Inbox: the right edge fades only when there is more to scroll to" \
@@ -213,21 +213,106 @@ check "Search: filtering goes through the tested model helper, not inline in QML
   "$(grep -c 'ShelfModel.filterEntries(root.rows, root.query)' "$content")" "1"
 check "Search: an empty query shows every row (no rebuild, no filter loop)" \
   "$(grep -c 'visibleRows: root.filtering ? root.filtered : root.rows' "$content")" "1"
-check "Search: the header reports X of Y while filtering, so it does not read as deletions" \
-  "$(grep -c 'root.visibleRows.length === 1 ? "1 of "' "$content")$(grep -c 'root.visibleRows.length + " of "' "$content")" "11"
+# The count is on the chip now and there is no header left, so chipCount is
+# the single place it is computed. "16" flipping to "1" as you type reads
+# like items are being deleted, hence the X of Y.
+check "Count: chipCount is the one place the count is computed" \
+  "$(grep -c 'root.visibleRows.length === 1 ? "1 of "' "$content")$(grep -c 'root.visibleRows.length + " of "' "$content")$(grep -c 'countLabel' "$content")" "110"
+# The old title/count bar is gone: one count, one place, no X button.
+check "Header row: gone entirely (no title bar, no close X)" \
+  "$(grep -c 'id: header' "$content" || true)$(grep -cF 'text: "\uf00d"' "$content" || true)" "00"
+check "Header row: the search row is flush to the panel top instead" \
+  "$(sed -n '/id: searchBox/,/^    }$/p' "$content" | grep -cF 'anchors.top: parent.top' || true)$(sed -n '/id: searchBox/,/^    }$/p' "$content" | grep -cF 'anchors.topMargin: root.padTop' || true)" "11"
 check "Search: Escape clears the query before it dismisses the shelf" \
   "$(grep -cF 'if (root.query !== "") { text = ""; root.query = "" }' "$content")" "1"
-check "Search: the search box is under the header, and the list under the search box" \
-  "$(grep -c 'id: searchBox' "$content")$(grep -c 'anchors.top: searchBox.bottom' "$content")" "13"
+check "Search: the list hangs under the search box" \
+  "$(grep -c 'id: searchBox' "$content")$(grep -c 'anchors.top: searchBox.bottom' "$content")$(grep -c 'anchors.top: header.bottom' "$content" || true)" "130"
 # A destructive \"Clear\" (empties the whole shelf) one button away from a
 # \"clear the textbox\" with no label difference is a real footgun.
+# The count has to live on the search row now. It is its OWN shape sitting
+# to the left of the field, not nested inside it: drawn inside the rounded
+# box it reads as part of the text input, and it steals the field's clicks.
+check "Chip: its own shape to the left of the field, NOT nested in it" \
+  "$(sed -n '/id: searchBox/,/^    }$/p' "$content" | grep -c 'id: shelfChip' || true)$(grep -cF 'anchors.left: shelfChip.right' "$content")" "01"
+check "Chip: left-anchored to the panel, on the search box's row" \
+  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'anchors.left: parent.left' || true)$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'anchors.verticalCenter: searchBox.verticalCenter' || true)" "11"
+# "16" flipping to "1" as you type reads like items are being deleted, so
+# the chip carries the same X-of-Y guard the header does.
+check "Chip: reports X of Y while filtering, not a shrinking bare number" \
+  "$(grep -c 'root.chipCount' "$content")$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'root.chipCount' || true)" "11"
+# The box is what the user clicks to type into, so the chip must not put a
+# MouseArea between the click and the field.
+check "Chip: no MouseArea of its own -- a click on it reaches the field" \
+  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'MouseArea' || true)" "0"
+
+# Chip, field and Clear are one row, so all three are the same height.
+# Bound to searchBox.height rather than a repeated literal, so changing the
+# field later cannot leave its two neighbours behind at the old size.
+check "Row: chip, field and Clear are all the field's height" \
+  "$(grep -c 'height: searchBox.height' "$content")$(grep -c 'height: 30' "$content")" "21"
+check "Row: no fixed heights left on the chip/Clear shapes to drift" \
+  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'height: [0-9]+' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -cE 'height: [0-9]+' || true)" "00"
+# Same for the corners: three shapes on one row with three different radii
+# read as three unrelated controls. Bound to the field, not repeated.
+check "Row: chip and Clear use the field's corner radius" \
+  "$(grep -c 'radius: searchBox.radius' "$content")$(grep -c 'radius: 9' "$content")" "21"
+check "Row: no fixed radii left on the chip/Clear shapes to drift" \
+  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'radius: [0-9]+' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -cE 'radius: [0-9]+' || true)" "00"
+
+# Padding is one value per edge, read from root -- never anchors.margins,
+# which would tie the top to the sides. The top stays tight on purpose
+# (it butts against the notch); side and bottom are open, because the
+# bottom edge is the panel's real edge and the sides hug the notch wings.
+check "Padding: side/bottom are wider than top, and named per edge" \
+  "$(grep -cE 'readonly property int pad(Top|Side|Bottom): [0-9]+' "$content")$(grep -cE '^ +anchors\.margins: (12|18)$' "$content" || true)" "30"
+check "Padding: top is the tight one, side and bottom are equal" \
+  "$(grep -c 'readonly property int padTop: 12' "$content" || true)$(grep -c 'readonly property int padSide: 24' "$content" || true)$(grep -c 'readonly property int padBottom: 24' "$content" || true)" "111"
+# Every edge must actually read from those, or a block silently keeps the
+# old 12px and the row looks uneven for no visible reason.
+check "Padding: the three full-bleed blocks all use the per-edge values" \
+  "$(grep -c 'anchors.topMargin: root.padTop' "$content")$(grep -c 'anchors.bottomMargin: root.padBottom' "$content")$(grep -c 'anchors.leftMargin: root.padSide' "$content")$(grep -c 'anchors.rightMargin: root.padSide' "$content")" "4345"
+# The only bare numbers left are INNER gaps inside the search box and the
+# list's own top gap -- panel edges must all read from root.pad*.
+# Only the OUTER edge of each of these three may be a literal; the chip's
+# own leftMargin is out, but searchBox's leftMargin 6 is the gap TO the chip,
+# an inner gap, not a panel edge.
+check "Padding: the chip and Clear sit on root.padSide, not a literal" \
+  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'anchors.leftMargin: root.padSide' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -c 'anchors.rightMargin: root.padSide' || true)" "11"
+
+# QML does not ERROR on a property set twice -- it warns and drops the type,
+# so the whole plugin fails to load and silently falls back to nothing. This
+# happened live: a bulk anchor edit gave `list` two topMargin lines, the
+# journal said only "Property value set multiple times", and BOTH
+# `omarchy plugin validate` and every grep in this suite still passed, because
+# it is a compile-time diagnostic. Pin one anchors.* per property per block.
+# The strip must be scrollable two ways: wheel and arrows. Both go through
+# root.scrollStrip so the clamping math exists exactly once -- two copies of
+# it is how a bounds fix ends up applied to one input and not the other.
+check "Scroll: wheel and arrows share one clamping helper" \
+  "$(grep -c 'function scrollStrip(step)' "$content" || true)$(grep -c 'function scrollStripMax()' "$content" || true)$(grep -c 'function scrollStripTo' "$content" || true)$(grep -c 'root.scrollStrip(' "$content")" "1113"
+# Nothing may write contentX directly any more -- that is what let the two
+# inputs disagree in the first place.
+check "Scroll: contentX is written only inside the helpers" \
+  "$(grep -c 'list.contentX =' "$content")$(grep -c 'contentX:' "$content" || true)" "20"
+# Arrows have to work from the field AND from the strip itself, or they are
+# unreachable for anyone who clicks a card instead of the field.
+# Qt's Keys type has NO onHomePressed/onEndPressed signals. Using them fails
+# at load with "Cannot assign to non-existent property" and takes the entire
+# plugin down, so both entry points share one key-switching handler instead.
+check "Scroll: left/right on both the field and the strip, via one handler" \
+  "$(grep -c 'Keys.onPressed: (event) => root.handleStripKey(event)' "$content")$(grep -c 'onHomePressed\|onEndPressed\|onLeftPressed\|onRightPressed' "$content" || true)$(grep -c 'function handleStripKey' "$content" || true)$(grep -cE 'case Qt.Key_(Left|Right|Home|End)' "$content")" "2114"
+check "Scroll: the strip is focusable by clicking it, not only via the field" \
+  "$(sed -n '/id: list/,/anchors.top: searchBox.bottom/p' "$content" | grep -c 'onClicked: list.forceActiveFocus()' || true)$(grep -c 'onClicked: list.forceActiveFocus()' "$content" || true)$(grep -cE '^        z: -1$' "$content")" "112"
+
+check "QML: no anchors.* property set twice in the same block" \
+  "$(python3 "$(dirname "$0")/qml-dup-anchor.py" "$shelf_dir"/*.qml | head -3)" ""
+
 check "Search: clear-the-text is a separate affordance from the shelf-wide Clear" \
   "$(grep -c 'id: clearQuery' "$content")$(grep -cF 'onClicked: { searchInput.text = ""; root.query = ""' "$content")" "21"
-# Clear belongs on the search row's right, not the header: the header is
-# the identity/count line, and an empty-the-whole-shelf button sitting there
-# is one stray click away from the count it sits next to.
-check "Clear: lives on the search row, right-aligned, not in the header" \
-  "$(sed -n '/id: header/,/^    }$/p' "$content" | grep -c 'clearLabel' || true)$(grep -c 'anchors.verticalCenter: searchBox.verticalCenter' "$content")" "01"
+# Clear belongs on the search row's right: an empty-the-whole-shelf button
+# is one stray click away from the count chip it now sits beside.
+check "Clear: right-aligned on the search row" \
+  "$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -c 'anchors.right: parent.right' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -c 'anchors.verticalCenter: searchBox.verticalCenter' || true)" "11"
 # It stays OUTSIDE the rounded search box. As a child of searchBox it would
 # read as part of the text field, which is how a destructive action turns
 # into a mis-click on a filter.
@@ -235,7 +320,7 @@ check "Clear: a sibling of searchBox, not a child of it" \
   "$(sed -n '/id: searchBox/,/^    }$/p' "$content" | grep -c 'id: clearShelfButton' || true)" "0"
 # Hiding Clear must not leave the search box permanently short on the right.
 check "Clear: the search box gives the space back when Clear hides" \
-  "$(grep -cF 'anchors.rightMargin: 12 + (clearShelfButton.visible ? clearShelfButton.width + 6 : 0)' "$content")" "1"
+  "$(grep -cF 'root.padSide + (clearShelfButton.visible ? clearShelfButton.width + 6 : 0)' "$content")" "1"
 check "Search: the focus-catcher MouseArea sits UNDER the input (at default z it would eat its clicks)" \
   "$(grep -B4 'onClicked: searchInput.forceActiveFocus()' "$content" | grep -c 'z: -1' || true)" "1"
 check "Search: 'no match' is its own state, distinct from an empty shelf" \

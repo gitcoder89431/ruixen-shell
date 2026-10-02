@@ -502,6 +502,49 @@ Item {
 
   Process { id: dndActionProcess; running: false }
 
+  // Quick-drop relay (see shelfQuickDrop below): one `omarchy-shell
+  // ruixen.shelf addMany` call per drop, carrying the whole batch as one
+  // newline-delimited argument -- not a process per path. A drop that
+  // lands while a previous relay is still running is queued and sent
+  // after that one's real exit (never reassigning the Process out from
+  // under a live child). Fire-and-forget, same pattern as
+  // dndActionProcess above.
+  property var shelfRelayQueue: []
+
+  function relayToShelf(urls) {
+    // NEWLINE-delimited, matching ruixen.shelf's addMany contract -- not
+    // JSON.stringify(urls). Confirmed live: a bracketed JSON array does
+    // not survive the IPC boundary as one argument, so the host split it
+    // into one argument per array element and refused the call
+    // ("Too many arguments provided"), which broke every multi-file
+    // drop. Newlines pass through intact, and normalizePath rejects any
+    // path containing \n or \r, so this encoding is unambiguous.
+    root.shelfRelayQueue = root.shelfRelayQueue.concat([urls.join("\n")])
+    root.drainShelfRelay()
+  }
+
+  function drainShelfRelay() {
+    if (shelfRelayProcess.running || root.shelfRelayQueue.length === 0) return
+    var next = root.shelfRelayQueue[0]
+    root.shelfRelayQueue = root.shelfRelayQueue.slice(1)
+    shelfRelayProcess.exec(["omarchy-shell", "ruixen.shelf", "addMany", next, "user"])
+  }
+
+  Process {
+    id: shelfRelayProcess
+    onRunningChanged: if (!running) root.drainShelfRelay()
+  }
+
+  // Asks ruixen.shelf to open for a drag that just entered the pill. One
+  // call per drag-enter; a call still in flight is not queued behind (the
+  // Shelf ignores a second open anyway, and a stale one is worthless).
+  Process { id: shelfOpenProcess }
+
+  function relayShelfOpen() {
+    if (shelfOpenProcess.running) return
+    shelfOpenProcess.exec(["omarchy-shell", "ruixen.shelf", "openFromDrag"])
+  }
+
   // The notch's own notification-history backing store (Column 3 of
   // the Widgets dashboard) -- independent of the dnd property above,
   // sweeping the real service's own on-disk state to add a read flag
@@ -1506,6 +1549,67 @@ Item {
           if (hovered) root.notchHoverEntered()
           else root.notchHoverExited()
         }
+      }
+    }
+
+    // Drag onto the Shelf: dragging local files over the collapsed pill asks
+    // ruixen.shelf to open (over its own IPC target -- no live object shared
+    // between the two plugins), so the drop can land in the open Shelf and be
+    // seen. No highlight here: the Shelf opening IS the feedback. The Shelf
+    // owns what happens next (it hides itself if the drag leaves without a
+    // drop, and stays open once something lands -- see Shelf.qml).
+    //
+    // A drop that lands on the pill itself, before the Shelf has taken over
+    // the drag, is still accepted and relayed (addMany), so a fast release
+    // never loses the files. Same footprint as notchHoverZone above (a
+    // sibling of notchOuter, so it keeps working while the pill is slid out
+    // of view in "On Hover" mode; entering it reveals the pill the way
+    // hovering does -- a drag doesn't deliver ordinary hover events, which is
+    // why this reuses notchHoverEntered/Exited explicitly). Inert while the
+    // notch is expanded: the dashboard/launcher own the surface then.
+    //
+    // Opening happens immediately on drag-enter (no dwell timer). Whether a
+    // drag already in progress carries into the freshly mapped Shelf window is
+    // compositor behavior that has to be confirmed live; if it does not, the
+    // single call to remove is relayShelfOpen() in onEntered below, which
+    // leaves the plain drop-on-the-pill path working.
+    DropArea {
+      id: shelfQuickDrop
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: notchOuter.width
+      height: notchOuter.restY + notchOuter.height
+      enabled: !panel.expanded
+      // file:// URLs only -- a web image dragged out of a browser arrives
+      // as an http(s) URL and is ignored here, matching the Shelf's own
+      // local-files-only contract.
+      function localUrls(urls) {
+        var out = []
+        for (var i = 0; i < (urls || []).length; i++) {
+          var s = String(urls[i])
+          // A real path after the scheme -- "file:///" (the filesystem
+          // root) is rejected by the Shelf anyway, so don't accept it here.
+          if (/^file:\/\/(?:localhost)?\/.+/i.test(s)) out.push(s)
+        }
+        return out
+      }
+      // Copy semantics only, explicitly (never acceptProposedAction(),
+      // which would echo a source app's proposed MoveAction): the Shelf
+      // stores a reference and never moves or deletes the source.
+      onEntered: (drag) => {
+        if (shelfQuickDrop.localUrls(drag.urls).length > 0) {
+          drag.accept(Qt.CopyAction)
+          root.notchHoverEntered()
+          root.relayShelfOpen()
+        }
+      }
+      onExited: root.notchHoverExited()
+      onDropped: (drop) => {
+        var urls = shelfQuickDrop.localUrls(drop.urls)
+        root.notchHoverExited()
+        if (urls.length === 0) return
+        root.relayToShelf(urls)
+        drop.accept(Qt.CopyAction)
       }
     }
 

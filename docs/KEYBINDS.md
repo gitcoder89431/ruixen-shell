@@ -22,6 +22,16 @@ installed apps from one overlay:
 o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")
 ```
 
+## Ruixen Shelf
+
+The drop pocket under the notch — drop files onto it, filter what's there,
+clear it. Same overlay lifecycle as the Launcher, so `toggle` opens or
+closes it and `summon` just makes sure it's open:
+
+```lua
+o.bind("SUPER + D", "Ruixen Shelf", "omarchy-shell shell toggle ruixen.shelf")
+```
+
 ## Ruixen Settings
 
 Settings lives as its own extension inside Ruixen Launcher, not a
@@ -43,7 +53,14 @@ open:
 o.bind("SUPER + W", "Wi-Fi Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"wifi"}']])
 o.bind("SUPER + A", "Audio Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"audio"}']])
 o.bind("SUPER + B", "Bluetooth Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"bluetooth"}']])
-o.bind("SUPER + D", "Display Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"display"}']])
+```
+
+`SUPER + D` below is deliberately not one of these: `install.sh
+--with-launcher-keybind` uses it for the Ruixen Shelf drop pocket, so
+pick a different free key for Display if you want that shortcut.
+
+```lua
+o.bind("SUPER + SHIFT + D", "Display Settings", [[omarchy-shell shell summon ruixen.launcher '{"extension":"settings","section":"display"}']])
 ```
 
 Valid `section` values: `general` (Profile), `bar`, `launcher` (File
@@ -61,6 +78,20 @@ o.bind("SUPER + SHIFT + V", "Clipboard History", [[omarchy-shell shell toggle ru
 Inside it, `Enter` copies the highlighted entry; `Alt+C` copies it, `Alt+O`
 opens it, `Alt+P` pastes an image's file path, and `Alt+D` deletes it (press
 twice to confirm), and `Alt+R` reveals a masked possible secret.
+
+## Shelf (drop pocket)
+
+`ruixen.shelf` is its own overlay plugin with its own IPC target. Toggle its
+window with the host's shell command or the plugin's own target — either
+works:
+
+```lua
+o.bind("SUPER + SHIFT + S", "Ruixen shelf", "omarchy-shell ruixen.shelf toggle")
+-- equivalent: "omarchy-shell shell toggle ruixen.shelf"
+```
+
+You don't need the window open to drop onto it: drag local files over the
+collapsed notch and drop to add them.
 
 ## Notch dashboard and app launcher
 

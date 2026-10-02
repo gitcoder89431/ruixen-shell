@@ -342,6 +342,18 @@ per-column add buttons, hover edit/delete on each card, and a done/total
 progress bar. Renaming a column stays CLI-only. Full command reference and
 how the click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
 
+## Shelf (drop pocket)
+
+`ruixen.shelf` is a panel that grows out of the frame at the notch's position — the notch's expanded silhouette, with concave wing shoulders, hanging from the top edge: drag files in
+from any app, drag them back out into another app or a terminal. It
+remembers file paths, never copies anything. Drag local files over the
+collapsed notch and the Shelf opens so you can drop them in and see them land
+(it hides again if you drag back out without dropping). It's
+agent-readable too — `omarchy-shell ruixen.shelf list` shows an agent what
+you dropped, and `add /abs/path` lets it put a file on the shelf for you to
+drag out. It's its own plugin rather than a notch tab so other apps stay
+reachable for drag-and-drop. Details: [`docs/CONTROL.md`](docs/CONTROL.md).
+
 ## Window look'n'feel (Hyprland)
 
 Ruixen also rounds window corners and adds blur, to match the frame/bar.

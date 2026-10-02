@@ -184,7 +184,8 @@ if [[ "$dry_run" == true ]]; then
     for spec in \
       "SUPER+R|SUPER+R -> Ruixen Launcher" \
       "SUPER+SHIFT+R|SUPER+SHIFT+R -> Ruixen Settings" \
-      "SUPER+CTRL+SPACE|SUPER+CTRL+SPACE -> Ruixen wallpapers"; do
+      "SUPER+CTRL+SPACE|SUPER+CTRL+SPACE -> Ruixen wallpapers" \
+      "SUPER+D|SUPER+D -> Ruixen Shelf"; do
       wanted="${spec%%|*}"
       description="${spec#*|}"
       existing_keybind="$(omarchy menu keybindings --print 2>/dev/null | awk -F '→' -v wanted="$wanted" '
@@ -204,7 +205,7 @@ if [[ "$dry_run" == true ]]; then
       fi
     done
   else
-    printf '  not requested; pass --with-launcher-keybind to add SUPER+R/SUPER+SHIFT+R/SUPER+CTRL+SPACE when free\n'
+    printf '  not requested; pass --with-launcher-keybind to add SUPER+R/SUPER+SHIFT+R/SUPER+CTRL+SPACE/SUPER+D when free\n'
   fi
 
   printf '\nHyprland window look:\n'
@@ -471,6 +472,14 @@ install_recommended_keybinds() {
     "SUPER+CTRL+SPACE" \
     "Ruixen wallpapers" \
     'o.bind("SUPER + CTRL + SPACE", "Ruixen wallpapers", "omarchy-shell ruixen.notch toggleWallpapers")'
+  # The shelf, on the same opt-in path as every other bind here. It goes
+  # through `shell toggle` (not the plugin's own IPC target) so it behaves
+  # exactly like every other overlay's bind, including telling the host
+  # which overlay is showing.
+  install_recommended_keybind \
+    "SUPER+D" \
+    "Ruixen Shelf" \
+    'o.bind("SUPER + D", "Ruixen Shelf", "omarchy-shell shell toggle ruixen.shelf")'
 
   if command -v hyprctl >/dev/null 2>&1; then
     hyprctl reload >/dev/null 2>&1 \
@@ -1244,7 +1253,9 @@ cat <<EOF
 Ruixen Shell is installed.
 
 Recommended keybinds: SUPER+R for Ruixen Launcher, SUPER+SHIFT+R for
-Ruixen Settings, and SUPER+CTRL+SPACE for the notch's wallpaper/theme tab (unbind Omarchy's Background switcher first if present). To
+Ruixen Settings, SUPER+CTRL+SPACE for the notch's wallpaper/theme tab, and
+SUPER+D for the Ruixen Shelf drop pocket (unbind Omarchy's Background switcher
+first if present). To
 have the installer add any missing free keys next time, run:
 
   $script_dir/install.sh --with-launcher-keybind
@@ -1256,6 +1267,10 @@ Or add it yourself in ~/.config/hypr/bindings.lua:
 Ruixen Settings lives inside the Launcher. Optional direct settings keybind:
 
   o.bind("SUPER + SHIFT + R", "Ruixen Settings", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"settings"}']])
+
+Ruixen Shelf, the drop pocket under the notch:
+
+  o.bind("SUPER + D", "Ruixen Shelf", "omarchy-shell shell toggle ruixen.shelf")
 
 Pick any other unbound key if you'd rather -- run \`omarchy menu keybindings --print\` to see what's taken.
 

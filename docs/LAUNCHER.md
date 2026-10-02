@@ -116,6 +116,44 @@ Available actions (folders get one extra):
   the exact real value, never the abbreviated `~` form shown in the
   metadata panel
 
+## Clipboard History
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"clipboard"}'` — see [`docs/KEYBINDS.md`](KEYBINDS.md))
+that lists Omarchy's clipboard history (`~/.local/state/omarchy/clipboard-history.json`)
+with a preview and metadata panel. It reuses Omarchy's own paste/open
+helpers rather than a second clipboard backend.
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Copy the highlighted entry |
+| `Alt+C` | Copy the highlighted entry |
+| `Alt+O` | Open |
+| `Alt+P` | Paste an image's file path |
+| `Alt+D` | Delete (press twice to confirm) |
+| `Alt+R` | Reveal / hide a masked possible secret |
+
+Text entries are sorted into kinds, each with its own icon and metadata:
+**Link** (host, scheme, parameter count), **Color** (hex/rgb()/hsl() with a
+swatch and converted values), **Email** (domain; Open uses `mailto:`),
+**Path** (name, extension, and whether it exists; Open uses `xdg-open`),
+**JSON** (object/array summary, pretty-printed preview), and plain text
+(characters, words, lines). Anything shaped like a credential (known token
+prefixes, JWTs, private keys, or a long high-entropy string) is a
+**Secret**: its row and preview are masked until revealed, and its text is
+not searchable. This is a heuristic for masking only — it never blocks
+copying or pasting.
+
+A chip row above the list filters and sorts it: **Type** cycles through the
+kinds actually present (right-click resets to All), and **Recent** / **By
+Type** pick the sort — clicking the active one flips its direction. By Type
+also groups the list under per-kind headers.
+
+Delete rewrites the history file atomically and matches the entry by
+identity, not position; an entry that has changed or vanished since it was
+drawn is left alone. Deleting an image also removes its file from
+`clipboard-images` if no other entry uses it.
+
 ## Configuring search locations
 
 By default, Search Files walks your home directory plus every

@@ -112,6 +112,12 @@ Item {
   // source/type dropdown in EITHER mode instead of Tab meaning two
   // different things depending which one's active.
   signal shiftTabPressed()
+  // Optional, extension-owned Alt+<key> shortcuts (clipboard: Alt+C/O/P/D).
+  // Only consumed while interceptShortcuts is true, so Alt combos stay
+  // untouched everywhere else. Alt rather than Ctrl so the search box's
+  // own text-editing shortcuts (Ctrl+C/V/D/A...) keep working.
+  property bool interceptShortcuts: false
+  signal shortcutPressed(int key)
 
   function focusInput() { searchInput.forceActiveFocus() }
 
@@ -341,7 +347,10 @@ Item {
     // onEscapePressed handles the rest of the original priority order
     // (drill out of Search Files, then dismiss).
     Keys.onPressed: function(event) {
-      if (event.key === Qt.Key_Escape) {
+      if (root.interceptShortcuts && (event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier)) {
+        root.shortcutPressed(event.key)
+        event.accepted = true
+      } else if (event.key === Qt.Key_Escape) {
         if (root.dropdownOpen) root.dropdownOpen = false
         else root.escapePressed()
         event.accepted = true

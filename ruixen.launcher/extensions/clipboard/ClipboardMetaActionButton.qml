@@ -5,37 +5,43 @@ Rectangle {
 
   property string label: ""
   property string icon: ""
+  property bool danger: false
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
+  property color dangerColor: "#e5484d"
   property string fontFamily: "JetBrainsMono Nerd Font"
 
   signal clicked()
 
-  width: Math.max(76, content.implicitWidth + 22)
-  height: 30
-  radius: 9
-  color: area.containsMouse ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
+  readonly property color tone: root.danger ? root.dangerColor : root.accent
+
+  width: Math.max(34, content.implicitWidth + 14)
+  height: 22
+  radius: 7
+  color: area.containsMouse ? Qt.rgba(root.tone.r, root.tone.g, root.tone.b, 0.28)
+    : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
   border.width: 1
-  border.color: area.containsMouse ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.65) : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.1)
+  border.color: area.containsMouse ? Qt.rgba(root.tone.r, root.tone.g, root.tone.b, 0.62)
+    : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.10)
 
   Row {
     id: content
     anchors.centerIn: parent
-    spacing: 7
+    spacing: 5
 
     Text {
       text: root.icon
-      color: area.containsMouse ? "#050505" : root.accent
+      color: root.tone
       font.family: root.fontFamily
-      font.pixelSize: 12
+      font.pixelSize: 10
     }
 
     Text {
       text: root.label
-      color: area.containsMouse ? "#050505" : root.textColor
+      color: root.textColor
       font.family: root.fontFamily
-      font.pixelSize: 11
+      font.pixelSize: 10
       font.bold: true
     }
   }

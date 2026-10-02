@@ -49,6 +49,19 @@ o.bind("SUPER + D", "Display Settings", [[omarchy-shell shell summon ruixen.laun
 Valid `section` values: `general` (Profile), `bar`, `launcher` (File
 Search), `audio`, `wifi`, `bluetooth`, `display`, `plugins`, `about`.
 
+## Clipboard History
+
+Clipboard History is another extension inside Ruixen Launcher (it reads
+Omarchy's own clipboard history). Open it directly with:
+
+```lua
+o.bind("SUPER + SHIFT + V", "Clipboard History", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"clipboard"}']])
+```
+
+Inside it, `Enter` copies the highlighted entry; `Alt+C` copies it, `Alt+O`
+opens it, `Alt+P` pastes an image's file path, and `Alt+D` deletes it (press
+twice to confirm), and `Alt+R` reveals a masked possible secret.
+
 ## Notch dashboard and app launcher
 
 Both live on `ruixen.notch`'s own IPC target directly — a different shape

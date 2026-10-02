@@ -41,14 +41,16 @@ check "ClipboardContent uses native text paste helper by history index" \
   "$(grep -c 'omarchy-clipboard-paste-text.*--history-index' "$content_qml")" "2"
 check "ClipboardContent uses native image paste helper" \
   "$(grep -c 'omarchy-clipboard-paste-file' "$content_qml")" "2"
+check "ClipboardContent default row activation copies instead of pasting" \
+  "$(( $(grep -A8 'function activateSelection' "$content_qml" | grep -c 'root.copySelected()') + $(grep -c 'onRowActivated: (idx) => { root.selectedIndex = idx; root.copySelected() }' "$content_qml") ))" "2"
 check "ClipboardContent does not use cliphist" \
   "$(grep -Rhi 'cliphist' "$repo_dir/ruixen.launcher/extensions/clipboard" | wc -l)" "0"
 check "ClipboardContent uses compact icon+name rows, with no subtitle/kind columns" \
   "$(grep -c 'filesMode: true' "$content_qml")" "1"
 check "Clipboard model classifies URL-shaped text as Link with a link icon" \
-  "$(( $(grep -c 'looksLikeLink' "$model_js") + $(grep -c '"\\uf0c1"' "$model_js") + $(grep -c 'kind: isLink ? "Link" : "Text"' "$model_js") ))" "4"
+  "$(( $(grep -c 'looksLikeLink' "$model_js") + $(grep -c '"\\uf0c1"' "$model_js") + $(grep -c 'kind: "Link"' "$model_js") ))" "7"
 check "Clipboard model labels image rows by dimensions instead of filename" \
-  "$(grep -c 'Image (" + dims + ")"' "$model_js")" "1"
+  "$(( $(grep -c 'var prefix = entry.qr ? "QR Image" : "Image"' "$model_js") + $(grep -c 'prefix + " (" + dims + ")"' "$model_js") ))" "2"
 check "ClipboardDetailsPanel exposes an image path action" \
   "$(grep -c 'onPastePathRequested' "$content_qml")$(grep -c 'label: "Path"' "$details_qml")" "11"
 check "ClipboardDetailsPanel omits temporary/internal path metadata rows" \
@@ -57,14 +59,66 @@ check "ClipboardContent fetches image dimensions through the shared file parser"
   "$(grep -c 'FileSearchRanking.parseFileDimensions' "$content_qml")" "1"
 check "ClipboardContent fetches image byte size with stat" \
   "$(grep -Fc '["stat", "--format=%s|%n"' "$content_qml")" "1"
+check "ClipboardContent decodes image QR payloads into a Ruixen sidecar cache" \
+  "$(( $(grep -c 'clipboard-qr-cache.json' "$content_qml") + $(grep -c 'zbarimg' "$content_qml") + $(grep -c 'requestQrPayloads' "$content_qml") + $(grep -c 'mergeQr' "$content_qml") ))" "7"
 check "ClipboardDetailsPanel shows image dimensions and size metadata" \
   "$(( $(grep -c 'label: "Dimensions"' "$details_qml") + $(grep -c 'label: "Size"' "$details_qml") ))" "2"
+check "ClipboardDetailsPanel shows decoded QR payload metadata for images" \
+  "$(grep -c 'label: "QR"' "$details_qml")" "1"
 check "ClipboardDetailsPanel shows text character and word counts" \
   "$(( $(grep -c 'function characterCount' "$details_qml") + $(grep -c 'function wordCount' "$details_qml") + $(grep -c 'label: "Characters"' "$details_qml") + $(grep -c 'label: "Words"' "$details_qml") ))" "4"
+check "ClipboardDetailsPanel keeps character and word counts text-only, not links" \
+  "$(grep -c 'root.entry.type === "text" && !root.entry.secret' "$details_qml")" "1"
 check "ClipboardDetailsPanel previews links through the same text preview surface" \
-  "$(grep -c 'root.entry.type === "text" || root.entry.type === "link"' "$details_qml")" "1"
+  "$(grep -c 'visible: root.isTextual' "$details_qml")" "1"
 check "Clipboard model preserves source history indexes" \
   "$(grep -c 'sourceIndex: index' "$model_js")" "2"
+
+check "ClipboardContent probes image labels through a bounded, cached, single worker" \
+  "$(( $(grep -c 'imageProbeLimit' "$content_qml") + $(grep -c 'imageLabelsDirty' "$content_qml") + $(grep -c 'mergeDimensions' "$content_qml") ))" "7"
+check "ClipboardContent keeps the selection by identity across history reloads" \
+  "$(grep -c 'ClipboardHistory.entryKey' "$content_qml")" "6"
+check "ClipboardDetailsPanel caps the text preview" \
+  "$(grep -c 'ClipboardHistory.previewText' "$details_qml")" "1"
+
+launcher_header="$repo_dir/ruixen.launcher/SearchHeader.qml"
+check "Actions are collapsed into one metadata row with compact buttons" \
+  "$(grep -c 'text: "Actions"' "$details_qml")$(grep -c 'ClipboardMetaActionButton {' "$details_qml")" "16"
+check "Action controls do not render keyboard helper text in the details panel" \
+  "$(( $(grep -c 'hint:' "$details_qml") + $(grep -c 'Alt+' "$details_qml") + $(grep -c 'ClipboardActionRow' "$details_qml") ))" "0"
+check "ClipboardContent reuses the Search Files action menu for Tab and right-click row actions" \
+  "$(( $(grep -c 'ResultActionsMenu {' "$content_qml") + $(grep -c 'function focusRightPanel' "$content_qml") + $(grep -c 'onRowActionsRequested' "$content_qml") + $(grep -c 'function runClipboardAction' "$content_qml") ))" "4"
+check "Clipboard action menu uses Launcher's theme-aware glass colors" \
+  "$(( $(grep -A20 'ClipboardContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint') + $(grep -A20 'ClipboardContent {' "$launcher_qml" | grep -c 'glassBorder: root.glassBorder') + $(grep -c 'property color glassTint' "$content_qml") + $(grep -c 'property color glassBorder' "$content_qml") + $(grep -c 'glassTint: root.glassTint' "$content_qml") + $(grep -c 'glassBorder: root.glassBorder' "$content_qml") ))" "6"
+check "Launcher does not pass clipboard-only glass props to other extensions" \
+  "$(( $(grep -A30 'WallpapersContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint\\|glassBorder: root.glassBorder') + $(grep -A30 'ThemeBrowserContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint\\|glassBorder: root.glassBorder') ))" "0"
+check "Clipboard action menu supports paste/copy/open/path/reveal/delete actions" \
+  "$(( $(grep -c 'id: "paste"' "$content_qml") + $(grep -c 'id: "copy"' "$content_qml") + $(grep -c 'id: "open"' "$content_qml") + $(grep -c 'id: "path"' "$content_qml") + $(grep -c 'id: "reveal"' "$content_qml") + $(grep -c 'id: "delete"' "$content_qml") ))" "6"
+check "ClipboardContent maps Alt+C/O/P/D through handleShortcut" \
+  "$(grep -c 'function handleShortcut' "$content_qml")$(grep -c 'Qt.Key_[COPD])' "$content_qml")" "13"
+check "SearchHeader only consumes Alt shortcuts when an extension opts in" \
+  "$(grep -c 'interceptShortcuts && (event.modifiers & Qt.AltModifier)' "$launcher_header")" "1"
+check "Launcher forwards shortcuts to the active extension's handleShortcut" \
+  "$(grep -c 'handleShortcut' "$launcher_qml")" "4"
+check "Delete is two-step, identity-matched and atomic" \
+  "$(grep -c 'deleteArmedKey' "$content_qml")$(grep -c 'os.replace(tmp, history)' "$content_qml")$(grep -c "'ambiguous' if hits" "$content_qml")" "611"
+
+check "Empty state distinguishes no-matches from empty history" \
+  "$(grep -c 'No matching clipboard entries' "$details_qml")" "1"
+check "Clipboard shortcuts are documented" \
+  "$(grep -c 'Alt+D' "$repo_dir/docs/LAUNCHER.md")$(grep -c 'Alt+D' "$repo_dir/docs/KEYBINDS.md")" "11"
+
+check "Clipboard model classifies colors, paths, JSON, emails and secrets" \
+  "$(grep -c 'subtype: "color"\|subtype: "path"\|subtype: "json"\|subtype: "email"\|subtype: "secret"' "$model_js")" "5"
+check "Secrets are masked by default and revealed per entry (Alt+R)" \
+  "$(grep -c 'root.masked' "$details_qml")$(grep -c 'Qt.Key_R' "$content_qml")" "11"
+check "Path and email entries open through xdg-open" \
+  "$(grep -c 'xdg-open' "$content_qml")" "2"
+
+check "ClipboardContent has a Type filter chip and Recent/By Type sort chips" \
+  "$(grep -c 'function cycleKindFilter' "$content_qml")$(grep -c 'function toggleSort' "$content_qml")$(grep -c 'id: chipRow' "$content_qml")" "111"
+check "Clipboard model filters and sorts through one view object" \
+  "$(grep -c 'function visibleEntries\|function kindsPresent' "$model_js")" "2"
 
 check "run-all includes launcher clipboard extension contract" \
   "$(grep -c 'launcher-clipboard-extension\.sh' "$script_dir/run-all.sh")" "1"

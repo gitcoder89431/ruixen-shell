@@ -610,7 +610,7 @@ Item {
     onExited: function(exitCode) {
       root.catalogLoading = false
       if (exitCode !== 0) { root.catalogFailed = true; return }
-      var themes = ThemeCatalog.parseThemesJs(darkCatalogStdout.text)
+      var themes = ThemeCatalog.parseThemesJs(darkCatalogStdout.text, "dark")
       if (themes.length === 0) { root.catalogFailed = true; return }
       root.darkThemes = themes
     }
@@ -624,7 +624,7 @@ Item {
     }
     onExited: function(exitCode) {
       if (exitCode !== 0) return
-      var themes = ThemeCatalog.parseThemesJs(lightCatalogStdout.text)
+      var themes = ThemeCatalog.parseThemesJs(lightCatalogStdout.text, "day")
       var bySlug = {}
       for (var i = 0; i < themes.length; i++) bySlug[themes[i].slug] = themes[i]
       root.lightThemesBySlug = bySlug

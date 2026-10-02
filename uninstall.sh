@@ -13,6 +13,39 @@ fail() {
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
 command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 
+# Issue #90: reject unknown options up front, like install.sh -- this
+# script used to compare "$1" against "--dry-run" only, so a typo like
+# --dryrun (or --help) performed a full, irreversible uninstall.
+dry_run=false
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      dry_run=true
+      ;;
+    # Consumed later by check_lifecycle_journal_or_refuse
+    # (lib/lifecycle-journal.sh); accepted here so it doesn't hit the
+    # unknown-option rejection below.
+    --acknowledge-interrupted)
+      ;;
+    -h|--help)
+      cat <<'EOF'
+Usage:
+  ./uninstall.sh [--dry-run] [--acknowledge-interrupted]
+
+Options:
+  --dry-run                   Preview the uninstall without changing files.
+  --acknowledge-interrupted   Proceed despite a previous run's own journal
+                               showing it was interrupted before finishing
+                               (see lib/lifecycle-journal.sh).
+EOF
+      exit 0
+      ;;
+    *)
+      fail "unknown option: $arg (see --help)"
+      ;;
+  esac
+done
+
 # Issue #31: a completely separate, early code path -- not a
 # conditional threaded through the real mutation logic below. That
 # keeps the safety guarantee simple to verify (dry-run exits before
@@ -24,7 +57,7 @@ command -v jq >/dev/null 2>&1 || fail "jq is required (command 'jq' not found)"
 # real run below calls -- the preview and the real operation cannot
 # drift apart on what counts as "Ruixen-owned" vs "foreign", since
 # they are calling the identical code with the identical inputs.
-if [[ "${1:-}" == "--dry-run" ]]; then
+if [[ "$dry_run" == true ]]; then
   pristine_shell_json="$HOME/.local/state/ruixen/shell.json.pre-ruixen"
   shell_json="$HOME/.config/omarchy/shell.json"
   plugins_dir="$HOME/.config/omarchy/plugins"

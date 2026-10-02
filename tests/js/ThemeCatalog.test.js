@@ -27,13 +27,33 @@ check("parseThemesJs: real-shaped file, full object preserved",
     colors: { accent: "#d563fe" }, ansi: ["#190f2e", "#fe288f"]
   }]);
 
+const groupedSampleJs = 'window.THEMES = {"variants":[{"key":"dark"},{"key":"day"}],"themes":[{"index":1,'
+  + '"name":"Synthwave","slug":"synthwave","motif":"sunset-grid","variants":{"dark":{"install":"synthwave",'
+  + '"name":"Synthwave","icons":"Yaru-purple","colors":{"accent":"#d563fe"},"ansi":["#190f2e"]},'
+  + '"day":{"install":"synthwave-day","name":"Synthwave Day","icons":"Yaru-purple","colors":{"accent":"#a720d0"},'
+  + '"ansi":["#f7f5fe"]}}}]};\n';
+
+check("parseThemesJs: grouped upstream catalog defaults to the dark variant",
+  M.parseThemesJs(groupedSampleJs),
+  [{
+    index: 1, name: "Synthwave", base: "Synthwave", night: "synthwave", slug: "synthwave",
+    motif: "sunset-grid", icons: "Yaru-purple", colors: { accent: "#d563fe" }, ansi: ["#190f2e"]
+  }]);
+
+check("parseThemesJs: grouped upstream catalog can flatten the day variant",
+  M.parseThemesJs(groupedSampleJs, "day"),
+  [{
+    index: 1, name: "Synthwave Day", base: "Synthwave", night: "synthwave", slug: "synthwave-day",
+    motif: "sunset-grid", icons: "Yaru-purple", colors: { accent: "#a720d0" }, ansi: ["#f7f5fe"]
+  }]);
+
 check("parseThemesJs: malformed JS fails closed to an empty list, not a throw",
   M.parseThemesJs("not a themes file"), []);
 
 check("parseThemesJs: empty input fails closed to an empty list",
   M.parseThemesJs(""), []);
 
-check("parseThemesJs: valid JSON but not an array fails closed to an empty list",
+check("parseThemesJs: valid JSON but not an array or grouped catalog fails closed to an empty list",
   M.parseThemesJs("window.THEMES = {\"oops\": true};"), []);
 
 // ---- filterThemes ---------------------------------------------------------
@@ -210,19 +230,19 @@ check("themeRows: current is still colored by install status like any other row 
 
 // ---- themesDataUrl / themeFileUrl ----------------------------------------
 
-check("themesDataUrl: dark variant points at the 100-themes repo's own gh-pages site",
+check("themesDataUrl: dark variant points at the unified 100-themes gh-pages catalog",
   M.themesDataUrl("dark"), "https://bjarneo.github.io/100-themes/assets/themes.js");
 
-check("themesDataUrl: light variant points at the 100-themes-day repo",
-  M.themesDataUrl("light"), "https://bjarneo.github.io/100-themes-day/assets/themes.js");
+check("themesDataUrl: light variant also uses the unified catalog",
+  M.themesDataUrl("light"), "https://bjarneo.github.io/100-themes/assets/themes.js");
 
 check("themeFileUrl: dark variant, real slug used as-is",
   M.themeFileUrl("synthwave", "dark", "preview.png"),
-  "https://bjarneo.github.io/100-themes/synthwave/preview.png");
+  "https://raw.githubusercontent.com/bjarneo/100-themes/main/synthwave/dark/preview.png");
 
-check("themeFileUrl: light variant, real slug used as-is (already carries its own -day suffix)",
+check("themeFileUrl: light variant maps Omarchy's installed -day slug to upstream's day folder",
   M.themeFileUrl("synthwave-day", "light", "preview.png"),
-  "https://bjarneo.github.io/100-themes-day/synthwave-day/preview.png");
+  "https://raw.githubusercontent.com/bjarneo/100-themes/main/synthwave/day/preview.png");
 
 // ---- isSafeThemeSlug ---------------------------------------------------
 
@@ -242,11 +262,11 @@ check("isSafeThemeSlug: a shell metacharacter is rejected", M.isSafeThemeSlug("a
 
 check("backgroundsApiUrl: dark variant points at the 100-themes repo's own contents API",
   M.backgroundsApiUrl("synthwave", "dark"),
-  "https://api.github.com/repos/bjarneo/100-themes/contents/synthwave/backgrounds");
+  "https://api.github.com/repos/bjarneo/100-themes/contents/synthwave/dark/backgrounds");
 
-check("backgroundsApiUrl: light variant points at the 100-themes-day repo",
+check("backgroundsApiUrl: light variant maps Omarchy's installed -day slug to upstream's day folder",
   M.backgroundsApiUrl("synthwave-day", "light"),
-  "https://api.github.com/repos/bjarneo/100-themes-day/contents/synthwave-day/backgrounds");
+  "https://api.github.com/repos/bjarneo/100-themes/contents/synthwave/day/backgrounds");
 
 // ---- parseBackgroundsListing ---------------------------------------------------
 

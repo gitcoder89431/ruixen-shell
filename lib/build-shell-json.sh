@@ -111,7 +111,11 @@ ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 # keepLoaded, gated purely on its own enabled flag read from Settings'
 # Visualizer category, but it still needs this bare {id} entry or the
 # plugin never loads at all on a fresh/updated install.
-ruixen_plugin_ids='["ruixen.notch", "ruixen.wallpaper", "ruixen.media", "ruixen.launcher", "ruixen.cava"]'
+#
+# ruixen.shelf (kind "overlay", keepLoaded) -- the drop pocket window;
+# ruixen.notch's quick-drop relays to its IPC target, so it has to be
+# loaded at all times, same bare {id} entry as launcher/cava above.
+ruixen_plugin_ids='["ruixen.notch", "ruixen.wallpaper", "ruixen.media", "ruixen.launcher", "ruixen.cava", "ruixen.shelf"]'
 default_idle_json='{"lock": 300, "screensaver": 150}'
 
 # Mirrors Bar.qml's own centerSpecialIds -- keep both in sync if either

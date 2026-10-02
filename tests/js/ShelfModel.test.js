@@ -2,7 +2,7 @@
 const path = require("path");
 const { loadModule, check, summary } = require("./harness");
 
-const M = loadModule(path.join(__dirname, "..", "..", "bars", "widgets", "ruixen.notch", "ShelfModel.js"));
+const M = loadModule(path.join(__dirname, "..", "..", "ruixen.shelf", "ShelfModel.js"));
 
 // ---- paths ----------------------------------------------------------
 

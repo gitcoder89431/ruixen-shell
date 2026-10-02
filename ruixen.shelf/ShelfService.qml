@@ -3,16 +3,16 @@ import Quickshell
 import Quickshell.Io
 import "ShelfModel.js" as ShelfModel
 
-// Backing store for the notch's own Shelf tab (5th dashboard tab,
-// ShelfContent.qml) -- same FileView/debounced-save shape as
+// Backing store for the Shelf window (ShelfContent.qml, hosted by
+// Shelf.qml) -- same FileView/debounced-save shape as the notch's
 // KanbanService.qml, see its header for the pattern this copies.
 //
 // This service is the ONLY writer of shelf.json: the panel's drops and
 // buttons call these functions directly, and agents/scripts reach the
-// same ones through the shelf* IpcHandler functions on Overlay.qml's
-// "ruixen.notch" target (`omarchy-shell ruixen.notch shelfAdd
-// /abs/path`). One writer means no file-locking story and no lost
-// updates between the GUI and the CLI.
+// same ones through the IpcHandler on Shelf.qml's "ruixen.shelf" target
+// (`omarchy-shell ruixen.shelf add /abs/path`). ruixen.notch's
+// quick-drop relays through that same IPC target too. One writer means
+// no file-locking story and no lost updates between the GUI and the CLI.
 //
 // The shelf holds absolute-path references, never copies (see
 // ShelfModel.js). Whether each path still exists comes from a bounded,
@@ -62,7 +62,7 @@ Item {
     scheduleSave()
   }
 
-  // Agent/CLI introspection -- `omarchy-shell ruixen.notch shelfList`
+  // Agent/CLI introspection -- `omarchy-shell ruixen.shelf list`
   // returns this directly, so what's on the shelf can be read back with
   // no QML access at all. Each entry carries path/name/source/kind/size
   // and `exists` (true/false, or null while a path hasn't been checked

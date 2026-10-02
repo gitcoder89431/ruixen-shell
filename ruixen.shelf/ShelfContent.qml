@@ -4,10 +4,11 @@ import Quickshell
 import Quickshell.Io
 import "ShelfModel.js" as ShelfModel
 
-// The notch's Shelf tab (5th dashboard tab): a drop pocket. Drag files
-// in from any app; drag them back out into another app or a terminal.
-// Backing store + agent-facing API live in ShelfService.qml -- this file
-// only renders it and calls the same service functions the IPC does.
+// The Shelf window's content: a drop pocket. Drag files in from any app;
+// drag them back out into another app or a terminal. Backing store +
+// agent-facing API live in ShelfService.qml -- this file only renders it
+// and calls the same service functions the IPC does. Hosted by Shelf.qml
+// (its own small window under the notch, not a notch dashboard tab).
 //
 // Dragging OUT uses QML's own Drag.Automatic with both text/uri-list
 // (file managers, browsers, chat apps) and text/plain (terminals: the
@@ -22,6 +23,8 @@ Item {
   property string fontFamily: "JetBrainsMono Nerd Font"
   property bool active: false
   property var shelfService: null
+
+  signal closeRequested()
 
   readonly property var rows: root.shelfService
     ? ShelfModel.listEntries(root.shelfService.items, root.shelfService.stats, root.shelfService.checked)
@@ -144,6 +147,29 @@ Item {
           onClicked: if (root.shelfService) root.shelfService.clear()
         }
       }
+
+      Rectangle {
+        Layout.preferredWidth: 24
+        Layout.preferredHeight: 24
+        radius: 6
+        color: closeArea.containsMouse ? root.tintStrong : "transparent"
+
+        Text {
+          anchors.centerIn: parent
+          text: "\uf00d"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 12
+        }
+
+        MouseArea {
+          id: closeArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.closeRequested()
+        }
+      }
     }
 
     // Empty state: the drop target itself.
@@ -185,7 +211,7 @@ Item {
           width: parent.width
           horizontalAlignment: Text.AlignHCenter
           wrapMode: Text.Wrap
-          text: "Drag them back out into any app or terminal.\nAgents can add and read files with\nomarchy-shell ruixen.notch shelfAdd /path"
+          text: "Drag them back out into any app or terminal.\nAgents can add and read files with\nomarchy-shell ruixen.shelf add /path"
           color: root.muted
           font.family: root.fontFamily
           font.pixelSize: 11
@@ -253,6 +279,10 @@ Item {
           cursorShape: Qt.OpenHandCursor
           drag.target: dragProxy
           drag.threshold: 6
+          // The row lives inside a ListView, which would otherwise steal
+          // the press/gesture (it wants to scroll) before a drag out can
+          // begin.
+          preventStealing: true
           onPressed: row.grabToImage(function(result) { dragProxy.Drag.imageSource = result.url })
           onDoubleClicked: openProc.exec(["xdg-open", row.entry.path])
         }
@@ -274,7 +304,7 @@ Item {
             Image {
               anchors.fill: parent
               visible: !row.missing && ShelfModel.isImagePath(row.entry.path)
-              source: visible ? ("file://" + row.entry.path) : ""
+              source: visible ? ShelfModel.uriFor(row.entry.path) : ""
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
               cache: false

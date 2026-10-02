@@ -344,12 +344,14 @@ how the click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
 
 ## Shelf (drop pocket)
 
-`ruixen.notch`'s dashboard has a 5th tab: a drop pocket. Drag files in from any
-app, drag them back out into another app or a terminal. It remembers file
-paths, never copies anything. It's agent-readable too — `omarchy-shell
-ruixen.notch shelfList` shows an agent what you dropped, and `shelfAdd
-/abs/path` lets it put a file on the shelf for you to drag out. Details:
-[`docs/CONTROL.md`](docs/CONTROL.md).
+`ruixen.shelf` is a small window that opens under the notch: drag files in
+from any app, drag them back out into another app or a terminal. It
+remembers file paths, never copies anything. Drag local files over the
+collapsed notch and drop to add them without opening the window. It's
+agent-readable too — `omarchy-shell ruixen.shelf list` shows an agent what
+you dropped, and `add /abs/path` lets it put a file on the shelf for you to
+drag out. It's its own plugin rather than a notch tab so other apps stay
+reachable for drag-and-drop. Details: [`docs/CONTROL.md`](docs/CONTROL.md).
 
 ## Window look'n'feel (Hyprland)
 

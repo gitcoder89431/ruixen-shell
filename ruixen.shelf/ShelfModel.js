@@ -1,16 +1,16 @@
-// Pure helpers for the notch's own Shelf tab (5th dashboard tab,
-// ShelfContent.qml) -- a drop pocket: drag files in, drag them back out
-// into another app or terminal. Kept out of QML so the logic can be
-// tested on its own, same pattern as KanbanModel.js.
+// Pure helpers for the Shelf plugin (ruixen.shelf) -- a drop pocket:
+// drag files in, drag them back out into another app or terminal. Kept
+// out of QML so the logic can be tested on its own, same pattern as the
+// notch's KanbanModel.js.
 //
 // The shelf holds REFERENCES (absolute paths), never copies -- nothing
 // is moved, duplicated or deleted on disk by adding or removing an
 // item. A referenced file that later disappears just reads as missing.
 //
 // Agent-native, same as Kanban: every mutation is also reachable as an
-// `omarchy-shell ruixen.notch shelf*` IPC function (see Overlay.qml), so
-// an agent can read what you dropped (`shelfList`, then open the paths
-// itself) and put files on the shelf for you to drag out (`shelfAdd`).
+// `omarchy-shell ruixen.shelf <verb>` IPC function (see Shelf.qml), so
+// an agent can read what you dropped (`list`, then open the paths
+// itself) and put files on the shelf for you to drag out (`add`).
 // Items added over IPC are tagged source "agent" so the panel can show
 // who put them there. No MCP, no artifacts -- deliberately just paths.
 

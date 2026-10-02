@@ -62,6 +62,20 @@ Inside it, `Enter` copies the highlighted entry; `Alt+C` copies it, `Alt+O`
 opens it, `Alt+P` pastes an image's file path, and `Alt+D` deletes it (press
 twice to confirm), and `Alt+R` reveals a masked possible secret.
 
+## Shelf (drop pocket)
+
+`ruixen.shelf` is its own overlay plugin with its own IPC target. Toggle its
+window with the host's shell command or the plugin's own target — either
+works:
+
+```lua
+o.bind("SUPER + SHIFT + S", "Ruixen shelf", "omarchy-shell ruixen.shelf toggle")
+-- equivalent: "omarchy-shell shell toggle ruixen.shelf"
+```
+
+You don't need the window open to drop onto it: drag local files over the
+collapsed notch and drop to add them.
+
 ## Notch dashboard and app launcher
 
 Both live on `ruixen.notch`'s own IPC target directly — a different shape
@@ -74,7 +88,7 @@ o.bind("SUPER + L", "App launcher", "omarchy-shell ruixen.notch toggleLauncher")
 ```
 
 `toggleDashboard`/`openDashboard` open on whichever tab (Widgets/
-Wallpapers/Metrics/Kanban/Shelf) was last selected. Want a keybind that jumps
+Wallpapers/Metrics/Kanban) was last selected. Want a keybind that jumps
 straight to one tab instead — e.g. to check the Kanban board? Use
 `openDashboardTab` with the tab name instead:
 
@@ -82,14 +96,7 @@ straight to one tab instead — e.g. to check the Kanban board? Use
 o.bind("SUPER + K", "Kanban board", "omarchy-shell ruixen.notch openDashboardTab kanban")
 ```
 
-The Shelf (drop pocket) has its own open/close toggle, handy to press right
-before you start dragging a file — a drop needs the notch already expanded:
-
-```lua
-o.bind("SUPER + SHIFT + S", "Ruixen shelf", "omarchy-shell ruixen.notch toggleShelf")
-```
-
-Valid tab names: `widgets`, `wallpapers`, `metrics`, `kanban`, `shelf`. Unlike
+Valid tab names: `widgets`, `wallpapers`, `metrics`, `kanban`. Unlike
 Settings' `summon` above, this is its own dedicated function taking a
 plain string, not a JSON payload on `openDashboard` itself — Quickshell's
 IpcHandler enforces exact argument count against a function's declared

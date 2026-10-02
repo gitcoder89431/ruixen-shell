@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.shelf",
+  "name": "Ruixen Shelf",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "A drop pocket for file references: drop files in (or let an agent add them), drag them back out into any app or terminal. Opens as its own small window under the notch, so other apps stay reachable for drag-and-drop.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Shelf.qml"
+  }
+}

@@ -502,6 +502,31 @@ Item {
 
   Process { id: dndActionProcess; running: false }
 
+  // Quick-drop relay (see shelfQuickDrop below): one `omarchy-shell
+  // ruixen.shelf addMany` call per drop, carrying the whole batch as a
+  // JSON array -- not a process per path. A drop that lands while a
+  // previous relay is still running is queued and sent after that one's
+  // real exit (never reassigning the Process out from under a live
+  // child). Fire-and-forget, same pattern as dndActionProcess above.
+  property var shelfRelayQueue: []
+
+  function relayToShelf(urls) {
+    root.shelfRelayQueue = root.shelfRelayQueue.concat([JSON.stringify(urls)])
+    root.drainShelfRelay()
+  }
+
+  function drainShelfRelay() {
+    if (shelfRelayProcess.running || root.shelfRelayQueue.length === 0) return
+    var next = root.shelfRelayQueue[0]
+    root.shelfRelayQueue = root.shelfRelayQueue.slice(1)
+    shelfRelayProcess.exec(["omarchy-shell", "ruixen.shelf", "addMany", next, "user"])
+  }
+
+  Process {
+    id: shelfRelayProcess
+    onRunningChanged: if (!running) root.drainShelfRelay()
+  }
+
   // The notch's own notification-history backing store (Column 3 of
   // the Widgets dashboard) -- independent of the dnd property above,
   // sweeping the real service's own on-disk state to add a read flag
@@ -517,13 +542,6 @@ Item {
   // see KanbanService.qml's own header for the full design.
   KanbanService {
     id: kanbanService
-  }
-
-  // The notch's own Shelf tab backing store (5th dashboard tab) -- a
-  // drop pocket of file references, readable/writable by agents over
-  // the shelf* IPC functions below. See ShelfService.qml's own header.
-  ShelfService {
-    id: shelfService
   }
 
   // ruixen-shell issue #44/#38: shell.appLibrary only populates for a
@@ -1356,7 +1374,7 @@ Item {
       // to bottom. An unrecognized name is a no-op on the tab (still
       // opens on whichever tab was already selected).
       function openDashboardTab(tab: string): void {
-        var tabNames = ["widgets", "wallpapers", "metrics", "kanban", "shelf"]
+        var tabNames = ["widgets", "wallpapers", "metrics", "kanban"]
         var index = tabNames.indexOf(tab)
         if (index >= 0) panel.dashboardTab = index
         panel.pinnedOpen = true
@@ -1452,41 +1470,6 @@ Item {
       // script (or me, driving the board on your behalf) reads it back
       // without any QML access at all.
       function kanbanListCards(): string { return kanbanService.listCards() }
-
-      // Shelf tab (5th dashboard tab) -- a drop pocket of file
-      // references. Same agent-native shape as the kanban* functions
-      // above: the panel's own drops/buttons call these same
-      // ShelfService functions, so the CLI and the GUI are one API.
-      //
-      // Opens the notch ON the shelf tab (a closed notch opens there,
-      // an open one just flips pinnedOpen), same shape as
-      // toggleWallpapers. Handy before a drag: the notch has to be
-      // expanded for the shelf to receive a drop.
-      function toggleShelf(): void {
-        if (!panel.pinnedOpen) panel.dashboardTab = 4
-        panel.pinnedOpen = !panel.pinnedOpen
-      }
-      // Puts an absolute path (or file:// URL, or ~/ path) on the
-      // shelf, tagged source "agent" so the panel shows who added it --
-      // the way an agent hands you a file to drag out. Relative paths
-      // are rejected (the shell's own working directory is not yours).
-      // Returns JSON: {"ok":true,"id":...,"path":...} or
-      // {"ok":false,"error":...}.
-      function shelfAdd(path: string): string {
-        var result = shelfService.addPaths([path], "agent")
-        if (result.added.length === 0)
-          return JSON.stringify({ ok: false, error: "not an absolute local path: " + path })
-        return JSON.stringify({ ok: true, id: result.added[0] })
-      }
-      // By id (from shelfList) or by path. {"ok":false} when nothing matched.
-      function shelfRemove(idOrPath: string): string {
-        return JSON.stringify({ ok: shelfService.removeItem(idOrPath) })
-      }
-      function shelfClear(): void { shelfService.clear() }
-      // Returns {"items":[{id,path,name,source,addedAt,exists,kind,size}]}
-      // -- how an agent sees what you dropped (then reads the paths
-      // itself). "exists" is null until a path has been checked.
-      function shelfList(): string { return shelfService.listItems() }
     }
 
     // Fire-once, not auto-running -- triggered by the tab bar's bottom
@@ -1551,6 +1534,65 @@ Item {
       }
     }
 
+    // Quick-drop onto the Shelf: dragging local files over the collapsed
+    // pill highlights it, and dropping hands the paths to ruixen.shelf
+    // over its own IPC target -- no live object shared between the two
+    // plugins, and the Shelf window itself does NOT need to be open. Same
+    // footprint as notchHoverZone above (a sibling of notchOuter, so it
+    // keeps working while the pill is slid out of view in "On Hover"
+    // mode; entering it reveals the pill the way hovering does). A drag
+    // doesn't deliver ordinary hover events, which is why this reuses
+    // notchHoverEntered/Exited explicitly. Inert while the notch is
+    // expanded -- the dashboard/launcher own the surface then.
+    //
+    // Deliberately only the quick-drop half of the Shelf's activation: no
+    // dwell-to-open spring loading. Whether a drag already in progress can
+    // continue into a freshly mapped layer surface is compositor-sensitive
+    // and has to be verified live before it is built on.
+    DropArea {
+      id: shelfQuickDrop
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: notchOuter.width
+      height: notchOuter.restY + notchOuter.height
+      enabled: !panel.expanded
+      // file:// URLs only -- a web image dragged out of a browser arrives
+      // as an http(s) URL and is ignored here, matching the Shelf's own
+      // local-files-only contract.
+      function localUrls(urls) {
+        var out = []
+        for (var i = 0; i < (urls || []).length; i++) {
+          var s = String(urls[i])
+          if (s.indexOf("file://") === 0) out.push(s)
+        }
+        return out
+      }
+      onEntered: (drag) => {
+        drag.accepted = shelfQuickDrop.localUrls(drag.urls).length > 0
+        if (drag.accepted) root.notchHoverEntered()
+      }
+      onExited: root.notchHoverExited()
+      onDropped: (drop) => {
+        var urls = shelfQuickDrop.localUrls(drop.urls)
+        root.notchHoverExited()
+        if (urls.length === 0) return
+        root.relayToShelf(urls)
+        drop.acceptProposedAction()
+      }
+
+      Rectangle {
+        visible: shelfQuickDrop.containsDrag
+        x: 0
+        y: notchOuter.restY
+        width: parent.width
+        height: notchOuter.height
+        radius: 22
+        color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+        border.width: 2
+        border.color: root.accent
+      }
+    }
+
     Item {
       id: notchOuter
       anchors.horizontalCenter: parent.horizontalCenter
@@ -1592,7 +1634,7 @@ Item {
           panel.launcherOpen = false
           event.accepted = true
         } else if (event.key === Qt.Key_Tab && panel.pinnedOpen && !panel.launcherOpen) {
-          panel.dashboardTab = (panel.dashboardTab + 1) % 5
+          panel.dashboardTab = (panel.dashboardTab + 1) % 4
           event.accepted = true
         }
       }
@@ -2568,10 +2610,7 @@ Item {
               Layout.preferredWidth: 78
               Layout.maximumWidth: 78
               Layout.fillHeight: true
-              // 6, not 8 -- five tabs plus the gear at 56px each need
-              // 6*56 + 5*gap to fit the notch's 368px of usable
-              // height (400 - 20 top - 12 bottom): 8 overflowed by 8px.
-              spacing: 6
+              spacing: 8
 
               // Explicitly sets pinnedOpen: true too, even though it's
               // already true by the time a tab is clickable at all
@@ -2597,11 +2636,6 @@ Item {
                 glyph: ""
                 active: panel.dashboardTab === 3
                 onActivated: { panel.dashboardTab = 3; panel.pinnedOpen = true }
-              }
-              TabButton {
-                glyph: ""
-                active: panel.dashboardTab === 4
-                onActivated: { panel.dashboardTab = 4; panel.pinnedOpen = true }
               }
 
               Item { Layout.fillHeight: true }
@@ -2739,17 +2773,6 @@ Item {
                 editorSurface: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.075)
                 fontFamily: root.fontFamily
                 kanbanService: kanbanService
-              }
-
-              ShelfContent {
-                anchors.fill: parent
-                visible: panel.dashboardTab === 4
-                active: panel.dashboardTab === 4 && panel.expanded
-                textColor: root.textColor
-                muted: root.muted
-                accent: root.accent
-                fontFamily: root.fontFamily
-                shelfService: shelfService
               }
             }
           }

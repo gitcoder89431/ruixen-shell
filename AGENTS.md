@@ -210,6 +210,15 @@ shadow). This bit hard during the frame-color/docked-shadow work
 (2026-09-24) and will bite again on any future glass-surface pass — read
 this before touching any of the three.
 
+- **`ruixen.shelf` is a fourth, looser consumer.** Its window (a drop
+  pocket that opens under the notch — `ruixen.shelf/Shelf.qml`) reads the
+  same Black/Theme surface state (`bar-surface.json`, legacy
+  `frame-appearance.json` fallback) and keeps its own copy of the resolve +
+  readable-foreground logic, Solid only. It is deliberately NOT part of the
+  notch's window or a notch tab (the expanded notch is modal; cross-app
+  drag-and-drop needs a window that is only as big as the shelf, with no
+  fullscreen mask and no Exclusive focus). Any future glass/corner/shadow
+  pass on the frame/notch surface has to consider it too.
 - **Shared color state, independent resolution.** All three read the same
   `~/.local/state/ruixen/frame-appearance.json` (`{"mode":"theme"|"black"}`),
   but each keeps its own copy of the resolve logic (`frameColorMode`/

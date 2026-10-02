@@ -30,7 +30,7 @@ check "no existing config: bar.id is ruixen.bar" \
   "$(jq -r '.bar.id' <<<"$out1")" "ruixen.bar"
 check "no existing config: plugins has exactly the 6 ruixen ids" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out1")" \
-  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.wallpaper"]'
+  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.shelf","ruixen.wallpaper"]'
 check "no existing config: default idle applied" \
   "$(jq -c '.idle' <<<"$out1")" '{"lock":300,"screensaver":150}'
 
@@ -53,7 +53,7 @@ check "customized: unrelated plugin entry survives with its own fields" \
   '{"id":"third-party.widget","hidden":[]}'
 check "customized: ruixen plugin ids present exactly once each (idempotent, not duplicated)" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out2")" \
-  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.wallpaper","third-party.widget"]'
+  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.shelf","ruixen.wallpaper","third-party.widget"]'
 check "customized: user's own idle values are preserved, not overwritten" \
   "$(jq -c '.idle' <<<"$out2")" '{"lock":900,"screensaver":600}'
 check "customized: bar becomes ruixen's own (some OTHER bar was active -- installing ruixen.bar means owning the bar slot; this fixture's bar is layout-less, so there is nothing to carry across -- see Case 14 for the layout case)" \
@@ -98,7 +98,7 @@ check "already ruixen.bar: existing ruixen plugin entry's extra field survives" 
   '{"id":"ruixen.notch","someFutureField":true}'
 check "already ruixen.bar: missing ruixen ids (wallpaper, media, launcher, cava) still get appended" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out5")" \
-  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.wallpaper"]'
+  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.shelf","ruixen.wallpaper"]'
 
 # --- Case 6: real regression -- an existing install (bar.id already
 # "ruixen.bar") with a stale ruixen.media entry in its own bar.layout
@@ -128,7 +128,7 @@ check "existing install with stale ruixen.media in layout: stripped from every s
   '{"left":[{"id":"ruixen.applauncher"},{"id":"ruixen.workspaces"},{"id":"ruixen.pinnedapps"}],"center":[{"id":"omarchy.clock"},{"id":"ruixen.weather"}],"right":[{"id":"ruixen.tray"},{"id":"ruixen.pluginpins"}]}'
 check "existing install with stale ruixen.media in layout: still gets the plugins[] entry" \
   "$(jq -c '[.plugins[].id] | sort' <<<"$out6")" \
-  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.wallpaper"]'
+  '["ruixen.cava","ruixen.launcher","ruixen.media","ruixen.notch","ruixen.shelf","ruixen.wallpaper"]'
 
 # --- Case 7 (issue #36, revised): "center" is no longer swept for an
 # ordinary foreign id, mirroring the "left" decision below -- direct
@@ -328,7 +328,7 @@ check "structural gap: ruixen.pluginpins inserted on the right, nothing else add
   '[{"id":"ruixen.tray","hidden":["some.app"]},{"id":"ruixen.pluginpins"},{"id":"ruixen.stayawake"},{"id":"ruixen.settingsbutton"}]'
 check "structural gap: unrelated entries/settings/order elsewhere survive untouched (docked, center, plugins)" \
   "$(jq -c '{docked: .bar.docked, center: .bar.layout.center, plugins: [.plugins[].id]}' <<<"$out11")" \
-  '{"docked":true,"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock","format":"HH:mm"}],"plugins":["ruixen.notch","ruixen.wallpaper","ruixen.media","ruixen.launcher","ruixen.cava"]}'
+  '{"docked":true,"center":[{"id":"ruixen.weather"},{"id":"omarchy.clock","format":"HH:mm"}],"plugins":["ruixen.notch","ruixen.wallpaper","ruixen.media","ruixen.launcher","ruixen.cava","ruixen.shelf"]}'
 check "structural gap: re-running on its own output is idempotent (already present, not inserted twice)" \
   "$(printf '%s' "$out11" | "$build")" "$out11"
 

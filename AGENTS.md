@@ -223,7 +223,9 @@ this before touching any of the three.
   fallback) with its own copy of the resolve + readable-foreground logic,
   Solid only. It is deliberately NOT part of the notch's window or a notch
   tab (the expanded notch is modal; cross-app drag-and-drop needs a window
-  with no fullscreen mask and no Exclusive focus). Any change to the notch's
+  with no fullscreen mask and no click-away catcher). It holds Exclusive
+  keyboard focus only while open, and lets go of it during a drag-out, so
+  Escape dismisses it without a click. Any change to the notch's
   corner numbers, `restY`, surface color or shadow has to be mirrored there
   (`cornerSize`/`bottomRadius`/`frameInset` in `Shelf.qml`).
 - **Shared color state, independent resolution.** All three read the same

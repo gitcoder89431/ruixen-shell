@@ -257,8 +257,9 @@ Item {
     // the same count, and Escape is the dismiss (there is no X).
     //
     // Plain TextInput rather than anything fancier: it takes focus only on
-    // click, so it never steals the keyboard from the app the user is about
-    // to drag into (the same reason the window is OnDemand, not Exclusive).
+    // click. (The window itself holds the keyboard exclusively while open,
+    // so Escape works with no click, and releases it during a drag-out --
+    // see keyboardFocus in Shelf.qml.)
     Rectangle {
       id: searchBox
       anchors.top: parent.top

@@ -12,9 +12,11 @@ import "ShelfModel.js" as ShelfModel
 // Exclusive keyboard focus + click-away dismissal), which is exactly
 // wrong for cross-app drag and drop -- the pointer has to leave the
 // shelf and reach the real destination app. This window is sized to the
-// shelf itself, takes keyboard focus only on demand, has no outside-click
-// catcher, and reserves no screen space, so every other app stays
-// reachable while it is open.
+// shelf itself, has no outside-click catcher, and reserves no screen
+// space, so every other app stays reachable by pointer and by drag while
+// it is open. It does hold the keyboard exclusively while open (released
+// during a drag-out) so Escape works without a click -- see keyboardFocus
+// on the window below.
 //
 // Entry points:
 //   - the host's own lifecycle: `omarchy-shell shell toggle ruixen.shelf`

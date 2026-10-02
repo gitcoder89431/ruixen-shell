@@ -106,9 +106,10 @@ and a referenced file that later disappears just shows as missing.
 It is deliberately not a notch dashboard tab: the expanded notch is a modal
 surface (fullscreen layer, fullscreen input mask, exclusive keyboard focus,
 click-away dismissal), which is the opposite of what cross-app drag-and-drop
-needs. The Shelf window is only as big as the shelf, takes keyboard focus on
-demand only, reserves no screen space and has no outside-click catcher, so
-every other app stays reachable while it is open.
+needs. The Shelf window is only as big as the shelf, reserves no screen space
+and has no outside-click catcher, so every other app stays reachable by
+pointer and by drag while it is open. (It does hold the keyboard while open —
+see below.)
 
 It has its own IPC target, and it is how an agent sees what you point at and
 hands you files back:
@@ -153,9 +154,14 @@ you opened yourself (keybind, `open`) is never auto-hidden. A drop that lands
 on the notch pill before the Shelf has taken over the drag is still accepted
 and added (`addMany`, one call), so a fast release doesn't lose the files.
 
-Escape needs the Shelf to hold keyboard focus, and it only gets that when you
-click it (it never takes focus on its own, so it can't steal typing from the
-app you're in).
+**Keyboard.** While it is open the Shelf holds the keyboard exclusively, which
+is what lets Escape dismiss it with no click first: under Wayland an
+"on demand" window only receives keys after a click, so Escape would go to the
+app behind it. The trade-off is that typing goes to the Shelf, not the app
+underneath, until you dismiss it (Escape, the toggle keybind, or
+`omarchy-shell ruixen.shelf close`). It lets go of the keyboard while you are
+dragging a card out (so you can drop into a terminal and type), takes it back
+when the drag ends, and holds no keyboard at all while it is closed.
 
 State is a small versioned file at `~/.local/state/ruixen/shelf.json`
 (newest first, capped at 200 items). `ruixen.shelf` is its only writer — go

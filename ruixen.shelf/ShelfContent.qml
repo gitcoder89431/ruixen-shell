@@ -29,6 +29,9 @@ Item {
   property var shelfService: null
 
   signal closeRequested()
+  // True while a card is being dragged out of the shelf, so Shelf.qml can
+  // give the keyboard back for the duration (see its keyboardFocus).
+  signal dragOutActive(bool active)
   // Drag lifecycle, forwarded to Shelf.qml (which owns the "opened by a drag,
   // so hide again if it goes nowhere" logic). Explicit signals rather than a
   // Connections watching containsDrag: AGENTS.md section 9 documents a
@@ -591,6 +594,7 @@ Item {
             "text/plain": row.entry.path
           })
           Drag.onDragFinished: { dragProxy.x = 0; dragProxy.y = 0 }
+          Drag.onActiveChanged: root.dragOutActive(dragProxy.Drag.active)
         }
 
         // Whole-row hover (covers the buttons too) for showing the actions.

@@ -163,6 +163,10 @@ Item {
   // After an auto-hide, a further openFromDrag is ignored for a few seconds so
   // a drag parked over the notch can't make it flap open and shut.
   property bool openedByDrag: false
+  // A drag-out in progress holds no keyboard: the user's intent is now
+  // somewhere else (a terminal, an editor). Releasing it here is what lets
+  // "drag a file into a terminal, then type a command" work at all.
+  property bool draggingOut: false
   property double autoDismissedAt: 0
   readonly property int dragWatchdogMs: 2500
   readonly property int dragLeaveGraceMs: 350
@@ -357,10 +361,25 @@ Item {
     WlrLayershell.namespace: "ruixen-shelf"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
-    // OnDemand, not Exclusive: the shelf must not grab the keyboard from
-    // whatever app the user is dragging into/out of. Escape works once the
-    // shelf has been clicked.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    // Exclusive while open, OnDemand while shut.
+    //
+    // OnDemand alone looked right and was not: the shelf takes the keyboard
+    // only on a click, so opening it with SUPER+D (or a drag over the notch)
+    // left Escape going to whatever app was focused behind it. The window was
+    // open, looked focused -- `focusScope.forceActiveFocus()` in open() does
+    // set Qt-level focus -- and simply ignored the key. Under Wayland that is
+    // not a Qt focus bug: OnDemand means the compositor withholds the
+    // keyboard until a click, so Qt never sees the keystroke at all.
+    //
+    // Exclusive is safe here BECAUSE it is bound to `opened`, not set
+    // permanently: a shut shelf holds no keyboard, and the whole reason the
+    // shelf must not grab keys mid-drag is that a drag carries the user's
+    // intent into another app. While open it owns them, which is what makes
+    // Escape dismiss without a prior click. If this ever needs to become
+    // OnDemand again, the dismissal it buys has to move somewhere reachable
+    // without the keyboard -- a click-away catcher, which the cross-app drag
+    // forbids.
+    WlrLayershell.keyboardFocus: (root.opened && !draggingOut) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
 
     // Input only where the visible shape is. Without this the halo padding
     // above would silently become a dead strip around the shelf.
@@ -558,6 +577,13 @@ Item {
           // grey band instead of an edge.
           surfaceColor: root.surfaceColor
           onCloseRequested: root.dismiss()
+          // Hand the keyboard back the instant a drag starts, and take it
+          // again when it ends -- so Escape works on a shelf you opened with
+          // SUPER+D, without stealing keys from an app mid drag-out.
+          onDragOutActive: (active) => {
+            root.draggingOut = active
+            if (!active) Qt.callLater(function() { focusScope.forceActiveFocus() })
+          }
           onDragEntered: root.dragEnteredShelf()
           onDragLeft: root.dragLeftShelf()
           onDropped: root.dropLanded()

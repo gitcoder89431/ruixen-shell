@@ -91,8 +91,18 @@ check "Window: no click-away catcher (no MouseArea at window level)" \
   "$(sed -n '/PanelWindow {/,/id: shape/p' "$shelf" | grep -c 'MouseArea' || true)" "0"
 
 check "Window: reserves no screen space" "$(grep -c 'ExclusionMode.Ignore' "$shelf")" "2"
-check "Window: keyboard focus is on demand, never exclusive" \
-  "$(grep -c 'WlrKeyboardFocus.OnDemand' "$shelf")$(grep -c 'WlrKeyboardFocus.Exclusive' "$shelf")" "10"
+# Supersedes the old "on demand, never exclusive" rule. Exclusive is required
+# for Escape to work without a prior click (OnDemand withholds the keyboard
+# from the compositor entirely), but must NOT be held mid drag-out, or
+# "drag a file into a terminal, then type" sends the keys to the shelf.
+check "Window: Exclusive only while open AND not dragging out" \
+  "$(grep -cF 'WlrLayershell.keyboardFocus: (root.opened && !draggingOut) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand' "$shelf" || true)" "1"
+check "Drag-out: a card drag reports its own activity up to the window" \
+  "$(grep -c 'Drag.onActiveChanged: root.dragOutActive(dragProxy.Drag.active)' "$content" || true)" "1"
+check "Drag-out: the keyboard is handed back for the duration of the drag" \
+  "$(grep -c 'property bool draggingOut: false' "$shelf" || true)" "1"
+check "Drag-out: focus is retaken when the drag ends, so Escape works again" \
+  "$(grep -c 'if (!active) Qt.callLater(function() { focusScope.forceActiveFocus() })' "$shelf" || true)" "1"
 check "Window: overlay layer" "$(grep -c 'WlrLayer.Overlay' "$shelf")" "1"
 check "Window: Escape closes (when focused)" "$(grep -c 'Keys.onEscapePressed: root.dismiss()' "$shelf")" "1"
 check "Window: has an explicit close button path" "$(grep -c 'onCloseRequested: root.dismiss()' "$shelf")" "1"
@@ -345,8 +355,11 @@ check "Search: the focus-catcher MouseArea sits UNDER the input (at default z it
   "$(grep -B4 'onClicked: searchInput.forceActiveFocus()' "$content" | grep -c 'z: -1' || true)" "1"
 check "Search: 'no match' is its own state, distinct from an empty shelf" \
   "$(grep -c 'root.rows.length > 0 && root.filtering && root.visibleRows.length === 0' "$content")" "1"
-check "Search: typing in the box never steals keyboard focus from the app below (OnDemand only)" \
-  "$(grep -c 'WlrKeyboardFocus.Exclusive' "$shelf" || true)" "0"
+# Still true, but no longer because of OnDemand: an OPEN shelf holds the
+# keyboard (that is what makes Escape work), and the only window in which the
+# app below can hold it is a drag-out, where the shelf gives it back.
+check "Search: typing in the box never holds the keyboard when shut or drag-out" \
+  "$(grep -c 'root.opened && !draggingOut' "$shelf" || true)" "1"
 check "Content: thumbnails use the tested URI encoder, not string concat" \
   "$(grep -c 'ShelfModel.uriFor(row.entry.path)' "$content")$(grep -c '"file://" + ' "$content")" "10"
 check "Copy semantics: acceptProposedAction() is never used in the shelf or the notch quick-drop" \

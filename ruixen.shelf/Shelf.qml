@@ -162,15 +162,39 @@ Item {
       return JSON.stringify({ ok: true, id: result.added[0] })
     }
 
-    // pathsJson: a JSON array of paths / file:// URLs. source: "user" or
+    // pathsArg: newline-delimited paths / file:// URLs. source: "user" or
     // "agent" (anything else is treated as "user").
-    function addMany(pathsJson: string, source: string): string {
+    //
+    // NEWLINE-delimited, not a JSON array, and that is load-bearing
+    // rather than stylistic. Confirmed live: a bracketed JSON array does
+    // not survive the trip through the IPC boundary as one argument.
+    // `addMany '["/a","/b"]' user` arrived as THREE arguments and was
+    // refused by the host with "Too many arguments provided (2 required
+    // but 3 were provided)", with the count tracking the array length
+    // exactly; a one-element array arrived as a scalar, so
+    // Array.isArray() was false and the call silently added nothing
+    // (`{"ok":false,"added":0,"rejected":0}`). Semicolons, newlines and
+    // plain comma-separated text all arrive intact as a single argument
+    // -- only the bracketed form is torn apart. Newline is used rather
+    // than comma or semicolon because `ShelfModel.normalizePath` already
+    // rejects any path containing \n or \r, so a newline can never occur
+    // inside a legitimate path and there is no ambiguity to encode
+    // around.
+    //
+    // A leading "[" is still parsed as JSON, purely so an in-process
+    // caller can keep passing an array literal.
+    function addMany(pathsArg: string, source: string): string {
+      var trimmed = String(pathsArg || "").trim()
       var paths = []
-      try {
-        var parsed = JSON.parse(pathsJson)
-        if (Array.isArray(parsed)) paths = parsed.map(String)
-      } catch (e) {
-        return JSON.stringify({ ok: false, error: "pathsJson is not a JSON array" })
+      if (trimmed.charAt(0) === "[") {
+        try {
+          var parsed = JSON.parse(trimmed)
+          if (Array.isArray(parsed)) paths = parsed.map(String)
+        } catch (e) {
+          return JSON.stringify({ ok: false, error: "pathsArg is not a JSON array" })
+        }
+      } else {
+        paths = trimmed.split("\n").map(function (p) { return p.trim() }).filter(function (p) { return p !== "" })
       }
       var result = service.addPaths(paths, source)
       return JSON.stringify({ ok: result.added.length > 0, added: result.added.length, rejected: result.rejected })

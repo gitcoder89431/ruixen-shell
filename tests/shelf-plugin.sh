@@ -44,9 +44,29 @@ check "Shelf has its own IPC target" "$(grep -c 'target: "ruixen.shelf"' "$shelf
 check "IPC: open/close/toggle" \
   "$(grep -c 'function open(): void\|function close(): void\|function toggle(): void' "$shelf")" "3"
 check "IPC: add/addMany/remove/clear/list" \
-  "$(grep -c 'function add(path: string)\|function addMany(pathsJson: string, source: string)\|function remove(idOrPath: string)\|function clear(): void\|function list(): string' "$shelf")" "5"
+  "$(grep -c 'function add(path: string)\|function addMany(pathsArg: string, source: string)\|function remove(idOrPath: string)\|function clear(): void\|function list(): string' "$shelf")" "5"
 check "IPC: add tags agent-sourced items" "$(grep -c 'addPaths(\[path\], "agent")' "$shelf")" "1"
 check "IPC: addMany takes the source explicitly" "$(grep -c 'service.addPaths(paths, source)' "$shelf")" "1"
+
+# Regression (found live, 2026-10-02): addMany's argument is NEWLINE
+# delimited, never a JSON array. A bracketed array does not survive the
+# IPC boundary as one argument -- the host split '["/a","/b"]' into three
+# arguments and refused the call ("Too many arguments provided"), and a
+# one-element array arrived as a scalar so Array.isArray() was false and
+# it silently added nothing. That broke every notch quick-drop, since
+# Overlay.qml relays exactly one addMany call per drop.
+#
+# These assert the ENCODING on both sides. They cannot prove the host's
+# splitting behavior (that needs a live shell), so they pin the contract
+# that avoids it instead -- see the real end-to-end check below.
+check "IPC: addMany splits on newlines, not commas" \
+  "$(grep -cF 'trimmed.split("\n")' "$shelf")" "1"
+check "IPC: addMany does not JSON.stringify a plain payload" \
+  "$(grep -c 'paths = \[\]' "$shelf")" "1"
+check "Notch: relay sends newline-delimited batch, not JSON.stringify(urls)" \
+  "$(grep -cF 'urls.join("\n")' "$notch")" "1"
+check "Notch: relay does not JSON.stringify the batch" \
+  "$(grep -cE '^[[:space:]]+[^/]*[^[:space:]]JSON\.stringify\(urls\)' "$notch")" "0"
 check "Host lifecycle: open(payloadJson)/close()/toggle(payloadJson)" \
   "$(grep -c '^  function open(payloadJson)\|^  function close()\|^  function toggle(payloadJson)' "$shelf")" "3"
 check "A user-initiated close also tells the host (shell.hide)" "$(grep -c 'root.shell.hide(' "$shelf")" "1"

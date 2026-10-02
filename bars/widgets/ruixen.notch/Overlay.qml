@@ -503,15 +503,23 @@ Item {
   Process { id: dndActionProcess; running: false }
 
   // Quick-drop relay (see shelfQuickDrop below): one `omarchy-shell
-  // ruixen.shelf addMany` call per drop, carrying the whole batch as a
-  // JSON array -- not a process per path. A drop that lands while a
-  // previous relay is still running is queued and sent after that one's
-  // real exit (never reassigning the Process out from under a live
-  // child). Fire-and-forget, same pattern as dndActionProcess above.
+  // ruixin.shelf addMany` call per drop, carrying the whole batch as one
+  // newline-delimited argument -- not a process per path. A drop that
+  // lands while a previous relay is still running is queued and sent
+  // after that one's real exit (never reassigning the Process out from
+  // under a live child). Fire-and-forget, same pattern as
+  // dndActionProcess above.
   property var shelfRelayQueue: []
 
   function relayToShelf(urls) {
-    root.shelfRelayQueue = root.shelfRelayQueue.concat([JSON.stringify(urls)])
+    // NEWLINE-delimited, matching ruixen.shelf's addMany contract -- not
+    // JSON.stringify(urls). Confirmed live: a bracketed JSON array does
+    // not survive the IPC boundary as one argument, so the host split it
+    // into one argument per array element and refused the call
+    // ("Too many arguments provided"), which broke every multi-file
+    // drop. Newlines pass through intact, and normalizePath rejects any
+    // path containing \n or \r, so this encoding is unambiguous.
+    root.shelfRelayQueue = root.shelfRelayQueue.concat([urls.join("\n")])
     root.drainShelfRelay()
   }
 

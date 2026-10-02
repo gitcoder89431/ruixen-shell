@@ -89,6 +89,7 @@ check "Window: input region is ONLY the visible shape (halo padding stays click-
   "$(grep -c 'mask: Region {' "$shelf")$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'width: root.shapeWidth')$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'height: root.shapeHeight')" "111"
 check "Window: no click-away catcher (no MouseArea at window level)" \
   "$(sed -n '/PanelWindow {/,/id: shape/p' "$shelf" | grep -c 'MouseArea' || true)" "0"
+
 check "Window: reserves no screen space" "$(grep -c 'ExclusionMode.Ignore' "$shelf")" "2"
 check "Window: keyboard focus is on demand, never exclusive" \
   "$(grep -c 'WlrKeyboardFocus.OnDemand' "$shelf")$(grep -c 'WlrKeyboardFocus.Exclusive' "$shelf")" "10"
@@ -222,6 +223,19 @@ check "Search: the search box is under the header, and the list under the search
 # \"clear the textbox\" with no label difference is a real footgun.
 check "Search: clear-the-text is a separate affordance from the shelf-wide Clear" \
   "$(grep -c 'id: clearQuery' "$content")$(grep -cF 'onClicked: { searchInput.text = ""; root.query = ""' "$content")" "21"
+# Clear belongs on the search row's right, not the header: the header is
+# the identity/count line, and an empty-the-whole-shelf button sitting there
+# is one stray click away from the count it sits next to.
+check "Clear: lives on the search row, right-aligned, not in the header" \
+  "$(sed -n '/id: header/,/^    }$/p' "$content" | grep -c 'clearLabel' || true)$(grep -c 'anchors.verticalCenter: searchBox.verticalCenter' "$content")" "01"
+# It stays OUTSIDE the rounded search box. As a child of searchBox it would
+# read as part of the text field, which is how a destructive action turns
+# into a mis-click on a filter.
+check "Clear: a sibling of searchBox, not a child of it" \
+  "$(sed -n '/id: searchBox/,/^    }$/p' "$content" | grep -c 'id: clearShelfButton' || true)" "0"
+# Hiding Clear must not leave the search box permanently short on the right.
+check "Clear: the search box gives the space back when Clear hides" \
+  "$(grep -cF 'anchors.rightMargin: 12 + (clearShelfButton.visible ? clearShelfButton.width + 6 : 0)' "$content")" "1"
 check "Search: the focus-catcher MouseArea sits UNDER the input (at default z it would eat its clicks)" \
   "$(grep -B4 'onClicked: searchInput.forceActiveFocus()' "$content" | grep -c 'z: -1' || true)" "1"
 check "Search: 'no match' is its own state, distinct from an empty shelf" \

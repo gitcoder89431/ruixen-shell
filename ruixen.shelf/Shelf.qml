@@ -23,6 +23,10 @@ import "ShelfModel.js" as ShelfModel
 //     ruixen.shelf open|close|toggle|add|addMany|remove|clear|list`
 //   - ruixen.notch's collapsed pill, which relays dropped files to `addMany`
 //     over that same IPC (no shared live objects between plugins)
+//   - SUPER+D, installed by install.sh --with-shelf-keybind, which binds
+//     it to this same IPC (see docs/KEYBINDS.md). Never a forced bind:
+//     the installer leaves keybinds alone unless asked, since a plugin that
+//     grabs a key without permission can clobber the user's own.
 //
 // ShelfService.qml is the only writer of shelf.json (unchanged path:
 // ~/.local/state/ruixen/shelf.json). State survives this window opening
@@ -135,6 +139,10 @@ Item {
     if (root.opened) root.dismiss()
     else root.open(payloadJson)
   }
+
+
+
+
 
   // --- state + agent-facing API ----------------------------------------
 

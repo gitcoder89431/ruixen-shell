@@ -151,33 +151,6 @@ Item {
       Item { Layout.fillWidth: true }
 
       Rectangle {
-        visible: root.rows.length > 0
-        Layout.preferredWidth: clearLabel.implicitWidth + 20
-        Layout.preferredHeight: 24
-        radius: 6
-        color: clearArea.containsMouse ? root.tintStrong : root.tint
-        border.width: 1
-        border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
-
-        Text {
-          id: clearLabel
-          anchors.centerIn: parent
-          text: "Clear"
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 11
-        }
-
-        MouseArea {
-          id: clearArea
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: if (root.shelfService) root.shelfService.clear()
-        }
-      }
-
-      Rectangle {
         Layout.preferredWidth: 24
         Layout.preferredHeight: 24
         radius: 6
@@ -212,7 +185,10 @@ Item {
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.leftMargin: 12
-      anchors.rightMargin: 12
+      // Gives up room on the right for the shelf-wide Clear that now sits on
+      // this row, and takes it back when Clear hides (nothing to clear), so
+      // the box never ends up with a mystery gap in an empty shelf.
+      anchors.rightMargin: 12 + (clearShelfButton.visible ? clearShelfButton.width + 6 : 0)
       height: 30
       radius: 9
       color: searchInput.activeFocus ? root.tintStrong : root.tint
@@ -265,10 +241,10 @@ Item {
         }
       }
 
-      // Clear-search affordance. Deliberately NOT the header's Clear
-      // (which empties the whole shelf): a destructive "Clear" sitting one
-      // button away from a "clear the textbox" one, with no label
-      // difference, is a real footgun.
+      // Clear-search affordance, for the filter text only. The shelf-wide
+      // Clear now sits to the right of this box instead of in the header,
+      // so the two are on the same row -- which is why this one is an
+      // unlabelled glyph (the field's own X) and that one reads "Clear".
       Rectangle {
         id: clearQuery
         visible: searchInput.text !== ""
@@ -308,6 +284,41 @@ Item {
         onClicked: searchInput.forceActiveFocus()
       }
     }
+
+      // Shelf-wide Clear, moved down onto the search row's right side. It is
+      // a sibling of searchBox rather than a child of it on purpose: inside
+      // the rounded box it would read as part of the text field, and it is
+      // the only button here that destroys the whole shelf's contents.
+      Rectangle {
+        id: clearShelfButton
+        visible: root.rows.length > 0
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        anchors.verticalCenter: searchBox.verticalCenter
+        width: clearLabel.implicitWidth + 20
+        height: 24
+        radius: 6
+        color: clearArea.containsMouse ? root.tintStrong : root.tint
+        border.width: 1
+        border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
+
+        Text {
+          id: clearLabel
+          anchors.centerIn: parent
+          text: "Clear"
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          id: clearArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: if (root.shelfService) root.shelfService.clear()
+        }
+      }
 
     // Empty state: the drop target itself.
     Rectangle {

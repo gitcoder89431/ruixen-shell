@@ -218,10 +218,23 @@ Item {
   // bottom corners. Built the way the notch builds it -- left flank +
   // square-topped center + right flank, the center overlapping both flanks
   // by seamOverlap so fractional output scales can't show a hairline -- and
-  // with the notch's own numbers: 28 shoulders, 44 bottom radius, a 420
-  // body (the launcher's width: 284 collapsed -> 420 launcher -> 900
-  // pinned). Fixed height: the inbox strip scrolls horizontally, so the
-  // panel never has to grow.
+  // with the notch's own numbers: 28 shoulders, 44 bottom radius, and a 900
+  // body -- the notch's own EXPANDED (pinned) width, not the launcher's 420.
+  // Fixed height: the inbox strip scrolls horizontally, so the panel never
+  // has to grow.
+  //
+  // Width choice, and it is the exact thing the notch's own history warns
+  // about, so read this before changing the number. Overlay.qml:1687-1692
+  // records that 900 is "untested territory for this notch (only 44 and 190
+  // are proven safe against the masking bug below)" -- and the bug in
+  // question is the one at 1770-1787, where a masked shape's silhouette
+  // goes non-deterministically flat at the larger sizes. The notch itself
+  // then took 900 anyway for its pinned dashboard, and it holds up live, so
+  // 900 is a real, working value and not a hypothetical. It is the right
+  // pick here on the merits too: 420 fit ~4 cards of a horizontal strip and
+  // spent the rest of its width on empty surface, while 900 shows roughly
+  // seven. If the silhouette ever does flatten, that comment is the place
+  // to look first.
   //
   // Where it sits: flush under the frame at the notch's own resting offset
   // (notchOuter.restY, 4), centered, so it reads as the notch expanded into
@@ -232,7 +245,7 @@ Item {
   readonly property int cornerSize: 28
   readonly property int bottomRadius: 44
   readonly property int seamOverlap: 2
-  readonly property int bodyWidth: 420
+  readonly property int bodyWidth: 900
   readonly property int shapeWidth: bodyWidth + cornerSize * 2
   readonly property int shapeHeight: 236
   // Mirrors ruixen.notch's notchOuter.restY. Keep the two in step.

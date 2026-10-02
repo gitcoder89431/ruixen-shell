@@ -119,8 +119,12 @@ check "Model has no Qt/Quickshell globals" "$(grep -cE '\b(Quickshell|Qt\.|Proce
 # and very visible when you do.
 check "Shape: attached to the frame at the notch's resting offset, no floating gap" \
   "$(grep -c 'readonly property int frameInset: 4' "$shelf")$(grep -c 'margins.top: root.frameInset' "$shelf")$(grep -c 'margins.top: 52' "$shelf" || true)" "110"
-check "Shape: 420 body, the notch launcher's width" \
-  "$(grep -c 'readonly property int bodyWidth: 420' "$shelf")" "1"
+# 900 is the notch's own EXPANDED (pinned) width, not the launcher's 420 --
+# this check exists to make a silent revert to 420 (or any other new number)
+# a deliberate, visible act rather than a quiet edit, because that is the
+# knob the notch's own masking bug is documented against.
+check "Shape: 900 body, the notch's expanded/pinned width" \
+  "$(grep -c 'readonly property int bodyWidth: 900' "$shelf")" "1"
 check "Shape: the window shape is body plus a shoulder on each side" \
   "$(grep -c 'readonly property int shapeWidth: bodyWidth + cornerSize \* 2' "$shelf")" "1"
 check "Shape: fixed height, not item-count driven (rows scroll sideways)" \

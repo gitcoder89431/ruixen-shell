@@ -33,7 +33,7 @@ command.
 ### A connected bar and notch
 
 A bar of floating glass pills (or one docked strip flush with the frame)
-wraps the screen in an OLED-black frame. In the middle, the notch expands
+wraps the screen in a matching frame, black or following your theme. In the middle, the notch expands
 into a dashboard: music, calendar, notifications, quick toggles, volume,
 wallpapers with a theme switcher, system health, and a Kanban board.
 

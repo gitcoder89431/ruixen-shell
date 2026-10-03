@@ -43,8 +43,8 @@ and a browser for the bjarneo community Omarchy themes. Its own
   shell — Profile, Bar, Audio, Wi-Fi, Bluetooth, Display, Night Light,
   Plugins — replacing the default Omarchy settings panel entirely. Full
   reference: [`docs/LAUNCHER.md`](LAUNCHER.md).
-- **The screen frame** — the OLED-black border that ties the bar and notch
-  together visually. It is part of `ruixen.bar` (an earlier standalone
+- **The screen frame** — the border that ties the bar and notch together
+  visually, in black or following the active theme. It is part of `ruixen.bar` (an earlier standalone
   `ruixen.frame-widget` was merged into it).
 - **`ruixen.shelf`** — the drop pocket under the notch (see
   [Shelf](#shelf-drop-pocket) below).
@@ -79,8 +79,8 @@ service — it never shows a bar icon of its own by design (an earlier,
 oversized play/pause badge was retired), so it's locked in Settings' Plugins
 list with no toggle.
 
-Every plugin shares the same OLED-black background, corner radii, and motion
-language, so they read as one shell instead of a pile of separate widgets.
+Every plugin shares the same surface (black or theme-aware, glass or solid),
+corner radii, and motion language, so they read as one shell instead of a pile of separate widgets.
 
 ## Kanban board
 

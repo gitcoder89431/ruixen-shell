@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs every test in this directory and reports one final pass/fail
 # summary -- what CI runs (.github/workflows/ci.yml) and what local
-# development should run before pushing. See README.md's own
+# development should run before pushing. See dev/README.md's own
 # "Running tests" section for what each individual script covers.
 set -Eeuo pipefail
 
@@ -19,6 +19,7 @@ suites=(
   "$script_dir/curvature-half-option.sh"
   "$script_dir/notch-kanban-gui.sh"
   "$script_dir/shelf-plugin.sh"
+  "$script_dir/docs-links.sh"
   "$script_dir/notch-theme-switcher.sh"
   "$script_dir/glass-profile-contract.sh"
   "$script_dir/glass-tint-contract.sh"

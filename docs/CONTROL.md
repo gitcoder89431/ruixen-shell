@@ -54,7 +54,7 @@ AI-only feature. The panel's own UI calls the exact same functions a script
 would:
 
 ```bash
-omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high   # priority: high/medium/low, defaults to medium if omitted/blank
+omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high   # priority: high/medium/low -- ALL THREE ARGS ARE REQUIRED over IPC (see the arity note below); pass medium explicitly
 omarchy-shell ruixen.notch kanbanMoveCard <cardId> in-progress
 omarchy-shell ruixen.notch kanbanSetPriority <cardId> high
 omarchy-shell ruixen.notch kanbanRenameCard <cardId> "Fix the other bug"   # no-op on a blank title
@@ -65,6 +65,20 @@ omarchy-shell ruixen.notch kanbanRenameColumn todo "Backlog"
 omarchy-shell ruixen.notch kanbanRemoveCard <cardId>
 omarchy-shell ruixen.notch kanbanListCards                     # whole board as JSON -- read it back from a script just as easily
 ```
+
+**Arity is enforced exactly, on every call above.** These are typed
+Quickshell `IpcHandler` signatures, so a call with too few or too many
+arguments is refused with an error and changes nothing:
+
+```
+$ omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo
+Too few arguments provided (3 required but 2 were provided).
+```
+
+`priority` is genuinely optional *in the model* (`KanbanModel.js`'s
+`normalizePriority` falls back to `medium`), but the IPC signature
+declares all three parameters as required, so there is no way to omit it
+over the wire — pass `medium` yourself.
 
 A card overdue (past its due date, and not in the Done column) shows its due
 date in red in the panel — Done cards never do, a shipped card is not late.

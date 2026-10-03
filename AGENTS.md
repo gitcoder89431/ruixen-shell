@@ -82,6 +82,11 @@ current, correct contract (post-#67):
   doesn't.
 - Keep writes atomic where corruption or loss would actually hurt
   (write-temp-then-rename, not an in-place partial write).
+- Driving an existing plugin from the CLI? `docs/AGENT.md` is the agent
+  entry point — every drivable IPC target, what it's for, and the
+  cross-cutting traps (enforced arity, JSON arrays not surviving the IPC
+  boundary, debounced state files). `docs/CONTROL.md` is the longer
+  per-plugin reference behind it.
 
 ## 5. Async / process safety
 

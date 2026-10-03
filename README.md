@@ -166,6 +166,7 @@ Or bind your own: see [Keybinds](docs/KEYBINDS.md). Then take the
 | Change the bar or window look | [Customizing](docs/CUSTOMIZATION.md) |
 | See what each plugin does | [Plugins and features](docs/PLUGINS.md) |
 | Script it or hand it to an agent | [Control](docs/CONTROL.md) |
+| Hand an agent one file to read | [Agent entry point](docs/AGENT.md) |
 | Check version support | [`COMPATIBILITY.md`](COMPATIBILITY.md) |
 | Build or contribute | [`dev/`](dev/README.md) |
 | Rules for coding agents | [`AGENTS.md`](AGENTS.md) |

@@ -94,6 +94,11 @@ These are conveniences over the same functions listed above, not a
 parallel API: whatever the panel writes, `kanbanListCards` reads back,
 and vice versa.
 
+For a single-file index of everything drivable on this machine — all
+targets, plus the cross-cutting traps (enforced arity, JSON arrays not
+surviving the IPC boundary, debounced state files) — see
+[`AGENT.md`](AGENT.md).
+
 ## Worked example: the Shelf (drop pocket)
 
 `ruixen.shelf` is its own overlay plugin — a panel that hangs from the frame at

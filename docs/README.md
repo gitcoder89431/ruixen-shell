@@ -28,6 +28,12 @@ Everything beyond the [README](../README.md) lives here. Pick what you need:
 - **[Control from a script or an agent](CONTROL.md)**: every plugin is
   controllable over `omarchy-shell <target> <method>`, with the Kanban board
   and the Shelf as worked examples.
+- **[Agent entry point](AGENT.md)**: the same ground as [Control](CONTROL.md)
+  but indexed by *what you can ask for* rather than by plugin — every
+  drivable target in one file, plus the cross-cutting traps (enforced
+  arity, JSON arrays not surviving the IPC boundary, debounced state
+  files). This is the file to hand a fresh agent with no other context;
+  [Control](CONTROL.md) is the longer per-plugin reference behind it.
 
 ## Elsewhere in the repository
 

@@ -7,9 +7,15 @@ A cohesive set of native Omarchy plugins that changes how the desktop looks,
 feels and works, without replacing the shell underneath it.
 </p>
 
-<p align="center">
-<a href="preview/preview_dock.png"><img src="preview/preview_dock.png" alt="Ruixen: a connected bar and notch wrapped in an OLED-black screen frame"></a>
-</p>
+<table>
+<tr>
+<td align="center" width="33%"><a href="preview/preview_0.png"><img src="preview/preview_0.png" alt="Ruixen with a purple theme"></a></td>
+<td align="center" width="33%"><a href="preview/preview_1.png"><img src="preview/preview_1.png" alt="Ruixen with an amber theme"></a></td>
+<td align="center" width="33%"><a href="preview/preview_2.png"><img src="preview/preview_2.png" alt="Ruixen with a green theme"></a></td>
+</tr>
+</table>
+
+<p align="center"><sub>One desktop, three themes: the bar, notch and frame follow whichever Omarchy theme you pick.</sub></p>
 
 ## What is Ruixen?
 
@@ -33,16 +39,27 @@ wallpapers with a theme switcher, system health, and a Kanban board.
 
 <table>
 <tr>
-<td align="center" width="50%">
+<td align="center" width="33%">
 <a href="preview/preview_float.png"><img src="preview/preview_float.png" alt="Floating bar"></a>
 <br><sub><b>Floating bar</b></sub>
 </td>
-<td align="center" width="50%">
+<td align="center" width="33%">
+<a href="preview/preview_dock.png"><img src="preview/preview_dock.png" alt="Docked bar"></a>
+<br><sub><b>Docked bar</b></sub>
+</td>
+<td align="center" width="33%">
 <a href="preview/preview_notch.png"><img src="preview/preview_notch.png" alt="Notch dashboard"></a>
 <br><sub><b>Notch dashboard</b></sub>
 </td>
 </tr>
 </table>
+
+The notch also holds a three-column **Kanban board** that you and your coding
+agent can both drive from a keybind or a script.
+
+<p align="center">
+<a href="preview/preview_kanban.png"><img src="preview/preview_kanban.png" width="640" alt="Kanban board in the notch"></a>
+</p>
 
 ### One launcher for apps, commands, files and clipboard
 
@@ -51,9 +68,28 @@ actions and installed apps, search files by name **and** contents across
 every drive with live previews, browse Clipboard History, and browse, preview and
 install community themes from the bjarneo collection.
 
-<p align="center">
-<a href="preview/preview_launcher.webp"><img src="preview/preview_launcher.webp" width="720" alt="Ruixen Launcher"></a>
-</p>
+<table>
+<tr>
+<td align="center" width="50%">
+<a href="preview/preview_launcher_files.png"><img src="preview/preview_launcher_files.png" alt="Search Files with a live preview"></a>
+<br><sub><b>Search Files</b>: names and contents, with previews</sub>
+</td>
+<td align="center" width="50%">
+<a href="preview/preview_clipboard.png"><img src="preview/preview_clipboard.png" alt="Clipboard History"></a>
+<br><sub><b>Clipboard History</b></sub>
+</td>
+</tr>
+<tr>
+<td align="center" width="50%">
+<a href="preview/preview_themes.png"><img src="preview/preview_themes.png" alt="Bjarneo theme browser"></a>
+<br><sub><b>Theme browser</b></sub>
+</td>
+<td align="center" width="50%">
+<a href="preview/preview_launcher.png"><img src="preview/preview_launcher.png" alt="Launcher palette"></a>
+<br><sub><b>The palette</b>: actions, apps and extensions</sub>
+</td>
+</tr>
+</table>
 
 ### Settings that live in the same place
 
@@ -61,7 +97,7 @@ Profile, bar layout, window look, audio, Wi-Fi, Bluetooth, display, night
 light and plugins, in the same overlay as the launcher.
 
 <p align="center">
-<a href="preview/preview_settings.png"><img src="preview/preview_settings.png" width="720" alt="Ruixen Settings"></a>
+<a href="preview/preview_settings.png"><img src="preview/preview_settings.png" width="480" alt="Ruixen Settings"></a>
 </p>
 
 ### A drop pocket for files

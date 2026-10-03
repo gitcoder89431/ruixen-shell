@@ -28,6 +28,7 @@ Item {
   property string pluginActionPendingId: ""
   property string pluginUpdateStatus: ""
   property string pluginUpdateError: ""
+  property bool pluginUpdateNeedsAcknowledge: false
   property string ruixenRepoPath: ""
 
   function parsePluginList(raw) {
@@ -166,23 +167,33 @@ Item {
         // point (network down, git pull conflict, etc.) leaves this
         // instance alive long enough to actually show the error.
         if (updateProc.exitCode !== 0) {
-          root.pluginUpdateStatus = "error"
-          var errLines = text.trim().split("\n")
-          root.pluginUpdateError = errLines.slice(Math.max(0, errLines.length - 3)).join("\n")
+          var raw = String(text || "").trim()
+          var interrupted = raw.indexOf("--acknowledge-interrupted") !== -1
+            || raw.indexOf("appears to have been interrupted") !== -1
+          root.pluginUpdateNeedsAcknowledge = interrupted
+          root.pluginUpdateStatus = interrupted ? "interrupted" : "error"
+          if (interrupted) {
+            root.pluginUpdateError = "A previous Ruixen install/update was interrupted before it could clean up. Click Acknowledge & Update to clear that stale marker and rerun the update."
+          } else {
+            var errLines = raw.split("\n")
+            root.pluginUpdateError = errLines.slice(Math.max(0, errLines.length - 5)).join("\n")
+          }
         }
       }
     }
   }
 
-  function updateRuixenShell() {
+  function updateRuixenShell(acknowledgeInterrupted) {
     if (root.ruixenRepoPath === "" || root.pluginUpdateStatus === "updating") return
     root.pluginUpdateStatus = "updating"
     root.pluginUpdateError = ""
+    root.pluginUpdateNeedsAcknowledge = false
     // Single-quoted, with any literal single-quote in the path escaped
     // as '\'' -- the standard safe way to embed an arbitrary string as
     // one bash argument.
     var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
-    updateProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh"]
+    var args = acknowledgeInterrupted ? " --acknowledge-interrupted" : ""
+    updateProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh" + args]
     updateProc.running = true
   }
 

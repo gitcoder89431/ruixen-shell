@@ -39,6 +39,11 @@ Item {
   property var manifest: null
 
   property bool opened: false
+  property real openProgress: opened ? 1 : 0
+
+  Behavior on openProgress {
+    NumberAnimation { duration: 230; easing.type: Easing.OutCubic }
+  }
 
   // --- surface identity ------------------------------------------------
   // Same Black/Theme choice the frame, notch and docked bar share via
@@ -335,6 +340,11 @@ Item {
   readonly property int bodyWidth: 900
   readonly property int shapeWidth: bodyWidth + cornerSize * 2
   readonly property int shapeHeight: 236
+  // Same collapsed footprint as ruixen.notch's own resting pill: 284x44.
+  // Shelf animates from that footprint into its larger inbox surface so it
+  // reads as the notch growing downward, not a separate overlay fading in.
+  readonly property int collapsedShapeWidth: 284
+  readonly property int collapsedShapeHeight: 44
   // Mirrors ruixen.notch's notchOuter.restY. Keep the two in step.
   readonly property int frameInset: 4
   // The frame visually eats the top few px (it merges into the shelf's own
@@ -350,7 +360,7 @@ Item {
 
   PanelWindow {
     id: win
-    visible: root.opened
+    visible: root.opened || root.openProgress > 0.001
     // Top-anchored only: a layer surface anchored to one edge is centered
     // along the perpendicular axis, which is where the notch is.
     anchors { top: true }
@@ -389,7 +399,7 @@ Item {
       x: root.haloPad
       y: 0
       width: root.shapeWidth
-      height: root.shapeHeight
+      height: root.opened ? root.shapeHeight : 0
     }
 
     // The shape's own coordinate space, positioned inside the padded window.
@@ -399,6 +409,16 @@ Item {
       y: 0
       width: root.shapeWidth
       height: root.shapeHeight
+      opacity: Math.min(1, Math.max(0, root.openProgress * 1.25))
+
+      transform: Scale {
+        origin.x: shape.width / 2
+        origin.y: 0
+        xScale: (root.collapsedShapeWidth / root.shapeWidth)
+          + (1 - (root.collapsedShapeWidth / root.shapeWidth)) * root.openProgress
+        yScale: (root.collapsedShapeHeight / root.shapeHeight)
+          + (1 - (root.collapsedShapeHeight / root.shapeHeight)) * root.openProgress
+      }
 
       // Shadow. Overlay.qml documents (from a live report) that adding
       // shadow* properties to a MASKED shape destroys the silhouette
@@ -556,6 +576,7 @@ Item {
         anchors.leftMargin: root.cornerSize
         anchors.rightMargin: root.cornerSize
         anchors.topMargin: root.contentTopInset
+        opacity: Math.min(1, Math.max(0, (root.openProgress - 0.58) / 0.42))
         focus: true
         Keys.onEscapePressed: root.dismiss()
         // Arrows/Home/End scroll the strip whenever the shelf has keyboard

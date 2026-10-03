@@ -86,7 +86,11 @@ check "Window: never anchored left/right/bottom" \
 check "Window: sized to the shape plus shadow room, never the screen" \
   "$(grep -c 'implicitWidth: root.shapeWidth + root.haloPad \* 2' "$shelf")$(grep -c 'implicitHeight: root.shapeHeight + root.haloPad' "$shelf")" "11"
 check "Window: input region is ONLY the visible shape (halo padding stays click-through)" \
-  "$(grep -c 'mask: Region {' "$shelf")$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'width: root.shapeWidth')$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'height: root.shapeHeight')" "111"
+  "$(grep -c 'mask: Region {' "$shelf")$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'width: root.shapeWidth')$(sed -n '/mask: Region {/,/^    }/p' "$shelf" | grep -c 'height: root.opened ? root.shapeHeight : 0')" "111"
+check "Window: stays mapped during close so the shelf can animate out" \
+  "$(grep -c 'visible: root.opened || root.openProgress > 0.001' "$shelf")$(grep -c 'property real openProgress: opened ? 1 : 0' "$shelf")" "11"
+check "Window: animates from the notch collapsed footprint into the shelf" \
+  "$(grep -c 'readonly property int collapsedShapeWidth: 284' "$shelf")$(grep -c 'readonly property int collapsedShapeHeight: 44' "$shelf")$(grep -c 'Behavior on openProgress' "$shelf")$(grep -c 'easing.type: Easing.OutCubic' "$shelf")$(grep -c 'transform: Scale' "$shelf")" "11111"
 check "Window: no click-away catcher (no MouseArea at window level)" \
   "$(sed -n '/PanelWindow {/,/id: shape/p' "$shelf" | grep -c 'MouseArea' || true)" "0"
 
@@ -253,7 +257,7 @@ check "Search: Escape clears the query before it dismisses the shelf" \
   "$(grep -cF 'if (root.query !== "") { text = ""; root.query = "" }' "$content")" "1"
 check "Search: the list hangs under the search box" \
   "$(grep -c 'id: searchBox' "$content")$(grep -c 'anchors.top: searchBox.bottom' "$content")$(grep -c 'anchors.top: header.bottom' "$content" || true)" "130"
-# A destructive \"Clear\" (empties the whole shelf) one button away from a
+# A destructive \"Clear All\" (empties the whole shelf) one button away from a
 # \"clear the textbox\" with no label difference is a real footgun.
 # The count has to live on the search row now. It is its OWN shape sitting
 # to the left of the field, not nested inside it: drawn inside the rounded
@@ -263,10 +267,11 @@ check "Chip: its own shape to the left of the field, NOT nested in it" \
 check "Chip: left-anchored to the panel, on the search box's row" \
   "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'anchors.left: parent.left' || true)$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'anchors.verticalCenter: searchBox.verticalCenter' || true)" "11"
 # A fixed total means the chip's width cannot change with the query. Pin
-# both halves: the binding is rows.length only, and nothing filter-aware
-# creeps back into the chip's own text.
+# both halves: the binding is rows.length only, the nested count bubble is
+# the only chip consumer, and nothing filter-aware creeps back into the
+# chip's own text.
 check "Chip: a plain total, so the row cannot resize while typing" \
-  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'root.chipCount' || true)$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'filtering|visibleRows|filtered' || true)" "10"
+  "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'root.chipCount' || true)$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'filtering|visibleRows|filtered' || true)" "20"
 check "Chip: labelled Inbox" \
   "$(grep -cF 'text: "Inbox"' "$content" || true)$(grep -cF 'text: "Shelf"' "$content" || true)" "10"
 # The chip must not put a MouseArea over the field. It has none, so a click
@@ -275,10 +280,10 @@ check "Chip: labelled Inbox" \
 check "Chip: no MouseArea of its own, so it never eats the field's clicks" \
   "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'MouseArea' || true)" "0"
 
-# Chip, field and Clear are one row, so all three are the same height.
+# Chip, field and Clear All are one row, so all three are the same height.
 # Bound to searchBox.height rather than a repeated literal, so changing the
 # field later cannot leave its two neighbours behind at the old size.
-check "Row: chip, field and Clear are all the field's height" \
+check "Row: chip, field and Clear All are all the field's height" \
   "$(grep -c 'height: searchBox.height' "$content")$(grep -c 'height: 30' "$content")" "21"
 check "Row: no fixed heights left on the chip/Clear shapes to drift" \
   "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'height: [0-9]+' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -cE 'height: [0-9]+' || true)" "00"
@@ -337,12 +342,16 @@ check "Scroll: the strip is focusable by clicking it, not only via the field" \
 check "QML: no anchors.* property set twice in the same block" \
   "$(python3 "$(dirname "$0")/qml-dup-anchor.py" "$shelf_dir"/*.qml | head -3)" ""
 
-check "Search: clear-the-text is a separate affordance from the shelf-wide Clear" \
+check "Search: clear-the-text is a separate affordance from the shelf-wide Clear All" \
   "$(grep -c 'id: clearQuery' "$content")$(grep -cF 'onClicked: { searchInput.text = ""; root.query = ""' "$content")" "21"
-# Clear belongs on the search row's right: an empty-the-whole-shelf button
+# Clear All belongs on the search row's right: an empty-the-whole-shelf button
 # is one stray click away from the count chip it now sits beside.
 check "Clear: right-aligned on the search row" \
   "$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -c 'anchors.right: parent.right' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -c 'anchors.verticalCenter: searchBox.verticalCenter' || true)" "11"
+check "Clear: label says Clear All" \
+  "$(grep -cF 'text: "Clear All"' "$content" || true)$(grep -cF 'text: "Clear"' "$content" || true)" "10"
+check "Clear: uses danger text and fills red on hover" \
+  "$(grep -c 'property color dangerColor: "#e05252"' "$content")$(grep -c 'readonly property color readableDangerColor' "$content")$(grep -c 'color: clearArea.containsMouse ? root.readableDangerColor : root.tint' "$content")$(grep -c 'color: clearArea.containsMouse ? "#000000" : root.readableDangerColor' "$content")" "1111"
 # It stays OUTSIDE the rounded search box. As a child of searchBox it would
 # read as part of the text field, which is how a destructive action turns
 # into a mis-click on a filter.
@@ -362,6 +371,8 @@ check "Search: typing in the box never holds the keyboard when shut or drag-out"
   "$(grep -c 'root.opened && !draggingOut' "$shelf" || true)" "1"
 check "Content: thumbnails use the tested URI encoder, not string concat" \
   "$(grep -c 'ShelfModel.uriFor(row.entry.path)' "$content")$(grep -c '"file://" + ' "$content")" "10"
+check "Content: image thumbnails are rounded with a real mask" \
+  "$(grep -c 'import QtQuick.Effects' "$content")$(grep -c 'id: previewImage' "$content")$(grep -c 'id: previewMask' "$content")$(grep -c 'maskSource: previewMask' "$content")" "1111"
 check "Copy semantics: acceptProposedAction() is never used in the shelf or the notch quick-drop" \
   "$(cat "$shelf_dir"/*.qml "$notch" | grep -c '\.acceptProposedAction(' || true)" "0"
 check "Copy semantics: the open Shelf accepts drags and drops with Qt.CopyAction explicitly" \

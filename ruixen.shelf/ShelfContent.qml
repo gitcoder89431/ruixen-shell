@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
@@ -20,6 +21,7 @@ Item {
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
+  property color dangerColor: "#e05252"
   // The window's own surface color, passed in: the right-edge scroll fade
   // has to terminate on exactly what is behind it or it reads as a grey
   // band rather than an edge.
@@ -65,9 +67,11 @@ Item {
   readonly property int padTop: 12
   readonly property int padSide: 24
   readonly property int padBottom: 24
+  readonly property int chipCountBubbleHeight: 18
 
   readonly property color tint: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
   readonly property color tintStrong: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
+  readonly property color readableDangerColor: root.readableSemanticColor(root.dangerColor)
 
   // The chip's counter: how many items the shelf holds, full stop.
   //
@@ -78,6 +82,25 @@ Item {
   // still, and "Inbox" alone still tells you the filter is active because
   // the results themselves are right there underneath it.
   readonly property string chipCount: String(root.rows.length)
+
+  function colorLuminance(c) {
+    return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+  }
+
+  function readableSemanticColor(c) {
+    var colorLum = root.colorLuminance(c)
+    var textLum = root.colorLuminance(root.textColor)
+    var needsLift = textLum > 0.5 && colorLum < 0.55
+    var needsDrop = textLum <= 0.5 && colorLum > 0.55
+    if (!needsLift && !needsDrop) return c
+    var mix = needsLift ? 0.52 : 0.42
+    return Qt.rgba(
+      c.r + (root.textColor.r - c.r) * mix,
+      c.g + (root.textColor.g - c.g) * mix,
+      c.b + (root.textColor.b - c.b) * mix,
+      c.a
+    )
+  }
 
   // Paths can disappear while the notch is closed; re-check on open.
   onActiveChanged: if (root.active && root.shelfService) root.shelfService.refreshStats()
@@ -217,7 +240,7 @@ Item {
       // declared below this, which is fine -- QML resolves ids regardless
       // of declaration order.
       anchors.verticalCenter: searchBox.verticalCenter
-      width: chipRow.implicitWidth + 16
+      width: chipRow.implicitWidth + 18
       // Same height as the field beside it, bound rather than repeated:
       // these are three controls on one row, and a row whose middle piece
       // is taller than its neighbours reads as broken, not nested.
@@ -242,12 +265,24 @@ Item {
           font.bold: true
         }
 
-        Text {
+        Rectangle {
           anchors.verticalCenter: parent.verticalCenter
-          text: root.chipCount
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 11
+          width: chipCountText.implicitWidth + 12
+          height: root.chipCountBubbleHeight
+          radius: height / 2
+          color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+          border.width: 1
+          border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
+
+          Text {
+            id: chipCountText
+            anchors.centerIn: parent
+            text: root.chipCount
+            color: root.accent
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            font.bold: true
+          }
         }
       }
     }
@@ -330,9 +365,9 @@ Item {
       }
 
       // Clear-search affordance, for the filter text only. The shelf-wide
-      // Clear sits to the right of this box, so the two are on the same
+      // Clear All sits to the right of this box, so the two are on the same
       // row -- which is why this one is an unlabelled glyph (the field's
-      // own X) and that one reads "Clear".
+      // own X) and that one reads "Clear All".
       Rectangle {
         id: clearQuery
         visible: searchInput.text !== ""
@@ -386,15 +421,17 @@ Item {
         width: clearLabel.implicitWidth + 20
         height: searchBox.height
         radius: searchBox.radius
-        color: clearArea.containsMouse ? root.tintStrong : root.tint
+        color: clearArea.containsMouse ? root.readableDangerColor : root.tint
         border.width: 1
-        border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
+        border.color: clearArea.containsMouse
+          ? root.readableDangerColor
+          : Qt.rgba(root.readableDangerColor.r, root.readableDangerColor.g, root.readableDangerColor.b, 0.45)
 
         Text {
           id: clearLabel
           anchors.centerIn: parent
-          text: "Clear"
-          color: root.textColor
+          text: "Clear All"
+          color: clearArea.containsMouse ? "#000000" : root.readableDangerColor
           font.family: root.fontFamily
           font.pixelSize: 11
         }
@@ -446,16 +483,6 @@ Item {
           font.bold: true
         }
 
-        Text {
-          width: parent.width
-          horizontalAlignment: Text.AlignHCenter
-          wrapMode: Text.Wrap
-          text: "Drag them back out into any app or terminal.\nAgents can add and read files with\nomarchy-shell ruixen.shelf add /path"
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          lineHeight: 1.2
-        }
       }
     }
 
@@ -642,14 +669,36 @@ Item {
             clip: true
 
             Image {
+              id: previewImage
               anchors.fill: parent
-              visible: !row.missing && ShelfModel.isImagePath(row.entry.path)
-              source: visible ? ShelfModel.uriFor(row.entry.path) : ""
+              readonly property bool hasPreview: !row.missing && ShelfModel.isImagePath(row.entry.path)
+              visible: false
+              source: hasPreview ? ShelfModel.uriFor(row.entry.path) : ""
               fillMode: Image.PreserveAspectCrop
               asynchronous: true
               cache: false
-              sourceSize.width: 248
-              sourceSize.height: 248
+              smooth: true
+              sourceSize.width: width
+              sourceSize.height: height
+            }
+
+            Rectangle {
+              id: previewMask
+              anchors.fill: parent
+              radius: parent.radius
+              color: "#ffffff"
+              visible: false
+              layer.enabled: true
+            }
+
+            MultiEffect {
+              anchors.fill: parent
+              visible: previewImage.hasPreview
+              source: previewImage
+              maskEnabled: true
+              maskSource: previewMask
+              maskThresholdMin: 0.5
+              maskThresholdMax: 1.0
             }
 
             Text {

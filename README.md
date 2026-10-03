@@ -1,120 +1,88 @@
-# Ruixen Shell
+<h1 align="center">Ruixen</h1>
 
-A connected bar, notch, and settings app for Omarchy — an OLED-black, unified
-visual layer that runs as plugins inside the Omarchy shell you already use.
+<p align="center"><b>An integrated desktop suite for Omarchy.</b></p>
+
+<p align="center">
+A cohesive set of native Omarchy plugins that changes how the desktop looks,
+feels and works, without replacing the shell underneath it.
+</p>
+
+<p align="center">
+<a href="preview/preview_dock.png"><img src="preview/preview_dock.png" alt="Ruixen: a connected bar and notch wrapped in an OLED-black screen frame"></a>
+</p>
+
+## What is Ruixen?
+
+Ruixen runs as plugins inside the Omarchy shell you already use. A bar, a
+notch dashboard, a launcher, a settings app and a handful of small tools
+share one look and one set of behaviors, so they feel like a single desktop
+instead of a pile of widgets.
+
+It is **not** a replacement shell, **not** just a theme, and **not** a
+random plugin pack. Turn any piece off, or go back to stock Omarchy in one
+command.
+
+## The experience
+
+### A connected bar and notch
+
+A bar of floating glass pills (or one docked strip flush with the frame)
+wraps the screen in an OLED-black frame. In the middle, the notch expands
+into a dashboard: music, calendar, notifications, quick toggles, volume,
+wallpapers with a theme switcher, system health, and a Kanban board.
 
 <table>
 <tr>
-<td align="center" width="33%">
-<a href="preview/preview_dock.png"><img src="preview/preview_dock.png" width="270"></a>
-<br><sub><b>Bar — Docked</b></sub>
+<td align="center" width="50%">
+<a href="preview/preview_float.png"><img src="preview/preview_float.png" alt="Floating bar"></a>
+<br><sub><b>Floating bar</b></sub>
 </td>
-<td align="center" width="33%">
-<a href="preview/preview_float.png"><img src="preview/preview_float.png" width="270"></a>
-<br><sub><b>Bar — Float</b></sub>
+<td align="center" width="50%">
+<a href="preview/preview_notch.png"><img src="preview/preview_notch.png" alt="Notch dashboard"></a>
+<br><sub><b>Notch dashboard</b></sub>
 </td>
-<td align="center" width="33%">
-<a href="preview/preview_notch.png"><img src="preview/preview_notch.png" width="270"></a>
-<br><sub><b>Notch Dashboard</b></sub>
-</td>
-</tr>
-<tr>
-<td align="center" width="33%">
-<a href="preview/preview_launcher.webp"><img src="preview/preview_launcher.webp" width="270"></a>
-<br><sub><b>Launcher</b></sub>
-</td>
-<td align="center" width="33%">
-<a href="preview/preview_settings.png"><img src="preview/preview_settings.png" width="270"></a>
-<br><sub><b>Settings</b></sub>
-</td>
-<td width="33%"></td>
 </tr>
 </table>
 
-## What's included
+### One launcher for apps, commands, files and clipboard
 
-- **`ruixen.bar`** — the top bar itself: app launcher, dot-style
-  workspace indicator, pinned quick-launch apps, weather, clock, and a
-  settings shortcut, all in one connected pill layout. Fresh installs use
-  floating glass pills with accent-toned icons.
-- **`ruixen.notch`** — a center-notch dashboard with metrics, wallpapers
-  (and a theme switcher on the same tab: a segmented control above the
-  search box lists every installed Omarchy theme; clicking one applies it
-  via Omarchy's own `omarchy-theme-set`),
-  storage, music control, a notification history card (attaches to
-  Omarchy's own notification service, adding read/unread tracking and a
-  deeper backlog on top of it), and a Kanban board (see below), expanding
-  from the bar.
-- **`ruixen.launcher`** — a Raycast/Spotlight-style command palette in a
-  frosted-glass card (real Hyprland compositor blur, not a fake overlay):
-  fuzzy-searches Omarchy menu actions and installed apps from one overlay,
-  plus a dedicated Search Files mode. Searches both filenames (multi-word
-  queries match across path components, not just the final segment) and
-  file *contents* (ripgrep-powered, ranked together — content matches
-  fill in around real filename hits rather than needing a separate mode),
-  across every auto-discovered drive (an internal HDD, a USB stick)
-  individually or all at once — plus any custom folder you add yourself,
-  or exclude, from this plugin's own built-in Settings extension (its
-  File Search page). Filter by file
-  type/hidden-files/names-or-contents from a small control row, or type
-  the same filters directly into the query (`type:image`, `in:Home`,
-  `hidden:true`, ...). Selecting a file shows a real preview — an
-  extracted video frame, an image thumbnail, or a text/markdown/JSON
-  snippet — plus metadata (type, dimensions/duration, created/modified,
-  permissions), and a contextual action menu (Tab, or right-click a row)
-  for opening its containing folder or copying its path/name. Its own
-  built-in Settings extension is also the full settings app for this
-  shell — Profile, Bar, Audio, Wi-Fi, Bluetooth, Display, Night Light,
-  Plugins — replacing the default Omarchy settings panel entirely. Full
-  reference: [`docs/LAUNCHER.md`](docs/LAUNCHER.md).
-- **`ruixen.frame-widget`** — the OLED-black screen frame that ties the bar
-  and notch together visually.
-- **`ruixen.pinnedapps`** — quick-launch row for apps pinned in the notch's
-  own app launcher.
-- **`ruixen.pluginpins`** — a pin/unpin dropdown on the bar for any other
-  installed bar-widget plugin (yours or a third party's) — install
-  something new, pin it from here, no shell.json editing required.
-- **`ruixen.peripherals`** — battery percentage for wireless mice,
-  keyboards, headsets and controllers (Bluetooth and USB receivers alike),
-  pin the ones you care about to show inline on the bar. Detection reads
-  `/sys` directly rather than Quickshell's own Bluetooth/UPower bindings,
-  which don't reliably cover every wireless peripheral — ported from
-  [xgborgeso/omarchy-peripheral-batteries](https://github.com/xgborgeso/omarchy-peripheral-batteries)
-  (MIT license).
-- **Tray widgets** — `ruixen.tray`, `ruixen.stayawake`,
-  `ruixen.quickactions`, `ruixen.weather`, `ruixen.applauncher`,
-  `ruixen.settingsbutton`. `ruixen.stayawake` (and any stock Omarchy widget
-  it sits next to, like the AI usage indicator) is pinned on or off through
-  `ruixen.pluginpins` above, not a separate settings toggle.
+A Raycast/Spotlight-style palette on real compositor blur. Search Omarchy
+actions and installed apps, search files by name **and** contents across
+every drive with live previews, browse Clipboard History, and browse, preview and
+install community themes from the bjarneo collection.
 
-`ruixen.media` backs `ruixen.notch`'s own music control as a background
-service — it never shows a bar icon of its own by design (an earlier,
-oversized play/pause badge was retired), so it's locked in Settings' Plugins
-list with no toggle.
+<p align="center">
+<a href="preview/preview_launcher.webp"><img src="preview/preview_launcher.webp" width="720" alt="Ruixen Launcher"></a>
+</p>
 
-Every plugin shares the same OLED-black background, corner radii, and motion
-language, so they read as one shell instead of a pile of separate widgets.
+### Settings that live in the same place
 
-## Documentation
+Profile, bar layout, window look, audio, Wi-Fi, Bluetooth, display, night
+light and plugins, in the same overlay as the launcher.
 
-- [`docs/LAUNCHER.md`](docs/LAUNCHER.md) — the Ruixen Launcher command
-  palette in full: Applications/Commands search, Search Files (multi-word
-  matching, filters, keyboard-first query operators), the contextual
-  actions menu, and configuring which folders it actually searches.
-- [`docs/KEYBINDS.md`](docs/KEYBINDS.md) — ready-to-use Hyprland keybind
-  recipes: the Ruixen Launcher command palette, Ruixen Settings (and
-  jumping straight to one page), the notch dashboard, the app launcher.
-- [`docs/CONTROL.md`](docs/CONTROL.md) — how every plugin here is
-  controllable over a plain CLI call (`omarchy-shell <target> <method>
-  [args]`), the same mechanism a keybind, a script, or an AI agent all use
-  identically, plus the Kanban board's full command reference as a worked
-  example.
+<p align="center">
+<a href="preview/preview_settings.png"><img src="preview/preview_settings.png" width="720" alt="Ruixen Settings"></a>
+</p>
 
-## Install
+### A drop pocket for files
 
-Ruixen Shell targets Omarchy `4.0.0-1` and has been live-verified through
-Omarchy `4.0.4-1`.
-Install from source:
+Drag files in from any app, drag them back out into another app or a
+terminal. The **Shelf** grows out of the frame at the notch, only remembers
+paths (it never copies or moves anything), and is readable and writable by
+your coding agent.
+
+### And more
+
+- **Kanban** in the notch: a three-column board you and an agent can both drive.
+- **Wallpapers**, including muted looping video, and an audio visualizer.
+- **Plugin pinning**: install any Omarchy bar widget, pin it from the bar, no config editing.
+- **Peripherals**: battery levels for wireless mice, keyboards, headsets and controllers.
+- **Window look**: rounded corners and blur to match the frame, or stock square.
+
+Everything is controllable from a keybind, a script or an agent through
+`omarchy-shell`: see [Control](docs/CONTROL.md).
+
+## Quick install
 
 ```bash
 git clone https://github.com/gitcoder89431/ruixen-shell.git
@@ -122,333 +90,59 @@ cd ruixen-shell
 ./install.sh
 ```
 
-An AUR package is planned but not yet published — cloning from source is the
-only install path right now.
+Want to see what it will do first? `./install.sh --dry-run` changes nothing.
+The installer backs up what it replaces, merges into your existing
+`shell.json` instead of overwriting it, and restarts the Omarchy shell.
+Details, updating and uninstalling: [Installation](docs/INSTALLATION.md).
 
-The installer copies each plugin into `~/.config/omarchy/plugins/`, backs up
-anything it would overwrite, merges Ruixen's bar/plugin config into your
-existing `shell.json` rather than replacing it outright (any unrelated bar
-widgets, plugins, or idle settings you already had survive), applies a
-matching Hyprland window look (rounded corners + blur, see below — also
-backed up if you already have a `looknfeel.lua`), and restarts the Omarchy
-shell.
+## Getting started
 
-After installing, add a keybind of your own for opening the Ruixen Launcher
-command palette (nothing opens it out of the box — the installer
-deliberately doesn't touch your Hyprland config), Ruixen Settings, or
-anything else — the app launcher, jumping straight to one settings page. See
-[`docs/KEYBINDS.md`](docs/KEYBINDS.md) for ready-to-use recipes, e.g.:
-
-```lua
-o.bind("SUPER + R", "Ruixen Launcher", "omarchy-shell shell toggle ruixen.launcher")
-```
-
-If you want the recommended keybinds installed automatically, use the opt-in
-flag:
+Nothing opens the launcher out of the box, because the installer doesn't
+touch your Hyprland config unless you ask. To install the recommended keys
+that are still free:
 
 ```bash
 ./install.sh --with-launcher-keybind
 ```
 
-That flag only appends keys that are free: `SUPER+R` for Ruixen Launcher and
-`SUPER+SHIFT+R` for Ruixen Settings. If either key is already bound, the
-installer leaves that key untouched and prints the current binding.
+| Key | Opens |
+|---|---|
+| `SUPER+R` | Ruixen Launcher |
+| `SUPER+SHIFT+R` | Ruixen Settings |
+| `SUPER+CTRL+SPACE` | Wallpapers picker |
+| `SUPER+D` | Shelf |
 
-Want to see exactly what it would do first, without changing anything?
+Or bind your own: see [Keybinds](docs/KEYBINDS.md). Then take the
+[manual](docs/README.md) for a tour.
 
-```bash
-./install.sh --dry-run
-```
+## Documentation
 
-Reports Omarchy version/dependency status, plugin manifest validation
-(run for real, read-only), which plugins would install fresh vs. replace
-an existing copy, whether `shell.json` would be created or merged (and
-what would actually change), and the Hyprland look'n'feel plan — then
-exits having touched nothing.
-
-### If a previous run was interrupted
-
-An ordinary failure (a bad plugin, `omarchy restart shell` erroring out)
-already rolls back cleanly on its own — you'll see that reported and don't
-need to do anything special. A hard interruption is different: a closed
-terminal, `kill -9`, a crash, or power loss skips that rollback entirely,
-since there's no chance for it to run. If `install.sh`, `update.sh` (which
-hands off to `install.sh`) or `uninstall.sh`
-detects that its own previous run never reached the end, it refuses to
-proceed and tells you exactly which step it had reached:
-
-```
-refusing to proceed: a previous install run appears to have been interrupted before finishing.
-  started: 2026-09-30T03:15:00Z
-  reached: 4/7 applying shell layout
-```
-
-This is almost always safe to just continue from — every plugin is fully
-re-copied from source on each run, and `shell.json`/looknfeel writes are
-atomic, so nothing can be left half-written. Run `./ruixen-doctor.sh`
-first if you want to double-check (read-only, reports plugin drift and
-runtime health), then re-run the same command with
-`--acknowledge-interrupted` to continue. All of `install.sh`, `update.sh`
-and `uninstall.sh` accept it, and reject any option they don't recognize
-(`--help` lists what each takes).
-
-## Updating
-
-```bash
-./update.sh
-```
-
-`./update.sh --dry-run` previews it first: current vs. candidate revision,
-then the same install plan above for whatever is currently on disk
-(pulling itself is skipped, so it can't preview code not yet checked out —
-noted explicitly in its own output).
-
-Pulls the latest changes and reinstalls — same backup-then-merge
-behavior as `install.sh` itself, so it's always safe to re-run. Only
-works from your existing cloned checkout (it just wraps `git pull` +
-`./install.sh`), so don't delete the folder after installing.
-
-If something looks like it didn't update, or a plugin looks out of
-date:
-
-```bash
-./ruixen-doctor.sh
-```
-
-A read-only diagnostic report — checks nothing changes. Prints your
-git status vs the remote, whether each deployed plugin's actual file
-content matches this checkout's own source byte-for-byte (catches an
-update that silently didn't finish, even when nothing's version number
-changed), backup history, the current bar layout (ids only), and basic
-runtime health. Safe to paste the output anywhere — no paths,
-hostnames, or personal config values are ever printed.
-
-If doctor finds drift, fix it directly:
-
-```bash
-./ruixen-repair.sh --dry-run   # report what's broken, change nothing
-./ruixen-repair.sh             # actually fix it
-```
-
-Detects any plugin whose deployed files don't match this checkout
-(missing entirely or content mismatch) and a dangling `looknfeel.lua`
-symlink, then fixes them by running `install.sh` itself — the same
-deploy path every install/update already uses, so `shell.json` and any
-third-party bar entries are preserved exactly as they always are.
-
-## Disabling / going back to Omarchy defaults
-
-Nothing here is a one-way door.
-
-**Turn individual plugins off, keep everything installed:**
-
-```bash
-omarchy plugin disable ruixen.notch
-omarchy plugin disable ruixen.frame-widget
-# same for any of the tray widgets: ruixen.tray, ruixen.weather, etc.
-
-omarchy plugin enable ruixen.notch   # turns it back on
-```
-
-If a plugin stops updating after toggling it a few times, run
-`omarchy restart shell` — a full restart always clears it.
-
-**Switch the bar back to stock Omarchy:**
-
-```bash
-omarchy bar defaults
-```
-
-Use `omarchy bar defaults`, not `omarchy plugin enable omarchy.bar` — that
-command only swaps the bar engine and leaves Ruixen's widget layout in
-place, which looks broken rather than default. `omarchy bar defaults`
-resets everything (id, layout, position, transparency) in one shot.
-
-To bring Ruixen's own bar back afterward, just run `./install.sh` again.
-
-**Fully remove a plugin's files:**
-
-```bash
-omarchy plugin remove ruixen.bar
-```
-
-Backs the plugin up rather than deleting it outright (to
-`~/.config/omarchy/plugins/.<id>.bak.<timestamp>`) — disable/enable and the
-bar reset just flip settings, this is the only step that touches files at
-all.
-
-**Uninstall everything in one shot:**
-
-```bash
-./uninstall.sh
-```
-
-Switches back to the built-in Omarchy bar, removes every Ruixen plugin's
-files for real (unlike a bare `omarchy plugin remove`, which just backs a
-plugin up instead of deleting it — see above; this deletes those backups
-too, so nothing lingers), restores your original Hyprland window look (or
-Omarchy's own default if you never had one), and restarts the shell. Only
-works from your existing cloned checkout, same as `update.sh` — the
-checkout itself is left alone, delete it yourself afterward if you don't
-want it around. Same in-app path also lives in Ruixen Settings' own
-Plugins page, behind a typed confirmation.
-
-`./uninstall.sh --dry-run` previews exactly what would happen first: the
-bar host it would restore, which of your own widgets it would preserve,
-which Ruixen plugin files it would remove, any leftover Ruixen entry it
-would sweep out of `shell.json`'s `plugins[]` array, and the look'n'feel
-restore plan — nothing is changed.
-
-## Docked bar mode (experimental)
-
-By default the left and right icon groups float as separate pills, inset
-from the frame. Docked mode merges each side into one continuous shape
-flush with the frame's corners instead — like the notch, just with one
-shoulder curve per side instead of two. Not the default look, but worth
-trying:
-
-```bash
-./dev/ruixen-bar-mode.sh docked      # merged pills, flush with the frame
-./dev/ruixen-bar-mode.sh floating    # back to the default separate pills
-./dev/ruixen-bar-mode.sh status      # show which one is active
-```
-
-No restart needed either way — it's a live config reload.
-
-## Bar style
-
-The normal style is `notch`: the center island stays visible and the bar keeps
-its center reserved. `fullbar` is the saved full-width statusline skin from the
-old sharp+docked experiment. It hides the notch overlay and lets the bar own the
-center space again.
-
-```bash
-./dev/ruixen-bar-style.sh notch      # current island/notch skin
-./dev/ruixen-bar-style.sh fullbar    # full-width statusline skin, no notch
-./dev/ruixen-bar-style.sh status     # show which one is active
-```
-
-This is independent from `./dev/ruixen-bar-mode.sh docked|floating` and independent
-from Hyprland sharp/rounded window corners.
-
-## Kanban board
-
-`ruixen.notch`'s dashboard has a 4th tab: a fixed 3-column board (Todo / In
-Progress / Done — Tab cycles through all 4 tabs, or click the column-icon in
-the left rail). It's agent-native — every mutation (add, move, rename,
-priority, due date, label, description) is a plain IPC call a script or
-agent can drive — and it's fully editable in the notch itself now too:
-per-column add buttons, hover edit/delete on each card, and a done/total
-progress bar. Renaming a column stays CLI-only. Full command reference and
-how the click model works: [`docs/CONTROL.md`](docs/CONTROL.md).
-
-## Shelf (drop pocket)
-
-`ruixen.shelf` is a panel that grows out of the frame at the notch's position — the notch's expanded silhouette, with concave wing shoulders, hanging from the top edge: drag files in
-from any app, drag them back out into another app or a terminal. It
-remembers file paths, never copies anything. Drag local files over the
-collapsed notch and the Shelf opens so you can drop them in and see them land
-(it hides again if you drag back out without dropping). It's
-agent-readable too — `omarchy-shell ruixen.shelf list` shows an agent what
-you dropped, and `add /abs/path` lets it put a file on the shelf for you to
-drag out. It's its own plugin rather than a notch tab so other apps stay
-reachable for drag-and-drop. Details: [`docs/CONTROL.md`](docs/CONTROL.md).
-
-## Window look'n'feel (Hyprland)
-
-Ruixen also rounds window corners and adds blur, to match the frame/bar.
-Fresh installs default to the half-radius look (12px). Toggle it
-independently of the plugins above:
-
-```bash
-hyprland/ruixen-lookfeel.sh on      # rounded corners + blur, matches the frame
-hyprland/ruixen-lookfeel.sh half    # rounded corners at half the radius (12px), same border/blur/shadow/animations
-hyprland/ruixen-lookfeel.sh off     # stock Omarchy: square corners, no blur
-hyprland/ruixen-lookfeel.sh square  # square corners, but keeps the thin border/blur/shadow/animations
-hyprland/ruixen-lookfeel.sh status  # show which one is active
-```
-
-`half` is the default middle step between `on` and `square` — the same rounded
-look at half the corner radius, for when 24px reads too soft and sharp reads
-too stark. `square` is for anyone who wants stock Omarchy's own square corners
-without giving up the rest of Ruixen's look. The screen frame's own corner
-rounding follows whichever of the four is active automatically when the bar is
-floating. When the bar is docked, the frame's corner always stays rounded
-regardless of which variant is active -- docked mode's own wider gaps already
-keep real window corners well clear of that curve, so nothing clips, and it
-keeps the docked bar's own corner (always rounded) visually consistent with the
-frame right next to it.
+| I want to... | Go to |
+|---|---|
+| Find my way around | [Manual index](docs/README.md) |
+| Install, update, repair or uninstall | [Installation](docs/INSTALLATION.md) |
+| Search files, use the clipboard | [Launcher](docs/LAUNCHER.md) |
+| Set up keybinds | [Keybinds](docs/KEYBINDS.md) |
+| Change the bar or window look | [Customizing](docs/CUSTOMIZATION.md) |
+| See what each plugin does | [Plugins and features](docs/PLUGINS.md) |
+| Script it or hand it to an agent | [Control](docs/CONTROL.md) |
+| Check version support | [`COMPATIBILITY.md`](COMPATIBILITY.md) |
+| Build or contribute | [`dev/`](dev/README.md) |
+| Rules for coding agents | [`AGENTS.md`](AGENTS.md) |
 
 ## Requirements
 
-- Omarchy `4.0.0-1` (or a nearby build of the same shell generation) --
-  `install.sh` checks this and warns (doesn't block) if it detects
-  something outside that range
-- Quickshell, as provided by Omarchy
-- `jq` -- the installer itself needs it to merge into your existing
-  `shell.json` rather than overwrite it
-
-`install.sh` also checks a few optional, feature-specific dependencies
-and warns (without failing) if any are missing, so you know up front
-rather than discovering it later when a feature quietly doesn't work:
-
-| Missing | What's unavailable |
-|---|---|
-| `ffmpeg` | Video/gif wallpaper poster generation (current/background and the lock screen won't reflect the active video/gif; the moving wallpaper itself is unaffected by this one) |
-| `qt6-multimedia` (package, not command -- install a backend with it, e.g. `qt6-multimedia-ffmpeg`) | Video AND gif wallpaper playback both fail silently to start -- not part of Omarchy's own base install, only present if some other app happened to pull it in |
-| `curl` | Weather data, avatar image download in Settings |
-| `python3` | The bar's docked-mode toggle |
-| `fastfetch` | Less detail on the health page's system-info panel |
-| `cava` | The Desktop audio visualizer; the rest of Ruixen remains usable |
-
-## Running tests
-
-```bash
-./tests/run-all.sh
-```
-
-Runs almost everything CI runs (`.github/workflows/ci.yml`) in one go:
-shell script lint (`bash -n` + ShellCheck, when installed), plugin
-manifest validation, the JS model tests, and the installer lifecycle/
-config/uninstall-restore tests. Each suite can also be run on its own --
-see `tests/*.sh`, every file has its own header comment explaining
-what it covers.
-
-CI runs one additional step this doesn't: `tests/host-contract-
-regression.sh` (issue #34), which fetches real source from
-`github.com/basecamp/omarchy` at the exact commit `COMPATIBILITY.md`
-records as reviewed and checks it still matches the host contracts this
-repo depends on. Deliberately excluded from `run-all.sh` since it needs
-network access and GitHub API auth that a local run shouldn't require --
-run it directly (`./tests/host-contract-regression.sh`) if you want to
-check it yourself.
-
-The installer tests (`tests/install-lifecycle.sh`, `tests/shell-json-
-merge.sh`, `tests/looknfeel-preserve.sh`, `tests/uninstall-bar-
-restore.sh`) run against a throwaway fake `$HOME`/directory tree, never
-your real config, so they're safe to run anywhere including this repo's
-own checkout.
-
-### Manual QA: the Desktop audio visualizer
-
-`tests/cava-*.sh` cover the visualizer's own state/lifecycle wiring
-statically, but a few things only really show up live. A couple of
-minutes, not a long soak:
-
-```
-1. Off -> Bars -> Segments -> Wave
-2. switch 64 <-> 96 bands
-3. pause/resume audio
-4. enable/disable a few times
-5. enter/exit fullscreen
-6. kill cava once and confirm only one replacement process appears
-```
+Omarchy `4.0.0-1` or a nearby build of the same shell generation (live-verified
+through `4.0.4-1`), Quickshell as provided by Omarchy, and `jq`. A few optional
+tools unlock specific features (video wallpapers, the audio visualizer,
+weather); the installer warns about any that are missing. Full list:
+[Installation](docs/INSTALLATION.md#requirements).
 
 ## Credits
 
 - **[Omarchy](https://omarchy.org)** ([github.com/basecamp/omarchy](https://github.com/basecamp/omarchy)) — the Arch/Hyprland desktop this whole project is built on top of. `omarchy-shell`, Omarchy's own Quickshell-based bar/notch/notification runtime, is what every plugin here actually loads into.
 - **[Ambxst](https://github.com/Axenide/Ambxst)** (by Axenide) — UI/UX design inspiration for several `ruixen.notch` panels (the dashboard layout, calendar, metrics page, wallpapers picker). Ambxst's own code is AGPL-3.0 licensed; ruixen-shell's implementations are written independently, not derived from its source.
-- **[xgborgeso/omarchy-peripheral-batteries](https://github.com/xgborgeso/omarchy-peripheral-batteries)** (MIT) — `ruixen.peripherals`'s detection logic is ported from this project (see above, and the plugin's own source header for the full attribution).
+- **[xgborgeso/omarchy-peripheral-batteries](https://github.com/xgborgeso/omarchy-peripheral-batteries)** (MIT) — `ruixen.peripherals`'s detection logic is ported from this project (see [Plugins](docs/PLUGINS.md), and the plugin's own source header for the full attribution).
 
 ## License
 

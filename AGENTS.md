@@ -2,7 +2,7 @@
 
 This is the repo-wide rulebook for any agent (or human) editing Ruixen. It's
 a map, not a tutorial — deeper detail already lives in `README.md`,
-`COMPATIBILITY.md`, `docs/CONTROL.md`, `docs/LAUNCHER.md`, `docs/KEYBINDS.md`,
+`dev/README.md` (layout, workflow, testing), `COMPATIBILITY.md`, `docs/CONTROL.md`, `docs/LAUNCHER.md`, `docs/KEYBINDS.md`,
 and the tests themselves. Read those when you need specifics; read this
 first to know which rules exist at all.
 

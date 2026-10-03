@@ -14,7 +14,7 @@ fullbar_dock_skin_qml="$repo_dir/bars/v2/ruixen.bar/FullbarDockedSkin.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 barpanel_qml="$repo_dir/bars/v2/ruixen.bar/BarPanel.qml"
 style_script="$repo_dir/dev/ruixen-bar-style.sh"
-readme="$repo_dir/README.md"
+readme="$repo_dir/docs/CUSTOMIZATION.md"
 install_sh="$repo_dir/install.sh"
 
 pass=0
@@ -81,7 +81,7 @@ check "bar style helper supports fullbar" \
 check "bar style helper writes bar.style" \
   "$(grep -m1 -F "d.setdefault('bar', {})['style'] = '\$style'" "$style_script")" "d.setdefault('bar', {})['style'] = '\$style'"
 
-check "README documents fullbar style" \
+check "CUSTOMIZATION.md documents fullbar style" \
   "$(grep -m1 './dev/ruixen-bar-style.sh fullbar' "$readme")" './dev/ruixen-bar-style.sh fullbar    # full-width statusline skin, no notch'
 
 check "install output mentions fullbar helper" \

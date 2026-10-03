@@ -170,10 +170,10 @@ Item {
           var raw = String(text || "").trim()
           var interrupted = raw.indexOf("--acknowledge-interrupted") !== -1
             || raw.indexOf("appears to have been interrupted") !== -1
-          root.pluginUpdateNeedsAcknowledge = interrupted
+          root.pluginUpdateNeedsAcknowledge = false
           root.pluginUpdateStatus = interrupted ? "interrupted" : "error"
           if (interrupted) {
-            root.pluginUpdateError = "A previous Ruixen install/update was interrupted before it could clean up. Click Acknowledge & Update to clear that stale marker and rerun the update."
+            root.pluginUpdateError = "A previous Ruixen install/update was interrupted before it could clean up. The Settings Update button now clears that stale marker automatically, so click Update again to retry."
           } else {
             var errLines = raw.split("\n")
             root.pluginUpdateError = errLines.slice(Math.max(0, errLines.length - 5)).join("\n")
@@ -183,17 +183,21 @@ Item {
     }
   }
 
-  function updateRuixenShell(acknowledgeInterrupted) {
+  function updateRuixenShell() {
     if (root.ruixenRepoPath === "" || root.pluginUpdateStatus === "updating") return
     root.pluginUpdateStatus = "updating"
     root.pluginUpdateError = ""
     root.pluginUpdateNeedsAcknowledge = false
+    root.pluginCheckStatus = ""
+    root.pluginCheckError = ""
     // Single-quoted, with any literal single-quote in the path escaped
     // as '\'' -- the standard safe way to embed an arbitrary string as
     // one bash argument.
     var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
-    var args = acknowledgeInterrupted ? " --acknowledge-interrupted" : ""
-    updateProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh" + args]
+    // GUI updates should be one-click recoverable. The flag is a no-op
+    // when no stale lifecycle journal exists; when one does, the lock
+    // still guarantees there is no real concurrent lifecycle operation.
+    updateProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh --acknowledge-interrupted"]
     updateProc.running = true
   }
 
@@ -229,6 +233,9 @@ Item {
     if (root.ruixenRepoPath === "" || root.pluginCheckStatus === "checking") return
     root.pluginCheckStatus = "checking"
     root.pluginCheckError = ""
+    root.pluginUpdateStatus = ""
+    root.pluginUpdateError = ""
+    root.pluginUpdateNeedsAcknowledge = false
     var safePath = root.ruixenRepoPath.replace(/'/g, "'\\''")
     checkUpdatesProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh --check-json"]
     checkUpdatesProc.running = true

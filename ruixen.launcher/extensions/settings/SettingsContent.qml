@@ -1835,7 +1835,7 @@ Item {
     onLoadFailed: root.loadAppLauncherIconId("")
   }
 
-  function updateRuixenShell(acknowledgeInterrupted) { pluginService.updateRuixenShell(acknowledgeInterrupted) }
+  function updateRuixenShell() { pluginService.updateRuixenShell() }
   function checkForUpdates() { pluginService.checkForUpdates() }
   function confirmFullUninstall() { pluginService.confirmFullUninstall() }
 
@@ -1858,7 +1858,9 @@ Item {
   readonly property string pluginStatusLine: {
     if (root.pluginUpdateStatus === "updating") return "Updating…"
     if (root.pluginUpdateStatus === "interrupted") return "Update Interrupted"
+    if (root.pluginUpdateStatus === "error") return "Update Failed"
     if (root.pluginCheckStatus === "checking") return "Checking for updates…"
+    if (root.pluginCheckStatus === "error") return "Check Failed"
     if (root.pluginCheckStatus === "checked") return root.pluginsUpToDate ? "Up to Date" : "Update Available"
     return ""
   }
@@ -1868,6 +1870,7 @@ Item {
   // color invented just for this line.
   readonly property color pluginStatusLineColor: {
     if (root.pluginUpdateStatus === "interrupted") return "#e8c34a"
+    if (root.pluginUpdateStatus === "error" || root.pluginCheckStatus === "error") return "#e05252"
     if (root.pluginCheckStatus === "checked") return root.pluginsUpToDate ? "#3ecf5b" : "#e8c34a"
     return root.muted
   }
@@ -4851,7 +4854,7 @@ Item {
             Text {
               id: updateGlyph
               anchors.verticalCenter: parent.verticalCenter
-              text: root.pluginUpdateStatus === "updating" ? "\uf1ce" : (root.pluginUpdateNeedsAcknowledge ? "\uf071" : "\uf021")
+              text: root.pluginUpdateStatus === "updating" ? "\uf1ce" : "\uf021"
               font.family: root.fontFamily
               font.pixelSize: 13
               color: pluginUpdateButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
@@ -4869,7 +4872,7 @@ Item {
 
             Text {
               anchors.verticalCenter: parent.verticalCenter
-              text: root.pluginUpdateNeedsAcknowledge ? "Acknowledge & Update" : "Update"
+              text: "Update"
               font.family: root.fontFamily
               font.pixelSize: 12
               color: pluginUpdateButton.actionEnabled ? root.textColor : root.muted
@@ -4882,7 +4885,7 @@ Item {
             hoverEnabled: true
             enabled: pluginUpdateButton.actionEnabled
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.updateRuixenShell(root.pluginUpdateNeedsAcknowledge)
+            onClicked: root.updateRuixenShell()
           }
         }
       }

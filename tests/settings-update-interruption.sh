@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Static contract: the Settings UI must not strand GUI users when the
-# lifecycle journal guard asks for --acknowledge-interrupted. The shell
-# scripts stay conservative, but the frontend has to expose the retry.
+# lifecycle journal guard asks for --acknowledge-interrupted. The CLI
+# stays conservative; the GUI Update button auto-acknowledges stale
+# journals so non-terminal users get a simple two-button flow.
 set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,19 +31,23 @@ check "PluginService uses a distinct interrupted update status" \
   "$(grep -c 'pluginUpdateStatus = interrupted ? "interrupted" : "error"' "$service_qml")" "1"
 check "PluginService keeps more generic error context than the old three-line truncation" \
   "$(grep -c 'errLines.length - 5' "$service_qml")" "1"
-check "PluginService reruns update.sh with --acknowledge-interrupted when requested" \
-  "$(grep -c 'acknowledgeInterrupted ? " --acknowledge-interrupted" : ""' "$service_qml")" "1"
+check "PluginService GUI update always passes --acknowledge-interrupted" \
+  "$(grep -c './update.sh --acknowledge-interrupted' "$service_qml")" "1"
+check "PluginService clears stale check status when update starts" \
+  "$(awk '/function updateRuixenShell/ { in_fn = 1 } in_fn && /function checkForUpdates/ { in_fn = 0 } in_fn && /pluginCheckStatus = ""|pluginCheckError = ""/ { count++ } END { print count + 0 }' "$service_qml")" "2"
+check "PluginService clears stale update status when check starts" \
+  "$(awk '/function checkForUpdates/ { in_fn = 1 } in_fn && /checkUpdatesProc.command/ { in_fn = 0 } in_fn && /pluginUpdateStatus = ""|pluginUpdateError = ""/ { count++ } END { print count + 0 }' "$service_qml")" "2"
 
 check "SettingsContent exposes pluginUpdateNeedsAcknowledge" \
   "$(grep -c 'property alias pluginUpdateNeedsAcknowledge' "$settings_qml")" "1"
 check "SettingsContent status line names interrupted updates" \
   "$(grep -c 'Update Interrupted' "$settings_qml")" "1"
-check "SettingsContent shows interrupted update messages in warning color" \
-  "$(grep -c 'pluginUpdateStatus === "interrupted" ? "#e8c34a" : "#e05252"' "$settings_qml")" "1"
-check "SettingsContent update button becomes Acknowledge & Update" \
-  "$(grep -c 'Acknowledge & Update' "$settings_qml")" "1"
-check "SettingsContent passes the acknowledge flag back to PluginService on retry" \
-  "$(grep -c 'root.updateRuixenShell(root.pluginUpdateNeedsAcknowledge)' "$settings_qml")" "1"
+check "SettingsContent status line names generic update and check failures" \
+  "$(( $(grep -c 'Update Failed' "$settings_qml") + $(grep -c 'Check Failed' "$settings_qml") ))" "2"
+check "SettingsContent update button remains plain Update" \
+  "$(( $(grep -c 'text: "Update"' "$settings_qml") + $(grep -c 'Acknowledge & Update' "$settings_qml") ))" "1"
+check "SettingsContent update button calls the simple GUI update function" \
+  "$(grep -c 'root.updateRuixenShell()' "$settings_qml")" "2"
 check "run-all includes Settings update interruption recovery contract" \
   "$(grep -c 'settings-update-interruption\.sh' "$script_dir/run-all.sh")" "1"
 

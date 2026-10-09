@@ -387,7 +387,10 @@ Item {
 
     // Clear button -- only meaningful once there's something to
     // clear; sits in the rightMargin space reserved above so it
-    // never overlaps typed text.
+    // never overlaps typed text. Direct request: theme-token red,
+    // same kanbanDangerColor (live theme "red" swatch, Color.accent
+    // fallback) KanbanContent's own delete affordances already use --
+    // not a hardcoded hex.
     Text {
       visible: launcherSearchInput.text.length > 0
       anchors.right: parent.right
@@ -395,7 +398,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       text: "✕"
       font.pixelSize: 11
-      color: clearMouse.containsMouse ? overlayRoot.textColor : overlayRoot.muted
+      color: overlayRoot.kanbanDangerColor
 
       MouseArea {
         id: clearMouse

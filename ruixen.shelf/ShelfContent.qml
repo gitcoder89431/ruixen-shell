@@ -163,12 +163,24 @@ Item {
     return ""
   }
 
+  // Direct request: the card is a fixed, narrow width, so a full
+  // "/home/dev/Downloads/some/deeply/nested/folder" subtitle always
+  // truncated to the same useless "/home/dev/..." prefix -- the one
+  // part that's always identical across every pinned file -- and
+  // never reached the actual distinguishing folder. Just the
+  // immediate parent folder's own name instead: short regardless of
+  // nesting depth, and the single most useful "where does this live"
+  // signal at a glance.
+  function folderLabel(path) {
+    return ShelfModel.baseName(ShelfModel.dirName(path))
+  }
+
   function subtitleFor(entry) {
-    if (entry.exists === false) return "Missing · " + ShelfModel.dirName(entry.path)
+    if (entry.exists === false) return "Missing · " + root.folderLabel(entry.path)
     var parts = []
     if (entry.kind === "folder") parts.push("Folder")
     else if (entry.size !== null) parts.push(root.formatSize(entry.size))
-    parts.push(ShelfModel.dirName(entry.path))
+    parts.push(root.folderLabel(entry.path))
     return parts.join(" · ")
   }
 

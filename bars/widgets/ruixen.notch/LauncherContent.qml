@@ -303,23 +303,20 @@ Item {
     radius: 12
     color: surfaceTint(0.06)
 
-    // Magnify glyph in front of the placeholder -- direct request,
-    // same fa-search (U+F002) glyph/treatment as
-    // WallpapersContent.qml's own searchPlaceholderIcon, accent
-    // instead of muted per this pass's "theme with accent" ask.
-    // Sibling of the TextInput, not a child of it -- a child Text sits
-    // at the TextInput's own text-layout origin, which is exactly
-    // where the blinking caret renders too (this field grabs focus the
-    // moment the panel opens), so the caret kept drawing in front of
-    // the icon. Anchored to searchBox directly instead, with the
-    // TextInput's own leftMargin pushed past it so typed text/caret
-    // both start clear of the icon.
+    // Magnify glyph in front of the placeholder -- direct
+    // correction: always visible, not just on an empty query (a
+    // fixed icon, not a vanishing placeholder-only one) -- typed text
+    // starts clear of it via the TextInput's own leftMargin below,
+    // never drawing over it. Sibling of the TextInput, not a child of
+    // it -- a child Text sits at the TextInput's own text-layout
+    // origin, which is exactly where the blinking caret renders too
+    // (this field grabs focus the moment the panel opens), so the
+    // caret drew in front of the icon when it lived there.
     Text {
       id: launcherSearchIcon
       anchors.verticalCenter: parent.verticalCenter
       anchors.left: parent.left
       anchors.leftMargin: 12
-      visible: launcherSearchInput.text.length === 0
       text: ""
       color: overlayRoot.accent
       font.family: overlayRoot.fontFamily
@@ -329,14 +326,10 @@ Item {
     TextInput {
       id: launcherSearchInput
       anchors.fill: parent
-      // Wide while the icon's showing (empty query), back to the
-      // plain 12 the moment there's real text -- direct follow-up:
-      // leaving this fixed at the icon-clearing width left a dead
-      // gap on the left once the icon hid for a real query (the
-      // clear "✕" button on the right already signals "has
-      // content" once typing starts, same division of roles
-      // WallpapersContent.qml's own search box uses).
-      anchors.leftMargin: launcherSearchInput.text.length === 0 ? 30 : 12
+      // Fixed clear of the always-visible icon above, not
+      // conditional on query length -- the icon never hides, so
+      // typed text/caret always need this same clearance.
+      anchors.leftMargin: 30
       anchors.rightMargin: 28
       verticalAlignment: TextInput.AlignVCenter
       color: overlayRoot.textColor

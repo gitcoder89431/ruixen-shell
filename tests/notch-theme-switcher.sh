@@ -173,8 +173,12 @@ check "theme grid width is exactly columns*cellWidth, not a smaller value that w
 check "theme grid is centered on its used width, not panel-wide" \
   "$(grep -c 'anchors.horizontalCenter: parent.horizontalCenter' "$content_qml")" "1"
 
+# 2, not 1 -- the shared hover indicator (themeGridHoverIndicator,
+# direct follow-up: "the way the focus moves between other stuff in
+# the grid, more like sliding between them") matches the tile's own
+# width too, so it slides as exactly one tile-sized ring/label unit.
 check "theme tiles scale with the stretched cells" \
-  "$(grep -c 'width: themeGrid.tileWidth' "$content_qml")" "1"
+  "$(grep -c 'width: themeGrid.tileWidth' "$content_qml")" "2"
 
 # --- The IPC toggle ----------------------------------------------------
 check "Overlay exposes toggleWallpapers on the notch IPC target" \

@@ -970,42 +970,28 @@ Item {
       // to the image container's own geometry or render layer
       // changing. Fixed by fully separating them: the image sits in
       // its own static, never-animated container; the ring, inner
-      // line, and label are separate sibling overlays with fixed
-      // geometry, toggled by plain `visible: tile.hovered` and
-      // nothing else -- no Behaviors anywhere in this delegate, so
-      // there's no lingering fade after the pointer leaves either.
+      // line, and label used to be per-tile overlay siblings here.
+      //
+      // Direct follow-up ("the way the focus moves between other
+      // stuff in the grid, more like sliding between them" -- NOT a
+      // per-tile zoom/scale pop, which was tried and explicitly
+      // rejected): the ring+label are now ONE shared indicator
+      // (gridHoverIndicator below, a plain child of the GridView
+      // itself, auto-parented into its contentItem the same way any
+      // non-delegate Flickable child is) that SLIDES to whichever
+      // tile is hovered, instead of each tile independently fading
+      // its own copy in/out. Still never touches the image
+      // container's own geometry/clip/fill -- the indicator is a
+      // fully separate sibling layer.
       delegate: Item {
         id: tile
         // { kind, display, real } now, not a bare path string -- see
         // root.wallpaperPaths' own comment for why.
         required property var modelData
-        // Only used to gate the Image source below against
-        // root.loadGate -- see its own comment for why.
+        // Used to gate the Image source below against root.loadGate
+        // (see its own comment), and to tell the shared hover
+        // indicator which index to slide to.
         required property int index
-        readonly property bool hovered: tileMouse.containsMouse
-        // Compares against identity, not display (#23) -- for a video
-        // entry, ruixen.wallpaper's own Service.qml sets
-        // current/background to the POSTER, which for video already
-        // equals display, so this used to just compare against display
-        // directly. That broke for GIF specifically: Service.qml's
-        // playGif() ALSO sets current/background to a cached poster
-        // (#12, to avoid the ImageMagick memory blowup a raw
-        // multi-frame GIF caused there), but a gif's display/real stay
-        // the raw .gif (the tile thumbnail still renders the gif
-        // directly, no poster file needed for that) -- so display could
-        // never equal currentBackground for an active GIF, and it lost
-        // its CURRENT state on every refresh/reopen. identity is
-        // list-wallpapers.sh's own dedicated field for exactly this
-        // comparison, computed with the same poster-hash formula
-        // Service.qml uses, so it matches for all three kinds without a
-        // branch here -- see that script's own comment for the full
-        // "why" and how identity differs from display for GIF.
-        //
-        // Only read for the label's own text/color below -- the
-        // frame itself (ring/band) stays hover-only regardless,
-        // per direct request that active alone shouldn't keep it
-        // lit at rest.
-        readonly property bool active: tile.modelData.identity === root.currentBackground
 
         width: grid.tileWidth
         height: grid.tileHeight
@@ -1037,24 +1023,56 @@ Item {
           }
         }
 
-        // Hover decoration only -- a separate overlay sibling, not
-        // a property on the image's own container, so it can never
-        // affect the image's geometry or force a clip rebuild.
-        // Two directly-adjacent bands stacked outside-in: accent
-        // ring at the very edge, then the black band starting
-        // exactly where the ring ends (anchors.margins here MUST
-        // equal the ring's own border.width, 2 -- anything bigger
-        // leaves a transparent gap between them that the raw image
-        // shows through, reading as a separate floating ring
-        // instead of one continuous frame).
+        MouseArea {
+          id: tileMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.select(tile.modelData)
+          onEntered: grid.hoveredIndex = tile.index
+          onExited: if (grid.hoveredIndex === tile.index) grid.hoveredIndex = -1
+          z: 4
+        }
+      }
+
+      // Shared hover indicator -- ring + label as one unit that SLIDES
+      // to whichever tile is hovered (see the delegate's own comment
+      // above for the direct request this replaced). A plain child
+      // declared directly inside a GridView/Flickable is automatically
+      // reparented into its contentItem, so this scrolls with the
+      // tiles exactly like a real delegate would, without being one.
+      property int hoveredIndex: -1
+      readonly property var hoveredEntry: grid.hoveredIndex >= 0 && grid.hoveredIndex < root.filteredPaths.length
+        ? root.filteredPaths[grid.hoveredIndex] : null
+      readonly property bool hoveredActive: grid.hoveredEntry
+        ? grid.hoveredEntry.identity === root.currentBackground : false
+
+      Item {
+        id: gridHoverIndicator
+        visible: grid.hoveredIndex >= 0
+        opacity: grid.hoveredIndex >= 0 ? 1 : 0
+        z: 5
+        width: grid.tileWidth
+        height: grid.tileHeight
+        x: grid.hoveredIndex >= 0 ? (grid.hoveredIndex % grid.columns) * grid.cellWidth : x
+        y: grid.hoveredIndex >= 0 ? Math.floor(grid.hoveredIndex / grid.columns) * grid.cellHeight : y
+
+        Behavior on x { SpringAnimation { spring: 3; damping: 0.4 } }
+        Behavior on y { SpringAnimation { spring: 3; damping: 0.4 } }
+        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+
+        // Two directly-adjacent bands stacked outside-in: accent ring
+        // at the very edge, then the black band starting exactly where
+        // the ring ends (anchors.margins here MUST equal the ring's
+        // own border.width, 2 -- anything bigger leaves a transparent
+        // gap between them that the raw image shows through, reading
+        // as a separate floating ring instead of one continuous frame).
         Rectangle {
           anchors.fill: parent
           radius: 10
           color: "transparent"
           border.width: 2
           border.color: root.accent
-          visible: tile.hovered
-          z: 2
 
           Rectangle {
             anchors.fill: parent
@@ -1066,8 +1084,6 @@ Item {
           }
         }
 
-        // Filename label -- also a separate overlay sibling, fixed
-        // geometry, plain visible toggle.
         Rectangle {
           anchors.left: parent.left
           anchors.right: parent.right
@@ -1075,8 +1091,6 @@ Item {
           anchors.margins: 5
           height: 26
           color: Qt.rgba(0, 0, 0, 0.82)
-          visible: tile.hovered
-          z: 3
 
           Text {
             anchors.centerIn: parent
@@ -1087,7 +1101,9 @@ Item {
             // actually-active wallpaper -- plain filename otherwise,
             // real's own (the video's real filename for a video
             // entry, not its poster's hashed cache name).
-            text: tile.active ? "CURRENT" : tile.modelData.real.substring(tile.modelData.real.lastIndexOf("/") + 1)
+            text: grid.hoveredEntry
+              ? (grid.hoveredActive ? "CURRENT" : grid.hoveredEntry.real.substring(grid.hoveredEntry.real.lastIndexOf("/") + 1))
+              : ""
             // Plain white, not root.textColor -- this overlay's own
             // background is a fixed near-opaque black regardless of
             // theme (Qt.rgba(0,0,0,0.82) above), so a light theme's own
@@ -1095,19 +1111,10 @@ Item {
             // correct here specifically because the overlay itself is
             // theme-independent too, unlike the dashboard surfaces
             // fixed elsewhere this session.
-            color: tile.active ? root.accent : "#ffffff"
+            color: grid.hoveredActive ? root.accent : "#ffffff"
             font.family: root.fontFamily
             font.pixelSize: 10
           }
-        }
-
-        MouseArea {
-          id: tileMouse
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.select(tile.modelData)
-          z: 4
         }
       }
     }
@@ -1184,10 +1191,10 @@ Item {
     delegate: Item {
       id: themeTile
       required property var modelData
-      readonly property bool hovered: themeTileMouse.containsMouse
-      // Directory-name equality against the value read from
-      // omarchy-theme-set's own theme.name file (kept current
-      // optimistically on click, confirmed on the post-set refresh).
+      required property int index
+      // Still needed at rest (not just on hover) -- the no-preview
+      // fallback tile below reads this for its own name-label color
+      // regardless of hover state.
       readonly property bool active: themeTile.modelData.name === root.currentTheme
 
       // Fills its cell minus the 10px gap, aspect locked to the
@@ -1238,17 +1245,46 @@ Item {
         }
       }
 
-      // Hover decoration -- the wallpaper tiles' exact two-band recipe
-      // (accent ring at the edge, black band starting where the ring
-      // ends), copied rather than reinvented.
+      MouseArea {
+        id: themeTileMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.applyTheme(themeTile.modelData)
+        onEntered: themeGrid.hoveredIndex = themeTile.index
+        onExited: if (themeGrid.hoveredIndex === themeTile.index) themeGrid.hoveredIndex = -1
+        z: 4
+      }
+    }
+
+    // Shared hover indicator -- same sliding ring+label unit the
+    // wallpaper grid uses (see its own comment for the full "why").
+    property int hoveredIndex: -1
+    readonly property var hoveredEntry: themeGrid.hoveredIndex >= 0 && themeGrid.hoveredIndex < root.filteredThemes.length
+      ? root.filteredThemes[themeGrid.hoveredIndex] : null
+    readonly property bool hoveredActive: themeGrid.hoveredEntry
+      ? themeGrid.hoveredEntry.name === root.currentTheme : false
+
+    Item {
+      id: themeGridHoverIndicator
+      visible: themeGrid.hoveredIndex >= 0
+      opacity: themeGrid.hoveredIndex >= 0 ? 1 : 0
+      z: 5
+      width: themeGrid.tileWidth
+      height: Math.round(themeGrid.tileWidth * 100 / 160)
+      x: themeGrid.hoveredIndex >= 0 ? (themeGrid.hoveredIndex % themeGrid.columns) * themeGrid.cellWidth : x
+      y: themeGrid.hoveredIndex >= 0 ? Math.floor(themeGrid.hoveredIndex / themeGrid.columns) * themeGrid.cellHeight : y
+
+      Behavior on x { SpringAnimation { spring: 3; damping: 0.4 } }
+      Behavior on y { SpringAnimation { spring: 3; damping: 0.4 } }
+      Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+
       Rectangle {
         anchors.fill: parent
         radius: 10
         color: "transparent"
         border.width: 2
         border.color: root.accent
-        visible: themeTile.hovered
-        z: 2
 
         Rectangle {
           anchors.fill: parent
@@ -1260,8 +1296,6 @@ Item {
         }
       }
 
-      // Name label -- hover-only like the wallpaper tiles' own label,
-      // CURRENT in the accent for the applied theme.
       Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
@@ -1269,8 +1303,6 @@ Item {
         anchors.margins: 5
         height: 26
         color: Qt.rgba(0, 0, 0, 0.82)
-        visible: themeTile.hovered
-        z: 3
 
         Text {
           anchors.centerIn: parent
@@ -1278,24 +1310,15 @@ Item {
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
           textFormat: Text.PlainText
-          text: themeTile.active ? "CURRENT" : themeTile.modelData.display
+          text: themeGrid.hoveredEntry ? (themeGrid.hoveredActive ? "CURRENT" : themeGrid.hoveredEntry.display) : ""
           // Plain white, same reasoning as the wallpaper tile's own
           // label above -- this overlay is a fixed near-opaque black
           // regardless of theme, so root.textColor went unreadable on
           // it on a light theme.
-          color: themeTile.active ? root.accent : "#ffffff"
+          color: themeGrid.hoveredActive ? root.accent : "#ffffff"
           font.family: root.fontFamily
           font.pixelSize: 10
         }
-      }
-
-      MouseArea {
-        id: themeTileMouse
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.applyTheme(themeTile.modelData)
-        z: 4
       }
     }
   }

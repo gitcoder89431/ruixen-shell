@@ -486,11 +486,20 @@ Item {
             color: overlayRoot.muted
           }
 
+          // Direct request: "i wanna theme this with the theme accent
+          // tokens i want like the icons to have accent instead of
+          // grey" -- the pinned Omarchy action glyphs (Lock/Power/
+          // Keybind/Screenshot/Theme/Settings) now read the theme
+          // accent unconditionally, matching the pin-badge dot below
+          // and every other notch surface that already leads with
+          // accent on its own icons. Real app tiles (favorites/search)
+          // keep their own icon art untouched -- this only covers the
+          // static-glyph action row.
           Text {
             visible: !launcherContent.tilesAreApps
             anchors.centerIn: parent
             text: launcherContent.tilesAreApps ? "" : tile.modelData.icon
-            color: overlayRoot.textColor
+            color: overlayRoot.accent
             font.pixelSize: 20
           }
 

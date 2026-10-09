@@ -775,7 +775,13 @@ Item {
           width: topFilterChipLabel.implicitWidth + 20
           height: 28
           radius: 8
-          color: topFilterChip.selected ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
+          // Direct correction, same pass as the WALLPAPER/THEME tab,
+          // favorites toggle and back-to-top: solid accent fill + black
+          // text when selected, accent text on a subtle tint otherwise
+          // -- was accent text on a barely-different tint either way,
+          // which read as a different "selected" language right next
+          // to the tab above it.
+          color: topFilterChip.selected ? root.accent : root.surfaceTint(0.04)
           border.width: 1
           border.color: topFilterChip.selected ? root.accent : root.surfaceTint(0.12)
 
@@ -785,7 +791,7 @@ Item {
             text: topFilterChip.modelData.label
             font.family: root.fontFamily
             font.pixelSize: 11
-            color: topFilterChip.selected ? root.accent : root.textColor
+            color: topFilterChip.selected ? "#000000" : root.accent
           }
 
           MouseArea {

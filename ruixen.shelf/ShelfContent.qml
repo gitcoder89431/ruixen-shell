@@ -322,7 +322,7 @@ Item {
         anchors.leftMargin: 9
         anchors.verticalCenter: parent.verticalCenter
         text: ""
-        color: root.muted
+        color: root.accent
         font.family: root.fontFamily
         font.pixelSize: 12
       }
@@ -373,6 +373,11 @@ Item {
         visible: searchInput.text !== ""
         anchors.right: parent.right
         anchors.rightMargin: 6
+        // Was missing a vertical anchor entirely, which defaults to
+        // y:0 -- rendered pinned to the top of the 30px search box
+        // instead of centered in it. Direct report: "its actually
+        // showing up too high inside the search box".
+        anchors.verticalCenter: parent.verticalCenter
         width: 20
         height: 20
         radius: 6
@@ -381,7 +386,7 @@ Item {
         Text {
           anchors.centerIn: parent
           text: ""
-          color: root.muted
+          color: root.readableDangerColor
           font.family: root.fontFamily
           font.pixelSize: 11
         }

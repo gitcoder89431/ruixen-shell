@@ -444,13 +444,18 @@ Item {
           ? root.readableDangerColor
           : Qt.rgba(root.readableDangerColor.r, root.readableDangerColor.g, root.readableDangerColor.b, 0.45)
 
+        // Direct request: same broom glyph the notch's notification
+        // Clear All already uses (DashboardContent.qml), not text.
+        // Keeps this button's own established red/black-on-hover
+        // contract (unlike that one's fixed non-theme orange) --
+        // only the glyph is being matched here, not its color.
         Text {
           id: clearLabel
           anchors.centerIn: parent
-          text: "Clear All"
+          text: "\udb80\udce2"
           color: clearArea.containsMouse ? "#000000" : root.readableDangerColor
           font.family: root.fontFamily
-          font.pixelSize: 11
+          font.pixelSize: 14
         }
 
         MouseArea {

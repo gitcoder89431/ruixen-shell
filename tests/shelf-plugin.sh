@@ -348,8 +348,8 @@ check "Search: clear-the-text is a separate affordance from the shelf-wide Clear
 # is one stray click away from the count chip it now sits beside.
 check "Clear: right-aligned on the search row" \
   "$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -c 'anchors.right: parent.right' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -c 'anchors.verticalCenter: searchBox.verticalCenter' || true)" "11"
-check "Clear: label says Clear All" \
-  "$(grep -cF 'text: "Clear All"' "$content" || true)$(grep -cF 'text: "Clear"' "$content" || true)" "10"
+check "Clear: broom glyph, same one DashboardContent's notification Clear All uses, not text" \
+  "$(grep -cF 'text: "\udb80\udce2"' "$content" || true)$(grep -cF 'text: "Clear All"' "$content" || true)" "10"
 check "Clear: uses danger text and fills red on hover" \
   "$(grep -c 'property color dangerColor: "#e05252"' "$content")$(grep -c 'readonly property color readableDangerColor' "$content")$(grep -c 'color: clearArea.containsMouse ? root.readableDangerColor : root.tint' "$content")$(grep -c 'color: clearArea.containsMouse ? "#000000" : root.readableDangerColor' "$content")" "1111"
 # It stays OUTSIDE the rounded search box. As a child of searchBox it would

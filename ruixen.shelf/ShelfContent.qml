@@ -471,10 +471,15 @@ Item {
         spacing: 10
         width: parent.width - 48
 
+        // Direct request: accent instead of muted/textColor, like the
+        // rest of the theme-accent pass across the notch/shelf search
+        // UI. Border/fill right above still carry their own separate
+        // drag-over feedback (accent tint + accent border), so this
+        // losing its own containsDrag distinction isn't a silent loss.
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
           text: ""
-          color: dropArea.containsDrag ? root.accent : root.muted
+          color: root.accent
           font.family: root.fontFamily
           font.pixelSize: 44
         }
@@ -482,7 +487,7 @@ Item {
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
           text: "Drop files here"
-          color: root.textColor
+          color: root.accent
           font.family: root.fontFamily
           font.pixelSize: 15
           font.bold: true

@@ -481,7 +481,11 @@ Item {
       radius: 14
       color: dropArea.containsDrag ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.1) : "transparent"
       border.width: 2
-      border.color: dropArea.containsDrag ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.18)
+      // Direct request: accent instead of the textColor-derived grey
+      // outline, matching the icon/label inside (already accent).
+      // Same drag-over bump to full accent as before, just a
+      // low-alpha accent tint at rest instead of a neutral one.
+      border.color: dropArea.containsDrag ? root.accent : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25)
 
       Column {
         anchors.centerIn: parent

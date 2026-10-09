@@ -351,8 +351,25 @@ Item {
         }
       }
 
+      // Magnify glyph in front of the placeholder -- direct request,
+      // same fa-search (U+F002) glyph/treatment as
+      // WallpapersContent.qml's own searchPlaceholderIcon, accent
+      // instead of muted per this pass's "theme with accent" ask.
+      Text {
+        id: launcherSearchIcon
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        visible: launcherSearchInput.text.length === 0
+        text: ""
+        color: overlayRoot.accent
+        font.family: overlayRoot.fontFamily
+        font.pixelSize: 11
+      }
+
       Text {
         anchors.verticalCenter: parent.verticalCenter
+        anchors.left: launcherSearchIcon.right
+        anchors.leftMargin: 6
         text: launcherContent.favoritesFullHint ? "Favorite Apps Full" : "Search apps..."
         color: overlayRoot.muted
         font.family: overlayRoot.fontFamily
@@ -394,15 +411,18 @@ Item {
   // mid-query just changes what you'll see after clearing it.
   Rectangle {
     id: favoritesToggle
+    // Direct request: same active/hover treatment as the kanban add
+    // button (KanbanContent.qml's addActionButton) -- accent on the
+    // resting state, filled solid accent with a black icon on hover
+    // or while active, instead of the old three-step subtle-tint scale.
+    readonly property bool filled: launcherContent.pinnedMode === "favorites" || toggleMouse.containsMouse
     anchors.top: searchBox.top
     anchors.left: searchBox.right
     anchors.leftMargin: 8
     width: 36
     height: 36
     radius: 12
-    color: launcherContent.pinnedMode === "favorites"
-      ? surfaceTint(0.16)
-      : (toggleMouse.containsMouse ? surfaceTint(0.12) : surfaceTint(0.06))
+    color: favoritesToggle.filled ? overlayRoot.accent : surfaceTint(0.06)
     Behavior on color { ColorAnimation { duration: 120 } }
 
     Text {
@@ -410,7 +430,7 @@ Item {
       text: ""
       font.family: overlayRoot.fontFamily
       font.pixelSize: 14
-      color: launcherContent.pinnedMode === "favorites" ? overlayRoot.textColor : overlayRoot.muted
+      color: favoritesToggle.filled ? "#000000" : overlayRoot.accent
     }
 
     MouseArea {

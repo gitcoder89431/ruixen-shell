@@ -35,8 +35,13 @@ check "Overlay passes theme secondary into WallpapersContent" \
 # (plain All/Images/Video/Gif labels, no counts, same style as the
 # Theme-mode Omarchy/Custom chips it shares a row with), and the
 # Back-to-top affordance moved into that row too.
-check "back-to-top arrow uses secondary at rest and accent on hover" \
-  "$(grep -A8 'text: "↑"' "$wallpapers_qml" | grep -c 'color: backToTopArea.containsMouse ? root.accent : root.secondary')" "1"
+# Direct correction: icon-only (no "Top" label), and hover fills solid
+# accent with a black arrow instead of just nudging secondary -> accent
+# text -- same pattern as the WALLPAPER/THEME tab and favorites toggle.
+check "back-to-top is icon-only, no Top label" \
+  "$(grep -c 'text: "Top"' "$wallpapers_qml")" "0"
+check "back-to-top arrow uses secondary at rest and fills black on hover" \
+  "$(grep -cF 'color: backToTopButton.filled ? "#000000" : root.secondary' "$wallpapers_qml")$(grep -c 'color: backToTopButton.filled ? root.accent : root.surfaceTint(0.04)' "$wallpapers_qml")" "11"
 check "chip row keeps the same right inset as the search/tab row" \
   "$(awk 'index($0, "activeFilterChips/activeFilterValue") { in_block = 1 } in_block && /Layout.rightMargin: 12/ { count++ } in_block && /id: backToTopButton/ { in_block = 0 } END { print count + 0 }' "$wallpapers_qml")" "1"
 check "wallpaper grid wrapper fills the row like the theme grid" \

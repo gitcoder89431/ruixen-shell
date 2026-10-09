@@ -815,32 +815,25 @@ Item {
         // contentY).
         readonly property var targetGrid: root.mediaMode === "themes" ? themeGrid : grid
         readonly property bool active: backToTopButton.targetGrid.contentY > 0
-        Layout.preferredWidth: backToTopContent.implicitWidth + 20
+        // Direct correction: icon-only now, no "Top" label -- and
+        // hover gets the same solid-accent-fill/black-icon treatment
+        // as the WALLPAPER/THEME tab and the favorites toggle, instead
+        // of just nudging toward accent text on a barely-different tint.
+        readonly property bool filled: backToTopButton.active && backToTopArea.containsMouse
+        Layout.preferredWidth: 28
         Layout.preferredHeight: 28
         radius: 8
         opacity: backToTopButton.active ? 1 : 0.35
-        color: backToTopArea.containsMouse ? root.surfaceTint(0.08) : root.surfaceTint(0.04)
+        color: backToTopButton.filled ? root.accent : root.surfaceTint(0.04)
         border.width: 1
         border.color: root.surfaceTint(0.12)
 
-        Row {
-          id: backToTopContent
+        Text {
           anchors.centerIn: parent
-          spacing: 4
-
-          Text {
-            text: "↑"
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: backToTopArea.containsMouse ? root.accent : root.secondary
-          }
-
-          Text {
-            text: "Top"
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: backToTopArea.containsMouse ? root.accent : root.textColor
-          }
+          text: "↑"
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          color: backToTopButton.filled ? "#000000" : root.secondary
         }
 
         MouseArea {

@@ -329,7 +329,14 @@ Item {
     TextInput {
       id: launcherSearchInput
       anchors.fill: parent
-      anchors.leftMargin: 30
+      // Wide while the icon's showing (empty query), back to the
+      // plain 12 the moment there's real text -- direct follow-up:
+      // leaving this fixed at the icon-clearing width left a dead
+      // gap on the left once the icon hid for a real query (the
+      // clear "✕" button on the right already signals "has
+      // content" once typing starts, same division of roles
+      // WallpapersContent.qml's own search box uses).
+      anchors.leftMargin: launcherSearchInput.text.length === 0 ? 30 : 12
       anchors.rightMargin: 28
       verticalAlignment: TextInput.AlignVCenter
       color: overlayRoot.textColor

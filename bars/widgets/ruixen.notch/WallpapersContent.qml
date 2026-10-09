@@ -971,9 +971,19 @@ Item {
       // changing. Fixed by fully separating them: the image sits in
       // its own static, never-animated container; the ring, inner
       // line, and label are separate sibling overlays with fixed
-      // geometry, toggled by plain `visible: tile.hovered` and
-      // nothing else -- no Behaviors anywhere in this delegate, so
-      // there's no lingering fade after the pointer leaves either.
+      // geometry.
+      //
+      // Direct follow-up ("is there a smoother way to do this, more
+      // premium or spring feel? its a bit snappy right now"): the ring/
+      // label now fade via opacity + Behavior instead of a hard
+      // `visible` toggle, and the tile itself gets a subtle spring-
+      // eased scale bump. Still doesn't touch the image container's
+      // own geometry/clip/fill at all -- scale here is a transform on
+      // the OUTER Item (a render-tree transform matrix, not a
+      // geometry/clip change), and opacity lives on the separate
+      // sibling overlays, so neither reopens the zoom/flash bug above,
+      // which was specifically about animating properties on the
+      // image's own container.
       delegate: Item {
         id: tile
         // { kind, display, real } now, not a bare path string -- see
@@ -983,6 +993,13 @@ Item {
         // root.loadGate -- see its own comment for why.
         required property int index
         readonly property bool hovered: tileMouse.containsMouse
+        scale: tile.hovered ? 1.04 : 1
+        // Above its row neighbors while popped up, so the scale-up
+        // never reads as clipped behind the next tile in paint order.
+        z: tile.hovered ? 10 : 1
+        Behavior on scale {
+          SpringAnimation { spring: 4; damping: 0.4; mass: 0.9 }
+        }
         // Compares against identity, not display (#23) -- for a video
         // entry, ruixen.wallpaper's own Service.qml sets
         // current/background to the POSTER, which for video already
@@ -1053,8 +1070,11 @@ Item {
           color: "transparent"
           border.width: 2
           border.color: root.accent
-          visible: tile.hovered
+          opacity: tile.hovered ? 1 : 0
           z: 2
+          Behavior on opacity {
+            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+          }
 
           Rectangle {
             anchors.fill: parent
@@ -1067,7 +1087,8 @@ Item {
         }
 
         // Filename label -- also a separate overlay sibling, fixed
-        // geometry, plain visible toggle.
+        // geometry, fading via opacity now rather than a hard visible
+        // toggle (same follow-up as the ring above).
         Rectangle {
           anchors.left: parent.left
           anchors.right: parent.right
@@ -1075,8 +1096,11 @@ Item {
           anchors.margins: 5
           height: 26
           color: Qt.rgba(0, 0, 0, 0.82)
-          visible: tile.hovered
+          opacity: tile.hovered ? 1 : 0
           z: 3
+          Behavior on opacity {
+            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+          }
 
           Text {
             anchors.centerIn: parent
@@ -1189,6 +1213,15 @@ Item {
       // omarchy-theme-set's own theme.name file (kept current
       // optimistically on click, confirmed on the post-set refresh).
       readonly property bool active: themeTile.modelData.name === root.currentTheme
+      // Same spring-eased hover pop as the wallpaper tiles -- see that
+      // delegate's own comment for why this is safe against the
+      // documented zoom/flash regression (transform on the outer Item,
+      // never touching the image container's own geometry/clip).
+      scale: themeTile.hovered ? 1.04 : 1
+      z: themeTile.hovered ? 10 : 1
+      Behavior on scale {
+        SpringAnimation { spring: 4; damping: 0.4; mass: 0.9 }
+      }
 
       // Fills its cell minus the 10px gap, aspect locked to the
       // wallpaper tiles' 160x100 so both sides of the segmented
@@ -1240,15 +1273,20 @@ Item {
 
       // Hover decoration -- the wallpaper tiles' exact two-band recipe
       // (accent ring at the edge, black band starting where the ring
-      // ends), copied rather than reinvented.
+      // ends), copied rather than reinvented. Opacity + Behavior now,
+      // not a hard visible toggle -- same follow-up as the wallpaper
+      // tiles' own ring/label.
       Rectangle {
         anchors.fill: parent
         radius: 10
         color: "transparent"
         border.width: 2
         border.color: root.accent
-        visible: themeTile.hovered
+        opacity: themeTile.hovered ? 1 : 0
         z: 2
+        Behavior on opacity {
+          NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+        }
 
         Rectangle {
           anchors.fill: parent
@@ -1269,8 +1307,11 @@ Item {
         anchors.margins: 5
         height: 26
         color: Qt.rgba(0, 0, 0, 0.82)
-        visible: themeTile.hovered
+        opacity: themeTile.hovered ? 1 : 0
         z: 3
+        Behavior on opacity {
+          NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+        }
 
         Text {
           anchors.centerIn: parent

@@ -243,13 +243,17 @@ Item {
   // Filename substring match against the REAL path (the video's own
   // filename, not its poster's hashed cache name) -- a plain
   // independent filter, deliberately not carrying any per-screen/OLED/
-  // tint/scheme state this notch doesn't have. kindFilter and
-  // sourceFilter narrow first (order between the two doesn't matter,
-  // each only ever removes entries), search narrows further -- any
-  // combination can be active at once.
+  // tint/scheme state this notch doesn't have. kindFilter narrows
+  // first, search narrows further. sourceFilter does NOT apply here --
+  // direct correction ("these all omarchy and custom toggle... should
+  // only effect the theme page"): the Wallpaper chip row only ever
+  // offers All/Images/Video/Gif, with no Omarchy/Custom chip to see or
+  // reset sourceFilter from, so a value picked on the Theme page was
+  // silently narrowing the wallpaper grid too with no way back to All
+  // short of switching back to Theme mode. kindFilter (Wallpaper) and
+  // sourceFilter (Theme) are each scoped to their own page now.
   readonly property var filteredPaths: {
     var result = kindFilter === "all" ? wallpaperPaths : wallpaperPaths.filter(function(e) { return e.kind === kindFilter })
-    result = sourceFilter === "all" ? result : result.filter(function(e) { return e.source === sourceFilter })
     if (searchText.length === 0) return result
     var needle = searchText.toLowerCase()
     return result.filter(function(entry) {

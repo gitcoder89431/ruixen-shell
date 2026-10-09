@@ -36,12 +36,17 @@ check "Overlay passes theme secondary into WallpapersContent" \
 # Theme-mode Omarchy/Custom chips it shares a row with), and the
 # Back-to-top affordance moved into that row too.
 # Direct correction: icon-only (no "Top" label), and hover fills solid
-# accent with a black arrow instead of just nudging secondary -> accent
-# text -- same pattern as the WALLPAPER/THEME tab and favorites toggle.
+# with a black arrow instead of just nudging secondary -> accent text --
+# same pattern as the WALLPAPER/THEME tab and favorites toggle. Fills
+# with root.secondary, not root.accent -- direct follow-up ("if the icon
+# is green, the hilight should match the icon color not the accent"):
+# the icon itself reads root.secondary at rest, a live theme swatch that
+# can be a different hue than accent entirely, so the highlight has to
+# follow that same token or it visibly clashes with the icon.
 check "back-to-top is icon-only, no Top label" \
   "$(grep -c 'text: "Top"' "$wallpapers_qml")" "0"
 check "back-to-top arrow uses secondary at rest and fills black on hover" \
-  "$(grep -cF 'color: backToTopButton.filled ? "#000000" : root.secondary' "$wallpapers_qml")$(grep -c 'color: backToTopButton.filled ? root.accent : root.surfaceTint(0.04)' "$wallpapers_qml")" "11"
+  "$(grep -cF 'color: backToTopButton.filled ? "#000000" : root.secondary' "$wallpapers_qml")$(grep -c 'color: backToTopButton.filled ? root.secondary : root.surfaceTint(0.04)' "$wallpapers_qml")" "11"
 check "chip row keeps the same right inset as the search/tab row" \
   "$(awk 'index($0, "activeFilterChips/activeFilterValue") { in_block = 1 } in_block && /Layout.rightMargin: 12/ { count++ } in_block && /id: backToTopButton/ { in_block = 0 } END { print count + 0 }' "$wallpapers_qml")" "1"
 check "wallpaper grid wrapper fills the row like the theme grid" \

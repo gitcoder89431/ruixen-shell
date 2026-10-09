@@ -1057,11 +1057,13 @@ Item {
   // permanent fixture here).
   //
   // ruixen.launcherbutton (discoverability icon for ruixen.launcher)
-  // leads this list rather than joining pill 2's catch-all -- same
-  // fixed/always-on status as settingsbutton right beside it, not
-  // something a user should be able to accidentally unpin and lose the
-  // one visible way into the launcher again.
-  readonly property var curatedRightIds: ["ruixen.launcherbutton", "omarchy.system-update", "ruixen.power", "ruixen.quickactions", "ruixen.settingsbutton"]
+  // joins this list rather than pill 2's catch-all -- same fixed/
+  // always-on status as settingsbutton right beside it, not something a
+  // user should be able to accidentally unpin and lose the one visible
+  // way into the launcher again. Trails the group (direct correction:
+  // "reorder it so this group, its power, more actions, setting, and
+  // then search icon"), not leading it.
+  readonly property var curatedRightIds: ["omarchy.system-update", "ruixen.power", "ruixen.quickactions", "ruixen.settingsbutton", "ruixen.launcherbutton"]
   // The two ids clockPill gives its own special pill+divider treatment
   // (see clockPill's own comment) -- direct review finding ("Support
   // arbitrary third-party widgets in the horizontal center region",

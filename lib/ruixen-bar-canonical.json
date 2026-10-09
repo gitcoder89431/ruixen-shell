@@ -23,11 +23,11 @@
             { "id": "ruixen.stayawake" },
             { "id": "omarchy.agents" },
             { "id": "ruixen.pluginpins" },
-            { "id": "ruixen.launcherbutton" },
             { "id": "omarchy.system-update" },
             { "id": "ruixen.power" },
             { "id": "ruixen.quickactions" },
-            { "id": "ruixen.settingsbutton" }
+            { "id": "ruixen.settingsbutton" },
+            { "id": "ruixen.launcherbutton" }
         ]
     }
 }

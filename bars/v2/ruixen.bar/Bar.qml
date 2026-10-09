@@ -1055,7 +1055,13 @@ Item {
   // for me to always see it right now" -- pill 2, pinned on demand
   // through ruixen.pluginpins, same as stayawake/agents, rather than a
   // permanent fixture here).
-  readonly property var curatedRightIds: ["omarchy.system-update", "ruixen.power", "ruixen.quickactions", "ruixen.settingsbutton"]
+  //
+  // ruixen.launcherbutton (discoverability icon for ruixen.launcher)
+  // leads this list rather than joining pill 2's catch-all -- same
+  // fixed/always-on status as settingsbutton right beside it, not
+  // something a user should be able to accidentally unpin and lose the
+  // one visible way into the launcher again.
+  readonly property var curatedRightIds: ["ruixen.launcherbutton", "omarchy.system-update", "ruixen.power", "ruixen.quickactions", "ruixen.settingsbutton"]
   // The two ids clockPill gives its own special pill+divider treatment
   // (see clockPill's own comment) -- direct review finding ("Support
   // arbitrary third-party widgets in the horizontal center region",

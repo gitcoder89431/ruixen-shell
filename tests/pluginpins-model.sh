@@ -42,7 +42,7 @@ check "manifest defaults to the right section (curatedRightIds places it explici
 # settings/quickactions group) rather than just hiding an optional widget.
 required_exclusions=(
   "ruixen.applauncher" "ruixen.workspaces" "ruixen.pinnedapps" "ruixen.tray"
-  "ruixen.quickactions" "ruixen.settingsbutton"
+  "ruixen.quickactions" "ruixen.settingsbutton" "ruixen.launcherbutton"
   "ruixen.weather" "ruixen.media" "ruixen.pluginpins" "omarchy.clock"
   "omarchy.system-update" "omarchy.power"
   "omarchy.keyboard-layout" "omarchy.indicators"

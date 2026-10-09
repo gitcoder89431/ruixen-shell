@@ -136,6 +136,7 @@ BarWidget {
   readonly property var excludedIds: [
     "ruixen.applauncher", "ruixen.workspaces", "ruixen.pinnedapps",
     "ruixen.tray", "ruixen.quickactions", "ruixen.settingsbutton",
+    "ruixen.launcherbutton",
     "ruixen.weather", "ruixen.media", "ruixen.pluginpins", "ruixen.power",
     "omarchy.clock", "omarchy.system-update", "omarchy.power",
     "omarchy.keyboard-layout", "omarchy.indicators",

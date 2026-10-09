@@ -45,7 +45,7 @@ check "protectedModuleIds exists, exactly once" \
 check "protectedModuleIds includes ruixen.workspaces (the #36 report's own pill)" \
   "$(grep -A6 'readonly property var protectedModuleIds:' "$bar_qml" | grep -c '"ruixen.workspaces"' || true)" "1"
 
-check "protectedModuleIds folds in curatedRightIds (the System pill's own fixed four)" \
+check "protectedModuleIds folds in curatedRightIds (the System pill's own fixed set)" \
   "$(grep -c 'root.curatedRightIds.concat(root.centerSpecialIds)' "$bar_qml" || true)" "1"
 
 check "moduleDropAtScene computes whether the dragged source is itself protected" \
@@ -92,7 +92,7 @@ check "immovableModuleIds exists, exactly once" \
 
 # ruixen.settingsbutton is deliberately NOT in immovableModuleIds --
 # unlike the solo pills, it still needs to reorder freely among the
-# other three curatedRightIds items. It is kept from popping out to
+# other curatedRightIds items. It is kept from popping out to
 # its own left-side settingsPill fallback by the SEPARATE
 # sourceIsCurated scoping above instead (direct correction: an earlier
 # pass treated that pop-out as a keeper feature; "no i dont want the

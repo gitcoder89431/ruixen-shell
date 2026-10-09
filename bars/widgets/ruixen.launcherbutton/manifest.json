@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.launcherbutton",
+  "name": "Ruixen Launcher Button",
+  "version": "1.0.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Toggles the Ruixen Launcher (the SUPER+R command palette).",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "LauncherButton.qml"
+  },
+  "barWidget": {
+    "displayName": "Ruixen Launcher Button",
+    "description": "Toggle the Ruixen Launcher panel.",
+    "category": "Compositor",
+    "allowMultiple": false
+  }
+}

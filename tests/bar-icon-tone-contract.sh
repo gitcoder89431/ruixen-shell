@@ -69,7 +69,7 @@ check "SettingsContent.qml writes the same icon tone state file" \
   "$(grep -c 'bar-icon-tone.json' "$settings_qml")" "1"
 
 check "decorative Ruixen BarIconButtons use iconForeground" \
-  "$(grep -R -c 'root\.bar\.iconForeground' "$repo_dir/bars/widgets" | awk -F: '{ total += $2 } END { print total }')" "6"
+  "$(grep -R -c 'root\.bar\.iconForeground' "$repo_dir/bars/widgets" | awk -F: '{ total += $2 } END { print total }')" "7"
 
 # ruixen.weather deliberately does NOT use iconForeground -- direct live
 # follow-up: it shares clockPill with the stock omarchy.clock widget,

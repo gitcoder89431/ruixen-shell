@@ -40,11 +40,19 @@
 #      through it (stayawake, agents, microphone, network, any
 #      third-party widget). This is the catch-all now: every id in
 #      "right" that's neither tray nor the fixed system list.
-#   3. curatedPill ("SYSTEM") -- system-update, power, quickactions,
-#      settingsbutton. An exact id-match list, not a
+#   3. curatedPill ("SYSTEM") -- launcherbutton, system-update, power,
+#      quickactions, settingsbutton. An exact id-match list, not a
 #      catch-all -- nothing joins it except by being explicitly added here.
 #   4. clockPill -- weather + clock, unchanged throughout every pass
 #      above.
+#
+# ruixen.launcherbutton (magnifying-glass icon opening ruixen.launcher,
+# direct request: "adding a magnify glass icon to the right of the
+# pluginspin icon... apparentely people dont even know it exists")
+# leads curatedPill rather than joining pill 2's catch-all -- same
+# always-on reasoning as settingsbutton: a discoverability icon that can
+# be silently unpinned through the generic pin dropdown defeats its own
+# purpose.
 #
 # ruixen.peripherals (wireless device battery pins) passed through
 # curatedRightIds for a while (#6, since reverted) -- direct follow-up
@@ -90,8 +98,8 @@ check() {
 # screen-recording state now lives on ruixen.quickactions instead of adding
 # a dynamic-width capturestatus slot to this fixed system group.
 curated_ids_line="$(grep -m1 'readonly property var curatedRightIds:' "$bar_qml")"
-check "curatedRightIds is the exact, fixed SYSTEM list: system-update, power, quickactions, settingsbutton" \
-  "$curated_ids_line" '  readonly property var curatedRightIds: ["omarchy.system-update", "ruixen.power", "ruixen.quickactions", "ruixen.settingsbutton"]'
+check "curatedRightIds is the exact, fixed SYSTEM list: launcherbutton, system-update, power, quickactions, settingsbutton" \
+  "$curated_ids_line" '  readonly property var curatedRightIds: ["ruixen.launcherbutton", "omarchy.system-update", "ruixen.power", "ruixen.quickactions", "ruixen.settingsbutton"]'
 
 check "there is no separate sideRightIds list anymore (pill 2's own filter is inline: not tray, not curatedRightIds)" \
   "$(grep -c 'sideRightIds' "$bar_qml" || true)" "0"

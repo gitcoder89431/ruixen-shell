@@ -493,7 +493,7 @@ check "first takeover: bar.id becomes ruixen.bar" \
   "$(jq -r '.bar.id' <<<"$out14")" "ruixen.bar"
 check "first takeover: every canonical ruixen id is present" \
   "$(jq -c '[.bar.layout[][] | .id] | map(select(startswith("ruixen."))) | sort' <<<"$out14")" \
-  '["ruixen.applauncher","ruixen.pinnedapps","ruixen.pluginpins","ruixen.power","ruixen.quickactions","ruixen.settingsbutton","ruixen.stayawake","ruixen.tray","ruixen.weather","ruixen.workspaces"]'
+  '["ruixen.applauncher","ruixen.launcherbutton","ruixen.pinnedapps","ruixen.pluginpins","ruixen.power","ruixen.quickactions","ruixen.settingsbutton","ruixen.stayawake","ruixen.tray","ruixen.weather","ruixen.workspaces"]'
 check "first takeover: left-side third-party widget survives, in left" \
   "$(jq -c '.bar.layout.left | map(.id)' <<<"$out14")" \
   '["ruixen.applauncher","ruixen.workspaces","ruixen.pinnedapps","local.prayer-times"]'

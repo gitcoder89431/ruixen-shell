@@ -142,7 +142,10 @@ check "Kanban confirm token is supplied from the active theme blue swatch" \
   "$(grep -c 'confirmColor: root.cavaCoolColor' "$overlay_qml")" "1"
 
 check "Kanban semantic colors are supplied from the active theme palette" \
-  "$(grep -E -c 'successColor: root.kanbanSuccessColor|dangerColor: root.kanbanDangerColor|warningColor: root.kanbanWarningColor' "$overlay_qml")" "3"
+  "$(grep -E -c 'successColor: root.kanbanSuccessColor|dangerColor: root.kanbanDangerColor|warningColor: root.kanbanWarningColor' "$overlay_qml")" "4"
+# 4, not 3 -- WallpapersContent's own search clear "x" started reading
+# the same kanbanDangerColor token too (was a hardcoded #e05252),
+# a second dangerColor: match alongside Kanban's three.
 
 check "Kanban card surface tints toward white on a light theme (nested lighter than the column it sits on), textColor on a dark one" \
   "$(( $(grep -c 'root.surfaceLuminance(root.textColor) < 0.5' "$overlay_qml") + $(grep -c '? Qt.rgba(1, 1, 1, 0.65)' "$overlay_qml") ))" "2"

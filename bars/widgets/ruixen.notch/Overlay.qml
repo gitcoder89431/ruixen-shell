@@ -2730,6 +2730,7 @@ Item {
                 muted: root.muted
                 accent: root.accent
                 secondary: root.themeSecondaryColor
+                dangerColor: root.kanbanDangerColor
                 fontFamily: root.fontFamily
               }
 

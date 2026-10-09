@@ -72,6 +72,11 @@ Item {
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
   property color secondary: accent
+  // Theme-aware red for the search clear "x" -- direct correction: was
+  // the plugin's own hardcoded #e05252, same live theme "red" swatch
+  // (Color.accent fallback) Overlay.qml already computes as
+  // kanbanDangerColor for Kanban's own delete affordances.
+  property color dangerColor: "#e05252"
   property string fontFamily: "JetBrainsMono Nerd Font"
 
   // ruixen-shell#89 follow-up: tonal surfaces/hover states/borders here
@@ -567,10 +572,32 @@ Item {
         radius: 12
         color: root.surfaceTint(0.06)
 
+        // Magnify glyph in front of the placeholder -- always
+        // visible now, not just on an empty query (direct correction,
+        // same pass as the notch quick-launcher and shelf search
+        // boxes), accent instead of muted. Sibling of the TextInput,
+        // not a child of it -- a child Text sits at the TextInput's
+        // own text-layout origin, the same spot the blinking caret
+        // renders at, so it drew the caret in front of the icon when
+        // it lived there and this field has active focus.
+        Text {
+          id: searchPlaceholderIcon
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.left: parent.left
+          anchors.leftMargin: 12
+          text: ""
+          color: root.accent
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
         TextInput {
           id: searchInput
           anchors.fill: parent
-          anchors.leftMargin: 12
+          // Fixed clear of the always-visible icon above, not
+          // conditional on query length -- the icon never hides, so
+          // typed text/caret always need this same clearance.
+          anchors.leftMargin: 30
           anchors.rightMargin: 34
           verticalAlignment: TextInput.AlignVCenter
           color: root.textColor
@@ -580,29 +607,9 @@ Item {
 
           onTextChanged: root.searchText = text
 
-          // Magnify glyph in front of the placeholder -- direct
-          // request ("add a magnify icon in front of the text so
-          // Magnify Search wallpapers..."). fa-search (U+F002), the
-          // same glyph/family ruixen.settings' own sidebar search
-          // already uses -- placeholder-only (hidden once typing
-          // starts), not a persistent left-side icon, since this
-          // search box already has its own separate clear "✕" button
-          // on the right; no need for a second one doubling as this.
           Text {
-            id: searchPlaceholderIcon
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
-            visible: searchInput.text.length === 0
-            text: ""
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 11
-          }
-
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.left: searchPlaceholderIcon.right
-            anchors.leftMargin: 6
             // Placeholder follows the segmented control -- direct
             // request: "so theme will say search themes...".
             text: root.mediaMode === "themes" ? "Search themes..." : "Search wallpapers..."
@@ -618,10 +625,9 @@ Item {
         // right side to clear it"). Sits in the rightMargin space
         // reserved above so it never overlaps typed text. Same "✕"
         // glyph/placement LauncherContent.qml's own app search already
-        // uses, but red per this request rather than muted/textColor --
-        // #e05252 is this plugin's own established red (DashboardContent.qml/
-        // MetricsContent.qml/Overlay.qml all use it for the same
-        // warning-ish/critical-toggle meaning).
+        // uses. Theme-aware red now (root.dangerColor, wired from
+        // Overlay.qml's own kanbanDangerColor) -- direct correction,
+        // was this plugin's own hardcoded #e05252.
         Text {
           visible: searchInput.text.length > 0
           anchors.right: parent.right
@@ -629,7 +635,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           text: "✕"
           font.pixelSize: 13
-          color: clearSearchMouse.containsMouse ? Qt.lighter("#e05252", 1.25) : "#e05252"
+          color: clearSearchMouse.containsMouse ? Qt.lighter(root.dangerColor, 1.25) : root.dangerColor
 
           MouseArea {
             id: clearSearchMouse

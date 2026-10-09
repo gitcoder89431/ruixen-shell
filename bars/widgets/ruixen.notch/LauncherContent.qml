@@ -589,13 +589,20 @@ Item {
     }
   }
 
+  // Direct correction: was pinned right under the search box
+  // (searchBox.bottom + a fixed 28px), which read as stuck near the
+  // top with a lot of dead space below it once there's no grid to
+  // fill that space. Spans the whole remaining area down to the
+  // panel's own bottom edge instead, vertically centered within it,
+  // same fix for both empty states below (no results / no favorites).
   Text {
     visible: launcherContent.showingSearch && launcherContent.searchResults.length === 0
     anchors.top: searchBox.bottom
-    anchors.topMargin: 28
+    anchors.bottom: parent.bottom
     anchors.horizontalCenter: parent.horizontalCenter
     width: launcherContent.contentWidth
     horizontalAlignment: Text.AlignHCenter
+    verticalAlignment: Text.AlignVCenter
     text: "No apps match \u201c" + launcherContent.searchText + "\u201d"
     color: overlayRoot.muted
     font.family: overlayRoot.fontFamily
@@ -605,10 +612,11 @@ Item {
   Text {
     visible: !launcherContent.showingSearch && launcherContent.pinnedMode === "favorites" && launcherContent.favoriteEntries.length === 0
     anchors.top: searchBox.bottom
-    anchors.topMargin: 28
+    anchors.bottom: parent.bottom
     anchors.horizontalCenter: parent.horizontalCenter
     width: launcherContent.contentWidth
     horizontalAlignment: Text.AlignHCenter
+    verticalAlignment: Text.AlignVCenter
     text: "No favorites yet"
     color: overlayRoot.muted
     font.family: overlayRoot.fontFamily

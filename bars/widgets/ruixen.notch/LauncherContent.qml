@@ -303,10 +303,33 @@ Item {
     radius: 12
     color: surfaceTint(0.06)
 
+    // Magnify glyph in front of the placeholder -- direct request,
+    // same fa-search (U+F002) glyph/treatment as
+    // WallpapersContent.qml's own searchPlaceholderIcon, accent
+    // instead of muted per this pass's "theme with accent" ask.
+    // Sibling of the TextInput, not a child of it -- a child Text sits
+    // at the TextInput's own text-layout origin, which is exactly
+    // where the blinking caret renders too (this field grabs focus the
+    // moment the panel opens), so the caret kept drawing in front of
+    // the icon. Anchored to searchBox directly instead, with the
+    // TextInput's own leftMargin pushed past it so typed text/caret
+    // both start clear of the icon.
+    Text {
+      id: launcherSearchIcon
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: parent.left
+      anchors.leftMargin: 12
+      visible: launcherSearchInput.text.length === 0
+      text: ""
+      color: overlayRoot.accent
+      font.family: overlayRoot.fontFamily
+      font.pixelSize: 11
+    }
+
     TextInput {
       id: launcherSearchInput
       anchors.fill: parent
-      anchors.leftMargin: 12
+      anchors.leftMargin: 30
       anchors.rightMargin: 28
       verticalAlignment: TextInput.AlignVCenter
       color: overlayRoot.textColor
@@ -351,25 +374,9 @@ Item {
         }
       }
 
-      // Magnify glyph in front of the placeholder -- direct request,
-      // same fa-search (U+F002) glyph/treatment as
-      // WallpapersContent.qml's own searchPlaceholderIcon, accent
-      // instead of muted per this pass's "theme with accent" ask.
       Text {
-        id: launcherSearchIcon
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
-        visible: launcherSearchInput.text.length === 0
-        text: ""
-        color: overlayRoot.accent
-        font.family: overlayRoot.fontFamily
-        font.pixelSize: 11
-      }
-
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.left: launcherSearchIcon.right
-        anchors.leftMargin: 6
         text: launcherContent.favoritesFullHint ? "Favorite Apps Full" : "Search apps..."
         color: overlayRoot.muted
         font.family: overlayRoot.fontFamily

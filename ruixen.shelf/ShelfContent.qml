@@ -79,7 +79,7 @@ Item {
   // reasoning (a count falling from 12 to 1 as you type reads like items
   // are being deleted), but it makes the chip a different width on every
   // keystroke and the whole row visibly jumps. A fixed total keeps the row
-  // still, and "Inbox" alone still tells you the filter is active because
+  // still, and "Pins" alone still tells you the filter is active because
   // the results themselves are right there underneath it.
   readonly property string chipCount: String(root.rows.length)
 
@@ -258,7 +258,7 @@ Item {
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
-          text: "Inbox"
+          text: "Pins"
           color: root.textColor
           font.family: root.fontFamily
           font.pixelSize: 11

@@ -272,8 +272,8 @@ check "Chip: left-anchored to the panel, on the search box's row" \
 # chip's own text.
 check "Chip: a plain total, so the row cannot resize while typing" \
   "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -c 'root.chipCount' || true)$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'filtering|visibleRows|filtered' || true)" "20"
-check "Chip: labelled Inbox" \
-  "$(grep -cF 'text: "Inbox"' "$content" || true)$(grep -cF 'text: "Shelf"' "$content" || true)" "10"
+check "Chip: labelled Pins" \
+  "$(grep -cF 'text: "Pins"' "$content" || true)$(grep -cF 'text: "Inbox"' "$content" || true)" "10"
 # The chip must not put a MouseArea over the field. It has none, so a click
 # on the chip falls through to the panel behind it -- it does NOT focus the
 # field, only the field's own area does that.

@@ -673,15 +673,17 @@ Item {
         // The sliding thumb -- declared before the labels below so it
         // paints behind them, animates x only (fixed width/height), so
         // it reads as one pill moving rather than a second element.
+        // Direct correction: was a subtle tint + accent outline, which
+        // read as "a bit dim" next to the solid-accent-fill/black-text
+        // treatment this pass already gave the favorites toggle and
+        // kanban add button. Solid accent fill now, same family.
         Rectangle {
           x: root.mediaMode === "wallpapers" ? 2 : modeTab.chipWidth + 2
           y: 2
           width: modeTab.chipWidth
           height: parent.height - 4
           radius: 8
-          color: root.surfaceTint(0.08)
-          border.width: 1
-          border.color: root.accent
+          color: root.accent
 
           Behavior on x {
             NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
@@ -702,7 +704,7 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: 10
               font.weight: root.mediaMode === "wallpapers" ? Font.DemiBold : Font.Normal
-              color: root.mediaMode === "wallpapers" ? root.accent : root.muted
+              color: root.mediaMode === "wallpapers" ? "#000000" : root.accent
             }
 
             MouseArea {
@@ -723,7 +725,7 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: 10
               font.weight: root.mediaMode === "themes" ? Font.DemiBold : Font.Normal
-              color: root.mediaMode === "themes" ? root.accent : root.muted
+              color: root.mediaMode === "themes" ? "#000000" : root.accent
             }
 
             MouseArea {

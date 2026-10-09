@@ -627,7 +627,12 @@ Item {
         // glyph/placement LauncherContent.qml's own app search already
         // uses. Theme-aware red now (root.dangerColor, wired from
         // Overlay.qml's own kanbanDangerColor) -- direct correction,
-        // was this plugin's own hardcoded #e05252.
+        // was this plugin's own hardcoded #e05252. Flat color, no
+        // hover-lighten -- direct follow-up ("the x on hover is kinda
+        // weird, it gets like faded out"): Qt.lighter on a saturated
+        // theme red can wash out toward pink instead of reading as a
+        // hover highlight. Matches LauncherContent.qml's own clear "✕",
+        // which never had a hover variant to begin with.
         Text {
           visible: searchInput.text.length > 0
           anchors.right: parent.right
@@ -635,7 +640,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           text: "✕"
           font.pixelSize: 13
-          color: clearSearchMouse.containsMouse ? Qt.lighter(root.dangerColor, 1.25) : root.dangerColor
+          color: root.dangerColor
 
           MouseArea {
             id: clearSearchMouse

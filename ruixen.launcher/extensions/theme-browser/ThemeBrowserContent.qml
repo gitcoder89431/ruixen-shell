@@ -649,19 +649,28 @@ Item {
     }
   }
 
-  // One collection at a time, dark+light fetched together, then the
-  // queue advances -- not six parallel pairs at once. Each fetch is a
-  // single small JSON manifest (confirmed directly: the biggest,
-  // Bjarneo's own, is ~430KB; Coffee's ~160KB), so twelve total
-  // sequential-pair round trips still lands well under a couple of
-  // seconds, and this reuses the exact same reusable-Process-plus-
-  // queue shape downloadNextBackground already established in this
-  // file for the exact same "small fixed number of sequential network
-  // steps" reason, rather than inventing a second pattern or trying to
-  // spawn a dynamic Process per collection (QML Process objects are
-  // declared, not instantiated in a loop).
+  // One collection at a time, then the queue advances -- not all six
+  // fetched in parallel at once. Each fetch is a single small JSON
+  // manifest (confirmed directly: the biggest, Bjarneo's own, is
+  // ~430KB; Coffee's ~160KB), so six sequential round trips still
+  // lands well under a couple of seconds, and this reuses the exact
+  // same reusable-Process-plus-queue shape downloadNextBackground
+  // already established in this file for the exact same "small fixed
+  // number of sequential network steps" reason, rather than inventing
+  // a second pattern or trying to spawn a dynamic Process per
+  // collection (QML Process objects are declared, not instantiated in
+  // a loop).
+  //
+  // ONE fetch per collection, not two -- themesDataUrl ignores variant
+  // entirely (dark and light both live in the exact same themes.js
+  // response, see ThemeCatalog.parseThemesJs's own comment), so the
+  // original single-collection code's separate darkCatalogProc/
+  // lightCatalogProc pair was always curling the identical URL twice.
+  // That only cost one redundant request for a single collection; at
+  // six it would have doubled to twelve. Fetching once and calling
+  // parseThemesJs on the same already-in-memory text twice (dark, then
+  // light) gets both for free with no second network round trip at all.
   property var collectionQueue: []
-  property int collectionPairPending: 0
 
   function loadCatalog() {
     root.catalogLoading = true
@@ -679,61 +688,25 @@ Item {
       return
     }
     var collection = ThemeCatalog.collectionById(root.collectionQueue[0])
-    root.collectionPairPending = 2
-    darkCatalogProc.activeCollectionId = collection.id
-    darkCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl(collection)]
-    darkCatalogProc.running = true
-    // Fired alongside, not gating this collection's own dark half --
-    // light is a secondary enhancement per collection (the Light toggle
-    // just shows nothing yet for THIS collection's themes if its own
-    // fetch is still in flight or fails), not something worth blocking
-    // the whole queue on.
-    lightCatalogProc.activeCollectionId = collection.id
-    lightCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl(collection)]
-    lightCatalogProc.running = true
-  }
-
-  // Advances the queue once BOTH this collection's dark and light
-  // fetches have finished (in either order) -- a plain decrement-and-
-  // check rather than two separate "am I the last one" branches, same
-  // shape installStepDone's own pendingCount already uses for the same
-  // reason (four parallel install steps there, two parallel catalog
-  // fetches here).
-  function collectionPairDone() {
-    root.collectionPairPending--
-    if (root.collectionPairPending > 0) return
-    root.collectionQueue = root.collectionQueue.slice(1)
-    root.loadNextCollection()
+    catalogProc.activeCollectionId = collection.id
+    catalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl(collection)]
+    catalogProc.running = true
   }
 
   Process {
-    id: darkCatalogProc
+    id: catalogProc
     property string activeCollectionId: ""
     stdout: StdioCollector {
-      id: darkCatalogStdout
+      id: catalogStdout
       waitForEnd: true
     }
     onExited: function(exitCode) {
       if (exitCode === 0) {
-        var collection = ThemeCatalog.collectionById(darkCatalogProc.activeCollectionId)
-        var themes = ThemeCatalog.parseThemesJs(darkCatalogStdout.text, collection, "dark")
-        root.darkThemes = root.darkThemes.concat(themes)
-      }
-      root.collectionPairDone()
-    }
-  }
+        var collection = ThemeCatalog.collectionById(catalogProc.activeCollectionId)
+        var darkRows = ThemeCatalog.parseThemesJs(catalogStdout.text, collection, "dark")
+        root.darkThemes = root.darkThemes.concat(darkRows)
 
-  Process {
-    id: lightCatalogProc
-    property string activeCollectionId: ""
-    stdout: StdioCollector {
-      id: lightCatalogStdout
-      waitForEnd: true
-    }
-    onExited: function(exitCode) {
-      if (exitCode === 0) {
-        var collection = ThemeCatalog.collectionById(lightCatalogProc.activeCollectionId)
-        var themes = ThemeCatalog.parseThemesJs(lightCatalogStdout.text, collection, "light")
+        var lightRows = ThemeCatalog.parseThemesJs(catalogStdout.text, collection, "light")
         // Keyed by collection+baseSlug, not the light variant's own
         // install slug -- the old "<dark slug>-day" lookup key only
         // ever worked for Bjarneo's own bare-dark-plus-suffix
@@ -742,10 +715,11 @@ Item {
         // sharing a theme NAME (not confirmed to happen, guarded
         // against anyway) can never collide.
         var bySlug = root.lightThemesBySlug
-        for (var i = 0; i < themes.length; i++) bySlug[themes[i].collectionId + ":" + themes[i].baseSlug] = themes[i]
+        for (var i = 0; i < lightRows.length; i++) bySlug[lightRows[i].collectionId + ":" + lightRows[i].baseSlug] = lightRows[i]
         root.lightThemesBySlug = bySlug
       }
-      root.collectionPairDone()
+      root.collectionQueue = root.collectionQueue.slice(1)
+      root.loadNextCollection()
     }
   }
 

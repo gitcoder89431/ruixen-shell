@@ -270,7 +270,7 @@ check("themeRows: shape matches every other ResultsList model in this plugin, la
   [{
     id: "theme:neon-wave",
     providerId: "theme-browser-entry",
-    icon: "",
+    icon: "",
     iconColor: "#888888",
     label: "Neon Wave",
     breadcrumb: "",
@@ -304,19 +304,19 @@ check("themeRows: empty input yields an empty list", M.themeRows([], {}, "dark",
 
 check("themeRows: no currentSlug passed at all -- every row still gets the plain brush, not a throw",
   M.themeRows([{ name: "Hacker", slug: "hacker", darkSlug: "hacker", daySlug: "hacker-day", colors: {} }], { "hacker": true }, "dark", "#888888")[0].icon,
-  "");
+  "");
 
 check("themeRows: the real active theme gets its own distinct check-circle glyph, not just a color",
   M.themeRows([{ name: "Hacker", slug: "hacker", darkSlug: "hacker", daySlug: "hacker-day", colors: {} }], { "hacker": true }, "dark", "#888888", "hacker")[0].icon,
-  "");
+  "");
 
 check("themeRows: currentSlug is matched against the PREVIEWED variant's own resolved slug, not the dark one",
   M.themeRows([{ name: "Hacker", slug: "hacker-day", darkSlug: "hacker", daySlug: "hacker-day", colors: {} }], { "hacker-day": true }, "light", "#888888", "hacker-day")[0].icon,
-  "");
+  "");
 
 check("themeRows: a currentSlug that matches a DIFFERENT row's variant leaves this one with the plain brush",
   M.themeRows([{ name: "Hacker", slug: "hacker", darkSlug: "hacker", daySlug: "hacker-day", colors: {} }], { "hacker": true }, "dark", "#888888", "hacker-day")[0].icon,
-  "");
+  "");
 
 check("themeRows: current is still colored by install status like any other row (installed here, so green)",
   M.themeRows([{ name: "Hacker", slug: "hacker", darkSlug: "hacker", daySlug: "hacker-day", colors: { green: "#39ff14" } }], { "hacker": true }, "dark", "#888888", "hacker")[0].iconColor,

@@ -394,7 +394,7 @@ function themeRows(themes, installedSlugs, variant, mutedColor, currentSlug) {
     rows.push({
       id: "theme:" + theme.slug,
       providerId: "theme-browser-entry",
-      icon: isCurrent ? "" : "",
+      icon: isCurrent ? "" : "",
       iconColor: installed ? themeGreen : mutedColor,
       label: theme.name,
       breadcrumb: theme.styleLabel || "",

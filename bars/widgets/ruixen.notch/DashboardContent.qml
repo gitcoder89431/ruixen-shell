@@ -1514,16 +1514,35 @@ Item {
           // same reasoning as accent itself before it got theme-linked:
           // "DND active" needs to read as alarm/urgent regardless of
           // theme, not blend into it.
+          //
+          // Real glyph bug caught while adding the hover fill below:
+          // "\udb80\udc9b" (what this was always set to, for BOTH
+          // states) decodes to md-bell_off -- the CROSSED bell -- not
+          // plain md-bell. So the "notifications are live" state was
+          // silently showing a slashed bell the whole time, just in
+          // accent instead of red; only the color actually changed.
+          // Fixed by swapping to the real md-bell glyph ("\udb80\udc9a",
+          // one codepoint over) when not silenced, matching what the
+          // icon has claimed to show all along.
+          //
+          // Filled solid red + black glyph while active (silenced) --
+          // same active/hover-fill language as the calendar chevrons
+          // and the Kanban add button, not just a color swap on a
+          // transparent background. Hovering while NOT yet silenced
+          // previews that same red fill (still the plain bell, since
+          // nothing's silenced yet) so the "click to silence" affordance
+          // reads the same way everywhere else in this plugin does.
           Rectangle {
+            readonly property bool filled: root.dnd || dndBellArea.containsMouse
             Layout.preferredWidth: 32
             Layout.fillHeight: true
             radius: 10
-            color: root.dashboardBoardSurface
+            color: filled ? "#e05252" : root.dashboardBoardSurface
 
             Text {
               anchors.centerIn: parent
-              text: "\udb80\udc9b"
-              color: root.dnd ? "#e05252" : (dndBellArea.containsMouse ? Qt.lighter(root.accent, 1.25) : root.accent)
+              text: root.dnd ? "\udb80\udc9b" : "\udb80\udc9a"
+              color: parent.filled ? "#000000" : root.accent
               font.family: root.fontFamily
               font.pixelSize: 16
             }
@@ -1543,17 +1562,20 @@ Item {
           // comment on why). Fixed orange (not theme-linked, same
           // "state semantic" reasoning as the bell's red above) --
           // deliberately different from the bell's red so "DND active"
-          // and "clear/destructive action" don't share one color.
+          // and "clear/destructive action" don't share one color. Solid
+          // fill + black glyph on hover now, same pattern as the
+          // calendar chevrons -- this is a stateless action button (no
+          // "active" state the way the bell has), so fill is hover-only.
           Rectangle {
             Layout.preferredWidth: 32
             Layout.fillHeight: true
             radius: 10
-            color: root.dashboardBoardSurface
+            color: clearNotificationsArea.containsMouse ? "#e0a050" : root.dashboardBoardSurface
 
             Text {
               anchors.centerIn: parent
               text: "\udb80\udce2"
-              color: clearNotificationsArea.containsMouse ? Qt.lighter("#e0a050", 1.25) : "#e0a050"
+              color: clearNotificationsArea.containsMouse ? "#000000" : "#e0a050"
               font.family: root.fontFamily
               font.pixelSize: 16
             }

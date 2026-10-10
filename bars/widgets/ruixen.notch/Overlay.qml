@@ -2568,12 +2568,19 @@ Item {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "󰂛"
+            text: root.dnd ? "󰂛" : "󰂚"
             // Matches the dashboard's own bell exactly (see
             // DashboardContent.qml's notification header) -- theme
             // accent when notifications are live, the same fixed red
             // when silenced. Was root.muted, per direct request to
             // bring the same theme-color/red treatment here too.
+            //
+            // Glyph now swaps too (md-bell vs md-bell_off), not just
+            // color -- real bug caught in DashboardContent.qml's own
+            // copy of this same bell: the crossed-bell codepoint was
+            // hardcoded for BOTH states, so "notifications are live"
+            // was silently showing a slashed bell in accent color
+            // instead of the plain one.
             color: root.dnd ? "#e05252" : root.accent
             font.family: root.fontFamily
             font.pixelSize: 18

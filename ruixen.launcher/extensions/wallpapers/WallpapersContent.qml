@@ -213,6 +213,31 @@ Item {
   // HoverHandler's own instantiation, just below the GridView, for
   // where this is actually wired up.
   function handleHoverPoint(pos) {
+    // Direct report: "when it gets to the bottom, it seems to be stuck
+    // on the bottom few rows and the cursor highlight stops working."
+    // grid.moving is true for the full duration of a wheel/drag/flick
+    // scroll, not just its first instant -- a single onMovementStarted
+    // reset (see onMovementStarted below) only swallows the FIRST
+    // synthetic resend after a scroll begins, but this file's own
+    // HoverHandler comment already admits it isn't actually immune to
+    // synthetic resends DURING a relayout, not only right at one's
+    // start, and a long multi-row scroll is one continuous relayout for
+    // its whole duration. Letting one of those mid-scroll resends slip
+    // through as a "real move" reassigns currentIndex to whatever tile
+    // happens to be physically under the still cursor at that instant,
+    // which -- combined with GridView's own default
+    // highlightFollowsCurrentItem wanting to keep that newly-current
+    // tile in view -- is exactly the kind of fight that reads as
+    // scrolling getting stuck/bounced right as it nears the bottom, and
+    // as the ring appearing to freeze once it settles somewhere that
+    // was never a genuine hover target. Continuously re-unarming for as
+    // long as the scroll is in progress (not just once, at the start)
+    // closes that for the WHOLE gesture: only a genuine move that
+    // happens once scrolling has fully stopped can ever select again.
+    if (grid.moving) {
+      root.hoverArmBaseline = Qt.point(-1, -1)
+      return
+    }
     if (root.hoverArmBaseline.x < 0) {
       root.hoverArmBaseline = pos
       return
@@ -701,30 +726,7 @@ Item {
       // undercounts by 4 whenever the hero's spacer entries are
       // showing, which left this same "bypass" 4 short of the real
       // maximum tile.index too.
-      //
-      // Also re-arms hoverArmBaseline here -- direct report: "when i
-      // have current or selected somewhere below i cant scroll up or
-      // down with the wheel." stepTo() already resets the baseline
-      // before ITS OWN scroll (see its comment: a content shift under a
-      // physically-still cursor can resend a synthetic pointer update
-      // that the grid-level HoverHandler is "evidently not immune to
-      // either, contrary to this file's own earlier assumption"), but
-      // that only covers keyboard-driven scrolling. A mouse-wheel scroll
-      // moves content the exact same way without ever going through
-      // stepTo(), so the baseline was going stale: the first synthetic
-      // resend after a wheel tick compared against a baseline from
-      // BEFORE the scroll started, read as a genuine mouse move past the
-      // 0.5px threshold, and reasserted currentIndex back onto whatever
-      // tile physically sat under the still cursor -- fighting the very
-      // scroll that was trying to move away from it, tick after tick.
-      // onMovementStarted fires for wheel/drag/flick alike (already
-      // relied on for the loadGate bypass above), so resetting here
-      // closes the same gap stepTo() closed for keyboard, for every
-      // other way the content can move too.
-      onMovementStarted: {
-        root.loadGate = root.gridModel.length
-        root.hoverArmBaseline = Qt.point(-1, -1)
-      }
+      onMovementStarted: root.loadGate = root.gridModel.length
 
       // Drives currentIndex directly from genuine cursor movement --
       // same mechanism/reasoning as Launcher.qml's own card-level

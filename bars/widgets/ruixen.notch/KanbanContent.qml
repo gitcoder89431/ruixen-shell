@@ -300,7 +300,7 @@ Item {
         Layout.alignment: Qt.AlignVCenter
         implicitWidth: headerLabelRow.implicitWidth + 18
         implicitHeight: 24
-        radius: height / 2
+        radius: 10
         color: root.surfaceTint(0.08)
 
         Row {

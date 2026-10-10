@@ -701,7 +701,30 @@ Item {
       // undercounts by 4 whenever the hero's spacer entries are
       // showing, which left this same "bypass" 4 short of the real
       // maximum tile.index too.
-      onMovementStarted: root.loadGate = root.gridModel.length
+      //
+      // Also re-arms hoverArmBaseline here -- direct report: "when i
+      // have current or selected somewhere below i cant scroll up or
+      // down with the wheel." stepTo() already resets the baseline
+      // before ITS OWN scroll (see its comment: a content shift under a
+      // physically-still cursor can resend a synthetic pointer update
+      // that the grid-level HoverHandler is "evidently not immune to
+      // either, contrary to this file's own earlier assumption"), but
+      // that only covers keyboard-driven scrolling. A mouse-wheel scroll
+      // moves content the exact same way without ever going through
+      // stepTo(), so the baseline was going stale: the first synthetic
+      // resend after a wheel tick compared against a baseline from
+      // BEFORE the scroll started, read as a genuine mouse move past the
+      // 0.5px threshold, and reasserted currentIndex back onto whatever
+      // tile physically sat under the still cursor -- fighting the very
+      // scroll that was trying to move away from it, tick after tick.
+      // onMovementStarted fires for wheel/drag/flick alike (already
+      // relied on for the loadGate bypass above), so resetting here
+      // closes the same gap stepTo() closed for keyboard, for every
+      // other way the content can move too.
+      onMovementStarted: {
+        root.loadGate = root.gridModel.length
+        root.hoverArmBaseline = Qt.point(-1, -1)
+      }
 
       // Drives currentIndex directly from genuine cursor movement --
       // same mechanism/reasoning as Launcher.qml's own card-level

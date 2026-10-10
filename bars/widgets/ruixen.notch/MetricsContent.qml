@@ -818,7 +818,7 @@ Item {
                   text: " " + (coreItem.index + 1)
                   font.family: root.fontFamily
                   font.pixelSize: 11
-                  color: root.textColor
+                  color: root.accent
                   Layout.preferredWidth: 26
                 }
 
@@ -841,7 +841,7 @@ Item {
                   text: Math.round(coreItem.modelData * 100) + "%"
                   font.family: root.fontFamily
                   font.pixelSize: 11
-                  color: root.muted
+                  color: root.accent
                   Layout.preferredWidth: 32
                   horizontalAlignment: Text.AlignRight
                 }

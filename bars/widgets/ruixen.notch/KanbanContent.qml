@@ -290,10 +290,16 @@ Item {
     // still CLI/agent-only via kanbanRenameColumn; not part of the GUI
     // request). The label and count share one compact pill; the add/
     // clear action is a separate wider click target.
+    //
+    // No left/right Layout margin here (direct follow-up: "line this up
+    // better with the panel below") -- the panel Rectangle underneath
+    // has no margin of its own and spans the column's full width, so a
+    // 10px inset here (previously mirroring the panel's INNER content
+    // margin, where cards sit, not its own edge) just left the header
+    // chip starting to the right of the panel's actual left corner
+    // instead of sitting flush above it.
     RowLayout {
       Layout.fillWidth: true
-      Layout.leftMargin: 10
-      Layout.rightMargin: 10
       spacing: 6
 
       Rectangle {

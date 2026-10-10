@@ -1545,7 +1545,7 @@ Item {
                 text: "Download"
                 font.family: root.fontFamily
                 font.pixelSize: 12
-                color: root.accent
+                color: "#3ecf5b"
                 Layout.fillWidth: true
                 elide: Text.ElideRight
               }
@@ -1575,7 +1575,7 @@ Item {
                 text: "Upload"
                 font.family: root.fontFamily
                 font.pixelSize: 12
-                color: root.accent
+                color: "#e05252"
                 Layout.fillWidth: true
                 elide: Text.ElideRight
               }

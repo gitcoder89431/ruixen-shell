@@ -1239,9 +1239,12 @@ Item {
           spacing: 4
 
           // Header row -- title pill fills the remaining width, each
-          // chevron is its own fixed-width pill, all black, all the
-          // same height (no hover/press accent-color swap on the
-          // chevrons here, unlike some comparable calendar headers).
+          // chevron is its own fixed-width pill, all black at rest,
+          // all the same height. Chevrons fill solid accent with a
+          // black glyph on hover (same active/hover-fill pattern as
+          // the Kanban add button) -- direct request, signals they're
+          // clickable the same way everything else in this plugin's
+          // hover language already does.
           // Header grown 28px -> 36px (title 13px -> 16px, chevron
           // pills 28px -> 36px, glyphs 14px -> 16px) and the day-grid
           // below shrunk to compensate -- per direct feedback, the
@@ -1273,18 +1276,20 @@ Item {
               Layout.preferredWidth: 36
               Layout.fillHeight: true
               radius: 8
-              color: root.dashboardBoardSurface
+              color: prevMonthMouse.containsMouse ? root.accent : root.dashboardBoardSurface
 
               Text {
                 anchors.centerIn: parent
                 text: "\udb80\udd41"
-                color: root.accent
+                color: prevMonthMouse.containsMouse ? "#000000" : root.accent
                 font.family: root.fontFamily
                 font.pixelSize: 16
               }
 
               MouseArea {
+                id: prevMonthMouse
                 anchors.fill: parent
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: calendarPane.monthShift -= 1
               }
@@ -1294,18 +1299,20 @@ Item {
               Layout.preferredWidth: 36
               Layout.fillHeight: true
               radius: 8
-              color: root.dashboardBoardSurface
+              color: nextMonthMouse.containsMouse ? root.accent : root.dashboardBoardSurface
 
               Text {
                 anchors.centerIn: parent
                 text: "\udb80\udd42"
-                color: root.accent
+                color: nextMonthMouse.containsMouse ? "#000000" : root.accent
                 font.family: root.fontFamily
                 font.pixelSize: 16
               }
 
               MouseArea {
+                id: nextMonthMouse
                 anchors.fill: parent
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: calendarPane.monthShift += 1
               }

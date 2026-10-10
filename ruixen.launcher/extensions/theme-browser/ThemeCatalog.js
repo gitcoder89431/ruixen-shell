@@ -1,30 +1,85 @@
-// Pure helpers for the Theme Browser extension -- bjarneo/100-themes
-// (100 dark Omarchy themes) and its light companion bjarneo/100-themes-day
-// (same hues, "-day" suffix, e.g. "synthwave" / "synthwave-day"). Kept
-// here, not inline in ThemeBrowserContent.qml, so this is testable
-// without a running QML engine -- same convention as every other *.js
-// file in this plugin (FileSearchRanking.js, LauncherHelpers.js, ...).
+// Pure helpers for the Theme Browser extension -- browses several of
+// bjarneo's community Omarchy theme collections (100-themes, and the
+// later coffee/tea/mineral/spice/various collections, each its own
+// repo), kept here rather than inline in ThemeBrowserContent.qml so
+// this is testable without a running QML engine -- same convention as
+// every other *.js file in this plugin (FileSearchRanking.js,
+// LauncherHelpers.js, ...).
 //
 // Each repo publishes its own assets/themes.js: a single static
-// `window.THEMES = [...]` array covering every theme's real display
-// name, slug, motif, icons, full colors (already Omarchy's own native
-// theme schema, confirmed directly, no TOML parsing needed), and ansi
-// set, in one file -- confirmed directly by reading it, and this
-// repo's own gallery page (index.html) reads it the exact same way.
-// Fetching this ONE file per variant replaces what would otherwise be
-// a GitHub API catalog call plus a separate colors.toml fetch per
-// theme: every theme's name/motif/colors is already in memory the
-// moment this loads, no per-theme network round trip needed for any
-// of it (only the actual preview.png/background images still need
-// their own per-theme fetch).
+// `window.THEMES = {...}` object covering every theme's real display
+// name, slug, style/category, full colors (already Omarchy's own
+// native theme schema, confirmed directly, no TOML parsing needed),
+// and ansi set, in one file -- confirmed directly by fetching each
+// collection's live gh-pages output and diffing it, not assumed from
+// the repo name alone. Fetching this ONE file per collection replaces
+// what would otherwise be a GitHub API catalog call plus a separate
+// colors.toml fetch per theme: every theme's name/style/colors is
+// already in memory the moment this loads, no per-theme network round
+// trip needed for any of it (only the actual preview.png/background
+// images still need their own per-theme fetch).
+
+// --- Collections ---------------------------------------------------------
+//
+// All six confirmed directly (gh-pages reachable, same window.THEMES
+// shape, same per-theme file layout: colors.toml/icons.theme/
+// preview.png/backgrounds/) before being added here -- not assumed
+// from "probably the same shape" alone. Two real differences per
+// collection, not just the repo name:
+//
+// - darkKey: which JSON variant key is this collection's own "dark"
+//   entry. 100-themes calls it "dark" (and also ships high-contrast/
+//   day-high-contrast/oled variants this browser doesn't surface);
+//   every later collection calls it "night" instead -- confirmed
+//   directly against all five, not assumed from "night" being the
+//   obvious name.
+// - styleField/styleListField: which per-theme field holds its own
+//   style/category, and which top-level field (if any) is this
+//   collection's own {key,label} lookup for it. 100-themes ships a
+//   flat "motif" string with no lookup of its own (hence MOTIF_LABELS
+//   below, a table this file maintains itself against the upstream
+//   gallery's own labels). Coffee/tea/mineral/spice ship "cat" plus
+//   their own top-level "categories" lookup. various-themes calls the
+//   same idea "pattern"/"patterns" instead -- genuinely a different
+//   field name, not a typo to normalize away.
+var COLLECTIONS = [
+  { id: "bjarneo", label: "Bjarneo", repo: "100-themes", darkKey: "dark", styleField: "motif", styleListField: null },
+  { id: "coffee", label: "Coffee", repo: "coffee-themes", darkKey: "night", styleField: "cat", styleListField: "categories" },
+  { id: "tea", label: "Tea", repo: "tea-themes", darkKey: "night", styleField: "cat", styleListField: "categories" },
+  { id: "mineral", label: "Mineral", repo: "mineral-themes", darkKey: "night", styleField: "cat", styleListField: "categories" },
+  { id: "spice", label: "Spice", repo: "spice-themes", darkKey: "night", styleField: "cat", styleListField: "categories" },
+  { id: "various", label: "Various", repo: "various-themes", darkKey: "night", styleField: "pattern", styleListField: "patterns" }
+]
+
+// {id, label} pairs in the order above -- Bjarneo first (the original
+// collection, direct request: "the first collection instead of
+// calling it 100 themes just call it Bjarneo"), same shape as
+// styleOptions' own entries so the Collection chip can reuse the exact
+// same cycling-chip pattern Style already uses.
+function listCollections() {
+  var out = []
+  for (var i = 0; i < COLLECTIONS.length; i++) out.push({ id: COLLECTIONS[i].id, label: COLLECTIONS[i].label })
+  return out
+}
+
+function collectionById(id) {
+  for (var i = 0; i < COLLECTIONS.length; i++) {
+    if (COLLECTIONS[i].id === id) return COLLECTIONS[i]
+  }
+  return COLLECTIONS[0]
+}
 
 // Real, human motif labels -- not a mechanical title-case of the slug
-// itself, several genuinely differ (confirmed directly against the
-// repo's own gallery page's MOTIFS dict in index.html): "blobs" reads
-// as "Light Spots", "depths" as "Deep Water", "pixels" as "Pixel Art",
-// "scanlines" as "VHS", "tubes" as "Neon Tubes". All 15 values that
-// actually appear across the full 100-theme catalog are covered here
-// (confirmed directly, not assumed complete).
+// itself, several genuinely differ (confirmed directly against
+// 100-themes' own gallery page's MOTIFS dict in index.html): "blobs"
+// reads as "Light Spots", "depths" as "Deep Water", "pixels" as
+// "Pixel Art", "scanlines" as "VHS", "tubes" as "Neon Tubes". All 15
+// values that actually appear across the full 100-theme catalog are
+// covered here (confirmed directly, not assumed complete). Only
+// 100-themes needs this table -- every later collection ships its own
+// {key,label} lookup directly in its own themes.js (see
+// styleLabelFor), so this is Bjarneo-specific, not a generic fallback
+// for every collection.
 var MOTIF_LABELS = {
   "sunset-grid": "Sunset Grid",
   "code-rain": "Code Rain",
@@ -51,14 +106,56 @@ function motifLabel(motif) {
   return MOTIF_LABELS[motif] || String(motif || "")
 }
 
-// Pulls the `window.THEMES = [...]` array literal out of a fetched
+// Builds the {id: label} lookup a collection's own themes.js ships for
+// its style field (data.categories / data.patterns, per collection's
+// own styleListField) -- null when the collection has no lookup of
+// its own (Bjarneo, which uses MOTIF_LABELS instead) or the data
+// doesn't actually have that field (fails open to the raw id rather
+// than throwing on a malformed/future catalog shape).
+function buildStyleLookup(data, collection) {
+  if (!collection.styleListField) return null
+  var list = data && data[collection.styleListField]
+  if (!Array.isArray(list)) return null
+  var map = {}
+  for (var i = 0; i < list.length; i++) {
+    var entry = list[i]
+    if (entry && entry.key) map[entry.key] = entry.label || entry.key
+  }
+  return map
+}
+
+function styleLabelFor(collection, lookup, styleId) {
+  if (!styleId) return ""
+  if (lookup && lookup[styleId]) return lookup[styleId]
+  if (!collection.styleListField) return motifLabel(styleId)
+  return String(styleId)
+}
+
+// Pulls the `window.THEMES = ...` literal out of a fetched
 // assets/themes.js file's raw text and parses it as JSON -- the file
 // is pure, safe-to-JSON-parse data (a plain array/object literal, no
 // function calls or other real JS executed), confirmed by reading it
 // directly rather than assumed. Malformed/empty input (a network
 // failure's own error body, say) fails closed to an empty list rather
 // than throwing.
-function parseThemesJs(text, preferredVariant) {
+//
+// Two real shapes seen from upstream: a bare array (the original,
+// single-variant-per-entry format) and the current grouped
+// {variants, themes} object (every theme carries all its own variants
+// inline, keyed by each one's own real JSON key -- "dark"/"day" for
+// Bjarneo, "night"/"day" for every later collection). The bare-array
+// branch is kept only as a defensive fallback for that older shape --
+// every collection actually live today uses the grouped one -- and
+// never carries collection/variant metadata the way the grouped
+// branch does, since there is none to carry.
+//
+// collection (a COLLECTIONS entry, or null to default to Bjarneo) says
+// which JSON key counts as "dark" and which field holds this
+// collection's own style/category. previewVariant is "dark" or
+// "light" -- the UI's own two-state naming, translated to this
+// collection's real dark-equivalent JSON key internally rather than
+// assuming every collection calls it "dark" the way Bjarneo does.
+function parseThemesJs(text, collection, previewVariant) {
   var m = /window\.THEMES\s*=\s*([\s\S]*?)\s*;?\s*$/.exec(String(text || ""))
   if (!m) return []
   var data
@@ -70,23 +167,34 @@ function parseThemesJs(text, preferredVariant) {
   if (Array.isArray(data)) return data
   if (!data || !Array.isArray(data.themes)) return []
 
-  var variantKey = preferredVariant || "dark"
+  var coll = collection || COLLECTIONS[0]
+  var darkKey = coll.darkKey || "dark"
+  var wantsLight = previewVariant === "light" || previewVariant === "day"
+  var styleLookup = buildStyleLookup(data, coll)
+
   var out = []
   for (var i = 0; i < data.themes.length; i++) {
     var base = data.themes[i] || {}
     var variants = base.variants || {}
-    var variant = variants[variantKey]
+    var dark = variants[darkKey]
+    var day = variants.day
+    var variant = wantsLight ? day : dark
     if (!variant) continue
+    var styleId = base[coll.styleField] || ""
     out.push({
       index: base.index,
       name: variant.name || base.name || "",
-      base: base.name || "",
-      night: base.slug || "",
-      slug: variant.install || variant.slug || base.slug || "",
-      motif: base.motif || "",
+      baseName: base.name || "",
+      baseSlug: base.slug || "",
+      slug: variant.install || "",
+      darkSlug: dark ? (dark.install || "") : "",
+      daySlug: day ? (day.install || "") : "",
+      style: styleId,
+      styleLabel: styleLabelFor(coll, styleLookup, styleId),
       icons: variant.icons || base.icons || "",
       colors: variant.colors || {},
-      ansi: variant.ansi || []
+      ansi: variant.ansi || [],
+      collectionId: coll.id
     })
   }
   return out
@@ -105,14 +213,27 @@ function filterThemes(themes, query) {
   return out
 }
 
-// style is a motif slug (e.g. "sunset-grid"), or "" for "every style" --
-// same "no filter selected" sentinel this file's own installedSlugFor-
-// adjacent conventions already use elsewhere.
+// collectionId is a real collection id (see COLLECTIONS), or "" for
+// "every collection" -- same no-filter-selected sentinel styleFilter's
+// own conventions already use.
+function filterByCollection(themes, collectionId) {
+  if (!collectionId) return themes
+  var out = []
+  for (var i = 0; i < themes.length; i++) {
+    if (themes[i].collectionId === collectionId) out.push(themes[i])
+  }
+  return out
+}
+
+// style is a style/category id (a motif slug for Bjarneo, a cat/
+// pattern id for every later collection -- already normalized onto
+// theme.style by parseThemesJs, so this never needs to know which),
+// or "" for "every style".
 function filterByStyle(themes, style) {
   if (!style) return themes
   var out = []
   for (var i = 0; i < themes.length; i++) {
-    if (themes[i].motif === style) out.push(themes[i])
+    if (themes[i].style === style) out.push(themes[i])
   }
   return out
 }
@@ -155,23 +276,24 @@ function filterByInstalled(themes, installedSlugs, enabled) {
 // its author curated it in (Synthwave=1, Neon Wave=2, ...), not
 // alphabetical, so left on its own it reads as arbitrary. sortKey picks
 // which field to compare ("name", the real display name, or "style",
-// the same motif label the breadcrumb subtitle already shows);
-// direction is "asc" or "desc" (anything else behaves as "asc", same
-// fail-open-to-the-sane-default convention motifLabel's own fallback
-// uses). localeCompare so "Neon Wave" vs "Nebula" sorts the same way a
-// human skimming the list would expect, not raw UTF-16 code-unit order.
+// the same real label styleLabel already carries -- resolved once at
+// parse time now, not recomputed here); direction is "asc" or "desc"
+// (anything else behaves as "asc", same fail-open-to-the-sane-default
+// convention motifLabel's own fallback uses). localeCompare so "Neon
+// Wave" vs "Nebula" sorts the same way a human skimming the list would
+// expect, not raw UTF-16 code-unit order.
 function sortThemes(themes, sortKey, direction) {
   var out = themes.slice()
   var dir = direction === "desc" ? -1 : 1
   out.sort(function(a, b) {
-    var av = sortKey === "style" ? motifLabel(a.motif) : String(a.name || "")
-    var bv = sortKey === "style" ? motifLabel(b.motif) : String(b.name || "")
+    var av = sortKey === "style" ? String(a.styleLabel || "") : String(a.name || "")
+    var bv = sortKey === "style" ? String(b.styleLabel || "") : String(b.name || "")
     return dir * av.localeCompare(bv)
   })
   return out
 }
 
-// The distinct motifs actually present in the given theme list, each
+// The distinct styles actually present in the given theme list, each
 // shaped as {id, label, path} -- same {id, label, path} shape this
 // plugin's own sourceFilterList Repeater model (Launcher.qml's
 // wallpaperTypeOptions/fileSearchProvider sources) already uses, kept
@@ -179,27 +301,37 @@ function sortThemes(themes, sortKey, direction) {
 // follow-up: "the types... moved to the stuff below it like how file
 // search has these chips") rather than a dropdown, since
 // cycleStyleFilter (ThemeBrowserContent.qml) still needs an ordered
-// list of real options to cycle through. Sorted by label, same
-// alphabetical-for-browsing reasoning sortThemes uses above.
+// list of real options to cycle through. Reads theme.style/styleLabel
+// directly -- both already resolved per-collection by parseThemesJs,
+// so this never needs to know whether a given row came from Bjarneo's
+// motif or some other collection's cat/pattern field. Sorted by label,
+// same alphabetical-for-browsing reasoning sortThemes above uses.
 function styleOptions(themes) {
   var seen = {}
   var out = []
   for (var i = 0; i < themes.length; i++) {
-    var motif = themes[i].motif
-    if (!motif || seen[motif]) continue
-    seen[motif] = true
-    out.push({ id: motif, label: motifLabel(motif), path: motif })
+    var id = themes[i].style
+    if (!id || seen[id]) continue
+    seen[id] = true
+    out.push({ id: id, label: themes[i].styleLabel || String(id), path: id })
   }
   out.sort(function(a, b) { return a.label.localeCompare(b.label) })
   return out
 }
 
-// The real installed-theme folder name to check for a given base theme
-// + variant -- "-day" only ever applies to the light companion repo's
-// own copy (same rule themeFileUrl/themeSlugFor-equivalent logic uses
-// elsewhere in this file).
+// The real installed-theme folder name for a given theme + variant --
+// a plain lookup now, not a guess: darkSlug/daySlug are each resolved
+// directly from that variant's own real `install` field at parse time
+// (see parseThemesJs), so this needs no per-collection suffix rule of
+// its own. Real bug this replaces: the old version assumed every
+// collection's dark variant installs as the bare slug and its light
+// variant as that same slug + "-day" -- true for Bjarneo (dark:
+// "synthwave", day: "synthwave-day"), but every later collection
+// suffixes BOTH variants explicitly (night: "espresso-solo-night",
+// day: "espresso-solo-day"), which the old bare-slug-plus-suffix trick
+// would have silently mangled.
 function installedSlugFor(theme, variant) {
-  return variant === "light" ? theme.slug + "-day" : theme.slug
+  return variant === "light" ? (theme.daySlug || "") : (theme.darkSlug || "")
 }
 
 // Reshaped into the exact same row object shape every other ResultsList
@@ -210,14 +342,14 @@ function installedSlugFor(theme, variant) {
 // than a real search provider. label is the real display name; id
 // keys off the real slug (stable, unique) rather than the display name
 // (two themes could theoretically share a label, slugs never do).
-// breadcrumb is the motif's real label (e.g. "Sunset Grid") -- same
-// subtitle-beside-the-name treatment the landing list's own Omarchy
-// Actions/Ruixen rows already get from ResultRow.qml, direct follow-up
-// ("similar to ruixen launcher home... a small subtitle after the
-// theme name for the style"). Only rendered when the caller's own
-// ResultsList/ResultRow is NOT in filesMode -- see
-// ThemeBrowserContent.qml's own comment on why this extension
-// deliberately isn't.
+// breadcrumb is the theme's own real style label (e.g. "Sunset Grid",
+// or "Espresso drinks" for a Coffee theme) -- same subtitle-beside-
+// the-name treatment the landing list's own Omarchy Actions/Ruixen
+// rows already get from ResultRow.qml, direct follow-up ("similar to
+// ruixen launcher home... a small subtitle after the theme name for
+// the style"). Only rendered when the caller's own ResultsList/
+// ResultRow is NOT in filesMode -- see ThemeBrowserContent.qml's own
+// comment on why this extension deliberately isn't.
 //
 // icon/iconColor -- direct follow-up ("lets make the icons useful, so
 // it is surface if not installed, but if the theme is installed so can
@@ -262,10 +394,10 @@ function themeRows(themes, installedSlugs, variant, mutedColor, currentSlug) {
     rows.push({
       id: "theme:" + theme.slug,
       providerId: "theme-browser-entry",
-      icon: isCurrent ? "" : "",
+      icon: isCurrent ? "" : "",
       iconColor: installed ? themeGreen : mutedColor,
       label: theme.name,
-      breadcrumb: motifLabel(theme.motif),
+      breadcrumb: theme.styleLabel || "",
       kind: "",
       providerName: "",
       score: 0,
@@ -275,36 +407,34 @@ function themeRows(themes, installedSlugs, variant, mutedColor, currentSlug) {
   return rows
 }
 
+// --- Stage 1: browse ----------------------------------------------------
+//
 // gh-pages static file URLs -- no git, no API rate limit, the same
-// access path the upstream repo's own README documents
+// access path 100-themes' own README documents
 // (https://bjarneo.github.io/100-themes/synthwave/colors.toml),
 // confirmed directly against that README's own aether:// example
-// rather than guessed. Each repo serves its own gh-pages site under
-// its own name.
-function themesDataUrl(variant) {
-  return "https://bjarneo.github.io/100-themes/assets/themes.js"
+// rather than guessed, and confirmed the same pattern holds for every
+// later collection by fetching each one's own live gh-pages output
+// directly. Each repo serves its own gh-pages site under its own name.
+function themesDataUrl(collection) {
+  var coll = collection || COLLECTIONS[0]
+  return "https://bjarneo.github.io/" + coll.repo + "/assets/themes.js"
 }
 
-function upstreamVariantFor(variant) {
-  return variant === "light" ? "day" : "dark"
-}
-
-function upstreamThemeSlugFor(slug, variant) {
-  var text = String(slug || "")
-  if (variant === "light" && text.slice(-4) === "-day") return text.slice(0, -4)
-  return text
-}
-
-// The upstream catalog now serves every variant from bjarneo/100-themes
-// under <theme>/<variant>/... (e.g. synthwave/dark/preview.png and
-// synthwave/day/colors.toml). The local installed slug still follows
-// Omarchy's real theme name convention (synthwave-day), so derive the
-// upstream base slug here before building the fetch URL.
-function themeFileUrl(slug, variant, relativePath) {
-  return "https://raw.githubusercontent.com/bjarneo/100-themes/main/"
-    + upstreamThemeSlugFor(slug, variant) + "/"
-    + upstreamVariantFor(variant) + "/"
-    + relativePath
+// baseSlug is the theme's own real repo folder name (theme.baseSlug,
+// e.g. "synthwave" or "espresso-solo") -- NOT an installed slug like
+// "espresso-solo-night", which only Omarchy's local folder uses and
+// has no fixed relationship to the upstream path once a collection
+// suffixes its dark variant too (see installedSlugFor's own comment).
+// variant is "dark"/"light"; the real upstream folder name under that
+// base (collection.darkKey, or "day") is resolved from the collection
+// config, not guessed from the installed slug's own suffix the way
+// this used to work.
+function themeFileUrl(collection, baseSlug, variant, relativePath) {
+  var coll = collection || COLLECTIONS[0]
+  var key = variant === "light" ? "day" : (coll.darkKey || "dark")
+  return "https://raw.githubusercontent.com/bjarneo/" + coll.repo + "/main/"
+    + baseSlug + "/" + key + "/" + relativePath
 }
 
 // --- Stage 2: install -------------------------------------------------
@@ -346,10 +476,11 @@ function isSafeThemeSlug(slug) {
 // fixed name this could guess). One listing call per actual INSTALL
 // (never during browsing), well inside GitHub's unauthenticated rate
 // limit for how infrequently a real install happens.
-function backgroundsApiUrl(slug, variant) {
-  return "https://api.github.com/repos/bjarneo/100-themes/contents/"
-    + upstreamThemeSlugFor(slug, variant) + "/"
-    + upstreamVariantFor(variant) + "/backgrounds"
+function backgroundsApiUrl(collection, baseSlug, variant) {
+  var coll = collection || COLLECTIONS[0]
+  var key = variant === "light" ? "day" : (coll.darkKey || "dark")
+  return "https://api.github.com/repos/bjarneo/" + coll.repo + "/contents/"
+    + baseSlug + "/" + key + "/backgrounds"
 }
 
 // Same character class isSafeThemeSlug enforces on a theme's own slug,

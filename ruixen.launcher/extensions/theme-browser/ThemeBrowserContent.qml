@@ -7,24 +7,29 @@ import qs.Commons
 import "../.."
 import "ThemeCatalog.js" as ThemeCatalog
 
-// Browse bjarneo/100-themes (100 community Omarchy themes) and its
-// light companion bjarneo/100-themes-day (same hues, "-day" suffix),
-// without ever downloading the ~180MB full repo. Direct design decision
-// after walking through the upstream repo together: "this isnt a theme
-// picker grid, its more of a installer or browser" -- shaped as a left
-// list + right detail pane (ExtensionTwoPanel, same component Settings
-// already uses), not a Wallpapers-style grid, specifically so only ONE
-// theme's preview image is ever being fetched at a time (whichever is
-// currently selected), regardless of how many themes are in the list.
+// Browse several of bjarneo's community Omarchy theme collections --
+// 100-themes (the original, now labelled "Bjarneo" in the Collection
+// chip), plus coffee/tea/mineral/spice/various-themes, each its own
+// repo publishing the same shape (confirmed directly against each
+// one's own live gh-pages output, not assumed from the repo name
+// alone -- see ThemeCatalog.js's own COLLECTIONS comment for the real
+// differences between them) -- without ever downloading any of their
+// full repos. Direct design decision after walking through the
+// upstream repo together: "this isnt a theme picker grid, its more of
+// a installer or browser" -- shaped as a left list + right detail pane
+// (ExtensionTwoPanel, same component Settings already uses), not a
+// Wallpapers-style grid, specifically so only ONE theme's preview image
+// is ever being fetched at a time (whichever is currently selected),
+// regardless of how many themes are in the list.
 //
 // Each repo publishes its own assets/themes.js -- a single static file
-// covering every theme's real display name, slug, motif, and full
-// colors (already Omarchy's own native theme schema, confirmed
+// covering every theme's real display name, slug, style/category, and
+// full colors (already Omarchy's own native theme schema, confirmed
 // directly, no TOML parsing needed) in one fetch. Browsing never
-// downloads more than that one file per variant (two fetches, total,
-// for the whole 100-theme catalog) plus whichever single theme's
-// preview.png is currently selected -- see ThemeCatalog.parseThemesJs's
-// own comment for the full "why".
+// downloads more than those small manifest files (one dark+light pair
+// per collection, see loadCatalog's own comment) plus whichever single
+// theme's preview.png is currently selected -- see
+// ThemeCatalog.parseThemesJs's own comment for the full "why".
 //
 // Install (direct follow-up: "when i press enter it installs it right
 // and then switches to it too, if already installed it works as a
@@ -84,31 +89,72 @@ Item {
   property bool catalogLoading: false
   property bool catalogFailed: false
 
+  // Collection -- which bjarneo repo(s) to browse (Bjarneo/Coffee/Tea/
+  // Mineral/Spice/Various, see ThemeCatalog.COLLECTIONS). Same cycling-
+  // chip shape as Style below, sitting ahead of it in filterChipsRow
+  // (direct request: "a new chip in front of Styles All with Collection
+  // All etc"), since it narrows which themes Style/sort/search even
+  // operate over -- same "All Omarchy Custom" relationship Wallpapers'
+  // own sourceFilter chip has to its mode-specific chips. "" is "every
+  // loaded collection". Session-persistent, same convention styleFilter
+  // itself already documents below.
+  property string collectionFilter: ""
+  readonly property var collectionFilterOptions: ThemeCatalog.listCollections()
+  function cycleCollectionFilter() {
+    var ids = [""].concat(root.collectionFilterOptions.map(function(o) { return o.id }))
+    var idx = ids.indexOf(root.collectionFilter)
+    root.collectionFilter = ids[(idx + 1) % ids.length]
+  }
+  function resetCollectionFilter() { root.collectionFilter = "" }
+  readonly property string collectionFilterLabel: {
+    for (var i = 0; i < root.collectionFilterOptions.length; i++) {
+      if (root.collectionFilterOptions[i].id === root.collectionFilter) return root.collectionFilterOptions[i].label
+    }
+    return "All"
+  }
+  // Switching collection can leave styleFilter pointed at a style id
+  // that doesn't exist in the new one at all (Coffee's "espresso" means
+  // nothing once narrowed to Tea) -- silently emptying the list with no
+  // visible reason is worse than just resetting back to "All Styles"
+  // the same way re-entering this tab already does.
+  onCollectionFilterChanged: root.styleFilter = ""
+
   // Direct follow-up ("the types... moved to the stuff below it like
   // how file search has these chips thing") -- a cycling chip
   // (filterChipsRow below), not a dropdown, same "click to cycle, no
   // popup" shape Search Files' own SearchFiltersBar Type button already
   // uses (see its own header comment for why: avoids a z-stacking trap
   // a real popup would reintroduce). "" is "All Styles" -- styleFilter
-  // just IS the real motif slug once a style is picked. Deliberately
-  // NOT reset when this tab is re-entered -- same session-persistence
-  // convention kindFilter/categoryFilter already use elsewhere in this
-  // plugin.
+  // is the theme's own real style/category id (a motif slug for
+  // Bjarneo, a cat/pattern id for every later collection -- already
+  // normalized by ThemeCatalog.parseThemesJs, this never needs to know
+  // which). Deliberately NOT reset when this tab is re-entered -- same
+  // session-persistence convention kindFilter/categoryFilter already
+  // use elsewhere in this plugin. Scoped to whichever collection is
+  // currently selected (ThemeCatalog.filterByCollection first) so
+  // cycling through Style only ever offers options that actually exist
+  // in view, not every other collection's categories mixed in.
   property string styleFilter: ""
-  readonly property var styleFilterOptions: ThemeCatalog.styleOptions(root.darkThemes)
+  readonly property var styleFilterOptions: ThemeCatalog.styleOptions(ThemeCatalog.filterByCollection(root.darkThemes, root.collectionFilter))
   function cycleStyleFilter() {
     var slugs = [""].concat(root.styleFilterOptions.map(function(o) { return o.path }))
     var idx = slugs.indexOf(root.styleFilter)
     root.styleFilter = slugs[(idx + 1) % slugs.length]
   }
   // Direct follow-up ("right click on styles chip to go back to all...
-  // once i start clicking cause like its a long list") -- 15 motifs
-  // means up to 14 left-clicks to cycle all the way back around to
-  // "All" from wherever you land. Right-click jumps straight there
-  // instead, same second-button-does-something-else shape ResultRow's
-  // own right-click-for-actions-menu already uses in this plugin.
+  // once i start clicking cause like its a long list") -- up to 15
+  // styles in one collection means up to 14 left-clicks to cycle all
+  // the way back around to "All" from wherever you land. Right-click
+  // jumps straight there instead, same second-button-does-something-
+  // else shape ResultRow's own right-click-for-actions-menu already
+  // uses in this plugin.
   function resetStyleFilter() { root.styleFilter = "" }
-  readonly property string styleFilterLabel: root.styleFilter === "" ? "All" : ThemeCatalog.motifLabel(root.styleFilter)
+  readonly property string styleFilterLabel: {
+    for (var i = 0; i < root.styleFilterOptions.length; i++) {
+      if (root.styleFilterOptions[i].id === root.styleFilter) return root.styleFilterOptions[i].label
+    }
+    return "All"
+  }
 
   // Direct follow-up ("im thinking about making that between All and
   // Installed") -- what the top-right dropdown now controls (see
@@ -151,15 +197,17 @@ Item {
   // stage-2 install here) since the last time this tab was open.
   property var installedSlugs: ({})
 
-  // Filter order: text search, then style, then installed-only -- each
-  // one only ever narrows, so the order between them doesn't change the
-  // result, just how early a cheap check can skip a theme. Sorted last,
-  // over whatever subset survives, so "Style: Sunset Grid" or
-  // "Installed" both still read alphabetically (or by-style) rather
-  // than in upstream's own curated order.
+  // Filter order: text search, then collection, then style, then
+  // installed-only -- each one only ever narrows, so the order between
+  // them doesn't change the result, just how early a cheap check can
+  // skip a theme. Sorted last, over whatever subset survives, so
+  // "Style: Sunset Grid" or "Installed" both still read alphabetically
+  // (or by-style) rather than in upstream's own curated order.
   readonly property var filteredThemes: ThemeCatalog.sortThemes(
     ThemeCatalog.filterByInstalled(
-      ThemeCatalog.filterByStyle(ThemeCatalog.filterThemes(root.darkThemes, root.searchText), root.styleFilter),
+      ThemeCatalog.filterByStyle(
+        ThemeCatalog.filterByCollection(ThemeCatalog.filterThemes(root.darkThemes, root.searchText), root.collectionFilter),
+        root.styleFilter),
       root.installedSlugs, root.installedOnlyFilter),
     root.sortKey, root.sortDirection)
   // The REAL active theme's own name, read from
@@ -175,10 +223,13 @@ Item {
     ? root.filteredThemes[root.selectedIndex] : null
   readonly property string selectedThemeName: root.selectedDarkTheme ? root.selectedDarkTheme.name : ""
   readonly property string selectedThemeSlug: root.selectedDarkTheme ? root.selectedDarkTheme.slug : ""
-  // Real, human label (e.g. "Sunset Grid") -- same regardless of which
-  // variant is previewed, the motif itself never differs between dark
-  // and light (confirmed directly).
-  readonly property string selectedThemeStyle: root.selectedDarkTheme ? ThemeCatalog.motifLabel(root.selectedDarkTheme.motif) : ""
+  // Real, human label (e.g. "Sunset Grid", or "Espresso drinks" for a
+  // Coffee theme) -- same regardless of which variant is previewed, the
+  // style itself never differs between dark and light (confirmed
+  // directly). Already resolved per-collection by ThemeCatalog.parseThemesJs,
+  // so this never needs to know which field/lookup the theme's own
+  // collection actually uses.
+  readonly property string selectedThemeStyle: root.selectedDarkTheme ? (root.selectedDarkTheme.styleLabel || "") : ""
 
   // Live-preview-on-highlight, like Search Files' own selectedResult ->
   // FileDetailsPanel (direct reference point: "like file search
@@ -458,6 +509,13 @@ Item {
   property bool installColorsOk: false
   property string installThemeDir: ""
   property string installSlug: ""
+  // Which collection + real repo base slug (e.g. "espresso-solo", not
+  // the installed "espresso-solo-night") this install's upstream fetch
+  // URLs need -- themeFileUrl/backgroundsApiUrl build paths from the
+  // theme's own repo folder name, which only ever matches the installed
+  // slug by coincidence for Bjarneo's own bare-dark-slug convention.
+  property string installCollectionId: ""
+  property string installBaseSlug: ""
   property var installBackgroundsQueue: []
 
   function installTheme(theme, variant, slug) {
@@ -470,6 +528,8 @@ Item {
     root.installState = "installing"
     root.installingName = theme.name
     root.installSlug = slug
+    root.installCollectionId = theme.collectionId
+    root.installBaseSlug = theme.baseSlug
     root.installThemeDir = root.themesDir + "/" + slug
     root.installColorsOk = false
     root.installPendingCount = 4
@@ -483,15 +543,16 @@ Item {
     property string variant: "dark"
     onExited: function(exitCode) {
       if (exitCode !== 0) { root.failInstall(); return }
-      var slug = root.installSlug
       var variant = installMkdirProc.variant
-      installColorsProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/colors.toml", ThemeCatalog.themeFileUrl(slug, variant, "colors.toml")]
+      var collection = ThemeCatalog.collectionById(root.installCollectionId)
+      var baseSlug = root.installBaseSlug
+      installColorsProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/colors.toml", ThemeCatalog.themeFileUrl(collection, baseSlug, variant, "colors.toml")]
       installColorsProc.running = true
-      installIconsProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/icons.theme", ThemeCatalog.themeFileUrl(slug, variant, "icons.theme")]
+      installIconsProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/icons.theme", ThemeCatalog.themeFileUrl(collection, baseSlug, variant, "icons.theme")]
       installIconsProc.running = true
-      installPreviewProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/preview.png", ThemeCatalog.themeFileUrl(slug, variant, "preview.png")]
+      installPreviewProc.command = ["curl", "-fsS", "--max-time", "10", "-o", root.installThemeDir + "/preview.png", ThemeCatalog.themeFileUrl(collection, baseSlug, variant, "preview.png")]
       installPreviewProc.running = true
-      installBackgroundsListProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.backgroundsApiUrl(slug, variant)]
+      installBackgroundsListProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.backgroundsApiUrl(collection, baseSlug, variant)]
       installBackgroundsListProc.running = true
     }
   }
@@ -588,46 +649,103 @@ Item {
     }
   }
 
+  // One collection at a time, dark+light fetched together, then the
+  // queue advances -- not six parallel pairs at once. Each fetch is a
+  // single small JSON manifest (confirmed directly: the biggest,
+  // Bjarneo's own, is ~430KB; Coffee's ~160KB), so twelve total
+  // sequential-pair round trips still lands well under a couple of
+  // seconds, and this reuses the exact same reusable-Process-plus-
+  // queue shape downloadNextBackground already established in this
+  // file for the exact same "small fixed number of sequential network
+  // steps" reason, rather than inventing a second pattern or trying to
+  // spawn a dynamic Process per collection (QML Process objects are
+  // declared, not instantiated in a loop).
+  property var collectionQueue: []
+  property int collectionPairPending: 0
+
   function loadCatalog() {
     root.catalogLoading = true
     root.catalogFailed = false
-    darkCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl("dark")]
+    root.darkThemes = []
+    root.lightThemesBySlug = {}
+    root.collectionQueue = ThemeCatalog.listCollections().map(function(c) { return c.id })
+    root.loadNextCollection()
+  }
+
+  function loadNextCollection() {
+    if (root.collectionQueue.length === 0) {
+      root.catalogLoading = false
+      if (root.darkThemes.length === 0) root.catalogFailed = true
+      return
+    }
+    var collection = ThemeCatalog.collectionById(root.collectionQueue[0])
+    root.collectionPairPending = 2
+    darkCatalogProc.activeCollectionId = collection.id
+    darkCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl(collection)]
     darkCatalogProc.running = true
-    // Fired alongside, not gating catalogLoading -- light is a
-    // secondary enhancement (the Light toggle just shows nothing yet
-    // if this is still in flight or fails), not something worth
-    // blocking the whole browsable list on.
-    lightCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl("light")]
+    // Fired alongside, not gating this collection's own dark half --
+    // light is a secondary enhancement per collection (the Light toggle
+    // just shows nothing yet for THIS collection's themes if its own
+    // fetch is still in flight or fails), not something worth blocking
+    // the whole queue on.
+    lightCatalogProc.activeCollectionId = collection.id
+    lightCatalogProc.command = ["curl", "-fsS", "--max-time", "10", ThemeCatalog.themesDataUrl(collection)]
     lightCatalogProc.running = true
+  }
+
+  // Advances the queue once BOTH this collection's dark and light
+  // fetches have finished (in either order) -- a plain decrement-and-
+  // check rather than two separate "am I the last one" branches, same
+  // shape installStepDone's own pendingCount already uses for the same
+  // reason (four parallel install steps there, two parallel catalog
+  // fetches here).
+  function collectionPairDone() {
+    root.collectionPairPending--
+    if (root.collectionPairPending > 0) return
+    root.collectionQueue = root.collectionQueue.slice(1)
+    root.loadNextCollection()
   }
 
   Process {
     id: darkCatalogProc
+    property string activeCollectionId: ""
     stdout: StdioCollector {
       id: darkCatalogStdout
       waitForEnd: true
     }
     onExited: function(exitCode) {
-      root.catalogLoading = false
-      if (exitCode !== 0) { root.catalogFailed = true; return }
-      var themes = ThemeCatalog.parseThemesJs(darkCatalogStdout.text, "dark")
-      if (themes.length === 0) { root.catalogFailed = true; return }
-      root.darkThemes = themes
+      if (exitCode === 0) {
+        var collection = ThemeCatalog.collectionById(darkCatalogProc.activeCollectionId)
+        var themes = ThemeCatalog.parseThemesJs(darkCatalogStdout.text, collection, "dark")
+        root.darkThemes = root.darkThemes.concat(themes)
+      }
+      root.collectionPairDone()
     }
   }
 
   Process {
     id: lightCatalogProc
+    property string activeCollectionId: ""
     stdout: StdioCollector {
       id: lightCatalogStdout
       waitForEnd: true
     }
     onExited: function(exitCode) {
-      if (exitCode !== 0) return
-      var themes = ThemeCatalog.parseThemesJs(lightCatalogStdout.text, "day")
-      var bySlug = {}
-      for (var i = 0; i < themes.length; i++) bySlug[themes[i].slug] = themes[i]
-      root.lightThemesBySlug = bySlug
+      if (exitCode === 0) {
+        var collection = ThemeCatalog.collectionById(lightCatalogProc.activeCollectionId)
+        var themes = ThemeCatalog.parseThemesJs(lightCatalogStdout.text, collection, "light")
+        // Keyed by collection+baseSlug, not the light variant's own
+        // install slug -- the old "<dark slug>-day" lookup key only
+        // ever worked for Bjarneo's own bare-dark-plus-suffix
+        // convention; baseSlug is stable across every collection and
+        // namespaced by collectionId so two different collections
+        // sharing a theme NAME (not confirmed to happen, guarded
+        // against anyway) can never collide.
+        var bySlug = root.lightThemesBySlug
+        for (var i = 0; i < themes.length; i++) bySlug[themes[i].collectionId + ":" + themes[i].baseSlug] = themes[i]
+        root.lightThemesBySlug = bySlug
+      }
+      root.collectionPairDone()
     }
   }
 
@@ -637,7 +755,7 @@ Item {
   readonly property var previewColors: {
     if (!root.selectedDarkTheme) return {}
     if (root.previewVariant === "dark") return root.selectedDarkTheme.colors || {}
-    var light = root.lightThemesBySlug[root.selectedDarkTheme.slug + "-day"]
+    var light = root.lightThemesBySlug[root.selectedDarkTheme.collectionId + ":" + root.selectedDarkTheme.baseSlug]
     return light ? (light.colors || {}) : {}
   }
 
@@ -664,13 +782,14 @@ Item {
   property var previewImageCache: ({})
   function previewImageCacheKey(slug, variant) { return slug + ":" + variant }
 
-  // The real slug for whichever variant is currently selected --
-  // "-day" only ever applies to the light companion repo's own copy,
-  // confirmed directly against its own catalog data rather than
-  // derived blindly.
+  // The real installed slug for whichever variant is currently
+  // selected -- a plain lookup now (ThemeCatalog.installedSlugFor
+  // already resolved darkSlug/daySlug directly from each variant's own
+  // real `install` field at parse time), not a derived "-day" suffix
+  // guess that only ever matched Bjarneo's own naming convention.
   function variantSlug() {
     if (!root.selectedDarkTheme) return ""
-    return root.previewVariant === "light" ? root.selectedDarkTheme.slug + "-day" : root.selectedDarkTheme.slug
+    return ThemeCatalog.installedSlugFor(root.selectedDarkTheme, root.previewVariant)
   }
 
   readonly property string cacheDir: Quickshell.env("HOME") + "/.cache/ruixen/theme-browser"
@@ -691,7 +810,7 @@ Item {
 
   function fetchPreviewImage() {
     var slug = root.variantSlug()
-    if (slug === "") { root.previewImagePath = ""; return }
+    if (slug === "" || !root.selectedDarkTheme) { root.previewImagePath = ""; return }
     var key = root.previewImageCacheKey(slug, root.previewVariant)
     var cached = root.previewImageCache[key]
     if (cached !== undefined) { root.previewImagePath = cached; return }
@@ -699,9 +818,10 @@ Item {
     root.previewImagePath = ""
     root.previewImageLoading = true
     var imageTarget = root.cacheDir + "/" + key.replace(":", "-") + "-preview.png"
+    var collection = ThemeCatalog.collectionById(root.selectedDarkTheme.collectionId)
     previewImageProc.requestKey = key
     previewImageProc.targetPath = imageTarget
-    previewImageProc.command = ["curl", "-fsS", "--max-time", "10", "-o", imageTarget, ThemeCatalog.themeFileUrl(slug, root.previewVariant, "preview.png")]
+    previewImageProc.command = ["curl", "-fsS", "--max-time", "10", "-o", imageTarget, ThemeCatalog.themeFileUrl(collection, root.selectedDarkTheme.baseSlug, root.previewVariant, "preview.png")]
     previewImageProc.running = true
   }
 
@@ -750,11 +870,47 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       spacing: 6
 
-      // Style filter -- cycles on click through every motif present in
-      // the loaded catalog, "All" wrapping back around, same plain
-      // cycle-on-click shape (and lack of active/inactive tint -- this
-      // is always exactly one of its own options showing, never a
-      // multi-choice row) SearchFiltersBar's own Type button uses.
+      // Collection filter -- ahead of Style (direct request: "a new
+      // chip in front of Styles All with Collection All etc"), cycles
+      // on click through every collection ThemeCatalog.COLLECTIONS
+      // knows about, "All" wrapping back around. Same plain cycle-on-
+      // click shape as Style's own chip right beside it.
+      Rectangle {
+        id: collectionChip
+        width: Math.max(96, collectionChipLabel.implicitWidth + 20)
+        height: 24
+        radius: 6
+        color: Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: collectionChipLabel
+          anchors.centerIn: parent
+          text: "Collection: " + root.collectionFilterLabel
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          cursorShape: Qt.PointingHandCursor
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) root.resetCollectionFilter()
+            else root.cycleCollectionFilter()
+          }
+        }
+      }
+
+      // Style filter -- cycles on click through every style/category
+      // present in the currently selected collection (root.collectionFilter
+      // narrows styleFilterOptions itself, see its own comment), "All"
+      // wrapping back around, same plain cycle-on-click shape (and lack
+      // of active/inactive tint -- this is always exactly one of its own
+      // options showing, never a multi-choice row) SearchFiltersBar's
+      // own Type button uses.
       Rectangle {
         id: styleChip
         width: Math.max(76, styleChipLabel.implicitWidth + 20)

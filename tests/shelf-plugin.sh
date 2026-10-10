@@ -290,7 +290,7 @@ check "Row: no fixed heights left on the chip/Clear shapes to drift" \
 # Same for the corners: three shapes on one row with three different radii
 # read as three unrelated controls. Bound to the field, not repeated.
 check "Row: chip and Clear use the field's corner radius" \
-  "$(grep -c 'radius: searchBox.radius' "$content")$(grep -c 'radius: 9' "$content")" "21"
+  "$(grep -c 'radius: searchBox.radius' "$content")$(grep -c 'radius: 14' "$content")" "23"
 check "Row: no fixed radii left on the chip/Clear shapes to drift" \
   "$(sed -n '/id: shelfChip/,/^    }$/p' "$content" | grep -cE 'radius: [0-9]+' || true)$(sed -n '/id: clearShelfButton/,/^      }$/p' "$content" | grep -cE 'radius: [0-9]+' || true)" "00"
 

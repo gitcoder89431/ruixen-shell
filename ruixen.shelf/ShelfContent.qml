@@ -321,7 +321,13 @@ Item {
       // the box never ends up with a mystery gap in an empty shelf.
       anchors.rightMargin: root.padSide + (clearShelfButton.visible ? clearShelfButton.width + 6 : 0)
       height: 30
-      radius: 9
+      // 9 -> 14, matching the drop-zone panel below (same follow-up as the
+      // Kanban column header chip: these sat on a noticeably tighter
+      // radius than the big panel underneath, which read as a shape
+      // mismatch even though the raw pixel gap looks small). shelfChip and
+      // clearShelfButton both derive from searchBox.radius, so they pick
+      // this up for free.
+      radius: 14
       color: searchInput.activeFocus ? root.tintStrong : root.tint
       border.width: 1
       border.color: searchInput.activeFocus

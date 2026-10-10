@@ -1180,7 +1180,7 @@ Item {
                   font.family: root.fontFamily
                   font.pixelSize: 13
                   font.weight: Font.DemiBold
-                  color: root.accent
+                  color: root.textColor
                   elide: Text.ElideRight
                   Layout.maximumWidth: 140
                 }
@@ -1401,7 +1401,7 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: 16
               font.weight: Font.DemiBold
-              color: root.accent
+              color: root.textColor
             }
           }
 

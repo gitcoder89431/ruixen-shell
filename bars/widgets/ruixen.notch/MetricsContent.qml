@@ -1733,7 +1733,7 @@ Item {
                   text: "󰋊"
                   font.family: root.fontFamily
                   font.pixelSize: 13
-                  color: root.muted
+                  color: root.accent
                 }
 
                 Text {
@@ -1758,7 +1758,7 @@ Item {
                   font.family: root.fontFamily
                   font.pixelSize: 11
                   font.weight: Font.DemiBold
-                  color: root.textColor
+                  color: root.accent
                   Layout.preferredWidth: 32
                   horizontalAlignment: Text.AlignRight
                 }

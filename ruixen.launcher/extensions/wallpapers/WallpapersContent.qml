@@ -930,7 +930,19 @@ Item {
           anchors.fill: parent
           enabled: !tile.isSpacer
           hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
+          // Gated on tile.current, not a bare unconditional PointingHandCursor
+          // -- direct report ("the kbd and the cursor on hover is kinda
+          // cancelling each other out"). Qt applies a MouseArea's cursorShape
+          // purely from literal OS pointer position, completely independent
+          // of currentIndex/the ring below -- so a keyboard-driven move to
+          // tile A left the hand cursor still showing over whichever tile B
+          // the physical mouse happened to be resting on, two different
+          // "this one" signals on screen at once (ring on A, hand icon on
+          // B). Tying it to tile.current instead means the cursor glyph and
+          // the ring always point at the same single tile -- whichever
+          // input (keyboard or real mouse movement) last won currentIndex,
+          // per root.hoverArmed's own "exactly one highlighted tile" rule.
+          cursorShape: tile.current ? Qt.PointingHandCursor : Qt.ArrowCursor
           // No onEntered here -- direct report ("i have to literally hit
           // the button twice to get to the next row"), root-caused via a
           // temporary debug IPC handler that traced every keyboard step:

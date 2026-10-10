@@ -1153,7 +1153,7 @@ Item {
                   text: tile.glyph
                   font.family: root.fontFamily
                   font.pixelSize: 15
-                  color: root.textColor
+                  color: root.accent
                 }
               }
 
@@ -1180,7 +1180,7 @@ Item {
                   font.family: root.fontFamily
                   font.pixelSize: 13
                   font.weight: Font.DemiBold
-                  color: root.textColor
+                  color: root.accent
                   elide: Text.ElideRight
                   Layout.maximumWidth: 140
                 }
@@ -1329,7 +1329,7 @@ Item {
               text: ""
               font.family: root.fontFamily
               font.pixelSize: 15
-              color: root.muted
+              color: root.accent
             }
 
             Text {
@@ -1337,7 +1337,7 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: 13
               font.weight: Font.DemiBold
-              color: root.textColor
+              color: root.accent
               Layout.fillWidth: true
             }
           }
@@ -1401,7 +1401,7 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: 16
               font.weight: Font.DemiBold
-              color: root.textColor
+              color: root.accent
             }
           }
 
@@ -1507,7 +1507,7 @@ Item {
                 text: ""
                 font.family: root.fontFamily
                 font.pixelSize: 15
-                color: root.muted
+                color: root.accent
               }
 
               Text {
@@ -1515,7 +1515,7 @@ Item {
                 font.family: root.fontFamily
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
-                color: root.textColor
+                color: root.accent
                 Layout.fillWidth: true
               }
             }

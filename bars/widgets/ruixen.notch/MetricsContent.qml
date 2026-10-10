@@ -1410,7 +1410,7 @@ Item {
             font.family: root.fontFamily
             font.pixelSize: 12
             font.weight: Font.DemiBold
-            color: root.textColor
+            color: root.accent
             horizontalAlignment: Text.AlignHCenter
             Layout.alignment: Qt.AlignHCenter
           }
@@ -1538,14 +1538,14 @@ Item {
                 text: ""
                 font.family: root.fontFamily
                 font.pixelSize: 12
-                color: root.muted
+                color: "#3ecf5b"
               }
 
               Text {
                 text: "Download"
                 font.family: root.fontFamily
                 font.pixelSize: 12
-                color: root.textColor
+                color: root.accent
                 Layout.fillWidth: true
                 elide: Text.ElideRight
               }
@@ -1568,14 +1568,14 @@ Item {
                 text: ""
                 font.family: root.fontFamily
                 font.pixelSize: 12
-                color: root.muted
+                color: "#e05252"
               }
 
               Text {
                 text: "Upload"
                 font.family: root.fontFamily
                 font.pixelSize: 12
-                color: root.textColor
+                color: root.accent
                 Layout.fillWidth: true
                 elide: Text.ElideRight
               }

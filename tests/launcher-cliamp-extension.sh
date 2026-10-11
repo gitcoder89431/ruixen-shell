@@ -61,6 +61,8 @@ check "CliampContent has no transport-control machinery -- the notch's MPRIS wid
   "$(( $(grep -c 'function sendTransport\|function adjustVolume\|transportProc' "$content_qml") + $(grep -c 'function handleShortcut' "$content_qml") ))" "0"
 check "CliampContent can cold-start a headless daemon on first use" \
   "$(grep -c 'execDetached(\["cliamp", "--daemon", "--no-auto-play"' "$content_qml")" "1"
+check "CliampContent auto-starts cliamp as soon as the extension opens, not on a user action" \
+  "$(( $(grep -c 'function handleFetchFailure' "$content_qml") + $(grep -c 'root.startCliamp()' "$content_qml") + $(grep -c 'root.autoStartAttempted = false' "$content_qml") ))" "5"
 
 check "CliampContent uses compact icon+name rows, with no subtitle/kind columns" \
   "$(grep -c 'filesMode: true' "$content_qml")" "1"

@@ -44,6 +44,14 @@ Item {
   readonly property bool rightFocused: root.actionsMenuOpen
 
   property bool cliampRunning: true
+  // Guards startCliamp() to at most once per time the extension opens
+  // -- direct follow-up: "cant openning the extension just start or
+  // resume it?" (the "Start Cliamp Radio" button stays too, as a
+  // manual retry if this first attempt doesn't pan out, e.g. cliamp
+  // itself is missing). Reset in onActiveChanged so leaving and
+  // reopening the extension gets a fresh attempt rather than being
+  // permanently stuck after one failure.
+  property bool autoStartAttempted: false
   property var rows: []
   property int selectedIndex: 0
   readonly property var selectedRow: root.rows[root.selectedIndex] || null
@@ -98,6 +106,19 @@ Item {
     if (!row || !row.favoritable) return
     favoriteProc.exec(["cliamp", "remote", "call", "provider.favorite", "--params",
       JSON.stringify({ provider: "radio", playlist: row.stationId }), "--wait"])
+  }
+
+  // Shared by catalogProc/searchProc's own failure branch below -- a
+  // fetch failing is the actual signal cliamp isn't running (the only
+  // way to find that out, since there's no separate "is it up" check),
+  // so this is where the auto-start fires, not a user action.
+  function handleFetchFailure() {
+    root.cliampRunning = false
+    root.rows = []
+    if (!root.autoStartAttempted) {
+      root.autoStartAttempted = true
+      root.startCliamp()
+    }
   }
 
   function runStationAction(id) {
@@ -181,6 +202,7 @@ Item {
   onActiveChanged: {
     if (root.active) {
       root.selectedIndex = 0
+      root.autoStartAttempted = false
       root.runSearch()
       root.refreshStatus()
       statusTimer.start()
@@ -226,7 +248,7 @@ Item {
       waitForEnd: true
       onStreamFinished: {
         var parsed = CliampStations.parseJobResult(text)
-        if (!parsed.ok) { root.cliampRunning = false; root.rows = []; return }
+        if (!parsed.ok) { root.handleFetchFailure(); return }
         root.cliampRunning = true
         root.rows = CliampStations.bucketCatalog(parsed.result.playlists, root.accent)
       }
@@ -239,7 +261,7 @@ Item {
       waitForEnd: true
       onStreamFinished: {
         var parsed = CliampStations.parseJobResult(text)
-        if (!parsed.ok) { root.cliampRunning = false; root.rows = []; return }
+        if (!parsed.ok) { root.handleFetchFailure(); return }
         root.cliampRunning = true
         root.rows = CliampStations.searchRows(parsed.result.tracks)
       }

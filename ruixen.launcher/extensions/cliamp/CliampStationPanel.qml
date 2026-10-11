@@ -89,18 +89,19 @@ Item {
     out.push({ label: "Name", value: (root.selectedRow.favorite ? "★ " : "") + name })
     if (root.meta && root.meta.country !== "") out.push({ label: "Country", value: root.meta.country })
     if (root.meta && root.meta.bitrate !== "") out.push({ label: "Bitrate", value: root.meta.bitrate })
-    // Our own local layer (see CliampContent.qml's own header for why
-    // it isn't cliamp's own data) -- omitted entirely for a station
-    // never played this way before, same "skip empty" convention every
-    // other field here already follows.
-    var lastPlayed = CliampFavorites.formatLastPlayed(root.selectedRow.lastPlayedAt)
-    if (lastPlayed !== "") out.push({ label: "Last Played", value: lastPlayed })
     out.push({
       label: "Source",
       value: root.selectedRow.providerId === "cliamp-track"
         ? (root.selectedRow.trackPath || "")
         : "Cliamp Radio catalog"
     })
+    // Our own local layer (see CliampContent.qml's own header for why
+    // it isn't cliamp's own data) -- last row in the group rather than
+    // ahead of Source, direct follow-up. Omitted entirely for a
+    // station never played this way before, same "skip empty"
+    // convention every other field here already follows.
+    var lastPlayed = CliampFavorites.formatLastPlayed(root.selectedRow.lastPlayedAt)
+    if (lastPlayed !== "") out.push({ label: "Last Played", value: lastPlayed })
     return out
   }
 

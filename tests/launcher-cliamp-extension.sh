@@ -113,8 +113,12 @@ check "CliampStations flags the currently-playing row with a play glyph, matched
   "$(( $(grep -c 'function markNowPlaying' "$model_js") + $(grep -c 'parseStationMeta(row.fullName).name' "$model_js") ))" "2"
 check "The currently-playing row's play icon uses ResultRow's own round accent badge (iconBg), not a bare colored glyph" \
   "$(( $(grep -c 'icon: .*iconBg: accentColor' "$model_js") + $(grep -c 'iconColor: accentColor' "$model_js") ))" "1"
-check "ResultRow renders an opt-in round accent badge behind the icon glyph, unused by every other row/extension" \
-  "$(( $(grep -c 'visible: !!row.modelData.iconBg' "$result_row_qml") + $(grep -c 'radius: width / 2' "$result_row_qml") + $(grep -c 'row.modelData.iconBg ? "#000000"' "$result_row_qml") ))" "3"
+check "ResultRow renders an opt-in round accent badge with its own glyph, unused by every other row/extension" \
+  "$(( $(grep -c 'visible: !!row.modelData.iconBg' "$result_row_qml") + $(grep -c 'id: iconBadge' "$result_row_qml") + $(grep -c 'radius: width / 2' "$result_row_qml") + $(grep -c 'color: "#000000"' "$result_row_qml") ))" "4"
+check "Badge rows don't also draw the shared full-size icon Text on top of their own smaller glyph" \
+  "$(grep -c '!row.modelData.iconBg' "$result_row_qml")" "2"
+check "Badge circle (16px) stays visibly smaller than the 22px icon slot it sits inside -- direct report the first pass was too big" \
+  "$(grep -c 'width: 16' "$result_row_qml")" "1"
 check "CliampStations no longer sets a favorite/favoritable field on any row -- that's CliampFavorites' job now" \
   "$(grep -c 'favorite:\|favoritable:' "$model_js")" "0"
 
@@ -176,6 +180,8 @@ check "Elapsed clock freezes while paused instead of counting through a pause" \
   "$(grep -A2 'interval: 1000' "$station_panel_qml" | grep -c 'running: root.playing')" "1"
 check "CliampStationPanel shows a Last Played field from our own local layer, omitted for a never-played station" \
   "$(( $(grep -c 'CliampFavorites.formatLastPlayed(root.selectedRow.lastPlayedAt)' "$station_panel_qml") + $(grep -c 'label: "Last Played"' "$station_panel_qml") + $(grep -c 'if (lastPlayed !== "")' "$station_panel_qml") ))" "3"
+check "Last Played is the final metadata row, below Source" \
+  "$(( $(grep -n 'label: "Source"' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'label: "Last Played"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

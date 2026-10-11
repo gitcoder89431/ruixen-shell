@@ -84,27 +84,50 @@ Rectangle {
     source: row.modelData.providerId === "app-search" && row.appLibrary ? row.appLibrary.iconSource(row.modelData.icon) : ""
   }
 
-  // Round accent badge behind the icon glyph -- opt-in via
-  // modelData.iconBg, same pattern as modelData.iconColor below
+  // Round accent badge standing in for the plain icon glyph -- opt-in
+  // via modelData.iconBg, same pattern as modelData.iconColor below
   // (undefined/falsy for every existing provider, so this changes
   // nothing for them). Direct follow-up, Cliamp Radio's own
   // currently-playing row: "make its a round accent color with black
-  // play icon so the shape fits well with the other". Same anchors/
-  // width as the icon Text below so the circle sits perfectly
-  // concentric with the glyph rather than needing separate alignment.
+  // play icon so the shape fits well with the other", then a further
+  // follow-up once a first pass sized it to match the 22px icon slot
+  // exactly: "that badge is way too big". Deliberately smaller than
+  // that slot now (16px, centered within it) with its own small glyph
+  // inside rather than reusing the shared Text's full 16px size.
   Rectangle {
+    id: iconBadge
     visible: !!row.modelData.iconBg
+    // Smaller than the 22px icon slot it sits inside, centered on
+    // it -- direct report: the first pass, a full 22px filled disc,
+    // read as "way too big" next to every other row's bare glyph.
     anchors.left: parent.left
     anchors.leftMargin: 8
     anchors.verticalCenter: parent.verticalCenter
-    width: 22
-    height: 22
+    width: 16
+    height: 16
     radius: width / 2
     color: row.modelData.iconBg || "transparent"
+
+    Text {
+      anchors.centerIn: parent
+      text: row.modelData.icon
+      color: "#000000"
+      font.family: row.fontFamily
+      // Small enough to sit with real padding inside the 16px circle
+      // (a play triangle at the row's base 16px glyph size would
+      // nearly fill it edge to edge) -- this is the ONLY place the
+      // icon glyph renders when iconBg is set; the shared Text below
+      // hides itself in that case instead of drawing a second,
+      // full-size copy on top.
+      font.pixelSize: 9
+    }
   }
 
   Text {
-    visible: row.modelData.providerId !== "app-search"
+    // iconBg rows draw their own small glyph inside iconBadge above
+    // instead -- this Text's own font.pixelSize: 16 would overflow a
+    // deliberately smaller badge circle if it also rendered here.
+    visible: row.modelData.providerId !== "app-search" && !row.modelData.iconBg
     anchors.left: parent.left
     // 8, not 12 like appIcon's own leftMargin above -- direct report
     // ("theres more left gap padding from left edge to the icon on
@@ -134,11 +157,8 @@ Rectangle {
     // (the Theme Browser's own installed/not-installed status dot,
     // direct follow-up: "make the icons useful... theme green" if
     // installed) -- undefined for every other existing provider, so
-    // this changes nothing for them. iconBg (the round badge above)
-    // takes precedence over both -- black reads cleanly against the
-    // accent fill the same way the Now Playing card's own LIVE badge
-    // already pairs black text on an accent pill.
-    color: row.modelData.iconBg ? "#000000" : (row.modelData.iconColor || (row.modelData.kind === "Folder" ? row.accentColor : row.textColor))
+    // this changes nothing for them.
+    color: row.modelData.iconColor || (row.modelData.kind === "Folder" ? row.accentColor : row.textColor)
     font.family: row.fontFamily
     font.pixelSize: 16
   }

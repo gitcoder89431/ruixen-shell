@@ -84,16 +84,17 @@ function recordPlayed(stats, name, trackPath) {
 // from OUR state, plus the star-vs-note icon that used to come from
 // cliamp's own p.favorite. Non-search rows split into three sections:
 // "Favorites" (any favorited row, catalog or bundled alike) ahead of
-// "Catalogues" (cliamp's own bundled bouquet, row.bundled) ahead of
-// "Stations" (the plain world-radio catalog) -- direct follow-up:
-// "make it Favorites Stations and Catalogues as the groups", after an
-// earlier pass collapsed Catalogues and Stations into one section by
-// mistake. Rows arrive already ordered bundled-then-catalog (see
-// CliampContent.qml's own rows pipeline), so each section's rows stay
-// contiguous once favorites are pulled out -- required for
-// ResultsList's own section.property grouping to render one header
-// per section rather than re-opening it every time the label flips
-// back. Search rows stay one "Search
+// "Stations" (cliamp's own bundled bouquet, row.bundled -- these are
+// named, curated stations: Lofi, Meditative, Omarchy, the NCS family)
+// ahead of "Catalogues" (the plain world radio-browser.info list,
+// everything else) -- direct correction: "the stations are lofi
+// meditative etc, the catalogues are... everything else", the exact
+// opposite of an earlier pass's own labeling. Rows arrive already
+// ordered bundled-then-catalog (see CliampContent.qml's own rows
+// pipeline), so each section's rows stay contiguous once favorites
+// are pulled out -- required for ResultsList's own section.property
+// grouping to render one header per section rather than re-opening it
+// every time the label flips back. Search rows stay one "Search
 // Results" section (a favorited hit splitting into its own section
 // there would just fragment a single query's results for little
 // benefit), the star icon is the only visible difference.
@@ -120,7 +121,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
       next.sectionLabel = "Favorites"
       favorites.push(next)
     } else {
-      next.sectionLabel = row.bundled ? "Catalogues" : "Stations"
+      next.sectionLabel = row.bundled ? "Stations" : "Catalogues"
       rest.push(next)
     }
   }

@@ -133,8 +133,8 @@ check "CliampFavorites mutates immutably, same Object.assign convention Launcher
   "$(( $(grep -c 'function toggleFavorite' "$favorites_js") + $(grep -c 'function recordPlayed' "$favorites_js") + $(grep -c 'Object.assign({}' "$favorites_js") ))" "5"
 check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped rows, splitting non-search rows into Favorites/Catalogues/Stations and leaving search as one section" \
   "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Favorites"' "$favorites_js") + $(grep -c '"Catalogues"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "13"
-check "The Catalogues/Stations split is keyed off row.bundled, not provider-level, so a favorited bundled station still moves to Favorites same as any other" \
-  "$(grep -c 'next.sectionLabel = row.bundled ? "Catalogues" : "Stations"' "$favorites_js")" "1"
+check "The Stations/Catalogues split is keyed off row.bundled (named curated stations go to Stations, the plain world list to Catalogues), not provider-level, so a favorited bundled station still moves to Favorites same as any other" \
+  "$(grep -c 'next.sectionLabel = row.bundled ? "Stations" : "Catalogues"' "$favorites_js")" "1"
 check "Favorites surface on the all-station landing as a Favorites group at the top, conditional on there being any" \
   "$(( $(grep -c 'favorites.push(next)' "$favorites_js") + $(grep -c 'favorites.concat(rest)' "$favorites_js") ))" "2"
 check "A favorite missing from this catalog fetch (e.g. search-only, never in cliamp's own curated catalog at all) is still synthesized into Favorites, playable via its own stored stream path" \

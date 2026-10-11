@@ -155,6 +155,17 @@ Item {
   readonly property int scrollOff: 2
   property var nowPlaying: null
 
+  // A global player setting (cliamp's own `cliamp eq` command), not
+  // per-station -- direct follow-up after the country filter landed:
+  // "the equalizer options between the player and metadata might be a
+  // nice touch if easy to add in... dont think we need all the
+  // options". cliamp's own real preset list runs to 15 (confirmed live
+  // via its CLI, not documented anywhere in --help or its own IPC
+  // capabilities listing), well past what's worth cluttering this
+  // panel with as tappable chips -- six that cover the common cases
+  // instead of the full set or individual per-band sliders.
+  readonly property var eqPresets: ["Flat", "Rock", "Pop", "Jazz", "Vocal", "Bass Boost"]
+
   // Direct report: "i point and focus on a row then switch to kbd but
   // when i scroll up or down the page snaps back to the cursor focus
   // row" -- a plain MouseArea.onEntered can't tell "the cursor moved
@@ -300,6 +311,16 @@ Item {
     if (!row) return
     root.favoriteStats = CliampFavorites.toggleFavorite(root.favoriteStats, row.fullName, row.trackPath || "")
     favoritesFile.setText(JSON.stringify(root.favoriteStats))
+  }
+
+  // Fire-and-poll, same shape as playSelected() above -- the real
+  // confirmation comes from the next status poll picking up the new
+  // eq_preset (statusTimer already runs every 2s), refreshStatus()
+  // here just makes it feel instant on tap rather than waiting out
+  // that interval.
+  function setEqPreset(name) {
+    eqProc.exec(["cliamp", "remote", "call", "eq", "--params",
+      JSON.stringify({ name: name }), "--wait"])
   }
 
   function runStationAction(id) {
@@ -529,6 +550,19 @@ Item {
     }
   }
 
+  // Not gated on parseJobResult's own notRunning/ok split like every
+  // other Process above -- a failed EQ change (bad preset name, say)
+  // is never worth spawning a redundant daemon or flipping
+  // cliampRunning over. refreshStatus() either way picks the real
+  // current preset back up regardless of whether this call actually
+  // landed.
+  Process {
+    id: eqProc
+    stdout: StdioCollector { id: eqStdout; waitForEnd: true }
+    stderr: StdioCollector { id: eqStderr; waitForEnd: true }
+    onExited: function() { root.refreshStatus() }
+  }
+
   Process {
     id: statusProc
     stdout: StdioCollector {
@@ -654,9 +688,11 @@ Item {
     anchors.fill: parent
     selectedRow: root.selectedRow
     nowPlaying: root.nowPlaying
+    eqPresets: root.eqPresets
     textColor: root.textColor
     muted: root.muted
     accent: root.accent
     fontFamily: root.fontFamily
+    onEqPresetSelected: (name) => root.setEqPreset(name)
   }
 }

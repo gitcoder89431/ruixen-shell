@@ -38,6 +38,16 @@ Item {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
 
+  // EQ -- a global player setting, not per-station (see the EQ
+  // section's own comment below for the full story). CliampContent.qml
+  // owns the real preset list and the actual cliamp eq call; this
+  // panel just draws whichever one is currently active and reports a
+  // tap back up, same split every other piece of state in this panel
+  // already follows.
+  property var eqPresets: []
+  readonly property string eqPreset: root.nowPlaying ? (root.nowPlaying.eqPreset || "Flat") : "Flat"
+  signal eqPresetSelected(string name)
+
   // fullName, not label -- the list row's own label has the country
   // suffix already stripped for a tighter list (direct follow-up), but
   // this panel still shows Country as its own field, so it needs the
@@ -332,6 +342,71 @@ Item {
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 10
+          }
+        }
+      }
+    }
+
+    // EQ -- direct follow-up: "the equalizer options between the
+    // player and metadata might be a nice touch if easy to add in...
+    // dont think we need all the options". A global player setting
+    // (cliamp's own `cliamp eq` command), not tied to whichever
+    // station happens to be selected, so this sits right after Now
+    // Playing rather than inside the metadata list below -- same
+    // "always visible regardless of list selection" reasoning Now
+    // Playing's own header comment gives. cliamp's own real preset
+    // list runs to 15 names (confirmed live against its CLI, not
+    // documented anywhere in --help or `remote capabilities`); a
+    // curated six as tappable chips covers the common cases without
+    // the clutter of the full list or individual per-band sliders.
+    // Same chip look as ClipboardContent.qml's own Type/Sort row (24px
+    // pills, accent-tinted when active) -- direct follow-up for
+    // visual consistency across the plugin's own extensions.
+    Column {
+      width: parent.width
+      spacing: 8
+
+      Text {
+        text: "Equalizer"
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        font.capitalization: Font.AllUppercase
+        font.bold: true
+      }
+
+      Flow {
+        width: parent.width
+        spacing: 6
+
+        Repeater {
+          model: root.eqPresets
+
+          Rectangle {
+            id: eqChip
+            required property string modelData
+            readonly property bool isActive: root.eqPreset === modelData
+            width: eqChipLabel.implicitWidth + 20
+            height: 24
+            radius: 6
+            color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+            border.width: 1
+            border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+            Text {
+              id: eqChipLabel
+              anchors.centerIn: parent
+              text: eqChip.modelData
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.eqPresetSelected(eqChip.modelData)
+            }
           }
         }
       }

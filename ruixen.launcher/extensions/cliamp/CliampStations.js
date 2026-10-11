@@ -236,7 +236,15 @@ function parseStatus(text) {
       // listening" counter, not a per-song position a continuous radio
       // stream has no real concept of anyway (no duration to show a
       // progress bar against).
-      position: typeof parsed.position === "number" ? parsed.position : 0
+      position: typeof parsed.position === "number" ? parsed.position : 0,
+      // A global player setting, not per-station -- cliamp reports the
+      // active preset here regardless of what's selected in the list,
+      // same read path CliampStationPanel's own EQ row uses to show
+      // which chip is currently active. "Custom" (hand-tuned bands,
+      // not any named preset) is a real value cliamp itself reports,
+      // not a failure -- falling back to "Flat" only covers a status
+      // read from a build old enough to omit the field entirely.
+      eqPreset: parsed.eq_preset || "Flat"
     }
   } catch (e) {
     return null

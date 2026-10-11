@@ -42,11 +42,11 @@ check "Launcher instantiates CliampContent" \
 check "CliampContent never shells out to a second radio backend" \
   "$(grep -Rhi 'mpv\|vlc\|mopidy\|radiobrowser' "$repo_dir/ruixen.launcher/extensions/cliamp" | wc -l)" "0"
 check "CliampContent drives cliamp exclusively via the cliamp binary" \
-  "$(grep -c '\["cliamp"' "$content_qml")" "6"
+  "$(grep -c '\["cliamp"' "$content_qml")" "7"
 check "CliampContent uses the v2 remote-call envelope, not raw socket writes" \
-  "$(grep -c '"remote", "call"' "$content_qml")" "4"
-check "CliampContent's four remote-call Processes all capture stderr, not just stdout" \
-  "$(( $(grep -c 'stderr: StdioCollector' "$content_qml") + $(grep -c 'parseJobResult(.*Stdout.text, .*Stderr.text)' "$content_qml") ))" "8"
+  "$(grep -c '"remote", "call"' "$content_qml")" "5"
+check "CliampContent's remote-call Processes all capture stderr, not just stdout (eqProc captures it too but doesn't run it through parseJobResult -- see its own comment for why)" \
+  "$(( $(grep -c 'stderr: StdioCollector' "$content_qml") + $(grep -c 'parseJobResult(.*Stdout.text, .*Stderr.text)' "$content_qml") ))" "9"
 check "CliampStations.parseJobResult reads both streams, since every cliamp failure (including not-running) goes to stderr" \
   "$(grep -c 'function parseJobResult(stdoutText, stderrText)' "$model_js")" "1"
 check "CliampContent fetches the radio catalog and falls back to it on empty search" \
@@ -165,8 +165,8 @@ check "Now Playing card appears before the metadata rows in source order" \
   "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
 check "CliampStationPanel shows an avatar tile standing in for the art cliamp doesn't have" \
   "$(grep -c 'id: avatarTile' "$station_panel_qml")" "1"
-check "Avatar tile is read-only status, not a transport button -- it carries no click handler" \
-  "$(grep -c 'onClicked' "$station_panel_qml")" "0"
+check "Avatar tile is read-only status, not a transport button -- it carries no click handler (the EQ chips further down the panel are a separate, deliberate exception -- see their own section)" \
+  "$(grep -A70 'id: avatarTile' "$station_panel_qml" | grep -c 'onClicked')" "0"
 check "Avatar shows a play glyph while paused, nothing playing falls back to a music note" \
   "$(( $(grep -c 'visible: root.hasNowPlaying && !root.playing' "$station_panel_qml") + $(grep -c 'visible: !root.hasNowPlaying' "$station_panel_qml") ))" "2"
 check "While actually playing, the avatar shows an animated equalizer instead of a static pause glyph" \
@@ -213,6 +213,19 @@ check "CliampContent fetches the bundled bouquet over plain HTTP (independent of
   "$(( $(grep -c 'property var rawBundled: \[\]' "$content_qml") + $(grep -c 'function runBundled' "$content_qml") + $(grep -c 'id: bundledProc' "$content_qml") + $(grep -c 'CliampStations.parseBundledPlaylist' "$content_qml") + $(grep -c 'if (root.rawBundled.length === 0) root.runBundled()' "$content_qml") ))" "5"
 check "Bundled stations are concatenated ahead of the (country-filtered) world catalog, before CliampFavorites splits them into their own Catalogues section" \
   "$(grep -c 'root.rawBundled.concat' "$content_qml")" "1"
+
+check "CliampStations.parseStatus reads cliamp's own eq_preset field from status --json" \
+  "$(grep -c 'eqPreset: parsed.eq_preset' "$model_js")" "1"
+check "CliampContent exposes a curated preset list and a setEqPreset() that drives cliamp's own eq IPC op" \
+  "$(( $(grep -c 'readonly property var eqPresets:' "$content_qml") + $(grep -c 'function setEqPreset' "$content_qml") + $(grep -c 'id: eqProc' "$content_qml") ))" "3"
+check "CliampStationPanel draws the EQ chips after Now Playing, not inside it" \
+  "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Equalizer"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
+check "CliampStationPanel draws the EQ chips before Metadata, not inside it" \
+  "$(( $(grep -n 'text: "Equalizer"' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
+check "EQ chip highlights the currently active preset and reports a tap back up via a signal, same split as every other piece of state in this panel" \
+  "$(( $(grep -c 'readonly property bool isActive: root.eqPreset === modelData' "$station_panel_qml") + $(grep -c 'signal eqPresetSelected(string name)' "$station_panel_qml") + $(grep -c 'onClicked: root.eqPresetSelected(eqChip.modelData)' "$station_panel_qml") ))" "3"
+check "CliampContent wires the panel's EQ signal back to setEqPreset" \
+  "$(grep -c 'onEqPresetSelected: (name) => root.setEqPreset(name)' "$content_qml")" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

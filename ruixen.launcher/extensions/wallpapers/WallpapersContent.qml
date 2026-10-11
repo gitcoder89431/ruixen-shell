@@ -622,6 +622,31 @@ Item {
     anchors.fill: parent
     spacing: 10
 
+    WallpaperRotationControls {
+      id: rotationControls
+      accent: root.accent
+      Layout.fillWidth: true
+      active: root.active
+      textColor: root.textColor
+      muted: root.muted
+      fontFamily: root.fontFamily
+      onExpandedChanged: if (expanded) effectControls.expanded = false
+    }
+
+    WallpaperEffects {
+      id: effectControls
+      maxExpandedHeight:Math.max(220,Math.round(root.height*.55))
+      currentBackground: root.currentBackground
+      artworkEntries: root.wallpaperPaths
+      onExpandedChanged: if (expanded) rotationControls.expanded = false
+      Layout.fillWidth: true
+      active: root.active
+      textColor: root.textColor
+      muted: root.muted
+      accent: root.accent
+      fontFamily: root.fontFamily
+    }
+
     // No inner search box here anymore -- direct request ("we dont need
     // two search box, use the launcher for wallpaper search input not
     // what we ported over"). Launcher.qml's own outer SearchHeader is

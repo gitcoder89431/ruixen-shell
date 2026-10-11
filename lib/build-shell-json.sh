@@ -115,6 +115,8 @@ ruixen_bar_json="$(cat "$script_dir/ruixen-bar-canonical.json")"
 # ruixen.shelf (kind "overlay", keepLoaded) -- the drop pocket window;
 # ruixen.notch's quick-drop relays to its IPC target, so it has to be
 # loaded at all times, same bare {id} entry as launcher/cava above.
+# ruixen.background is bundled but opt-in: Omarchy's enablePlugin owns stock
+# suppression/restoration. Never auto-enable it through this config merge.
 ruixen_plugin_ids='["ruixen.notch", "ruixen.wallpaper", "ruixen.media", "ruixen.launcher", "ruixen.cava", "ruixen.shelf"]'
 default_idle_json='{"lock": 300, "screensaver": 150}'
 

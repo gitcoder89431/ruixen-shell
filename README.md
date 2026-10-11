@@ -114,7 +114,11 @@ your coding agent.
 ### And more
 
 - **Kanban** in the notch: a three-column board you and an agent can both drive.
-- **Wallpapers**, including muted looping video, and an audio visualizer.
+- **Wallpapers**, including muted looping video/GIF playback, artwork rotation
+  with shuffle, and an audio visualizer.
+- **Optional native wallpaper appearance**: thirteen transitions, independent
+  CRT/Matrix backgrounds, motion controls, and duration-aware hover previews.
+  See [customization](docs/CUSTOMIZATION.md#wallpaper-appearance).
 - **Plugin pinning**: install any Omarchy bar widget, pin it from the bar, no config editing.
 - **Peripherals**: battery levels for wireless mice, keyboards, headsets and controllers.
 - **Window look**: rounded corners and blur to match the frame, or stock square.
@@ -188,3 +192,6 @@ weather); the installer warns about any that are missing. Full list:
 ## License
 
 Released under the [MIT License](LICENSE).
+
+Wallpaper glitch shaders adapt [DasPoxy’s Glitch collection](https://github.com/DasPoxy/Glitch-Launcher-Collection)
+under MIT. See [source attribution](ruixen.background/GLITCH-SOURCES.md).

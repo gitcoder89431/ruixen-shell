@@ -43,6 +43,8 @@ suites=(
   "$script_dir/lifecycle-lock.sh"
   "$script_dir/wallpaper-discovery-format.sh"
   "$script_dir/wallpaper-sidebar-style.sh"
+  "$script_dir/wallpaper-effects.sh"
+  "$script_dir/wallpaper-rotation.sh"
   "$script_dir/update-safety.sh"
   "$script_dir/gif-poster-fallback.sh"
   "$script_dir/poster-cache-pruning.sh"

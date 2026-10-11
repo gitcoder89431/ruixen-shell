@@ -94,6 +94,7 @@ Item {
   // Only visible/active while the tab itself is on screen -- refresh()
   // is cheap (two quick Processes) but no reason to run it while some
   // other tab is showing.
+  readonly property real controlsExtraHeight: (rotationControls.visible ? Math.max(0, rotationControls.implicitHeight - 50) : 0) + (effectControls.visible ? Math.max(0, effectControls.implicitHeight - 50) : 0)
   property bool active: false
 
   // Each entry: { kind, display, real }. kind is "image", "gif", or
@@ -541,6 +542,32 @@ Item {
   ColumnLayout {
     anchors.fill: parent
     spacing: 10
+
+    WallpaperRotationControls {
+      id: rotationControls
+      accent: root.accent
+      Layout.fillWidth: true
+      active: root.active && root.mediaMode === "wallpapers"
+      visible: available && root.mediaMode === "wallpapers"
+      textColor: root.textColor
+      muted: root.muted
+      fontFamily: root.fontFamily
+      onExpandedChanged: if (expanded) effectControls.expanded = false
+    }
+
+    WallpaperEffects {
+      id: effectControls
+      currentBackground: root.currentBackground
+      artworkEntries: root.wallpaperPaths
+      onExpandedChanged: if (expanded) rotationControls.expanded = false
+      Layout.fillWidth: true
+      active: root.active && root.mediaMode === "wallpapers"
+      visible: available && root.mediaMode === "wallpapers"
+      textColor: root.textColor
+      muted: root.muted
+      accent: root.accent
+      fontFamily: root.fontFamily
+    }
 
     // Search + WALLPAPER/THEME tab, collapsed into one row (direct
     // follow-up -- "instead of the two tabs up top and the search

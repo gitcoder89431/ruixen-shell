@@ -41,6 +41,26 @@ import "GenerationGuard.js" as GenerationGuard
 Item {
   id: root
 
+  WallpaperRotation {
+    paused: root.videoPath !== "" || root.gifPath !== ""
+    selectionEpoch: root.selectGeneration
+  }
+
+  // When the optional native static renderer is active, put media above its
+  // Background surface explicitly rather than relying on plugin load order.
+  property bool nativeBackgroundEnabled:false
+  FileView {
+    path:Quickshell.env("HOME")+"/.config/omarchy/shell.json"
+    watchChanges:true;printErrors:false
+    onLoaded: {
+      try {
+        var config=JSON.parse(text()), plugins=config.plugins || [], disabled=config.disabledPlugins || []
+        root.nativeBackgroundEnabled=plugins.some(function(p){return p.id==="ruixen.background"}) && disabled.indexOf("ruixen.background")<0
+      } catch(e) { root.nativeBackgroundEnabled=false }
+    }
+    onFileChanged:reload()
+  }
+
   readonly property string home: Quickshell.env("HOME")
   readonly property string stateDir: home + "/.local/state/ruixen"
   readonly property string statePath: stateDir + "/wallpaper-media"
@@ -360,7 +380,7 @@ Item {
       exclusionMode: ExclusionMode.Ignore
 
       WlrLayershell.namespace: "ruixen-wallpaper"
-      WlrLayershell.layer: WlrLayer.Background
+      WlrLayershell.layer: root.nativeBackgroundEnabled ? WlrLayer.Bottom : WlrLayer.Background
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
       // No AudioOutput attached anywhere -- that's the actual "muted".

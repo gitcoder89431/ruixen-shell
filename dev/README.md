@@ -27,7 +27,8 @@ bars/v2/ruixen.bar/        the bar, the screen frame, docked chrome
 bars/widgets/ruixen.*/     bar widgets and the notch (ruixen.notch)
 ruixen.launcher/           launcher, Search Files, Settings, Clipboard, Theme browser
 ruixen.shelf/              the drop-pocket overlay
-ruixen.wallpaper/          video wallpaper support
+ruixen.wallpaper/          video/GIF playback and artwork rotation
+ruixen.background/         optional native static wallpaper renderer
 ruixen.cava/               audio visualizer overlay
 hyprland/                  window look'n'feel variants + ruixen-lookfeel.sh
 theme-overlays/            per-theme tweaks applied on install

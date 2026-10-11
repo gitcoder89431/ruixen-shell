@@ -61,3 +61,60 @@ regardless of which variant is active -- docked mode's own wider gaps already
 keep real window corners well clear of that curve, so nothing clips, and it
 keeps the docked bar's own corner (always rounded) visually consistent with the
 frame right next to it.
+
+## Wallpaper appearance
+
+The installer includes the native **ruixen.background** renderer, disabled on new
+installations to preserve Omarchy's stock behavior. Open **Wallpaper appearance**
+in the notch picker (`SUPER+CTRL+SPACE`) or launcher's Wallpapers extension.
+Preview and save settings, then choose **Enable renderer** to apply them to the
+desktop. **Use stock renderer** restores the previous stock state through
+Omarchy's plugin lifecycle. The enable button refuses competing background
+replacements; disable those yourself before switching. Rotation and video/GIF
+playback work independently of this renderer.
+
+Choose one of thirteen transitions: Reveal, Bleed through, Pixel dissolve, Iris
+bloom, Glass shutters, Scanline, Ink spread, Aurora wash, Vortex, Signal tear,
+Datamosh, VHS tracking, or Code bleed. Duration is 0–30 seconds; zero switches
+instantly. Mask effects offer softness; glitch effects remember their own
+distortion strength and band/block/column density or VHS wobble frequency.
+Hover a choice to preview it using the selected duration and its saved controls.
+Previews start after images load and never change the desktop or save an effect.
+
+Background effects are independent: **None**, static **CRT texture**, or animated
+**Matrix rain**, with intensity and rain speed controls. Preview tiles show the
+combination. Ambient zoom and theme glow remain independent toggles.
+**Disable motion** finishes transitions, stops zoom/glow, and freezes rain while
+retaining static textures. **Reset effects** restores a 420 ms reveal, 0.02
+softness, and no background effects. Background overlays pause during media
+playback. Matrix uses a 640-pixel texture at 10 fps; CRT has no animation timer.
+
+Appearance is persisted atomically in
+`~/.local/state/ruixen/wallpaper-appearance.json`. The earlier local prototype's
+settings are imported only when this file does not exist; its file is never
+modified. The renderer uses public Quickshell APIs and Omarchy's `background`
+compatibility IPC / `shell applyTheme`, with no private runtime imports.
+Shaders adapted from [DasPoxy's Glitch collection](https://github.com/DasPoxy/Glitch-Launcher-Collection)
+retain their MIT notices and source attribution in each plugin's
+`GLITCH-LICENSE.txt` and the renderer's `GLITCH-SOURCES.md`.
+
+### Artwork rotation
+
+Both wallpaper pickers include **Artwork rotation**, independently of the optional
+effects renderer. Enable **Rotate artwork**, enter an absolute folder path (or
+`~/Pictures/...`), and choose an interval of 1–1440 minutes. **Next artwork**
+advances immediately even when automatic rotation is off. Clicking a section
+heading opens its controls and collapses the other section.
+
+The persistent `ruixen.wallpaper` service rotates PNG, JPEG, WebP, and AVIF images
+in filename order and wraps at the end. Enable **Shuffle** for random selection
+without repeating the current image when alternatives exist. Shuffle affects
+both scheduled rotation and **Next artwork**; it defaults to off. Subfolders and
+video/GIF files are excluded.
+Rotation pauses during video/GIF playback and starts a fresh interval afterward.
+Settings survive shell restarts in
+`~/.local/state/ruixen/wallpaper-rotation.json`. New installations default to off;
+rotation never edits the theme's wallpaper collection. Disable any independent
+wallpaper-rotation timer before enabling this feature to avoid competing changes.
+Missing/empty folders produce an error in the panel. Discovery runs off the UI
+thread and is bounded to 10000 directory entries.

@@ -176,3 +176,15 @@ plugins — dry-run it and show the user first. (`install.sh`,
   `IpcHandler` block — `grep -A40 'IpcHandler {'` on the plugin is always
   more current than any table above. If they disagree, the code wins and
   this file is what needs fixing.
+## Wallpaper rotation and appearance
+
+Use `omarchy-shell ruixen-wallpaper-rotation status`, `configure '<JSON>'`, or
+`next` to drive the wallpaper plugin's rotation controls. Configuration is
+asynchronous: check `status` for applied settings and validation errors.
+See [CONTROL.md](CONTROL.md#wallpaper-rotation-ruixen-wallpaper-rotation).
+
+Local preview targets: `ruixen-wallpaper-preview-notch` and
+`ruixen-wallpaper-preview-launcher`, with `preview <effect-key>`, `clearPreview`,
+and `status`. Open the picker first; these affect only its preview tile.
+
+The bundled `ruixen.background` renderer is optional; see [CONTROL.md](CONTROL.md#native-background-renderer-ruixenbackground) for lifecycle and status.

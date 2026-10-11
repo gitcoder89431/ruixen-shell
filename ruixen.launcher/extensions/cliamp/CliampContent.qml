@@ -90,6 +90,30 @@ Item {
   property var rawCatalog: []
   property var rawTracks: []
   readonly property bool searchMode: root.searchText.trim() !== ""
+
+  // Country dropdown -- direct follow-up: "similarly to the bjarneo
+  // themes, we have chips for Collection and Styles there, can we do
+  // chip for Country... if its the only chip, then more like the top
+  // right on the search row we have All and dropdowns" -- the same
+  // "All <X>" dropdown Wallpapers'/Theme Browser's own filters already
+  // use (Launcher.qml's own dropdownOptions/seedDropdownSelection/
+  // confirmDropdownSelection, one more branch each), in the search
+  // row's top-right spot, replacing the Enter-key hint there rather
+  // than a full second chip row for a single dimension. "" is the
+  // dropdown's own "All Countries" sentinel -- a no-op in
+  // filterByCountry below, same convention wallpapersContent.kindFilter
+  // ("all") and themeBrowserContent.installedOnlyFilter (false) each
+  // already use for their own "no filter" state.
+  property string countryFilter: ""
+  // Derived straight from the current catalog fetch, not a fixed list
+  // -- whatever countries are actually present right now. Catalog-only
+  // (CliampStations.countryOptions reads raw playlist names): search
+  // results never carry a country suffix at all (confirmed live), so
+  // this never changes while searchMode is true -- the dropdown still
+  // shows it, but see filterByCountry's own comment for why selecting
+  // one has no effect on search results.
+  readonly property var countryOptions: CliampStations.countryOptions(root.rawCatalog)
+
   // markNowPlaying runs last -- direct follow-up: "a play icon that
   // shows the station that is playing in the left panel instead of
   // the music note too when active", overriding even a favorite's own
@@ -97,10 +121,13 @@ Item {
   // just "saved". Blanked to "" (no row matches an empty fullName) for
   // anything but a genuine playing state, not just gated inside
   // markNowPlaying itself, so paused/stopped never leaves a stale row
-  // marked "playing".
+  // marked "playing". Country filter only ever applies to catalog rows
+  // -- applying it to search rows would just silently empty the list,
+  // since none of them have country data to match against.
   readonly property var rows: CliampStations.markNowPlaying(
     CliampFavorites.applyFavoriteState(
-      root.searchMode ? CliampStations.searchRows(root.rawTracks) : CliampStations.bucketCatalog(root.rawCatalog),
+      root.searchMode ? CliampStations.searchRows(root.rawTracks)
+        : CliampStations.filterByCountry(CliampStations.bucketCatalog(root.rawCatalog), root.countryFilter),
       root.favoriteStats, root.accent, root.searchMode),
     (root.nowPlaying && root.nowPlaying.state === "playing") ? (root.nowPlaying.station || root.nowPlaying.title || "") : "")
 

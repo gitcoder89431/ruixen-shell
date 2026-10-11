@@ -62,6 +62,46 @@ function bucketCatalog(playlists) {
   return out
 }
 
+// Distinct countries present in the current catalog fetch, sorted
+// alphabetically -- the only pool of country data cliamp genuinely
+// has. Direct follow-up: a Country dropdown in the search row's own
+// top-right spot (replacing the Enter-key hint there, same control
+// Wallpapers'/Theme Browser's own "All Types"/"All" dropdowns already
+// use), rather than a full chip row -- country would be the only
+// dimension here, unlike the theme browser's own Collection+Styles.
+// A station with no country at all (not every curated entry has one)
+// is simply excluded from the option list -- there's no sensible
+// catch-all bucket for "unknown" to filter by.
+function countryOptions(playlists) {
+  var list = playlists || []
+  var seen = {}
+  var out = []
+  for (var i = 0; i < list.length; i++) {
+    var meta = parseStationMeta(stripStar(list[i].name || ""))
+    if (meta.country === "" || seen[meta.country]) continue
+    seen[meta.country] = true
+    out.push(meta.country)
+  }
+  out.sort()
+  return out
+}
+
+// Keeps only rows whose own parsed country matches -- "" (the
+// dropdown's own "All Countries" sentinel) is a no-op. Only ever
+// called against catalog rows: provider.search results never carry a
+// country suffix at all (confirmed live, see searchRows' own header
+// below), so CliampContent.qml never applies this while a search
+// query is active -- there would be nothing for it to match against.
+function filterByCountry(rows, country) {
+  if (!country) return rows
+  var list = rows || []
+  var out = []
+  for (var i = 0; i < list.length; i++) {
+    if (parseStationMeta(list[i].fullName).country === country) out.push(list[i])
+  }
+  return out
+}
+
 // provider.search results are raw tracks (title/path only, no id of
 // any kind -- confirmed live). Same no-favorite-concept-of-its-own
 // shape as bucketCatalog above; CliampFavorites.applyFavoriteState

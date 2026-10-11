@@ -56,7 +56,7 @@ Item {
   property bool active: false
   property string searchText: ""
 
-  readonly property string searchPlaceholder: "Search Radio Stations"
+  readonly property string searchPlaceholder: "Search Stations"
   readonly property bool showsEnterHint: true
   readonly property bool interceptsArrowKeys: true
   readonly property bool rightFocused: root.actionsMenuOpen

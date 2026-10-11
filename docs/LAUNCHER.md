@@ -168,12 +168,19 @@ no second radio backend.
   station directory by name instead.
 - **Enter** or click a row to play it.
 - **Tab** or right-click opens a row's actions: **Play**, and
-  **Favorite**/**Unfavorite** for catalog rows (search hits aren't
-  favoritable — cliamp has no such operation for a raw search result).
+  **Favorite**/**Unfavorite** for every row, catalog or search hit
+  alike. Favoriting runs through this plugin's own small local store
+  (`~/.local/state/ruixen/cliamp-favorites.json`), not cliamp's native
+  favorites — cliamp's own `provider.favorite` only ever takes a
+  catalog id, which a raw search result never carries, so there's no
+  single favorite operation that can reach both; this plugin keeps one
+  consistent star everywhere instead of two different ones. Favorites
+  set here won't show starred in cliamp's own TUI as a result.
 - The right-hand panel shows details for whichever row is selected
   (country/bitrate, parsed out of cliamp's own station name — it has no
-  separate fields or station art for these), plus a small read-only
-  "Now Playing" line for whatever's actually on air.
+  separate fields or station art for these; a "Last Played" field once
+  a station's been played at least once from here), plus a featured
+  "Now Playing" card for whatever's actually on air.
 
 No transport controls here on purpose: cliamp exposes itself over MPRIS
 the moment it's running, so the notch's own media widget already

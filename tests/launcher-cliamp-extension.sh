@@ -12,6 +12,7 @@ launcher_qml="$repo_dir/ruixen.launcher/Launcher.qml"
 content_qml="$repo_dir/ruixen.launcher/extensions/cliamp/CliampContent.qml"
 station_panel_qml="$repo_dir/ruixen.launcher/extensions/cliamp/CliampStationPanel.qml"
 model_js="$repo_dir/ruixen.launcher/extensions/cliamp/CliampStations.js"
+favorites_js="$repo_dir/ruixen.launcher/extensions/cliamp/CliampFavorites.js"
 
 pass=0
 fail_count=0
@@ -40,11 +41,11 @@ check "Launcher instantiates CliampContent" \
 check "CliampContent never shells out to a second radio backend" \
   "$(grep -Rhi 'mpv\|vlc\|mopidy\|radiobrowser' "$repo_dir/ruixen.launcher/extensions/cliamp" | wc -l)" "0"
 check "CliampContent drives cliamp exclusively via the cliamp binary" \
-  "$(grep -c '\["cliamp"' "$content_qml")" "7"
+  "$(grep -c '\["cliamp"' "$content_qml")" "6"
 check "CliampContent uses the v2 remote-call envelope, not raw socket writes" \
-  "$(grep -c '"remote", "call"' "$content_qml")" "5"
-check "CliampContent's five remote-call Processes all capture stderr, not just stdout" \
-  "$(( $(grep -c 'stderr: StdioCollector' "$content_qml") + $(grep -c 'parseJobResult(.*Stdout.text, .*Stderr.text)' "$content_qml") ))" "10"
+  "$(grep -c '"remote", "call"' "$content_qml")" "4"
+check "CliampContent's four remote-call Processes all capture stderr, not just stdout" \
+  "$(( $(grep -c 'stderr: StdioCollector' "$content_qml") + $(grep -c 'parseJobResult(.*Stdout.text, .*Stderr.text)' "$content_qml") ))" "8"
 check "CliampStations.parseJobResult reads both streams, since every cliamp failure (including not-running) goes to stderr" \
   "$(grep -c 'function parseJobResult(stdoutText, stderrText)' "$model_js")" "1"
 check "CliampContent fetches the radio catalog and falls back to it on empty search" \
@@ -57,8 +58,14 @@ check "CliampContent plays a catalog/favorite row via provider.load" \
   "$(grep -c '"provider.load"' "$content_qml")" "1"
 check "CliampContent plays a raw search hit via track.play" \
   "$(grep -c '"track.play"' "$content_qml")" "1"
-check "CliampContent toggles favorites via provider.favorite, only for favoritable rows" \
-  "$(( $(grep -c '"provider.favorite"' "$content_qml") + $(grep -c 'if (!row || !row.favoritable) return' "$content_qml") ))" "2"
+check "CliampContent never calls cliamp's own provider.favorite -- favorites are local-only now" \
+  "$(grep -c '"provider.favorite"' "$content_qml")" "0"
+check "CliampContent toggles favorites through the local JSON layer, for any row (catalog or search)" \
+  "$(( $(grep -c 'function toggleFavoriteSelected' "$content_qml") + $(grep -c 'CliampFavorites.toggleFavorite' "$content_qml") + $(grep -A4 'function toggleFavoriteSelected' "$content_qml" | grep -c 'favoritesFile.setText') ))" "3"
+check "CliampContent records a last-played timestamp only on a genuine successful play" \
+  "$(grep -c 'CliampFavorites.recordPlayed' "$content_qml")" "2"
+check "CliampContent persists favorites to its own state file, mkdir -p'd first like every other Ruixen local store" \
+  "$(( $(grep -c 'favoritesStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/cliamp-favorites.json"' "$content_qml") + $(grep -c 'id: ensureFavoritesDirProc' "$content_qml") + $(grep -c 'id: favoritesFile' "$content_qml") ))" "3"
 check "CliampContent reads live status for the read-only Now Playing line" \
   "$(grep -c '"status", "--json"' "$content_qml")" "1"
 check "CliampContent has no transport-control machinery -- the notch's MPRIS widget owns that" \
@@ -86,6 +93,8 @@ check "CliampContent uses compact icon+name rows, with no subtitle/kind columns"
   "$(grep -c 'filesMode: true' "$content_qml")" "1"
 check "CliampContent reuses the Search Files action menu for Tab and right-click row actions" \
   "$(( $(grep -c 'ResultActionsMenu {' "$content_qml") + $(grep -c 'function focusRightPanel' "$content_qml") + $(grep -c 'onRowActionsRequested' "$content_qml") + $(grep -c 'function runStationAction' "$content_qml") ))" "4"
+check "Favorite is always offered on Tab, catalog row or search hit alike -- no favoritable gate left" \
+  "$(( $(grep -c 'id: "favorite", label: root.selectedRow.favorite' "$content_qml") + $(grep -c 'favoritable' "$content_qml") ))" "1"
 
 check "CliampStations dedupes a catalog entry that appears as both its favorite and plain id" \
   "$(grep -c 'if (seen\[name\]) continue' "$model_js")" "1"
@@ -97,6 +106,21 @@ check "CliampStations parses country/bitrate back out of a station's own name, n
   "$(grep -c 'function parseStationMeta' "$model_js")" "1"
 check "CliampStations strips the country suffix from list row labels, keeping the full name for the right panel" \
   "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "8"
+check "CliampStations no longer sets a favorite/favoritable field on any row -- that's CliampFavorites' job now" \
+  "$(grep -c 'favorite:\|favoritable:' "$model_js")" "0"
+
+check "CliampFavorites keys by station name, not a catalog id or URL -- the only identity stable across catalog and search" \
+  "$(( $(grep -c 'function favoriteKey' "$favorites_js") + $(grep -c 'function isFavorite' "$favorites_js") + $(grep -c 'function lastPlayedAt' "$favorites_js") ))" "3"
+check "CliampFavorites mutates immutably, same Object.assign convention LauncherFrecency.js already uses" \
+  "$(( $(grep -c 'function toggleFavorite' "$favorites_js") + $(grep -c 'function recordPlayed' "$favorites_js") + $(grep -c 'Object.assign({}' "$favorites_js") ))" "5"
+check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped rows, splitting catalog into Favorites/Stations but leaving search as one section" \
+  "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Favorites"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "10"
+check "CliampFavorites formats a coarse relative last-played time" \
+  "$(grep -c 'function formatLastPlayed' "$favorites_js")" "1"
+
+check "CliampContent's rows are a reactive computed binding over raw fetch data + favoriteStats, not an imperative assignment" \
+  "$(( $(grep -c 'readonly property var rows: CliampFavorites.applyFavoriteState' "$content_qml") + $(grep -c 'property var rawCatalog' "$content_qml") + $(grep -c 'property var rawTracks' "$content_qml") + $(grep -c 'readonly property bool searchMode' "$content_qml") ))" "4"
+
 check "CliampStationPanel parses station meta from the row's untrimmed fullName, not the list's stripped label" \
   "$(grep -c 'parseStationMeta(root.selectedRow.fullName' "$station_panel_qml")" "1"
 check "CliampStationPanel is a dumb display+signal component, no Process of its own" \
@@ -106,7 +130,7 @@ check "CliampStationPanel has no transport controls -- it shows station info, no
 check "CliampStationPanel has no 'cliamp isn't running' state of its own -- it's silent now" \
   "$(( $(grep -c 'signal startRequested' "$station_panel_qml") + $(grep -c "Cliamp isn't running" "$station_panel_qml") + $(grep -c 'cliampRunning' "$station_panel_qml") ))" "0"
 check "CliampStationPanel shows station info for the selected row" \
-  "$(grep -c 'selectedRow' "$station_panel_qml")" "8"
+  "$(grep -c 'selectedRow' "$station_panel_qml")" "9"
 check "CliampStationPanel puts Now Playing in a featured card at the top" \
   "$(( $(grep -c 'id: nowPlayingCard' "$station_panel_qml") + $(grep -c 'id: nowPlayingContent' "$station_panel_qml") ))" "2"
 check "CliampStationPanel renders station metadata as zebra-striped rows, same convention as Search Files" \
@@ -135,6 +159,8 @@ check "CliampStationPanel ticks a real elapsed-listening clock, re-synced from c
   "$(( $(grep -c 'function formatElapsed' "$model_js") + $(grep -c 'function syncElapsed' "$station_panel_qml") + $(grep -c 'onNowPlayingChanged: root.syncElapsed()' "$station_panel_qml") ))" "3"
 check "Elapsed clock freezes while paused instead of counting through a pause" \
   "$(grep -A2 'interval: 1000' "$station_panel_qml" | grep -c 'running: root.playing')" "1"
+check "CliampStationPanel shows a Last Played field from our own local layer, omitted for a never-played station" \
+  "$(( $(grep -c 'CliampFavorites.formatLastPlayed(root.selectedRow.lastPlayedAt)' "$station_panel_qml") + $(grep -c 'label: "Last Played"' "$station_panel_qml") + $(grep -c 'if (lastPlayed !== "")' "$station_panel_qml") ))" "3"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

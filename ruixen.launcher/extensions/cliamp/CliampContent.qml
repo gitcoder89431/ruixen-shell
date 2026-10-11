@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import "../.."
 import "CliampStations.js" as CliampStations
+import "CliampFavorites.js" as CliampFavorites
 
 // Browse/search/play Omarchy's bundled cliamp radio directory from the
 // launcher. All real state lives here (Process calls, catalog/search
@@ -26,6 +27,23 @@ import "CliampStations.js" as CliampStations
 // recently built. Since the row list ON SCREEN is always exactly that
 // most recent fetch, acting on a row the user can see is safe; this
 // extension never acts on a stale id from an older fetch.
+//
+// Favorites run through CliampFavorites.js's own small local JSON
+// layer entirely, not cliamp's native provider.favorite -- direct
+// follow-up: "in the search result i can only play it, is there a way
+// to tab to play and favorite it as well". Investigated live first:
+// provider.favorite only ever takes {provider, playlist}, an id
+// provider.search's raw results never carry (bare {title, path}
+// tracks, confirmed against the raw JSON and cliamp's own `remote
+// capabilities` listing), and playing a search hit via track.play
+// doesn't hand one back either. So cliamp's own favorite system
+// genuinely can't reach a search hit -- direct decision, given that:
+// one favorite system everywhere (catalog AND search), ours, rather
+// than cliamp's native one for catalog rows and a second, different
+// one bolted on for search rows. Our favorites won't show starred in
+// cliamp's own TUI as a result -- a real tradeoff for one consistent
+// star everywhere instead of two different stars meaning two
+// different things depending on where a station was found.
 Item {
   id: root
 
@@ -62,21 +80,61 @@ Item {
   // extension always gets a fresh run of attempts.
   property int notRunningAttempts: 0
   readonly property int maxNotRunningAttempts: 4
-  property var rows: []
+
+  // Raw fetch results only -- CliampStations.bucketCatalog/searchRows
+  // just shape cliamp's own JSON, no favorite concept of their own
+  // anymore. rows below is a plain computed binding over these plus
+  // favoriteStats, so toggling a favorite re-renders instantly with no
+  // extra IPC round-trip (previously favoriteProc's own onExited had
+  // to re-run runCatalog() just to see the new star).
+  property var rawCatalog: []
+  property var rawTracks: []
+  readonly property bool searchMode: root.searchText.trim() !== ""
+  readonly property var rows: CliampFavorites.applyFavoriteState(
+    root.searchMode ? CliampStations.searchRows(root.rawTracks) : CliampStations.bucketCatalog(root.rawCatalog),
+    root.favoriteStats, root.accent, root.searchMode)
+
   property int selectedIndex: 0
   readonly property var selectedRow: root.rows[root.selectedIndex] || null
   readonly property int scrollOff: 2
   property var nowPlaying: null
+  // Captured at the moment playSelected() fires, not read back off
+  // selectedRow once loadProc/trackPlayProc's onExited lands -- the
+  // user can move the selection while that IPC round-trip is still in
+  // flight, and recordPlayed must mark the station that was actually
+  // asked to play, not whatever happens to be selected by the time the
+  // response comes back.
+  property string lastPlayAttemptName: ""
+
+  // Our own local favorite/last-played layer -- see this file's own
+  // header above for why it replaces cliamp's native favorite system
+  // rather than running alongside it. Same small-JSON-file convention
+  // (FileView + mkdir -p + atomicWrites) every other bit of Ruixen
+  // local state already uses (AppLibrary.qml's own frecency store is
+  // the original example).
+  readonly property string favoritesStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/cliamp-favorites.json"
+  property var favoriteStats: ({})
+
+  function loadFavoriteStats(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.favoriteStats = (parsed && typeof parsed === "object") ? parsed : ({})
+    } catch (e) {
+      root.favoriteStats = ({})
+    }
+  }
 
   property bool actionsMenuOpen: false
   property int actionsSelectedIndex: 0
   property real actionsMenuX: 0
   property real actionsMenuY: 0
-  readonly property var stationActions: root.selectedRow ? (function() {
-    var out = [{ id: "play", label: "Play" }]
-    if (root.selectedRow.favoritable) out.push({ id: "favorite", label: root.selectedRow.favorite ? "Unfavorite" : "Favorite" })
-    return out
-  })() : []
+  // Favorite is always offered now, catalog row or search hit alike --
+  // see this file's own header for why that's a local favorite, not
+  // cliamp's own.
+  readonly property var stationActions: root.selectedRow ? [
+    { id: "play", label: "Play" },
+    { id: "favorite", label: root.selectedRow.favorite ? "Unfavorite" : "Favorite" }
+  ] : []
 
   // Launcher.qml backs out to the landing list on this -- see
   // handleNotRunning below for when it fires.
@@ -120,7 +178,8 @@ Item {
   // notRunningAttempts' own comment above for the exact wording.
   function handleNotRunning() {
     root.cliampRunning = false
-    root.rows = []
+    root.rawCatalog = []
+    root.rawTracks = []
     root.notRunningAttempts++
     if (root.notRunningAttempts === 1) {
       root.startCliamp()
@@ -134,6 +193,7 @@ Item {
   function playSelected() {
     if (!root.selectedRow) return
     var row = root.selectedRow
+    root.lastPlayAttemptName = row.fullName
     if (row.providerId === "cliamp-track") {
       trackPlayProc.exec(["cliamp", "remote", "call", "track.play", "--params",
         JSON.stringify({ track: { title: row.trackTitle, path: row.trackPath, stream: true, realtime: true } }), "--wait"])
@@ -143,11 +203,14 @@ Item {
     }
   }
 
+  // Local-only now -- no IPC call, no round-trip wait. See this file's
+  // own header for why this replaced cliamp's native provider.favorite
+  // entirely rather than running alongside it for catalog rows only.
   function toggleFavoriteSelected() {
     var row = root.selectedRow
-    if (!row || !row.favoritable) return
-    favoriteProc.exec(["cliamp", "remote", "call", "provider.favorite", "--params",
-      JSON.stringify({ provider: "radio", playlist: row.stationId }), "--wait"])
+    if (!row) return
+    root.favoriteStats = CliampFavorites.toggleFavorite(root.favoriteStats, row.fullName)
+    favoritesFile.setText(JSON.stringify(root.favoriteStats))
   }
 
   function runStationAction(id) {
@@ -292,11 +355,11 @@ Item {
         // Running, but this one call errored (e.g. a radio-browser.info
         // timeout) -- leave cliampRunning alone and just show no
         // results rather than treating it as "not running".
-        root.rows = []
+        root.rawCatalog = []
         return
       }
       root.cliampRunning = true
-      root.rows = CliampStations.bucketCatalog(parsed.result.playlists, root.accent)
+      root.rawCatalog = parsed.result.playlists || []
     }
   }
 
@@ -308,14 +371,17 @@ Item {
       var parsed = CliampStations.parseJobResult(searchStdout.text, searchStderr.text)
       if (!parsed.ok) {
         if (parsed.notRunning) { root.handleNotRunning(); return }
-        root.rows = []
+        root.rawTracks = []
         return
       }
       root.cliampRunning = true
-      root.rows = CliampStations.searchRows(parsed.result.tracks)
+      root.rawTracks = parsed.result.tracks || []
     }
   }
 
+  // recordPlayed() below only fires on parsed.ok -- a station that
+  // genuinely failed to load was never actually "played", so it has
+  // no business bumping a last-played timestamp.
   Process {
     id: loadProc
     stdout: StdioCollector { id: loadStdout; waitForEnd: true }
@@ -326,8 +392,13 @@ Item {
     // (same reasoning as catalogProc/searchProc above).
     onExited: function() {
       var parsed = CliampStations.parseJobResult(loadStdout.text, loadStderr.text)
-      if (parsed.ok) root.cliampRunning = true
-      else if (parsed.notRunning) root.cliampRunning = false
+      if (parsed.ok) {
+        root.cliampRunning = true
+        root.favoriteStats = CliampFavorites.recordPlayed(root.favoriteStats, root.lastPlayAttemptName)
+        favoritesFile.setText(JSON.stringify(root.favoriteStats))
+      } else if (parsed.notRunning) {
+        root.cliampRunning = false
+      }
       root.refreshStatus()
     }
   }
@@ -338,21 +409,14 @@ Item {
     stderr: StdioCollector { id: trackPlayStderr; waitForEnd: true }
     onExited: function() {
       var parsed = CliampStations.parseJobResult(trackPlayStdout.text, trackPlayStderr.text)
-      if (parsed.ok) root.cliampRunning = true
-      else if (parsed.notRunning) root.cliampRunning = false
+      if (parsed.ok) {
+        root.cliampRunning = true
+        root.favoriteStats = CliampFavorites.recordPlayed(root.favoriteStats, root.lastPlayAttemptName)
+        favoritesFile.setText(JSON.stringify(root.favoriteStats))
+      } else if (parsed.notRunning) {
+        root.cliampRunning = false
+      }
       root.refreshStatus()
-    }
-  }
-
-  Process {
-    id: favoriteProc
-    stdout: StdioCollector { id: favoriteStdout; waitForEnd: true }
-    stderr: StdioCollector { id: favoriteStderr; waitForEnd: true }
-    onExited: function() {
-      var parsed = CliampStations.parseJobResult(favoriteStdout.text, favoriteStderr.text)
-      // Only catalog rows are ever favoritable, so a favorite toggle
-      // only ever needs to refresh the catalog view, never a search.
-      if (parsed.ok && root.searchText.trim() === "") root.runCatalog()
     }
   }
 
@@ -367,6 +431,27 @@ Item {
       }
     }
     onExited: function(exitCode) { if (exitCode !== 0) { root.nowPlaying = null; root.cliampRunning = false } }
+  }
+
+  // mkdir -p before the FileView's first write rather than assuming
+  // ~/.local/state/ruixen already exists -- same belt-and-suspenders
+  // pattern FileSearchProvider.qml's own search-config store uses,
+  // since plugin load order isn't guaranteed to have created it yet.
+  Process {
+    id: ensureFavoritesDirProc
+    command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
+  }
+  Component.onCompleted: ensureFavoritesDirProc.running = true
+
+  FileView {
+    id: favoritesFile
+    path: root.favoritesStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadFavoriteStats(text())
+    onLoadFailed: root.loadFavoriteStats("")
   }
 
   ExtensionTwoPanel {

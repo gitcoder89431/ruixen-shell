@@ -26,23 +26,24 @@ function stripCountry(name) {
 }
 
 // provider.catalog (radio) returns the curated station list PLUS a
-// duplicate "f:<n>" entry for every favorited station already present
-// under its own "c:<n>" id -- both carry the same starred name. Kept to
-// one row per station (favorite id wins, since it's cliamp's own stable
-// favorite identity -- see radio.md) rather than showing the same
-// station twice.
-function bucketCatalog(playlists, accentColor) {
+// duplicate "f:<n>" entry for every station cliamp's OWN favorites
+// file already has under its own "c:<n>" id -- both carry the same
+// name. Kept to one row per station (first occurrence wins; both ids
+// load the same station either way) rather than showing it twice. No
+// favorite concept of its own anymore -- CliampFavorites.
+// applyFavoriteState layers favorite/lastPlayedAt/icon on afterward
+// (see CliampContent.qml's own header for why this plugin keeps its
+// own favorite layer instead of cliamp's native one).
+function bucketCatalog(playlists) {
   var seen = {}
-  var favorites = []
-  var stations = []
+  var out = []
   var list = playlists || []
   for (var i = 0; i < list.length; i++) {
     var p = list[i]
     var name = stripStar(p.name)
     if (seen[name]) continue
     seen[name] = true
-    var favorite = !!p.favorite || String(p.name || "").indexOf("★") === 0
-    var row = {
+    out.push({
       providerId: "cliamp-station",
       stationId: p.id,
       label: stripCountry(name),
@@ -55,22 +56,16 @@ function bucketCatalog(playlists, accentColor) {
       // ThemeCatalog.js's own rows already use for the identical
       // reason.
       breadcrumb: "",
-      kind: "",
-      icon: favorite ? "" : "",
-      iconColor: favorite ? accentColor : "",
-      favorite: favorite,
-      favoritable: !!p.favoritable,
-      sectionLabel: favorite ? "Favorites" : "Stations"
-    }
-    if (favorite) favorites.push(row)
-    else stations.push(row)
+      kind: ""
+    })
   }
-  return favorites.concat(stations)
+  return out
 }
 
-// provider.search results are raw tracks (title/path), not catalog
-// playlist ids -- cliamp has no "favorite a search hit" operation, so
-// these rows are play-only (track.play, see CliampContent.qml).
+// provider.search results are raw tracks (title/path only, no id of
+// any kind -- confirmed live). Same no-favorite-concept-of-its-own
+// shape as bucketCatalog above; CliampFavorites.applyFavoriteState
+// layers favorite/lastPlayedAt/icon on both the same way.
 function searchRows(tracks) {
   var list = tracks || []
   var out = []
@@ -84,10 +79,7 @@ function searchRows(tracks) {
       label: stripCountry(fullName),
       fullName: fullName,
       breadcrumb: "",
-      kind: "",
-      icon: "",
-      favoritable: false,
-      sectionLabel: "Search Results"
+      kind: ""
     })
   }
   return out

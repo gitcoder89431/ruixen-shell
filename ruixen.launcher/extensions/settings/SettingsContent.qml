@@ -1973,7 +1973,11 @@ Item {
         kind: "",
         providerName: "",
         score: 0,
-        sectionLabel: "Categories"
+        // "Categories" -> "System" -- direct correction after floating a
+        // User/System split: every category here really is a system
+        // settings page, so one relabeled header reads right without
+        // the extra grouping work.
+        sectionLabel: "System"
       })
     }
     return rows
@@ -2825,6 +2829,12 @@ Item {
   ResultsList {
     parent: panel.leftPane
     anchors.fill: parent
+    // 4px top breathing room -- direct follow-up ("i guess we can space
+    // some space?"), the header sat flush against the pane's own top
+    // edge with zero gap. Same 4px the main landing resultsList already
+    // uses below its own filtersBar (see its own comment: enough to read
+    // as deliberate without reading as too much empty space).
+    anchors.topMargin: 4
     model: root.sectionRows
     // Icon+label only, no meta/kind/keybind columns -- the exact same
     // reduced row Search Files itself renders through this same flag,

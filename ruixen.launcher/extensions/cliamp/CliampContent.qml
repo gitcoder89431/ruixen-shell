@@ -108,6 +108,23 @@ Item {
   readonly property var selectedRow: root.rows[root.selectedIndex] || null
   readonly property int scrollOff: 2
   property var nowPlaying: null
+
+  // Direct report: "i point and focus on a row then switch to kbd but
+  // when i scroll up or down the page snaps back to the cursor focus
+  // row" -- a plain MouseArea.onEntered can't tell "the cursor moved
+  // onto this row" from "this row scrolled under a cursor that never
+  // moved", and ResultRow.qml's own hover signal fires identically
+  // either way. Already hit and fixed twice elsewhere in this plugin
+  // (Launcher.qml's own main results list, ThemeBrowserContent.qml's
+  // own copy of the identical fix) -- same mechanism here rather than
+  // inventing a third: onRowHovered below is a no-op until the
+  // HoverHandler observes the pointer at a genuinely different
+  // position than wherever it last rested, and every selectedIndex
+  // change (keyboard nav scrolling the list included) resets that
+  // baseline so the very next pointer reading after a scroll is
+  // treated as establishing a fresh rest position, not as movement.
+  property bool hoverArmed: false
+  property point hoverArmBaseline: Qt.point(-1, -1)
   // Captured at the moment playSelected() fires, not read back off
   // selectedRow once loadProc/trackPlayProc's onExited lands -- the
   // user can move the selection while that IPC round-trip is still in
@@ -303,6 +320,8 @@ Item {
   }
 
   onSelectedIndexChanged: {
+    root.hoverArmed = false
+    root.hoverArmBaseline = Qt.point(-1, -1)
     root.actionsMenuOpen = false
     root.ensureSelectionVisible()
   }
@@ -311,6 +330,8 @@ Item {
     if (root.active) {
       root.selectedIndex = 0
       root.notRunningAttempts = 0
+      root.hoverArmed = false
+      root.hoverArmBaseline = Qt.point(-1, -1)
       root.runSearch()
       root.refreshStatus()
       statusTimer.start()
@@ -492,11 +513,33 @@ Item {
     selectedIndex: root.selectedIndex
     rowHeightPx: 40
     sectionHeaderHeight: 26
-    onRowHovered: (idx) => root.selectedIndex = idx
+    onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
     onRowActivated: (idx) => { root.selectedIndex = idx; root.playSelected() }
     onRowActionsRequested: (idx) => {
       root.selectedIndex = idx
       root.openActionsMenu()
+    }
+
+    // Arms hoverArmed (see its own property comment above) on the
+    // first REAL pointer movement -- a passive input handler, not a
+    // MouseArea, so it observes pointer events over the whole list
+    // without stealing anything from each row's own MouseArea
+    // beneath it. The first onPointChanged after any reset is
+    // captured as a baseline instead of treated as movement, so a
+    // content-shift-under-a-still-cursor (this list scrolling itself
+    // under the keyboard above) is never mistaken for the user's
+    // hand actually moving.
+    HoverHandler {
+      onPointChanged: {
+        if (root.hoverArmed) return
+        if (root.hoverArmBaseline.x < 0) {
+          root.hoverArmBaseline = point.position
+          return
+        }
+        if (Math.abs(point.position.x - root.hoverArmBaseline.x) > 0.5
+            || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5)
+          root.hoverArmed = true
+      }
     }
   }
 

@@ -99,6 +99,11 @@ check "CliampContent reuses the Search Files action menu for Tab and right-click
 check "Favorite is always offered on Tab, catalog row or search hit alike -- no favoritable gate left" \
   "$(( $(grep -c 'id: "favorite", label: root.selectedRow.favorite' "$content_qml") + $(grep -c 'favoritable' "$content_qml") ))" "1"
 
+check "CliampContent guards mouse hover against keyboard-nav scroll snapback -- direct report: pointing/focusing a row, switching to keyboard, then scrolling snapped selection back to whatever row ended up under the still cursor" \
+  "$(( $(grep -c 'property bool hoverArmed: false' "$content_qml") + $(grep -c 'property point hoverArmBaseline: Qt.point(-1, -1)' "$content_qml") + $(grep -c 'if (root.hoverArmed) root.selectedIndex = idx' "$content_qml") + $(grep -c 'HoverHandler {' "$content_qml") ))" "4"
+check "hoverArmed resets on every selectedIndex change AND on (re)open, same as Launcher.qml/ThemeBrowserContent.qml's own copies of this fix" \
+  "$(( $(grep -c 'root.hoverArmed = false' "$content_qml") + $(grep -c 'root.hoverArmBaseline = Qt.point(-1, -1)' "$content_qml") ))" "4"
+
 check "CliampStations dedupes a catalog entry that appears as both its favorite and plain id" \
   "$(grep -c 'if (seen\[name\]) continue' "$model_js")" "1"
 check "CliampStations strips cliamp's own star prefix before using it as a plain label" \

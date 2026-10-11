@@ -221,13 +221,19 @@ check "CliampContent exposes a preset list and a setEqPreset() that drives cliam
 check "eqPresets carries all 15 of cliamp's own real presets, not a curated subset" \
   "$(( $(grep -c '"Flat", "Rock", "Pop", "Jazz", "Classical", "Vocal"' "$content_qml") + $(grep -c '"Electronic", "Acoustic", "Loudness", "Bass Boost", "Treble Boost", "Podcast", "R&B"' "$content_qml") + $(grep -c '"Hip-Hop", "Small Speakers"' "$content_qml") ))" "3"
 check "CliampStationPanel draws the EQ chips after Now Playing, not inside it" \
-  "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Equalizer"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
+  "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'id: eqColumn' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
 check "CliampStationPanel draws the EQ chips before Metadata, not inside it" \
-  "$(( $(grep -n 'text: "Equalizer"' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
+  "$(( $(grep -n 'id: eqColumn' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
+check "EQ section has no standalone label row anymore (removed for a cleaner, more-centered chip block)" \
+  "$(grep -c 'text: "Equalizer"' "$station_panel_qml")" "0"
 check "EQ chip highlights the currently active preset and reports a tap back up via a signal, same split as every other piece of state in this panel" \
   "$(( $(grep -c 'readonly property bool isActive: root.eqPreset === modelData' "$station_panel_qml") + $(grep -c 'signal eqPresetSelected(string name)' "$station_panel_qml") + $(grep -c 'onClicked: root.eqPresetSelected(eqChip.modelData)' "$station_panel_qml") ))" "3"
 check "CliampContent wires the panel's EQ signal back to setEqPreset" \
   "$(grep -c 'onEqPresetSelected: (name) => root.setEqPreset(name)' "$content_qml")" "1"
+check "EQ chips are packed into rows by real measured text width (FontMetrics), not a plain left-aligned Flow" \
+  "$(( $(grep -c 'function packEqRows' "$station_panel_qml") + $(grep -c 'id: eqFontMetrics' "$station_panel_qml") + $(grep -c 'eqFontMetrics.advanceWidth' "$station_panel_qml") + $(grep -c 'root.packEqRows(root.eqPresets, eqColumn.width)' "$station_panel_qml") ))" "4"
+check "Each packed EQ row centers itself, so a short last row doesn't sit flush-left with a ragged gap" \
+  "$(grep -A2 'id: eqChipRow' "$station_panel_qml" | grep -c 'anchors.horizontalCenter: parent.horizontalCenter')" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

@@ -48,6 +48,38 @@ Item {
   readonly property string eqPreset: root.nowPlaying ? (root.nowPlaying.eqPreset || "Flat") : "Flat"
   signal eqPresetSelected(string name)
 
+  // Packs the preset list into center-able rows instead of leaving it
+  // to a plain Flow -- direct follow-up once all 15 shipped: "center
+  // these chips so they line up better" (a Flow always left-aligns
+  // every row, which reads fine for a full row but leaves a short
+  // last row sitting flush-left with a big ragged gap on the right).
+  // eqFontMetrics (declared alongside the chip delegates below, same
+  // font/pixelSize as their own label Text) gives the real measured
+  // width per label -- this plugin's own fontFamily is monospace, but
+  // measuring directly instead of estimating by character count is
+  // both just as cheap and genuinely exact, not an approximation that
+  // could drift from what actually renders.
+  function packEqRows(presets, maxWidth) {
+    var rows = []
+    var current = []
+    var currentWidth = 0
+    var spacing = 6
+    for (var i = 0; i < presets.length; i++) {
+      var chipWidth = eqFontMetrics.advanceWidth(presets[i]) + 20
+      var neededWidth = current.length === 0 ? chipWidth : currentWidth + spacing + chipWidth
+      if (current.length > 0 && neededWidth > maxWidth) {
+        rows.push(current)
+        current = [presets[i]]
+        currentWidth = chipWidth
+      } else {
+        current.push(presets[i])
+        currentWidth = neededWidth
+      }
+    }
+    if (current.length > 0) rows.push(current)
+    return rows
+  }
+
   // fullName, not label -- the list row's own label has the country
   // suffix already stripped for a tighter list (direct follow-up), but
   // this panel still shows Country as its own field, so it needs the
@@ -356,56 +388,63 @@ Item {
     // reasoning Now Playing's own header comment gives. All 15 of
     // cliamp's own real presets, not a curated subset -- direct
     // follow-up once a first pass shipped six: "we do have space...
-    // theres alot of empty space on the panel anyways". A Flow, not a
-    // fixed-width Row, so the extra chips just wrap onto more lines
-    // instead of needing any layout change here. Same chip look as
-    // ClipboardContent.qml's own Type/Sort row (24px
-    // pills, accent-tinted when active) -- direct follow-up for
-    // visual consistency across the plugin's own extensions.
+    // theres alot of empty space on the panel anyways". No "Equalizer"
+    // label and each row of chips centered rather than left-flush --
+    // direct follow-up once all 15 shipped: "remove the equalizer
+    // text row and then center these chips so they line up better"
+    // (see packEqRows' own comment above for why a plain Flow couldn't
+    // do this on its own). Same chip look as ClipboardContent.qml's
+    // own Type/Sort row (24px pills, accent-tinted when active) --
+    // direct follow-up for visual consistency across the plugin's own
+    // extensions.
     Column {
+      id: eqColumn
       width: parent.width
-      spacing: 8
+      spacing: 6
 
-      Text {
-        text: "Equalizer"
-        color: root.muted
+      FontMetrics {
+        id: eqFontMetrics
         font.family: root.fontFamily
-        font.pixelSize: 10
-        font.capitalization: Font.AllUppercase
-        font.bold: true
+        font.pixelSize: 11
       }
 
-      Flow {
-        width: parent.width
-        spacing: 6
+      Repeater {
+        model: root.packEqRows(root.eqPresets, eqColumn.width)
 
-        Repeater {
-          model: root.eqPresets
+        Row {
+          id: eqChipRow
+          required property var modelData
+          anchors.horizontalCenter: parent.horizontalCenter
+          spacing: 6
 
-          Rectangle {
-            id: eqChip
-            required property string modelData
-            readonly property bool isActive: root.eqPreset === modelData
-            width: eqChipLabel.implicitWidth + 20
-            height: 24
-            radius: 6
-            color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
-            border.width: 1
-            border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+          Repeater {
+            model: eqChipRow.modelData
 
-            Text {
-              id: eqChipLabel
-              anchors.centerIn: parent
-              text: eqChip.modelData
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
+            Rectangle {
+              id: eqChip
+              required property string modelData
+              readonly property bool isActive: root.eqPreset === modelData
+              width: eqChipLabel.implicitWidth + 20
+              height: 24
+              radius: 6
+              color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+              border.width: 1
+              border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
 
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.eqPresetSelected(eqChip.modelData)
+              Text {
+                id: eqChipLabel
+                anchors.centerIn: parent
+                text: eqChip.modelData
+                color: root.textColor
+                font.family: root.fontFamily
+                font.pixelSize: 11
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.eqPresetSelected(eqChip.modelData)
+              }
             }
           }
         }

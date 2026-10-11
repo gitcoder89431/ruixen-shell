@@ -21,7 +21,11 @@ Item {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
 
-  readonly property var meta: root.selectedRow ? CliampStations.parseStationMeta(root.selectedRow.label) : null
+  // fullName, not label -- the list row's own label has the country
+  // suffix already stripped for a tighter list (direct follow-up), but
+  // this panel still shows Country as its own field, so it needs the
+  // untrimmed name to parse that back out of.
+  readonly property var meta: root.selectedRow ? CliampStations.parseStationMeta(root.selectedRow.fullName || root.selectedRow.label) : null
   readonly property bool playing: root.nowPlaying && root.nowPlaying.state === "playing"
   readonly property bool hasNowPlaying: !!(root.nowPlaying && (root.nowPlaying.title || root.nowPlaying.station))
 

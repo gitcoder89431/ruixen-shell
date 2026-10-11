@@ -80,6 +80,8 @@ check "CliampContent only auto-starts/bails on a genuine not-running signal, not
 check "A transient job failure (e.g. a network timeout) never flips cliampRunning false while connected" \
   "$(grep -c 'root.cliampRunning = parsed.ok' "$content_qml")" "0"
 
+check "CliampContent uses the same panel split ratio as every other 2-panel extension" \
+  "$(grep -c 'detailRatio: 0.6' "$content_qml")" "1"
 check "CliampContent uses compact icon+name rows, with no subtitle/kind columns" \
   "$(grep -c 'filesMode: true' "$content_qml")" "1"
 check "CliampContent reuses the Search Files action menu for Tab and right-click row actions" \
@@ -93,6 +95,10 @@ check "CliampStations treats a plain-text job failure the same as a JSON one" \
   "$(grep -c 'function parseJobResult' "$model_js")" "1"
 check "CliampStations parses country/bitrate back out of a station's own name, not invented fields" \
   "$(grep -c 'function parseStationMeta' "$model_js")" "1"
+check "CliampStations strips the country suffix from list row labels, keeping the full name for the right panel" \
+  "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "8"
+check "CliampStationPanel parses station meta from the row's untrimmed fullName, not the list's stripped label" \
+  "$(grep -c 'parseStationMeta(root.selectedRow.fullName' "$station_panel_qml")" "1"
 check "CliampStationPanel is a dumb display+signal component, no Process of its own" \
   "$(grep -c '^import Quickshell.Io' "$station_panel_qml")" "0"
 check "CliampStationPanel has no transport controls -- it shows station info, not a controller" \

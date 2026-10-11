@@ -372,7 +372,10 @@ Item {
   ExtensionTwoPanel {
     id: panel
     anchors.fill: parent
-    detailRatio: 0.42
+    // Same 0.6 every other 2-panel extension in this plugin uses
+    // (Clipboard, Search Files) -- direct follow-up: the narrower
+    // split this extension started with read as inconsistent.
+    detailRatio: 0.6
   }
 
   ResultsList {

@@ -13,6 +13,18 @@ function stripStar(name) {
   return s.indexOf("★ ") === 0 ? s.slice(2) : s
 }
 
+// Drops the " · <Country>" suffix cliamp's own catalog/search names
+// carry -- direct follow-up: the list row should read as station name
+// + bitrate only ("MANGORADIO [128k]"), country stays available in the
+// right panel's own dedicated field (see CliampStationPanel.qml, which
+// parses it back out of a row's own fullName) instead of cluttering
+// every row in a compact list.
+function stripCountry(name) {
+  var s = String(name || "")
+  var dotIdx = s.lastIndexOf(" · ")
+  return dotIdx >= 0 ? s.slice(0, dotIdx) : s
+}
+
 // provider.catalog (radio) returns the curated station list PLUS a
 // duplicate "f:<n>" entry for every favorited station already present
 // under its own "c:<n>" id -- both carry the same starred name. Kept to
@@ -33,7 +45,8 @@ function bucketCatalog(playlists, accentColor) {
     var row = {
       providerId: "cliamp-station",
       stationId: p.id,
-      label: name,
+      label: stripCountry(name),
+      fullName: name,
       // breadcrumb/kind stay "" rather than undefined -- filesMode:
       // true hides both in ResultRow, but their own text bindings
       // still evaluate regardless of visible, and ResultRow.qml
@@ -63,11 +76,13 @@ function searchRows(tracks) {
   var out = []
   for (var i = 0; i < list.length; i++) {
     var t = list[i]
+    var fullName = t.title || t.path || "Unknown station"
     out.push({
       providerId: "cliamp-track",
       trackTitle: t.title || "",
       trackPath: t.path || "",
-      label: t.title || t.path || "Unknown station",
+      label: stripCountry(fullName),
+      fullName: fullName,
       breadcrumb: "",
       kind: "",
       icon: "",

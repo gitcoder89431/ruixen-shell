@@ -64,6 +64,8 @@ check "CliampContent toggles favorites through the local JSON layer, for any row
   "$(( $(grep -c 'function toggleFavoriteSelected' "$content_qml") + $(grep -c 'CliampFavorites.toggleFavorite' "$content_qml") + $(grep -A4 'function toggleFavoriteSelected' "$content_qml" | grep -c 'favoritesFile.setText') ))" "3"
 check "CliampContent records a last-played timestamp only on a genuine successful play" \
   "$(grep -c 'CliampFavorites.recordPlayed' "$content_qml")" "2"
+check "CliampContent threads a search hit's real stream path through to both toggle and recordPlayed" \
+  "$(( $(grep -c 'property string lastPlayAttemptPath' "$content_qml") + $(grep -c 'root.lastPlayAttemptPath = row.trackPath' "$content_qml") + $(grep -c 'CliampFavorites.toggleFavorite(root.favoriteStats, row.fullName, row.trackPath' "$content_qml") + $(grep -c 'CliampFavorites.recordPlayed(root.favoriteStats, root.lastPlayAttemptName, root.lastPlayAttemptPath)' "$content_qml") ))" "5"
 check "CliampContent persists favorites to its own state file, mkdir -p'd first like every other Ruixen local store" \
   "$(( $(grep -c 'favoritesStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/cliamp-favorites.json"' "$content_qml") + $(grep -c 'id: ensureFavoritesDirProc' "$content_qml") + $(grep -c 'id: favoritesFile' "$content_qml") ))" "3"
 check "CliampContent reads live status for the read-only Now Playing line" \
@@ -114,9 +116,11 @@ check "CliampFavorites keys by station name, not a catalog id or URL -- the only
 check "CliampFavorites mutates immutably, same Object.assign convention LauncherFrecency.js already uses" \
   "$(( $(grep -c 'function toggleFavorite' "$favorites_js") + $(grep -c 'function recordPlayed' "$favorites_js") + $(grep -c 'Object.assign({}' "$favorites_js") ))" "5"
 check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped rows, splitting catalog into Top Stations/Stations but leaving search as one section" \
-  "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Top Stations"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "9"
+  "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Top Stations"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "12"
 check "Favorites surface on the all-station landing as a Top Stations group at the top, conditional on there being any" \
   "$(( $(grep -c 'favorites.push(next)' "$favorites_js") + $(grep -c 'favorites.concat(rest)' "$favorites_js") ))" "2"
+check "A favorite missing from this catalog fetch (e.g. search-only, never in cliamp's own curated catalog at all) is still synthesized into Top Stations, playable via its own stored stream path" \
+  "$(( $(grep -c 'seenFavoriteKeys' "$favorites_js") + $(grep -c 'trackPath: stats\[key\].trackPath' "$favorites_js") + $(grep -c 'favorites.push({' "$favorites_js") ))" "5"
 check "CliampFavorites formats a coarse relative last-played time" \
   "$(grep -c 'function formatLastPlayed' "$favorites_js")" "1"
 

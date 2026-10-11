@@ -103,8 +103,13 @@ Item {
   // user can move the selection while that IPC round-trip is still in
   // flight, and recordPlayed must mark the station that was actually
   // asked to play, not whatever happens to be selected by the time the
-  // response comes back.
+  // response comes back. lastPlayAttemptPath is "" for a catalog row
+  // (it only has a stationId) and the real stream URL for a search
+  // hit -- that URL is what lets a search-only favorite (CliampFavorites.
+  // applyFavoriteState's own synthesized Top Stations row) actually be
+  // played back later, not just show a star with nothing behind it.
   property string lastPlayAttemptName: ""
+  property string lastPlayAttemptPath: ""
 
   // Our own local favorite/last-played layer -- see this file's own
   // header above for why it replaces cliamp's native favorite system
@@ -194,6 +199,7 @@ Item {
     if (!root.selectedRow) return
     var row = root.selectedRow
     root.lastPlayAttemptName = row.fullName
+    root.lastPlayAttemptPath = row.trackPath || ""
     if (row.providerId === "cliamp-track") {
       trackPlayProc.exec(["cliamp", "remote", "call", "track.play", "--params",
         JSON.stringify({ track: { title: row.trackTitle, path: row.trackPath, stream: true, realtime: true } }), "--wait"])
@@ -209,7 +215,7 @@ Item {
   function toggleFavoriteSelected() {
     var row = root.selectedRow
     if (!row) return
-    root.favoriteStats = CliampFavorites.toggleFavorite(root.favoriteStats, row.fullName)
+    root.favoriteStats = CliampFavorites.toggleFavorite(root.favoriteStats, row.fullName, row.trackPath || "")
     favoritesFile.setText(JSON.stringify(root.favoriteStats))
   }
 
@@ -394,7 +400,7 @@ Item {
       var parsed = CliampStations.parseJobResult(loadStdout.text, loadStderr.text)
       if (parsed.ok) {
         root.cliampRunning = true
-        root.favoriteStats = CliampFavorites.recordPlayed(root.favoriteStats, root.lastPlayAttemptName)
+        root.favoriteStats = CliampFavorites.recordPlayed(root.favoriteStats, root.lastPlayAttemptName, root.lastPlayAttemptPath)
         favoritesFile.setText(JSON.stringify(root.favoriteStats))
       } else if (parsed.notRunning) {
         root.cliampRunning = false
@@ -411,7 +417,7 @@ Item {
       var parsed = CliampStations.parseJobResult(trackPlayStdout.text, trackPlayStderr.text)
       if (parsed.ok) {
         root.cliampRunning = true
-        root.favoriteStats = CliampFavorites.recordPlayed(root.favoriteStats, root.lastPlayAttemptName)
+        root.favoriteStats = CliampFavorites.recordPlayed(root.favoriteStats, root.lastPlayAttemptName, root.lastPlayAttemptPath)
         favoritesFile.setText(JSON.stringify(root.favoriteStats))
       } else if (parsed.notRunning) {
         root.cliampRunning = false

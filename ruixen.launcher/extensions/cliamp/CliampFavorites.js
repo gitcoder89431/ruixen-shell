@@ -43,21 +43,38 @@ function lastPlayedAt(stats, name) {
   return (entry && entry.lastPlayedAt) || 0
 }
 
-function toggleFavorite(stats, name) {
+// trackPath, when the caller has one (a search-hit row always does,
+// a catalog row never does -- it only has a stationId, which isn't
+// stable enough across daemon restarts to store), is kept so a
+// favorite that only ever exists via search can still be synthesized
+// into a playable row later (see applyFavoriteState below) -- direct
+// report: favorited "Nightride FM - Datawave" (search-only, cliamp's
+// own curated catalog never carries it at all, confirmed live) never
+// showed up in Top Stations, because there was no catalog row for it
+// to attach to and nothing to play it back with if there had been.
+function toggleFavorite(stats, name, trackPath) {
   var key = favoriteKey(name)
   if (key === "") return stats
   var next = Object.assign({}, stats)
-  var prev = next[key] || { favorite: false, lastPlayedAt: 0 }
-  next[key] = { favorite: !prev.favorite, lastPlayedAt: prev.lastPlayedAt || 0 }
+  var prev = next[key] || { favorite: false, lastPlayedAt: 0, trackPath: "" }
+  next[key] = {
+    favorite: !prev.favorite,
+    lastPlayedAt: prev.lastPlayedAt || 0,
+    trackPath: trackPath || prev.trackPath || ""
+  }
   return next
 }
 
-function recordPlayed(stats, name) {
+function recordPlayed(stats, name, trackPath) {
   var key = favoriteKey(name)
   if (key === "") return stats
   var next = Object.assign({}, stats)
-  var prev = next[key] || { favorite: false, lastPlayedAt: 0 }
-  next[key] = { favorite: prev.favorite || false, lastPlayedAt: Date.now() }
+  var prev = next[key] || { favorite: false, lastPlayedAt: 0, trackPath: "" }
+  next[key] = {
+    favorite: prev.favorite || false,
+    lastPlayedAt: Date.now(),
+    trackPath: trackPath || prev.trackPath || ""
+  }
   return next
 }
 
@@ -69,20 +86,20 @@ function recordPlayed(stats, name) {
 // "Stations") whenever there's at least one favorite -- direct
 // follow-up: "can you make the my favorite one show up on the all
 // station landing at the top... if theres any then it can show up as
-// top stations". Naturally conditional already: with zero favorites
-// the favorites array below stays empty and no such group ever
-// appears, nothing extra to gate. Search rows stay one "Search
-// Results" section (a favorited hit splitting into its own section
-// there would just fragment a single query's results for little
-// benefit), the star icon is the only visible difference.
+// top stations". Search rows stay one "Search Results" section (a
+// favorited hit splitting into its own section there would just
+// fragment a single query's results for little benefit), the star
+// icon is the only visible difference.
 function applyFavoriteState(rows, stats, accentColor, searchMode) {
   var list = rows || []
   var favorites = []
   var rest = []
   var out = []
+  var seenFavoriteKeys = {}
   for (var i = 0; i < list.length; i++) {
     var row = list[i]
     var favorite = isFavorite(stats, row.fullName)
+    if (favorite) seenFavoriteKeys[favoriteKey(row.fullName)] = true
     var next = Object.assign({}, row, {
       favorite: favorite,
       lastPlayedAt: lastPlayedAt(stats, row.fullName),
@@ -100,6 +117,36 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
       rest.push(next)
     }
   }
+
+  // A favorite that never showed up in this catalog fetch at all --
+  // direct report: favoriting a search-only station (cliamp's own
+  // curated catalog never carries it, confirmed live) "shows the
+  // favorite icon but not showing up on radio home top list", since
+  // there was no catalog row for it to attach favorite state to.
+  // Synthesized here instead, straight from what favoriting/playing it
+  // already recorded -- same track.play path playSelected() already
+  // uses for any other search-hit row, so it's genuinely playable
+  // from Top Stations, not just a dead entry with a star on it.
+  if (!searchMode) {
+    for (var key in stats) {
+      if (!stats[key] || !stats[key].favorite || seenFavoriteKeys[key]) continue
+      favorites.push({
+        providerId: "cliamp-track",
+        trackTitle: key,
+        trackPath: stats[key].trackPath || "",
+        label: key,
+        fullName: key,
+        breadcrumb: "",
+        kind: "",
+        favorite: true,
+        lastPlayedAt: stats[key].lastPlayedAt || 0,
+        icon: "",
+        iconColor: accentColor,
+        sectionLabel: "Top Stations"
+      })
+    }
+  }
+
   return searchMode ? out : favorites.concat(rest)
 }
 // "Just now" / "5m ago" / "3h ago" / "2d ago", a plain date past a

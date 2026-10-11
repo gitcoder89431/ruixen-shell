@@ -172,73 +172,31 @@ Item {
           width: parent.width - monogramTile.width - parent.spacing
           spacing: 4
 
-          // Badge + elapsed clock now live ON the title line itself,
-          // not a row of their own above it -- direct report: "kinda
+          // Badge + elapsed clock live ON the title line itself, not a
+          // row of their own above it -- direct report: "kinda
           // jumpy... dont want a new row to come in and out". That
           // row's own visible: hasNowPlaying meant the card gained or
           // lost an entire line (and resized) every time playback
           // started/stopped/paused. One fixed-height line now, always
           // present, with the title truncating to make room instead.
+          //
+          // Badge/clock sit right-aligned in their own group rather
+          // than leading the line -- direct follow-up: having them
+          // come first read as backwards, since the station name is
+          // the actual headline here. Row (not manual anchor-chaining)
+          // for the group since Row already skips invisible children
+          // when sizing itself, so liveBadge/pausedLabel swapping
+          // in and out never leaves a gap for elapsedLabel to chase.
           Item {
             id: titleRow
             width: parent.width
-            height: titleText.implicitHeight
+            height: Math.max(titleText.implicitHeight, liveGroup.implicitHeight)
 
-            Rectangle {
-              id: liveBadge
-              visible: root.playing
-              anchors.left: parent.left
-              anchors.verticalCenter: parent.verticalCenter
-              width: liveLabel.implicitWidth + 10
-              height: 15
-              radius: 7.5
-              color: root.accent
-              Text {
-                id: liveLabel
-                anchors.centerIn: parent
-                text: "LIVE"
-                color: "#000000"
-                font.family: root.fontFamily
-                font.pixelSize: 9
-                font.bold: true
-              }
-            }
-            Text {
-              id: pausedLabel
-              visible: root.hasNowPlaying && !root.playing
-              anchors.left: parent.left
-              anchors.verticalCenter: parent.verticalCenter
-              text: "PAUSED"
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: 9
-              font.bold: true
-            }
-            Text {
-              id: elapsedLabel
-              // Only ever visible alongside whichever of the two badges
-              // above is actually showing, so anchoring off "whichever
-              // one is live" (keyed on the same root.playing) never
-              // chases an invisible sibling's leftover geometry.
-              visible: root.hasNowPlaying
-              anchors.left: root.playing ? liveBadge.right : pausedLabel.right
-              anchors.leftMargin: 6
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.elapsedText
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: 10
-            }
             Text {
               id: titleText
-              // Falls back to parent.left (not elapsedLabel.right) when
-              // nothing's playing -- elapsedLabel is invisible then, so
-              // anchoring off it anyway would still be harmless, but
-              // this reads as the honest reason rather than a quirk of
-              // invisible-item geometry.
-              anchors.left: root.hasNowPlaying ? elapsedLabel.right : parent.left
-              anchors.leftMargin: root.hasNowPlaying ? 8 : 0
-              anchors.right: parent.right
+              anchors.left: parent.left
+              anchors.right: liveGroup.left
+              anchors.rightMargin: root.hasNowPlaying ? 8 : 0
               anchors.verticalCenter: parent.verticalCenter
               elide: Text.ElideRight
               maximumLineCount: 1
@@ -247,6 +205,50 @@ Item {
               font.family: root.fontFamily
               font.pixelSize: 14
               font.weight: Font.DemiBold
+            }
+
+            Row {
+              id: liveGroup
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: 6
+
+              Rectangle {
+                id: liveBadge
+                visible: root.playing
+                width: liveLabel.implicitWidth + 10
+                height: 15
+                radius: 7.5
+                color: root.accent
+                Text {
+                  id: liveLabel
+                  anchors.centerIn: parent
+                  text: "LIVE"
+                  color: "#000000"
+                  font.family: root.fontFamily
+                  font.pixelSize: 9
+                  font.bold: true
+                }
+              }
+              Text {
+                id: pausedLabel
+                visible: root.hasNowPlaying && !root.playing
+                anchors.verticalCenter: parent.verticalCenter
+                text: "PAUSED"
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 9
+                font.bold: true
+              }
+              Text {
+                id: elapsedLabel
+                visible: root.hasNowPlaying
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.elapsedText
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: 10
+              }
             }
           }
 

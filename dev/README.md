@@ -82,6 +82,10 @@ The full checklist, with the incidents behind each item, is `AGENTS.md` §8.
 
 ## Compatibility
 
+Wallpaper implementation lessons are documented in
+[`WALLPAPER-LESSONS.md`](WALLPAPER-LESSONS.md), with verification evidence in
+[`WALLPAPER-AUDIT.md`](WALLPAPER-AUDIT.md).
+
 [`COMPATIBILITY.md`](../COMPATIBILITY.md) is the ledger of which Omarchy and
 Quickshell versions have actually been reviewed. Don't bump its reviewed
 versions until that version has really been reviewed; a bump is a claim of

@@ -154,6 +154,37 @@ identity, not position; an entry that has changed or vanished since it was
 drawn is left alone. Deleting an image also removes its file from
 `clipboard-images` if no other entry uses it.
 
+## Cliamp Radio
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"cliamp"}'` — see [`docs/KEYBINDS.md`](KEYBINDS.md)) that
+browses and plays Omarchy's bundled `cliamp` radio directory from a list
+instead of its own TUI. Talks to the real `cliamp` daemon over its own
+IPC socket (starting one headlessly on first use if none is running) —
+no second radio backend.
+
+- Leave the search box empty for the curated station catalog (any
+  favorited station sorts to the top); type to search the worldwide
+  station directory by name instead.
+- **Enter** or click a row to play it.
+- **Tab** or right-click opens a row's actions: **Play**, and
+  **Favorite**/**Unfavorite** for catalog rows (search hits aren't
+  favoritable — cliamp has no such operation for a raw search result).
+- The right-hand panel shows what's currently playing with its own
+  transport controls (play/pause, stop, next, prev, volume), independent
+  of whichever row is selected on the left.
+
+| Key | Action |
+| --- | --- |
+| `Alt+P` | Play / pause |
+| `Alt+N` | Next |
+| `Alt+B` | Previous |
+| `Alt+S` | Stop |
+
+Radio is the only cliamp provider this extension drives today — your
+own library, playlists, and the other streaming providers cliamp
+supports stay in cliamp's own TUI for now.
+
 ## Configuring search locations
 
 By default, Search Files walks your home directory plus every

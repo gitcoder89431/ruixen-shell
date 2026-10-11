@@ -17,6 +17,7 @@ import "extensions/settings"
 import "extensions/wallpapers"
 import "extensions/theme-browser"
 import "extensions/clipboard"
+import "extensions/cliamp"
 import "search/LauncherHelpers.js" as LauncherHelpers
 import "search/FileSearchRanking.js" as FileSearchRanking
 import "search/LauncherQueryOperators.js" as LauncherQueryOperators
@@ -193,7 +194,7 @@ Item {
         // "wallpapers-extension" branches). Same value either way, so
         // this just forwards it rather than a separate if-branch per
         // extension.
-        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser" || payload.extension === "clipboard")) {
+        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser" || payload.extension === "clipboard" || payload.extension === "cliamp")) {
           root.suppressResizeAnimation = true
           root.activeExtensionId = payload.extension
           root.openedDirectlyToExtension = true
@@ -450,7 +451,8 @@ Item {
   readonly property Item activeExtensionContent: root.activeExtensionId === "wallpapers" ? wallpapersContent
     : root.activeExtensionId === "settings" ? settingsContent
     : root.activeExtensionId === "theme-browser" ? themeBrowserContent
-    : root.activeExtensionId === "clipboard" ? clipboardContent : null
+    : root.activeExtensionId === "clipboard" ? clipboardContent
+    : root.activeExtensionId === "cliamp" ? cliampContent : null
   // Suppresses the panel's own width/height resize Behaviors below --
   // set true for exactly one synchronous open() call that jumps
   // straight to an extension via payload, so the window's first paint
@@ -871,6 +873,25 @@ Item {
     }
   }
 
+  // fa-music -- fa-broadcast-tower (U+F519) was the first choice, but
+  // confirmed live as a broken/missing glyph in this font (same
+  // "confirmed live" process ThemeBrowserRow's own icon comment already
+  // documents for fa-palette) -- this is the same glyph
+  // CliampStations.js's own default station-row icon uses, so this
+  // landing row reads as the same feature once opened.
+  function cliampRow() {
+    return {
+      id: "extension:cliamp",
+      providerId: "cliamp-extension",
+      icon: "",
+      label: "Cliamp Radio",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      providerName: "",
+      score: 0
+    }
+  }
+
   // A single flat list, each row tagged with its own sectionLabel --
   // fed straight into ResultsList's own model, which draws the group
   // headers and keeps the list virtualized (real perf concern once
@@ -927,9 +948,10 @@ Item {
         "extension:wallpapers": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.wallpapers"), extNow),
         "extension:settings": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.settings"), extNow),
         "extension:theme-browser": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.theme-browser"), extNow),
-        "extension:clipboard": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.clipboard"), extNow)
+        "extension:clipboard": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.clipboard"), extNow),
+        "extension:cliamp": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.cliamp"), extNow)
       }
-      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow(), root.clipboardRow()]
+      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow(), root.clipboardRow(), root.cliampRow()]
       extRows.sort(function(a, b) { return extBoost[b.id] - extBoost[a.id] })
       var ext = tag(extRows, "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
@@ -1367,6 +1389,13 @@ Item {
       searchHeader.text = ""
       root.query = ""
       omarchyActionsProvider.recordLaunch("ruixen.clipboard")
+      return
+    }
+    if (result.providerId === "cliamp-extension") {
+      root.activeExtensionId = "cliamp"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.cliamp")
       return
     }
     // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
@@ -2279,6 +2308,27 @@ Item {
         visible: root.activeExtensionId === "clipboard"
         active: root.activeExtensionId === "clipboard"
         searchText: root.activeExtensionId === "clipboard" ? root.query : ""
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        glassTint: root.glassTint
+        glassBorder: root.glassBorder
+        fontFamily: root.fontFamily
+      }
+
+      CliampContent {
+        id: cliampContent
+        anchors.top: filtersBar.bottom
+        anchors.topMargin: 4
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        anchors.left: parent.left
+        anchors.leftMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        visible: root.activeExtensionId === "cliamp"
+        active: root.activeExtensionId === "cliamp"
+        searchText: root.activeExtensionId === "cliamp" ? root.query : ""
         textColor: root.textColor
         muted: root.muted
         accent: root.accent

@@ -58,14 +58,18 @@ check "clipboard-extension result clears searchHeader.text" \
   "$(grep -A2 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "1"
 check "clipboard-extension result clears root.query" \
   "$(grep -A3 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'root.query = ""')" "1"
+check "cliamp-extension result clears searchHeader.text" \
+  "$(grep -A2 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "1"
+check "cliamp-extension result clears root.query" \
+  "$(grep -A3 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'root.query = ""')" "1"
 
-# 7 total across the file: finishClosing()'s own pre-existing pair, the
-# 4 Settings/Wallpapers branches above, plus Theme Browser and Clipboard
-# (one branch each).
-check "searchHeader.text is cleared exactly 7 times total (finishClosing + the 6 extension jumps)" \
-  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "7"
-check "root.query is cleared exactly 7 times total (finishClosing + the 6 extension jumps)" \
-  "$(grep -c 'root.query = ""' "$launcher_qml")" "7"
+# 8 total across the file: finishClosing()'s own pre-existing pair, the
+# 4 Settings/Wallpapers branches above, plus Theme Browser, Clipboard,
+# and Cliamp (one branch each).
+check "searchHeader.text is cleared exactly 8 times total (finishClosing + the 7 extension jumps)" \
+  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "8"
+check "root.query is cleared exactly 8 times total (finishClosing + the 7 extension jumps)" \
+  "$(grep -c 'root.query = ""' "$launcher_qml")" "8"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

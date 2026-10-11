@@ -164,9 +164,11 @@ IPC socket (starting one headlessly on first use if none is running) —
 no second radio backend.
 
 - Leave the search box empty for the curated station catalog; any
-  favorited station groups into a **Top Stations** section at the top
-  (only appears once you have at least one). Type to search the
-  worldwide station directory by name instead.
+  favorited station groups into a **Favorites** section at the top
+  (only appears once you have at least one), including a station only
+  ever reachable via search and never in cliamp's own curated catalog
+  at all. Type to search the worldwide station directory by name
+  instead.
 - **Enter** or click a row to play it.
 - **Tab** or right-click opens a row's actions: **Play**, and
   **Favorite**/**Unfavorite** for every row, catalog or search hit

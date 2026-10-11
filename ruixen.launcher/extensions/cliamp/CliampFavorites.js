@@ -50,7 +50,7 @@ function lastPlayedAt(stats, name) {
 // into a playable row later (see applyFavoriteState below) -- direct
 // report: favorited "Nightride FM - Datawave" (search-only, cliamp's
 // own curated catalog never carries it at all, confirmed live) never
-// showed up in Top Stations, because there was no catalog row for it
+// showed up in Favorites, because there was no catalog row for it
 // to attach to and nothing to play it back with if there had been.
 function toggleFavorite(stats, name, trackPath) {
   var key = favoriteKey(name)
@@ -82,14 +82,14 @@ function recordPlayed(stats, name, trackPath) {
 // shaped (name/id/label fields, no favorite concept of its own) and
 // layers favorite/lastPlayedAt on top from OUR state, plus the
 // star-vs-note icon that used to come from cliamp's own p.favorite.
-// Catalog rows split into a "Top Stations" section (ahead of
+// Catalog rows split into a "Favorites" section (ahead of
 // "Stations") whenever there's at least one favorite -- direct
 // follow-up: "can you make the my favorite one show up on the all
-// station landing at the top... if theres any then it can show up as
-// top stations". Search rows stay one "Search Results" section (a
-// favorited hit splitting into its own section there would just
-// fragment a single query's results for little benefit), the star
-// icon is the only visible difference.
+// station landing at the top" (originally labeled "Top Stations",
+// renamed on a later direct follow-up). Search rows stay one "Search
+// Results" section (a favorited hit splitting into its own section
+// there would just fragment a single query's results for little
+// benefit), the star icon is the only visible difference.
 function applyFavoriteState(rows, stats, accentColor, searchMode) {
   var list = rows || []
   var favorites = []
@@ -110,7 +110,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
       next.sectionLabel = "Search Results"
       out.push(next)
     } else if (favorite) {
-      next.sectionLabel = "Top Stations"
+      next.sectionLabel = "Favorites"
       favorites.push(next)
     } else {
       next.sectionLabel = "Stations"
@@ -126,7 +126,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
   // Synthesized here instead, straight from what favoriting/playing it
   // already recorded -- same track.play path playSelected() already
   // uses for any other search-hit row, so it's genuinely playable
-  // from Top Stations, not just a dead entry with a star on it.
+  // from Favorites, not just a dead entry with a star on it.
   if (!searchMode) {
     for (var key in stats) {
       if (!stats[key] || !stats[key].favorite || seenFavoriteKeys[key]) continue
@@ -142,7 +142,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
         lastPlayedAt: stats[key].lastPlayedAt || 0,
         icon: "",
         iconColor: accentColor,
-        sectionLabel: "Top Stations"
+        sectionLabel: "Favorites"
       })
     }
   }

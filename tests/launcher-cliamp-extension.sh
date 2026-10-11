@@ -115,11 +115,11 @@ check "CliampFavorites keys by station name, not a catalog id or URL -- the only
   "$(( $(grep -c 'function favoriteKey' "$favorites_js") + $(grep -c 'function isFavorite' "$favorites_js") + $(grep -c 'function lastPlayedAt' "$favorites_js") ))" "3"
 check "CliampFavorites mutates immutably, same Object.assign convention LauncherFrecency.js already uses" \
   "$(( $(grep -c 'function toggleFavorite' "$favorites_js") + $(grep -c 'function recordPlayed' "$favorites_js") + $(grep -c 'Object.assign({}' "$favorites_js") ))" "5"
-check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped rows, splitting catalog into Top Stations/Stations but leaving search as one section" \
-  "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Top Stations"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "12"
-check "Favorites surface on the all-station landing as a Top Stations group at the top, conditional on there being any" \
+check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped rows, splitting catalog into Favorites/Stations but leaving search as one section" \
+  "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Favorites"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "11"
+check "Favorites surface on the all-station landing as a Favorites group at the top, conditional on there being any" \
   "$(( $(grep -c 'favorites.push(next)' "$favorites_js") + $(grep -c 'favorites.concat(rest)' "$favorites_js") ))" "2"
-check "A favorite missing from this catalog fetch (e.g. search-only, never in cliamp's own curated catalog at all) is still synthesized into Top Stations, playable via its own stored stream path" \
+check "A favorite missing from this catalog fetch (e.g. search-only, never in cliamp's own curated catalog at all) is still synthesized into Favorites, playable via its own stored stream path" \
   "$(( $(grep -c 'seenFavoriteKeys' "$favorites_js") + $(grep -c 'trackPath: stats\[key\].trackPath' "$favorites_js") + $(grep -c 'favorites.push({' "$favorites_js") ))" "5"
 check "CliampFavorites formats a coarse relative last-played time" \
   "$(grep -c 'function formatLastPlayed' "$favorites_js")" "1"

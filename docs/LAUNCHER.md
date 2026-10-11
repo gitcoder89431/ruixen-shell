@@ -170,16 +170,15 @@ no second radio backend.
 - **Tab** or right-click opens a row's actions: **Play**, and
   **Favorite**/**Unfavorite** for catalog rows (search hits aren't
   favoritable — cliamp has no such operation for a raw search result).
-- The right-hand panel shows what's currently playing with its own
-  transport controls (play/pause, stop, next, prev, volume), independent
-  of whichever row is selected on the left.
+- The right-hand panel shows details for whichever row is selected
+  (country/bitrate, parsed out of cliamp's own station name — it has no
+  separate fields or station art for these), plus a small read-only
+  "Now Playing" line for whatever's actually on air.
 
-| Key | Action |
-| --- | --- |
-| `Alt+P` | Play / pause |
-| `Alt+N` | Next |
-| `Alt+B` | Previous |
-| `Alt+S` | Stop |
+No transport controls here on purpose: cliamp exposes itself over MPRIS
+the moment it's running, so the notch's own media widget already
+plays/pauses/skips it like any other player — this extension's job is
+picking what plays, not a second set of buttons for controlling it.
 
 Radio is the only cliamp provider this extension drives today — your
 own library, playlists, and the other streaming providers cliamp

@@ -10,7 +10,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 launcher_qml="$repo_dir/ruixen.launcher/Launcher.qml"
 content_qml="$repo_dir/ruixen.launcher/extensions/cliamp/CliampContent.qml"
-now_playing_qml="$repo_dir/ruixen.launcher/extensions/cliamp/CliampNowPlaying.qml"
+station_panel_qml="$repo_dir/ruixen.launcher/extensions/cliamp/CliampStationPanel.qml"
 model_js="$repo_dir/ruixen.launcher/extensions/cliamp/CliampStations.js"
 
 pass=0
@@ -40,7 +40,7 @@ check "Launcher instantiates CliampContent" \
 check "CliampContent never shells out to a second radio backend" \
   "$(grep -Rhi 'mpv\|vlc\|mopidy\|radiobrowser' "$repo_dir/ruixen.launcher/extensions/cliamp" | wc -l)" "0"
 check "CliampContent drives cliamp exclusively via the cliamp binary" \
-  "$(grep -c '\["cliamp"' "$content_qml")" "9"
+  "$(grep -c '\["cliamp"' "$content_qml")" "7"
 check "CliampContent uses the v2 remote-call envelope, not raw socket writes" \
   "$(grep -c '"remote", "call"' "$content_qml")" "5"
 check "CliampContent fetches the radio catalog and falls back to it on empty search" \
@@ -55,10 +55,10 @@ check "CliampContent plays a raw search hit via track.play" \
   "$(grep -c '"track.play"' "$content_qml")" "1"
 check "CliampContent toggles favorites via provider.favorite, only for favoritable rows" \
   "$(( $(grep -c '"provider.favorite"' "$content_qml") + $(grep -c 'if (!row || !row.favoritable) return' "$content_qml") ))" "2"
-check "CliampContent reads live transport state via status --json" \
+check "CliampContent reads live status for the read-only Now Playing line" \
   "$(grep -c '"status", "--json"' "$content_qml")" "1"
-check "CliampContent drives transport via plain cliamp subcommands, not remote call" \
-  "$(grep -c 'transportProc.exec(\["cliamp", cmd\])' "$content_qml")" "1"
+check "CliampContent has no transport-control machinery -- the notch's MPRIS widget owns that" \
+  "$(( $(grep -c 'function sendTransport\|function adjustVolume\|transportProc' "$content_qml") + $(grep -c 'function handleShortcut' "$content_qml") ))" "0"
 check "CliampContent can cold-start a headless daemon on first use" \
   "$(grep -c 'execDetached(\["cliamp", "--daemon", "--no-auto-play"' "$content_qml")" "1"
 
@@ -66,10 +66,6 @@ check "CliampContent uses compact icon+name rows, with no subtitle/kind columns"
   "$(grep -c 'filesMode: true' "$content_qml")" "1"
 check "CliampContent reuses the Search Files action menu for Tab and right-click row actions" \
   "$(( $(grep -c 'ResultActionsMenu {' "$content_qml") + $(grep -c 'function focusRightPanel' "$content_qml") + $(grep -c 'onRowActionsRequested' "$content_qml") + $(grep -c 'function runStationAction' "$content_qml") ))" "4"
-check "CliampContent maps Alt+P/N/B/S transport shortcuts through handleShortcut" \
-  "$(grep -c 'function handleShortcut' "$content_qml")$(grep -c 'Qt.Key_[PNBS])' "$content_qml")" "14"
-check "Launcher forwards shortcuts to the active extension's handleShortcut" \
-  "$(grep -c 'handleShortcut' "$launcher_qml")" "4"
 
 check "CliampStations dedupes a catalog entry that appears as both its favorite and plain id" \
   "$(grep -c 'if (seen\[name\]) continue' "$model_js")" "1"
@@ -77,10 +73,16 @@ check "CliampStations strips cliamp's own star prefix before using it as a plain
   "$(grep -c 'function stripStar' "$model_js")" "1"
 check "CliampStations treats a plain-text job failure the same as a JSON one" \
   "$(grep -c 'function parseJobResult' "$model_js")" "1"
-check "CliampNowPlaying is a dumb display+signal component, no Process of its own" \
-  "$(grep -c '^import Quickshell.Io' "$now_playing_qml")" "0"
-check "CliampNowPlaying offers a start action while cliamp isn't running" \
-  "$(grep -c 'signal startRequested' "$now_playing_qml")" "1"
+check "CliampStations parses country/bitrate back out of a station's own name, not invented fields" \
+  "$(grep -c 'function parseStationMeta' "$model_js")" "1"
+check "CliampStationPanel is a dumb display+signal component, no Process of its own" \
+  "$(grep -c '^import Quickshell.Io' "$station_panel_qml")" "0"
+check "CliampStationPanel has no transport controls -- it shows station info, not a controller" \
+  "$(grep -c 'signal playPauseRequested\|signal stopRequested\|signal nextRequested\|signal prevRequested\|signal volumeDownRequested\|signal volumeUpRequested' "$station_panel_qml")" "0"
+check "CliampStationPanel offers a start action while cliamp isn't running" \
+  "$(grep -c 'signal startRequested' "$station_panel_qml")" "1"
+check "CliampStationPanel shows station info for the selected row" \
+  "$(grep -c 'selectedRow' "$station_panel_qml")" "9"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

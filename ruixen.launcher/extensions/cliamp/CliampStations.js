@@ -86,9 +86,14 @@ function parseJobResult(text) {
 }
 
 // `cliamp status --json` -- plain CLI, not the remote-call envelope.
-// Omits fields with no value (track/volume/position/index all missing
-// on a stopped, empty player), so every read here has its own default
-// rather than assuming the field exists.
+// Omits fields with no value (track/index/total all missing on a
+// stopped, empty player), so every read here has its own default
+// rather than assuming the field exists. Read-only status for the
+// right panel's "Now Playing" line -- the notch's own MPRIS-driven
+// media controls are the real transport surface (cliamp registers
+// org.mpris.MediaPlayer2.cliamp the moment it starts, confirmed live),
+// so this extension never needs play/pause/volume state, only what's
+// on air right now.
 function parseStatus(text) {
   try {
     var parsed = JSON.parse(String(text || ""))
@@ -98,12 +103,34 @@ function parseStatus(text) {
       state: parsed.state || "stopped",
       title: track ? (track.title || "") : "",
       artist: track ? (track.artist || "") : "",
-      station: track ? (track.station || "") : "",
-      volume: typeof parsed.volume === "number" ? parsed.volume : null,
-      index: typeof parsed.index === "number" ? parsed.index : -1,
-      total: typeof parsed.total === "number" ? parsed.total : 0
+      station: track ? (track.station || "") : ""
     }
   } catch (e) {
     return null
   }
+}
+
+// Cliamp's own IPC never returns station metadata as separate fields
+// (no bitrate/country/art -- confirmed live, including a direct check
+// of its MPRIS Metadata, which only ever carries trackid/title/url for
+// a radio stream). What's embedded in a catalog/search row's own name
+// string -- "MANGORADIO [128k] · Germany" -- is genuinely all
+// there is, so this just pulls it back apart for the right panel
+// instead of fabricating fields cliamp doesn't provide.
+function parseStationMeta(label) {
+  var raw = String(label || "")
+  var country = ""
+  var rest = raw
+  var dotIdx = raw.lastIndexOf(" · ")
+  if (dotIdx >= 0) {
+    country = raw.slice(dotIdx + 3)
+    rest = raw.slice(0, dotIdx)
+  }
+  var bitrate = ""
+  var bracket = rest.match(/\[(\d+k)\]/)
+  if (bracket) {
+    bitrate = bracket[1]
+    rest = (rest.slice(0, bracket.index) + rest.slice(bracket.index + bracket[0].length)).trim()
+  }
+  return { name: rest, country: country, bitrate: bitrate }
 }

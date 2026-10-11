@@ -6,10 +6,18 @@ import "CliampStations.js" as CliampStations
 
 // Browse/search/play Omarchy's bundled cliamp radio directory from the
 // launcher. All real state lives here (Process calls, catalog/search
-// rows, now-playing status) -- CliampNowPlaying.qml and the shared
+// rows, now-playing status) -- CliampStationPanel.qml and the shared
 // ResultsList/ExtensionTwoPanel/ResultActionsMenu just draw it, same
 // root-owns-state split every other extension in this plugin already
 // uses.
+//
+// No transport controls here on purpose -- direct follow-up: "we dont
+// need a controller... we have the notch to control the music
+// already". Cliamp registers org.mpris.MediaPlayer2.cliamp on D-Bus
+// the moment it starts (confirmed live), so the notch's existing
+// MPRIS-driven media widget already plays/pauses/skips it; this
+// extension's own job is picking WHAT plays, via provider.load/
+// track.play, not controlling it once it has.
 //
 // cliamp's own IPC (`cliamp remote call <op> --params '<json>' --wait`)
 // is a long-lived Unix-socket daemon, not a stateless CLI -- every
@@ -96,30 +104,6 @@ Item {
     if (id === "play") root.playSelected()
     else if (id === "favorite") root.toggleFavoriteSelected()
     root.closeActionsMenu()
-  }
-
-  // Alt+<key>, routed here by Launcher.qml's generic
-  // handleShortcut(key) hook -- transport controls, independent of
-  // whichever row is highlighted (the row-specific actions, Play and
-  // Favorite, live in the Tab/right-click actions menu instead, same
-  // split Clipboard draws between its own handleShortcut and menu).
-  function handleShortcut(key) {
-    if (key === Qt.Key_P) root.sendTransport(root.playing ? "pause" : "play")
-    else if (key === Qt.Key_N) root.sendTransport("next")
-    else if (key === Qt.Key_B) root.sendTransport("prev")
-    else if (key === Qt.Key_S) root.sendTransport("stop")
-  }
-
-  readonly property bool playing: root.nowPlaying && root.nowPlaying.state === "playing"
-
-  function sendTransport(cmd) {
-    transportProc.exec(["cliamp", cmd])
-  }
-
-  function adjustVolume(deltaDb) {
-    var current = root.nowPlaying && root.nowPlaying.volume !== null ? root.nowPlaying.volume : 0
-    var next = Math.max(-30, Math.min(6, current + deltaDb))
-    transportProc.exec(["cliamp", "volume", String(next)])
   }
 
   function moveSelectionUp() {
@@ -312,8 +296,6 @@ Item {
     onExited: function(exitCode) { if (exitCode !== 0) { root.nowPlaying = null; root.cliampRunning = false } }
   }
 
-  Process { id: transportProc; onExited: function() { root.refreshStatus() } }
-
   ExtensionTwoPanel {
     id: panel
     anchors.fill: parent
@@ -368,21 +350,16 @@ Item {
     onActionActivated: (id) => root.runStationAction(id)
   }
 
-  CliampNowPlaying {
+  CliampStationPanel {
     parent: panel.rightPane
     anchors.fill: parent
+    selectedRow: root.selectedRow
     nowPlaying: root.nowPlaying
     cliampRunning: root.cliampRunning
     textColor: root.textColor
     muted: root.muted
     accent: root.accent
     fontFamily: root.fontFamily
-    onPlayPauseRequested: root.sendTransport(root.playing ? "pause" : "play")
-    onStopRequested: root.sendTransport("stop")
-    onNextRequested: root.sendTransport("next")
-    onPrevRequested: root.sendTransport("prev")
-    onVolumeDownRequested: root.adjustVolume(-3)
-    onVolumeUpRequested: root.adjustVolume(3)
     onStartRequested: root.startCliamp()
   }
 }

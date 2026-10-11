@@ -13,6 +13,7 @@ content_qml="$repo_dir/ruixen.launcher/extensions/cliamp/CliampContent.qml"
 station_panel_qml="$repo_dir/ruixen.launcher/extensions/cliamp/CliampStationPanel.qml"
 model_js="$repo_dir/ruixen.launcher/extensions/cliamp/CliampStations.js"
 favorites_js="$repo_dir/ruixen.launcher/extensions/cliamp/CliampFavorites.js"
+result_row_qml="$repo_dir/ruixen.launcher/ResultRow.qml"
 
 pass=0
 fail_count=0
@@ -110,6 +111,10 @@ check "CliampStations strips the country suffix from list row labels, keeping th
   "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "11"
 check "CliampStations flags the currently-playing row with a play glyph, matched through parseStationMeta's clean name (not a raw fullName compare, which status's own bare station name would never match against a catalog row's bitrate/country suffix)" \
   "$(( $(grep -c 'function markNowPlaying' "$model_js") + $(grep -c 'parseStationMeta(row.fullName).name' "$model_js") ))" "2"
+check "The currently-playing row's play icon uses ResultRow's own round accent badge (iconBg), not a bare colored glyph" \
+  "$(( $(grep -c 'icon: .*iconBg: accentColor' "$model_js") + $(grep -c 'iconColor: accentColor' "$model_js") ))" "1"
+check "ResultRow renders an opt-in round accent badge behind the icon glyph, unused by every other row/extension" \
+  "$(( $(grep -c 'visible: !!row.modelData.iconBg' "$result_row_qml") + $(grep -c 'radius: width / 2' "$result_row_qml") + $(grep -c 'row.modelData.iconBg ? "#000000"' "$result_row_qml") ))" "3"
 check "CliampStations no longer sets a favorite/favoritable field on any row -- that's CliampFavorites' job now" \
   "$(grep -c 'favorite:\|favoritable:' "$model_js")" "0"
 

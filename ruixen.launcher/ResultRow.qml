@@ -84,6 +84,25 @@ Rectangle {
     source: row.modelData.providerId === "app-search" && row.appLibrary ? row.appLibrary.iconSource(row.modelData.icon) : ""
   }
 
+  // Round accent badge behind the icon glyph -- opt-in via
+  // modelData.iconBg, same pattern as modelData.iconColor below
+  // (undefined/falsy for every existing provider, so this changes
+  // nothing for them). Direct follow-up, Cliamp Radio's own
+  // currently-playing row: "make its a round accent color with black
+  // play icon so the shape fits well with the other". Same anchors/
+  // width as the icon Text below so the circle sits perfectly
+  // concentric with the glyph rather than needing separate alignment.
+  Rectangle {
+    visible: !!row.modelData.iconBg
+    anchors.left: parent.left
+    anchors.leftMargin: 8
+    anchors.verticalCenter: parent.verticalCenter
+    width: 22
+    height: 22
+    radius: width / 2
+    color: row.modelData.iconBg || "transparent"
+  }
+
   Text {
     visible: row.modelData.providerId !== "app-search"
     anchors.left: parent.left
@@ -115,8 +134,11 @@ Rectangle {
     // (the Theme Browser's own installed/not-installed status dot,
     // direct follow-up: "make the icons useful... theme green" if
     // installed) -- undefined for every other existing provider, so
-    // this changes nothing for them.
-    color: row.modelData.iconColor || (row.modelData.kind === "Folder" ? row.accentColor : row.textColor)
+    // this changes nothing for them. iconBg (the round badge above)
+    // takes precedence over both -- black reads cleanly against the
+    // accent fill the same way the Now Playing card's own LIVE badge
+    // already pairs black text on an accent pill.
+    color: row.modelData.iconBg ? "#000000" : (row.modelData.iconColor || (row.modelData.kind === "Folder" ? row.accentColor : row.textColor))
     font.family: row.fontFamily
     font.pixelSize: 16
   }

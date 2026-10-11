@@ -151,14 +151,19 @@ function parseStatus(text) {
 }
 
 // Flags whichever row matches cliamp's own currently-playing station
-// name with a play glyph in place of its usual icon (star or plain
-// note) -- direct follow-up: "a play icon that shows the station
-// that is playing in the left panel instead of the music note too
-// when active". Only while actually playing, not paused/stopped --
-// "when active" was the request's own wording, and a row staying
-// marked "playing" while cliamp sits paused on it would be
-// misleading; nowPlayingStation is passed in already blanked out by
-// the caller for that case rather than checked again here, same as
+// name with a round accent-badge play icon in place of its usual icon
+// (star or plain note) -- direct follow-up: "a play icon that shows
+// the station that is playing in the left panel instead of the music
+// note too when active", then a further follow-up on the shape:
+// "make its a round accent color with black play icon so the shape
+// fits well with the other" -- iconBg is ResultRow.qml's own opt-in
+// round-badge background (undefined/falsy for every other row/
+// extension, so this changes nothing elsewhere), black text reads
+// cleanly against the accent fill. Only while actually playing, not
+// paused/stopped -- "when active" was the request's own wording, and
+// a row staying marked "playing" while cliamp sits paused on it would
+// be misleading; nowPlayingStation is passed in already blanked out
+// by the caller for that case rather than checked again here, same as
 // CliampStationPanel.qml's own "playing" gate. Overrides a favorite's
 // star too, same as everywhere else in this panel the currently-
 // audible thing takes precedence over the merely-saved one.
@@ -178,7 +183,7 @@ function markNowPlaying(rows, nowPlayingStation, accentColor) {
     var row = list[i]
     var cleanName = parseStationMeta(row.fullName).name
     if (cleanName === target) {
-      out.push(Object.assign({}, row, { icon: "", iconColor: accentColor }))
+      out.push(Object.assign({}, row, { icon: "", iconBg: accentColor }))
     } else {
       out.push(row)
     }

@@ -106,7 +106,13 @@ check "CliampStationPanel has no transport controls -- it shows station info, no
 check "CliampStationPanel has no 'cliamp isn't running' state of its own -- it's silent now" \
   "$(( $(grep -c 'signal startRequested' "$station_panel_qml") + $(grep -c "Cliamp isn't running" "$station_panel_qml") + $(grep -c 'cliampRunning' "$station_panel_qml") ))" "0"
 check "CliampStationPanel shows station info for the selected row" \
-  "$(grep -c 'selectedRow' "$station_panel_qml")" "9"
+  "$(grep -c 'selectedRow' "$station_panel_qml")" "8"
+check "CliampStationPanel puts Now Playing in a featured card at the top" \
+  "$(( $(grep -c 'id: nowPlayingCard' "$station_panel_qml") + $(grep -c 'id: nowPlayingContent' "$station_panel_qml") ))" "2"
+check "CliampStationPanel renders station metadata as zebra-striped rows, same convention as Search Files" \
+  "$(( $(grep -c 'property var metadataFields' "$station_panel_qml") + $(grep -c 'field.index % 2 === 0' "$station_panel_qml") + $(grep -c 'anchors.topMargin: -4' "$station_panel_qml") ))" "3"
+check "Now Playing card appears before the metadata rows in source order" \
+  "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

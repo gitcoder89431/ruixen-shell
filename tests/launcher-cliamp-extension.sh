@@ -113,10 +113,16 @@ check "CliampStationPanel renders station metadata as zebra-striped rows, same c
   "$(( $(grep -c 'property var metadataFields' "$station_panel_qml") + $(grep -c 'field.index % 2 === 0' "$station_panel_qml") + $(grep -c 'anchors.topMargin: -4' "$station_panel_qml") ))" "3"
 check "Now Playing card appears before the metadata rows in source order" \
   "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
-check "CliampStationPanel shows an avatar tile standing in for the art cliamp doesn't have, with a play/pause glyph reflecting real state" \
-  "$(( $(grep -c 'id: avatarTile' "$station_panel_qml") + $(grep -c 'Play/pause glyph reflecting the real state' "$station_panel_qml") ))" "2"
+check "CliampStationPanel shows an avatar tile standing in for the art cliamp doesn't have" \
+  "$(grep -c 'id: avatarTile' "$station_panel_qml")" "1"
 check "Avatar tile is read-only status, not a transport button -- it carries no click handler" \
   "$(grep -c 'onClicked' "$station_panel_qml")" "0"
+check "Avatar shows a play glyph while paused, nothing playing falls back to a music note" \
+  "$(( $(grep -c 'visible: root.hasNowPlaying && !root.playing' "$station_panel_qml") + $(grep -c 'visible: !root.hasNowPlaying' "$station_panel_qml") ))" "2"
+check "While actually playing, the avatar shows an animated equalizer instead of a static pause glyph" \
+  "$(( $(grep -c 'id: eqBars' "$station_panel_qml") + $(grep -c 'visible: root.playing' "$station_panel_qml") + $(grep -c 'SequentialAnimation on height' "$station_panel_qml") ))" "3"
+check "Equalizer bars run on their own fixed per-bar duration, not a shared/randomized one" \
+  "$(( $(grep -c 'id: eqBar$' "$station_panel_qml") + $(grep -c 'loops: Animation.Infinite' "$station_panel_qml") + $(grep -c 'Math.random' "$station_panel_qml") ))" "2"
 check "CliampStationPanel shows a LIVE/PAUSED badge" \
   "$(grep -c 'root.playing ? "LIVE" : "PAUSED"' "$station_panel_qml")" "1"
 check "LIVE/clock sit grouped in one pill, with only the live segment keeping the accent color" \
@@ -124,11 +130,11 @@ check "LIVE/clock sit grouped in one pill, with only the live segment keeping th
 check "Pill segments use real per-corner radius, not a clip:true mask that only clips to the bounding box" \
   "$(( $(grep -c 'topLeftRadius: height / 2' "$station_panel_qml") + $(grep -c 'bottomLeftRadius: height / 2' "$station_panel_qml") + $(grep -c 'topRightRadius: height / 2' "$station_panel_qml") + $(grep -c 'bottomRightRadius: height / 2' "$station_panel_qml") + $(grep -c 'clip: true' "$station_panel_qml") ))" "4"
 check "LIVE/PAUSED badge and clock sit on the title line itself, not a row that appears/disappears" \
-  "$(( $(grep -c 'id: titleRow' "$station_panel_qml") + $(grep -c 'id: titleText' "$station_panel_qml") + $(grep -c "visible: root.hasNowPlaying\$" "$station_panel_qml") ))" "4"
+  "$(( $(grep -c 'id: titleRow' "$station_panel_qml") + $(grep -c 'id: titleText' "$station_panel_qml") + $(grep -c "visible: root.hasNowPlaying\$" "$station_panel_qml") ))" "3"
 check "CliampStationPanel ticks a real elapsed-listening clock, re-synced from cliamp's own position each poll" \
   "$(( $(grep -c 'function formatElapsed' "$model_js") + $(grep -c 'function syncElapsed' "$station_panel_qml") + $(grep -c 'onNowPlayingChanged: root.syncElapsed()' "$station_panel_qml") ))" "3"
 check "Elapsed clock freezes while paused instead of counting through a pause" \
-  "$(grep -c 'running: root.playing' "$station_panel_qml")" "1"
+  "$(grep -A2 'interval: 1000' "$station_panel_qml" | grep -c 'running: root.playing')" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

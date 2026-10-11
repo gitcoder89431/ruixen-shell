@@ -142,15 +142,18 @@ Item {
           radius: 10
           color: root.hasNowPlaying ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22) : Qt.rgba(1, 1, 1, 0.06)
 
-          // Play/pause glyph reflecting the real state, not a label on
-          // a clickable control -- direct follow-up: "use that for the
-          // play and pause icon in the middle instead of the text".
-          // The tile still isn't a button (the notch owns transport),
-          // it's read-only like the LIVE/PAUSED badge already is.
+          // Read-only status, not a label on a clickable control --
+          // the tile still isn't a button (the notch owns transport),
+          // same idea as the LIVE/PAUSED badge already is. Paused
+          // shows a plain play glyph; while actually playing, direct
+          // follow-up: "instead of the pause button showing... can we
+          // do like a bar spectrum wave animation icon thing instead"
+          // -- three bars on their own fixed-duration loop (eqBars
+          // below) rather than a static glyph.
           Text {
             anchors.centerIn: parent
-            visible: root.hasNowPlaying
-            text: root.playing ? "" : ""
+            visible: root.hasNowPlaying && !root.playing
+            text: ""
             color: root.accent
             font.family: root.fontFamily
             font.pixelSize: 20
@@ -162,6 +165,44 @@ Item {
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 18
+          }
+
+          // Each bar runs its own fixed min/max/duration loop rather
+          // than a shared one -- different durations put them out of
+          // phase with each other for free, no randomness needed (and
+          // nothing to re-seed), so it reads as a live spectrum
+          // instead of three bars bouncing in mechanical unison.
+          Row {
+            id: eqBars
+            visible: root.playing
+            anchors.centerIn: parent
+            height: 16
+            spacing: 3
+
+            Repeater {
+              model: [
+                { min: 4, max: 15, duration: 420 },
+                { min: 6, max: 17, duration: 340 },
+                { min: 4, max: 13, duration: 500 }
+              ]
+
+              delegate: Rectangle {
+                id: eqBar
+                required property var modelData
+                width: 3
+                radius: 1.5
+                color: root.accent
+                anchors.bottom: parent.bottom
+                height: modelData.min
+
+                SequentialAnimation on height {
+                  running: root.playing
+                  loops: Animation.Infinite
+                  NumberAnimation { to: eqBar.modelData.max; duration: eqBar.modelData.duration; easing.type: Easing.InOutSine }
+                  NumberAnimation { to: eqBar.modelData.min; duration: eqBar.modelData.duration; easing.type: Easing.InOutSine }
+                }
+              }
+            }
           }
         }
 

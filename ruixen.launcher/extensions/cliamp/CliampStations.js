@@ -150,6 +150,42 @@ function parseStatus(text) {
   }
 }
 
+// Flags whichever row matches cliamp's own currently-playing station
+// name with a play glyph in place of its usual icon (star or plain
+// note) -- direct follow-up: "a play icon that shows the station
+// that is playing in the left panel instead of the music note too
+// when active". Only while actually playing, not paused/stopped --
+// "when active" was the request's own wording, and a row staying
+// marked "playing" while cliamp sits paused on it would be
+// misleading; nowPlayingStation is passed in already blanked out by
+// the caller for that case rather than checked again here, same as
+// CliampStationPanel.qml's own "playing" gate. Overrides a favorite's
+// star too, same as everywhere else in this panel the currently-
+// audible thing takes precedence over the merely-saved one.
+//
+// Matched through parseStationMeta's own name field, not a raw
+// fullName comparison -- confirmed live a catalog row's own name
+// ("Dance Wave! [128k] · Hungary") never comes back that way in
+// status's station field (just "Dance Wave!", bare), so comparing
+// untrimmed fullName would silently never match any catalog row that
+// carries a bitrate/country suffix at all.
+function markNowPlaying(rows, nowPlayingStation, accentColor) {
+  var list = rows || []
+  var target = String(nowPlayingStation || "").trim()
+  if (target === "") return list
+  var out = []
+  for (var i = 0; i < list.length; i++) {
+    var row = list[i]
+    var cleanName = parseStationMeta(row.fullName).name
+    if (cleanName === target) {
+      out.push(Object.assign({}, row, { icon: "", iconColor: accentColor }))
+    } else {
+      out.push(row)
+    }
+  }
+  return out
+}
+
 // mm:ss, or h:mm:ss past the first hour -- used for the right panel's
 // live-ticking "how long you've been listening" clock (see
 // CliampStationPanel.qml), not a real track position/duration since a

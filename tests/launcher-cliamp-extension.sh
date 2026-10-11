@@ -107,7 +107,9 @@ check "CliampStations treats a plain-text job failure the same as a JSON one" \
 check "CliampStations parses country/bitrate back out of a station's own name, not invented fields" \
   "$(grep -c 'function parseStationMeta' "$model_js")" "1"
 check "CliampStations strips the country suffix from list row labels, keeping the full name for the right panel" \
-  "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "8"
+  "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "11"
+check "CliampStations flags the currently-playing row with a play glyph, matched through parseStationMeta's clean name (not a raw fullName compare, which status's own bare station name would never match against a catalog row's bitrate/country suffix)" \
+  "$(( $(grep -c 'function markNowPlaying' "$model_js") + $(grep -c 'parseStationMeta(row.fullName).name' "$model_js") ))" "2"
 check "CliampStations no longer sets a favorite/favoritable field on any row -- that's CliampFavorites' job now" \
   "$(grep -c 'favorite:\|favoritable:' "$model_js")" "0"
 
@@ -125,7 +127,9 @@ check "CliampFavorites formats a coarse relative last-played time" \
   "$(grep -c 'function formatLastPlayed' "$favorites_js")" "1"
 
 check "CliampContent's rows are a reactive computed binding over raw fetch data + favoriteStats, not an imperative assignment" \
-  "$(( $(grep -c 'readonly property var rows: CliampFavorites.applyFavoriteState' "$content_qml") + $(grep -c 'property var rawCatalog' "$content_qml") + $(grep -c 'property var rawTracks' "$content_qml") + $(grep -c 'readonly property bool searchMode' "$content_qml") ))" "4"
+  "$(( $(grep -c 'readonly property var rows: CliampStations.markNowPlaying(' "$content_qml") + $(grep -c 'CliampFavorites.applyFavoriteState(' "$content_qml") + $(grep -c 'property var rawCatalog' "$content_qml") + $(grep -c 'property var rawTracks' "$content_qml") + $(grep -c 'readonly property bool searchMode' "$content_qml") ))" "5"
+check "CliampContent marks the currently-playing row with a play icon, only while genuinely playing (paused/stopped never leaves a stale row marked playing)" \
+  "$(( $(grep -c 'CliampStations.markNowPlaying(' "$content_qml") + $(grep -c 'root.nowPlaying && root.nowPlaying.state === "playing"' "$content_qml") ))" "2"
 
 check "CliampStationPanel parses station meta from the row's untrimmed fullName, not the list's stripped label" \
   "$(grep -c 'parseStationMeta(root.selectedRow.fullName' "$station_panel_qml")" "1"

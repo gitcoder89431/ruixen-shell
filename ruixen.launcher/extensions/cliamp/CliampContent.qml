@@ -90,9 +90,20 @@ Item {
   property var rawCatalog: []
   property var rawTracks: []
   readonly property bool searchMode: root.searchText.trim() !== ""
-  readonly property var rows: CliampFavorites.applyFavoriteState(
-    root.searchMode ? CliampStations.searchRows(root.rawTracks) : CliampStations.bucketCatalog(root.rawCatalog),
-    root.favoriteStats, root.accent, root.searchMode)
+  // markNowPlaying runs last -- direct follow-up: "a play icon that
+  // shows the station that is playing in the left panel instead of
+  // the music note too when active", overriding even a favorite's own
+  // star since the currently-audible station is more specific than
+  // just "saved". Blanked to "" (no row matches an empty fullName) for
+  // anything but a genuine playing state, not just gated inside
+  // markNowPlaying itself, so paused/stopped never leaves a stale row
+  // marked "playing".
+  readonly property var rows: CliampStations.markNowPlaying(
+    CliampFavorites.applyFavoriteState(
+      root.searchMode ? CliampStations.searchRows(root.rawTracks) : CliampStations.bucketCatalog(root.rawCatalog),
+      root.favoriteStats, root.accent, root.searchMode),
+    (root.nowPlaying && root.nowPlaying.state === "playing") ? (root.nowPlaying.station || root.nowPlaying.title || "") : "",
+    root.accent)
 
   property int selectedIndex: 0
   readonly property var selectedRow: root.rows[root.selectedIndex] || null

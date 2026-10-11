@@ -45,16 +45,6 @@ Item {
   readonly property bool playing: root.nowPlaying && root.nowPlaying.state === "playing"
   readonly property bool hasNowPlaying: !!(root.nowPlaying && (root.nowPlaying.title || root.nowPlaying.station))
 
-  // First letter of whatever's on air, standing in for the station art
-  // cliamp doesn't have (confirmed live against both its IPC and MPRIS
-  // Metadata) -- same idea as Spotify's own generated-monogram
-  // placeholder for a playlist/podcast with no cover image, rather
-  // than leaving a blank box or faking real artwork.
-  readonly property string monogram: {
-    var name = (root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "").trim()
-    return name.length > 0 ? name.charAt(0).toUpperCase() : ""
-  }
-
   // Live-ticking "how long you've been listening" clock -- re-synced
   // to cliamp's own real position every status poll (onNowPlayingChanged),
   // then advanced locally once a second in between polls so it reads
@@ -120,9 +110,12 @@ Item {
     // treatment ThemeBrowserContent.qml's own preview box uses (radius
     // 10, dark tint). Direct follow-up after the first text-only pass
     // read as flat: "it needs to be like atleast better... more
-    // spotify" -- a monogram tile standing in for the art cliamp
-    // doesn't have, a LIVE/PAUSED badge, and a live-ticking elapsed
-    // clock are what make this read as a real player card instead of a
+    // spotify" -- an avatar tile standing in for the art cliamp
+    // doesn't have (direct follow-up: swapped from a plain monogram
+    // letter to a play/pause glyph reflecting the real state, same
+    // idea as a play-button overlay on art everywhere else), a
+    // LIVE/PAUSED badge, and a live-ticking elapsed clock are what
+    // make this read as a real player card instead of a
     // status line (a blurred-wallpaper backdrop, the notch's own
     // trick, was considered and dropped -- it'd just be decorating
     // with the wallpaper, unrelated to the station actually playing).
@@ -142,21 +135,25 @@ Item {
         spacing: 12
 
         Rectangle {
-          id: monogramTile
+          id: avatarTile
           anchors.verticalCenter: parent.verticalCenter
           width: 52
           height: 52
           radius: 10
           color: root.hasNowPlaying ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22) : Qt.rgba(1, 1, 1, 0.06)
 
+          // Play/pause glyph reflecting the real state, not a label on
+          // a clickable control -- direct follow-up: "use that for the
+          // play and pause icon in the middle instead of the text".
+          // The tile still isn't a button (the notch owns transport),
+          // it's read-only like the LIVE/PAUSED badge already is.
           Text {
             anchors.centerIn: parent
             visible: root.hasNowPlaying
-            text: root.monogram
+            text: root.playing ? "" : ""
             color: root.accent
             font.family: root.fontFamily
-            font.pixelSize: 22
-            font.weight: Font.Bold
+            font.pixelSize: 20
           }
           Text {
             anchors.centerIn: parent
@@ -169,7 +166,7 @@ Item {
         }
 
         Column {
-          width: parent.width - monogramTile.width - parent.spacing
+          width: parent.width - avatarTile.width - parent.spacing
           spacing: 4
 
           // Badge + elapsed clock live ON the title line itself, not a

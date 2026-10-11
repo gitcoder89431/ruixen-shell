@@ -113,8 +113,10 @@ check "CliampStationPanel renders station metadata as zebra-striped rows, same c
   "$(( $(grep -c 'property var metadataFields' "$station_panel_qml") + $(grep -c 'field.index % 2 === 0' "$station_panel_qml") + $(grep -c 'anchors.topMargin: -4' "$station_panel_qml") ))" "3"
 check "Now Playing card appears before the metadata rows in source order" \
   "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
-check "CliampStationPanel shows a monogram tile standing in for the art cliamp doesn't have" \
-  "$(( $(grep -c 'property string monogram' "$station_panel_qml") + $(grep -c 'id: monogramTile' "$station_panel_qml") ))" "2"
+check "CliampStationPanel shows an avatar tile standing in for the art cliamp doesn't have, with a play/pause glyph reflecting real state" \
+  "$(( $(grep -c 'id: avatarTile' "$station_panel_qml") + $(grep -c 'root.playing ?' "$station_panel_qml") ))" "2"
+check "Avatar tile is read-only status, not a transport button -- it carries no click handler" \
+  "$(grep -c 'onClicked' "$station_panel_qml")" "0"
 check "CliampStationPanel shows a LIVE/PAUSED badge" \
   "$(( $(grep -c 'text: "LIVE"' "$station_panel_qml") + $(grep -c 'text: "PAUSED"' "$station_panel_qml") ))" "2"
 check "LIVE/PAUSED badge and clock sit on the title line itself, not a row that appears/disappears" \

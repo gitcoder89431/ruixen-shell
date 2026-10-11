@@ -348,18 +348,18 @@ Item {
     }
 
     // EQ -- direct follow-up: "the equalizer options between the
-    // player and metadata might be a nice touch if easy to add in...
-    // dont think we need all the options". A global player setting
-    // (cliamp's own `cliamp eq` command), not tied to whichever
-    // station happens to be selected, so this sits right after Now
-    // Playing rather than inside the metadata list below -- same
-    // "always visible regardless of list selection" reasoning Now
-    // Playing's own header comment gives. cliamp's own real preset
-    // list runs to 15 names (confirmed live against its CLI, not
-    // documented anywhere in --help or `remote capabilities`); a
-    // curated six as tappable chips covers the common cases without
-    // the clutter of the full list or individual per-band sliders.
-    // Same chip look as ClipboardContent.qml's own Type/Sort row (24px
+    // player and metadata might be a nice touch if easy to add in". A
+    // global player setting (cliamp's own `cliamp eq` command), not
+    // tied to whichever station happens to be selected, so this sits
+    // right after Now Playing rather than inside the metadata list
+    // below -- same "always visible regardless of list selection"
+    // reasoning Now Playing's own header comment gives. All 15 of
+    // cliamp's own real presets, not a curated subset -- direct
+    // follow-up once a first pass shipped six: "we do have space...
+    // theres alot of empty space on the panel anyways". A Flow, not a
+    // fixed-width Row, so the extra chips just wrap onto more lines
+    // instead of needing any layout change here. Same chip look as
+    // ClipboardContent.qml's own Type/Sort row (24px
     // pills, accent-tinted when active) -- direct follow-up for
     // visual consistency across the plugin's own extensions.
     Column {

@@ -216,8 +216,10 @@ check "Bundled stations are concatenated ahead of the (country-filtered) world c
 
 check "CliampStations.parseStatus reads cliamp's own eq_preset field from status --json" \
   "$(grep -c 'eqPreset: parsed.eq_preset' "$model_js")" "1"
-check "CliampContent exposes a curated preset list and a setEqPreset() that drives cliamp's own eq IPC op" \
+check "CliampContent exposes a preset list and a setEqPreset() that drives cliamp's own eq IPC op" \
   "$(( $(grep -c 'readonly property var eqPresets:' "$content_qml") + $(grep -c 'function setEqPreset' "$content_qml") + $(grep -c 'id: eqProc' "$content_qml") ))" "3"
+check "eqPresets carries all 15 of cliamp's own real presets, not a curated subset" \
+  "$(( $(grep -c '"Flat", "Rock", "Pop", "Jazz", "Classical", "Vocal"' "$content_qml") + $(grep -c '"Electronic", "Acoustic", "Loudness", "Bass Boost", "Treble Boost", "Podcast", "R&B"' "$content_qml") + $(grep -c '"Hip-Hop", "Small Speakers"' "$content_qml") ))" "3"
 check "CliampStationPanel draws the EQ chips after Now Playing, not inside it" \
   "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Equalizer"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
 check "CliampStationPanel draws the EQ chips before Metadata, not inside it" \

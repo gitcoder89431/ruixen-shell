@@ -158,13 +158,19 @@ Item {
   // A global player setting (cliamp's own `cliamp eq` command), not
   // per-station -- direct follow-up after the country filter landed:
   // "the equalizer options between the player and metadata might be a
-  // nice touch if easy to add in... dont think we need all the
-  // options". cliamp's own real preset list runs to 15 (confirmed live
-  // via its CLI, not documented anywhere in --help or its own IPC
-  // capabilities listing), well past what's worth cluttering this
-  // panel with as tappable chips -- six that cover the common cases
-  // instead of the full set or individual per-band sliders.
-  readonly property var eqPresets: ["Flat", "Rock", "Pop", "Jazz", "Vocal", "Bass Boost"]
+  // nice touch if easy to add in". cliamp's own real preset list
+  // (confirmed live via its CLI, not documented anywhere in --help or
+  // its own IPC capabilities listing -- there is no per-band slider
+  // UI here, cliamp's own "custom" state is only ever reached by
+  // hand-tuning individual bands through its own TUI, out of scope).
+  // All 15, not a curated subset -- direct follow-up once the first
+  // six shipped: "we do have space... theres alot of empty space on
+  // the panel anyways", and the chip row already wraps (Flow, not a
+  // fixed Row) so more presets is just more lines, no layout change
+  // needed.
+  readonly property var eqPresets: ["Flat", "Rock", "Pop", "Jazz", "Classical", "Vocal",
+    "Electronic", "Acoustic", "Loudness", "Bass Boost", "Treble Boost", "Podcast", "R&B",
+    "Hip-Hop", "Small Speakers"]
 
   // Direct report: "i point and focus on a row then switch to kbd but
   // when i scroll up or down the page snaps back to the cursor focus

@@ -102,8 +102,7 @@ Item {
     CliampFavorites.applyFavoriteState(
       root.searchMode ? CliampStations.searchRows(root.rawTracks) : CliampStations.bucketCatalog(root.rawCatalog),
       root.favoriteStats, root.accent, root.searchMode),
-    (root.nowPlaying && root.nowPlaying.state === "playing") ? (root.nowPlaying.station || root.nowPlaying.title || "") : "",
-    root.accent)
+    (root.nowPlaying && root.nowPlaying.state === "playing") ? (root.nowPlaying.station || root.nowPlaying.title || "") : "")
 
   property int selectedIndex: 0
   readonly property var selectedRow: root.rows[root.selectedIndex] || null

@@ -151,22 +151,22 @@ function parseStatus(text) {
 }
 
 // Flags whichever row matches cliamp's own currently-playing station
-// name with a round accent-badge play icon in place of its usual icon
-// (star or plain note) -- direct follow-up: "a play icon that shows
-// the station that is playing in the left panel instead of the music
-// note too when active", then a further follow-up on the shape:
-// "make its a round accent color with black play icon so the shape
-// fits well with the other" -- iconBg is ResultRow.qml's own opt-in
-// round-badge background (undefined/falsy for every other row/
-// extension, so this changes nothing elsewhere), black text reads
-// cleanly against the accent fill. Only while actually playing, not
-// paused/stopped -- "when active" was the request's own wording, and
-// a row staying marked "playing" while cliamp sits paused on it would
-// be misleading; nowPlayingStation is passed in already blanked out
-// by the caller for that case rather than checked again here, same as
-// CliampStationPanel.qml's own "playing" gate. Overrides a favorite's
-// star too, same as everywhere else in this panel the currently-
-// audible thing takes precedence over the merely-saved one.
+// name with playingIndicator -- ResultRow.qml's own opt-in animated
+// three-bar equalizer, standing in for the row's usual icon (star or
+// plain note). Direct follow-up: "a play icon that shows the station
+// that is playing in the left panel instead of the music note too
+// when active", then two more rounds on shape/alignment that never
+// quite landed, settling on reusing the exact same "something's
+// playing" visual the Now Playing avatar already uses elsewhere in
+// this panel rather than a third different static indicator. Only
+// while actually playing, not paused/stopped -- "when active" was the
+// request's own wording, and a row staying marked "playing" while
+// cliamp sits paused on it would be misleading; nowPlayingStation is
+// passed in already blanked out by the caller for that case rather
+// than checked again here, same as CliampStationPanel.qml's own
+// "playing" gate. Overrides a favorite's star too, same as everywhere
+// else in this panel the currently-audible thing takes precedence
+// over the merely-saved one.
 //
 // Matched through parseStationMeta's own name field, not a raw
 // fullName comparison -- confirmed live a catalog row's own name
@@ -174,7 +174,7 @@ function parseStatus(text) {
 // status's station field (just "Dance Wave!", bare), so comparing
 // untrimmed fullName would silently never match any catalog row that
 // carries a bitrate/country suffix at all.
-function markNowPlaying(rows, nowPlayingStation, accentColor) {
+function markNowPlaying(rows, nowPlayingStation) {
   var list = rows || []
   var target = String(nowPlayingStation || "").trim()
   if (target === "") return list
@@ -183,7 +183,7 @@ function markNowPlaying(rows, nowPlayingStation, accentColor) {
     var row = list[i]
     var cleanName = parseStationMeta(row.fullName).name
     if (cleanName === target) {
-      out.push(Object.assign({}, row, { icon: "", iconBg: accentColor }))
+      out.push(Object.assign({}, row, { playingIndicator: true }))
     } else {
       out.push(row)
     }

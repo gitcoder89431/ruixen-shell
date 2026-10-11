@@ -84,50 +84,64 @@ Rectangle {
     source: row.modelData.providerId === "app-search" && row.appLibrary ? row.appLibrary.iconSource(row.modelData.icon) : ""
   }
 
-  // Round accent badge standing in for the plain icon glyph -- opt-in
-  // via modelData.iconBg, same pattern as modelData.iconColor below
-  // (undefined/falsy for every existing provider, so this changes
-  // nothing for them). Direct follow-up, Cliamp Radio's own
-  // currently-playing row: "make its a round accent color with black
-  // play icon so the shape fits well with the other", then a further
-  // follow-up once a first pass sized it to match the 22px icon slot
-  // exactly: "that badge is way too big". Deliberately smaller than
-  // that slot now (16px, centered within it) with its own small glyph
-  // inside rather than reusing the shared Text's full 16px size.
-  Rectangle {
-    id: iconBadge
-    visible: !!row.modelData.iconBg
-    // Smaller than the 22px icon slot it sits inside, centered on
-    // it -- direct report: the first pass, a full 22px filled disc,
-    // read as "way too big" next to every other row's bare glyph.
+  // Three-bar animated equalizer standing in for the icon glyph --
+  // opt-in via modelData.playingIndicator (undefined/falsy for every
+  // existing provider, so this changes nothing for them). Direct
+  // follow-up, Cliamp Radio's own currently-playing row: after two
+  // static-badge attempts that never sat right ("doesnt look right...
+  // waste of time"), reuse the exact same "something's actively
+  // playing" visual the Now Playing avatar elsewhere in that panel
+  // already uses (CliampStationPanel.qml's own eqBars), just scaled
+  // down to this row's compact icon slot, rather than inventing a
+  // third different indicator. Natural (unset) width, not a fixed
+  // 22px -- a Row doesn't center shorter content within a wider
+  // explicit width, it just left-aligns and leaves dead space (the
+  // exact alignment bug the previous badge attempt hit), so this
+  // centers its own true content width within the icon slot instead,
+  // same self-centering approach that fixed the badge's leftMargin.
+  Row {
+    id: playingBars
+    visible: !!row.modelData.playingIndicator
     anchors.left: parent.left
-    anchors.leftMargin: 8
+    anchors.leftMargin: 8 + (22 - width) / 2
     anchors.verticalCenter: parent.verticalCenter
-    width: 16
-    height: 16
-    radius: width / 2
-    color: row.modelData.iconBg || "transparent"
+    // Fixed, not implicit off the bars' own animated heights -- an
+    // implicit height here would make the whole Row (and everything
+    // anchored off its vertical center) resize on every animation
+    // tick, the identical "jumpy" bug already fixed once this session
+    // for the Now Playing card's own badge/clock row.
+    height: 14
+    spacing: 2
 
-    Text {
-      anchors.centerIn: parent
-      text: row.modelData.icon
-      color: "#000000"
-      font.family: row.fontFamily
-      // Small enough to sit with real padding inside the 16px circle
-      // (a play triangle at the row's base 16px glyph size would
-      // nearly fill it edge to edge) -- this is the ONLY place the
-      // icon glyph renders when iconBg is set; the shared Text below
-      // hides itself in that case instead of drawing a second,
-      // full-size copy on top.
-      font.pixelSize: 9
+    Repeater {
+      model: [
+        { min: 3, max: 11, duration: 420 },
+        { min: 5, max: 13, duration: 340 },
+        { min: 3, max: 10, duration: 500 }
+      ]
+
+      delegate: Rectangle {
+        id: bar
+        required property var modelData
+        width: 2
+        radius: 1
+        color: row.accentColor
+        anchors.bottom: parent.bottom
+        height: modelData.min
+
+        SequentialAnimation on height {
+          running: playingBars.visible
+          loops: Animation.Infinite
+          NumberAnimation { to: bar.modelData.max; duration: bar.modelData.duration; easing.type: Easing.InOutSine }
+          NumberAnimation { to: bar.modelData.min; duration: bar.modelData.duration; easing.type: Easing.InOutSine }
+        }
+      }
     }
   }
 
   Text {
-    // iconBg rows draw their own small glyph inside iconBadge above
-    // instead -- this Text's own font.pixelSize: 16 would overflow a
-    // deliberately smaller badge circle if it also rendered here.
-    visible: row.modelData.providerId !== "app-search" && !row.modelData.iconBg
+    // playingIndicator rows draw the animated bars above instead.
+    visible: row.modelData.providerId !== "app-search" && !row.modelData.playingIndicator
     anchors.left: parent.left
     // 8, not 12 like appIcon's own leftMargin above -- direct report
     // ("theres more left gap padding from left edge to the icon on

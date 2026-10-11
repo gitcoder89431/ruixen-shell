@@ -109,16 +109,16 @@ check "CliampStations parses country/bitrate back out of a station's own name, n
   "$(grep -c 'function parseStationMeta' "$model_js")" "1"
 check "CliampStations strips the country suffix from list row labels, keeping the full name for the right panel" \
   "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "11"
-check "CliampStations flags the currently-playing row with a play glyph, matched through parseStationMeta's clean name (not a raw fullName compare, which status's own bare station name would never match against a catalog row's bitrate/country suffix)" \
-  "$(( $(grep -c 'function markNowPlaying' "$model_js") + $(grep -c 'parseStationMeta(row.fullName).name' "$model_js") ))" "2"
-check "The currently-playing row's play icon uses ResultRow's own round accent badge (iconBg), not a bare colored glyph" \
-  "$(( $(grep -c 'icon: .*iconBg: accentColor' "$model_js") + $(grep -c 'iconColor: accentColor' "$model_js") ))" "1"
-check "ResultRow renders an opt-in round accent badge with its own glyph, unused by every other row/extension" \
-  "$(( $(grep -c 'visible: !!row.modelData.iconBg' "$result_row_qml") + $(grep -c 'id: iconBadge' "$result_row_qml") + $(grep -c 'radius: width / 2' "$result_row_qml") + $(grep -c 'color: "#000000"' "$result_row_qml") ))" "4"
-check "Badge rows don't also draw the shared full-size icon Text on top of their own smaller glyph" \
-  "$(grep -c '!row.modelData.iconBg' "$result_row_qml")" "2"
-check "Badge circle (16px) stays visibly smaller than the 22px icon slot it sits inside -- direct report the first pass was too big" \
-  "$(grep -c 'width: 16' "$result_row_qml")" "1"
+check "CliampStations flags the currently-playing row with playingIndicator, matched through parseStationMeta's clean name (not a raw fullName compare, which status's own bare station name would never match against a catalog row's bitrate/country suffix)" \
+  "$(( $(grep -c 'function markNowPlaying' "$model_js") + $(grep -c 'parseStationMeta(row.fullName).name' "$model_js") + $(grep -c 'playingIndicator: true' "$model_js") ))" "3"
+check "ResultRow renders an opt-in animated three-bar equalizer (not a static badge -- two earlier attempts never sat right) for the currently-playing row, unused by every other row/extension" \
+  "$(( $(grep -c 'visible: !!row.modelData.playingIndicator' "$result_row_qml") + $(grep -c 'id: playingBars' "$result_row_qml") + $(grep -c 'SequentialAnimation on height' "$result_row_qml") ))" "3"
+check "Equalizer bars run on their own fixed per-bar duration, not a shared/randomized one -- same convention as the avatar's own eqBars" \
+  "$(( $(grep -c 'id: bar' "$result_row_qml") + $(grep -c 'loops: Animation.Infinite' "$result_row_qml") + $(grep -c 'Math.random' "$result_row_qml") ))" "2"
+check "Equalizer bars Row is fixed-height, not implicit off the bars' own animated heights -- the exact jumpy-container bug already fixed once this session for the Now Playing card" \
+  "$(grep -c 'height: 14' "$result_row_qml")" "1"
+check "Playing-row bars are centered in their icon slot via the same self-centering leftMargin math, not a second hardcoded copy" \
+  "$(grep -c 'anchors.leftMargin: 8 + (22 - width) / 2' "$result_row_qml")" "1"
 check "CliampStations no longer sets a favorite/favoritable field on any row -- that's CliampFavorites' job now" \
   "$(grep -c 'favorite:\|favoritable:' "$model_js")" "0"
 

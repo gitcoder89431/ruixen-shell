@@ -113,7 +113,7 @@ check "CliampStations treats a plain-text job failure the same as a JSON one" \
 check "CliampStations parses country/bitrate back out of a station's own name, not invented fields" \
   "$(grep -c 'function parseStationMeta' "$model_js")" "1"
 check "CliampStations strips the country suffix from list row labels, keeping the full name for the right panel" \
-  "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "11"
+  "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "12"
 check "CliampStations flags the currently-playing row with playingIndicator, matched through parseStationMeta's clean name (not a raw fullName compare, which status's own bare station name would never match against a catalog row's bitrate/country suffix)" \
   "$(( $(grep -c 'function markNowPlaying' "$model_js") + $(grep -c 'parseStationMeta(row.fullName).name' "$model_js") + $(grep -c 'playingIndicator: true' "$model_js") ))" "3"
 check "ResultRow renders an opt-in animated three-bar equalizer (not a static badge -- two earlier attempts never sat right) for the currently-playing row, unused by every other row/extension" \
@@ -187,6 +187,19 @@ check "CliampStationPanel shows a Last Played field from our own local layer, om
   "$(( $(grep -c 'CliampFavorites.formatLastPlayed(root.selectedRow.lastPlayedAt)' "$station_panel_qml") + $(grep -c 'label: "Last Played"' "$station_panel_qml") + $(grep -c 'if (lastPlayed !== "")' "$station_panel_qml") ))" "3"
 check "Last Played is the final metadata row, below Source" \
   "$(( $(grep -n 'label: "Source"' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'label: "Last Played"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
+
+check "CliampStations derives sorted distinct countries from the catalog, and filters rows by one (country data search results never carry)" \
+  "$(( $(grep -c 'function countryOptions' "$model_js") + $(grep -c 'function filterByCountry' "$model_js") ))" "2"
+check "CliampContent exposes a country filter + its derived options for Launcher.qml's own dropdown to read/write" \
+  "$(( $(grep -c 'property string countryFilter: ""' "$content_qml") + $(grep -c 'readonly property var countryOptions: CliampStations.countryOptions' "$content_qml") ))" "2"
+check "Country filter only ever applies to catalog rows, never search results" \
+  "$(grep -c 'CliampStations.filterByCountry' "$content_qml")" "1"
+check "Launcher's own All-Types/All dropdown mechanism (Wallpapers, Theme Browser) gained a Country branch for Cliamp Radio, direct follow-up: a dropdown in the search row's top-right rather than a second chip row" \
+  "$(( $(grep -c 'label: "All Countries"' "$launcher_qml") + $(grep -c 'cliampContent.countryFilter = opt.path' "$launcher_qml") + $(grep -c 'cliampContent.countryFilter$' "$launcher_qml") + $(grep -c 'cliampContent.countryOptions.map' "$launcher_qml") ))" "6"
+check "Dropdown list is a real scrollable ListView, capped to 7 visible rows -- direct report Country's 20+ entries overflowed the launcher's own bottom edge" \
+  "$(( $(grep -c 'id: sourceFilterListView' "$launcher_qml") + $(grep -c 'Math.min(sourceFilterListView.count, 7)' "$launcher_qml") + $(grep -c 'clip: true' "$launcher_qml") ))" "4"
+check "Cliamp Radio's search row shows the Country dropdown, same control Wallpapers/Theme Browser already use" \
+  "$(grep -c 'showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp"' "$launcher_qml")" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

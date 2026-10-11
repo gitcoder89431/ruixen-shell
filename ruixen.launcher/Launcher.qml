@@ -1089,6 +1089,8 @@ Item {
       return [{ id: "", label: "All Types", path: "" }].concat(root.wallpaperTypeOptions)
     if (root.activeExtensionId === "theme-browser")
       return [{ id: "", label: "All", path: "" }].concat(root.installedFilterOptions)
+    if (root.activeExtensionId === "cliamp")
+      return [{ id: "", label: "All Countries", path: "" }].concat(cliampContent.countryOptions.map((c) => ({ id: c, label: c, path: c })))
     return [{ id: "", label: "All Sources", path: "" }].concat(fileSearchProvider.sources)
   }
 
@@ -1103,6 +1105,7 @@ Item {
   function seedDropdownSelection() {
     var current = root.activeExtensionId === "wallpapers" ? wallpapersContent.kindFilter
       : root.activeExtensionId === "theme-browser" ? (themeBrowserContent.installedOnlyFilter ? "installed" : "")
+      : root.activeExtensionId === "cliamp" ? cliampContent.countryFilter
       : root.selectedSourcePath
     var options = root.dropdownOptions()
     var idx = 0
@@ -1122,6 +1125,8 @@ Item {
       wallpapersContent.kindFilter = opt.path === "" ? "all" : opt.path
     } else if (root.activeExtensionId === "theme-browser") {
       themeBrowserContent.installedOnlyFilter = opt.path === "installed"
+    } else if (root.activeExtensionId === "cliamp") {
+      cliampContent.countryFilter = opt.path
     } else {
       root.selectedSourcePath = opt.path
     }
@@ -1726,7 +1731,7 @@ Item {
         // reusing filesMode alone here showed "All Sources" floating
         // over Settings' own detail panel with nothing real for it to
         // filter.
-        showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser"
+        showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp"
         // Every extension reads this same outer query directly now (see
         // wallpapersContent/settingsContent's own searchText below),
         // no second inner search box any of them owns -- each one's own
@@ -1750,12 +1755,16 @@ Item {
           ? (wallpapersContent.kindFilter === "all" ? "" : wallpapersContent.kindFilter)
           : root.activeExtensionId === "theme-browser"
           ? (themeBrowserContent.installedOnlyFilter ? "installed" : "")
+          : root.activeExtensionId === "cliamp"
+          ? cliampContent.countryFilter
           : root.selectedSourcePath
         sources: root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions
           : root.activeExtensionId === "theme-browser" ? root.installedFilterOptions
+          : root.activeExtensionId === "cliamp" ? cliampContent.countryOptions.map((c) => ({ id: c, label: c, path: c }))
           : fileSearchProvider.sources
         allOptionLabel: root.activeExtensionId === "wallpapers" ? "All Types"
           : root.activeExtensionId === "theme-browser" ? "All"
+          : root.activeExtensionId === "cliamp" ? "All Countries"
           : "All Sources"
         sourceFilterWidth: root.sourceFilterWidth
         // Each extension's own interceptsArrowKeys decides this now --
@@ -1782,7 +1791,12 @@ Item {
         // (SearchHeader's own onClicked, unchanged) or Tab (see
         // Launcher.qml's own onTabPressed) -- one shared place instead
         // of two copies that could drift.
-        onDropdownOpenChanged: if (searchHeader.dropdownOpen) root.seedDropdownSelection()
+        onDropdownOpenChanged: {
+          if (searchHeader.dropdownOpen) {
+            root.seedDropdownSelection()
+            Qt.callLater(function() { sourceFilterListView.positionViewAtIndex(root.dropdownSelectedIndex, ListView.Contain) })
+          }
+        }
         // Issue #62: while the actions menu is open, Up/Down/Enter
         // navigate/run ITS list instead of the results list -- the menu
         // always operates on whichever result was selected when it was
@@ -1796,13 +1810,19 @@ Item {
         // logic, since neither of those exists while an extension owns
         // the view.
         onUpPressed: {
-          if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex > 0) root.dropdownSelectedIndex-- }
+          if (searchHeader.dropdownOpen) {
+            if (root.dropdownSelectedIndex > 0) root.dropdownSelectedIndex--
+            sourceFilterListView.positionViewAtIndex(root.dropdownSelectedIndex, ListView.Contain)
+          }
           else if (root.activeExtensionContent) root.activeExtensionContent.moveSelectionUp()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex-- }
           else if (root.selectedIndex > 0) root.selectedIndex--
         }
         onDownPressed: {
-          if (searchHeader.dropdownOpen) { if (root.dropdownSelectedIndex < root.dropdownOptions().length - 1) root.dropdownSelectedIndex++ }
+          if (searchHeader.dropdownOpen) {
+            if (root.dropdownSelectedIndex < root.dropdownOptions().length - 1) root.dropdownSelectedIndex++
+            sourceFilterListView.positionViewAtIndex(root.dropdownSelectedIndex, ListView.Contain)
+          }
           else if (root.activeExtensionContent) root.activeExtensionContent.moveSelectionDown()
           else if (root.actionsMenuOpen) { if (root.actionsSelectedIndex < root.resultActions.length - 1) root.actionsSelectedIndex++ }
           else if (root.selectedIndex < root.results.length - 1) root.selectedIndex++
@@ -1969,15 +1989,16 @@ Item {
         // button's right edge, same as this width matches its width.
         anchors.rightMargin: 12
         width: root.sourceFilterWidth
-        // "All Sources"/"All Types"/"All" plus one row per real option
-        // (file search's own discovered sources, Wallpapers' fixed 3
-        // types, or the Theme Browser's own single "Installed" entry)
-        // -- height follows that count directly rather than scrolling,
-        // since every one of these lists is at most a small handful of
-        // rows. 28 matches sourceRow's own height below.
-        height: ((root.activeExtensionId === "wallpapers" ? root.wallpaperTypeOptions.length
-          : root.activeExtensionId === "theme-browser" ? root.installedFilterOptions.length
-          : fileSearchProvider.sources.length) + 1) * 28 + 8
+        // "All Sources"/"All Types"/"All"/"All Countries" plus one row
+        // per real option -- capped to 7 visible rows with the rest
+        // reachable by scrolling (the ListView below) instead of
+        // growing past the window. Direct report once Cliamp Radio's
+        // own Country list (20+ entries) overflowed past the
+        // launcher's own bottom edge: "it doesnt scroll seems to cut
+        // off at spain... make the dropdown smaller and allow
+        // inscroll so it dont overflow the launcher". 28 matches
+        // sourceRow's own height below.
+        height: Math.min(sourceFilterListView.count, 7) * 28 + 8
         radius: 10
         // Genuinely near-opaque, not glassBackground's own translucency
         // -- direct follow-up after real use: unlike the card (whose
@@ -2006,68 +2027,73 @@ Item {
           shadowVerticalOffset: 3
         }
 
-        Column {
+        // A real ListView, not a Column+Repeater -- Cliamp Radio's own
+        // Country list (20+ entries, see height's own comment above)
+        // needs actual scrolling, not a clip:true Column that silently
+        // overflowed past the launcher's own bottom edge.
+        ListView {
+          id: sourceFilterListView
           anchors.fill: parent
           anchors.margins: 4
+          clip: true
+          spacing: 0
+          // "All Sources"/"All Types"/"All"/"All Countries" (path "")
+          // first, then every real option -- same shape
+          // sourceFilterButton.currentLabel above already expects (an
+          // empty path means All).
+          model: root.dropdownOptions()
 
-          Repeater {
-            // "All Sources"/"All Types" (path "") first, then every real
-            // option -- same shape sourceFilterButton.currentLabel above
-            // already expects (an empty path means All).
-            model: root.dropdownOptions()
+          delegate: Rectangle {
+            id: sourceRow
+            required property var modelData
+            required property int index
+            readonly property bool current: index === root.dropdownSelectedIndex
+            width: sourceFilterListView.width
+            height: 28
+            radius: 5
+            // No FILLED hover/selected background -- direct follow-up
+            // ("still bigger and overlapping each other, just no
+            // focus hover"): with zero spacing between rows, adjacent
+            // rows' own rounded-rect highlights sat flush against each
+            // other with no gap, reading as one overlapping blob
+            // rather than two distinct rows. A small dot (below)
+            // doesn't have that problem either, and reads lighter than
+            // the left accent BAR this replaced -- direct follow-up
+            // ("the left side bar design... is a bit big, can we use a
+            // dot instead").
+            color: "transparent"
 
-            delegate: Rectangle {
-              id: sourceRow
-              required property var modelData
-              required property int index
-              readonly property bool current: index === root.dropdownSelectedIndex
-              width: sourceFilterList.width - 8
-              height: 28
-              radius: 5
-              // No FILLED hover/selected background -- direct follow-up
-              // ("still bigger and overlapping each other, just no
-              // focus hover"): with zero spacing between rows in the
-              // Column above, adjacent rows' own rounded-rect highlights
-              // sat flush against each other with no gap, reading as one
-              // overlapping blob rather than two distinct rows. A small
-              // dot (below) doesn't have that problem either, and reads
-              // lighter than the left accent BAR this replaced -- direct
-              // follow-up ("the left side bar design... is a bit big,
-              // can we use a dot instead").
-              color: "transparent"
+            Rectangle {
+              visible: sourceRow.current
+              anchors.left: parent.left
+              anchors.leftMargin: 6
+              anchors.verticalCenter: parent.verticalCenter
+              width: 5
+              height: 5
+              radius: 2.5
+              color: root.accent
+            }
 
-              Rectangle {
-                visible: sourceRow.current
-                anchors.left: parent.left
-                anchors.leftMargin: 6
-                anchors.verticalCenter: parent.verticalCenter
-                width: 5
-                height: 5
-                radius: 2.5
-                color: root.accent
-              }
+            Text {
+              anchors.left: parent.left
+              anchors.leftMargin: 20
+              anchors.right: parent.right
+              anchors.rightMargin: 10
+              anchors.verticalCenter: parent.verticalCenter
+              elide: Text.ElideRight
+              text: sourceRow.modelData.label
+              color: sourceRow.current ? root.accent : root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 12
+            }
 
-              Text {
-                anchors.left: parent.left
-                anchors.leftMargin: 20
-                anchors.right: parent.right
-                anchors.rightMargin: 10
-                anchors.verticalCenter: parent.verticalCenter
-                elide: Text.ElideRight
-                text: sourceRow.modelData.label
-                color: sourceRow.current ? root.accent : root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: 12
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                onEntered: root.dropdownSelectedIndex = sourceRow.index
-                onClicked: {
-                  root.dropdownSelectedIndex = sourceRow.index
-                  root.confirmDropdownSelection()
-                }
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              onEntered: root.dropdownSelectedIndex = sourceRow.index
+              onClicked: {
+                root.dropdownSelectedIndex = sourceRow.index
+                root.confirmDropdownSelection()
               }
             }
           }

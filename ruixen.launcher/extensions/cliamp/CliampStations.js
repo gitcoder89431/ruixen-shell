@@ -120,7 +120,12 @@ function filterByCountry(rows, country) {
 // other "#"-prefixed line (just "#EXTM3U" here) is skipped. Same
 // cliamp-track row shape searchRows below already produces, so these
 // play/favorite through the exact same path as a search hit -- no
-// stationId of their own, just a title + a playable URL.
+// stationId of their own, just a title + a playable URL. The `bundled`
+// flag is what lets CliampFavorites.applyFavoriteState put these in
+// their own "Catalogues" section instead of lumping them in with the
+// plain world-radio "Stations" list -- direct correction: "make it
+// Favorites Stations and Catalogues as the groups", three sections,
+// not two.
 function parseBundledPlaylist(text) {
   var lines = String(text || "").split("\n")
   var out = []
@@ -136,6 +141,7 @@ function parseBundledPlaylist(text) {
     if (pendingTitle !== "") {
       out.push({
         providerId: "cliamp-track",
+        bundled: true,
         trackTitle: pendingTitle,
         trackPath: line,
         label: pendingTitle,

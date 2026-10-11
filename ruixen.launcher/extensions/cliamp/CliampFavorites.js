@@ -78,17 +78,22 @@ function recordPlayed(stats, name, trackPath) {
   return next
 }
 
-// Takes whatever CliampStations.bucketCatalog/searchRows already
-// shaped (name/id/label fields, no favorite concept of its own) and
-// layers favorite/lastPlayedAt on top from OUR state, plus the
-// star-vs-note icon that used to come from cliamp's own p.favorite.
-// Catalog rows split into a "Favorites" section (ahead of
-// "Catalogues") whenever there's at least one favorite -- direct
-// follow-up: "can you make the my favorite one show up on the all
-// station landing at the top" (originally labeled "Top Stations",
-// then "Stations", renamed again once cliamp's own bundled station
-// bouquet joined the plain world-radio list in the same section).
-// Search rows stay one "Search
+// Takes whatever CliampStations.bucketCatalog/searchRows/
+// parseBundledPlaylist already shaped (name/id/label fields, no
+// favorite concept of its own) and layers favorite/lastPlayedAt on top
+// from OUR state, plus the star-vs-note icon that used to come from
+// cliamp's own p.favorite. Non-search rows split into three sections:
+// "Favorites" (any favorited row, catalog or bundled alike) ahead of
+// "Catalogues" (cliamp's own bundled bouquet, row.bundled) ahead of
+// "Stations" (the plain world-radio catalog) -- direct follow-up:
+// "make it Favorites Stations and Catalogues as the groups", after an
+// earlier pass collapsed Catalogues and Stations into one section by
+// mistake. Rows arrive already ordered bundled-then-catalog (see
+// CliampContent.qml's own rows pipeline), so each section's rows stay
+// contiguous once favorites are pulled out -- required for
+// ResultsList's own section.property grouping to render one header
+// per section rather than re-opening it every time the label flips
+// back. Search rows stay one "Search
 // Results" section (a favorited hit splitting into its own section
 // there would just fragment a single query's results for little
 // benefit), the star icon is the only visible difference.
@@ -115,7 +120,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
       next.sectionLabel = "Favorites"
       favorites.push(next)
     } else {
-      next.sectionLabel = "Catalogues"
+      next.sectionLabel = row.bundled ? "Catalogues" : "Stations"
       rest.push(next)
     }
   }

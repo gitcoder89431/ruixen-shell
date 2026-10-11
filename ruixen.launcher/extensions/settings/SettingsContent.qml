@@ -294,19 +294,11 @@ Item {
   // quickshell processes are actually running (doctor.sh's own Runtime
   // section: more than one means a stale instance is stuck).
   //
-  // Optional rows -- direct follow-up ("check the readme, i think we
-  // have cava as optional dependencies too? qt media thing"): README.md's
-  // own Requirements section and install.sh's warn_optional_dep/
-  // warn_optional_pkg calls already document the full, canonical list
-  // of feature-specific optional deps (docs/INSTALLATION.md#requirements)
-  // -- ffmpeg, qt6-multimedia, curl, python3, fastfetch, cava. Checked
-  // here the same way install.sh/doctor.sh already do (qt6-multimedia is
-  // a PACKAGE, not a command -- it has no binary of its own, so `pacman
-  // -Qi` is the only real check, not `command -v`), same short "what
-  // breaks" phrasing those already use, just shortened to fit one line.
-  // `critical` splits the two groups in the card below -- these can be
-  // individually missing without anything here being actually broken,
-  // unlike the core group above.
+  // A second "optional feature deps" group (ffmpeg/qt6-multimedia/curl/
+  // python3/fastfetch/cava, matching README.md's own canonical list) was
+  // tried and reverted -- direct follow-up: "thats a bit much we dont
+  // need the optional group then, just one group is enough with core
+  // things is fine." One tight group, not two.
   property var healthChecks: []
 
   Process {
@@ -315,9 +307,7 @@ Item {
       "command -v fd >/dev/null 2>&1 && echo fd:ok || echo fd:missing; " +
       "command -v hyprctl >/dev/null 2>&1 && echo hyprctl:ok || echo hyprctl:missing; " +
       "if command -v omarchy-shell >/dev/null 2>&1 && OMARCHY_SHELL_IPC_TIMEOUT=1s omarchy-shell shell ping >/dev/null 2>&1; then echo ipc:ok; else echo ipc:fail; fi; " +
-      "echo quickshell:\"$(pgrep -c -f '^quickshell -n' 2>/dev/null || echo 0)\"; " +
-      "for tool in ffmpeg curl python3 fastfetch cava; do command -v \"$tool\" >/dev/null 2>&1 && echo \"$tool:ok\" || echo \"$tool:missing\"; done; " +
-      "pacman -Qi qt6-multimedia >/dev/null 2>&1 && echo qt6multimedia:ok || echo qt6multimedia:missing"]
+      "echo quickshell:\"$(pgrep -c -f '^quickshell -n' 2>/dev/null || echo 0)\""]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -327,27 +317,15 @@ Item {
           if (sep > 0) map[line.slice(0, sep)] = line.slice(sep + 1)
         })
         root.healthChecks = [
-          { label: "Shell IPC", critical: true, ok: map["ipc"] === "ok",
+          { label: "Shell IPC", ok: map["ipc"] === "ok",
             detail: map["ipc"] === "ok" ? "responding" : "not responding -- try omarchy restart shell" },
-          { label: "File Search (fd)", critical: true, ok: map["fd"] === "ok",
+          { label: "File Search (fd)", ok: map["fd"] === "ok",
             detail: map["fd"] === "ok" ? "found" : "not found -- pacman -S --needed fd" },
-          { label: "Hyprland (hyprctl)", critical: true, ok: map["hyprctl"] === "ok",
+          { label: "Hyprland (hyprctl)", ok: map["hyprctl"] === "ok",
             detail: map["hyprctl"] === "ok" ? "found" : "not found" },
-          { label: "Quickshell", critical: true, ok: map["quickshell"] === "1",
+          { label: "Quickshell", ok: map["quickshell"] === "1",
             detail: (map["quickshell"] || "0") + " process" + (map["quickshell"] === "1" ? "" : "es") + " running"
-              + (map["quickshell"] === "1" ? "" : " -- expected 1, a stale instance may be stuck") },
-          { label: "ffmpeg", critical: false, ok: map["ffmpeg"] === "ok",
-            detail: map["ffmpeg"] === "ok" ? "found" : "not found -- video/gif wallpaper posters won't update" },
-          { label: "qt6-multimedia", critical: false, ok: map["qt6multimedia"] === "ok",
-            detail: map["qt6multimedia"] === "ok" ? "found" : "not found -- video/gif wallpaper playback won't start" },
-          { label: "curl", critical: false, ok: map["curl"] === "ok",
-            detail: map["curl"] === "ok" ? "found" : "not found -- weather and Settings avatar download won't work" },
-          { label: "python3", critical: false, ok: map["python3"] === "ok",
-            detail: map["python3"] === "ok" ? "found" : "not found -- the bar's docked-mode toggle will silently no-op" },
-          { label: "fastfetch", critical: false, ok: map["fastfetch"] === "ok",
-            detail: map["fastfetch"] === "ok" ? "found" : "not found -- less detail on the notch's Health page" },
-          { label: "cava", critical: false, ok: map["cava"] === "ok",
-            detail: map["cava"] === "ok" ? "found" : "not found -- the Desktop audio visualizer will be unavailable" }
+              + (map["quickshell"] === "1" ? "" : " -- expected 1, a stale instance may be stuck") }
         ]
       }
     }
@@ -5226,7 +5204,7 @@ Item {
       // file already uses -- unchanged, it just no longer shares a hue
       // with a theme's own accent by coincidence.
       Repeater {
-        model: root.healthChecks.filter(function(c) { return c.critical })
+        model: root.healthChecks
 
         delegate: Item {
           width: healthContent.width
@@ -5244,53 +5222,6 @@ Item {
 
           Text {
             anchors.left: healthDot.right
-            anchors.leftMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            text: modelData.label + " -- " + modelData.detail
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            color: modelData.ok ? root.muted : "#e05252"
-          }
-        }
-      }
-
-      // Optional, feature-specific deps -- direct follow-up ("check the
-      // readme, i think we have cava as optional dependencies too? qt
-      // media thing"), same README.md/install.sh canonical list (see
-      // healthChecks' own comment). A plain sub-label, not a second card
-      // -- still one glance, just visually separated from the four
-      // actually-load-bearing checks above so a missing optional tool
-      // doesn't read as being as serious as a missing core one.
-      Text {
-        visible: root.healthChecks.length > 0
-        topPadding: 4
-        text: "OPTIONAL"
-        font.family: root.fontFamily
-        font.pixelSize: 9
-        font.capitalization: Font.AllUppercase
-        font.bold: true
-        color: root.muted
-      }
-
-      Repeater {
-        model: root.healthChecks.filter(function(c) { return !c.critical })
-
-        delegate: Item {
-          width: healthContent.width
-          height: 16
-
-          Rectangle {
-            id: optionalHealthDot
-            anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            width: 6
-            height: 6
-            radius: 3
-            color: modelData.ok ? "#3ecf5b" : "#e05252"
-          }
-
-          Text {
-            anchors.left: optionalHealthDot.right
             anchors.leftMargin: 8
             anchors.verticalCenter: parent.verticalCenter
             text: modelData.label + " -- " + modelData.detail

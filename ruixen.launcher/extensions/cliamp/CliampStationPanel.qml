@@ -16,7 +16,6 @@ Item {
 
   property var selectedRow: null
   property var nowPlaying: null
-  property bool cliampRunning: true
   property color textColor: "#ffffff"
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
@@ -26,17 +25,12 @@ Item {
   readonly property bool playing: root.nowPlaying && root.nowPlaying.state === "playing"
   readonly property bool hasNowPlaying: !!(root.nowPlaying && (root.nowPlaying.title || root.nowPlaying.station))
 
-  signal startRequested()
-
   Column {
-    anchors.left: parent.left
-    anchors.right: parent.right
     anchors.top: parent.top
     anchors.topMargin: 12
-    width: parent.width - 32
     anchors.horizontalCenter: parent.horizontalCenter
+    width: parent.width - 32
     spacing: 20
-    visible: root.cliampRunning
 
     // Station info -- whatever's highlighted in the list on the left,
     // not necessarily what's playing. Cliamp's own catalog/search rows
@@ -99,7 +93,7 @@ Item {
           Text {
             width: parent.parent.width - 78
             elide: Text.ElideMiddle
-            text: root.selectedRow ? root.selectedRow.trackPath : ""
+            text: root.selectedRow && root.selectedRow.trackPath ? root.selectedRow.trackPath : ""
             color: root.textColor
             font.family: root.fontFamily
             font.pixelSize: 10
@@ -182,6 +176,11 @@ Item {
       }
     }
 
+    // Covers both "nothing selected yet" and the brief startup window
+    // before the first catalog fetch lands -- cliamp's own cold-start
+    // is silent now (see CliampContent.qml's own notRunningAttempts
+    // comment), so this is deliberately a calm placeholder, not a
+    // status message about cliamp itself.
     Text {
       visible: !root.selectedRow
       width: parent.width
@@ -190,51 +189,6 @@ Item {
       color: root.muted
       font.family: root.fontFamily
       font.pixelSize: 11
-    }
-  }
-
-  // cliamp has no default-running daemon -- this extension starts one
-  // headless (--daemon --no-auto-play) on first use rather than making
-  // that a precondition the user has to satisfy themselves first.
-  Column {
-    anchors.centerIn: parent
-    width: parent.width - 32
-    spacing: 10
-    visible: !root.cliampRunning
-
-    Text {
-      width: parent.width
-      horizontalAlignment: Text.AlignHCenter
-      wrapMode: Text.WordWrap
-      text: "Cliamp isn't running"
-      color: root.textColor
-      font.family: root.fontFamily
-      font.pixelSize: 13
-    }
-
-    Rectangle {
-      anchors.horizontalCenter: parent.horizontalCenter
-      width: startLabel.implicitWidth + 28
-      height: 30
-      radius: 8
-      color: startMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-
-      Text {
-        id: startLabel
-        anchors.centerIn: parent
-        text: "Start Cliamp Radio"
-        color: root.textColor
-        font.family: root.fontFamily
-        font.pixelSize: 11
-      }
-
-      MouseArea {
-        id: startMouse
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.startRequested()
-      }
     }
   }
 }

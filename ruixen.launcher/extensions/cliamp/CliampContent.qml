@@ -44,14 +44,24 @@ Item {
   readonly property bool rightFocused: root.actionsMenuOpen
 
   property bool cliampRunning: true
-  // Guards startCliamp() to at most once per time the extension opens
-  // -- direct follow-up: "cant openning the extension just start or
-  // resume it?" (the "Start Cliamp Radio" button stays too, as a
-  // manual retry if this first attempt doesn't pan out, e.g. cliamp
-  // itself is missing). Reset in onActiveChanged so leaving and
-  // reopening the extension gets a fresh attempt rather than being
-  // permanently stuck after one failure.
-  property bool autoStartAttempted: false
+  // Drives handleNotRunning() below -- direct follow-up: "cant
+  // openning the extension just start or resume it?", then a further
+  // correction once that still showed a button briefly: "its confusing
+  // cause people see that start cliamp enter flash and try and press
+  // enter... just make it load the cliamp... if it doesnt work then
+  // just go back to the launcher". So there's no user-facing "not
+  // running" state at all now: the first fetch failure silently spawns
+  // cliamp, then a few more checks (socket binding is normally ~0.2s
+  // but this gives real headroom under load) before concluding it's
+  // genuinely not coming up and leaving the extension (exitRequested)
+  // instead of showing a dead screen. A single 1.2s retry turned out
+  // too tight a margin on its own -- confirmed live: a real run where
+  // cliamp simply hadn't finished binding its socket by the first
+  // retry bailed the extension out from under a daemon that was
+  // actually still starting. Reset in onActiveChanged so reopening the
+  // extension always gets a fresh run of attempts.
+  property int notRunningAttempts: 0
+  readonly property int maxNotRunningAttempts: 4
   property var rows: []
   property int selectedIndex: 0
   readonly property var selectedRow: root.rows[root.selectedIndex] || null
@@ -67,6 +77,10 @@ Item {
     if (root.selectedRow.favoritable) out.push({ id: "favorite", label: root.selectedRow.favorite ? "Unfavorite" : "Favorite" })
     return out
   })() : []
+
+  // Launcher.qml backs out to the landing list on this -- see
+  // handleNotRunning below for when it fires.
+  signal exitRequested()
 
   function runCatalog() {
     catalogProc.exec(["cliamp", "remote", "call", "provider.catalog", "--params",
@@ -89,8 +103,36 @@ Item {
     startRetryTimer.start()
   }
 
+  // Called from catalogProc/searchProc only when parseJobResult's own
+  // notRunning flag is true (the literal "cliamp is not running"
+  // text) -- NOT for every fetch failure. A job that fails while
+  // cliamp is actually up and connected (confirmed live: a transient
+  // radio-browser.info timeout building the station catalog) must
+  // never land here, or a plain network blip would spawn a redundant
+  // daemon and derail a perfectly good session.
+  //
+  // First attempt: actually spawn it. Each attempt after that just
+  // waits and checks again (startRetryTimer, NOT a second
+  // startCliamp() -- re-execing on top of a daemon that's simply still
+  // binding its socket is pure downside, never helps). Past
+  // maxNotRunningAttempts: genuinely not coming up, so leave instead
+  // of sitting on a dead list -- direct follow-up, see
+  // notRunningAttempts' own comment above for the exact wording.
+  function handleNotRunning() {
+    root.cliampRunning = false
+    root.rows = []
+    root.notRunningAttempts++
+    if (root.notRunningAttempts === 1) {
+      root.startCliamp()
+    } else if (root.notRunningAttempts <= root.maxNotRunningAttempts) {
+      startRetryTimer.start()
+    } else {
+      root.exitRequested()
+    }
+  }
+
   function playSelected() {
-    if (!root.selectedRow) { root.startCliamp(); return }
+    if (!root.selectedRow) return
     var row = root.selectedRow
     if (row.providerId === "cliamp-track") {
       trackPlayProc.exec(["cliamp", "remote", "call", "track.play", "--params",
@@ -106,19 +148,6 @@ Item {
     if (!row || !row.favoritable) return
     favoriteProc.exec(["cliamp", "remote", "call", "provider.favorite", "--params",
       JSON.stringify({ provider: "radio", playlist: row.stationId }), "--wait"])
-  }
-
-  // Shared by catalogProc/searchProc's own failure branch below -- a
-  // fetch failing is the actual signal cliamp isn't running (the only
-  // way to find that out, since there's no separate "is it up" check),
-  // so this is where the auto-start fires, not a user action.
-  function handleFetchFailure() {
-    root.cliampRunning = false
-    root.rows = []
-    if (!root.autoStartAttempted) {
-      root.autoStartAttempted = true
-      root.startCliamp()
-    }
   }
 
   function runStationAction(id) {
@@ -202,7 +231,7 @@ Item {
   onActiveChanged: {
     if (root.active) {
       root.selectedIndex = 0
-      root.autoStartAttempted = false
+      root.notRunningAttempts = 0
       root.runSearch()
       root.refreshStatus()
       statusTimer.start()
@@ -231,77 +260,99 @@ Item {
     onTriggered: root.refreshStatus()
   }
 
-  // Single-shot retry after startCliamp() detaches the daemon process
-  // -- the socket isn't accepting connections the instant the process
-  // forks, a fixed short delay is simpler than polling for the socket
-  // file to appear for a cold-start path that only runs once per
-  // session anyway.
+  // Re-checks after startCliamp() detaches the daemon process, and
+  // again for each of handleNotRunning's own follow-up attempts -- the
+  // socket isn't accepting connections the instant the process forks,
+  // a fixed short delay between checks is simpler than polling for the
+  // socket file to actually appear.
   Timer {
     id: startRetryTimer
     interval: 1200
     onTriggered: { root.runSearch(); root.refreshStatus() }
   }
 
+  // Every one of these five reads BOTH streams, not just stdout --
+  // `cliamp remote call ... --wait` puts its JSON envelope on stdout
+  // only on success; EVERY failure (including "cliamp is not running",
+  // the literal signal handleNotRunning needs) goes to stderr instead,
+  // confirmed live with the two streams captured separately. A Process
+  // bound to stdout alone sees empty text for every failure and can
+  // never actually read why it failed -- confirmed live the hard way,
+  // see CliampStations.parseJobResult's own header comment for the
+  // full story. onExited (not either collector's own onStreamFinished)
+  // is the one point both collectors are guaranteed flushed by.
   Process {
     id: catalogProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var parsed = CliampStations.parseJobResult(text)
-        if (!parsed.ok) { root.handleFetchFailure(); return }
-        root.cliampRunning = true
-        root.rows = CliampStations.bucketCatalog(parsed.result.playlists, root.accent)
+    stdout: StdioCollector { id: catalogStdout; waitForEnd: true }
+    stderr: StdioCollector { id: catalogStderr; waitForEnd: true }
+    onExited: function() {
+      var parsed = CliampStations.parseJobResult(catalogStdout.text, catalogStderr.text)
+      if (!parsed.ok) {
+        if (parsed.notRunning) { root.handleNotRunning(); return }
+        // Running, but this one call errored (e.g. a radio-browser.info
+        // timeout) -- leave cliampRunning alone and just show no
+        // results rather than treating it as "not running".
+        root.rows = []
+        return
       }
+      root.cliampRunning = true
+      root.rows = CliampStations.bucketCatalog(parsed.result.playlists, root.accent)
     }
   }
 
   Process {
     id: searchProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var parsed = CliampStations.parseJobResult(text)
-        if (!parsed.ok) { root.handleFetchFailure(); return }
-        root.cliampRunning = true
-        root.rows = CliampStations.searchRows(parsed.result.tracks)
+    stdout: StdioCollector { id: searchStdout; waitForEnd: true }
+    stderr: StdioCollector { id: searchStderr; waitForEnd: true }
+    onExited: function() {
+      var parsed = CliampStations.parseJobResult(searchStdout.text, searchStderr.text)
+      if (!parsed.ok) {
+        if (parsed.notRunning) { root.handleNotRunning(); return }
+        root.rows = []
+        return
       }
+      root.cliampRunning = true
+      root.rows = CliampStations.searchRows(parsed.result.tracks)
     }
   }
 
   Process {
     id: loadProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var parsed = CliampStations.parseJobResult(text)
-        root.cliampRunning = parsed.ok
-        root.refreshStatus()
-      }
+    stdout: StdioCollector { id: loadStdout; waitForEnd: true }
+    stderr: StdioCollector { id: loadStderr; waitForEnd: true }
+    // Only a genuine "not running" flips cliampRunning false here --
+    // a dead station URL or similar is a real, run-of-the-mill
+    // play failure that still means the daemon is up and responded
+    // (same reasoning as catalogProc/searchProc above).
+    onExited: function() {
+      var parsed = CliampStations.parseJobResult(loadStdout.text, loadStderr.text)
+      if (parsed.ok) root.cliampRunning = true
+      else if (parsed.notRunning) root.cliampRunning = false
+      root.refreshStatus()
     }
   }
 
   Process {
     id: trackPlayProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var parsed = CliampStations.parseJobResult(text)
-        root.cliampRunning = parsed.ok
-        root.refreshStatus()
-      }
+    stdout: StdioCollector { id: trackPlayStdout; waitForEnd: true }
+    stderr: StdioCollector { id: trackPlayStderr; waitForEnd: true }
+    onExited: function() {
+      var parsed = CliampStations.parseJobResult(trackPlayStdout.text, trackPlayStderr.text)
+      if (parsed.ok) root.cliampRunning = true
+      else if (parsed.notRunning) root.cliampRunning = false
+      root.refreshStatus()
     }
   }
 
   Process {
     id: favoriteProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var parsed = CliampStations.parseJobResult(text)
-        // Only catalog rows are ever favoritable, so a favorite toggle
-        // only ever needs to refresh the catalog view, never a search.
-        if (parsed.ok && root.searchText.trim() === "") root.runCatalog()
-      }
+    stdout: StdioCollector { id: favoriteStdout; waitForEnd: true }
+    stderr: StdioCollector { id: favoriteStderr; waitForEnd: true }
+    onExited: function() {
+      var parsed = CliampStations.parseJobResult(favoriteStdout.text, favoriteStderr.text)
+      // Only catalog rows are ever favoritable, so a favorite toggle
+      // only ever needs to refresh the catalog view, never a search.
+      if (parsed.ok && root.searchText.trim() === "") root.runCatalog()
     }
   }
 
@@ -348,8 +399,15 @@ Item {
   Text {
     parent: panel.leftPane
     anchors.centerIn: parent
-    visible: root.rows.length === 0 && root.cliampRunning
-    text: root.searchText.trim() !== "" ? "No stations found for “" + root.searchText.trim() + "”" : "Loading stations…"
+    // Stays "Loading stations…" through the brief auto-start/retry
+    // window too (root.cliampRunning false), not just the very first
+    // fetch -- no separate "cliamp isn't running" message exists
+    // anymore (see notRunningAttempts' own comment above), so there's
+    // nothing else this could say in that gap.
+    visible: root.rows.length === 0
+    text: root.searchText.trim() !== "" && root.cliampRunning
+      ? "No stations found for “" + root.searchText.trim() + "”"
+      : "Loading stations…"
     color: root.muted
     font.family: root.fontFamily
     font.pixelSize: 12
@@ -377,11 +435,9 @@ Item {
     anchors.fill: parent
     selectedRow: root.selectedRow
     nowPlaying: root.nowPlaying
-    cliampRunning: root.cliampRunning
     textColor: root.textColor
     muted: root.muted
     accent: root.accent
     fontFamily: root.fontFamily
-    onStartRequested: root.startCliamp()
   }
 }

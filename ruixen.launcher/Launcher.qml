@@ -2335,6 +2335,12 @@ Item {
         glassTint: root.glassTint
         glassBorder: root.glassBorder
         fontFamily: root.fontFamily
+        // Direct follow-up, after auto-start itself landed: a failed
+        // cold-start (cliamp genuinely won't come up) should leave the
+        // extension instead of sitting on a dead screen -- same "back
+        // to the landing list" assignment the back-arrow/Escape path
+        // already uses (see onBackClicked above).
+        onExitRequested: root.activeExtensionId = ""
       }
 
       // Same shared component Search Files' own empty state uses, just

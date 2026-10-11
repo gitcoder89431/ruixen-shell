@@ -34,8 +34,17 @@ function bucketCatalog(playlists, accentColor) {
       providerId: "cliamp-station",
       stationId: p.id,
       label: name,
+      // breadcrumb/kind stay "" rather than undefined -- filesMode:
+      // true hides both in ResultRow, but their own text bindings
+      // still evaluate regardless of visible, and ResultRow.qml
+      // otherwise logs "Unable to assign [undefined] to QString" for
+      // every row (confirmed live). Same empty-string convention
+      // ThemeCatalog.js's own rows already use for the identical
+      // reason.
+      breadcrumb: "",
+      kind: "",
       icon: favorite ? "" : "",
-      iconColor: favorite ? accentColor : undefined,
+      iconColor: favorite ? accentColor : "",
       favorite: favorite,
       favoritable: !!p.favoritable,
       sectionLabel: favorite ? "Favorites" : "Stations"
@@ -59,6 +68,8 @@ function searchRows(tracks) {
       trackTitle: t.title || "",
       trackPath: t.path || "",
       label: t.title || t.path || "Unknown station",
+      breadcrumb: "",
+      kind: "",
       icon: "",
       favoritable: false,
       sectionLabel: "Search Results"
@@ -68,21 +79,36 @@ function searchRows(tracks) {
 }
 
 // `cliamp remote call <op> --params '...' --wait` prints one JSON
-// envelope on success, but a FAILED job prints a plain text line
-// instead (confirmed live: "job failed (internal_error): operation
-// failed (invalid catalog index)") -- not JSON at all. Both shapes
-// collapse to the same { ok, result|error } here so every caller has
-// one failure path to check, not two.
-function parseJobResult(text) {
-  var raw = String(text || "").trim()
-  try {
-    var parsed = JSON.parse(raw)
-    if (parsed && parsed.ok && parsed.job && parsed.job.state === "succeeded" && parsed.job.result)
-      return { ok: true, result: parsed.job.result }
-    return { ok: false, error: (parsed && parsed.error) || raw || "cliamp request failed" }
-  } catch (e) {
-    return { ok: false, error: raw || "cliamp request failed" }
+// envelope on SUCCESS to stdout, but EVERY failure -- "cliamp is not
+// running (no socket at ...)" (no daemon at all) just as much as
+// "job failed (<kind>): ..." (daemon up, the operation itself errored,
+// confirmed live: a stale catalog index, and a real radio-browser.info
+// network timeout building the station catalog) -- goes to stderr as a
+// plain line, not stdout (confirmed live with stdout/stderr captured
+// separately: stdout is empty in both failure cases). A Process bound
+// to only `stdout: StdioCollector` therefore sees empty text for every
+// failure and can never actually read the error, which is why this
+// takes both streams -- stdout tried first for the success envelope,
+// stderr read for the error text otherwise.
+//
+// The two failure shapes still need telling apart (CliampContent.qml
+// auto-starts/bails only on the first, never the second -- treating a
+// transient network blip the same as "not running" would spawn a
+// redundant daemon on the first occurrence and incorrectly bail the
+// whole extension on a second one), which is what notRunning encodes.
+function parseJobResult(stdoutText, stderrText) {
+  var out = String(stdoutText || "").trim()
+  if (out !== "") {
+    try {
+      var parsed = JSON.parse(out)
+      if (parsed && parsed.ok && parsed.job && parsed.job.state === "succeeded" && parsed.job.result)
+        return { ok: true, result: parsed.job.result }
+    } catch (e) {
+      // Falls through to the stderr-based error below.
+    }
   }
+  var err = String(stderrText || "").trim() || out || "cliamp request failed"
+  return { ok: false, notRunning: err.indexOf("is not running") >= 0, error: err }
 }
 
 // `cliamp status --json` -- plain CLI, not the remote-call envelope.

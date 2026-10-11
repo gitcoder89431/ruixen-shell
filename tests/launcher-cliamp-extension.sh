@@ -43,6 +43,10 @@ check "CliampContent drives cliamp exclusively via the cliamp binary" \
   "$(grep -c '\["cliamp"' "$content_qml")" "7"
 check "CliampContent uses the v2 remote-call envelope, not raw socket writes" \
   "$(grep -c '"remote", "call"' "$content_qml")" "5"
+check "CliampContent's five remote-call Processes all capture stderr, not just stdout" \
+  "$(( $(grep -c 'stderr: StdioCollector' "$content_qml") + $(grep -c 'parseJobResult(.*Stdout.text, .*Stderr.text)' "$content_qml") ))" "10"
+check "CliampStations.parseJobResult reads both streams, since every cliamp failure (including not-running) goes to stderr" \
+  "$(grep -c 'function parseJobResult(stdoutText, stderrText)' "$model_js")" "1"
 check "CliampContent fetches the radio catalog and falls back to it on empty search" \
   "$(( $(grep -c 'function runCatalog' "$content_qml") + $(grep -c '"provider.catalog"' "$content_qml") ))" "2"
 check "CliampContent searches the radio provider by free-text query" \
@@ -62,7 +66,19 @@ check "CliampContent has no transport-control machinery -- the notch's MPRIS wid
 check "CliampContent can cold-start a headless daemon on first use" \
   "$(grep -c 'execDetached(\["cliamp", "--daemon", "--no-auto-play"' "$content_qml")" "1"
 check "CliampContent auto-starts cliamp as soon as the extension opens, not on a user action" \
-  "$(( $(grep -c 'function handleFetchFailure' "$content_qml") + $(grep -c 'root.startCliamp()' "$content_qml") + $(grep -c 'root.autoStartAttempted = false' "$content_qml") ))" "5"
+  "$(( $(grep -c 'function handleNotRunning' "$content_qml") + $(grep -c 'root.startCliamp()' "$content_qml") + $(grep -c 'root.notRunningAttempts = 0' "$content_qml") ))" "3"
+check "CliampContent retries more than once before giving up -- a single 1.2s check is too tight a margin" \
+  "$(( $(grep -c 'property int notRunningAttempts' "$content_qml") + $(grep -c 'readonly property int maxNotRunningAttempts: 4' "$content_qml") + $(grep -c 'startRetryTimer.start()' "$content_qml") ))" "4"
+check "CliampContent leaves the extension only after exhausting every retry" \
+  "$(( $(grep -c 'signal exitRequested' "$content_qml") + $(grep -c 'root.exitRequested()' "$content_qml") ))" "2"
+check "Launcher returns to the landing list when cliamp gives up starting" \
+  "$(grep -c 'onExitRequested: root.activeExtensionId = ""' "$launcher_qml")" "1"
+check "CliampStations distinguishes 'not running' from a real job failure while connected" \
+  "$(grep -c 'notRunning' "$model_js")" "2"
+check "CliampContent only auto-starts/bails on a genuine not-running signal, not any failed job" \
+  "$(grep -c 'if (parsed.notRunning)' "$content_qml")" "4"
+check "A transient job failure (e.g. a network timeout) never flips cliampRunning false while connected" \
+  "$(grep -c 'root.cliampRunning = parsed.ok' "$content_qml")" "0"
 
 check "CliampContent uses compact icon+name rows, with no subtitle/kind columns" \
   "$(grep -c 'filesMode: true' "$content_qml")" "1"
@@ -81,8 +97,8 @@ check "CliampStationPanel is a dumb display+signal component, no Process of its 
   "$(grep -c '^import Quickshell.Io' "$station_panel_qml")" "0"
 check "CliampStationPanel has no transport controls -- it shows station info, not a controller" \
   "$(grep -c 'signal playPauseRequested\|signal stopRequested\|signal nextRequested\|signal prevRequested\|signal volumeDownRequested\|signal volumeUpRequested' "$station_panel_qml")" "0"
-check "CliampStationPanel offers a start action while cliamp isn't running" \
-  "$(grep -c 'signal startRequested' "$station_panel_qml")" "1"
+check "CliampStationPanel has no 'cliamp isn't running' state of its own -- it's silent now" \
+  "$(( $(grep -c 'signal startRequested' "$station_panel_qml") + $(grep -c "Cliamp isn't running" "$station_panel_qml") + $(grep -c 'cliampRunning' "$station_panel_qml") ))" "0"
 check "CliampStationPanel shows station info for the selected row" \
   "$(grep -c 'selectedRow' "$station_panel_qml")" "9"
 

@@ -115,8 +115,16 @@ BarWidget {
     bar: root.bar
     // Sliders-vertical (Font Awesome sliders, U+F1DE) -- swapped from a gear icon.
     text: ""
-    foreground: root.recording ? (root.bar ? root.bar.semanticBad : Color.urgent) : (root.bar ? root.bar.iconForeground : "#ffffff")
-    tooltipText: root.recording ? "Screen recording active. Click for stop action." : "More actions"
+    // Direct follow-up: "the more actions is turning red too with the
+    // screen recorder icon? we dont need that, just keep screen
+    // recording effecting the screen recording icon only." ruixen.
+    // capturestatus already has its own dedicated red indicator for
+    // this -- this trigger stays the plain icon color/tooltip
+    // regardless of root.recording now. root.recording itself stays
+    // (the Screen Recording row inside the popup below still needs it
+    // for its own active/statusText/start-stop toggle).
+    foreground: root.bar ? root.bar.iconForeground : "#ffffff"
+    tooltipText: "More actions"
     onPressed: function() { root.popupOpen = !root.popupOpen }
   }
 

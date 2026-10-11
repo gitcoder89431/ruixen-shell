@@ -60,6 +60,7 @@ suites=(
   "$script_dir/launcher-open-defer.sh"
   "$script_dir/launcher-settings-search-clear.sh"
   "$script_dir/launcher-extensions-frecency.sh"
+  "$script_dir/launcher-extension-search-discoverability.sh"
   "$script_dir/launcher-clipboard-extension.sh"
   "$script_dir/launcher-cliamp-extension.sh"
   "$script_dir/cava-missing-dependency.sh"

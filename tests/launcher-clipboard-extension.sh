@@ -31,7 +31,7 @@ check "Launcher has a Clipboard History landing row" \
 check "Launcher activates clipboard-extension in-process" \
   "$(grep -A8 'result.providerId === "clipboard-extension"' "$launcher_qml" | grep -c 'activeExtensionId = "clipboard"')" "1"
 check "Launcher records clipboard frecency" \
-  "$(grep -c 'recordLaunch("ruixen.clipboard")\|frecencyFor("ruixen.clipboard")' "$launcher_qml")" "2"
+  "$(grep -c 'recordLaunch("ruixen.clipboard")\|frecencyFor("ruixen.clipboard")' "$launcher_qml")" "3"
 check "Launcher instantiates ClipboardContent" \
   "$(grep -c 'ClipboardContent {' "$launcher_qml")" "1"
 

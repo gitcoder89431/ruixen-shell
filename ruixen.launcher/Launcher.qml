@@ -1434,6 +1434,30 @@ Item {
       omarchyActionsProvider.recordLaunch("ruixen.wallpapers")
       return
     }
+    // Same reasoning again, for the three gaps left once Settings and
+    // Wallpapers got their own synthetic rows -- direct report: "only
+    // have settings and wallpapers working on search lol".
+    if (result.id === "omarchy:ruixen.cliamp") {
+      root.activeExtensionId = "cliamp"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.cliamp")
+      return
+    }
+    if (result.id === "omarchy:ruixen.clipboard") {
+      root.activeExtensionId = "clipboard"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.clipboard")
+      return
+    }
+    if (result.id === "omarchy:ruixen.theme-browser") {
+      root.activeExtensionId = "theme-browser"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.theme-browser")
+      return
+    }
     var provider = root.providerFor(result.providerId)
     if (provider) provider.activate(result)
     root.dismiss()

@@ -35,7 +35,7 @@ check "Launcher has a Cliamp Radio landing row" \
 check "Launcher activates cliamp-extension in-process" \
   "$(grep -A6 'result.providerId === "cliamp-extension"' "$launcher_qml" | grep -c 'activeExtensionId = "cliamp"')" "1"
 check "Launcher records cliamp frecency" \
-  "$(grep -c 'recordLaunch("ruixen.cliamp")\|frecencyFor("ruixen.cliamp")' "$launcher_qml")" "2"
+  "$(grep -c 'recordLaunch("ruixen.cliamp")\|frecencyFor("ruixen.cliamp")' "$launcher_qml")" "3"
 check "Launcher instantiates CliampContent" \
   "$(grep -c 'CliampContent {' "$launcher_qml")" "1"
 

@@ -54,22 +54,27 @@ check "settings-extension result clears searchHeader.text" \
   "$(grep -A2 'activeExtensionId = "settings"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
 check "settings-extension result clears root.query" \
   "$(grep -A3 'activeExtensionId = "settings"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
+# 2 each now, not 1 -- the landing-row providerId branch AND the
+# synthetic typed-search omarchy:ruixen.* row (added for typed-query
+# discoverability, see launcher-extension-search-discoverability.sh)
+# both land on this same activeExtensionId value.
 check "clipboard-extension result clears searchHeader.text" \
-  "$(grep -A2 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "1"
+  "$(grep -A2 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
 check "clipboard-extension result clears root.query" \
-  "$(grep -A3 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'root.query = ""')" "1"
+  "$(grep -A3 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
 check "cliamp-extension result clears searchHeader.text" \
-  "$(grep -A2 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "1"
+  "$(grep -A2 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
 check "cliamp-extension result clears root.query" \
-  "$(grep -A3 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'root.query = ""')" "1"
+  "$(grep -A3 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
 
-# 8 total across the file: finishClosing()'s own pre-existing pair, the
-# 4 Settings/Wallpapers branches above, plus Theme Browser, Clipboard,
-# and Cliamp (one branch each).
-check "searchHeader.text is cleared exactly 8 times total (finishClosing + the 7 extension jumps)" \
-  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "8"
-check "root.query is cleared exactly 8 times total (finishClosing + the 7 extension jumps)" \
-  "$(grep -c 'root.query = ""' "$launcher_qml")" "8"
+# 11 total across the file: finishClosing()'s own pre-existing pair, the
+# 4 Settings/Wallpapers branches, Theme Browser/Clipboard/Cliamp's own
+# landing-row branches, plus the 3 new synthetic omarchy:ruixen.* rows
+# (Cliamp/Clipboard/Theme Browser) added for typed-query discoverability.
+check "searchHeader.text is cleared exactly 11 times total (finishClosing + the 10 extension jumps)" \
+  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "11"
+check "root.query is cleared exactly 11 times total (finishClosing + the 10 extension jumps)" \
+  "$(grep -c 'root.query = ""' "$launcher_qml")" "11"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

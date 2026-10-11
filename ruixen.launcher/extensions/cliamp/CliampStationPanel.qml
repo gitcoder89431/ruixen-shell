@@ -172,12 +172,22 @@ Item {
           width: parent.width - monogramTile.width - parent.spacing
           spacing: 4
 
-          Row {
-            spacing: 6
-            visible: root.hasNowPlaying
+          // Badge + elapsed clock now live ON the title line itself,
+          // not a row of their own above it -- direct report: "kinda
+          // jumpy... dont want a new row to come in and out". That
+          // row's own visible: hasNowPlaying meant the card gained or
+          // lost an entire line (and resized) every time playback
+          // started/stopped/paused. One fixed-height line now, always
+          // present, with the title truncating to make room instead.
+          Item {
+            id: titleRow
+            width: parent.width
+            height: titleText.implicitHeight
 
             Rectangle {
+              id: liveBadge
               visible: root.playing
+              anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
               width: liveLabel.implicitWidth + 10
               height: 15
@@ -194,7 +204,9 @@ Item {
               }
             }
             Text {
-              visible: !root.playing
+              id: pausedLabel
+              visible: root.hasNowPlaying && !root.playing
+              anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
               text: "PAUSED"
               color: root.muted
@@ -203,32 +215,46 @@ Item {
               font.bold: true
             }
             Text {
+              id: elapsedLabel
+              // Only ever visible alongside whichever of the two badges
+              // above is actually showing, so anchoring off "whichever
+              // one is live" (keyed on the same root.playing) never
+              // chases an invisible sibling's leftover geometry.
+              visible: root.hasNowPlaying
+              anchors.left: root.playing ? liveBadge.right : pausedLabel.right
+              anchors.leftMargin: 6
               anchors.verticalCenter: parent.verticalCenter
               text: root.elapsedText
               color: root.muted
               font.family: root.fontFamily
               font.pixelSize: 10
             }
-          }
-
-          Text {
-            width: parent.width
-            wrapMode: Text.WordWrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
-            text: root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "Nothing playing"
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 14
-            font.weight: Font.DemiBold
+            Text {
+              id: titleText
+              // Falls back to parent.left (not elapsedLabel.right) when
+              // nothing's playing -- elapsedLabel is invisible then, so
+              // anchoring off it anyway would still be harmless, but
+              // this reads as the honest reason rather than a quirk of
+              // invisible-item geometry.
+              anchors.left: root.hasNowPlaying ? elapsedLabel.right : parent.left
+              anchors.leftMargin: root.hasNowPlaying ? 8 : 0
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              elide: Text.ElideRight
+              maximumLineCount: 1
+              text: root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "Nothing playing"
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 14
+              font.weight: Font.DemiBold
+            }
           }
 
           Text {
             visible: root.hasNowPlaying && root.nowPlaying.station && root.nowPlaying.title && root.nowPlaying.title !== root.nowPlaying.station
             width: parent.width
-            wrapMode: Text.WordWrap
-            maximumLineCount: 2
             elide: Text.ElideRight
+            maximumLineCount: 1
             text: root.nowPlaying ? root.nowPlaying.title : ""
             color: root.muted
             font.family: root.fontFamily

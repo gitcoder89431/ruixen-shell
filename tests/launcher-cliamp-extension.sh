@@ -117,6 +117,8 @@ check "CliampStationPanel shows a monogram tile standing in for the art cliamp d
   "$(( $(grep -c 'property string monogram' "$station_panel_qml") + $(grep -c 'id: monogramTile' "$station_panel_qml") ))" "2"
 check "CliampStationPanel shows a LIVE/PAUSED badge" \
   "$(( $(grep -c 'text: "LIVE"' "$station_panel_qml") + $(grep -c 'text: "PAUSED"' "$station_panel_qml") ))" "2"
+check "LIVE/PAUSED badge and clock sit on the title line itself, not a row that appears/disappears" \
+  "$(( $(grep -c 'id: titleRow' "$station_panel_qml") + $(grep -c 'id: titleText' "$station_panel_qml") + $(grep -c "visible: root.hasNowPlaying\$" "$station_panel_qml") ))" "4"
 check "CliampStationPanel ticks a real elapsed-listening clock, re-synced from cliamp's own position each poll" \
   "$(( $(grep -c 'function formatElapsed' "$model_js") + $(grep -c 'function syncElapsed' "$station_panel_qml") + $(grep -c 'onNowPlayingChanged: root.syncElapsed()' "$station_panel_qml") ))" "3"
 check "Elapsed clock freezes while paused instead of counting through a pause" \

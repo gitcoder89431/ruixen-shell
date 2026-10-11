@@ -65,12 +65,16 @@ function recordPlayed(stats, name) {
 // shaped (name/id/label fields, no favorite concept of its own) and
 // layers favorite/lastPlayedAt on top from OUR state, plus the
 // star-vs-note icon that used to come from cliamp's own p.favorite.
-// Catalog rows split into a "Favorites" section (ahead of "Stations"),
-// same grouping this panel already had -- just driven by our own data
-// now. Search rows stay one "Search Results" section (a favorited hit
-// splitting into its own section there would just fragment a single
-// query's results for little benefit), the star icon is the only
-// visible difference.
+// Catalog rows split into a "Top Stations" section (ahead of
+// "Stations") whenever there's at least one favorite -- direct
+// follow-up: "can you make the my favorite one show up on the all
+// station landing at the top... if theres any then it can show up as
+// top stations". Naturally conditional already: with zero favorites
+// the favorites array below stays empty and no such group ever
+// appears, nothing extra to gate. Search rows stay one "Search
+// Results" section (a favorited hit splitting into its own section
+// there would just fragment a single query's results for little
+// benefit), the star icon is the only visible difference.
 function applyFavoriteState(rows, stats, accentColor, searchMode) {
   var list = rows || []
   var favorites = []
@@ -89,7 +93,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
       next.sectionLabel = "Search Results"
       out.push(next)
     } else if (favorite) {
-      next.sectionLabel = "Favorites"
+      next.sectionLabel = "Top Stations"
       favorites.push(next)
     } else {
       next.sectionLabel = "Stations"
@@ -98,7 +102,6 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
   }
   return searchMode ? out : favorites.concat(rest)
 }
-
 // "Just now" / "5m ago" / "3h ago" / "2d ago", a plain date past a
 // week -- coarser than the Now Playing card's own live elapsed clock
 // (that one answers "how long has this been on", this answers "when

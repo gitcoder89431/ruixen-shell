@@ -91,6 +91,21 @@ Item {
   property var rawTracks: []
   readonly property bool searchMode: root.searchText.trim() !== ""
 
+  // cliamp's own curated station bouquet ("lofi for omarchy radio...
+  // or nsc stations" -- direct follow-up asking what these actually
+  // are) -- provider.catalog's own "l:0"/"cliamp radio" entry is just
+  // a pointer to an M3U (radio.cliamp.stream/streams.m3u) holding the
+  // real individual stations (Lofi, Meditative, Synthwave, EDM,
+  // Omarchy, Chiptunes, Amiga, and the eight-station NCS family), which
+  // cliamp's own IPC never expands (confirmed live, see
+  // CliampStations.bucketCatalog's own comment for the full story).
+  // Fetched directly over HTTP rather than through cliamp at all, so
+  // it's unaffected by radio-browser.info being up or down. Cached
+  // once it succeeds (see onActiveChanged below) rather than
+  // refetched on every open -- a fixed, rarely-changing bundle, same
+  // as Wallpapers' own type list.
+  property var rawBundled: []
+
   // Country dropdown -- direct follow-up: "similarly to the bjarneo
   // themes, we have chips for Collection and Styles there, can we do
   // chip for Country... if its the only chip, then more like the top
@@ -123,11 +138,15 @@ Item {
   // markNowPlaying itself, so paused/stopped never leaves a stale row
   // marked "playing". Country filter only ever applies to catalog rows
   // -- applying it to search rows would just silently empty the list,
-  // since none of them have country data to match against.
+  // since none of them have country data to match against. Same
+  // reason rawBundled is concatenated ahead of the filtered world
+  // catalog rather than filtered itself -- cliamp's own bundled
+  // stations carry no country tag, so a country filter has nothing to
+  // match there either; they just stay put regardless of the dropdown.
   readonly property var rows: CliampStations.markNowPlaying(
     CliampFavorites.applyFavoriteState(
       root.searchMode ? CliampStations.searchRows(root.rawTracks)
-        : CliampStations.filterByCountry(CliampStations.bucketCatalog(root.rawCatalog), root.countryFilter),
+        : root.rawBundled.concat(CliampStations.filterByCountry(CliampStations.bucketCatalog(root.rawCatalog), root.countryFilter)),
       root.favoriteStats, root.accent, root.searchMode),
     (root.nowPlaying && root.nowPlaying.state === "playing") ? (root.nowPlaying.station || root.nowPlaying.title || "") : "")
 
@@ -202,6 +221,16 @@ Item {
   function runCatalog() {
     catalogProc.exec(["cliamp", "remote", "call", "provider.catalog", "--params",
       JSON.stringify({ provider: "radio", offset: 0, limit: 50 }), "--wait"])
+  }
+
+  // Plain HTTP fetch, not a cliamp IPC call -- see rawBundled's own
+  // property comment above for why. A failure here just leaves
+  // rawBundled empty (retried the next time the extension opens, see
+  // onActiveChanged) rather than touching cliampRunning/exitRequested
+  // at all -- this list existing or not is independent of whether
+  // cliamp itself is up.
+  function runBundled() {
+    bundledProc.exec(["curl", "-s", "--max-time", "8", "https://radio.cliamp.stream/streams.m3u"])
   }
 
   function runSearch() {
@@ -361,6 +390,7 @@ Item {
       root.hoverArmBaseline = Qt.point(-1, -1)
       root.runSearch()
       root.refreshStatus()
+      if (root.rawBundled.length === 0) root.runBundled()
       statusTimer.start()
       Qt.callLater(function() { cliampResultsList.positionViewAtBeginning() })
     } else {
@@ -440,6 +470,21 @@ Item {
       }
       root.cliampRunning = true
       root.rawTracks = parsed.result.tracks || []
+    }
+  }
+
+  // Plain curl, not cliamp's own job/envelope protocol -- parseJobResult
+  // doesn't apply here, this is just raw M3U text on success or empty
+  // stdout on failure (bad network, host down). Left empty rather than
+  // retried in a loop on failure -- onActiveChanged's own
+  // rawBundled.length === 0 check tries again the next time this
+  // extension opens instead.
+  Process {
+    id: bundledProc
+    stdout: StdioCollector { id: bundledStdout; waitForEnd: true }
+    onExited: function() {
+      var parsed = CliampStations.parseBundledPlaylist(bundledStdout.text)
+      if (parsed.length > 0) root.rawBundled = parsed
     }
   }
 

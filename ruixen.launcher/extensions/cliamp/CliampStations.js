@@ -34,12 +34,23 @@ function stripCountry(name) {
 // applyFavoriteState layers favorite/lastPlayedAt/icon on afterward
 // (see CliampContent.qml's own header for why this plugin keeps its
 // own favorite layer instead of cliamp's native one).
+//
+// "l:<n>" entries (one exists today: "l:0"/"cliamp radio") are skipped
+// entirely -- that's cliamp's own bundled multi-station bouquet, but
+// provider.tracks only ever hands back ONE track for it whose path is
+// itself an M3U URL (confirmed live), never the individual stations
+// inside. parseBundledPlaylist below fetches and expands that M3U
+// directly instead, so the real stations it contains (Lofi, Omarchy,
+// the NCS family, etc.) show up as their own rows rather than one dead
+// "cliamp radio" entry that can't actually be played station-by-station
+// from here.
 function bucketCatalog(playlists) {
   var seen = {}
   var out = []
   var list = playlists || []
   for (var i = 0; i < list.length; i++) {
     var p = list[i]
+    if (String(p.id || "").indexOf("l:") === 0) continue
     var name = stripStar(p.name)
     if (seen[name]) continue
     seen[name] = true
@@ -98,6 +109,42 @@ function filterByCountry(rows, country) {
   var out = []
   for (var i = 0; i < list.length; i++) {
     if (parseStationMeta(list[i].fullName).country === country) out.push(list[i])
+  }
+  return out
+}
+
+// cliamp's own curated station bouquet, fetched and expanded straight
+// from its M3U rather than through cliamp's IPC -- see bucketCatalog's
+// own comment above for why. Standard M3U shape: a "#EXTINF:-1,<Title>"
+// line immediately followed by the stream URL on the next line; any
+// other "#"-prefixed line (just "#EXTM3U" here) is skipped. Same
+// cliamp-track row shape searchRows below already produces, so these
+// play/favorite through the exact same path as a search hit -- no
+// stationId of their own, just a title + a playable URL.
+function parseBundledPlaylist(text) {
+  var lines = String(text || "").split("\n")
+  var out = []
+  var pendingTitle = ""
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim()
+    if (line.indexOf("#EXTINF:") === 0) {
+      var comma = line.indexOf(",")
+      pendingTitle = comma >= 0 ? line.slice(comma + 1).trim() : ""
+      continue
+    }
+    if (line === "" || line.indexOf("#") === 0) continue
+    if (pendingTitle !== "") {
+      out.push({
+        providerId: "cliamp-track",
+        trackTitle: pendingTitle,
+        trackPath: line,
+        label: pendingTitle,
+        fullName: pendingTitle,
+        breadcrumb: "",
+        kind: ""
+      })
+    }
+    pendingTitle = ""
   }
   return out
 }

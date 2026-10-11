@@ -113,7 +113,7 @@ check "CliampStations treats a plain-text job failure the same as a JSON one" \
 check "CliampStations parses country/bitrate back out of a station's own name, not invented fields" \
   "$(grep -c 'function parseStationMeta' "$model_js")" "1"
 check "CliampStations strips the country suffix from list row labels, keeping the full name for the right panel" \
-  "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "12"
+  "$(( $(grep -c 'function stripCountry' "$model_js") + $(grep -c 'label: stripCountry' "$model_js") + $(grep -c 'fullName' "$model_js") ))" "13"
 check "CliampStations flags the currently-playing row with playingIndicator, matched through parseStationMeta's clean name (not a raw fullName compare, which status's own bare station name would never match against a catalog row's bitrate/country suffix)" \
   "$(( $(grep -c 'function markNowPlaying' "$model_js") + $(grep -c 'parseStationMeta(row.fullName).name' "$model_js") + $(grep -c 'playingIndicator: true' "$model_js") ))" "3"
 check "ResultRow renders an opt-in animated three-bar equalizer (not a static badge -- two earlier attempts never sat right) for the currently-playing row, unused by every other row/extension" \
@@ -131,8 +131,8 @@ check "CliampFavorites keys by station name, not a catalog id or URL -- the only
   "$(( $(grep -c 'function favoriteKey' "$favorites_js") + $(grep -c 'function isFavorite' "$favorites_js") + $(grep -c 'function lastPlayedAt' "$favorites_js") ))" "3"
 check "CliampFavorites mutates immutably, same Object.assign convention LauncherFrecency.js already uses" \
   "$(( $(grep -c 'function toggleFavorite' "$favorites_js") + $(grep -c 'function recordPlayed' "$favorites_js") + $(grep -c 'Object.assign({}' "$favorites_js") ))" "5"
-check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped rows, splitting catalog into Favorites/Stations but leaving search as one section" \
-  "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Favorites"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "11"
+check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped rows, splitting catalog into Favorites/Catalogues but leaving search as one section" \
+  "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Favorites"' "$favorites_js") + $(grep -c '"Catalogues"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "11"
 check "Favorites surface on the all-station landing as a Favorites group at the top, conditional on there being any" \
   "$(( $(grep -c 'favorites.push(next)' "$favorites_js") + $(grep -c 'favorites.concat(rest)' "$favorites_js") ))" "2"
 check "A favorite missing from this catalog fetch (e.g. search-only, never in cliamp's own curated catalog at all) is still synthesized into Favorites, playable via its own stored stream path" \
@@ -202,6 +202,15 @@ check "Shift+Tab (the dropdown's own keyboard entry point) opens Cliamp Radio's 
   "$(grep -c 'root.activeExtensionId === \"wallpapers\" || root.activeExtensionId === \"theme-browser\" || root.activeExtensionId === \"cliamp\" || root.filesMode' "$launcher_qml")" "1"
 check "Cliamp Radio's search row shows the Country dropdown, same control Wallpapers/Theme Browser already use" \
   "$(grep -c 'showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp"' "$launcher_qml")" "1"
+
+check "CliampStations expands cliamp's own bundled station bouquet (Lofi, Omarchy, the NCS family, etc.) from its M3U, since provider.catalog's l:0 entry only ever hands back one dead pointer row, never the real stations inside" \
+  "$(grep -c 'function parseBundledPlaylist' "$model_js")" "1"
+check "bucketCatalog skips l:<n> pointer entries now that parseBundledPlaylist expands the real thing" \
+  "$(grep -c 'p.id || \"\").indexOf(\"l:\") === 0' "$model_js")" "1"
+check "CliampContent fetches the bundled bouquet over plain HTTP (independent of cliamp's own daemon/radio-browser.info) and caches it once fetched" \
+  "$(( $(grep -c 'property var rawBundled: \[\]' "$content_qml") + $(grep -c 'function runBundled' "$content_qml") + $(grep -c 'id: bundledProc' "$content_qml") + $(grep -c 'CliampStations.parseBundledPlaylist' "$content_qml") + $(grep -c 'if (root.rawBundled.length === 0) root.runBundled()' "$content_qml") ))" "5"
+check "Bundled stations show in the same Catalogues group as the world catalog, unaffected by the country filter" \
+  "$(grep -c 'root.rawBundled.concat' "$content_qml")" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

@@ -83,10 +83,12 @@ function recordPlayed(stats, name, trackPath) {
 // layers favorite/lastPlayedAt on top from OUR state, plus the
 // star-vs-note icon that used to come from cliamp's own p.favorite.
 // Catalog rows split into a "Favorites" section (ahead of
-// "Stations") whenever there's at least one favorite -- direct
+// "Catalogues") whenever there's at least one favorite -- direct
 // follow-up: "can you make the my favorite one show up on the all
 // station landing at the top" (originally labeled "Top Stations",
-// renamed on a later direct follow-up). Search rows stay one "Search
+// then "Stations", renamed again once cliamp's own bundled station
+// bouquet joined the plain world-radio list in the same section).
+// Search rows stay one "Search
 // Results" section (a favorited hit splitting into its own section
 // there would just fragment a single query's results for little
 // benefit), the star icon is the only visible difference.
@@ -113,7 +115,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
       next.sectionLabel = "Favorites"
       favorites.push(next)
     } else {
-      next.sectionLabel = "Stations"
+      next.sectionLabel = "Catalogues"
       rest.push(next)
     }
   }

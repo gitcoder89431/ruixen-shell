@@ -207,11 +207,15 @@ Item {
             // Badge + clock as one grouped pill (direct follow-up:
             // "group them together so it looks like a tab design, but
             // like keep the live part colored") rather than two loose
-            // floating pieces -- a single rounded outline (clip:true
-            // masks the two straight-edged segments inside it into one
-            // pill silhouette, standard two-tone-pill trick) with the
-            // live/paused segment keeping its own accent fill and the
-            // clock segment reading as a quieter detail tab beside it.
+            // floating pieces. Per-corner radius on each segment
+            // (round on its outer edge, square on the inner seam)
+            // instead of a clip:true mask -- clip only clips to an
+            // item's rectangular bounding box, never to its own
+            // radius, so that first pass actually rendered square
+            // corners despite radius: height/2 on the mask (direct
+            // report: "no sharp edges... make the corners round as
+            // well"). Same per-corner pattern BarPanel.qml's own
+            // docked-chrome pills already use elsewhere in this repo.
             Item {
               id: statusPill
               visible: root.hasNowPlaying
@@ -220,43 +224,40 @@ Item {
               width: pillRow.implicitWidth
               height: 15
 
-              Rectangle {
-                anchors.fill: parent
-                radius: height / 2
-                color: "transparent"
-                clip: true
+              Row {
+                id: pillRow
+                height: parent.height
+                spacing: 0
 
-                Row {
-                  id: pillRow
+                Rectangle {
                   height: parent.height
-                  spacing: 0
-
-                  Rectangle {
-                    height: parent.height
-                    width: statusLabel.implicitWidth + 16
-                    color: root.playing ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-                    Text {
-                      id: statusLabel
-                      anchors.centerIn: parent
-                      text: root.playing ? "LIVE" : "PAUSED"
-                      color: root.playing ? "#000000" : root.muted
-                      font.family: root.fontFamily
-                      font.pixelSize: 9
-                      font.bold: true
-                    }
+                  width: statusLabel.implicitWidth + 16
+                  color: root.playing ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+                  topLeftRadius: height / 2
+                  bottomLeftRadius: height / 2
+                  Text {
+                    id: statusLabel
+                    anchors.centerIn: parent
+                    text: root.playing ? "LIVE" : "PAUSED"
+                    color: root.playing ? "#000000" : root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: 9
+                    font.bold: true
                   }
-                  Rectangle {
-                    height: parent.height
-                    width: elapsedLabel.implicitWidth + 14
-                    color: Qt.rgba(1, 1, 1, 0.06)
-                    Text {
-                      id: elapsedLabel
-                      anchors.centerIn: parent
-                      text: root.elapsedText
-                      color: root.muted
-                      font.family: root.fontFamily
-                      font.pixelSize: 10
-                    }
+                }
+                Rectangle {
+                  height: parent.height
+                  width: elapsedLabel.implicitWidth + 14
+                  color: Qt.rgba(1, 1, 1, 0.06)
+                  topRightRadius: height / 2
+                  bottomRightRadius: height / 2
+                  Text {
+                    id: elapsedLabel
+                    anchors.centerIn: parent
+                    text: root.elapsedText
+                    color: root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: 10
                   }
                 }
               }

@@ -172,282 +172,295 @@ Item {
     Rectangle {
       id: nowPlayingCard
       width: parent.width
-      height: nowPlayingContent.implicitHeight + 24
+      height: cardBody.implicitHeight + 24
       radius: 10
       color: Qt.rgba(0, 0, 0, 0.22)
 
-      Row {
-        id: nowPlayingContent
+      // Now Playing's own Row plus the EQ chips below it, both inside
+      // one card -- direct follow-up: "extend the dark bg from the
+      // player to include the equalizer section too". EQ moved in
+      // here from being a separate, unfilled section of its own below
+      // the card (its comment, still accurate on everything but WHERE
+      // it now lives, stayed with it).
+      Column {
+        id: cardBody
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
         anchors.margins: 12
-        spacing: 12
-
-        Rectangle {
-          id: avatarTile
-          anchors.verticalCenter: parent.verticalCenter
-          width: 52
-          height: 52
-          radius: 10
-          color: root.hasNowPlaying ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22) : Qt.rgba(1, 1, 1, 0.06)
-
-          // Read-only status, not a label on a clickable control --
-          // the tile still isn't a button (the notch owns transport),
-          // same idea as the LIVE/PAUSED badge already is. Paused
-          // shows a plain play glyph; while actually playing, direct
-          // follow-up: "instead of the pause button showing... can we
-          // do like a bar spectrum wave animation icon thing instead"
-          // -- three bars on their own fixed-duration loop (eqBars
-          // below) rather than a static glyph.
-          Text {
-            anchors.centerIn: parent
-            visible: root.hasNowPlaying && !root.playing
-            text: ""
-            color: root.accent
-            font.family: root.fontFamily
-            font.pixelSize: 20
-          }
-          Text {
-            anchors.centerIn: parent
-            visible: !root.hasNowPlaying
-            text: ""
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 18
-          }
-
-          // Each bar runs its own fixed min/max/duration loop rather
-          // than a shared one -- different durations put them out of
-          // phase with each other for free, no randomness needed (and
-          // nothing to re-seed), so it reads as a live spectrum
-          // instead of three bars bouncing in mechanical unison.
-          Row {
-            id: eqBars
-            visible: root.playing
-            anchors.centerIn: parent
-            height: 16
-            spacing: 3
-
-            Repeater {
-              model: [
-                { min: 4, max: 15, duration: 420 },
-                { min: 6, max: 17, duration: 340 },
-                { min: 4, max: 13, duration: 500 }
-              ]
-
-              delegate: Rectangle {
-                id: eqBar
-                required property var modelData
-                width: 3
-                radius: 1.5
-                color: root.accent
-                anchors.bottom: parent.bottom
-                height: modelData.min
-
-                SequentialAnimation on height {
-                  running: root.playing
-                  loops: Animation.Infinite
-                  NumberAnimation { to: eqBar.modelData.max; duration: eqBar.modelData.duration; easing.type: Easing.InOutSine }
-                  NumberAnimation { to: eqBar.modelData.min; duration: eqBar.modelData.duration; easing.type: Easing.InOutSine }
-                }
-              }
-            }
-          }
-        }
-
-        Column {
-          width: parent.width - avatarTile.width - parent.spacing
-          spacing: 4
-
-          // Badge + elapsed clock live ON the title line itself, not a
-          // row of their own above it -- direct report: "kinda
-          // jumpy... dont want a new row to come in and out". That
-          // row's own visible: hasNowPlaying meant the card gained or
-          // lost an entire line (and resized) every time playback
-          // started/stopped/paused. One fixed-height line now, always
-          // present, with the title truncating to make room instead.
-          //
-          // Badge/clock sit right-aligned in their own group rather
-          // than leading the line -- direct follow-up: having them
-          // come first read as backwards, since the station name is
-          // the actual headline here. Row (not manual anchor-chaining)
-          // for the group since Row already skips invisible children
-          // when sizing itself, so liveBadge/pausedLabel swapping
-          // in and out never leaves a gap for elapsedLabel to chase.
-          Item {
-            id: titleRow
-            width: parent.width
-            height: Math.max(titleText.implicitHeight, statusPill.height)
-
-            Text {
-              id: titleText
-              anchors.left: parent.left
-              anchors.right: statusPill.left
-              anchors.rightMargin: root.hasNowPlaying ? 8 : 0
-              anchors.verticalCenter: parent.verticalCenter
-              elide: Text.ElideRight
-              maximumLineCount: 1
-              text: root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "Nothing playing"
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 14
-              font.weight: Font.DemiBold
-            }
-
-            // Badge + clock as one grouped pill (direct follow-up:
-            // "group them together so it looks like a tab design, but
-            // like keep the live part colored") rather than two loose
-            // floating pieces. Per-corner radius on each segment
-            // (round on its outer edge, square on the inner seam)
-            // instead of a clip:true mask -- clip only clips to an
-            // item's rectangular bounding box, never to its own
-            // radius, so that first pass actually rendered square
-            // corners despite radius: height/2 on the mask (direct
-            // report: "no sharp edges... make the corners round as
-            // well"). Same per-corner pattern BarPanel.qml's own
-            // docked-chrome pills already use elsewhere in this repo.
-            Item {
-              id: statusPill
-              visible: root.hasNowPlaying
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              width: pillRow.implicitWidth
-              height: 15
-
-              Row {
-                id: pillRow
-                height: parent.height
-                spacing: 0
-
-                Rectangle {
-                  height: parent.height
-                  width: statusLabel.implicitWidth + 16
-                  color: root.playing ? root.accent : Qt.rgba(1, 1, 1, 0.12)
-                  topLeftRadius: height / 2
-                  bottomLeftRadius: height / 2
-                  Text {
-                    id: statusLabel
-                    anchors.centerIn: parent
-                    text: root.playing ? "LIVE" : "PAUSED"
-                    color: root.playing ? "#000000" : root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: 9
-                    font.bold: true
-                  }
-                }
-                Rectangle {
-                  height: parent.height
-                  width: elapsedLabel.implicitWidth + 14
-                  color: Qt.rgba(1, 1, 1, 0.06)
-                  topRightRadius: height / 2
-                  bottomRightRadius: height / 2
-                  Text {
-                    id: elapsedLabel
-                    anchors.centerIn: parent
-                    text: root.elapsedText
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: 10
-                  }
-                }
-              }
-            }
-          }
-
-          Text {
-            visible: root.hasNowPlaying && root.nowPlaying.station && root.nowPlaying.title && root.nowPlaying.title !== root.nowPlaying.station
-            width: parent.width
-            elide: Text.ElideRight
-            maximumLineCount: 1
-            text: root.nowPlaying ? root.nowPlaying.title : ""
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 10
-          }
-
-          Text {
-            visible: root.hasNowPlaying && !!root.nowPlaying.artist
-            width: parent.width
-            elide: Text.ElideRight
-            text: root.nowPlaying ? root.nowPlaying.artist : ""
-            color: root.muted
-            font.family: root.fontFamily
-            font.pixelSize: 10
-          }
-        }
-      }
-    }
-
-    // EQ -- direct follow-up: "the equalizer options between the
-    // player and metadata might be a nice touch if easy to add in". A
-    // global player setting (cliamp's own `cliamp eq` command), not
-    // tied to whichever station happens to be selected, so this sits
-    // right after Now Playing rather than inside the metadata list
-    // below -- same "always visible regardless of list selection"
-    // reasoning Now Playing's own header comment gives. All 15 of
-    // cliamp's own real presets, not a curated subset -- direct
-    // follow-up once a first pass shipped six: "we do have space...
-    // theres alot of empty space on the panel anyways". No "Equalizer"
-    // label and each row of chips centered rather than left-flush --
-    // direct follow-up once all 15 shipped: "remove the equalizer
-    // text row and then center these chips so they line up better"
-    // (see packEqRows' own comment above for why a plain Flow couldn't
-    // do this on its own). Same chip look as ClipboardContent.qml's
-    // own Type/Sort row (24px pills, accent-tinted when active) --
-    // direct follow-up for visual consistency across the plugin's own
-    // extensions.
-    Column {
-      id: eqColumn
-      width: parent.width
-      spacing: 6
-
-      FontMetrics {
-        id: eqFontMetrics
-        font.family: root.fontFamily
-        font.pixelSize: 11
-      }
-
-      Repeater {
-        model: root.packEqRows(root.eqPresets, eqColumn.width)
+        spacing: 14
 
         Row {
-          id: eqChipRow
-          required property var modelData
-          anchors.horizontalCenter: parent.horizontalCenter
-          spacing: 6
+          id: nowPlayingContent
+          width: parent.width
+          spacing: 12
 
-          Repeater {
-            model: eqChipRow.modelData
+          Rectangle {
+            id: avatarTile
+            anchors.verticalCenter: parent.verticalCenter
+            width: 52
+            height: 52
+            radius: 10
+            color: root.hasNowPlaying ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22) : Qt.rgba(1, 1, 1, 0.06)
 
-            Rectangle {
-              id: eqChip
-              required property string modelData
-              readonly property bool isActive: root.eqPreset === modelData
-              width: eqChipLabel.implicitWidth + 20
-              height: 24
-              radius: 6
-              color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
-              border.width: 1
-              border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+            // Read-only status, not a label on a clickable control --
+            // the tile still isn't a button (the notch owns transport),
+            // same idea as the LIVE/PAUSED badge already is. Paused
+            // shows a plain play glyph; while actually playing, direct
+            // follow-up: "instead of the pause button showing... can we
+            // do like a bar spectrum wave animation icon thing instead"
+            // -- three bars on their own fixed-duration loop (eqBars
+            // below) rather than a static glyph.
+            Text {
+              anchors.centerIn: parent
+              visible: root.hasNowPlaying && !root.playing
+              text: ""
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 20
+            }
+            Text {
+              anchors.centerIn: parent
+              visible: !root.hasNowPlaying
+              text: ""
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: 18
+            }
+
+            // Each bar runs its own fixed min/max/duration loop rather
+            // than a shared one -- different durations put them out of
+            // phase with each other for free, no randomness needed (and
+            // nothing to re-seed), so it reads as a live spectrum
+            // instead of three bars bouncing in mechanical unison.
+            Row {
+              id: eqBars
+              visible: root.playing
+              anchors.centerIn: parent
+              height: 16
+              spacing: 3
+
+              Repeater {
+                model: [
+                  { min: 4, max: 15, duration: 420 },
+                  { min: 6, max: 17, duration: 340 },
+                  { min: 4, max: 13, duration: 500 }
+                ]
+
+                delegate: Rectangle {
+                  id: eqBar
+                  required property var modelData
+                  width: 3
+                  radius: 1.5
+                  color: root.accent
+                  anchors.bottom: parent.bottom
+                  height: modelData.min
+
+                  SequentialAnimation on height {
+                    running: root.playing
+                    loops: Animation.Infinite
+                    NumberAnimation { to: eqBar.modelData.max; duration: eqBar.modelData.duration; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: eqBar.modelData.min; duration: eqBar.modelData.duration; easing.type: Easing.InOutSine }
+                  }
+                }
+              }
+            }
+          }
+
+          Column {
+            width: parent.width - avatarTile.width - parent.spacing
+            spacing: 4
+
+            // Badge + elapsed clock live ON the title line itself, not a
+            // row of their own above it -- direct report: "kinda
+            // jumpy... dont want a new row to come in and out". That
+            // row's own visible: hasNowPlaying meant the card gained or
+            // lost an entire line (and resized) every time playback
+            // started/stopped/paused. One fixed-height line now, always
+            // present, with the title truncating to make room instead.
+            //
+            // Badge/clock sit right-aligned in their own group rather
+            // than leading the line -- direct follow-up: having them
+            // come first read as backwards, since the station name is
+            // the actual headline here. Row (not manual anchor-chaining)
+            // for the group since Row already skips invisible children
+            // when sizing itself, so liveBadge/pausedLabel swapping
+            // in and out never leaves a gap for elapsedLabel to chase.
+            Item {
+              id: titleRow
+              width: parent.width
+              height: Math.max(titleText.implicitHeight, statusPill.height)
 
               Text {
-                id: eqChipLabel
-                anchors.centerIn: parent
-                text: eqChip.modelData
+                id: titleText
+                anchors.left: parent.left
+                anchors.right: statusPill.left
+                anchors.rightMargin: root.hasNowPlaying ? 8 : 0
+                anchors.verticalCenter: parent.verticalCenter
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                text: root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "Nothing playing"
                 color: root.textColor
                 font.family: root.fontFamily
-                font.pixelSize: 11
+                font.pixelSize: 14
+                font.weight: Font.DemiBold
               }
 
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.eqPresetSelected(eqChip.modelData)
+              // Badge + clock as one grouped pill (direct follow-up:
+              // "group them together so it looks like a tab design, but
+              // like keep the live part colored") rather than two loose
+              // floating pieces. Per-corner radius on each segment
+              // (round on its outer edge, square on the inner seam)
+              // instead of a clip:true mask -- clip only clips to an
+              // item's rectangular bounding box, never to its own
+              // radius, so that first pass actually rendered square
+              // corners despite radius: height/2 on the mask (direct
+              // report: "no sharp edges... make the corners round as
+              // well"). Same per-corner pattern BarPanel.qml's own
+              // docked-chrome pills already use elsewhere in this repo.
+              Item {
+                id: statusPill
+                visible: root.hasNowPlaying
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: pillRow.implicitWidth
+                height: 15
+
+                Row {
+                  id: pillRow
+                  height: parent.height
+                  spacing: 0
+
+                  Rectangle {
+                    height: parent.height
+                    width: statusLabel.implicitWidth + 16
+                    color: root.playing ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+                    topLeftRadius: height / 2
+                    bottomLeftRadius: height / 2
+                    Text {
+                      id: statusLabel
+                      anchors.centerIn: parent
+                      text: root.playing ? "LIVE" : "PAUSED"
+                      color: root.playing ? "#000000" : root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 9
+                      font.bold: true
+                    }
+                  }
+                  Rectangle {
+                    height: parent.height
+                    width: elapsedLabel.implicitWidth + 14
+                    color: Qt.rgba(1, 1, 1, 0.06)
+                    topRightRadius: height / 2
+                    bottomRightRadius: height / 2
+                    Text {
+                      id: elapsedLabel
+                      anchors.centerIn: parent
+                      text: root.elapsedText
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 10
+                    }
+                  }
+                }
+              }
+            }
+
+            Text {
+              visible: root.hasNowPlaying && root.nowPlaying.station && root.nowPlaying.title && root.nowPlaying.title !== root.nowPlaying.station
+              width: parent.width
+              elide: Text.ElideRight
+              maximumLineCount: 1
+              text: root.nowPlaying ? root.nowPlaying.title : ""
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: 10
+            }
+
+            Text {
+              visible: root.hasNowPlaying && !!root.nowPlaying.artist
+              width: parent.width
+              elide: Text.ElideRight
+              text: root.nowPlaying ? root.nowPlaying.artist : ""
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: 10
+            }
+          }
+        }
+
+        // EQ -- direct follow-up: "the equalizer options between the
+        // player and metadata might be a nice touch if easy to add in". A
+        // global player setting (cliamp's own `cliamp eq` command), not
+        // tied to whichever station happens to be selected, so this sits
+        // right after Now Playing rather than inside the metadata list
+        // below -- same "always visible regardless of list selection"
+        // reasoning Now Playing's own header comment gives. All 15 of
+        // cliamp's own real presets, not a curated subset -- direct
+        // follow-up once a first pass shipped six: "we do have space...
+        // theres alot of empty space on the panel anyways". No "Equalizer"
+        // label and each row of chips centered rather than left-flush --
+        // direct follow-up once all 15 shipped: "remove the equalizer
+        // text row and then center these chips so they line up better"
+        // (see packEqRows' own comment above for why a plain Flow couldn't
+        // do this on its own). Same chip look as ClipboardContent.qml's
+        // own Type/Sort row (24px pills, accent-tinted when active) --
+        // direct follow-up for visual consistency across the plugin's own
+        // extensions.
+        Column {
+          id: eqColumn
+          width: parent.width
+          spacing: 6
+
+          FontMetrics {
+            id: eqFontMetrics
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
+
+          Repeater {
+            model: root.packEqRows(root.eqPresets, eqColumn.width)
+
+            Row {
+              id: eqChipRow
+              required property var modelData
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: 6
+
+              Repeater {
+                model: eqChipRow.modelData
+
+                Rectangle {
+                  id: eqChip
+                  required property string modelData
+                  readonly property bool isActive: root.eqPreset === modelData
+                  width: eqChipLabel.implicitWidth + 20
+                  height: 24
+                  radius: 6
+                  color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+                  border.width: 1
+                  border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+                  Text {
+                    id: eqChipLabel
+                    anchors.centerIn: parent
+                    text: eqChip.modelData
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.eqPresetSelected(eqChip.modelData)
+                  }
+                }
               }
             }
           }
         }
+
       }
     }
 

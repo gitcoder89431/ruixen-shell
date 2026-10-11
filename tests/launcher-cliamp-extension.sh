@@ -198,6 +198,8 @@ check "Launcher's own All-Types/All dropdown mechanism (Wallpapers, Theme Browse
   "$(( $(grep -c 'label: "All Countries"' "$launcher_qml") + $(grep -c 'cliampContent.countryFilter = opt.path' "$launcher_qml") + $(grep -c 'cliampContent.countryFilter$' "$launcher_qml") + $(grep -c 'cliampContent.countryOptions.map' "$launcher_qml") ))" "6"
 check "Dropdown list is a real scrollable ListView, capped to 7 visible rows -- direct report Country's 20+ entries overflowed the launcher's own bottom edge" \
   "$(( $(grep -c 'id: sourceFilterListView' "$launcher_qml") + $(grep -c 'Math.min(sourceFilterListView.count, 7)' "$launcher_qml") + $(grep -c 'clip: true' "$launcher_qml") ))" "4"
+check "Shift+Tab (the dropdown's own keyboard entry point) opens Cliamp Radio's Country dropdown too, not just Wallpapers/Theme Browser/Search Files" \
+  "$(grep -c 'root.activeExtensionId === \"wallpapers\" || root.activeExtensionId === \"theme-browser\" || root.activeExtensionId === \"cliamp\" || root.filesMode' "$launcher_qml")" "1"
 check "Cliamp Radio's search row shows the Country dropdown, same control Wallpapers/Theme Browser already use" \
   "$(grep -c 'showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp"' "$launcher_qml")" "1"
 

@@ -1927,7 +1927,7 @@ Item {
         onShiftTabPressed: {
           if (searchHeader.dropdownOpen) { searchHeader.dropdownOpen = false; return }
           if (root.actionsMenuOpen) return
-          if (root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.filesMode) root.openDropdown()
+          if (root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp" || root.filesMode) root.openDropdown()
         }
       }
 

@@ -187,12 +187,12 @@ Item {
           Item {
             id: titleRow
             width: parent.width
-            height: Math.max(titleText.implicitHeight, liveGroup.implicitHeight)
+            height: Math.max(titleText.implicitHeight, statusPill.height)
 
             Text {
               id: titleText
               anchors.left: parent.left
-              anchors.right: liveGroup.left
+              anchors.right: statusPill.left
               anchors.rightMargin: root.hasNowPlaying ? 8 : 0
               anchors.verticalCenter: parent.verticalCenter
               elide: Text.ElideRight
@@ -204,47 +204,61 @@ Item {
               font.weight: Font.DemiBold
             }
 
-            Row {
-              id: liveGroup
+            // Badge + clock as one grouped pill (direct follow-up:
+            // "group them together so it looks like a tab design, but
+            // like keep the live part colored") rather than two loose
+            // floating pieces -- a single rounded outline (clip:true
+            // masks the two straight-edged segments inside it into one
+            // pill silhouette, standard two-tone-pill trick) with the
+            // live/paused segment keeping its own accent fill and the
+            // clock segment reading as a quieter detail tab beside it.
+            Item {
+              id: statusPill
+              visible: root.hasNowPlaying
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              spacing: 6
+              width: pillRow.implicitWidth
+              height: 15
 
               Rectangle {
-                id: liveBadge
-                visible: root.playing
-                width: liveLabel.implicitWidth + 10
-                height: 15
-                radius: 7.5
-                color: root.accent
-                Text {
-                  id: liveLabel
-                  anchors.centerIn: parent
-                  text: "LIVE"
-                  color: "#000000"
-                  font.family: root.fontFamily
-                  font.pixelSize: 9
-                  font.bold: true
+                anchors.fill: parent
+                radius: height / 2
+                color: "transparent"
+                clip: true
+
+                Row {
+                  id: pillRow
+                  height: parent.height
+                  spacing: 0
+
+                  Rectangle {
+                    height: parent.height
+                    width: statusLabel.implicitWidth + 16
+                    color: root.playing ? root.accent : Qt.rgba(1, 1, 1, 0.12)
+                    Text {
+                      id: statusLabel
+                      anchors.centerIn: parent
+                      text: root.playing ? "LIVE" : "PAUSED"
+                      color: root.playing ? "#000000" : root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 9
+                      font.bold: true
+                    }
+                  }
+                  Rectangle {
+                    height: parent.height
+                    width: elapsedLabel.implicitWidth + 14
+                    color: Qt.rgba(1, 1, 1, 0.06)
+                    Text {
+                      id: elapsedLabel
+                      anchors.centerIn: parent
+                      text: root.elapsedText
+                      color: root.muted
+                      font.family: root.fontFamily
+                      font.pixelSize: 10
+                    }
+                  }
                 }
-              }
-              Text {
-                id: pausedLabel
-                visible: root.hasNowPlaying && !root.playing
-                anchors.verticalCenter: parent.verticalCenter
-                text: "PAUSED"
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: 9
-                font.bold: true
-              }
-              Text {
-                id: elapsedLabel
-                visible: root.hasNowPlaying
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.elapsedText
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: 10
               }
             }
           }

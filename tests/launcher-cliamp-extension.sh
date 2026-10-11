@@ -114,11 +114,13 @@ check "CliampStationPanel renders station metadata as zebra-striped rows, same c
 check "Now Playing card appears before the metadata rows in source order" \
   "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
 check "CliampStationPanel shows an avatar tile standing in for the art cliamp doesn't have, with a play/pause glyph reflecting real state" \
-  "$(( $(grep -c 'id: avatarTile' "$station_panel_qml") + $(grep -c 'root.playing ?' "$station_panel_qml") ))" "2"
+  "$(( $(grep -c 'id: avatarTile' "$station_panel_qml") + $(grep -c 'Play/pause glyph reflecting the real state' "$station_panel_qml") ))" "2"
 check "Avatar tile is read-only status, not a transport button -- it carries no click handler" \
   "$(grep -c 'onClicked' "$station_panel_qml")" "0"
 check "CliampStationPanel shows a LIVE/PAUSED badge" \
-  "$(( $(grep -c 'text: "LIVE"' "$station_panel_qml") + $(grep -c 'text: "PAUSED"' "$station_panel_qml") ))" "2"
+  "$(grep -c 'root.playing ? "LIVE" : "PAUSED"' "$station_panel_qml")" "1"
+check "LIVE/clock sit grouped in one pill, with only the live segment keeping the accent color" \
+  "$(( $(grep -c 'id: statusPill' "$station_panel_qml") + $(grep -c 'id: pillRow' "$station_panel_qml") + $(grep -c 'color: root.playing ? root.accent' "$station_panel_qml") ))" "3"
 check "LIVE/PAUSED badge and clock sit on the title line itself, not a row that appears/disappears" \
   "$(( $(grep -c 'id: titleRow' "$station_panel_qml") + $(grep -c 'id: titleText' "$station_panel_qml") + $(grep -c "visible: root.hasNowPlaying\$" "$station_panel_qml") ))" "4"
 check "CliampStationPanel ticks a real elapsed-listening clock, re-synced from cliamp's own position each poll" \

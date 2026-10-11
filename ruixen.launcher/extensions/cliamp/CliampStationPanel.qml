@@ -45,6 +45,46 @@ Item {
   readonly property bool playing: root.nowPlaying && root.nowPlaying.state === "playing"
   readonly property bool hasNowPlaying: !!(root.nowPlaying && (root.nowPlaying.title || root.nowPlaying.station))
 
+  // First letter of whatever's on air, standing in for the station art
+  // cliamp doesn't have (confirmed live against both its IPC and MPRIS
+  // Metadata) -- same idea as Spotify's own generated-monogram
+  // placeholder for a playlist/podcast with no cover image, rather
+  // than leaving a blank box or faking real artwork.
+  readonly property string monogram: {
+    var name = (root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "").trim()
+    return name.length > 0 ? name.charAt(0).toUpperCase() : ""
+  }
+
+  // Live-ticking "how long you've been listening" clock -- re-synced
+  // to cliamp's own real position every status poll (onNowPlayingChanged),
+  // then advanced locally once a second in between polls so it reads
+  // as genuinely alive rather than jumping every 2s with the poll
+  // interval. Frozen (Timer stopped) while paused rather than counting
+  // through a pause that isn't really elapsed listening time.
+  property real elapsedBase: 0
+  property real elapsedBaseAt: 0
+  property int elapsedTick: 0
+
+  function syncElapsed() {
+    root.elapsedBase = (root.nowPlaying && typeof root.nowPlaying.position === "number") ? root.nowPlaying.position : 0
+    root.elapsedBaseAt = Date.now()
+  }
+
+  onNowPlayingChanged: root.syncElapsed()
+
+  readonly property string elapsedText: {
+    root.elapsedTick // dependency only -- forces re-evaluation every tick
+    var secs = root.elapsedBase + (Date.now() - root.elapsedBaseAt) / 1000
+    return CliampStations.formatElapsed(secs)
+  }
+
+  Timer {
+    interval: 1000
+    running: root.playing
+    repeat: true
+    onTriggered: root.elapsedTick++
+  }
+
   // One row per known field, skipping anything with no value so the
   // zebra tint (by array position) never leaves a gap over an empty
   // row. Name goes through this same list rather than a separate
@@ -77,9 +117,15 @@ Item {
     // Now Playing -- pinned at the top regardless of list selection
     // (what's actually on air can be a different station from
     // whichever row is merely highlighted below). Same rounded-card
-    // treatment ThemeBrowserContent.qml's own preview box uses
-    // (radius 10, dark tint) so this reads as the same "featured top
-    // slot" pattern even without an image inside it.
+    // treatment ThemeBrowserContent.qml's own preview box uses (radius
+    // 10, dark tint). Direct follow-up after the first text-only pass
+    // read as flat: "it needs to be like atleast better... more
+    // spotify" -- a monogram tile standing in for the art cliamp
+    // doesn't have, a LIVE/PAUSED badge, and a live-ticking elapsed
+    // clock are what make this read as a real player card instead of a
+    // status line (a blurred-wallpaper backdrop, the notch's own
+    // trick, was considered and dropped -- it'd just be decorating
+    // with the wallpaper, unrelated to the station actually playing).
     Rectangle {
       id: nowPlayingCard
       width: parent.width
@@ -87,67 +133,117 @@ Item {
       radius: 10
       color: Qt.rgba(0, 0, 0, 0.22)
 
-      Column {
+      Row {
         id: nowPlayingContent
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         anchors.margins: 12
-        spacing: 6
+        spacing: 12
 
-        Row {
-          spacing: 6
-          Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 7
-            height: 7
-            radius: 3.5
-            color: root.playing ? root.accent : root.muted
+        Rectangle {
+          id: monogramTile
+          anchors.verticalCenter: parent.verticalCenter
+          width: 52
+          height: 52
+          radius: 10
+          color: root.hasNowPlaying ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22) : Qt.rgba(1, 1, 1, 0.06)
+
+          Text {
+            anchors.centerIn: parent
+            visible: root.hasNowPlaying
+            text: root.monogram
+            color: root.accent
+            font.family: root.fontFamily
+            font.pixelSize: 22
+            font.weight: Font.Bold
           }
           Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: "Now Playing" + (root.hasNowPlaying
-              ? " · " + (root.nowPlaying.state.charAt(0).toUpperCase() + root.nowPlaying.state.slice(1))
-              : "")
+            anchors.centerIn: parent
+            visible: !root.hasNowPlaying
+            text: ""
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 18
+          }
+        }
+
+        Column {
+          width: parent.width - monogramTile.width - parent.spacing
+          spacing: 4
+
+          Row {
+            spacing: 6
+            visible: root.hasNowPlaying
+
+            Rectangle {
+              visible: root.playing
+              anchors.verticalCenter: parent.verticalCenter
+              width: liveLabel.implicitWidth + 10
+              height: 15
+              radius: 7.5
+              color: root.accent
+              Text {
+                id: liveLabel
+                anchors.centerIn: parent
+                text: "LIVE"
+                color: "#000000"
+                font.family: root.fontFamily
+                font.pixelSize: 9
+                font.bold: true
+              }
+            }
+            Text {
+              visible: !root.playing
+              anchors.verticalCenter: parent.verticalCenter
+              text: "PAUSED"
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: 9
+              font.bold: true
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.elapsedText
+              color: root.muted
+              font.family: root.fontFamily
+              font.pixelSize: 10
+            }
+          }
+
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+            text: root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "Nothing playing"
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 14
+            font.weight: Font.DemiBold
+          }
+
+          Text {
+            visible: root.hasNowPlaying && root.nowPlaying.station && root.nowPlaying.title && root.nowPlaying.title !== root.nowPlaying.station
+            width: parent.width
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+            text: root.nowPlaying ? root.nowPlaying.title : ""
             color: root.muted
             font.family: root.fontFamily
             font.pixelSize: 10
-            font.capitalization: Font.AllUppercase
           }
-        }
 
-        Text {
-          width: parent.width
-          wrapMode: Text.WordWrap
-          maximumLineCount: 2
-          elide: Text.ElideRight
-          text: root.hasNowPlaying ? (root.nowPlaying.station || root.nowPlaying.title || "") : "Nothing playing"
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 14
-          font.weight: Font.DemiBold
-        }
-
-        Text {
-          visible: root.hasNowPlaying && root.nowPlaying.station && root.nowPlaying.title && root.nowPlaying.title !== root.nowPlaying.station
-          width: parent.width
-          wrapMode: Text.WordWrap
-          maximumLineCount: 2
-          elide: Text.ElideRight
-          text: root.nowPlaying ? root.nowPlaying.title : ""
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 10
-        }
-
-        Text {
-          visible: root.hasNowPlaying && !!root.nowPlaying.artist
-          width: parent.width
-          elide: Text.ElideRight
-          text: root.nowPlaying ? root.nowPlaying.artist : ""
-          color: root.muted
-          font.family: root.fontFamily
-          font.pixelSize: 10
+          Text {
+            visible: root.hasNowPlaying && !!root.nowPlaying.artist
+            width: parent.width
+            elide: Text.ElideRight
+            text: root.nowPlaying ? root.nowPlaying.artist : ""
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 10
+          }
         }
       }
     }

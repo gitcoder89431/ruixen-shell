@@ -113,6 +113,14 @@ check "CliampStationPanel renders station metadata as zebra-striped rows, same c
   "$(( $(grep -c 'property var metadataFields' "$station_panel_qml") + $(grep -c 'field.index % 2 === 0' "$station_panel_qml") + $(grep -c 'anchors.topMargin: -4' "$station_panel_qml") ))" "3"
 check "Now Playing card appears before the metadata rows in source order" \
   "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
+check "CliampStationPanel shows a monogram tile standing in for the art cliamp doesn't have" \
+  "$(( $(grep -c 'property string monogram' "$station_panel_qml") + $(grep -c 'id: monogramTile' "$station_panel_qml") ))" "2"
+check "CliampStationPanel shows a LIVE/PAUSED badge" \
+  "$(( $(grep -c 'text: "LIVE"' "$station_panel_qml") + $(grep -c 'text: "PAUSED"' "$station_panel_qml") ))" "2"
+check "CliampStationPanel ticks a real elapsed-listening clock, re-synced from cliamp's own position each poll" \
+  "$(( $(grep -c 'function formatElapsed' "$model_js") + $(grep -c 'function syncElapsed' "$station_panel_qml") + $(grep -c 'onNowPlayingChanged: root.syncElapsed()' "$station_panel_qml") ))" "3"
+check "Elapsed clock freezes while paused instead of counting through a pause" \
+  "$(grep -c 'running: root.playing' "$station_panel_qml")" "1"
 
 check "Cliamp Radio is documented in the launcher docs" \
   "$(grep -c 'Cliamp Radio' "$repo_dir/docs/LAUNCHER.md")" "1"

@@ -144,11 +144,32 @@ function parseStatus(text) {
       state: parsed.state || "stopped",
       title: track ? (track.title || "") : "",
       artist: track ? (track.artist || "") : "",
-      station: track ? (track.station || "") : ""
+      station: track ? (track.station || "") : "",
+      // Seconds since this station was tuned in -- confirmed live it
+      // climbs monotonically while playing rather than resetting per
+      // ICY title change, so it's an honest "how long you've been
+      // listening" counter, not a per-song position a continuous radio
+      // stream has no real concept of anyway (no duration to show a
+      // progress bar against).
+      position: typeof parsed.position === "number" ? parsed.position : 0
     }
   } catch (e) {
     return null
   }
+}
+
+// mm:ss, or h:mm:ss past the first hour -- used for the right panel's
+// live-ticking "how long you've been listening" clock (see
+// CliampStationPanel.qml), not a real track position/duration since a
+// radio stream has neither.
+function formatElapsed(totalSeconds) {
+  var s = Math.max(0, Math.floor(totalSeconds || 0))
+  var h = Math.floor(s / 3600)
+  var m = Math.floor((s % 3600) / 60)
+  var sec = s % 60
+  var mm = h > 0 ? String(m).padStart(2, "0") : String(m)
+  var ss = String(sec).padStart(2, "0")
+  return h > 0 ? (h + ":" + mm + ":" + ss) : (mm + ":" + ss)
 }
 
 // Cliamp's own IPC never returns station metadata as separate fields

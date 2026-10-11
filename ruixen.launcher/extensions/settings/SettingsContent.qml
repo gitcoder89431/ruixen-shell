@@ -277,6 +277,54 @@ Item {
     }
   }
 
+  // About's own health card -- direct request: "a few checks for
+  // dependencies etc for our services to work, at least the big ones...
+  // abit of health status but not the full doctor." ruixen-doctor.sh
+  // (repo root) already exists for the real full report -- already ruled
+  // out from living inline here for the exact same reason omarchyVersion
+  // above was: a multi-section diagnostic dump meant to be pasted into a
+  // support chat, not always-visible UI text. This reuses that script's
+  // own actual check commands (same meaning, not approximated) for just
+  // the handful load-bearing enough for THIS plugin's OWN core features,
+  // not every feature doctor.sh covers: the shell IPC bridge nearly
+  // every toggle/action here calls through, fd (Search Files' real
+  // backend -- doctor.sh's own comment confirms it's a stock Omarchy
+  // base package, so its absence means something removed it, not a
+  // stock gap), hyprctl (window/workspace actions), and how many
+  // quickshell processes are actually running (doctor.sh's own Runtime
+  // section: more than one means a stale instance is stuck).
+  property var healthChecks: []
+
+  Process {
+    id: healthCheckProc
+    command: ["bash", "-c",
+      "command -v fd >/dev/null 2>&1 && echo fd:ok || echo fd:missing; " +
+      "command -v hyprctl >/dev/null 2>&1 && echo hyprctl:ok || echo hyprctl:missing; " +
+      "if command -v omarchy-shell >/dev/null 2>&1 && OMARCHY_SHELL_IPC_TIMEOUT=1s omarchy-shell shell ping >/dev/null 2>&1; then echo ipc:ok; else echo ipc:fail; fi; " +
+      "echo quickshell:\"$(pgrep -c -f '^quickshell -n' 2>/dev/null || echo 0)\""]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var map = {}
+        String(text || "").trim().split("\n").forEach(function(line) {
+          var sep = line.indexOf(":")
+          if (sep > 0) map[line.slice(0, sep)] = line.slice(sep + 1)
+        })
+        root.healthChecks = [
+          { label: "Shell IPC", ok: map["ipc"] === "ok",
+            detail: map["ipc"] === "ok" ? "responding" : "not responding -- try omarchy restart shell" },
+          { label: "File Search (fd)", ok: map["fd"] === "ok",
+            detail: map["fd"] === "ok" ? "found" : "not found -- pacman -S --needed fd" },
+          { label: "Hyprland (hyprctl)", ok: map["hyprctl"] === "ok",
+            detail: map["hyprctl"] === "ok" ? "found" : "not found" },
+          { label: "Quickshell", ok: map["quickshell"] === "1",
+            detail: (map["quickshell"] || "0") + " process" + (map["quickshell"] === "1" ? "" : "es") + " running"
+              + (map["quickshell"] === "1" ? "" : " -- expected 1, a stale instance may be stuck") }
+        ]
+      }
+    }
+  }
+
   Process {
     id: ensureAvatarStateDirProc
     command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
@@ -2806,6 +2854,10 @@ Item {
       glassProfileReadProc.running = true
       glassTintModeReadProc.running = true
       barModeReadProc.running = true
+      // Same "can genuinely change between visits" reasoning as the
+      // reads just above -- a dependency can get uninstalled, or the
+      // shell IPC can go down, while this extension sits closed.
+      healthCheckProc.running = true
       root.refreshPlugins()
       pluginService.refreshRepoPath()
     }
@@ -5094,6 +5146,76 @@ Item {
         font.family: root.fontFamily
         font.pixelSize: 10
         color: root.muted
+      }
+    }
+  }
+
+  // Health card -- see healthChecks' own comment above for what this
+  // checks and why only these four. Purely informational (no
+  // MouseArea/focus ring, same as aboutVersionItem above it), so it has
+  // no entry in aboutItems -- there's nothing here to activate or type
+  // into.
+  Rectangle {
+    id: healthItem
+    width: parent.width
+    height: healthContent.implicitHeight + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.aboutOpen
+
+    Column {
+      id: healthContent
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 8
+
+      Text {
+        text: "Health"
+        font.family: root.fontFamily
+        font.pixelSize: 12
+        font.weight: Font.DemiBold
+        color: root.textColor
+      }
+
+      Text {
+        visible: root.healthChecks.length === 0
+        text: "Checking…"
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        color: root.muted
+      }
+
+      Repeater {
+        model: root.healthChecks
+
+        delegate: Item {
+          width: healthContent.width
+          height: 16
+
+          Rectangle {
+            id: healthDot
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: 6
+            height: 6
+            radius: 3
+            // root.accent for OK, same dot-color convention
+            // SettingsWifiRow's own connected dot already uses -- "#e05252"
+            // for a real failure, the same red every other error state in
+            // this file (danger zone, wifi error text) already uses.
+            color: modelData.ok ? root.accent : "#e05252"
+          }
+
+          Text {
+            anchors.left: healthDot.right
+            anchors.leftMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            text: modelData.label + " -- " + modelData.detail
+            font.family: root.fontFamily
+            font.pixelSize: 10
+            color: modelData.ok ? root.muted : "#e05252"
+          }
+        }
       }
     }
   }

@@ -1073,20 +1073,25 @@ Item {
     // panel having its own separate 180px preview box (direct
     // correction: "since we already have a hero, that can be used for
     // the preview"). Visible whenever there's something to show: a
-    // transient hover-preview on either axis, or a persistently active
-    // background effect (CRT/Matrix) reflecting the real current
-    // state -- transitions themselves are momentary events between
-    // wallpaper changes, not an ongoing visual state, so nothing shows
-    // for Transition at rest, only while actively hovering a chip.
+    // transient hover-preview or click-confirm flash on the Transition
+    // axis (appearancePanel.previewingTransition -- hover OR a brief
+    // one-shot flash right after picking one, see its own comment), an
+    // Effect hover-preview, or a persistently active background effect
+    // (CRT/Matrix) reflecting the real current state -- transitions
+    // themselves are momentary events between wallpaper changes, not
+    // an ongoing visual state, so nothing shows for Transition at rest.
+    // durationMs matches whichever effect is actually previewing its
+    // own real baked-in preset speed (direct correction: "match the
+    // preview speed with the actual preset speed"), not a fixed value.
     WallpaperEffectPreview {
       anchors.fill: parent
-      visible: appearancePanel.previewTransition !== "" || appearancePanel.previewBackgroundEffect !== ""
+      visible: appearancePanel.previewingTransition || appearancePanel.previewBackgroundEffect !== ""
         || (appearancePanel.rendererEnabled && appearancePanel.backgroundEffectOn)
-      effect: appearancePanel.previewTransition || "reveal"
+      effect: appearancePanel.activePreviewTransition || "reveal"
       fromPath: root.currentBackground
       toPath: appearancePanel.previewNext
-      playing: root.active && appearancePanel.previewTransition !== ""
-      durationMs: 420
+      playing: root.active && appearancePanel.previewingTransition
+      durationMs: appearancePanel.activePreviewDurationMs
       transitionOptions: appearancePanel.settings.transitionOptions || ({})
       ambientActive: root.active
       backgroundEffect: appearancePanel.previewBackgroundEffect !== "" ? appearancePanel.previewBackgroundEffect : (appearancePanel.settings.backgroundEffect || "none")

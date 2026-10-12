@@ -90,12 +90,12 @@ is active and **Speed** shown only for Matrix (CRT has no animation timer).
 Picking CRT or Matrix also turns the renderer on; picking Off only clears the
 background effect, leaving the renderer's on/off state to Transition, so
 turning Effect off doesn't kill an active Transition (or the reverse).
-Hovering an Effect chip also live-previews it in the hero tile. **Disable
-motion** finishes transitions, stops the background effect's own animation,
-and freezes rain while retaining static textures -- the one remaining
-toggle; ambient zoom and theme glow were dropped entirely (max ~0.7% scale
-variance over a 3-minute cycle and ~4% opacity over a 60s cycle
-respectively -- too subtle to read as real options).
+Hovering an Effect chip also live-previews it in the hero tile. No ambient
+toggles remain: zoom and glow were too subtle to read as real options (max
+~0.7% scale variance over a 3-minute cycle and ~4% opacity over a 60s cycle
+respectively), and disable motion followed since Transition Stock + Effect
+Off already reaches the same "nothing moving" state through controls that
+already exist.
 
 The notch picker gets the same two features as compact chips instead, next
 to Shuffle in its own filter row -- a quicker path that trades the

@@ -64,11 +64,16 @@ ClippingRectangle {
     disableMotion:root.disableMotion; active:root.ambientActive; accent:root.accent
   }
   WallpaperTransitionMask { id:previewMask; anchors.fill:parent; effect:root.effect; progress:root.progress; active:root.playing && !root.glitchTransition }
+  // Gap between loop iterations -- direct correction: "it doesnt need
+  // to run back to back so quickly, seems to be like computing alot
+  // for that". Was 450ms (roughly as long as a fast transition's own
+  // animation), now a real pause so a continuously-hovered preview
+  // reads as occasional, not relentless.
   SequentialAnimation {
     id:loop
     loops:Animation.Infinite
     PropertyAction { target:root; property:"progress"; value:0 }
     NumberAnimation { target:root; property:"progress"; from:0; to:1; duration:root.durationMs; easing.type:Easing.InOutCubic }
-    PauseAnimation { duration:450 }
+    PauseAnimation { duration:1400 }
   }
 }

@@ -62,11 +62,31 @@ Item {
   readonly property bool transitionOn: (settings.transitionDurationMs || 0) > 0
   readonly property bool backgroundEffectOn: (settings.backgroundEffect || "none") !== "none"
 
-  // Hover-preview state -- null means "not previewing that axis right
+  // Hover-preview state -- "" means "not previewing that axis right
   // now". Driven by HoverHandlers on the chips below, read by heroTile.
   property string previewTransition: ""
   property string previewBackgroundEffect: ""
+  // One-shot confirmation flash on click, separate from the continuous
+  // hover loop -- direct request: "have it show on click of a new
+  // transition though for sure", so picking one is still confirmed
+  // immediately even with the hover loop itself now spaced out (see
+  // WallpaperEffectPreview.qml's own comment). Cleared by
+  // clickPreviewTimer after roughly one real cycle of that effect's
+  // own baked duration.
+  property string clickPreviewEffect: ""
+  Timer { id: clickPreviewTimer; onTriggered: root.clickPreviewEffect = "" }
   readonly property string previewNext: EffectModel.nextPreviewArtwork(currentBackground, artworkEntries)
+  // What the hero should actually be animating right now, if anything,
+  // and at what speed -- hover wins over a click flash still finishing
+  // (an active hover IS the user actively comparing options, more
+  // authoritative than a click-confirm that already did its job).
+  // durationFor falls back to the real selected transition (or Reveal)
+  // so the duration stays sensible even if this ever reads with no
+  // preview active.
+  readonly property string activePreviewTransition: previewTransition || clickPreviewEffect
+  readonly property bool previewingTransition: activePreviewTransition !== ""
+  function durationFor(key) { return glitchKeys.indexOf(key) >= 0 ? glitchDurationMs : maskDurationMs }
+  readonly property int activePreviewDurationMs: durationFor(activePreviewTransition || settings.transitionEffect || "reveal")
 
   readonly property var choices: [
     {key: "reveal", label: "Reveal"}, {key: "bleed", label: "Bleed through"}, {key: "pixel-dissolve", label: "Pixel dissolve"},
@@ -129,6 +149,10 @@ Item {
     }
     change(updates)
     setRenderer(true)
+    // Confirmation flash -- see clickPreviewEffect's own comment.
+    clickPreviewEffect = key
+    clickPreviewTimer.interval = (isGlitch ? glitchDurationMs : maskDurationMs) + 1500
+    clickPreviewTimer.restart()
   }
   // Stock -- duration 0 is already "instant cut, no visible transition"
   // to the renderer's own crossfade code, same meaning as the notch
@@ -207,7 +231,7 @@ Item {
     function status(): string {
       return JSON.stringify({
         preview: root.previewTransition, selected: root.settings.transitionEffect, active: root.active,
-        durationMs: root.settings.transitionDurationMs, from: root.currentBackground, to: root.previewNext
+        durationMs: root.activePreviewDurationMs, from: root.currentBackground, to: root.previewNext
       })
     }
   }
@@ -366,25 +390,17 @@ Item {
       }
     }
 
-    // Ambient zoom (max ~0.7% scale variance over a 3-minute cycle) and
-    // Theme glow (max ~4% opacity over a 60s cycle) dropped -- direct
-    // correction: "idk they dont seem to be doing anything significant
-    // enough as options", confirmed against ruixen.background/
-    // Service.qml's own math, genuinely too subtle to read as a real
-    // toggle. Disable motion kept -- it's not a cosmetic knob like
-    // those two, it's the one real accessibility/preference switch
-    // (freezes transitions, zoom, glow, and Matrix rain together,
-    // while keeping static CRT), a materially different kind of
-    // control. Renderer-side support for ambientZoom/ambientGlow is
+    // Ambient zoom/Theme glow/Disable motion all dropped now -- the
+    // first two for being too subtle to read as real options (max
+    // ~0.7% scale variance over 3 minutes, ~4% opacity swing over 60s,
+    // checked against ruixen.background/Service.qml's own math, not
+    // guessed). Disable motion followed on direct correction: "theres
+    // no reason for disable motion, that just means turn the effect or
+    // transition off anyways" -- Transition Stock + Effect Off already
+    // reaches the same "nothing moving" state through controls that
+    // already exist, so a third toggle for it wasn't pulling its
+    // weight either. Renderer-side support for all three settings is
     // untouched, just no longer exposed from either picker UI.
-    RowLayout {
-      Layout.fillWidth: true
-      WallpaperToggle {
-        text: "Disable motion"; checked: root.settings.disableMotion === true
-        accent: root.accent; textColor: root.textColor; font.family: root.fontFamily
-        onClicked: root.change({disableMotion: checked})
-      }
-    }
   }
   }
 }

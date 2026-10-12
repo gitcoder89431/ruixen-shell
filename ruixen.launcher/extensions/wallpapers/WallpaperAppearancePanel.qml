@@ -248,8 +248,19 @@ Item {
   ColumnLayout {
     id: content
     anchors.fill: parent
-    spacing: 10
+    // 16 between the two groups (Effect incl. its sliders, Transition),
+    // a real gap since they're unrelated sections -- each group's own
+    // inner spacing is a tight 6 instead, see its own ColumnLayout.
+    // Direct correction once the Flickable came out: "theres too much
+    // space betwween the chips and the group header now" -- a flat
+    // ColumnLayout with one uniform spacing put that same 10 between
+    // EVERY sibling, including a label and the chip row it's labeling,
+    // which reads as unrelated instead of grouped.
+    spacing: 16
 
+    ColumnLayout {
+      Layout.fillWidth: true
+      spacing: 6
     Text { text: "Effect"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
     Row {
       spacing: 6
@@ -318,7 +329,11 @@ Item {
         color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11; Layout.preferredWidth: 36
       }
     }
+    }
 
+    ColumnLayout {
+      Layout.fillWidth: true
+      spacing: 6
     Text { text: "Transition"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
     Flow {
       Layout.fillWidth: true
@@ -377,6 +392,7 @@ Item {
           }
         }
       }
+    }
     }
 
     // Ambient zoom/Theme glow/Disable motion all dropped now -- the

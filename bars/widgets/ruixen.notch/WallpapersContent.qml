@@ -921,89 +921,20 @@ Item {
         }
       }
 
-      // Wallpaper appearance's quick Transition chip, right next to
-      // Shuffle (direct request). Same two-segment shape: a constant-
-      // accent "Transition" label plus a value segment cycling through
-      // Stock and the 13 real transitions. Picking a real transition
-      // auto-enables the native renderer; cycling back to Stock turns
-      // it off -- "clicking it cycles through the transition and
-      // automatically turns the renderer on so we dont need that extra
-      // enable step". Right click jumps straight back to Stock. See
-      // WallpaperAppearanceState.qml for the cycle.
-      Item {
-        id: appearanceChip
-        visible: root.mediaMode === "wallpapers" && appearanceState.available
-        readonly property string valueLabel: appearanceState.rendererEnabled
-          ? appearanceState.effectLabel(appearanceState.settings.transitionEffect) : "Stock"
-
-        width: appearanceChipRow.implicitWidth
-        height: 28
-
-        Row {
-          id: appearanceChipRow
-          height: parent.height
-          spacing: 0
-
-          Rectangle {
-            height: parent.height
-            width: appearanceLabel.implicitWidth + 16
-            color: root.accent
-            topLeftRadius: 8
-            bottomLeftRadius: 8
-            topRightRadius: 4
-            bottomRightRadius: 4
-            Text {
-              id: appearanceLabel
-              anchors.centerIn: parent
-              text: "Transition"
-              color: "#000000"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
-          }
-          Rectangle {
-            height: parent.height
-            width: appearanceValueLabel.implicitWidth + 14
-            color: root.surfaceTint(0.04)
-            topLeftRadius: 4
-            bottomLeftRadius: 4
-            topRightRadius: 8
-            bottomRightRadius: 8
-            Text {
-              id: appearanceValueLabel
-              anchors.centerIn: parent
-              text: appearanceChip.valueLabel
-              color: root.accent
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
-          }
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          acceptedButtons: Qt.LeftButton | Qt.RightButton
-          onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) appearanceState.resetToStock()
-            else appearanceState.cycleTransition()
-          }
-        }
-      }
-
-      // Wallpaper appearance's quick Effect chip, right next to
-      // Transition (direct request). Same two-segment shape again: a
-      // constant-accent "Effect" label plus a value segment cycling
-      // Off -> CRT -> Matrix -> Off. Picking CRT or Matrix auto-enables
-      // the native renderer same as Transition does; cycling back to
-      // this chip's own Off only clears the background effect, it does
-      // NOT disable the renderer -- Transition still owns that shared
-      // decision (see WallpaperAppearanceState.qml's own header
-      // comment). Right click jumps straight back to Off.
+      // Wallpaper appearance's quick Effect chip, right next to Shuffle
+      // (direct request). Same two-segment shape: a constant-accent
+      // "Effect" label plus a value segment cycling Off -> CRT ->
+      // Matrix -> Off. Picking CRT or Matrix auto-enables the native
+      // renderer same as Transition does; cycling back to this chip's
+      // own Off only disables the renderer if Transition isn't also
+      // keeping it on, so Stock Transition + an active CRT/Matrix (or
+      // the reverse) both hold correctly -- see
+      // WallpaperAppearanceState.qml's own header comment for the bug
+      // this fixed. Right click jumps straight back to Off.
       Item {
         id: backgroundEffectChip
         visible: root.mediaMode === "wallpapers" && appearanceState.available
-        readonly property string valueLabel: appearanceState.rendererEnabled
+        readonly property string valueLabel: appearanceState.rendererEnabled && appearanceState.backgroundEffectOn
           ? appearanceState.backgroundEffectLabel(appearanceState.settings.backgroundEffect) : "Off"
 
         width: backgroundEffectChipRow.implicitWidth
@@ -1057,6 +988,83 @@ Item {
           onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) appearanceState.resetBackgroundEffect()
             else appearanceState.cycleBackgroundEffect()
+          }
+        }
+      }
+
+      // Wallpaper appearance's quick Transition chip, right next to
+      // Effect -- moved to be the LAST chip in the row (direct
+      // correction: its value segment's label can run long -- "Signal
+      // tear", "Code bleed", "Bleed through" -- and with Effect sitting
+      // after it, that growth pushed Effect along too, which the fixed-
+      // width RowLayout had nowhere good to put, right into Effect's
+      // own bounds). Being last means its variable width only ever
+      // pushes the trailing fillWidth spacer and back-to-top button,
+      // never another chip. Same two-segment shape: a constant-accent
+      // "Transition" label plus a value segment cycling through Stock
+      // and the 13 real transitions. Picking a real transition auto-
+      // enables the native renderer; cycling back to Stock turns it off
+      // -- "clicking it cycles through the transition and automatically
+      // turns the renderer on so we dont need that extra enable step".
+      // Right click jumps straight back to Stock. See
+      // WallpaperAppearanceState.qml for the cycle.
+      Item {
+        id: appearanceChip
+        visible: root.mediaMode === "wallpapers" && appearanceState.available
+        readonly property string valueLabel: appearanceState.rendererEnabled && appearanceState.transitionOn
+          ? appearanceState.effectLabel(appearanceState.settings.transitionEffect) : "Stock"
+
+        width: appearanceChipRow.implicitWidth
+        height: 28
+
+        Row {
+          id: appearanceChipRow
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            height: parent.height
+            width: appearanceLabel.implicitWidth + 16
+            color: root.accent
+            topLeftRadius: 8
+            bottomLeftRadius: 8
+            topRightRadius: 4
+            bottomRightRadius: 4
+            Text {
+              id: appearanceLabel
+              anchors.centerIn: parent
+              text: "Transition"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+          Rectangle {
+            height: parent.height
+            width: appearanceValueLabel.implicitWidth + 14
+            color: root.surfaceTint(0.04)
+            topLeftRadius: 4
+            bottomLeftRadius: 4
+            topRightRadius: 8
+            bottomRightRadius: 8
+            Text {
+              id: appearanceValueLabel
+              anchors.centerIn: parent
+              text: appearanceChip.valueLabel
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) appearanceState.resetToStock()
+            else appearanceState.cycleTransition()
           }
         }
       }

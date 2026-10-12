@@ -235,6 +235,51 @@ Item {
       // "wallpapers" in-process instead.
       action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"wallpapers\"}'"
     },
+    // Same gap again, for Cliamp Radio -- direct report: "only have
+    // settings and wallpapers working on search lol", after a typed
+    // query for "radio"/"cliamp" turned up nothing (cliampRow() in
+    // Launcher.qml only ever appears on the empty-query landing list,
+    // same real limitation settingsRow()/wallpapersRow() had before
+    // their own synthetic entries above). "cliamp" alone already
+    // matches via the label itself (it's a substring of "Cliamp
+    // Radio"), so only the genuinely additive words go in aliases.
+    "ruixen.cliamp": {
+      // fa-music (U+F001) -- matches cliampRow()'s own icon in
+      // Launcher.qml, so the palette row and what it opens read as
+      // the same thing.
+      icon: "",
+      label: "Cliamp Radio",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      aliases: ["music", "station", "stations"],
+      keybind: root.keybindFor("Cliamp Radio"),
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"cliamp\"}'"
+    },
+    "ruixen.clipboard": {
+      // fa-clipboard (U+F0EA) -- matches clipboardRow()'s own icon.
+      icon: "",
+      label: "Clipboard History",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      aliases: ["paste", "copy"],
+      keybind: root.keybindFor("Clipboard History"),
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"clipboard\"}'"
+    },
+    // "bjarneo" alone wouldn't match this label at all (their name
+    // credits the catalog in the label, not an alias -- see
+    // themeBrowserRow()'s own comment in Launcher.qml), so it goes
+    // here instead where it genuinely helps.
+    "ruixen.theme-browser": {
+      // fa-paint-brush (U+F1FC) -- matches themeBrowserRow()'s own
+      // icon.
+      icon: "",
+      label: "Bjarneo Themes",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      aliases: ["theme", "themes", "colorscheme", "bjarneo"],
+      keybind: root.keybindFor("Bjarneo Themes"),
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"theme-browser\"}'"
+    },
     "window.fullscreen": {
       icon: "", // fa-expand
       label: "Full Screen",

@@ -31,7 +31,7 @@ check "Launcher has a Clipboard History landing row" \
 check "Launcher activates clipboard-extension in-process" \
   "$(grep -A8 'result.providerId === "clipboard-extension"' "$launcher_qml" | grep -c 'activeExtensionId = "clipboard"')" "1"
 check "Launcher records clipboard frecency" \
-  "$(grep -c 'recordLaunch("ruixen.clipboard")\|frecencyFor("ruixen.clipboard")' "$launcher_qml")" "2"
+  "$(grep -c 'recordLaunch("ruixen.clipboard")\|frecencyFor("ruixen.clipboard")' "$launcher_qml")" "3"
 check "Launcher instantiates ClipboardContent" \
   "$(grep -c 'ClipboardContent {' "$launcher_qml")" "1"
 
@@ -121,6 +121,11 @@ check "ClipboardContent has a Type filter chip and Recent/By Type sort chips" \
   "$(grep -c 'function cycleKindFilter' "$content_qml")$(grep -c 'function toggleSort' "$content_qml")$(grep -c 'id: chipRow' "$content_qml")" "111"
 check "Clipboard model filters and sorts through one view object" \
   "$(grep -c 'function visibleEntries\|function kindsPresent' "$model_js")" "2"
+
+check "ClipboardContent guards mouse hover against keyboard-nav scroll snapback -- same fix already ported into Launcher.qml/ThemeBrowserContent.qml/CliampContent.qml for the identical bug" \
+  "$(( $(grep -c 'property bool hoverArmed: false' "$content_qml") + $(grep -c 'property point hoverArmBaseline: Qt.point(-1, -1)' "$content_qml") + $(grep -c 'if (root.hoverArmed) root.selectedIndex = idx' "$content_qml") + $(grep -c 'HoverHandler {' "$content_qml") ))" "4"
+check "hoverArmed resets on every selectedIndex change AND on (re)open" \
+  "$(( $(grep -c 'root.hoverArmed = false' "$content_qml") + $(grep -c 'root.hoverArmBaseline = Qt.point(-1, -1)' "$content_qml") ))" "4"
 
 check "run-all includes launcher clipboard extension contract" \
   "$(grep -c 'launcher-clipboard-extension\.sh' "$script_dir/run-all.sh")" "1"

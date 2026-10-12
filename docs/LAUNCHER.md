@@ -154,6 +154,46 @@ identity, not position; an entry that has changed or vanished since it was
 drawn is left alone. Deleting an image also removes its file from
 `clipboard-images` if no other entry uses it.
 
+## Cliamp Radio
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"cliamp"}'` — see [`docs/KEYBINDS.md`](KEYBINDS.md)) that
+browses and plays Omarchy's bundled `cliamp` radio directory from a list
+instead of its own TUI. Talks to the real `cliamp` daemon over its own
+IPC socket (starting one headlessly on first use if none is running) —
+no second radio backend.
+
+- Leave the search box empty for the curated station catalog; any
+  favorited station groups into a **Favorites** section at the top
+  (only appears once you have at least one), including a station only
+  ever reachable via search and never in cliamp's own curated catalog
+  at all. Type to search the worldwide station directory by name
+  instead.
+- **Enter** or click a row to play it.
+- **Tab** or right-click opens a row's actions: **Play**, and
+  **Favorite**/**Unfavorite** for every row, catalog or search hit
+  alike. Favoriting runs through this plugin's own small local store
+  (`~/.local/state/ruixen/cliamp-favorites.json`), not cliamp's native
+  favorites — cliamp's own `provider.favorite` only ever takes a
+  catalog id, which a raw search result never carries, so there's no
+  single favorite operation that can reach both; this plugin keeps one
+  consistent star everywhere instead of two different ones. Favorites
+  set here won't show starred in cliamp's own TUI as a result.
+- The right-hand panel shows details for whichever row is selected
+  (country/bitrate, parsed out of cliamp's own station name — it has no
+  separate fields or station art for these; a "Last Played" field once
+  a station's been played at least once from here), plus a featured
+  "Now Playing" card for whatever's actually on air.
+
+No transport controls here on purpose: cliamp exposes itself over MPRIS
+the moment it's running, so the notch's own media widget already
+plays/pauses/skips it like any other player — this extension's job is
+picking what plays, not a second set of buttons for controlling it.
+
+Radio is the only cliamp provider this extension drives today — your
+own library, playlists, and the other streaming providers cliamp
+supports stay in cliamp's own TUI for now.
+
 ## Configuring search locations
 
 By default, Search Files walks your home directory plus every

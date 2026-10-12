@@ -118,5 +118,6 @@ Settings survive shell restarts in
 `~/.local/state/ruixen/wallpaper-rotation.json`. New installations default to off;
 rotation never edits the theme's wallpaper collection. Disable any independent
 wallpaper-rotation timer before enabling this feature to avoid competing changes.
-A missing or empty folder surfaces as a small error line under the filter row.
+A missing or empty folder fails silently in the chip itself (no separate
+status line -- it used to shift the grid down whenever it appeared).
 Discovery runs off the UI thread and is bounded to 10000 directory entries.

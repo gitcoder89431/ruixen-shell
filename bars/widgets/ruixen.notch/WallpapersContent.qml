@@ -929,23 +929,6 @@ Item {
       }
     }
 
-    // Only takes space when there's actually something to say -- the
-    // happy path (rotation off, or on and running fine) shows nothing
-    // here at all. "paused" reflects media playback regardless of
-    // whether rotation is even on, so it's only worth a line when
-    // rotation itself is enabled -- otherwise there's nothing it would
-    // be interrupting.
-    Text {
-      Layout.fillWidth: true
-      visible: text.length > 0
-      text: root.mediaMode === "wallpapers" && rotationState.available
-        ? (rotationState.settings.error || (rotationState.settings.enabled === true && rotationState.settings.paused ? "Rotation paused during video/GIF playback" : ""))
-        : ""
-      color: rotationState.settings.error ? root.dangerColor : root.muted
-      font.family: root.fontFamily
-      font.pixelSize: 10
-      wrapMode: Text.Wrap
-    }
 
     // Wallpaper grid -- fills the same full row as the theme grid now
     // that the old right sidebar/stat-card layout has been folded into

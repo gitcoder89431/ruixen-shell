@@ -154,15 +154,13 @@ check "theme grid renders labels as PlainText" \
 check "theme grid shows only in theme mode" \
   "$(grep -c 'visible: root.mediaMode === "themes" && root.filteredThemes.length > 0' "$content_qml")" "1"
 
-# Back to 1 -- the source-filter chip row (direct follow-up: "add chips
-# for All Omarchy Custom", then "the themes can have those chips [too]")
-# briefly duplicated this exact visible condition on its own Row before
-# that follow-up, but now applies to BOTH modes (one sourceFilter
-# property, one chip row, filtering filteredPaths or filteredThemes
-# depending on which is showing), so only the original grid+sidebar
-# block is still wallpaper-mode-only.
+# Was pinned at 1 (just the grid+sidebar block) -- the source-filter chip
+# row applies to BOTH modes so it never matched this literal pattern. Now
+# 4: the grid block, Artwork rotation's chip, and Wallpaper appearance's
+# Transition and Effect chips, all wallpaper-mode-only since none of
+# those features apply to themes.
 check "wallpaper block shows only in wallpaper mode" \
-  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "1"
+  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "4"
 
 check "theme grid fills the row instead of leaving a dead right strip" \
   "$(grep -c 'readonly property int columns: Math.max(1, Math.floor(themeGridWrap.width / 170))' "$content_qml")" "1"

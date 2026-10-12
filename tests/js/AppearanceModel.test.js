@@ -1,0 +1,17 @@
+"use strict";
+const path=require("path");
+const {loadModule,check,summary}=require("./harness.js");
+const model=loadModule(path.join(__dirname,"../../ruixen.background/AppearanceModel.js"));
+check("default transition preserves stock duration",model.normalize(null).transitionDurationMs,420);
+check("default background is off",model.normalize([]).backgroundEffect,"none");
+const invalid=model.normalize({transitionEffect:"bogus",transitionDurationMs:"100",disableMotion:"yes",backgroundSpeed:Infinity});
+check("invalid duration uses default",invalid.transitionDurationMs,420);
+check("unknown transition uses reveal",invalid.transitionEffect,"reveal");
+check("boolean flags are strict",invalid.disableMotion,false);
+check("infinite speed uses default",invalid.backgroundSpeed,1);
+const bounded=model.normalize({transitionDurationMs:90000,backgroundIntensity:-2,transitionOptions:{vhs:{strength:4,density:0}}});
+check("duration bounded",bounded.transitionDurationMs,30000);
+check("intensity bounded",bounded.backgroundIntensity,0);
+check("distortion bounded",bounded.transitionOptions.vhs.strength,1);
+check("density bounded",bounded.transitionOptions.vhs.density,.5);
+summary();

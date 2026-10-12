@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "ruixen.background",
+  "name": "Ruixen Background",
+  "version": "0.1.0",
+  "author": "ruixen",
+  "license": "MIT",
+  "description": "Optional native static wallpaper renderer with transitions and ambient effects. Enable through Wallpaper appearance; defaults preserve stock motion.",
+  "kinds": ["service"],
+  "entryPoints": {"service": "Service.qml"},
+  "omarchy": {"clonedFrom": "omarchy.background"}
+}

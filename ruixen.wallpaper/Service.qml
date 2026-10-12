@@ -41,6 +41,11 @@ import "GenerationGuard.js" as GenerationGuard
 Item {
   id: root
 
+  WallpaperRotation {
+    paused: root.videoPath !== "" || root.gifPath !== ""
+    selectionEpoch: root.selectGeneration
+  }
+
   readonly property string home: Quickshell.env("HOME")
   readonly property string stateDir: home + "/.local/state/ruixen"
   readonly property string statePath: stateDir + "/wallpaper-media"
@@ -360,6 +365,18 @@ Item {
       exclusionMode: ExclusionMode.Ignore
 
       WlrLayershell.namespace: "ruixen-wallpaper"
+      // Always Background, never bumped to Bottom -- that bump (to
+      // paint-order-beat ruixen.background's own Background-layer
+      // surface during video/gif playback) collided with the frame
+      // (omarchy-shell-frame, FrameWindow.qml), which also lives at
+      // Bottom: within one shared layer, stacking order isn't defined
+      // by this plugin at all, and ruixen-wallpaper ended up winning,
+      // visibly covering the frame's own border whenever the native
+      // renderer was enabled (confirmed live via `hyprctl layers` --
+      // both namespaces sitting in the same level-1 bucket). Fixed at
+      // the real source instead: ruixen.background's own panel now
+      // hides its content while media plays (see its own Service.qml),
+      // so this surface never needs to leave Background to begin with.
       WlrLayershell.layer: WlrLayer.Background
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 

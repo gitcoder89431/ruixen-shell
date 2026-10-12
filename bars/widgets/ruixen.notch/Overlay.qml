@@ -2730,6 +2730,7 @@ Item {
               }
 
               WallpapersContent {
+                id: wallpaperPicker
                 anchors.fill: parent
                 visible: panel.dashboardTab === 1
                 active: panel.dashboardTab === 1 && panel.expanded

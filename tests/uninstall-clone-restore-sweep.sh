@@ -82,12 +82,13 @@ shell_json="$home/.config/omarchy/shell.json"
 # clone, plus one unrelated widget the user disabled for their own
 # reasons (same id shape, must NOT be touched by the sweep).
 tmp="$(mktemp)"
-jq '.cloneSourceRestores = ["ruixen.media"]
-    | .disabledPlugins = ["omarchy.media", "omarchy.some-other-widget"]' \
+jq '.plugins += [{id:"ruixen.background"}]
+    | .cloneSourceRestores = ["ruixen.media", "ruixen.background"]
+    | .disabledPlugins = ["omarchy.media", "omarchy.background", "omarchy.some-other-widget"]' \
   "$shell_json" > "$tmp" && mv "$tmp" "$shell_json"
 check "fixture: cloneSourceRestores/disabledPlugins are set before uninstall" \
   "$(jq -c '{cloneSourceRestores, disabledPlugins}' "$shell_json")" \
-  '{"cloneSourceRestores":["ruixen.media"],"disabledPlugins":["omarchy.media","omarchy.some-other-widget"]}'
+  '{"cloneSourceRestores":["ruixen.media","ruixen.background"],"disabledPlugins":["omarchy.media","omarchy.background","omarchy.some-other-widget"]}'
 
 if run_uninstall "$home"; then status2=0; else status2=$?; fi
 check "uninstall: exits 0" "$status2" "0"
@@ -97,6 +98,8 @@ check "uninstall: cloneSourceRestores no longer mentions ruixen.media" \
   "$(jq -c '.cloneSourceRestores // []' "$shell_json")" '[]'
 check "uninstall: omarchy.media (the clone's stock original) was un-disabled" \
   "$(jq -c '(.disabledPlugins // []) | map(select(. == "omarchy.media"))' "$shell_json")" '[]'
+check "uninstall: native background's stock original was restored" \
+  "$(jq -c '(.disabledPlugins // []) | map(select(. == "omarchy.background"))' "$shell_json")" '[]'
 check "uninstall: the unrelated user-disabled widget was left alone" \
   "$(jq -c '(.disabledPlugins // []) | map(select(. == "omarchy.some-other-widget"))' "$shell_json")" \
   '["omarchy.some-other-widget"]'

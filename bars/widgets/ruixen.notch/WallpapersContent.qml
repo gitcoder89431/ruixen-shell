@@ -12,7 +12,10 @@ import Quickshell.Widgets
 // here. Not byte-for-byte anymore: this file also owns the notch-only
 // theme switcher and the responsive expanded-notch grid layout, while
 // the launcher card stays a pure wallpaper picker with its own wider
-// card/dropdown treatment.
+// card/dropdown treatment. The two surfaces also now split the feature
+// set rather than both carrying everything: this file owns Artwork
+// rotation only, the launcher copy owns Wallpaper appearance only (direct
+// request -- both sections stacked in one place felt too crowded).
 //
 // This file is now ALSO the notch's own Theme switcher (a WALLPAPER/
 // THEME sliding tab sharing one row with the search box, tab pill on
@@ -542,6 +545,35 @@ Item {
     anchors.fill: parent
     spacing: 10
 
+    // The notch picker's own expandable Wallpaper appearance card
+    // (transitions/CRT/Matrix/renderer toggle) moved entirely to the
+    // launcher's Wallpapers extension so the two surfaces split the
+    // feature set instead of both carrying everything (direct request:
+    // too crowded with both sections stacked here). This plugin keeps
+    // only a compact Transition chip (below) for quick access, talking
+    // to the same wallpaper-effects.py; the full card with sliders/
+    // CRT/Matrix/ambient controls lives only in WallpapersContent.qml
+    // under ruixen.launcher/extensions/wallpapers.
+    //
+    // Rotation itself used to be its own expandable card (title row +
+    // Rotate artwork/Shuffle toggles + interval chips + a folder path
+    // field). Direct correction: "kinda overdone", "what does rotate
+    // mean vs shuffle?", folder is always the one ruixen.wallpaper
+    // folder in practice so that field was dead weight too. Collapsed
+    // down to one chip living in the filter row below -- this headless
+    // component is just the probe/debounce/write state it uses.
+    WallpaperRotationState {
+      id: rotationState
+      active: root.active && root.mediaMode === "wallpapers"
+    }
+
+    // Same idea for Wallpaper appearance's quick Transition chip --
+    // headless probe/debounce/write state, no visual UI of its own.
+    WallpaperAppearanceState {
+      id: appearanceState
+      active: root.active && root.mediaMode === "wallpapers"
+    }
+
     // Search + WALLPAPER/THEME tab, collapsed into one row (direct
     // follow-up -- "instead of the two tabs up top and the search
     // input, collapse them into one row", then "put them in an actual
@@ -807,6 +839,236 @@ Item {
       }
       }
 
+      // Artwork rotation, two segments grouped into one chip sitting
+      // right after the kind filter -- same idea as Cliamp Radio's
+      // LIVE/clock pill (CliampStationPanel.qml's statusPill: two
+      // Rectangles in a Row, spacing 0, per-corner radius so they read
+      // as one shape), but radius 8 like the other filter chips in this
+      // row instead of that pill's fully-rounded height/2 ends (direct
+      // correction: "are we not able to keep the design like cliamp
+      // radio pill without making it a pill?"). Left segment is a
+      // constant-accent "Shuffle" label -- always lit, not conditional
+      // on anything, so it reads as a feature marker at a glance
+      // ("Shuffle side Accent so people can see it as a feature").
+      // Right segment is the cycling value. There's no separate shuffle
+      // on/off state -- rotation always shuffles when it's on ("i just
+      // need to shuffle... at intervals"), so the only axis left is the
+      // interval. Left click anywhere cycles Off -> 5m -> 15m -> 30m ->
+      // 60m -> Off; right click jumps straight back to Off.
+      Item {
+        id: rotationChip
+        visible: root.mediaMode === "wallpapers" && rotationState.available
+        readonly property bool on: rotationState.settings.enabled === true
+        readonly property string valueLabel: rotationChip.on ? rotationState.settings.intervalMinutes + "m" : "Off"
+
+        width: rotationChipRow.implicitWidth
+        height: 28
+
+        Row {
+          id: rotationChipRow
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            height: parent.height
+            width: rotationShuffleLabel.implicitWidth + 16
+            color: root.accent
+            topLeftRadius: 8
+            bottomLeftRadius: 8
+            // Softened, not square -- direct correction ("the join hard
+            // corner is a bit too strong, curve it a bit like the
+            // tabs"): a small radius on the inner seam instead of 0,
+            // short of the outer 8 so the two segments still read as
+            // one joined chip rather than two separate pills.
+            topRightRadius: 4
+            bottomRightRadius: 4
+            Text {
+              id: rotationShuffleLabel
+              anchors.centerIn: parent
+              text: "Shuffle"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+          Rectangle {
+            height: parent.height
+            width: rotationValueLabel.implicitWidth + 14
+            color: root.surfaceTint(0.04)
+            topLeftRadius: 4
+            bottomLeftRadius: 4
+            topRightRadius: 8
+            bottomRightRadius: 8
+            Text {
+              id: rotationValueLabel
+              anchors.centerIn: parent
+              text: rotationChip.valueLabel
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) rotationState.turnOff()
+            else rotationState.cycleInterval()
+          }
+        }
+      }
+
+      // Wallpaper appearance's quick Effect chip, right next to Shuffle
+      // (direct request). Same two-segment shape: a constant-accent
+      // "Effect" label plus a value segment cycling Off -> CRT ->
+      // Matrix -> Off. Picking CRT or Matrix auto-enables the native
+      // renderer same as Transition does; cycling back to this chip's
+      // own Off only disables the renderer if Transition isn't also
+      // keeping it on, so Stock Transition + an active CRT/Matrix (or
+      // the reverse) both hold correctly -- see
+      // WallpaperAppearanceState.qml's own header comment for the bug
+      // this fixed. Right click jumps straight back to Off.
+      Item {
+        id: backgroundEffectChip
+        visible: root.mediaMode === "wallpapers" && appearanceState.available
+        readonly property string valueLabel: appearanceState.rendererEnabled && appearanceState.backgroundEffectOn
+          ? appearanceState.backgroundEffectLabel(appearanceState.settings.backgroundEffect) : "Off"
+
+        width: backgroundEffectChipRow.implicitWidth
+        height: 28
+
+        Row {
+          id: backgroundEffectChipRow
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            height: parent.height
+            width: backgroundEffectLabel.implicitWidth + 16
+            color: root.accent
+            topLeftRadius: 8
+            bottomLeftRadius: 8
+            topRightRadius: 4
+            bottomRightRadius: 4
+            Text {
+              id: backgroundEffectLabel
+              anchors.centerIn: parent
+              text: "Effect"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+          Rectangle {
+            height: parent.height
+            width: backgroundEffectValueLabel.implicitWidth + 14
+            color: root.surfaceTint(0.04)
+            topLeftRadius: 4
+            bottomLeftRadius: 4
+            topRightRadius: 8
+            bottomRightRadius: 8
+            Text {
+              id: backgroundEffectValueLabel
+              anchors.centerIn: parent
+              text: backgroundEffectChip.valueLabel
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) appearanceState.resetBackgroundEffect()
+            else appearanceState.cycleBackgroundEffect()
+          }
+        }
+      }
+
+      // Wallpaper appearance's quick Transition chip, right next to
+      // Effect -- moved to be the LAST chip in the row (direct
+      // correction: its value segment's label can run long -- "Signal
+      // tear", "Code bleed", "Bleed through" -- and with Effect sitting
+      // after it, that growth pushed Effect along too, which the fixed-
+      // width RowLayout had nowhere good to put, right into Effect's
+      // own bounds). Being last means its variable width only ever
+      // pushes the trailing fillWidth spacer and back-to-top button,
+      // never another chip. Same two-segment shape: a constant-accent
+      // "Transition" label plus a value segment cycling through Stock
+      // and the 13 real transitions. Picking a real transition auto-
+      // enables the native renderer; cycling back to Stock turns it off
+      // -- "clicking it cycles through the transition and automatically
+      // turns the renderer on so we dont need that extra enable step".
+      // Right click jumps straight back to Stock. See
+      // WallpaperAppearanceState.qml for the cycle.
+      Item {
+        id: appearanceChip
+        visible: root.mediaMode === "wallpapers" && appearanceState.available
+        readonly property string valueLabel: appearanceState.rendererEnabled && appearanceState.transitionOn
+          ? appearanceState.effectLabel(appearanceState.settings.transitionEffect) : "Stock"
+
+        width: appearanceChipRow.implicitWidth
+        height: 28
+
+        Row {
+          id: appearanceChipRow
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            height: parent.height
+            width: appearanceLabel.implicitWidth + 16
+            color: root.accent
+            topLeftRadius: 8
+            bottomLeftRadius: 8
+            topRightRadius: 4
+            bottomRightRadius: 4
+            Text {
+              id: appearanceLabel
+              anchors.centerIn: parent
+              text: "Transition"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+          Rectangle {
+            height: parent.height
+            width: appearanceValueLabel.implicitWidth + 14
+            color: root.surfaceTint(0.04)
+            topLeftRadius: 4
+            bottomLeftRadius: 4
+            topRightRadius: 8
+            bottomRightRadius: 8
+            Text {
+              id: appearanceValueLabel
+              anchors.centerIn: parent
+              text: appearanceChip.valueLabel
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) appearanceState.resetToStock()
+            else appearanceState.cycleTransition()
+          }
+        }
+      }
+
       Item { Layout.fillWidth: true }
 
       // Back to top -- moved here from the right sidebar (direct
@@ -862,6 +1124,7 @@ Item {
         }
       }
     }
+
 
     // Wallpaper grid -- fills the same full row as the theme grid now
     // that the old right sidebar/stat-card layout has been folded into

@@ -188,3 +188,56 @@ through the IPC calls above rather than editing it, since a hand edit won't
 show up until the shell restarts. Only local files and folders are accepted;
 a web image dragged from a browser is ignored. Dragging out copies the
 reference — nothing is removed from the shelf after a drag.
+
+## Wallpaper rotation (`ruixen-wallpaper-rotation`)
+
+The persistent `ruixen.wallpaper` service owns static-artwork rotation.
+
+```bash
+omarchy-shell ruixen-wallpaper-rotation status
+omarchy-shell ruixen-wallpaper-rotation configure '{"enabled":true,"folder":"~/Pictures/ruixen-wallpapers","intervalMinutes":15}'
+omarchy-shell ruixen-wallpaper-rotation next
+```
+
+`configure` accepts one JSON object argument, validates and persists it
+asynchronously, and preserves omitted settings. Poll `status` afterward for the
+applied values and any `error`. `next` advances once even with automatic rotation
+disabled; active video/GIF playback pauses both manual and scheduled advancement.
+`shuffle` accepts a boolean (default `false`); when enabled, both scheduled and
+manual advancement choose randomly and avoid the current image when possible.
+Defaults are disabled, `~/Pictures/ruixen-wallpapers`, and 15 minutes. Changing
+settings or returning from media playback starts a fresh interval. Disabling
+rotation does not change the current wallpaper.
+
+## Local wallpaper preview
+
+`ruixen-wallpaper-preview-launcher` exposes `preview <effect-key>`,
+`clearPreview`, and `status`. `preview` drives the launcher Wallpapers
+extension's hero tile as a live transition preview; it does not change the
+selected effect or desktop artwork. Open the launcher's Wallpapers extension
+first. Effect keys are `reveal`, `bleed`, `pixel-dissolve`, `iris`, `shutters`,
+`scanline`, `ink-spread`, `aurora`, and `vortex`, `signal-tear`, `datamosh`,
+`vhs`, and `code-bleed`; previews use that effect's own baked-in duration
+(900ms for mask effects, 550ms for the four glitch effects). The notch
+picker has no preview target -- its Transition chip applies a baked-in preset
+directly.
+
+## Native background renderer (`ruixen.background`)
+
+Installed with Ruixen but disabled by default. Enable/disable through
+**Wallpaper appearance** or public Omarchy plugin commands:
+
+```bash
+omarchy plugin enable ruixen.background
+omarchy-shell ruixen-wallpaper-appearance status
+omarchy plugin disable ruixen.background
+```
+
+Use the GUI enable button when another background replacement may be active; it
+checks and refuses competing replacements. Appearance state is stored atomically
+in `~/.local/state/ruixen/wallpaper-appearance.json`. The renderer implements
+Omarchy's `background` IPC (`refresh`, `set`, `setInstant`, `transition`,
+`themeTransition`) and applies theme payloads through public `shell applyTheme`.
+`transitionOptions` maps shader effect keys to `strength` (0–1) and `density`
+(0.5–2). `backgroundEffect` is `none`, `crt`, or `matrix`; intensity is 0–1 and
+speed is 0.1–3.

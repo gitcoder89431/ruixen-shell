@@ -27,7 +27,8 @@ bars/v2/ruixen.bar/        the bar, the screen frame, docked chrome
 bars/widgets/ruixen.*/     bar widgets and the notch (ruixen.notch)
 ruixen.launcher/           launcher, Search Files, Settings, Clipboard, Theme browser
 ruixen.shelf/              the drop-pocket overlay
-ruixen.wallpaper/          video wallpaper support
+ruixen.wallpaper/          video/GIF playback and artwork rotation
+ruixen.background/         optional native static wallpaper renderer
 ruixen.cava/               audio visualizer overlay
 hyprland/                  window look'n'feel variants + ruixen-lookfeel.sh
 theme-overlays/            per-theme tweaks applied on install
@@ -80,6 +81,10 @@ The first two are described for users in
 The full checklist, with the incidents behind each item, is `AGENTS.md` §8.
 
 ## Compatibility
+
+Wallpaper implementation lessons are documented in
+[`WALLPAPER-LESSONS.md`](WALLPAPER-LESSONS.md), with verification evidence in
+[`WALLPAPER-AUDIT.md`](WALLPAPER-AUDIT.md).
 
 [`COMPATIBILITY.md`](../COMPATIBILITY.md) is the ledger of which Omarchy and
 Quickshell versions have actually been reviewed. Don't bump its reviewed

@@ -1,0 +1,20 @@
+{
+  "scope": "Whole Quickshell process, 5 seconds per mode, active workspace; preliminary, whole-GPU busy percentage, not plugin attribution",
+  "samples": [
+    {
+      "background": "none",
+      "cpuPercentOneCore": 4.39,
+      "wholeGpuBusyPercent": 39.6
+    },
+    {
+      "background": "crt",
+      "cpuPercentOneCore": 4.2,
+      "wholeGpuBusyPercent": 37.2
+    },
+    {
+      "background": "matrix",
+      "cpuPercentOneCore": 6.99,
+      "wholeGpuBusyPercent": 52.4
+    }
+  ]
+}

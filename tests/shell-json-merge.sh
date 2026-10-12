@@ -536,5 +536,12 @@ else
   pass=$((pass + 1))
 fi
 
+# Optional native renderer: fresh installs leave stock active; reinstall preserves
+# an explicit enable and the host's ownership bookkeeping.
+check "native renderer is opt-in" "$(jq '[.plugins[] | select(.id=="ruixen.background")] | length' <<<"$out1")" "0"
+native='{"plugins":[{"id":"ruixen.background"}],"disabledPlugins":["omarchy.background","foreign.widget"],"cloneSourceRestores":["ruixen.background"]}'
+native_out="$(printf '%s' "$native" | "$build")"
+check "reinstall preserves native renderer ownership" "$(jq -c '{disabledPlugins,cloneSourceRestores}' <<<"$native_out")" '{"disabledPlugins":["omarchy.background","foreign.widget"],"cloneSourceRestores":["ruixen.background"]}'
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

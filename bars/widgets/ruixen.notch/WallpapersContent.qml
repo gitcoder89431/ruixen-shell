@@ -831,18 +831,24 @@ Item {
       }
       }
 
-      // Artwork rotation, collapsed into one chip sitting right after the
-      // kind filter (direct correction on an already-shipped two-chip-
-      // group version -- "shit thats wierd, to have shuffle and off as
-      // a chip" -- see WallpaperRotationState.qml's header comment).
-      // Left click cycles Off -> 5m -> 15m -> 30m -> 60m -> Off; right
-      // click toggles Shuffle on its own, independent of that cycle.
+      // Artwork rotation, one flat chip sitting right after the kind
+      // filter -- same look as All/Images/Video/Gif, not a special
+      // shape. Went through a Shuffle-toggle-chip-plus-interval-chips
+      // version and a two-segment grouped-pill version (styled after
+      // Cliamp Radio's LIVE/clock pill) before landing here; both were
+      // direct corrections ("shit thats wierd, to have shuffle and off
+      // as a chip", then "keep the shape as chips... not switch the
+      // shape to a pill"). There's no separate shuffle on/off state --
+      // rotation always shuffles when it's on ("i just need to
+      // shuffle... at intervals"), so the only axis left is the
+      // interval, and the label always reads "Shuffle · <value>" since
+      // Shuffle is no longer something that can be off while rotation
+      // is on. Left click cycles Off -> 5m -> 15m -> 30m -> 60m -> Off.
       Rectangle {
         id: rotationChip
         visible: root.mediaMode === "wallpapers" && rotationState.available
         readonly property bool on: rotationState.settings.enabled === true
-        readonly property string label: !rotationChip.on ? "Off"
-          : (rotationState.settings.shuffle === true ? "Shuffle · " : "") + rotationState.settings.intervalMinutes + "m"
+        readonly property string label: "Shuffle · " + (rotationChip.on ? rotationState.settings.intervalMinutes + "m" : "Off")
 
         width: rotationChipLabel.implicitWidth + 20
         height: 28
@@ -863,11 +869,7 @@ Item {
         MouseArea {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
-          acceptedButtons: Qt.LeftButton | Qt.RightButton
-          onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) rotationState.change("shuffle", !(rotationState.settings.shuffle === true))
-            else rotationState.cycleInterval()
-          }
+          onClicked: rotationState.cycleInterval()
         }
       }
 

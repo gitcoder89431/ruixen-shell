@@ -5,16 +5,18 @@ import Quickshell.Io
 // Headless state for Artwork rotation -- used to be a full expandable
 // card (WallpaperRotationControls: title row, Rotate artwork/Shuffle
 // toggles, interval chips, a folder path field, a Next artwork button),
-// then a Shuffle toggle chip plus five separate interval chips. Direct
-// correction on THAT, too ("shit thats wierd, to have shuffle and off
-// as a chip"): collapsed further into the one chip
-// WallpapersContent.qml now renders -- left click cycles
-// Off -> 5m -> 15m -> 30m -> 60m -> Off, right click toggles Shuffle
-// without touching the interval/enabled state. This file is just the
-// probe/debounce/write plumbing that chip uses, same IPC surface
-// (ruixen-wallpaper-rotation) as before. "folder" is deliberately never
-// sent -- the backend already defaults to and keeps
-// ~/Pictures/ruixen-wallpapers when it's omitted from a configure call.
+// then a Shuffle toggle chip plus five interval chips, then a
+// Shuffle-label/value grouped pill with a separate right-click shuffle
+// toggle. Direct correction on all of that ("i just need to shuffle...
+// at intervals... is it like that", "keep the shape as chips"): there's
+// no separate shuffle on/off state any more -- rotation always shuffles
+// whenever it's on, so the only real axis left is the interval. One
+// flat chip, left click only, cycling Off -> 5m -> 15m -> 30m -> 60m ->
+// Off. This file is just the probe/debounce/write plumbing that chip
+// uses, same IPC surface (ruixen-wallpaper-rotation) as before.
+// "folder" is deliberately never sent -- the backend already defaults
+// to and keeps ~/Pictures/ruixen-wallpapers when it's omitted from a
+// configure call.
 Item {
   id: root
   property bool active: false
@@ -23,30 +25,21 @@ Item {
   property string pending: ""
   readonly property var cycleSteps: [5, 15, 30, 60]
   function refresh() { if (active && !probe.running) probe.running = true }
-  function change(key, value) {
-    settings = Object.assign({}, settings, {[key]: value})
-    pending = JSON.stringify({enabled: settings.enabled === true, shuffle: settings.shuffle === true, intervalMinutes: settings.intervalMinutes})
-    debounce.restart()
-  }
   // Off keeps the remembered interval untouched, so cycling back past
   // it later resumes the same cadence instead of resetting to 5m.
-  // Turning rotation ON (the Off -> 5m step) also turns Shuffle on --
-  // that's what "clicking on the shuffle" means for a chip that starts
-  // on Off. Stepping between two already-enabled intervals (5m -> 15m
-  // etc.) leaves Shuffle exactly as it is, so a prior right-click stays
-  // in effect instead of getting silently re-enabled.
+  // shuffle is always sent true whenever enabled -- there's no UI path
+  // left that can set it to false.
   function cycleInterval() {
     var currentIndex = settings.enabled === true ? cycleSteps.indexOf(settings.intervalMinutes) : -1
     var nextIndex = currentIndex + 1
     if (nextIndex >= cycleSteps.length) nextIndex = -1
-    var turningOn = currentIndex === -1 && nextIndex !== -1
     var nextEnabled = nextIndex !== -1
     settings = Object.assign({}, settings, {
       enabled: nextEnabled,
       intervalMinutes: nextEnabled ? cycleSteps[nextIndex] : settings.intervalMinutes,
-      shuffle: turningOn ? true : settings.shuffle
+      shuffle: true
     })
-    pending = JSON.stringify({enabled: settings.enabled === true, shuffle: settings.shuffle === true, intervalMinutes: settings.intervalMinutes})
+    pending = JSON.stringify({enabled: settings.enabled === true, shuffle: true, intervalMinutes: settings.intervalMinutes})
     debounce.restart()
   }
   function send() {

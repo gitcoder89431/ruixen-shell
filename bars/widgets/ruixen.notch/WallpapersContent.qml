@@ -867,6 +867,13 @@ Item {
             color: root.accent
             topLeftRadius: 8
             bottomLeftRadius: 8
+            // Softened, not square -- direct correction ("the join hard
+            // corner is a bit too strong, curve it a bit like the
+            // tabs"): a small radius on the inner seam instead of 0,
+            // short of the outer 8 so the two segments still read as
+            // one joined chip rather than two separate pills.
+            topRightRadius: 4
+            bottomRightRadius: 4
             Text {
               id: rotationShuffleLabel
               anchors.centerIn: parent
@@ -880,6 +887,8 @@ Item {
             height: parent.height
             width: rotationValueLabel.implicitWidth + 14
             color: root.surfaceTint(0.04)
+            topLeftRadius: 4
+            bottomLeftRadius: 4
             topRightRadius: 8
             bottomRightRadius: 8
             Text {

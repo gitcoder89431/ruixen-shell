@@ -248,24 +248,27 @@ Item {
   ColumnLayout {
     id: content
     anchors.fill: parent
-    // 16 between the two groups (Effect incl. its sliders, Transition),
-    // a real gap since they're unrelated sections -- each group's own
-    // inner spacing is a tight 6 instead, see its own ColumnLayout.
-    // Direct correction once the Flickable came out: "theres too much
-    // space betwween the chips and the group header now" -- a flat
-    // ColumnLayout with one uniform spacing put that same 10 between
-    // EVERY sibling, including a label and the chip row it's labeling,
-    // which reads as unrelated instead of grouped.
-    spacing: 16
+    // clip:true -- direct correction: "the expand and collapse is still
+    // pushing the section down rather then contained". Losing the
+    // Flickable (it had its own clip:true) meant Effect's Intensity/
+    // Speed sliders appearing could grow this ColumnLayout's content
+    // past the panel's own fixed height (same footprint as heroTile)
+    // with nothing to stop it spilling past that edge into the grid
+    // thumbnails below. clip on the outer Item is enough now that
+    // there's no inner scrolling -- it just cuts off rather than
+    // bleeding over, which is the "contained" behavior actually wanted.
+    clip: true
+    // 14 between the chip cluster and Effect's slider section below it
+    // -- a real gap, unrelated content. Direct correction, simplified
+    // down from an earlier two-equal-groups layout that put the SAME
+    // gap between Transition's chips and Effect's chips as between
+    // either of those and its own label: "chips up top section for
+    // effect under" -- Transition and Effect's own selector chips now
+    // read as one cluster (6px internal spacing throughout, see its
+    // own ColumnLayout below), with only the actual expandable content
+    // (Effect's sliders) broken out as its own section underneath.
+    spacing: 14
 
-    // Transition first, Effect second now -- direct correction: "move
-    // the effect so its the group below transition then so it can sit
-    // better and the expand and collpase for its slider have natural
-    // room down there". Effect's own Intensity/Speed sliders show and
-    // hide as CRT/Matrix get picked; sitting last means that expand/
-    // collapse only ever grows into the panel's own trailing space,
-    // never reflows Transition's chips above it the way it would if
-    // Effect still came first.
     ColumnLayout {
       Layout.fillWidth: true
       spacing: 6
@@ -328,11 +331,12 @@ Item {
         }
       }
     }
-    }
 
-    ColumnLayout {
-      Layout.fillWidth: true
-      spacing: 6
+    // Same cluster as Transition above (still 6px spacing, same
+    // ColumnLayout, not a new one) -- direct correction: "chips up top
+    // section for effect under". Both chip groups now read as one
+    // selector block; only Effect's actual expandable content
+    // (Intensity/Speed) breaks out into its own section below.
     Text { text: "Effect"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
     Row {
       spacing: 6
@@ -366,10 +370,20 @@ Item {
         }
       }
     }
+    }
 
+    // Effect's own expandable section -- the ONLY thing that grows/
+    // shrinks as CRT/Matrix get picked, kept out of the chip cluster
+    // above entirely so its own expand/collapse never reflows a single
+    // chip. Content area's own clip:true (see its own comment) catches
+    // it if it ever runs past the panel's fixed height instead of
+    // spilling into the grid below.
+    ColumnLayout {
+      Layout.fillWidth: true
+      spacing: 6
+      visible: root.backgroundEffectOn
     RowLayout {
       Layout.fillWidth: true
-      visible: root.backgroundEffectOn
       Text { text: "Intensity"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11; Layout.preferredWidth: 60 }
       WallpaperSlider {
         Layout.fillWidth: true

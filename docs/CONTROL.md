@@ -219,8 +219,11 @@ first. Effect keys are `reveal`, `bleed`, `pixel-dissolve`, `iris`, `shutters`,
 `scanline`, `ink-spread`, `aurora`, and `vortex`, `signal-tear`, `datamosh`,
 `vhs`, and `code-bleed`; previews use that effect's own baked-in duration
 (900ms for mask effects, 550ms for the four glitch effects). The notch
-picker has no preview target -- its Transition chip applies a baked-in preset
-directly.
+picker provides `ruixen-wallpaper-preview-notch`: `openDropdown transition`,
+`openDropdown effect`, `preview <effect-key>`, `clearPreview`, `status`, and
+`openFullView`. Open the notch wallpaper picker first. Its dropdown list previews
+on hover/focus and applies only on click; the adjacent preview stays within the
+picker's available height. The ↗ button opens the launcher's full Wallpapers view.
 
 ## Native background renderer (`ruixen.background`)
 

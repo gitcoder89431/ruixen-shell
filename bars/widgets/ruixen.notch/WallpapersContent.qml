@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
@@ -13,9 +14,8 @@ import Quickshell.Widgets
 // theme switcher and the responsive expanded-notch grid layout, while
 // the launcher card stays a pure wallpaper picker with its own wider
 // card/dropdown treatment. The two surfaces also now split the feature
-// set rather than both carrying everything: this file owns Artwork
-// rotation only, the launcher copy owns Wallpaper appearance only (direct
-// request -- both sections stacked in one place felt too crowded).
+// set: this file has rotation and compact appearance dropdowns with local
+// previews; the launcher retains the full Wallpaper appearance panel.
 //
 // This file is now ALSO the notch's own Theme switcher (a WALLPAPER/
 // THEME sliding tab sharing one row with the search box, tab pill on
@@ -98,6 +98,24 @@ Item {
   // is cheap (two quick Processes) but no reason to run it while some
   // other tab is showing.
   property bool active: false
+
+  function openFullWallpapers() {
+    effectDropdown.closeMenu()
+    transitionDropdown.closeMenu()
+    Quickshell.execDetached(["bash", "-c", "omarchy-shell ruixen.notch closeDashboard; sleep 0.15; omarchy-shell shell summon ruixen.launcher '{\"extension\":\"wallpapers\"}'"])
+  }
+
+  IpcHandler {
+    target: "ruixen-wallpaper-preview-notch"
+    function openDropdown(kind: string): void {
+      if (kind === "transition") {effectDropdown.closeMenu();transitionDropdown.openMenu()}
+      else if (kind === "effect") {transitionDropdown.closeMenu();effectDropdown.openMenu()}
+    }
+    function preview(effect: string): void {transitionDropdown.openMenu();transitionDropdown.preview(effect)}
+    function clearPreview(): void {transitionDropdown.closeMenu();effectDropdown.closeMenu()}
+    function openFullView(): void {if (root.active) root.openFullWallpapers()}
+    function status(): string {return JSON.stringify({transition:transitionDropdown.status(),effect:effectDropdown.status(),active:root.active})}
+  }
 
   // Each entry: { kind, display, real }. kind is "image", "gif", or
   // "video" -- an explicit tag now, not derived from display/real
@@ -921,152 +939,45 @@ Item {
         }
       }
 
-      // Wallpaper appearance's quick Effect chip, right next to Shuffle
-      // (direct request). Same two-segment shape: a constant-accent
-      // "Effect" label plus a value segment cycling Off -> CRT ->
-      // Matrix -> Off. Picking CRT or Matrix auto-enables the native
-      // renderer same as Transition does; cycling back to this chip's
-      // own Off only disables the renderer if Transition isn't also
-      // keeping it on, so Stock Transition + an active CRT/Matrix (or
-      // the reverse) both hold correctly -- see
-      // WallpaperAppearanceState.qml's own header comment for the bug
-      // this fixed. Right click jumps straight back to Off.
-      Item {
-        id: backgroundEffectChip
+      WallpaperAppearanceDropdown {
+        id: effectDropdown
+        boundsItem: root
+        active: root.active && root.mediaMode === "wallpapers"
         visible: root.mediaMode === "wallpapers" && appearanceState.available
-        readonly property string valueLabel: appearanceState.rendererEnabled && appearanceState.backgroundEffectOn
-          ? appearanceState.backgroundEffectLabel(appearanceState.settings.backgroundEffect) : "Off"
-
-        width: backgroundEffectChipRow.implicitWidth
-        height: 28
-
-        Row {
-          id: backgroundEffectChipRow
-          height: parent.height
-          spacing: 0
-
-          Rectangle {
-            height: parent.height
-            width: backgroundEffectLabel.implicitWidth + 16
-            color: root.accent
-            topLeftRadius: 8
-            bottomLeftRadius: 8
-            topRightRadius: 4
-            bottomRightRadius: 4
-            Text {
-              id: backgroundEffectLabel
-              anchors.centerIn: parent
-              text: "Effect"
-              color: "#000000"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
-          }
-          Rectangle {
-            height: parent.height
-            width: backgroundEffectValueLabel.implicitWidth + 14
-            color: root.surfaceTint(0.04)
-            topLeftRadius: 4
-            bottomLeftRadius: 4
-            topRightRadius: 8
-            bottomRightRadius: 8
-            Text {
-              id: backgroundEffectValueLabel
-              anchors.centerIn: parent
-              text: backgroundEffectChip.valueLabel
-              color: root.accent
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
-          }
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          acceptedButtons: Qt.LeftButton | Qt.RightButton
-          onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) appearanceState.resetBackgroundEffect()
-            else appearanceState.cycleBackgroundEffect()
-          }
-        }
+        title: "Effect"
+        options: [{key:"none",label:"Off"},{key:"crt",label:"CRT"},{key:"matrix",label:"Matrix"}]
+        selected: appearanceState.settings.backgroundEffect || "none"
+        controller: appearanceState
+        currentBackground: root.currentBackground
+        artworkEntries: root.wallpaperPaths
+        accent: root.accent; textColor: root.textColor; fontFamily: root.fontFamily
+        onChosen: key => appearanceState.selectBackgroundEffect(key)
       }
-
-      // Wallpaper appearance's quick Transition chip, right next to
-      // Effect -- moved to be the LAST chip in the row (direct
-      // correction: its value segment's label can run long -- "Signal
-      // tear", "Code bleed", "Bleed through" -- and with Effect sitting
-      // after it, that growth pushed Effect along too, which the fixed-
-      // width RowLayout had nowhere good to put, right into Effect's
-      // own bounds). Being last means its variable width only ever
-      // pushes the trailing fillWidth spacer and back-to-top button,
-      // never another chip. Same two-segment shape: a constant-accent
-      // "Transition" label plus a value segment cycling through Stock
-      // and the 13 real transitions. Picking a real transition auto-
-      // enables the native renderer; cycling back to Stock turns it off
-      // -- "clicking it cycles through the transition and automatically
-      // turns the renderer on so we dont need that extra enable step".
-      // Right click jumps straight back to Stock. See
-      // WallpaperAppearanceState.qml for the cycle.
-      Item {
-        id: appearanceChip
+      WallpaperAppearanceDropdown {
+        id: transitionDropdown
+        boundsItem: root
+        active: root.active && root.mediaMode === "wallpapers"
         visible: root.mediaMode === "wallpapers" && appearanceState.available
-        readonly property string valueLabel: appearanceState.rendererEnabled && appearanceState.transitionOn
-          ? appearanceState.effectLabel(appearanceState.settings.transitionEffect) : "Stock"
-
-        width: appearanceChipRow.implicitWidth
-        height: 28
-
-        Row {
-          id: appearanceChipRow
-          height: parent.height
-          spacing: 0
-
-          Rectangle {
-            height: parent.height
-            width: appearanceLabel.implicitWidth + 16
-            color: root.accent
-            topLeftRadius: 8
-            bottomLeftRadius: 8
-            topRightRadius: 4
-            bottomRightRadius: 4
-            Text {
-              id: appearanceLabel
-              anchors.centerIn: parent
-              text: "Transition"
-              color: "#000000"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
-          }
-          Rectangle {
-            height: parent.height
-            width: appearanceValueLabel.implicitWidth + 14
-            color: root.surfaceTint(0.04)
-            topLeftRadius: 4
-            bottomLeftRadius: 4
-            topRightRadius: 8
-            bottomRightRadius: 8
-            Text {
-              id: appearanceValueLabel
-              anchors.centerIn: parent
-              text: appearanceChip.valueLabel
-              color: root.accent
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
-          }
-        }
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          acceptedButtons: Qt.LeftButton | Qt.RightButton
-          onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) appearanceState.resetToStock()
-            else appearanceState.cycleTransition()
-          }
-        }
+        title: "Transition"
+        transition: true
+        options: [{key:"stock",label:"Stock"}].concat(appearanceState.choices.map(function(key) { return {key:key,label:appearanceState.effectLabel(key)} }))
+        selected: appearanceState.transitionOn ? appearanceState.settings.transitionEffect : "stock"
+        controller: appearanceState
+        currentBackground: root.currentBackground
+        artworkEntries: root.wallpaperPaths
+        accent: root.accent; textColor: root.textColor; fontFamily: root.fontFamily
+        onChosen: key => appearanceState.selectTransition(key)
+      }
+      Button {
+        visible: root.mediaMode === "wallpapers"
+        Accessible.name: "Open full Wallpapers view"
+        width: 30; height: 28
+        text: "↗"
+        ToolTip.visible: hovered
+        ToolTip.text: "Open full Wallpapers view"
+        contentItem: Text {text:parent.text; color:root.accent; font.pixelSize:18; horizontalAlignment:Text.AlignHCenter; verticalAlignment:Text.AlignVCenter}
+        background: Rectangle {radius:8; color:root.surfaceTint(.08)}
+        onClicked: root.openFullWallpapers()
       }
 
       Item { Layout.fillWidth: true }

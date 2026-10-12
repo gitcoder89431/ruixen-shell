@@ -22,7 +22,7 @@ VALID = dict(transitionEffect='pixel-dissolve', transitionDurationMs=8000, trans
 
 class SettingsTests(unittest.TestCase):
     def test_packaged_assets_stay_in_sync(self):
-        folders=[ROOT/'ruixen.background',ROOT/'ruixen.launcher/extensions/wallpapers']
+        folders=[ROOT/'ruixen.background',ROOT/'ruixen.launcher/extensions/wallpapers',ROOT/'bars/widgets/ruixen.notch']
         for asset in ['WallpaperGlitch.qml','WallpaperAmbient.qml','WallpaperTransitionMask.qml','GLITCH-LICENSE.txt','shaders/glitch.frag','shaders/glitch.frag.qsb','shaders/ambient.frag','shaders/ambient.frag.qsb']:
             expected=(folders[0]/asset).read_bytes()
             for folder in folders[1:]:

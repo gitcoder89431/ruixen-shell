@@ -2,40 +2,10 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Headless state for the quick Transition and Effect chips sitting next
-// to Shuffle in the filter row -- same role for Wallpaper appearance
-// that WallpaperRotationState.qml plays for Artwork rotation: this
-// plugin doesn't carry the full expandable "Wallpaper appearance" card
-// (that stays in the launcher's Wallpapers extension only, see
-// WallpapersContent.qml's own header comment for the rotation/
-// appearance split), just enough plumbing for two compact cycling
-// chips. Talks to its own local wallpaper-effects.py (kept byte-
-// identical to ruixen.background's and the launcher's copies by
-// tests/wallpaper-effects.py's own parity test), same as those two
-// pickers already do -- not an IPC call, since writing appearance
-// settings has always been a direct local-script call in this plugin
-// family, never routed through another plugin's IPC target.
-//
-// Two features, ONE shared renderer enable/disable flag -- direct bug
-// report after Effect shipped: "when turning on the effect its also
-// toggling on the transition... they are kinda turning on the
-// rendered or something". First cut gated BOTH chips' on/off display
-// on that one shared `rendererEnabled`, so whichever chip turned the
-// renderer on made BOTH look active, and Transition's own Off step
-// unconditionally disabled the renderer -- which actually did kill
-// Effect's CRT/Matrix too, despite a comment here once claiming
-// otherwise (never actually implemented symmetrically). Fixed by
-// giving each chip its OWN authoritative on/off signal instead of the
-// shared flag: Transition uses transitionDurationMs > 0 (0 already
-// means "instant cut, no visible transition" to the renderer's own
-// crossfade code -- a real, launcher-compatible field, not a new one),
-// Effect uses backgroundEffect !== "none" (already its own natural
-// off value). Either chip turning its own feature on calls
-// setRenderer(true) freely; turning its own feature off only calls
-// setRenderer(false) once BOTH signals are off (maybeDisableRenderer
-// below) -- so Stock + an active CRT, or an active transition + Off,
-// both now hold correctly instead of one chip's Off silently killing
-// the other's feature.
+// Appearance state for the notch's Effect and Transition dropdowns.
+// Settings use the local validated writer; renderer lifecycle uses public
+// Omarchy plugin commands. Each axis has its own off value, so turning one
+// off leaves the renderer enabled while the other still needs it.
 Item {
   id: root
   property bool active: false
@@ -78,33 +48,20 @@ Item {
   // every click, not just the first one after Off, keeps both surfaces
   // consistent regardless of which effect was last selected.
   readonly property var glitchKeys: ["signal-tear", "datamosh", "vhs", "code-bleed"]
-  function cycleTransition() {
-    var current = rendererEnabled && transitionOn ? settings.transitionEffect : "stock"
-    var index = transitionCycle.indexOf(current)
-    var next = transitionCycle[(index < 0 ? 0 : index + 1) % transitionCycle.length]
-    if (next === "stock") {
-      settings = Object.assign({}, settings, {transitionDurationMs: 0})
-      pending = JSON.stringify(settings)
-      debounce.restart()
-      maybeDisableRenderer()
-    } else {
-      settings = Object.assign({}, settings, {
-        transitionEffect: next,
-        transitionDurationMs: glitchKeys.indexOf(next) >= 0 ? 550 : 900
-      })
-      pending = JSON.stringify(settings)
-      debounce.restart()
-      setRenderer(true)
-    }
-  }
-  function cycleBackgroundEffect() {
-    var current = rendererEnabled && backgroundEffectOn ? (settings.backgroundEffect || "none") : "none"
-    var index = backgroundEffectCycle.indexOf(current)
-    var next = backgroundEffectCycle[(index < 0 ? 0 : index + 1) % backgroundEffectCycle.length]
-    settings = Object.assign({}, settings, {backgroundEffect: next})
+  function selectTransition(key) {
+    if (key === "stock") { resetToStock(); return }
+    if (choices.indexOf(key) < 0) return
+    settings = Object.assign({}, settings, {transitionEffect:key, transitionDurationMs:glitchKeys.indexOf(key)>=0 ? 550 : 900})
     pending = JSON.stringify(settings)
     debounce.restart()
-    if (next !== "none") setRenderer(true)
+    setRenderer(true)
+  }
+  function selectBackgroundEffect(key) {
+    if (backgroundEffectCycle.indexOf(key) < 0) return
+    settings = Object.assign({}, settings, {backgroundEffect:key})
+    pending = JSON.stringify(settings)
+    debounce.restart()
+    if (key !== "none") setRenderer(true)
     else maybeDisableRenderer()
   }
   function setRenderer(enabled) {

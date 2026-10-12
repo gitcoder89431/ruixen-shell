@@ -11,9 +11,10 @@ import Quickshell.Io
 // at intervals... is it like that", "keep the shape as chips"): there's
 // no separate shuffle on/off state any more -- rotation always shuffles
 // whenever it's on, so the only real axis left is the interval. One
-// flat chip, left click only, cycling Off -> 5m -> 15m -> 30m -> 60m ->
-// Off. This file is just the probe/debounce/write plumbing that chip
-// uses, same IPC surface (ruixen-wallpaper-rotation) as before.
+// flat chip: left click cycles Off -> 5m -> 15m -> 30m -> 60m -> Off,
+// right click jumps straight back to Off. This file is just the
+// probe/debounce/write plumbing that chip uses, same IPC surface
+// (ruixen-wallpaper-rotation) as before.
 // "folder" is deliberately never sent -- the backend already defaults
 // to and keeps ~/Pictures/ruixen-wallpapers when it's omitted from a
 // configure call.
@@ -40,6 +41,14 @@ Item {
       shuffle: true
     })
     pending = JSON.stringify({enabled: settings.enabled === true, shuffle: true, intervalMinutes: settings.intervalMinutes})
+    debounce.restart()
+  }
+  // Right-click shortcut straight back to Off, same remembered-interval
+  // behavior as landing on Off via the normal left-click cycle.
+  function turnOff() {
+    if (settings.enabled !== true) return
+    settings = Object.assign({}, settings, {enabled: false})
+    pending = JSON.stringify({enabled: false, shuffle: true, intervalMinutes: settings.intervalMinutes})
     debounce.restart()
   }
   function send() {

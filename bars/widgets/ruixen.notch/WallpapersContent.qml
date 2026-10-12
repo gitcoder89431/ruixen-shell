@@ -854,7 +854,7 @@ Item {
       // on/off state -- rotation always shuffles when it's on ("i just
       // need to shuffle... at intervals"), so the only axis left is the
       // interval. Left click anywhere cycles Off -> 5m -> 15m -> 30m ->
-      // 60m -> Off.
+      // 60m -> Off; right click jumps straight back to Off.
       Item {
         id: rotationChip
         visible: root.mediaMode === "wallpapers" && rotationState.available
@@ -913,7 +913,11 @@ Item {
         MouseArea {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
-          onClicked: rotationState.cycleInterval()
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) rotationState.turnOff()
+            else rotationState.cycleInterval()
+          }
         }
       }
 
@@ -924,7 +928,8 @@ Item {
       // auto-enables the native renderer; cycling back to Stock turns
       // it off -- "clicking it cycles through the transition and
       // automatically turns the renderer on so we dont need that extra
-      // enable step". See WallpaperAppearanceState.qml for the cycle.
+      // enable step". Right click jumps straight back to Stock. See
+      // WallpaperAppearanceState.qml for the cycle.
       Item {
         id: appearanceChip
         visible: root.mediaMode === "wallpapers" && appearanceState.available
@@ -978,7 +983,11 @@ Item {
         MouseArea {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
-          onClicked: appearanceState.cycleTransition()
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) appearanceState.resetToStock()
+            else appearanceState.cycleTransition()
+          }
         }
       }
 

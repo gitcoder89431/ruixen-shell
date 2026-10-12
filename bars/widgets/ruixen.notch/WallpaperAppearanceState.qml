@@ -57,6 +57,10 @@ Item {
     rendererToggle.command = ["python3", helper, enabled ? "enable" : "disable"]
     rendererToggle.running = true
   }
+  // Right-click shortcut straight back to Stock -- same idea as
+  // WallpaperRotationState's turnOff(), leaves the remembered
+  // transitionEffect untouched so re-enabling later resumes it.
+  function resetToStock() { setRenderer(false) }
   function send() {
     if (writer.running || !pending) return
     writer.command = ["python3", helper, pending]

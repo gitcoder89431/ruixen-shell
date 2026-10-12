@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls as Controls
 import Quickshell
 import Quickshell.Io
 import "WallpaperEffectModel.js" as EffectModel
@@ -236,29 +235,19 @@ Item {
     }
   }
 
-  // This panel sits in a FIXED-height reserved area (same footprint as
-  // heroTile beside it, see WallpapersContent.qml's own
-  // appearancePanel comment) -- its content (Effect row, conditional
-  // sliders, up to 14 wrapped Transition chips, 2 toggle rows) can
-  // easily run taller than that, so it scrolls internally instead of
-  // pushing the grid rows below it around, same Flickable+ScrollBar
-  // shape the old accordion card already used for the same reason.
-  Flickable {
-    id: viewport
-    anchors.fill: parent
-    contentWidth: width
-    contentHeight: content.implicitHeight
-    clip: true
-    boundsBehavior: Flickable.StopAtBounds
-    Controls.ScrollBar.vertical: Controls.ScrollBar {
-      policy: Controls.ScrollBar.AsNeeded
-      active: true
-      contentItem: Rectangle { implicitWidth: 4; implicitHeight: 30; radius: 2; color: root.accent; opacity: .6 }
-    }
-
+  // Used to be wrapped in a Flickable+ScrollBar -- this panel sits in a
+  // FIXED-height reserved area (same footprint as heroTile beside it,
+  // see WallpapersContent.qml's own appearancePanel comment), and back
+  // when the content included Duration/Softness sliders and 3 ambient
+  // toggles it really could run taller than that. Direct correction
+  // once those were gone: "we dont need a scroll bar thing that shows
+  // up cause theres nothing to scroll anymore in the nested panel" --
+  // Effect row, its conditional sliders, and the Transition flow now
+  // fit the reserved height on their own, so this is a plain anchored
+  // ColumnLayout again, no Flickable.
   ColumnLayout {
     id: content
-    width: viewport.width
+    anchors.fill: parent
     spacing: 10
 
     Text { text: "Effect"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
@@ -401,6 +390,5 @@ Item {
     // already exist, so a third toggle for it wasn't pulling its
     // weight either. Renderer-side support for all three settings is
     // untouched, just no longer exposed from either picker UI.
-  }
   }
 }

@@ -258,6 +258,78 @@ Item {
     // which reads as unrelated instead of grouped.
     spacing: 16
 
+    // Transition first, Effect second now -- direct correction: "move
+    // the effect so its the group below transition then so it can sit
+    // better and the expand and collpase for its slider have natural
+    // room down there". Effect's own Intensity/Speed sliders show and
+    // hide as CRT/Matrix get picked; sitting last means that expand/
+    // collapse only ever grows into the panel's own trailing space,
+    // never reflows Transition's chips above it the way it would if
+    // Effect still came first.
+    ColumnLayout {
+      Layout.fillWidth: true
+      spacing: 6
+    Text { text: "Transition"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
+    Flow {
+      Layout.fillWidth: true
+      width: content.width
+      spacing: 6
+
+      Rectangle {
+        id: stockChip
+        readonly property bool selected: !root.transitionOn
+        width: stockChipLabel.implicitWidth + 20
+        height: 28
+        radius: 8
+        color: stockChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
+        border.width: 1
+        border.color: stockChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
+        Text {
+          id: stockChipLabel
+          anchors.centerIn: parent
+          text: "Stock"
+          color: stockChip.selected ? "#000000" : root.accent
+          font.family: root.fontFamily; font.pixelSize: 11
+        }
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.selectStock()
+        }
+      }
+
+      Repeater {
+        model: root.choices
+        Rectangle {
+          id: transitionChip
+          required property var modelData
+          readonly property bool selected: root.transitionOn && root.settings.transitionEffect === transitionChip.modelData.key
+          width: transitionChipLabel.implicitWidth + 20
+          height: 28
+          radius: 8
+          color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
+          border.width: 1
+          border.color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
+          Text {
+            id: transitionChipLabel
+            anchors.centerIn: parent
+            text: transitionChip.modelData.label
+            color: transitionChip.selected ? "#000000" : root.accent
+            font.family: root.fontFamily; font.pixelSize: 11
+          }
+          HoverHandler {
+            onHoveredChanged: root.previewTransition = hovered ? transitionChip.modelData.key : (root.previewTransition === transitionChip.modelData.key ? "" : root.previewTransition)
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.selectTransition(transitionChip.modelData.key)
+          }
+        }
+      }
+    }
+    }
+
     ColumnLayout {
       Layout.fillWidth: true
       spacing: 6
@@ -327,70 +399,6 @@ Item {
       Text {
         text: Number(root.settings.backgroundSpeed || 1).toFixed(1) + "×"
         color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11; Layout.preferredWidth: 36
-      }
-    }
-    }
-
-    ColumnLayout {
-      Layout.fillWidth: true
-      spacing: 6
-    Text { text: "Transition"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
-    Flow {
-      Layout.fillWidth: true
-      width: content.width
-      spacing: 6
-
-      Rectangle {
-        id: stockChip
-        readonly property bool selected: !root.transitionOn
-        width: stockChipLabel.implicitWidth + 20
-        height: 28
-        radius: 8
-        color: stockChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
-        border.width: 1
-        border.color: stockChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
-        Text {
-          id: stockChipLabel
-          anchors.centerIn: parent
-          text: "Stock"
-          color: stockChip.selected ? "#000000" : root.accent
-          font.family: root.fontFamily; font.pixelSize: 11
-        }
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.selectStock()
-        }
-      }
-
-      Repeater {
-        model: root.choices
-        Rectangle {
-          id: transitionChip
-          required property var modelData
-          readonly property bool selected: root.transitionOn && root.settings.transitionEffect === transitionChip.modelData.key
-          width: transitionChipLabel.implicitWidth + 20
-          height: 28
-          radius: 8
-          color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
-          border.width: 1
-          border.color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
-          Text {
-            id: transitionChipLabel
-            anchors.centerIn: parent
-            text: transitionChip.modelData.label
-            color: transitionChip.selected ? "#000000" : root.accent
-            font.family: root.fontFamily; font.pixelSize: 11
-          }
-          HoverHandler {
-            onHoveredChanged: root.previewTransition = hovered ? transitionChip.modelData.key : (root.previewTransition === transitionChip.modelData.key ? "" : root.previewTransition)
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.selectTransition(transitionChip.modelData.key)
-          }
-        }
       }
     }
     }

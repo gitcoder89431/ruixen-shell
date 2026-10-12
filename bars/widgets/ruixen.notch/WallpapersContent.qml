@@ -991,6 +991,76 @@ Item {
         }
       }
 
+      // Wallpaper appearance's quick Effect chip, right next to
+      // Transition (direct request). Same two-segment shape again: a
+      // constant-accent "Effect" label plus a value segment cycling
+      // Off -> CRT -> Matrix -> Off. Picking CRT or Matrix auto-enables
+      // the native renderer same as Transition does; cycling back to
+      // this chip's own Off only clears the background effect, it does
+      // NOT disable the renderer -- Transition still owns that shared
+      // decision (see WallpaperAppearanceState.qml's own header
+      // comment). Right click jumps straight back to Off.
+      Item {
+        id: backgroundEffectChip
+        visible: root.mediaMode === "wallpapers" && appearanceState.available
+        readonly property string valueLabel: appearanceState.rendererEnabled
+          ? appearanceState.backgroundEffectLabel(appearanceState.settings.backgroundEffect) : "Off"
+
+        width: backgroundEffectChipRow.implicitWidth
+        height: 28
+
+        Row {
+          id: backgroundEffectChipRow
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            height: parent.height
+            width: backgroundEffectLabel.implicitWidth + 16
+            color: root.accent
+            topLeftRadius: 8
+            bottomLeftRadius: 8
+            topRightRadius: 4
+            bottomRightRadius: 4
+            Text {
+              id: backgroundEffectLabel
+              anchors.centerIn: parent
+              text: "Effect"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+          Rectangle {
+            height: parent.height
+            width: backgroundEffectValueLabel.implicitWidth + 14
+            color: root.surfaceTint(0.04)
+            topLeftRadius: 4
+            bottomLeftRadius: 4
+            topRightRadius: 8
+            bottomRightRadius: 8
+            Text {
+              id: backgroundEffectValueLabel
+              anchors.centerIn: parent
+              text: backgroundEffectChip.valueLabel
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) appearanceState.resetBackgroundEffect()
+            else appearanceState.cycleBackgroundEffect()
+          }
+        }
+      }
+
       Item { Layout.fillWidth: true }
 
       // Back to top -- moved here from the right sidebar (direct

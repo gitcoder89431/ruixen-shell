@@ -75,12 +75,17 @@ lifecycle. The enable button refuses competing background replacements;
 disable those yourself before switching. Rotation and video/GIF playback work
 independently of this renderer.
 
-The notch picker also gets a compact **Transition** chip, next to Shuffle in
-its own filter row -- a quicker path than opening the full card. Click it to
-cycle **Stock → Reveal → Bleed through → … → Code bleed → Stock**; picking any
-real transition turns the renderer on automatically, no separate enable step,
-and cycling back to Stock turns it off again. The full card's other controls
-(duration, softness, CRT/Matrix, ambient zoom/glow) stay launcher-only.
+The notch picker also gets two compact chips, next to Shuffle in its own
+filter row -- a quicker path than opening the full card. **Transition**
+cycles **Stock → Reveal → Bleed through → … → Code bleed → Stock**; picking
+any real transition turns the renderer on automatically, no separate enable
+step, and cycling back to Stock turns it off again. **Effect** cycles
+**Off → CRT → Matrix → Off**; picking CRT or Matrix also turns the renderer on
+automatically, but cycling back to Off only clears the background effect --
+it leaves the renderer's on/off state to Transition, so turning Effect off
+doesn't also kill an active Transition. Right-clicking either chip jumps
+straight back to its own Off/Stock. The full card's other controls (duration,
+softness, intensity/speed, ambient zoom/glow) stay launcher-only.
 
 Choose one of thirteen transitions: Reveal, Bleed through, Pixel dissolve, Iris
 bloom, Glass shutters, Scanline, Ink spread, Aurora wash, Vortex, Signal tear,

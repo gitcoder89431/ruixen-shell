@@ -2,24 +2,28 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Headless state for the quick Transition chip sitting next to Shuffle
-// in the filter row -- same role for Wallpaper appearance that
-// WallpaperRotationState.qml plays for Artwork rotation: this plugin
-// doesn't carry the full expandable "Wallpaper appearance" card (that
-// stays in the launcher's Wallpapers extension only, see
+// Headless state for the quick Transition and Effect chips sitting next
+// to Shuffle in the filter row -- same role for Wallpaper appearance
+// that WallpaperRotationState.qml plays for Artwork rotation: this
+// plugin doesn't carry the full expandable "Wallpaper appearance" card
+// (that stays in the launcher's Wallpapers extension only, see
 // WallpapersContent.qml's own header comment for the rotation/
-// appearance split), just enough plumbing for one compact cycling
-// chip. "stock" stands in for the renderer being off, same
-// idea as the rotation chip's own Off. Landing on a real transition
-// turns the renderer on automatically; landing back on stock turns it
-// off -- direct request: "clicking it cycles through the transition
-// and automatically turns the renderer on so we dont need that extra
-// enable step". Talks to its own local wallpaper-effects.py (kept
-// byte-identical to ruixen.background's and the launcher's copies by
-// tests/wallpaper-effects.py's own parity test), same as those two
-// pickers already do -- not an IPC call, since writing appearance
-// settings has always been a direct local-script call in this plugin
-// family, never routed through another plugin's IPC target.
+// appearance split), just enough plumbing for two compact cycling
+// chips. "stock"/"none" stand in for a chip's own off state, same idea
+// as the rotation chip's own Off. Landing on a real transition or
+// background effect turns the renderer on automatically; Transition's
+// own Off (stock) turns it back off -- direct request: "clicking it
+// cycles through the transition and automatically turns the renderer
+// on so we dont need that extra enable step". Effect's own Off does
+// NOT disable the renderer (see cycleBackgroundEffect's own comment) --
+// Transition owns that shared decision, Effect only ever asks for the
+// renderer, never turns it off from under Transition. Talks to its own
+// local wallpaper-effects.py (kept byte-identical to ruixen.background's
+// and the launcher's copies by tests/wallpaper-effects.py's own parity
+// test), same as those two pickers already do -- not an IPC call, since
+// writing appearance settings has always been a direct local-script
+// call in this plugin family, never routed through another plugin's
+// IPC target.
 Item {
   id: root
   property bool active: false
@@ -37,7 +41,15 @@ Item {
     "code-bleed": "Code bleed"
   })
   readonly property var transitionCycle: ["stock"].concat(choices)
+  // CRT/Matrix background effect -- same cycling-chip idea, but
+  // independent of the Transition chip's own renderer-enable/disable
+  // authority: picking CRT or Matrix enables the renderer (nothing to
+  // see otherwise), but cycling back to its own Off only clears
+  // backgroundEffect, never force-disables the renderer -- Transition
+  // might still have a real effect selected and depending on it.
+  readonly property var backgroundEffectCycle: ["none", "crt", "matrix"]
   function effectLabel(key) { return labels[key] || "Reveal" }
+  function backgroundEffectLabel(key) { return key === "crt" ? "CRT" : key === "matrix" ? "Matrix" : "Off" }
   function refresh() { if (active && !probe.running) probe.running = true }
   function cycleTransition() {
     var current = rendererEnabled ? settings.transitionEffect : "stock"
@@ -52,6 +64,15 @@ Item {
       setRenderer(true)
     }
   }
+  function cycleBackgroundEffect() {
+    var current = rendererEnabled ? (settings.backgroundEffect || "none") : "none"
+    var index = backgroundEffectCycle.indexOf(current)
+    var next = backgroundEffectCycle[(index < 0 ? 0 : index + 1) % backgroundEffectCycle.length]
+    settings = Object.assign({}, settings, {backgroundEffect: next})
+    pending = JSON.stringify(settings)
+    debounce.restart()
+    if (next !== "none") setRenderer(true)
+  }
   function setRenderer(enabled) {
     if (rendererToggle.running || enabled === rendererEnabled) return
     rendererToggle.command = ["python3", helper, enabled ? "enable" : "disable"]
@@ -61,6 +82,15 @@ Item {
   // WallpaperRotationState's turnOff(), leaves the remembered
   // transitionEffect untouched so re-enabling later resumes it.
   function resetToStock() { setRenderer(false) }
+  // Right-click shortcut straight back to Off -- clears backgroundEffect
+  // only, same "don't force-disable the shared renderer" reasoning as
+  // cycleBackgroundEffect's own Off step above.
+  function resetBackgroundEffect() {
+    if ((settings.backgroundEffect || "none") === "none") return
+    settings = Object.assign({}, settings, {backgroundEffect: "none"})
+    pending = JSON.stringify(settings)
+    debounce.restart()
+  }
   function send() {
     if (writer.running || !pending) return
     writer.command = ["python3", helper, pending]

@@ -58,6 +58,21 @@ Item {
   }
 
   property bool active: false
+  property string detailKind: ""
+  function openDetails(kind) {
+    if (active && ["cpu", "gpu", "memory", "network", "storage"].indexOf(kind) >= 0)
+      detailKind = kind
+  }
+  IpcHandler {
+    target: "ruixen-metrics-details"
+    function open(kind: string): void { root.openDetails(kind) }
+    function close(): void { root.detailKind = "" }
+    function status(): string {
+      return JSON.stringify({kind: root.detailKind, active: root.active,
+        rows: detailsPanel.rows.length, error: detailsPanel.errorText,
+        updatedAt: detailsPanel.checkedAt})
+    }
+  }
 
   // Bumped by Overlay.qml's own refreshAvatar IPC handler -- direct
   // follow-up ("on the expanded notch, health page, the avatar needs
@@ -111,6 +126,7 @@ Item {
   // path was found or a read comes back empty -- gpuAvailable gates the
   // DialTile into an explicit "Unavailable" state instead.
   property string gpuRc6Path: ""
+  property bool gpuBusyPercent: false
   property bool gpuAvailable: false
   property bool gpuDiscoveryAttempted: false
 
@@ -138,8 +154,8 @@ Item {
   // idle connection).
   function formatRate(bytesPerSec) {
     if (bytesPerSec < 1024) return Math.round(bytesPerSec) + " B/s"
-    if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + " KB/s"
-    return (bytesPerSec / 1024 / 1024).toFixed(1) + " MB/s"
+    if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + " KiB/s"
+    return (bytesPerSec / 1024 / 1024).toFixed(1) + " MiB/s"
   }
 
   // Same auto-scaling idea, no "/s" -- for the cumulative totals.
@@ -174,7 +190,7 @@ Item {
     if (!versionProc.running) versionProc.running = true
   }
 
-  onActiveChanged: if (active) refreshIdentity()
+  onActiveChanged: {if (active) refreshIdentity();else detailKind=""}
 
   // Hardware/PC name + CPU model + GPU name -- fastfetch's real Host,
   // CPU, and GPU modules, confirmed by running `fastfetch --format
@@ -310,7 +326,8 @@ Item {
     }
   }
 
-  // GPU usage -- same standard non-privileged Intel iGPU method used
+  // GPU usage -- prefer a driver-provided busy percentage (e.g. AMD),
+  // otherwise use the standard non-privileged Intel iGPU method used
   // (and later removed, then needed again for this tile) earlier in
   // this file's history: i915 exposes no plain "busy %" file without
   // root, but RC6 idle-residency compared between two samples against
@@ -320,7 +337,7 @@ Item {
   // The card index is NOT hardcoded (used to be card1, this machine's
   // real path since there's no card0 here -- but that's this machine's
   // own PCI enumeration, not a rule). gpuDiscoveryProc finds whichever
-  // /sys/class/drm/card* actually has an rc6_residency_ms file --
+  // /sys/class/drm/card* has a busy percentage or rc6_residency_ms file --
   // connectors (card1-HDMI-A-1 etc) never have one (confirmed directly:
   // they expose autosuspend_delay_ms/control/runtime_* instead), and
   // neither does any non-Intel GPU, so file existence alone is a
@@ -328,11 +345,12 @@ Item {
   // uevent for DRIVER=i915.
   Process {
     id: gpuDiscoveryProc
-    command: ["bash", "-c", "for d in /sys/class/drm/card*; do [ -f \"$d/power/rc6_residency_ms\" ] && echo \"$d/power/rc6_residency_ms\" && break; done"]
+    command: ["bash", "-c", "for d in /sys/class/drm/card[0-9]*; do if [ -f \"$d/device/gpu_busy_percent\" ]; then echo \"$d/device/gpu_busy_percent\"; break; elif [ -f \"$d/power/rc6_residency_ms\" ]; then echo \"$d/power/rc6_residency_ms\"; break; fi; done"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
         var path = String(text || "").trim()
+        root.gpuBusyPercent = path.indexOf("gpu_busy_percent") >= 0
         root.gpuRc6Path = path
         root.gpuAvailable = path !== ""
       }
@@ -353,6 +371,11 @@ Item {
         // "100 gpu usage" while btop showed 0%, traced to this coercion
         // firing every single poll against a permanently-wrong path).
         if (raw === "") return
+        if (root.gpuBusyPercent) {
+          var busy = Number(raw)
+          if (isFinite(busy) && busy>=0 && busy<=100) root.gpuUsage=busy/100
+          return
+        }
         var rc6Ms = Number(raw)
         var nowMs = Date.now()
         if (root.prevGpuSample) {
@@ -408,10 +431,26 @@ Item {
         var ifaceMatch = routeLine.match(/\bdev\s+(\S+)/)
         var iface = ifaceMatch ? ifaceMatch[1] : ""
         root.netInterface = iface
-        if (!iface) return
-        var lineMatch = devText.match(new RegExp("^\\s*" + iface + ":\\s*(.*)$", "m"))
-        if (!lineMatch) return
-        var fields = lineMatch[1].trim().split(/\s+/).map(Number)
+        if (!iface) {
+          root.netRxRate=0;root.netTxRate=0;root.prevNetSample=null
+          root.netRxTotalBytes=0;root.netTxTotalBytes=0
+          return
+        }
+        var deviceLines = devText.split("\n")
+        var counters = ""
+        for (var d=0;d<deviceLines.length;d++) {
+          var separator=deviceLines[d].indexOf(":")
+          if (separator>=0 && deviceLines[d].slice(0,separator).trim()===iface) {
+            counters=deviceLines[d].slice(separator+1).trim()
+            break
+          }
+        }
+        var fields = counters.split(/\s+/).map(Number)
+        if (fields.length<9 || !isFinite(fields[0]) || !isFinite(fields[8]) || fields[0]<0 || fields[8]<0) {
+          root.netRxRate=0;root.netTxRate=0;root.prevNetSample=null
+          root.netRxTotalBytes=0;root.netTxTotalBytes=0
+          return
+        }
         var rxBytes = fields[0]
         var txBytes = fields[8]
         // Raw counters, not a delta -- this IS the lifetime total
@@ -420,14 +459,15 @@ Item {
         root.netRxTotalBytes = rxBytes
         root.netTxTotalBytes = txBytes
         var nowMs = Date.now()
-        if (root.prevNetSample) {
+        if (root.prevNetSample && root.prevNetSample.iface === iface) {
           var wallDeltaS = (nowMs - root.prevNetSample.wallMs) / 1000
           if (wallDeltaS > 0) {
             root.netRxRate = Math.max(0, (rxBytes - root.prevNetSample.rxBytes) / wallDeltaS)
             root.netTxRate = Math.max(0, (txBytes - root.prevNetSample.txBytes) / wallDeltaS)
           }
         }
-        root.prevNetSample = { rxBytes: rxBytes, txBytes: txBytes, wallMs: nowMs }
+        else {root.netRxRate=0;root.netTxRate=0}
+        root.prevNetSample = { iface:iface, rxBytes: rxBytes, txBytes: txBytes, wallMs: nowMs }
       }
     }
   }
@@ -479,13 +519,13 @@ Item {
 
   Timer {
     interval: 2000
-    running: root.active
+    running: root.active && root.detailKind === ""
     repeat: true
     triggeredOnStart: true
     onTriggered: {
       // Runs once (gpuDiscoveryAttempted latches it) rather than every
       // 2s -- the real GPU's sysfs path can't change mid-session, and a
-      // machine with no rc6-capable GPU at all (AMD/NVIDIA-only) would
+      // machine with no supported GPU sensor would
       // otherwise re-fork this forever for nothing.
       if (!root.gpuDiscoveryAttempted && !gpuDiscoveryProc.running) {
         root.gpuDiscoveryAttempted = true
@@ -501,6 +541,7 @@ Item {
   }
 
   RowLayout {
+    visible: root.detailKind === ""
     anchors.fill: parent
     // 8 -> 16 -- per direct feedback the stat-tiles section sat too
     // close to the CPU list beside it.
@@ -1281,6 +1322,7 @@ Item {
             }
           }
         }
+        MetricDrillButton {anchors.fill:parent;metricLabel:tile.title;accent:root.accent;onClicked:root.openDetails(tile.title.toLowerCase())}
       }
 
       // Memory's own dial variant -- per direct request ("it should be
@@ -1417,6 +1459,7 @@ Item {
 
           Item { Layout.fillHeight: true }
         }
+        MetricDrillButton {anchors.fill:parent;metricLabel:"Memory";accent:root.accent;onClicked:root.openDetails("memory")}
       }
       RowLayout {
         Layout.fillWidth: true
@@ -1673,6 +1716,7 @@ Item {
             // own matching top+bottom spacers keep its content.
             Item { Layout.fillHeight: true }
           }
+          MetricDrillButton {anchors.fill:parent;metricLabel:"Network";accent:root.accent;onClicked:root.openDetails("network")}
         }
 
         MemoryDialTile {
@@ -1745,7 +1789,7 @@ Item {
                 }
 
                 Text {
-                  text: diskRow.modelData.usedGB.toFixed(0) + " / " + diskRow.modelData.totalGB.toFixed(0) + " GB"
+                  text: diskRow.modelData.usedGB.toFixed(0) + " / " + diskRow.modelData.totalGB.toFixed(0) + " GiB"
                   font.family: root.fontFamily
                   font.pixelSize: 11
                   color: root.muted
@@ -1766,9 +1810,18 @@ Item {
             }
           }
         }
+        MetricDrillButton {anchors.fill:parent;metricLabel:"Storage";accent:root.accent;onClicked:root.openDetails("storage")}
       }
 
       Item { Layout.fillHeight: true }
     }
+  }
+  MetricDetailsPanel {
+    id: detailsPanel
+    anchors.fill:parent
+    kind:root.detailKind
+    active:root.active
+    textColor:root.textColor;accent:root.accent;fontFamily:root.fontFamily
+    onBack:root.detailKind=""
   }
 }

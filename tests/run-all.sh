@@ -45,6 +45,7 @@ suites=(
   "$script_dir/wallpaper-sidebar-style.sh"
   "$script_dir/wallpaper-effects.sh"
   "$script_dir/wallpaper-rotation.sh"
+  "$script_dir/metric-details.sh"
   "$script_dir/update-safety.sh"
   "$script_dir/gif-poster-fallback.sh"
   "$script_dir/poster-cache-pruning.sh"

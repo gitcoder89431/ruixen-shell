@@ -209,6 +209,37 @@ Defaults are disabled, `~/Pictures/ruixen-wallpapers`, and 15 minutes. Changing
 settings or returning from media playback starts a fresh interval. Disabling
 rotation does not change the current wallpaper.
 
+## Metrics detail pages
+
+Click the CPU, GPU, Memory, Network, or storage card in the notch's Metrics tab
+to open details; **Back** returns to the overview. CPU/memory pages rank the ten
+largest processes with bars and explicit amounts. CPU uses a fresh 0.4-second
+sample and divides process ticks by the same total CPU-counter delta as the
+summary, with cores used underneath. Its summary separates listed processes,
+other readable processes, and unattributed/system time; short-lived or
+inaccessible processes and sampling skew prevent full process attribution.
+Memory shows resident bytes and percentage of physical RAM;
+shared pages can appear in multiple processes. GPU ranks accessible DRM clients
+by their busiest engine and shows resident VRAM/shared GPU RAM. Engine bars are
+not additive whole-device percentages; unavailable counters remain unreported.
+Device totals have their own summary bars. Resource bars default to capacity.
+**Bars: compare/capacity** switches between relative
+ranking and absolute capacity. Numeric labels always show actual usage.
+RAM RSS rows do not sum to system-used RAM, and GPU engine percentages do not
+sum to device busy. Storage percentages use used/total capacity, matching the
+overview; available space can exclude reserved blocks. Network rates use binary
+KiB/s and MiB/s, and restart their baseline when the interface changes.
+Network shows
+interface state and addresses; storage shows mounted-device capacity; GPU shows
+driver-exposed sensors without requiring privileges. Detail snapshots refresh
+every three seconds only while the page is open. Closing the tab stops polling.
+
+Open the Metrics tab with `omarchy-shell ruixen.notch openDashboardTab metrics`.
+`ruixen-metrics-details` exposes `open <cpu|gpu|memory|network|storage>`, `close`,
+and `status` (current page, row count, error, and last update). Calls to `open`
+require an active Metrics tab. The overview also supports AMD's kernel busy
+percentage sensor alongside its existing Intel residency counter.
+
 ## Local wallpaper preview
 
 `ruixen-wallpaper-preview-launcher` exposes `preview <effect-key>`,

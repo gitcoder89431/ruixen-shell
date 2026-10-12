@@ -102,20 +102,21 @@ retain their MIT notices and source attribution in each plugin's
 ### Artwork rotation
 
 The notch picker includes **Artwork rotation**, independently of the optional
-effects renderer in the launcher's Wallpapers extension. Enable **Rotate artwork**,
-enter an absolute folder path (or `~/Pictures/...`), and choose an interval of
-1–1440 minutes. **Next artwork** advances immediately even when automatic
-rotation is off.
+effects renderer in the launcher's Wallpapers extension. One chip sits in the
+notch's wallpaper filter row, next to All/Images/Video/Gif: left click cycles
+it **Off → 5m → 15m → 30m → 60m → Off**, right click toggles **Shuffle** on
+or off without touching the interval. Always reads from
+`~/Pictures/ruixen-wallpapers`, the same folder the rest of the picker
+already shows artwork from.
 
 The persistent `ruixen.wallpaper` service rotates PNG, JPEG, WebP, and AVIF images
-in filename order and wraps at the end. Enable **Shuffle** for random selection
-without repeating the current image when alternatives exist. Shuffle affects
-both scheduled rotation and **Next artwork**; it defaults to off. Subfolders and
-video/GIF files are excluded.
+in that folder, in filename order and wrapping at the end. Shuffle selects
+randomly instead, without repeating the current image when alternatives exist.
+Subfolders and video/GIF files are excluded.
 Rotation pauses during video/GIF playback and starts a fresh interval afterward.
 Settings survive shell restarts in
 `~/.local/state/ruixen/wallpaper-rotation.json`. New installations default to off;
 rotation never edits the theme's wallpaper collection. Disable any independent
 wallpaper-rotation timer before enabling this feature to avoid competing changes.
-Missing/empty folders produce an error in the panel. Discovery runs off the UI
-thread and is bounded to 10000 directory entries.
+A missing or empty folder surfaces as a small error line under the filter row.
+Discovery runs off the UI thread and is bounded to 10000 directory entries.

@@ -1730,9 +1730,7 @@ Item {
       // keeping it. Collapsed case (44) manually mirrored in ruixen.bar's
       // own notchCollapsedBottomEdge constant (#41/#38) -- change this
       // value, change that one too.
-      // Expanded wallpaper controls get extra room without squeezing the art grid.
       height: panel.launcherOpen ? 190 : (panel.pinnedOpen ? 400 : 44)
-        + (panel.pinnedOpen && panel.dashboardTab === 1 ? Math.max(0, Math.min(wallpaperPicker.controlsExtraHeight, panel.height - 440)) : 0)
 
       Behavior on width { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }

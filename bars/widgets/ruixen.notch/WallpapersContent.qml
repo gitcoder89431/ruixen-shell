@@ -97,7 +97,6 @@ Item {
   // Only visible/active while the tab itself is on screen -- refresh()
   // is cheap (two quick Processes) but no reason to run it while some
   // other tab is showing.
-  readonly property real controlsExtraHeight: rotationControls.visible ? Math.max(0, rotationControls.implicitHeight - 50) : 0
   property bool active: false
 
   // Each entry: { kind, display, real }. kind is "image", "gif", or
@@ -552,15 +551,19 @@ Item {
     // instead of both carrying everything (direct request: too crowded
     // with both sections stacked here). See WallpapersContent.qml in
     // ruixen.launcher/extensions/wallpapers for the appearance half.
-    WallpaperRotationControls {
-      id: rotationControls
-      accent: root.accent
-      Layout.fillWidth: true
+    //
+    // Rotation itself used to be its own expandable card (title row +
+    // Rotate artwork/Shuffle toggles + interval chips + a folder path
+    // field). Direct correction: "kinda overdone", "what does rotate
+    // mean vs shuffle?", folder is always the one ruixen.wallpaper
+    // folder in practice so that field was dead weight too. Collapsed
+    // down to two inline chip groups living in the filter row below
+    // (Shuffle toggle chip + Off/5m/15m/30m/60m interval chips, Off
+    // standing in for the old separate enable toggle) -- this headless
+    // component is now just the probe/debounce/write state they share.
+    WallpaperRotationState {
+      id: rotationState
       active: root.active && root.mediaMode === "wallpapers"
-      visible: available && root.mediaMode === "wallpapers"
-      textColor: root.textColor
-      muted: root.muted
-      fontFamily: root.fontFamily
     }
 
     // Search + WALLPAPER/THEME tab, collapsed into one row (direct
@@ -828,6 +831,46 @@ Item {
       }
       }
 
+      // Artwork rotation, collapsed into one chip sitting right after the
+      // kind filter (direct correction on an already-shipped two-chip-
+      // group version -- "shit thats wierd, to have shuffle and off as
+      // a chip" -- see WallpaperRotationState.qml's header comment).
+      // Left click cycles Off -> 5m -> 15m -> 30m -> 60m -> Off; right
+      // click toggles Shuffle on its own, independent of that cycle.
+      Rectangle {
+        id: rotationChip
+        visible: root.mediaMode === "wallpapers" && rotationState.available
+        readonly property bool on: rotationState.settings.enabled === true
+        readonly property string label: !rotationChip.on ? "Off"
+          : (rotationState.settings.shuffle === true ? "Shuffle · " : "") + rotationState.settings.intervalMinutes + "m"
+
+        width: rotationChipLabel.implicitWidth + 20
+        height: 28
+        radius: 8
+        color: rotationChip.on ? root.accent : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: rotationChip.on ? root.accent : root.surfaceTint(0.12)
+
+        Text {
+          id: rotationChipLabel
+          anchors.centerIn: parent
+          text: rotationChip.label
+          font.family: root.fontFamily
+          font.pixelSize: 11
+          color: rotationChip.on ? "#000000" : root.accent
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) rotationState.change("shuffle", !(rotationState.settings.shuffle === true))
+            else rotationState.cycleInterval()
+          }
+        }
+      }
+
       Item { Layout.fillWidth: true }
 
       // Back to top -- moved here from the right sidebar (direct
@@ -882,6 +925,24 @@ Item {
           onClicked: backToTopButton.targetGrid.contentY = 0
         }
       }
+    }
+
+    // Only takes space when there's actually something to say -- the
+    // happy path (rotation off, or on and running fine) shows nothing
+    // here at all. "paused" reflects media playback regardless of
+    // whether rotation is even on, so it's only worth a line when
+    // rotation itself is enabled -- otherwise there's nothing it would
+    // be interrupting.
+    Text {
+      Layout.fillWidth: true
+      visible: text.length > 0
+      text: root.mediaMode === "wallpapers" && rotationState.available
+        ? (rotationState.settings.error || (rotationState.settings.enabled === true && rotationState.settings.paused ? "Rotation paused during video/GIF playback" : ""))
+        : ""
+      color: rotationState.settings.error ? root.dangerColor : root.muted
+      font.family: root.fontFamily
+      font.pixelSize: 10
+      wrapMode: Text.Wrap
     }
 
     // Wallpaper grid -- fills the same full row as the theme grid now

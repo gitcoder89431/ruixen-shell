@@ -303,18 +303,20 @@ Item {
   // nesting instead: one FLAT ColumnLayout for every chip, an explicit
   // Item spacer (not a second Layout's own `spacing`) for the one real
   // gap before Effect's slider section.
-  ColumnLayout {
+  // Plain Column, not ColumnLayout -- direct correction: "when i hit
+  // effect off, theres still tons of gaps between everything, it comes
+  // back". Reproduced live: fine on first render, but toggling Effect
+  // through Matrix (which shows both sliders) and back to Off left
+  // stale extra height behind in the Transition chip rows above --
+  // ColumnLayout's constraint-based sizing not fully invalidating after
+  // a managed child's `visible` flipped, same underlying class of
+  // "implicit size gets stuck" issue Flow had (see the packed-rows
+  // comment below), just triggered by visibility instead of width-for-
+  // height. A plain Column's sizing is simpler and more predictable --
+  // same fix direction that already solved Flow's own version of this.
+  Column {
     id: content
     anchors.fill: parent
-    // clip:true -- direct correction: "the expand and collapse is still
-    // pushing the section down rather then contained". Losing the
-    // Flickable (it had its own clip:true) meant Effect's Intensity/
-    // Speed sliders appearing could grow this ColumnLayout's content
-    // past the panel's own fixed height (same footprint as heroTile)
-    // with nothing to stop it spilling past that edge into the grid
-    // thumbnails below. clip on the outer Item is enough now that
-    // there's no inner scrolling -- it just cuts off rather than
-    // bleeding over, which is the "contained" behavior actually wanted.
     clip: true
     // Tight and uniform now -- Transition's label/chips, Effect's
     // label/chips, all 6px apart, one cluster ("chips up top"). The
@@ -329,7 +331,7 @@ Item {
     // packs into the same rows as the real transitions exactly like it
     // did visually before.
     Column {
-      Layout.fillWidth: true
+      width: content.width
       spacing: 6
       Repeater {
         model: root.packTransitionRows(content.width)
@@ -422,9 +424,9 @@ Item {
     // sidesteps whatever caused that instead of chasing it further.
     // clip:true above catches this section if it ever runs past the
     // panel's fixed height instead of spilling into the grid below.
-    Item { Layout.fillWidth: true; height: 10; visible: root.backgroundEffectOn }
+    Item { height: 10; visible: root.backgroundEffectOn }
     RowLayout {
-      Layout.fillWidth: true
+      width: content.width
       visible: root.backgroundEffectOn
       Text { text: "Intensity"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11; Layout.preferredWidth: 60 }
       WallpaperSlider {
@@ -441,7 +443,7 @@ Item {
       }
     }
     RowLayout {
-      Layout.fillWidth: true
+      width: content.width
       visible: (root.settings.backgroundEffect || "none") === "matrix"
       Text { text: "Speed"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11; Layout.preferredWidth: 60 }
       WallpaperSlider {

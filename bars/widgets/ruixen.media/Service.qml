@@ -524,6 +524,60 @@ Item {
     }
   }
 
+  // Cliamp (the local radio daemon the launcher's Cliamp Radio extension
+  // spawns via Quickshell.execDetached, see CliampContent.qml's own
+  // startCliamp()) has no lifecycle of its own once started -- paused,
+  // it just sits there forever, MPRIS-registered with a live radio
+  // stream still connected. That extension's own status polling only
+  // runs while its launcher view is open, so it can never be the thing
+  // that notices a long-idle pause; this service is the one piece
+  // that's always loaded regardless of any UI being open, so the
+  // watchdog lives here instead. Matched by dbusName substring, same
+  // lowercase-contains pattern MediaModel.js's own playerctld detection
+  // already uses -- Cliamp exposes no desktopEntry (reading it over
+  // D-Bus errors, confirmed live), so dbusName is the only stable
+  // match. MPRIS Quit (Cliamp reports CanQuit: true and implements
+  // Quit, confirmed live over D-Bus) asks it to exit cleanly, not a
+  // raw process kill. Scoped to Cliamp alone -- every other MPRIS
+  // player this service tracks is a real app the person opened
+  // themselves, not something Ruixen spawned headless and is
+  // responsible for cleaning back up.
+  readonly property int cliampIdleTimeoutMs: 300000
+  readonly property var cliampPlayer: findCliampPlayer()
+
+  function findCliampPlayer() {
+    var list = root.players
+    for (var i = 0; i < list.length; i++) {
+      var dbus = String(list[i] && list[i].dbusName || "").toLowerCase()
+      if (dbus.indexOf("cliamp") !== -1) return list[i]
+    }
+    return null
+  }
+
+  function syncCliampIdleTimer() {
+    var p = root.cliampPlayer
+    if (p && p.playbackState === MprisPlaybackState.Paused) cliampIdleTimer.restart()
+    else cliampIdleTimer.stop()
+  }
+
+  onCliampPlayerChanged: root.syncCliampIdleTimer()
+
+  Connections {
+    target: root.cliampPlayer
+    enabled: root.cliampPlayer !== null
+    function onPlaybackStateChanged() { root.syncCliampIdleTimer() }
+  }
+
+  Timer {
+    id: cliampIdleTimer
+    interval: root.cliampIdleTimeoutMs
+    repeat: false
+    onTriggered: {
+      var p = root.cliampPlayer
+      if (p && p.playbackState === MprisPlaybackState.Paused && p.canQuit) p.quit()
+    }
+  }
+
   Timer {
     id: trackOsdTimer
     interval: 120

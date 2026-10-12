@@ -74,6 +74,7 @@ suites=(
   "$script_dir/app-launcher-relay.sh"
   "$script_dir/notch-bar-hidden-sync.sh"
   "$script_dir/workspaces-pill-strict.sh"
+  "$script_dir/cliamp-idle-timeout.sh"
   "$script_dir/bar-drag-protected-slots.sh"
   "$script_dir/bar-left-pluginpins-pill.sh"
   "$script_dir/repair-drift-detection.sh"

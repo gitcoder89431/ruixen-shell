@@ -106,9 +106,21 @@ Item {
   // for why these are the system's existing defaults, not bespoke
   // hand-tuning. Also auto-enables the renderer, same "no separate
   // enable step" the notch chips already do.
+  //
+  // Duration bumped well past the system's own original 420ms default
+  // -- direct correction: "slow down the quick onces like iris bloom
+  // abit, make these feel more premium, i dont like snappy unless its
+  // has to be". Mask effects (the fade/dissolve/wipe family) get a
+  // real 900ms -- snappy read as cheap on those. Glitch effects keep
+  // more punch (550ms, still up from 420) since a glitch reads as
+  // itself BECAUSE it's abrupt -- that's the one case duration "has to"
+  // stay quick rather than a default to slow down.
+  readonly property int maskDurationMs: 900
+  readonly property int glitchDurationMs: 550
   function selectTransition(key) {
-    var updates = {transitionEffect: key, transitionDurationMs: 420}
-    if (glitchKeys.indexOf(key) >= 0) {
+    var isGlitch = glitchKeys.indexOf(key) >= 0
+    var updates = {transitionEffect: key, transitionDurationMs: isGlitch ? glitchDurationMs : maskDurationMs}
+    if (isGlitch) {
       var options = Object.assign({}, settings.transitionOptions || {})
       options[key] = {strength: .65, density: 1}
       updates.transitionOptions = options
@@ -224,16 +236,6 @@ Item {
     id: content
     width: viewport.width
     spacing: 10
-
-    RowLayout {
-      Layout.fillWidth: true
-      Text {
-        text: root.errorText || (root.rendererEnabled ? "Native Ruixen renderer active" : "Picks apply once Transition or Effect is on")
-        color: root.errorText ? "#ff8080" : root.hintColor
-        font.family: root.fontFamily; font.pixelSize: 10
-        Layout.fillWidth: true; wrapMode: Text.Wrap
-      }
-    }
 
     Text { text: "Effect"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
     Row {
@@ -364,20 +366,17 @@ Item {
       }
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      WallpaperToggle {
-        text: "Ambient zoom"; checked: root.settings.ambientZoom === true
-        accent: root.accent; textColor: root.textColor; font.family: root.fontFamily
-        onClicked: root.change({ambientZoom: checked})
-      }
-      Item { Layout.fillWidth: true }
-      WallpaperToggle {
-        text: "Theme glow"; checked: root.settings.ambientGlow === true
-        accent: root.accent; textColor: root.textColor; font.family: root.fontFamily
-        onClicked: root.change({ambientGlow: checked})
-      }
-    }
+    // Ambient zoom (max ~0.7% scale variance over a 3-minute cycle) and
+    // Theme glow (max ~4% opacity over a 60s cycle) dropped -- direct
+    // correction: "idk they dont seem to be doing anything significant
+    // enough as options", confirmed against ruixen.background/
+    // Service.qml's own math, genuinely too subtle to read as a real
+    // toggle. Disable motion kept -- it's not a cosmetic knob like
+    // those two, it's the one real accessibility/preference switch
+    // (freezes transitions, zoom, glow, and Matrix rain together,
+    // while keeping static CRT), a materially different kind of
+    // control. Renderer-side support for ambientZoom/ambientGlow is
+    // untouched, just no longer exposed from either picker UI.
     RowLayout {
       Layout.fillWidth: true
       WallpaperToggle {

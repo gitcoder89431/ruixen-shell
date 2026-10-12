@@ -75,12 +75,14 @@ doubles as the live preview, instead of a dedicated preview box.
 **Transition** is a row of chips -- **Stock** plus all thirteen effects
 (Reveal, Bleed through, Pixel dissolve, Iris bloom, Glass shutters, Scanline,
 Ink spread, Aurora wash, Vortex, Signal tear, Datamosh, VHS tracking, Code
-bleed). Picking a real transition applies a baked-in duration/softness (or
-strength/density for the glitch effects) and turns the renderer on
-automatically, no separate enable step; picking Stock turns transitions off
-(an instant cut) without disabling the renderer if **Effect** is still using
-it. Hover any transition chip to preview it live in the hero tile before
-picking it; hovering never changes the desktop or saves anything.
+bleed). Picking a real transition applies a baked-in duration (900ms for
+mask effects, 550ms for the four glitch effects -- a glitch reads as itself
+*because* it's abrupt, everything else favors a slower, less snappy feel)
+plus softness or strength/density, and turns the renderer on automatically,
+no separate enable step; picking Stock turns transitions off (an instant
+cut) without disabling the renderer if **Effect** is still using it. Hover
+any transition chip to preview it live in the hero tile before picking it;
+hovering never changes the desktop or saves anything.
 
 **Effect** is three chips -- **Off**, **CRT**, **Matrix** -- for the
 independent background effect, with **Intensity** always available once one
@@ -88,19 +90,21 @@ is active and **Speed** shown only for Matrix (CRT has no animation timer).
 Picking CRT or Matrix also turns the renderer on; picking Off only clears the
 background effect, leaving the renderer's on/off state to Transition, so
 turning Effect off doesn't kill an active Transition (or the reverse).
-Hovering an Effect chip also live-previews it in the hero tile. **Ambient
-zoom** and **Theme glow** stay as independent toggle chips; **Disable
-motion** finishes transitions, stops zoom/glow, and freezes rain while
-retaining static textures.
+Hovering an Effect chip also live-previews it in the hero tile. **Disable
+motion** finishes transitions, stops the background effect's own animation,
+and freezes rain while retaining static textures -- the one remaining
+toggle; ambient zoom and theme glow were dropped entirely (max ~0.7% scale
+variance over a 3-minute cycle and ~4% opacity over a 60s cycle
+respectively -- too subtle to read as real options).
 
 The notch picker gets the same two features as compact chips instead, next
-to Shuffle in its own filter row -- a quicker path that trades the launcher's
-full chip set and sliders for one-click cycling. **Transition** cycles
-**Stock → Reveal → Bleed through → … → Code bleed → Stock**, same baked-in
-presets and auto-enable as the launcher's chips. **Effect** cycles
-**Off → CRT → Matrix → Off**, same shared-renderer rule as above. Right-
-clicking either chip jumps straight back to its own Off/Stock. Intensity,
-Speed, and the ambient toggles stay launcher-only.
+to Shuffle in its own filter row -- a quicker path that trades the
+launcher's full chip set and sliders for one-click cycling. **Transition**
+cycles **Stock → Reveal → Bleed through → … → Code bleed → Stock**, same
+baked-in per-effect durations and auto-enable as the launcher's chips.
+**Effect** cycles **Off → CRT → Matrix → Off**, same shared-renderer rule as
+above. Right-clicking either chip jumps straight back to its own Off/Stock.
+Intensity and Speed stay launcher-only.
 
 Appearance is persisted atomically in
 `~/.local/state/ruixen/wallpaper-appearance.json`. The earlier local prototype's

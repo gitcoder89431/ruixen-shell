@@ -67,6 +67,17 @@ Item {
   function maybeDisableRenderer() {
     if (!transitionOn && !backgroundEffectOn) setRenderer(false)
   }
+  // Duration baked in per effect on every step, same two values and
+  // same reasoning as the launcher's own chips (WallpaperAppearancePanel
+  // .qml's own comment): "slow down the quick onces like iris bloom
+  // abit, make these feel more premium, i dont like snappy unless its
+  // has to be" -- mask effects get a real 900ms, glitch effects stay
+  // punchier (550ms) since that abruptness is the whole point of a
+  // glitch. No duration slider exists anywhere any more (launcher
+  // dropped it the same pass this got baked in), so re-asserting it on
+  // every click, not just the first one after Off, keeps both surfaces
+  // consistent regardless of which effect was last selected.
+  readonly property var glitchKeys: ["signal-tear", "datamosh", "vhs", "code-bleed"]
   function cycleTransition() {
     var current = rendererEnabled && transitionOn ? settings.transitionEffect : "stock"
     var index = transitionCycle.indexOf(current)
@@ -79,7 +90,7 @@ Item {
     } else {
       settings = Object.assign({}, settings, {
         transitionEffect: next,
-        transitionDurationMs: (settings.transitionDurationMs || 0) > 0 ? settings.transitionDurationMs : 420
+        transitionDurationMs: glitchKeys.indexOf(next) >= 0 ? 550 : 900
       })
       pending = JSON.stringify(settings)
       debounce.restart()

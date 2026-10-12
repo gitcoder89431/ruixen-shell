@@ -169,66 +169,87 @@ Item {
           })
         }
       }
-      Image {
-        id:base
-        anchors.fill:parent; scale:panel.zoom
-        source:root.imageUrl(root.displayedPath)
-        fillMode:Image.PreserveAspectCrop; sourceSize:Qt.size(Math.max(1,width),Math.max(1,height)); asynchronous:true
-        onStatusChanged: {
-          if(status===Image.Ready && root.finishing) {root.incomingPath="";root.oldPath="";root.finishing=false}
-        }
-      }
-      Image {
-        id:oldFrame
-        onStatusChanged:panel.maybeStart()
-        anchors.fill:parent; scale:panel.zoom
-        source:root.imageUrl(root.oldPath); visible:root.incomingPath!==""
-        fillMode:Image.PreserveAspectCrop; sourceSize:Qt.size(Math.max(1,width),Math.max(1,height)); asynchronous:true
-      }
+      // Content wrapped in its own Item, hidden while media plays --
+      // direct fix for a real bug ("when i turn transition on... its
+      // actually removing our ruixen frame"): ruixen.wallpaper's own
+      // video/gif surface used to bump itself from WlrLayer.Background
+      // to WlrLayer.Bottom specifically to paint-order-beat this still-
+      // opaque panel during playback, which collided with the frame
+      // (also Bottom) and won, visibly covering it (confirmed live via
+      // `hyprctl layers`). Hiding this content here instead removes the
+      // need for that bump entirely -- ruixen.wallpaper now stays at
+      // Background always (see its own Service.qml), so nothing but the
+      // frame and real windows ever contends for Bottom. The PanelWindow
+      // itself stays mapped (visible:!remapping, untouched) so this is a
+      // content-visibility toggle, not a surface remap -- same "stays
+      // mapped, becomes invisible" pattern ruixen.wallpaper's own
+      // surface already uses while nothing is playing.
       Item {
-        anchors.fill:parent
-        visible:root.incomingPath!=="" && incoming.status===Image.Ready && !root.glitch
-        layer.enabled:visible
-        opacity:root.effect==="bleed" ? root.progress : 1
-        layer.effect:MultiEffect {
-          maskEnabled:root.effect!=="bleed"; maskSource:mask
-          maskThresholdMin:.5; maskSpreadAtMin:root.settings.transitionSoftness || .02
-        }
+        id: visualLayer
+        anchors.fill: parent
+        visible: !root.mediaPlaying
+
         Image {
-          id:incoming
+          id:base
           anchors.fill:parent; scale:panel.zoom
-          source:root.imageUrl(root.incomingPath)
+          source:root.imageUrl(root.displayedPath)
           fillMode:Image.PreserveAspectCrop; sourceSize:Qt.size(Math.max(1,width),Math.max(1,height)); asynchronous:true
           onStatusChanged: {
-            if(status===Image.Ready) panel.maybeStart()
-            else if(status===Image.Error && root.incomingPath) root.cancelIncoming("Unable to decode wallpaper")
+            if(status===Image.Ready && root.finishing) {root.incomingPath="";root.oldPath="";root.finishing=false}
           }
         }
-      }
-      WallpaperTransitionMask {id:mask;anchors.fill:parent;effect:root.effect;progress:root.progress;active:root.incomingPath!=="" && !root.glitch}
-      WallpaperGlitch {
-        id:glitchFrame; anchors.fill:parent
-        active:root.glitch && root.incomingPath!==""
-        fromPath:root.oldPath;toPath:root.incomingPath;effect:root.effect;progress:root.progress;accent:root.accent
-        strength:((root.settings.transitionOptions || {})[root.effect] || {}).strength===undefined ? .65 : root.settings.transitionOptions[root.effect].strength
-        density:((root.settings.transitionOptions || {})[root.effect] || {}).density || 1
-        onReadyChanged:panel.maybeStart()
-      }
-      WallpaperAmbient {
-        anchors.fill:parent
-        effect:root.settings.backgroundEffect || "none"
-        intensity:root.settings.backgroundIntensity===undefined ? .25 : root.settings.backgroundIntensity
-        speed:root.settings.backgroundSpeed || 1; disableMotion:root.motionDisabled
-        active:panel.visible && !root.mediaPlaying;accent:root.accent
-      }
-      Rectangle {
-        anchors.fill:parent
-        visible:panel.passiveActive && root.settings.ambientGlow===true
-        opacity:.0275-.0125*Math.cos(panel.seconds*2*Math.PI/60)
-        gradient:Gradient {
-          GradientStop {position:0;color:root.accent}
-          GradientStop {position:.55;color:"transparent"}
-          GradientStop {position:1;color:root.accent}
+        Image {
+          id:oldFrame
+          onStatusChanged:panel.maybeStart()
+          anchors.fill:parent; scale:panel.zoom
+          source:root.imageUrl(root.oldPath); visible:root.incomingPath!==""
+          fillMode:Image.PreserveAspectCrop; sourceSize:Qt.size(Math.max(1,width),Math.max(1,height)); asynchronous:true
+        }
+        Item {
+          anchors.fill:parent
+          visible:root.incomingPath!=="" && incoming.status===Image.Ready && !root.glitch
+          layer.enabled:visible
+          opacity:root.effect==="bleed" ? root.progress : 1
+          layer.effect:MultiEffect {
+            maskEnabled:root.effect!=="bleed"; maskSource:mask
+            maskThresholdMin:.5; maskSpreadAtMin:root.settings.transitionSoftness || .02
+          }
+          Image {
+            id:incoming
+            anchors.fill:parent; scale:panel.zoom
+            source:root.imageUrl(root.incomingPath)
+            fillMode:Image.PreserveAspectCrop; sourceSize:Qt.size(Math.max(1,width),Math.max(1,height)); asynchronous:true
+            onStatusChanged: {
+              if(status===Image.Ready) panel.maybeStart()
+              else if(status===Image.Error && root.incomingPath) root.cancelIncoming("Unable to decode wallpaper")
+            }
+          }
+        }
+        WallpaperTransitionMask {id:mask;anchors.fill:parent;effect:root.effect;progress:root.progress;active:root.incomingPath!=="" && !root.glitch}
+        WallpaperGlitch {
+          id:glitchFrame; anchors.fill:parent
+          active:root.glitch && root.incomingPath!==""
+          fromPath:root.oldPath;toPath:root.incomingPath;effect:root.effect;progress:root.progress;accent:root.accent
+          strength:((root.settings.transitionOptions || {})[root.effect] || {}).strength===undefined ? .65 : root.settings.transitionOptions[root.effect].strength
+          density:((root.settings.transitionOptions || {})[root.effect] || {}).density || 1
+          onReadyChanged:panel.maybeStart()
+        }
+        WallpaperAmbient {
+          anchors.fill:parent
+          effect:root.settings.backgroundEffect || "none"
+          intensity:root.settings.backgroundIntensity===undefined ? .25 : root.settings.backgroundIntensity
+          speed:root.settings.backgroundSpeed || 1; disableMotion:root.motionDisabled
+          active:panel.visible && !root.mediaPlaying;accent:root.accent
+        }
+        Rectangle {
+          anchors.fill:parent
+          visible:panel.passiveActive && root.settings.ambientGlow===true
+          opacity:.0275-.0125*Math.cos(panel.seconds*2*Math.PI/60)
+          gradient:Gradient {
+            GradientStop {position:0;color:root.accent}
+            GradientStop {position:.55;color:"transparent"}
+            GradientStop {position:1;color:root.accent}
+          }
         }
       }
     }

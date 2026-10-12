@@ -46,21 +46,6 @@ Item {
     selectionEpoch: root.selectGeneration
   }
 
-  // When the optional native static renderer is active, put media above its
-  // Background surface explicitly rather than relying on plugin load order.
-  property bool nativeBackgroundEnabled:false
-  FileView {
-    path:Quickshell.env("HOME")+"/.config/omarchy/shell.json"
-    watchChanges:true;printErrors:false
-    onLoaded: {
-      try {
-        var config=JSON.parse(text()), plugins=config.plugins || [], disabled=config.disabledPlugins || []
-        root.nativeBackgroundEnabled=plugins.some(function(p){return p.id==="ruixen.background"}) && disabled.indexOf("ruixen.background")<0
-      } catch(e) { root.nativeBackgroundEnabled=false }
-    }
-    onFileChanged:reload()
-  }
-
   readonly property string home: Quickshell.env("HOME")
   readonly property string stateDir: home + "/.local/state/ruixen"
   readonly property string statePath: stateDir + "/wallpaper-media"
@@ -380,7 +365,19 @@ Item {
       exclusionMode: ExclusionMode.Ignore
 
       WlrLayershell.namespace: "ruixen-wallpaper"
-      WlrLayershell.layer: root.nativeBackgroundEnabled ? WlrLayer.Bottom : WlrLayer.Background
+      // Always Background, never bumped to Bottom -- that bump (to
+      // paint-order-beat ruixen.background's own Background-layer
+      // surface during video/gif playback) collided with the frame
+      // (omarchy-shell-frame, FrameWindow.qml), which also lives at
+      // Bottom: within one shared layer, stacking order isn't defined
+      // by this plugin at all, and ruixen-wallpaper ended up winning,
+      // visibly covering the frame's own border whenever the native
+      // renderer was enabled (confirmed live via `hyprctl layers` --
+      // both namespaces sitting in the same level-1 bucket). Fixed at
+      // the real source instead: ruixen.background's own panel now
+      // hides its content while media plays (see its own Service.qml),
+      // so this surface never needs to leave Background to begin with.
+      WlrLayershell.layer: WlrLayer.Background
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
       // No AudioOutput attached anywhere -- that's the actual "muted".

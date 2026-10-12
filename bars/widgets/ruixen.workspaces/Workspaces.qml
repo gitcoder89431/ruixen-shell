@@ -71,6 +71,20 @@ BarWidget {
     root.bar.run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
   }
 
+  // Scroll-to-switch: direction -1 steps to the previous workspace in the
+  // list, +1 to the next, wrapping at either end. Same angleDelta.y sign
+  // convention as ruixen.media's scroll-to-skip (positive/scroll-up ->
+  // previous, negative/scroll-down -> next).
+  function cycleWorkspace(direction) {
+    var ids = root.workspaceIds()
+    if (ids.length === 0) return
+    var current = Hyprland.focusedWorkspace
+    var idx = current === null ? -1 : ids.indexOf(current.id)
+    if (idx === -1) idx = 0
+    var next = (idx + direction + ids.length) % ids.length
+    root.focusWorkspace(ids[next])
+  }
+
   // The one resolved color for "active, or has real content" -- see
   // its own call site's comment for the White-theme override reasoning.
   readonly property color focusedColor: root.themeSlug === "white" ? root.bar.barForeground : Color.accent
@@ -160,6 +174,21 @@ BarWidget {
           onClicked: root.focusWorkspace(indicator.modelData)
         }
       }
+    }
+  }
+
+  // Wheel -> switch workspace. A wheel-only MouseArea laid over the whole
+  // pill as a sibling of Row, declared after it so it sits on top, but
+  // acceptedButtons: NoButton means it takes no presses -- the dots'
+  // own MouseAreas underneath still get every click. Same pattern as
+  // ShelfContent.qml's stripWheel.
+  MouseArea {
+    anchors.fill: parent
+    acceptedButtons: Qt.NoButton
+    onWheel: (wheel) => {
+      var dy = wheel.angleDelta.y + wheel.pixelDelta.y
+      if (dy === 0) return
+      root.cycleWorkspace(dy > 0 ? -1 : 1)
     }
   }
 }

@@ -831,39 +831,66 @@ Item {
       }
       }
 
-      // Artwork rotation, one flat chip sitting right after the kind
-      // filter -- same look as All/Images/Video/Gif, not a special
-      // shape. Went through a Shuffle-toggle-chip-plus-interval-chips
-      // version and a two-segment grouped-pill version (styled after
-      // Cliamp Radio's LIVE/clock pill) before landing here; both were
-      // direct corrections ("shit thats wierd, to have shuffle and off
-      // as a chip", then "keep the shape as chips... not switch the
-      // shape to a pill"). There's no separate shuffle on/off state --
-      // rotation always shuffles when it's on ("i just need to
-      // shuffle... at intervals"), so the only axis left is the
-      // interval, and the label always reads "Shuffle · <value>" since
-      // Shuffle is no longer something that can be off while rotation
-      // is on. Left click cycles Off -> 5m -> 15m -> 30m -> 60m -> Off.
-      Rectangle {
+      // Artwork rotation, two segments grouped into one chip sitting
+      // right after the kind filter -- same idea as Cliamp Radio's
+      // LIVE/clock pill (CliampStationPanel.qml's statusPill: two
+      // Rectangles in a Row, spacing 0, per-corner radius so they read
+      // as one shape), but radius 8 like the other filter chips in this
+      // row instead of that pill's fully-rounded height/2 ends (direct
+      // correction: "are we not able to keep the design like cliamp
+      // radio pill without making it a pill?"). Left segment is a
+      // constant-accent "Shuffle" label -- always lit, not conditional
+      // on anything, so it reads as a feature marker at a glance
+      // ("Shuffle side Accent so people can see it as a feature").
+      // Right segment is the cycling value. There's no separate shuffle
+      // on/off state -- rotation always shuffles when it's on ("i just
+      // need to shuffle... at intervals"), so the only axis left is the
+      // interval. Left click anywhere cycles Off -> 5m -> 15m -> 30m ->
+      // 60m -> Off.
+      Item {
         id: rotationChip
         visible: root.mediaMode === "wallpapers" && rotationState.available
         readonly property bool on: rotationState.settings.enabled === true
-        readonly property string label: "Shuffle · " + (rotationChip.on ? rotationState.settings.intervalMinutes + "m" : "Off")
+        readonly property string valueLabel: rotationChip.on ? rotationState.settings.intervalMinutes + "m" : "Off"
 
-        width: rotationChipLabel.implicitWidth + 20
+        width: rotationChipRow.implicitWidth
         height: 28
-        radius: 8
-        color: rotationChip.on ? root.accent : root.surfaceTint(0.04)
-        border.width: 1
-        border.color: rotationChip.on ? root.accent : root.surfaceTint(0.12)
 
-        Text {
-          id: rotationChipLabel
-          anchors.centerIn: parent
-          text: rotationChip.label
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          color: rotationChip.on ? "#000000" : root.accent
+        Row {
+          id: rotationChipRow
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            height: parent.height
+            width: rotationShuffleLabel.implicitWidth + 16
+            color: root.accent
+            topLeftRadius: 8
+            bottomLeftRadius: 8
+            Text {
+              id: rotationShuffleLabel
+              anchors.centerIn: parent
+              text: "Shuffle"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+          Rectangle {
+            height: parent.height
+            width: rotationValueLabel.implicitWidth + 14
+            color: root.surfaceTint(0.04)
+            topRightRadius: 8
+            bottomRightRadius: 8
+            Text {
+              id: rotationValueLabel
+              anchors.centerIn: parent
+              text: rotationChip.valueLabel
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
         }
 
         MouseArea {

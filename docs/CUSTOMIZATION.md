@@ -102,13 +102,16 @@ retain their MIT notices and source attribution in each plugin's
 ### Artwork rotation
 
 The notch picker includes **Artwork rotation**, independently of the optional
-effects renderer in the launcher's Wallpapers extension. One chip sits in the
-notch's wallpaper filter row, next to All/Images/Video/Gif, labeled
-**Shuffle · Off**, **Shuffle · 5m**, **Shuffle · 15m**, **Shuffle · 30m**, or
-**Shuffle · 60m**. Click cycles it **Off → 5m → 15m → 30m → 60m → Off**;
-rotation always shuffles when it's on, so there's no separate on/off for
-that. Always reads from `~/Pictures/ruixen-wallpapers`, the same folder the
-rest of the picker already shows artwork from.
+effects renderer in the launcher's Wallpapers extension. One grouped chip
+sits in the notch's wallpaper filter row, next to All/Images/Video/Gif --
+same two-segment shape as Cliamp Radio's LIVE/clock pill, just square
+(radius 8) instead of fully rounded. A constant-accent **Shuffle** segment
+marks it as a feature, and a second segment shows the current value: **Off**,
+**5m**, **15m**, **30m**, or **60m**. Click anywhere on it to cycle
+**Off → 5m → 15m → 30m → 60m → Off**; rotation always shuffles when it's on,
+so there's no separate on/off for that. Always reads from
+`~/Pictures/ruixen-wallpapers`, the same folder the rest of the picker
+already shows artwork from.
 
 The persistent `ruixen.wallpaper` service rotates PNG, JPEG, WebP, and AVIF
 images in that folder at random, without repeating the current image when

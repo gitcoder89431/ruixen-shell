@@ -97,6 +97,38 @@ Item {
   readonly property var glitchKeys: ["signal-tear", "datamosh", "vhs", "code-bleed"]
   function effectLabel(key) { for (var i = 0; i < choices.length; i++) if (choices[i].key === key) return choices[i].label; return "Reveal" }
 
+  // Stock plus all 13 real transitions, packed into rows by hand
+  // instead of a Flow -- direct correction: Flow's own implicitHeight
+  // depends on its width (how many chips wrap per row), and that
+  // width-for-height negotiation against a ColumnLayout kept producing
+  // a stale, oversized height no matter how the surrounding layout was
+  // restructured (nested, then flat, then width-only). Same fix
+  // already proven in this repo for the exact same class of problem
+  // (CliampStationPanel.qml's own EQ chips, packEqRows) -- plain Row
+  // elements inside a Column have real, deterministic heights, nothing
+  // implicit to get stuck.
+  readonly property var transitionChipData: [{key: "stock", label: "Stock"}].concat(choices)
+  function packTransitionRows(maxWidth) {
+    var rows = []
+    var current = []
+    var currentWidth = 0
+    for (var i = 0; i < transitionChipData.length; i++) {
+      var item = transitionChipData[i]
+      var chipWidth = transitionMetrics.advanceWidth(item.label) + 20
+      var next = current.length === 0 ? chipWidth : currentWidth + 6 + chipWidth
+      if (current.length > 0 && next > maxWidth) {
+        rows.push(current)
+        current = [item]
+        currentWidth = chipWidth
+      } else {
+        current.push(item)
+        currentWidth = next
+      }
+    }
+    if (current.length > 0) rows.push(current)
+    return rows
+  }
+
   readonly property string helper: decodeURIComponent(Qt.resolvedUrl("wallpaper-effects.py").toString().replace(/^file:\/\//, ""))
 
   function refresh() { if (active && !probe.running) probe.running = true }
@@ -216,6 +248,14 @@ Item {
     onExited: (code, status) => root.refresh()
   }
 
+  // Real text measurement for packTransitionRows -- same technique
+  // CliampStationPanel.qml's own packEqRows already uses.
+  FontMetrics {
+    id: transitionMetrics
+    font.family: root.fontFamily
+    font.pixelSize: 11
+  }
+
   // Same public IPC surface the old card had (docs/CONTROL.md's own
   // "Local wallpaper previews" section) -- preview(effect) now drives
   // heroTile instead of a dedicated preview tile, status() drops the
@@ -245,6 +285,24 @@ Item {
   // Effect row, its conditional sliders, and the Transition flow now
   // fit the reserved height on their own, so this is a plain anchored
   // ColumnLayout again, no Flickable.
+  // Direct correction after the nested-ColumnLayout version this went
+  // through ("make the transition start at the top of the panel...
+  // tooo gap between the effect and where the progress sliders are"):
+  // a ColumnLayout nested inside this outer ColumnLayout (grouping
+  // Transition+Effect's chips together) was adding real extra space
+  // beyond its own declared `spacing: 6` -- confirmed by temporarily
+  // marking both the panel's true top and that inner group's own top
+  // with loud debug-colored Rectangles and comparing against a
+  // matching marker inside heroTile (same y binding, so they're a
+  // reliable ruler): heroTile's marker and this panel's own top lined
+  // up exactly, but the inner group's own top sat ~40px below that,
+  // not the ~18px (6px spacing + marker height) the declared spacing
+  // alone should produce. Root cause not fully chased past that
+  // (nested nested ColumnLayout + Flow width-for-height sizing is a
+  // known rough edge in Qt Quick Layouts), fixed by removing the
+  // nesting instead: one FLAT ColumnLayout for every chip, an explicit
+  // Item spacer (not a second Layout's own `spacing`) for the one real
+  // gap before Effect's slider section.
   ColumnLayout {
     id: content
     anchors.fill: parent
@@ -258,85 +316,68 @@ Item {
     // there's no inner scrolling -- it just cuts off rather than
     // bleeding over, which is the "contained" behavior actually wanted.
     clip: true
-    // 14 between the chip cluster and Effect's slider section below it
-    // -- a real gap, unrelated content. Direct correction, simplified
-    // down from an earlier two-equal-groups layout that put the SAME
-    // gap between Transition's chips and Effect's chips as between
-    // either of those and its own label: "chips up top section for
-    // effect under" -- Transition and Effect's own selector chips now
-    // read as one cluster (6px internal spacing throughout, see its
-    // own ColumnLayout below), with only the actual expandable content
-    // (Effect's sliders) broken out as its own section underneath.
-    spacing: 14
+    // Tight and uniform now -- Transition's label/chips, Effect's
+    // label/chips, all 6px apart, one cluster ("chips up top"). The
+    // one real gap (before the slider section) is a manual spacer
+    // Item below instead of a second Layout's own spacing value.
+    spacing: 6
 
-    ColumnLayout {
-      Layout.fillWidth: true
-      spacing: 6
     Text { text: "Transition"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
-    Flow {
+    // Packed rows, not Flow -- see root.packTransitionRows's own
+    // comment for why. "stock" key handled inline (selected/click
+    // branch on it) rather than as a separate hardcoded chip, so it
+    // packs into the same rows as the real transitions exactly like it
+    // did visually before.
+    Column {
       Layout.fillWidth: true
-      width: content.width
       spacing: 6
-
-      Rectangle {
-        id: stockChip
-        readonly property bool selected: !root.transitionOn
-        width: stockChipLabel.implicitWidth + 20
-        height: 28
-        radius: 8
-        color: stockChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
-        border.width: 1
-        border.color: stockChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
-        Text {
-          id: stockChipLabel
-          anchors.centerIn: parent
-          text: "Stock"
-          color: stockChip.selected ? "#000000" : root.accent
-          font.family: root.fontFamily; font.pixelSize: 11
-        }
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.selectStock()
-        }
-      }
-
       Repeater {
-        model: root.choices
-        Rectangle {
-          id: transitionChip
+        model: root.packTransitionRows(content.width)
+        Row {
+          id: transitionChipRow
           required property var modelData
-          readonly property bool selected: root.transitionOn && root.settings.transitionEffect === transitionChip.modelData.key
-          width: transitionChipLabel.implicitWidth + 20
-          height: 28
-          radius: 8
-          color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
-          border.width: 1
-          border.color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
-          Text {
-            id: transitionChipLabel
-            anchors.centerIn: parent
-            text: transitionChip.modelData.label
-            color: transitionChip.selected ? "#000000" : root.accent
-            font.family: root.fontFamily; font.pixelSize: 11
-          }
-          HoverHandler {
-            onHoveredChanged: root.previewTransition = hovered ? transitionChip.modelData.key : (root.previewTransition === transitionChip.modelData.key ? "" : root.previewTransition)
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.selectTransition(transitionChip.modelData.key)
+          spacing: 6
+          Repeater {
+            model: transitionChipRow.modelData
+            Rectangle {
+              id: transitionChip
+              required property var modelData
+              readonly property bool isStock: transitionChip.modelData.key === "stock"
+              readonly property bool selected: transitionChip.isStock ? !root.transitionOn
+                : (root.transitionOn && root.settings.transitionEffect === transitionChip.modelData.key)
+              width: transitionChipLabel.implicitWidth + 20
+              height: 28
+              radius: 8
+              color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
+              border.width: 1
+              border.color: transitionChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
+              Text {
+                id: transitionChipLabel
+                anchors.centerIn: parent
+                text: transitionChip.modelData.label
+                color: transitionChip.selected ? "#000000" : root.accent
+                font.family: root.fontFamily; font.pixelSize: 11
+              }
+              HoverHandler {
+                enabled: !transitionChip.isStock
+                onHoveredChanged: root.previewTransition = hovered ? transitionChip.modelData.key : (root.previewTransition === transitionChip.modelData.key ? "" : root.previewTransition)
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: transitionChip.isStock ? root.selectStock() : root.selectTransition(transitionChip.modelData.key)
+              }
+            }
           }
         }
       }
     }
 
-    // Same cluster as Transition above (still 6px spacing, same
-    // ColumnLayout, not a new one) -- direct correction: "chips up top
-    // section for effect under". Both chip groups now read as one
-    // selector block; only Effect's actual expandable content
-    // (Intensity/Speed) breaks out into its own section below.
+    // Same flat cluster as Transition above (still 6px spacing, same
+    // ColumnLayout) -- direct correction: "chips up top section for
+    // effect under". Both chip groups now read as one selector block;
+    // only Effect's actual expandable content (Intensity/Speed) breaks
+    // out into its own section below.
     Text { text: "Effect"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
     Row {
       spacing: 6
@@ -370,20 +411,21 @@ Item {
         }
       }
     }
-    }
 
     // Effect's own expandable section -- the ONLY thing that grows/
     // shrinks as CRT/Matrix get picked, kept out of the chip cluster
     // above entirely so its own expand/collapse never reflows a single
-    // chip. Content area's own clip:true (see its own comment) catches
-    // it if it ever runs past the panel's fixed height instead of
-    // spilling into the grid below.
-    ColumnLayout {
-      Layout.fillWidth: true
-      spacing: 6
-      visible: root.backgroundEffectOn
+    // chip. A manual spacer Item, not a second Layout's own `spacing`,
+    // for the one real gap -- the nested-ColumnLayout version of this
+    // (see content's own header comment) added far more space than its
+    // declared spacing accounted for; a flat structure throughout
+    // sidesteps whatever caused that instead of chasing it further.
+    // clip:true above catches this section if it ever runs past the
+    // panel's fixed height instead of spilling into the grid below.
+    Item { Layout.fillWidth: true; height: 10; visible: root.backgroundEffectOn }
     RowLayout {
       Layout.fillWidth: true
+      visible: root.backgroundEffectOn
       Text { text: "Intensity"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11; Layout.preferredWidth: 60 }
       WallpaperSlider {
         Layout.fillWidth: true
@@ -414,7 +456,6 @@ Item {
         text: Number(root.settings.backgroundSpeed || 1).toFixed(1) + "×"
         color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11; Layout.preferredWidth: 36
       }
-    }
     }
 
     // Ambient zoom/Theme glow/Disable motion all dropped now -- the

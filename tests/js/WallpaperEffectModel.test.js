@@ -1,7 +1,7 @@
 "use strict";
 const path = require("path");
 const { loadModule, check, summary } = require("./harness.js");
-for (const folder of ["bars/widgets/ruixen.notch", "ruixen.launcher/extensions/wallpapers"]) {
+for (const folder of ["ruixen.launcher/extensions/wallpapers"]) {
   const model = loadModule(path.join(__dirname, "../..", folder, "WallpaperEffectModel.js"));
   const current = "/Pictures/JG-Artwork/piano-at-the-library.png";
   const entries = [

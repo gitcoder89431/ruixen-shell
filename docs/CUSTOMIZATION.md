@@ -66,8 +66,9 @@ frame right next to it.
 
 The installer includes the native **ruixen.background** renderer, disabled on new
 installations to preserve Omarchy's stock behavior. Open **Wallpaper appearance**
-in the notch picker (`SUPER+CTRL+SPACE`) or launcher's Wallpapers extension.
-Preview and save settings, then choose **Enable renderer** to apply them to the
+in the launcher's Wallpapers extension (the notch picker carries Artwork rotation
+instead -- see below -- so the two surfaces split the feature set rather than
+both carrying everything). Preview and save settings, then choose **Enable renderer** to apply them to the
 desktop. **Use stock renderer** restores the previous stock state through
 Omarchy's plugin lifecycle. The enable button refuses competing background
 replacements; disable those yourself before switching. Rotation and video/GIF
@@ -100,11 +101,11 @@ retain their MIT notices and source attribution in each plugin's
 
 ### Artwork rotation
 
-Both wallpaper pickers include **Artwork rotation**, independently of the optional
-effects renderer. Enable **Rotate artwork**, enter an absolute folder path (or
-`~/Pictures/...`), and choose an interval of 1–1440 minutes. **Next artwork**
-advances immediately even when automatic rotation is off. Clicking a section
-heading opens its controls and collapses the other section.
+The notch picker includes **Artwork rotation**, independently of the optional
+effects renderer in the launcher's Wallpapers extension. Enable **Rotate artwork**,
+enter an absolute folder path (or `~/Pictures/...`), and choose an interval of
+1–1440 minutes. **Next artwork** advances immediately even when automatic
+rotation is off.
 
 The persistent `ruixen.wallpaper` service rotates PNG, JPEG, WebP, and AVIF images
 in filename order and wraps at the end. Enable **Shuffle** for random selection

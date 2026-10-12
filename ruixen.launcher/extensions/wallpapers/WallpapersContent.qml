@@ -11,6 +11,11 @@
 // presentation difference is the removed right sidebar (see its own
 // removal comment further down) -- keep both copies in sync by hand
 // for everything else if this file's own picker logic changes.
+//
+// The two surfaces split the appearance/rotation feature set rather
+// than both carrying everything: this file owns Wallpaper appearance
+// only, the notch copy owns Artwork rotation only (direct request --
+// both sections stacked in one place felt too crowded).
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -622,23 +627,11 @@ Item {
     anchors.fill: parent
     spacing: 10
 
-    WallpaperRotationControls {
-      id: rotationControls
-      accent: root.accent
-      Layout.fillWidth: true
-      active: root.active
-      textColor: root.textColor
-      muted: root.muted
-      fontFamily: root.fontFamily
-      onExpandedChanged: if (expanded) effectControls.expanded = false
-    }
-
     WallpaperEffects {
       id: effectControls
       maxExpandedHeight:Math.max(220,Math.round(root.height*.55))
       currentBackground: root.currentBackground
       artworkEntries: root.wallpaperPaths
-      onExpandedChanged: if (expanded) rotationControls.expanded = false
       Layout.fillWidth: true
       active: root.active
       textColor: root.textColor

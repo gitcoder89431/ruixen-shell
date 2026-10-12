@@ -10,17 +10,19 @@ from unittest.mock import patch
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-HELPERS = [ROOT / 'ruixen.launcher/extensions/wallpapers/wallpaper-effects.py', ROOT / 'bars/widgets/ruixen.notch/wallpaper-effects.py']
+# Wallpaper appearance now lives only in the launcher's Wallpapers
+# extension -- the notch picker dropped it in favor of Artwork rotation
+# only, so there's no second packaged copy left to keep in sync against.
+HELPERS = [ROOT / 'ruixen.launcher/extensions/wallpapers/wallpaper-effects.py']
 VALID = dict(transitionEffect='pixel-dissolve', transitionDurationMs=8000, transitionSoftness=.12, ambientZoom=True, ambientGlow=True, disableMotion=False)
 
 class SettingsTests(unittest.TestCase):
     def test_packaged_assets_stay_in_sync(self):
-        folders=[ROOT/'ruixen.background',ROOT/'bars/widgets/ruixen.notch',ROOT/'ruixen.launcher/extensions/wallpapers']
+        folders=[ROOT/'ruixen.background',ROOT/'ruixen.launcher/extensions/wallpapers']
         for asset in ['WallpaperGlitch.qml','WallpaperAmbient.qml','WallpaperTransitionMask.qml','GLITCH-LICENSE.txt','shaders/glitch.frag','shaders/glitch.frag.qsb','shaders/ambient.frag','shaders/ambient.frag.qsb']:
             expected=(folders[0]/asset).read_bytes()
             for folder in folders[1:]:
                 self.assertEqual((folder/asset).read_bytes(),expected, str(folder/asset))
-        self.assertEqual(HELPERS[0].read_bytes(),HELPERS[1].read_bytes())
 
     def test_writers(self):
         for helper in HELPERS:

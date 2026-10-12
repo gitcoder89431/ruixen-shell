@@ -12,7 +12,10 @@ import Quickshell.Widgets
 // here. Not byte-for-byte anymore: this file also owns the notch-only
 // theme switcher and the responsive expanded-notch grid layout, while
 // the launcher card stays a pure wallpaper picker with its own wider
-// card/dropdown treatment.
+// card/dropdown treatment. The two surfaces also now split the feature
+// set rather than both carrying everything: this file owns Artwork
+// rotation only, the launcher copy owns Wallpaper appearance only (direct
+// request -- both sections stacked in one place felt too crowded).
 //
 // This file is now ALSO the notch's own Theme switcher (a WALLPAPER/
 // THEME sliding tab sharing one row with the search box, tab pill on
@@ -94,7 +97,7 @@ Item {
   // Only visible/active while the tab itself is on screen -- refresh()
   // is cheap (two quick Processes) but no reason to run it while some
   // other tab is showing.
-  readonly property real controlsExtraHeight: (rotationControls.visible ? Math.max(0, rotationControls.implicitHeight - 50) : 0) + (effectControls.visible ? Math.max(0, effectControls.implicitHeight - 50) : 0)
+  readonly property real controlsExtraHeight: rotationControls.visible ? Math.max(0, rotationControls.implicitHeight - 50) : 0
   property bool active: false
 
   // Each entry: { kind, display, real }. kind is "image", "gif", or
@@ -543,6 +546,12 @@ Item {
     anchors.fill: parent
     spacing: 10
 
+    // The notch picker owns Artwork rotation only -- Wallpaper appearance
+    // (transitions/CRT/Matrix/renderer toggle) moved to the launcher's
+    // Wallpapers extension so the two surfaces split the feature set
+    // instead of both carrying everything (direct request: too crowded
+    // with both sections stacked here). See WallpapersContent.qml in
+    // ruixen.launcher/extensions/wallpapers for the appearance half.
     WallpaperRotationControls {
       id: rotationControls
       accent: root.accent
@@ -551,21 +560,6 @@ Item {
       visible: available && root.mediaMode === "wallpapers"
       textColor: root.textColor
       muted: root.muted
-      fontFamily: root.fontFamily
-      onExpandedChanged: if (expanded) effectControls.expanded = false
-    }
-
-    WallpaperEffects {
-      id: effectControls
-      currentBackground: root.currentBackground
-      artworkEntries: root.wallpaperPaths
-      onExpandedChanged: if (expanded) rotationControls.expanded = false
-      Layout.fillWidth: true
-      active: root.active && root.mediaMode === "wallpapers"
-      visible: available && root.mediaMode === "wallpapers"
-      textColor: root.textColor
-      muted: root.muted
-      accent: root.accent
       fontFamily: root.fontFamily
     }
 

@@ -10,10 +10,14 @@ from unittest.mock import patch
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-# Wallpaper appearance now lives only in the launcher's Wallpapers
-# extension -- the notch picker dropped it in favor of Artwork rotation
-# only, so there's no second packaged copy left to keep in sync against.
-HELPERS = [ROOT / 'ruixen.launcher/extensions/wallpapers/wallpaper-effects.py']
+# The notch picker's full expandable "Wallpaper appearance" card (preview
+# QML/shaders included) lives only in the launcher's Wallpapers extension
+# now, but the notch still carries its own copy of this settings writer
+# for its compact Transition chip (WallpaperAppearanceState.qml) -- same
+# three-way parity the shader/QML assets below have among ruixen.background
+# and the launcher, just without the notch needing those preview assets.
+HELPERS = [ROOT / 'ruixen.launcher/extensions/wallpapers/wallpaper-effects.py',
+           ROOT / 'bars/widgets/ruixen.notch/wallpaper-effects.py']
 VALID = dict(transitionEffect='pixel-dissolve', transitionDurationMs=8000, transitionSoftness=.12, ambientZoom=True, ambientGlow=True, disableMotion=False)
 
 class SettingsTests(unittest.TestCase):

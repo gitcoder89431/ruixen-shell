@@ -156,10 +156,11 @@ check "theme grid shows only in theme mode" \
 
 # Was pinned at 1 (just the grid+sidebar block) -- the source-filter chip
 # row applies to BOTH modes so it never matched this literal pattern. Now
-# 2: the grid block plus Artwork rotation's one cycling chip, both
-# wallpaper-mode-only since rotation doesn't apply to themes.
+# 3: the grid block, Artwork rotation's chip, and Wallpaper appearance's
+# Transition chip, all wallpaper-mode-only since neither feature applies
+# to themes.
 check "wallpaper block shows only in wallpaper mode" \
-  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "2"
+  "$(grep -c 'visible: root.mediaMode === "wallpapers"' "$content_qml")" "3"
 
 check "theme grid fills the row instead of leaving a dead right strip" \
   "$(grep -c 'readonly property int columns: Math.max(1, Math.floor(themeGridWrap.width / 170))' "$content_qml")" "1"

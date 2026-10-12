@@ -545,24 +545,32 @@ Item {
     anchors.fill: parent
     spacing: 10
 
-    // The notch picker owns Artwork rotation only -- Wallpaper appearance
-    // (transitions/CRT/Matrix/renderer toggle) moved to the launcher's
-    // Wallpapers extension so the two surfaces split the feature set
-    // instead of both carrying everything (direct request: too crowded
-    // with both sections stacked here). See WallpapersContent.qml in
-    // ruixen.launcher/extensions/wallpapers for the appearance half.
+    // The notch picker's own expandable Wallpaper appearance card
+    // (transitions/CRT/Matrix/renderer toggle) moved entirely to the
+    // launcher's Wallpapers extension so the two surfaces split the
+    // feature set instead of both carrying everything (direct request:
+    // too crowded with both sections stacked here). This plugin keeps
+    // only a compact Transition chip (below) for quick access, talking
+    // to the same wallpaper-effects.py; the full card with sliders/
+    // CRT/Matrix/ambient controls lives only in WallpapersContent.qml
+    // under ruixen.launcher/extensions/wallpapers.
     //
     // Rotation itself used to be its own expandable card (title row +
     // Rotate artwork/Shuffle toggles + interval chips + a folder path
     // field). Direct correction: "kinda overdone", "what does rotate
     // mean vs shuffle?", folder is always the one ruixen.wallpaper
     // folder in practice so that field was dead weight too. Collapsed
-    // down to two inline chip groups living in the filter row below
-    // (Shuffle toggle chip + Off/5m/15m/30m/60m interval chips, Off
-    // standing in for the old separate enable toggle) -- this headless
-    // component is now just the probe/debounce/write state they share.
+    // down to one chip living in the filter row below -- this headless
+    // component is just the probe/debounce/write state it uses.
     WallpaperRotationState {
       id: rotationState
+      active: root.active && root.mediaMode === "wallpapers"
+    }
+
+    // Same idea for Wallpaper appearance's quick Transition chip --
+    // headless probe/debounce/write state, no visual UI of its own.
+    WallpaperAppearanceState {
+      id: appearanceState
       active: root.active && root.mediaMode === "wallpapers"
     }
 
@@ -906,6 +914,71 @@ Item {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
           onClicked: rotationState.cycleInterval()
+        }
+      }
+
+      // Wallpaper appearance's quick Transition chip, right next to
+      // Shuffle (direct request). Same two-segment shape: a constant-
+      // accent "Transition" label plus a value segment cycling through
+      // Stock and the 13 real transitions. Picking a real transition
+      // auto-enables the native renderer; cycling back to Stock turns
+      // it off -- "clicking it cycles through the transition and
+      // automatically turns the renderer on so we dont need that extra
+      // enable step". See WallpaperAppearanceState.qml for the cycle.
+      Item {
+        id: appearanceChip
+        visible: root.mediaMode === "wallpapers" && appearanceState.available
+        readonly property string valueLabel: appearanceState.rendererEnabled
+          ? appearanceState.effectLabel(appearanceState.settings.transitionEffect) : "Stock"
+
+        width: appearanceChipRow.implicitWidth
+        height: 28
+
+        Row {
+          id: appearanceChipRow
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            height: parent.height
+            width: appearanceLabel.implicitWidth + 16
+            color: root.accent
+            topLeftRadius: 8
+            bottomLeftRadius: 8
+            topRightRadius: 4
+            bottomRightRadius: 4
+            Text {
+              id: appearanceLabel
+              anchors.centerIn: parent
+              text: "Transition"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+          Rectangle {
+            height: parent.height
+            width: appearanceValueLabel.implicitWidth + 14
+            color: root.surfaceTint(0.04)
+            topLeftRadius: 4
+            bottomLeftRadius: 4
+            topRightRadius: 8
+            bottomRightRadius: 8
+            Text {
+              id: appearanceValueLabel
+              anchors.centerIn: parent
+              text: appearanceChip.valueLabel
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: appearanceState.cycleTransition()
         }
       }
 

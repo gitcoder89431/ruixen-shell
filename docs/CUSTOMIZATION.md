@@ -65,14 +65,22 @@ frame right next to it.
 ## Wallpaper appearance
 
 The installer includes the native **ruixen.background** renderer, disabled on new
-installations to preserve Omarchy's stock behavior. Open **Wallpaper appearance**
-in the launcher's Wallpapers extension (the notch picker carries Artwork rotation
-instead -- see below -- so the two surfaces split the feature set rather than
-both carrying everything). Preview and save settings, then choose **Enable renderer** to apply them to the
-desktop. **Use stock renderer** restores the previous stock state through
-Omarchy's plugin lifecycle. The enable button refuses competing background
-replacements; disable those yourself before switching. Rotation and video/GIF
-playback work independently of this renderer.
+installations to preserve Omarchy's stock behavior. Open the full **Wallpaper
+appearance** card in the launcher's Wallpapers extension (the notch picker
+carries Artwork rotation instead -- see below -- so the two surfaces split the
+feature set rather than both carrying everything). Preview and save settings,
+then choose **Enable renderer** to apply them to the desktop. **Use stock
+renderer** restores the previous stock state through Omarchy's plugin
+lifecycle. The enable button refuses competing background replacements;
+disable those yourself before switching. Rotation and video/GIF playback work
+independently of this renderer.
+
+The notch picker also gets a compact **Transition** chip, next to Shuffle in
+its own filter row -- a quicker path than opening the full card. Click it to
+cycle **Stock → Reveal → Bleed through → … → Code bleed → Stock**; picking any
+real transition turns the renderer on automatically, no separate enable step,
+and cycling back to Stock turns it off again. The full card's other controls
+(duration, softness, CRT/Matrix, ambient zoom/glow) stay launcher-only.
 
 Choose one of thirteen transitions: Reveal, Bleed through, Pixel dissolve, Iris
 bloom, Glass shutters, Scanline, Ink spread, Aurora wash, Vortex, Signal tear,

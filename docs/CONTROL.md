@@ -240,4 +240,4 @@ Omarchy's `background` IPC (`refresh`, `set`, `setInstant`, `transition`,
 `themeTransition`) and applies theme payloads through public `shell applyTheme`.
 `transitionOptions` maps shader effect keys to `strength` (0–1) and `density`
 (0.5–2). `backgroundEffect` is `none`, `crt`, or `matrix`; intensity is 0–1 and
-speed is 0.1–3. Disable motion finishes transitions and freezes rain.
+speed is 0.1–3.

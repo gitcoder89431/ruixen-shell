@@ -116,9 +116,9 @@ your coding agent.
 - **Kanban** in the notch: a three-column board you and an agent can both drive.
 - **Wallpapers**, including muted looping video/GIF playback, artwork rotation
   with shuffle, and an audio visualizer.
-- **Optional native wallpaper appearance**: thirteen transitions, independent
-  CRT/Matrix backgrounds, motion controls, and duration-aware hover previews.
-  See [customization](docs/CUSTOMIZATION.md#wallpaper-appearance).
+- **Optional native wallpaper appearance**: thirteen transitions with baked-in
+  timing, independent CRT/Matrix backgrounds with intensity/speed controls,
+  and live hover previews. See [customization](docs/CUSTOMIZATION.md#wallpaper-appearance).
 - **Plugin pinning**: install any Omarchy bar widget, pin it from the bar, no config editing.
 - **Peripherals**: battery levels for wireless mice, keyboards, headsets and controllers.
 - **Window look**: rounded corners and blur to match the frame, or stock square.

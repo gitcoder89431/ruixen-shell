@@ -267,43 +267,47 @@ Item {
   // Process (below) has resolved anything to feature yet.
   readonly property bool showHero: root.kindFilter === "all" && root.searchText === "" && root.currentBackground !== ""
 
-  // Flat GridView index positions the 2x2 hero occupies in a 4-column
-  // grid: row 0 cols 0-1 (indices 0,1) and row 1 cols 0-1 (indices
-  // 4,5) -- constant regardless of how many wallpapers exist, since
+  // Flat GridView index positions the hero AND the appearance panel
+  // beside it occupy, in a 4-column grid: both full rows 0-1 (indices
+  // 0-7) -- constant regardless of how many wallpapers exist, since
   // the column count itself is fixed at 4 (see grid's own cellWidth
-  // comment). Real GridView has no concept of a delegate spanning
-  // multiple cells, so these positions are reserved as invisible
-  // spacer entries in gridModel below and the ACTUAL hero image is a
-  // separate overlay drawn on top of that reserved area (see its own
-  // comment) -- this array is what both sides agree the reserved area
-  // actually is.
-  readonly property var heroSpacerIndices: [0, 1, 4, 5]
+  // comment). Used to reserve cols 0-1 for the hero and cols 2-3 for
+  // 4 ordinary thumbnails; direct correction ("on the right side of
+  // the hero where theres some wallpaper preview grid thumbnail, we
+  // can make this a panel") replaced those 4 thumbnails with the
+  // flattened Wallpaper appearance panel instead, reusing the hero
+  // itself as the transition preview rather than a separate preview
+  // box. Real GridView has no concept of a delegate spanning multiple
+  // cells, so these positions are reserved as invisible spacer
+  // entries in gridModel below and the two actual overlays (heroTile,
+  // appearancePanel) are separate Items drawn on top of that reserved
+  // area (see their own comments) -- this array is what all three
+  // sides agree the reserved area actually is.
+  readonly property var heroSpacerIndices: [0, 1, 2, 3, 4, 5, 6, 7]
   function isSpacerIndex(i) { return root.showHero && root.heroSpacerIndices.indexOf(i) !== -1 }
   // Where keyboard nav should land when there's no better answer (a
   // fresh filter/search reset, or getting stuck against a spacer with
   // nowhere left to escape to -- see escapeSpacers below): the first
-  // real, non-reserved cell, which is index 2 (row 0 col 2) once the
-  // hero has claimed cols 0-1, or plain index 0 with no hero at all.
-  function firstRealIndex() { return root.showHero ? 2 : 0 }
+  // real, non-reserved cell, which is index 8 (row 2 col 0) once the
+  // hero and appearance panel have claimed both full rows above it,
+  // or plain index 0 with no hero at all.
+  function firstRealIndex() { return root.showHero ? 8 : 0 }
 
-  // GridView's own real model -- interleaves 4 spacer markers at the
-  // hero's reserved flat positions (see heroSpacerIndices) so the
-  // small tiles naturally flow into row 0 cols 2-3 and row 1 cols 2-3
-  // instead of sliding left into the space the hero overlay is
-  // covering, then continue completely normally from row 2 on. Each
-  // entry is {spacer:true} or {spacer:false, entry: <wallpaperPaths
-  // entry>} rather than a bare wallpaper record -- the delegate needs
-  // to tell the two apart, and a wrapper object is simpler than
-  // teaching every existing tile.modelData.xxx reference a second
-  // "or undefined" branch.
+  // GridView's own real model -- interleaves 8 spacer markers across
+  // both reserved rows (see heroSpacerIndices) so the small tiles
+  // naturally flow starting at row 2 instead of sliding up into the
+  // space the hero/appearance-panel overlays are covering. Each entry
+  // is {spacer:true} or {spacer:false, entry: <wallpaperPaths entry>}
+  // rather than a bare wallpaper record -- the delegate needs to tell
+  // the two apart, and a wrapper object is simpler than teaching every
+  // existing tile.modelData.xxx reference a second "or undefined"
+  // branch.
   readonly property var gridModel: {
     if (!root.showHero) return root.filteredPaths.map(function(e) { return {spacer: false, entry: e} })
     var real = root.filteredPaths
-    var result = [{spacer: true}, {spacer: true}]
-    if (real.length > 0) result.push({spacer: false, entry: real[0]})
-    if (real.length > 1) result.push({spacer: false, entry: real[1]})
-    result.push({spacer: true}, {spacer: true})
-    for (var i = 2; i < real.length; i++) result.push({spacer: false, entry: real[i]})
+    var result = []
+    for (var s = 0; s < root.heroSpacerIndices.length; s++) result.push({spacer: true})
+    for (var i = 0; i < real.length; i++) result.push({spacer: false, entry: real[i]})
     return result
   }
 
@@ -623,22 +627,15 @@ Item {
   // RowLayout (grid left, filter sidebar right); both the inner search
   // bar and the sidebar are gone now (see their own removal comments
   // below), leaving just the GridView filling this whole area directly.
+  // Wallpaper appearance used to live here too, as its own full-width
+  // expandable card above the grid (WallpaperEffects.qml) -- direct
+  // correction, flattened into appearancePanel instead (see its own
+  // comment further down), an overlay inside the grid itself next to
+  // heroTile, same two reserved rows. No more separate card eating
+  // vertical space above the grid.
   ColumnLayout {
     anchors.fill: parent
     spacing: 10
-
-    WallpaperEffects {
-      id: effectControls
-      maxExpandedHeight:Math.max(220,Math.round(root.height*.55))
-      currentBackground: root.currentBackground
-      artworkEntries: root.wallpaperPaths
-      Layout.fillWidth: true
-      active: root.active
-      textColor: root.textColor
-      muted: root.muted
-      accent: root.accent
-      fontFamily: root.fontFamily
-    }
 
     // No inner search box here anymore -- direct request ("we dont need
     // two search box, use the launcher for wallpaper search input not
@@ -799,15 +796,16 @@ Item {
         // moves currentIndex itself instead of fighting it for the
         // highlight).
         readonly property bool current: GridView.isCurrentItem
-        // True for one of the 4 reserved hero cells (see
-        // root.heroSpacerIndices) -- gridModel gives these a bare
+        // True for one of the 8 reserved hero/appearance-panel cells
+        // (see root.heroSpacerIndices) -- gridModel gives these a bare
         // {spacer:true} entry with no real wallpaper data at all, so
         // every other property/binding below that would otherwise read
         // tile.modelData.entry.xxx branches on this first instead of
         // dereferencing an entry that doesn't exist. Renders as a
-        // fully empty, non-interactive Item -- the actual hero image is
-        // a separate overlay drawn on top of this reserved area (see
-        // its own comment), not part of this delegate at all.
+        // fully empty, non-interactive Item -- the actual hero image
+        // and appearance panel are separate overlays drawn on top of
+        // this reserved area (see their own comments), not part of
+        // this delegate at all.
         readonly property bool isSpacer: tile.modelData.spacer === true
         readonly property var entry: tile.isSpacer ? null : tile.modelData.entry
         // Compares against identity, not display (#23) -- for a video
@@ -1070,6 +1068,58 @@ Item {
       asynchronous: true
       sourceSize: Qt.size(heroTile.width, heroTile.height)
     }
+
+    // Doubles as appearancePanel's live preview now instead of that
+    // panel having its own separate 180px preview box (direct
+    // correction: "since we already have a hero, that can be used for
+    // the preview"). Visible whenever there's something to show: a
+    // transient hover-preview on either axis, or a persistently active
+    // background effect (CRT/Matrix) reflecting the real current
+    // state -- transitions themselves are momentary events between
+    // wallpaper changes, not an ongoing visual state, so nothing shows
+    // for Transition at rest, only while actively hovering a chip.
+    WallpaperEffectPreview {
+      anchors.fill: parent
+      visible: appearancePanel.previewTransition !== "" || appearancePanel.previewBackgroundEffect !== ""
+        || (appearancePanel.rendererEnabled && appearancePanel.backgroundEffectOn)
+      effect: appearancePanel.previewTransition || "reveal"
+      fromPath: root.currentBackground
+      toPath: appearancePanel.previewNext
+      playing: root.active && appearancePanel.previewTransition !== ""
+      durationMs: 420
+      transitionOptions: appearancePanel.settings.transitionOptions || ({})
+      ambientActive: root.active
+      backgroundEffect: appearancePanel.previewBackgroundEffect !== "" ? appearancePanel.previewBackgroundEffect : (appearancePanel.settings.backgroundEffect || "none")
+      backgroundIntensity: appearancePanel.settings.backgroundIntensity === undefined ? .25 : appearancePanel.settings.backgroundIntensity
+      backgroundSpeed: appearancePanel.settings.backgroundSpeed === undefined ? 1 : appearancePanel.settings.backgroundSpeed
+      disableMotion: appearancePanel.settings.disableMotion === true
+      softness: appearancePanel.settings.transitionSoftness || .02
+      accent: root.accent
+    }
+  }
+
+  // Wallpaper appearance, flattened -- direct correction on the old
+  // full-width accordion card (see the outer ColumnLayout's own
+  // comment): sits where 4 ordinary thumbnails used to, in the grid
+  // cells immediately right of heroTile, same reserved-area overlay
+  // mechanism (parent: grid.contentItem, positioned by hand) heroTile
+  // itself already uses -- see WallpaperAppearancePanel.qml for the
+  // actual chip-based controls.
+  WallpaperAppearancePanel {
+    id: appearancePanel
+    parent: grid.contentItem
+    visible: root.showHero
+    x: heroTile.x + 2 * grid.cellWidth
+    y: heroTile.y
+    width: heroTile.width
+    height: heroTile.height
+    active: root.active
+    currentBackground: root.currentBackground
+    artworkEntries: root.wallpaperPaths
+    textColor: root.textColor
+    muted: root.muted
+    accent: root.accent
+    fontFamily: root.fontFamily
   }
 
   // No right sidebar here, unlike the notch's own copy of this file --

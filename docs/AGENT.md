@@ -183,8 +183,10 @@ Use `omarchy-shell ruixen-wallpaper-rotation status`, `configure '<JSON>'`, or
 asynchronous: check `status` for applied settings and validation errors.
 See [CONTROL.md](CONTROL.md#wallpaper-rotation-ruixen-wallpaper-rotation).
 
-Local preview targets: `ruixen-wallpaper-preview-notch` and
-`ruixen-wallpaper-preview-launcher`, with `preview <effect-key>`, `clearPreview`,
-and `status`. Open the picker first; these affect only its preview tile.
+Local preview target: `ruixen-wallpaper-preview-launcher`, with
+`preview <effect-key>`, `clearPreview`, and `status`. Open the launcher's
+Wallpapers extension first; `preview` drives its hero tile's live transition
+preview. The notch picker has no preview surface -- its Transition chip
+applies a baked-in preset directly, no separate preview step.
 
 The bundled `ruixen.background` renderer is optional; see [CONTROL.md](CONTROL.md#native-background-renderer-ruixenbackground) for lifecycle and status.

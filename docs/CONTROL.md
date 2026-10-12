@@ -209,14 +209,17 @@ Defaults are disabled, `~/Pictures/ruixen-wallpapers`, and 15 minutes. Changing
 settings or returning from media playback starts a fresh interval. Disabling
 rotation does not change the current wallpaper.
 
-## Local wallpaper previews
+## Local wallpaper preview
 
-`ruixen-wallpaper-preview-notch` and `ruixen-wallpaper-preview-launcher` expose
-`preview <effect-key>`, `clearPreview`, and `status`. These drive only their own
-preview tile and do not change selected effects or desktop artwork. Open the
-corresponding wallpaper picker first. Effect keys are `reveal`, `bleed`,
-`pixel-dissolve`, `iris`, `shutters`, `scanline`, `ink-spread`, `aurora`, and
-`vortex`, `signal-tear`, `datamosh`, `vhs`, and `code-bleed`; previews use the duration stored in the effect settings.
+`ruixen-wallpaper-preview-launcher` exposes `preview <effect-key>`,
+`clearPreview`, and `status`. `preview` drives the launcher Wallpapers
+extension's hero tile as a live transition preview; it does not change the
+selected effect or desktop artwork. Open the launcher's Wallpapers extension
+first. Effect keys are `reveal`, `bleed`, `pixel-dissolve`, `iris`, `shutters`,
+`scanline`, `ink-spread`, `aurora`, and `vortex`, `signal-tear`, `datamosh`,
+`vhs`, and `code-bleed`; previews use a fixed 420ms duration. The notch
+picker has no preview target -- its Transition chip applies a baked-in preset
+directly.
 
 ## Native background renderer (`ruixen.background`)
 

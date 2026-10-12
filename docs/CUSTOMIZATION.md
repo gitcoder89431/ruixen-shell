@@ -65,43 +65,42 @@ frame right next to it.
 ## Wallpaper appearance
 
 The installer includes the native **ruixen.background** renderer, disabled on new
-installations to preserve Omarchy's stock behavior. Open the full **Wallpaper
-appearance** card in the launcher's Wallpapers extension (the notch picker
+installations to preserve Omarchy's stock behavior. The launcher's Wallpapers
+extension carries the full **Wallpaper appearance** panel (the notch picker
 carries Artwork rotation instead -- see below -- so the two surfaces split the
-feature set rather than both carrying everything). Preview and save settings,
-then choose **Enable renderer** to apply them to the desktop. **Use stock
-renderer** restores the previous stock state through Omarchy's plugin
-lifecycle. The enable button refuses competing background replacements;
-disable those yourself before switching. Rotation and video/GIF playback work
-independently of this renderer.
+feature set rather than both carrying everything), flattened into chips next
+to the hero tile rather than a separate expandable card: the hero itself
+doubles as the live preview, instead of a dedicated preview box.
 
-The notch picker also gets two compact chips, next to Shuffle in its own
-filter row -- a quicker path than opening the full card. **Transition**
-cycles **Stock → Reveal → Bleed through → … → Code bleed → Stock**; picking
-any real transition turns the renderer on automatically, no separate enable
-step, and cycling back to Stock turns it off again. **Effect** cycles
-**Off → CRT → Matrix → Off**; picking CRT or Matrix also turns the renderer on
-automatically, but cycling back to Off only clears the background effect --
-it leaves the renderer's on/off state to Transition, so turning Effect off
-doesn't also kill an active Transition. Right-clicking either chip jumps
-straight back to its own Off/Stock. The full card's other controls (duration,
-softness, intensity/speed, ambient zoom/glow) stay launcher-only.
+**Transition** is a row of chips -- **Stock** plus all thirteen effects
+(Reveal, Bleed through, Pixel dissolve, Iris bloom, Glass shutters, Scanline,
+Ink spread, Aurora wash, Vortex, Signal tear, Datamosh, VHS tracking, Code
+bleed). Picking a real transition applies a baked-in duration/softness (or
+strength/density for the glitch effects) and turns the renderer on
+automatically, no separate enable step; picking Stock turns transitions off
+(an instant cut) without disabling the renderer if **Effect** is still using
+it. Hover any transition chip to preview it live in the hero tile before
+picking it; hovering never changes the desktop or saves anything.
 
-Choose one of thirteen transitions: Reveal, Bleed through, Pixel dissolve, Iris
-bloom, Glass shutters, Scanline, Ink spread, Aurora wash, Vortex, Signal tear,
-Datamosh, VHS tracking, or Code bleed. Duration is 0–30 seconds; zero switches
-instantly. Mask effects offer softness; glitch effects remember their own
-distortion strength and band/block/column density or VHS wobble frequency.
-Hover a choice to preview it using the selected duration and its saved controls.
-Previews start after images load and never change the desktop or save an effect.
+**Effect** is three chips -- **Off**, **CRT**, **Matrix** -- for the
+independent background effect, with **Intensity** always available once one
+is active and **Speed** shown only for Matrix (CRT has no animation timer).
+Picking CRT or Matrix also turns the renderer on; picking Off only clears the
+background effect, leaving the renderer's on/off state to Transition, so
+turning Effect off doesn't kill an active Transition (or the reverse).
+Hovering an Effect chip also live-previews it in the hero tile. **Ambient
+zoom** and **Theme glow** stay as independent toggle chips; **Disable
+motion** finishes transitions, stops zoom/glow, and freezes rain while
+retaining static textures.
 
-Background effects are independent: **None**, static **CRT texture**, or animated
-**Matrix rain**, with intensity and rain speed controls. Preview tiles show the
-combination. Ambient zoom and theme glow remain independent toggles.
-**Disable motion** finishes transitions, stops zoom/glow, and freezes rain while
-retaining static textures. **Reset effects** restores a 420 ms reveal, 0.02
-softness, and no background effects. Background overlays pause during media
-playback. Matrix uses a 640-pixel texture at 10 fps; CRT has no animation timer.
+The notch picker gets the same two features as compact chips instead, next
+to Shuffle in its own filter row -- a quicker path that trades the launcher's
+full chip set and sliders for one-click cycling. **Transition** cycles
+**Stock → Reveal → Bleed through → … → Code bleed → Stock**, same baked-in
+presets and auto-enable as the launcher's chips. **Effect** cycles
+**Off → CRT → Matrix → Off**, same shared-renderer rule as above. Right-
+clicking either chip jumps straight back to its own Off/Stock. Intensity,
+Speed, and the ambient toggles stay launcher-only.
 
 Appearance is persisted atomically in
 `~/.local/state/ruixen/wallpaper-appearance.json`. The earlier local prototype's

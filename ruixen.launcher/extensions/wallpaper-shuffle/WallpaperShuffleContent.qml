@@ -351,6 +351,19 @@ Item {
     }
   }
 
+  // Direct ask: "make this left panel list live so current is ontop,
+  // when it rotates it goes to the buttom... like a live que". The
+  // order file itself already live-reloads (orderFile's own
+  // watchChanges: true), so the rotated sequence shows up on its own
+  // -- but currentBackground (what actually draws the checkmark icon)
+  // only ever came from a single refresh() on open, so a rotation
+  // that happens while this extension is already sitting open never
+  // moved the checkmark until it was closed and reopened. Same 1000ms
+  // poll every other wallpaper state file in this plugin family
+  // already uses (WallpaperRotationState.qml/WallpaperAppearanceState
+  // .qml/WallpaperAppearancePanel.qml), not a new pattern.
+  Timer { interval: 1000; running: root.active; repeat: true; onTriggered: root.refresh() }
+
   onRowsChanged: {
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
   }

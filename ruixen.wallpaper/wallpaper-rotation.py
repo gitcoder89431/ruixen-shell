@@ -62,6 +62,19 @@ def load_order():
     except (ValueError,OSError):
         return []
 
+def save_order(order):
+    # Same atomic-write shape as configure() above. Called by
+    # next_artwork() itself (sequential mode only) to rotate the
+    # persisted order, not by the launcher extension this time -- see
+    # that call site's own comment for why.
+    path=order_path(); path.parent.mkdir(parents=True,exist_ok=True)
+    fd,tmp=tempfile.mkstemp(prefix='.wallpaper-order-',dir=path.parent)
+    try:
+        with os.fdopen(fd,'w') as out: json.dump({'version':1,'order':order},out); out.write('\n')
+        os.replace(tmp,path)
+    finally:
+        if os.path.exists(tmp): os.unlink(tmp)
+
 def ignored_path():
     return Path.home()/'.local/state/ruixen/wallpaper-ignored.json'
 
@@ -122,6 +135,19 @@ def next_artwork(c):
     if c.get('shuffle', False):
         return random.choice([image for image in images if image != current] or images)
     index=(images.index(current)+1)%len(images) if current in images else 0
+    # Live queue: current always sits at the front of the persisted
+    # order, retired to the back the moment something else becomes
+    # current -- direct ask ("make this left panel list live so
+    # current is ontop, when it rotates it goes to the buttom... like
+    # a live que"), now that shuffle is off and sequential mode is the
+    # one actually driving playback (shuffle's own random.choice above
+    # has no stable position to rotate around, so this only runs
+    # here). A cyclic rotation of the WHOLE list, not just moving the
+    # old current to the end, so every other item keeps its relative
+    # order -- a real round-robin queue. The Wallpaper Shuffle
+    # extension needs no new code for this: it already live-reloads
+    # this exact file on change and just displays whatever's in it.
+    save_order([Path(p).name for p in images[index:] + images[:index]])
     return images[index]
 
 if __name__=='__main__':

@@ -51,14 +51,59 @@ class RotationTests(unittest.TestCase):
                 self.assertEqual(module.next_artwork(cfg),str(folder/'B.jpg'))
                 # A file that exists but was never in the order is
                 # appended at the end, not inserted mid-sequence.
+                # Expects C.jpg, not D -- next_artwork's own live-queue
+                # rotation (see its header comment) already moved B
+                # ahead of C after the previous call, so advancing from
+                # B now lands on C; D (brand new, appended to the very
+                # end of the reconciled order) isn't reachable until
+                # the cycle comes back around.
                 (folder/'D.jpg').write_bytes(b'x')
                 bg.unlink();bg.symlink_to(folder/'B.jpg')
-                self.assertEqual(module.next_artwork(cfg),str(folder/'D.jpg'))
+                self.assertEqual(module.next_artwork(cfg),str(folder/'C.jpg'))
                 # Malformed order file fails closed to no explicit
                 # order (alphabetical), never raises.
                 order_path.write_text('not json')
                 bg.unlink();bg.symlink_to(folder/'B.jpg')
                 self.assertEqual(module.next_artwork(cfg),str(folder/'C.jpg'))
+            finally:
+                if old is None:os.environ.pop('HOME',None)
+                else:os.environ['HOME']=old
+
+    def test_live_queue_rotation(self):
+        # Direct ask: "make this left panel list live so current is
+        # ontop, when it rotates it goes to the buttom... like a live
+        # que". Sequential mode only (shuffle's own random.choice has
+        # no stable position to rotate around) -- next_artwork persists
+        # a cyclic rotation of the WHOLE order so the item it just
+        # picked sits at the front and the one that was current retires
+        # to the back, with everyone else keeping relative order.
+        helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
+        spec=importlib.util.spec_from_file_location('rotation_queue',helper)
+        module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as home:
+            old=os.environ.get('HOME');os.environ['HOME']=home
+            try:
+                folder=Path(home)/'art';folder.mkdir()
+                for name in ['A.jpg','B.jpg','C.jpg','D.jpg']: (folder/name).write_bytes(b'x')
+                cfg=module.configure(dict(enabled=True,folder=str(folder),intervalMinutes=15))
+                bg=Path(home)/'.local/state/omarchy/current/background';bg.parent.mkdir(parents=True)
+                module.next_artwork(cfg)
+                self.assertEqual(module.load_order(),['A.jpg','B.jpg','C.jpg','D.jpg'])
+                bg.symlink_to(folder/'A.jpg')
+                picked=Path(module.next_artwork(cfg)).name
+                self.assertEqual(picked,'B.jpg')
+                # B (the new pick) is at the front; A (just retired)
+                # is at the very back; C/D keep their relative order.
+                self.assertEqual(module.load_order(),['B.jpg','C.jpg','D.jpg','A.jpg'])
+                bg.unlink();bg.symlink_to(folder/'B.jpg')
+                picked=Path(module.next_artwork(cfg)).name
+                self.assertEqual(picked,'C.jpg')
+                self.assertEqual(module.load_order(),['C.jpg','D.jpg','A.jpg','B.jpg'])
+                # Shuffle mode never rotates the persisted order -- it
+                # has no stable position to rotate around.
+                shuffled=module.configure(dict(shuffle=True))
+                for _ in range(10): module.next_artwork(shuffled)
+                self.assertEqual(module.load_order(),['C.jpg','D.jpg','A.jpg','B.jpg'])
             finally:
                 if old is None:os.environ.pop('HOME',None)
                 else:os.environ['HOME']=old
@@ -90,9 +135,14 @@ class RotationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     module.next_artwork(cfg)
                 # Malformed ignored file fails closed to nothing ignored,
-                # never raises.
+                # never raises. Expects B.jpg, not A -- the earlier call
+                # already rotated the persisted order to [B, C] (A was
+                # ignored at the time and never entered it), and A only
+                # rejoins at the back once it's reconciled back in here;
+                # current was never set in this test, so this still
+                # starts from the front of whatever's reconciled.
                 ignored_path.write_text('not json')
-                self.assertEqual(module.next_artwork(cfg),str(folder/'A.jpg'))
+                self.assertEqual(module.next_artwork(cfg),str(folder/'B.jpg'))
             finally:
                 if old is None:os.environ.pop('HOME',None)
                 else:os.environ['HOME']=old

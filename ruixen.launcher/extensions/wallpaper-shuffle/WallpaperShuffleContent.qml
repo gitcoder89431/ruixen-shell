@@ -58,6 +58,30 @@ Item {
   readonly property bool interceptsArrowKeys: true
   readonly property bool rightFocused: root.actionsMenuOpen
 
+  // Direct report: "the kbd scroll doesnt work, doesnt have the smart
+  // scroll like the other extensions". Two real, separate pieces,
+  // ported verbatim from ClipboardContent.qml (same bug class its own
+  // comments already document): ensureSelectionVisible() below keeps
+  // the selected row on screen as arrow keys move it past either
+  // edge, and hoverArmed/hoverArmBaseline stop a keyboard-driven
+  // scroll from fighting back -- without it, the list scrolling under
+  // a STILL cursor reads as "the user's hand moved", snapping
+  // selection back to whatever row the cursor happened to land on.
+  readonly property int scrollOff: 2
+  property bool hoverArmed: false
+  property point hoverArmBaseline: Qt.point(-1, -1)
+  function ensureSelectionVisible() {
+    if (shuffleResultsList.count === 0) return
+    shuffleResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, root.rows.length - 1), ListView.Contain)
+    shuffleResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
+    shuffleResultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
+  }
+  onSelectedIndexChanged: {
+    root.hoverArmed = false
+    root.hoverArmBaseline = Qt.point(-1, -1)
+    root.ensureSelectionVisible()
+  }
+
   // { kind, display, real, identity, source }, same shape
   // WallpapersContent.qml's own listProc already produces -- live
   // discovery, not cached, so a file added/removed in the folder is
@@ -320,6 +344,8 @@ Item {
     if (root.active) {
       root.selectedIndex = 0
       root.actionsMenuOpen = false
+      root.hoverArmed = false
+      root.hoverArmBaseline = Qt.point(-1, -1)
       root.refresh()
       Qt.callLater(function() { shuffleResultsList.positionViewAtBeginning() })
     }
@@ -428,9 +454,31 @@ Item {
     filesMode: true
     selectedIndex: root.selectedIndex
     rowHeightPx: 44
-    onRowHovered: (idx) => { root.selectedIndex = idx }
+    onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
     onRowActivated: (idx) => { root.selectedIndex = idx; root.applySelected() }
     onRowActionsRequested: (idx) => { root.selectedIndex = idx; root.openActionsMenu() }
+
+    // Arms hoverArmed on the first REAL pointer movement -- a passive
+    // input handler, not a MouseArea, so it observes pointer events
+    // over the whole list without stealing anything from each row's
+    // own MouseArea beneath it. The first onPointChanged after any
+    // reset is captured as a baseline instead of treated as movement,
+    // so a content-shift-under-a-still-cursor (this list scrolling
+    // itself under the keyboard above) is never mistaken for the
+    // user's hand actually moving. Same pattern ClipboardContent.qml's
+    // own HoverHandler already uses.
+    HoverHandler {
+      onPointChanged: {
+        if (root.hoverArmed) return
+        if (root.hoverArmBaseline.x < 0) {
+          root.hoverArmBaseline = point.position
+          return
+        }
+        if (Math.abs(point.position.x - root.hoverArmBaseline.x) > 0.5
+            || Math.abs(point.position.y - root.hoverArmBaseline.y) > 0.5)
+          root.hoverArmed = true
+      }
+    }
   }
 
   ResultActionsMenu {

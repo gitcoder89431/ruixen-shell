@@ -5,6 +5,12 @@ import Quickshell.Io
 Item {
   id: root
   property bool paused: false
+  // The path this rotation itself last applied -- Service.qml's own
+  // pause binding compares the currently-playing video/GIF against
+  // this to tell "rotation picked this one, keep advancing on
+  // schedule" apart from "someone set a video/GIF manually, leave it
+  // alone", rather than pausing on every video/GIF unconditionally.
+  property string lastAppliedPath: ""
   property real selectionEpoch: -1
   property real requestedEpoch: -1
   property int revision: 0
@@ -13,6 +19,19 @@ Item {
   property string pendingConfig: ""
   property string errorText: ""
   readonly property string helper: decodeURIComponent(Qt.resolvedUrl("wallpaper-rotation.py").toString().replace(/^file:\/\//, ""))
+  // Images go through omarchy's own plain bg-set; video/GIF need
+  // ruixen.wallpaper's own playVideo/playGif IPC instead (the real
+  // player, not something omarchy's own static-image setter
+  // understands) -- same three-way split WallpapersContent.qml's own
+  // select() already does for a manual pick, just reached from inside
+  // rotation instead of a click. Same extension sets list-wallpapers.sh
+  // and wallpaper-rotation.py's own next_artwork use.
+  function kindOf(path) {
+    var suffix = String(path).substring(path.lastIndexOf(".")).toLowerCase()
+    if (suffix === ".gif") return "gif"
+    if ([".mp4", ".mkv", ".webm", ".mov", ".m4v"].indexOf(suffix) >= 0) return "video"
+    return "image"
+  }
   function resetClock() {
     clock.stop()
     if (settings.enabled === true && !paused) clock.start()
@@ -71,11 +90,45 @@ Item {
           var result=JSON.parse(text)
           if (root.paused || root.requestedEpoch !== root.selectionEpoch || root.requestedRevision !== root.revision) return
           if (result.error) { root.errorText=result.error; return }
-          apply.command=["omarchy", "theme", "bg", "set", result.path]
+          root.lastAppliedPath=result.path
+          // "rotation", not a real generation number -- these calls are
+          // rotation applying its OWN pick, not something that needs
+          // protecting against rotation's own earlier call, and a real
+          // number would actively break that: it'd bump Service.qml's
+          // own cross-IPC root.selectGeneration (the SAME property this
+          // file's own selectionEpoch is bound to), which looks
+          // identical to an external pick superseding this one and
+          // kills the in-flight apply below via onSelectionEpochChanged
+          // -- confirmed live, every successful apply reported "Unable
+          // to apply artwork" even though the video/gif was already
+          // playing correctly by the time it got killed. GenerationGuard
+          // .acceptGeneration already treats a non-numeric candidate as
+          // trusted but inert (applies the action, leaves the tracked
+          // generation untouched) -- exactly what this needs. A genuine
+          // external pick still provides its own real numeric
+          // generation and still correctly pre-empts rotation's apply.
+          var kind=root.kindOf(result.path)
+          if (kind === "video") {
+            apply.command=["omarchy-shell", "ruixen.wallpaper", "playVideo", result.path, "rotation"]
+          } else if (kind === "gif") {
+            apply.command=["omarchy-shell", "ruixen.wallpaper", "playGif", result.path, "rotation"]
+          } else {
+            // Stop any playing video/GIF first, same as select()'s own
+            // image branch -- fire-and-forget alongside apply, not
+            // sequenced before it (apply's own onExited is what resets
+            // the clock, and that still needs to happen either way).
+            stopPlayback.command=["omarchy-shell", "ruixen.wallpaper", "stop", "rotation"]
+            stopPlayback.running=true
+            apply.command=["omarchy", "theme", "bg", "set", result.path]
+          }
           apply.running=true
         } catch(e) { root.errorText="Unable to choose next artwork" }
       }
     }
+  }
+  Process {
+    id: stopPlayback
+    stdout: StdioCollector { waitForEnd: true }
   }
   Process {
     id: apply

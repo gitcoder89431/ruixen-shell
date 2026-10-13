@@ -29,7 +29,10 @@ class RotationTests(unittest.TestCase):
                 self.assertFalse(module.load()['enabled'])
                 self.assertFalse(module.load()['shuffle'])
                 folder=Path(home)/'art with spaces';folder.mkdir()
-                for name in ['A.JPG','B.webp','C.png','ignored.gif']: (folder/name).write_bytes(b'fixture')
+                # D.gif (video/GIF are real rotation candidates now, not
+                # excluded -- see next_artwork's own comment) sorts after
+                # C.png, same A/B/C/D naming as the other three.
+                for name in ['A.JPG','B.webp','C.png','D.gif']: (folder/name).write_bytes(b'fixture')
                 (folder/'subfolder').mkdir();(folder/'subfolder/ignored.png').touch()
                 cfg=module.configure(dict(enabled=True,folder=str(folder),intervalMinutes=15))
                 self.assertEqual(module.load(),cfg)
@@ -38,13 +41,13 @@ class RotationTests(unittest.TestCase):
                 current.symlink_to(folder/'B.webp')
                 self.assertEqual(module.next_artwork(cfg),str(folder/'C.png'))
                 current.unlink();current.symlink_to(folder/'C.png')
-                self.assertEqual(module.next_artwork(cfg),str(folder/'A.JPG'))
+                self.assertEqual(module.next_artwork(cfg),str(folder/'D.gif'))
                 shuffled=module.configure(dict(shuffle=True))
                 self.assertTrue(module.load()['shuffle'])
                 for _ in range(30):
-                    self.assertIn(module.next_artwork(shuffled),[str(folder/'A.JPG'),str(folder/'B.webp')])
+                    self.assertIn(module.next_artwork(shuffled),[str(folder/'A.JPG'),str(folder/'B.webp'),str(folder/'D.gif')])
                 (folder/'A.JPG').unlink(); (folder/'B.webp').unlink()
-                self.assertEqual(module.next_artwork(shuffled),str(folder/'C.png'))
+                self.assertEqual(module.next_artwork(shuffled),str(folder/'D.gif'))
                 # Older configuration files migrate to sequential mode.
                 legacy=dict(cfg); legacy.pop('shuffle')
                 module.config_path().write_text(json.dumps(legacy))

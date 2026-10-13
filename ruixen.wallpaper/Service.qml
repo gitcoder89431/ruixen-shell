@@ -42,7 +42,16 @@ Item {
   id: root
 
   WallpaperRotation {
-    paused: root.videoPath !== "" || root.gifPath !== ""
+    id: rotation
+    // Pauses for a video/GIF someone set manually (leave it alone,
+    // don't interrupt it), NOT for one rotation picked itself -- see
+    // this property's own comment in WallpaperRotation.qml. Without
+    // the lastAppliedPath check, rotation would freeze permanently the
+    // first time it landed on a video/GIF: neither ever naturally
+    // "finishes" (MediaPlayer.Infinite / AnimatedImage's own native
+    // loop), so nothing would ever clear this pause again.
+    paused: (root.videoPath !== "" && root.videoPath !== rotation.lastAppliedPath)
+      || (root.gifPath !== "" && root.gifPath !== rotation.lastAppliedPath)
     selectionEpoch: root.selectGeneration
   }
 
@@ -279,6 +288,20 @@ Item {
         if (p === "") return
         if (kind === "gif") root.playGif(p)
         else if (kind === "video") root.play(p)
+        else return
+        // Confirmed live: without this, a shell restart while rotation
+        // was sitting on a video/GIF it picked itself left rotation
+        // stuck paused forever afterward -- this resumed path replays
+        // play()/playGif() directly, bypassing the IPC call that would
+        // normally set rotation.lastAppliedPath, so the freshly
+        // recreated WallpaperRotation instance's own copy stayed empty
+        // and the resumed video looked exactly like a foreign manual
+        // pick. Can't actually tell the two apart across a restart (that
+        // distinction only ever lived in the previous process's memory)
+        // -- treating a resumed video/GIF as rotation's own is the
+        // choice that keeps rotation doing what it's enabled to do
+        // instead of silently going quiet until someone notices.
+        rotation.lastAppliedPath = p
       }
     }
   }

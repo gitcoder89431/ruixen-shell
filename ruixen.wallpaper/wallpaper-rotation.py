@@ -43,11 +43,16 @@ def configure(data):
     return current
 
 def next_artwork(c):
+    # Video/GIF included now -- Service.qml's own pause-during-playback
+    # only backs off for a video/GIF someone set manually; a video/GIF
+    # rotation picks itself no longer trips it (paused checks the path
+    # against WallpaperRotation's own lastAppliedPath), so the normal
+    # interval timer advances past one exactly like it would an image.
     images=[]
     with os.scandir(c['folder']) as entries:
         for index,entry in enumerate(entries):
             if index >= 10000: raise ValueError('Folder exceeds 10000 entries; choose a smaller folder')
-            if Path(entry.name).suffix.lower() in ('.png','.jpg','.jpeg','.webp','.avif') and entry.is_file():
+            if Path(entry.name).suffix.lower() in ('.png','.jpg','.jpeg','.webp','.avif','.gif','.mp4','.mkv','.webm','.mov','.m4v') and entry.is_file():
                 images.append(str(Path(entry.path).resolve()))
     images=sorted(set(images))
     if not images: raise ValueError('No supported artwork in this folder')

@@ -41,8 +41,8 @@ done
 check "preview only activates for image tiles, never video/gif (the renderer never transitions into one)" \
   "$(grep -c 'tile.modelData.kind === "image"' "$content_qml")" "1"
 
-check "preview never targets the tile that's already the current wallpaper" \
-  "$(grep -c '!tile.active' "$content_qml")" "1"
+check "preview also plays on the current wallpaper's own tile (from/to both the current background)" \
+  "$(grep -A12 'Loader {' "$content_qml" | grep -c '!tile.active')" "0"
 
 check "preview is gated on a real transition actually being selected, not just hover" \
   "$(grep -A12 'Loader {' "$content_qml" | grep -c 'appearanceState.rendererEnabled && appearanceState.transitionOn')" "1"

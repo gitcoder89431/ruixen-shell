@@ -1310,13 +1310,22 @@ Item {
         // to at most one live WallpaperEffectPreview instance across
         // the whole (up to ~330-tile) grid at a time, since only one
         // tile can be hovered.
+        //
+        // The CURRENT wallpaper's own tile previews too, from/to both
+        // root.currentBackground -- direct follow-up after shipping
+        // without this: hovering it did nothing. A same-image preview
+        // still shows real motion for the glitch effects (the
+        // distortion is procedural, not content-driven) and for mask
+        // effects it at least confirms motion is happening, even if
+        // the swap itself is invisible since both layers are identical
+        // pixels.
         Loader {
           anchors.fill: parent
           // No explicit z -- declared after the Image container and
           // before the hover ring/label/MouseArea below, so plain
           // document-order stacking already paints it above the
           // static thumbnail and under the ring/label/mouse overlays.
-          active: tile.hovered && !tile.active && tile.modelData.kind === "image"
+          active: tile.hovered && tile.modelData.kind === "image"
             && appearanceState.rendererEnabled && appearanceState.transitionOn
           sourceComponent: WallpaperEffectPreview {
             accent: root.accent

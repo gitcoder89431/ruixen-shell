@@ -74,9 +74,27 @@ Item {
   // fire-and-forget: queued behind any in-flight call rather than
   // dropped, since a manual pick and a config save can legitimately
   // land back-to-back.
+  //
+  // Takes the full resolved path, not just a filename -- direct report:
+  // "i set a desktop wallpaper manually with set as wallpaper and now
+  // it seems to be paused indefeinitely now even with the shuffle
+  // chips toggle on". Root cause: Service.qml's own paused binding
+  // (see its own comment) only ever clears once videoPath/gifPath
+  // equals THIS file's own lastAppliedPath, and nothing but rotation's
+  // own pick ever set that -- a manual video/GIF pick paused rotation
+  // exactly as designed (don't interrupt what's playing), but nothing
+  // ever un-paused it again, since neither a video nor a GIF naturally
+  // finishes on its own. A manual pick is already treated as
+  // equivalent to rotation's own pick for queue-ordering purposes
+  // (this function's own job); doing the same for lastAppliedPath
+  // closes the same gap for pause detection -- Service.qml's binding
+  // re-evaluates the moment this changes, clearing paused immediately
+  // instead of leaving it stuck until someone happens to pick a static
+  // image again.
   property var pendingMarks: []
-  function markCurrent(name) {
-    pendingMarks.push(name)
+  function markCurrent(path) {
+    root.lastAppliedPath = path
+    pendingMarks.push(path.substring(path.lastIndexOf("/") + 1))
     drainMarks()
   }
   function drainMarks() {
@@ -179,6 +197,6 @@ Item {
       catch(e) { root.errorText="Invalid rotation settings" }
     }
     function next(): void { root.next() }
-    function markCurrent(name: string): void { root.markCurrent(name) }
+    function markCurrent(path: string): void { root.markCurrent(path) }
   }
 }

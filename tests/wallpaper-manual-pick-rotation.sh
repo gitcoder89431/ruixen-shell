@@ -49,7 +49,10 @@ check() {
 }
 
 check "the IPC surface exposes markCurrent, matching the exact name every caller below must use" \
-  "$(grep -Fc 'function markCurrent(name: string): void' "$rotation_qml")" "1"
+  "$(grep -Fc 'function markCurrent(path: string): void' "$rotation_qml")" "1"
+
+check "a manual pick also stamps lastAppliedPath, so Service.qml's pause binding clears immediately instead of sticking forever" \
+  "$(grep -A2 'function markCurrent(path) {' "$rotation_qml" | grep -Fc 'root.lastAppliedPath = path')" "1"
 
 check "rotate_to() exists in the Python helper, doing the same round-robin next_artwork() does" \
   "$(grep -c '^def rotate_to' "$rotation_py")" "1"
@@ -68,6 +71,8 @@ do
     "$(grep -Fc '"ruixen-wallpaper-rotation", "markCurrent"' "$file")" "1"
   check "$label never calls the mismatched hyphenated form that silently no-ops at the IPC layer" \
     "$(grep -Fc '"ruixen-wallpaper-rotation", "mark-current"' "$file")" "0"
+  check "$label passes the full resolved path, not a stripped filename (markCurrent needs the full path to stamp lastAppliedPath)" \
+    "$(grep -c '"ruixen-wallpaper-rotation", "markCurrent", .*\.substring(' "$file")" "0"
 done
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"

@@ -933,6 +933,23 @@ Item {
         width: backgroundEffectChipRow.implicitWidth
         height: 28
 
+        // Value segment is a fixed width (the widest of Off/CRT/Matrix),
+        // not sized to whichever label happens to be showing -- direct
+        // report: cycling to "Matrix" grew the chip and clipped it
+        // under Transition next to it. A per-click-resizing chip would
+        // also shove Transition sideways on every cycle, same class of
+        // bug Transition's own header comment (below) already
+        // describes from the other direction.
+        FontMetrics {
+          id: backgroundEffectValueMetrics
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+        readonly property real valueSegmentWidth: Math.max(
+          backgroundEffectValueMetrics.advanceWidth("Off"),
+          backgroundEffectValueMetrics.advanceWidth("CRT"),
+          backgroundEffectValueMetrics.advanceWidth("Matrix")) + 14
+
         Row {
           id: backgroundEffectChipRow
           height: parent.height
@@ -957,7 +974,7 @@ Item {
           }
           Rectangle {
             height: parent.height
-            width: backgroundEffectValueLabel.implicitWidth + 14
+            width: backgroundEffectChip.valueSegmentWidth
             color: root.surfaceTint(0.04)
             topLeftRadius: 4
             bottomLeftRadius: 4

@@ -505,23 +505,42 @@ Item {
       // turnOff()/selectInterval() already preserve that remembered
       // interval themselves (see WallpaperRotationState.qml's own
       // header comment), nothing new needed there.
+      //
+      // Two-sided label, not a whole-chip accent tint -- direct
+      // correction: "Shuffle is always accent and then the on and off
+      // isnt accent color, cause the intervals already shows up with
+      // the accent hilight". The interval chips below are what carry
+      // the accent-highlight-means-selected language; this chip's own
+      // background/border stay the same flat/neutral style regardless
+      // of state so the two don't visually compete, and "Shuffle"
+      // reads as a static label (always accent) with "On"/"Off" as the
+      // plain state word next to it.
       Rectangle {
         id: shuffleToggleChip
         readonly property bool on: rotationState.settings.enabled === true
-        width: shuffleToggleLabel.implicitWidth + 16
+        width: shuffleToggleRow.implicitWidth + 16
         height: 24
         radius: 6
-        color: shuffleToggleChip.on ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+        color: Qt.rgba(1, 1, 1, 0.06)
         border.width: 1
-        border.color: shuffleToggleChip.on ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+        border.color: Qt.rgba(1, 1, 1, 0.12)
 
-        Text {
-          id: shuffleToggleLabel
+        Row {
+          id: shuffleToggleRow
           anchors.centerIn: parent
-          text: "Shuffle " + (shuffleToggleChip.on ? "On" : "Off")
-          color: root.textColor
-          font.family: root.fontFamily
-          font.pixelSize: 11
+          spacing: 4
+          Text {
+            text: "Shuffle"
+            color: root.accent
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
+          Text {
+            text: shuffleToggleChip.on ? "On" : "Off"
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
         }
 
         MouseArea {

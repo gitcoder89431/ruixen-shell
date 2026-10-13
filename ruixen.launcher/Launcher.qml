@@ -894,11 +894,18 @@ Item {
     }
   }
 
+  // Direct ask: "give the Wallpaper Shuffle an icon for it to show up
+  // with and allow it in launcher search" -- this row and
+  // OmarchyActionsProvider.qml's own "ruixen.wallpaper-shuffle" entry
+  // (search discoverability) were both already wired in, just both
+  // left with an empty icon string. fa-shuffle (U+F074) -- confirmed
+  // present in the installed Nerd Font and literally named "shuffle"
+  // in its own glyph table, not a generic pick.
   function wallpaperShuffleRow() {
     return {
       id: "extension:wallpaper-shuffle",
       providerId: "wallpaper-shuffle-extension",
-      icon: "",
+      icon: "",
       label: "Wallpaper Shuffle",
       breadcrumb: "Ruixen",
       kind: "Extension",

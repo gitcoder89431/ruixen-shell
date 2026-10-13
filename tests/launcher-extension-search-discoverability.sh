@@ -39,6 +39,11 @@ check "OmarchyActionsProvider has a synthetic ruixen.wallpaper-shuffle entry" \
 check "All four new synthetic entries are tagged Extension, same kind as every other extension row" \
   "$(grep -c 'kind: "Extension"' "$actions_qml")" "6"
 
+check "the ruixen.wallpaper-shuffle synthetic entry has a real icon, not an empty string -- direct follow-up after this entry already existed" \
+  "$(grep -A1 '"ruixen.wallpaper-shuffle": {' "$actions_qml" | grep -Fc 'icon: "",')" "0"
+check "Launcher.qml's wallpaperShuffleRow() landing-list icon is non-empty too, same gap in the same two places" \
+  "$(grep -A2 'id: "extension:wallpaper-shuffle",' "$launcher_qml" | grep -Fc 'icon: "",')" "0"
+
 check "Launcher.qml jumps in-process for the synthetic Cliamp Radio row, same as Settings/Wallpapers, instead of shelling out and closing itself" \
   "$(grep -A5 'result.id === "omarchy:ruixen.cliamp"' "$launcher_qml" | grep -c 'activeExtensionId = "cliamp"\|recordLaunch("ruixen.cliamp")')" "2"
 check "Launcher.qml jumps in-process for the synthetic Clipboard History row" \

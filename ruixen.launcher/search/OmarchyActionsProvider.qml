@@ -269,8 +269,13 @@ Item {
     // wallpaperShuffleRow() in Launcher.qml only ever appears on the
     // empty-query landing list otherwise, same real limitation every
     // other extension here already had before its own synthetic entry.
+    // fa-shuffle (U+F074) -- direct follow-up once this entry already
+    // existed: "give the Wallpaper Shuffle an icon for it to show up
+    // with and allow it in launcher search" -- the entry itself (and
+    // the landing row) were already wired in, both just had an empty
+    // icon string.
     "ruixen.wallpaper-shuffle": {
-      icon: "",
+      icon: "",
       label: "Wallpaper Shuffle",
       breadcrumb: "Ruixen",
       kind: "Extension",

@@ -219,15 +219,22 @@ Item {
       // Launcher.qml and ruixen.notch's own Wallpapers tab, so the
       // palette row and what it opens read as the same thing.
       icon: "",
-      label: "Wallpapers",
+      // "Wallpapers Effects" -- direct follow-up, now that the
+      // Wallpaper Shuffle extension owns ordering/rotation (this
+      // extension's own earlier job): "i guess we rename it to
+      // Wallpapers Fx or maybe Wallpapers Effects?", picked when asked
+      // directly. "wallpaper"/"background" stay as aliases (still find
+      // this by what it shows, not just its new name); "effects"/"fx"
+      // added so the new name is searchable by its own short form too.
+      label: "Wallpapers Effects",
       breadcrumb: "Ruixen",
       kind: "Extension",
-      aliases: ["wallpaper", "background"],
+      aliases: ["wallpaper", "background", "effects", "fx"],
       // No known bound keybind today, but looked up live the same way
       // Settings' own row is -- if one ever gets added to
       // bindings.lua under this exact label, it shows up here with no
       // code change needed.
-      keybind: root.keybindFor("Wallpapers"),
+      keybind: root.keybindFor("Wallpapers Effects"),
       // Documentation only, not actually run -- same self-toggle-
       // closes-itself reason Settings' own action field's comment
       // documents. Launcher.qml's activateSelected() special-cases

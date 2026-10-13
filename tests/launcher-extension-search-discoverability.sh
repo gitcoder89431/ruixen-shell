@@ -39,6 +39,11 @@ check "OmarchyActionsProvider has a synthetic ruixen.wallpaper-shuffle entry" \
 check "All four new synthetic entries are tagged Extension, same kind as every other extension row" \
   "$(grep -c 'kind: "Extension"' "$actions_qml")" "6"
 
+check "the Wallpapers extension is renamed to Wallpapers Effects in both the landing row and the search entry" \
+  "$(( $(grep -Fc 'label: "Wallpapers Effects"' "$launcher_qml") + $(grep -Fc 'label: "Wallpapers Effects"' "$actions_qml") ))" "2"
+check "the search entry's own aliases still include wallpaper/background, plus effects/fx for the new name" \
+  "$(grep -Fc 'aliases: ["wallpaper", "background", "effects", "fx"]' "$actions_qml")" "1"
+
 check "the ruixen.wallpaper-shuffle synthetic entry has a real icon, not an empty string -- direct follow-up after this entry already existed" \
   "$(grep -A1 '"ruixen.wallpaper-shuffle": {' "$actions_qml" | grep -Fc 'icon: "",')" "0"
 check "Launcher.qml's wallpaperShuffleRow() landing-list icon is non-empty too, same gap in the same two places" \

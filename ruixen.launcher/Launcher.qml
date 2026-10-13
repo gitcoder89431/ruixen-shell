@@ -784,12 +784,19 @@ Item {
   // already uses (confirmed directly against Overlay.qml's own
   // TabButton, not guessed) -- the row and what it opens read as the
   // same feature.
+  // "Wallpapers Effects" -- direct follow-up once Wallpaper Shuffle
+  // took over ordering/rotation (this extension's own earlier job):
+  // "i guess we rename it to Wallpapers Fx or maybe Wallpapers
+  // Effects?", picked when asked directly. id/providerId stay as
+  // "wallpapers" -- internal identifiers (frecency keys, dispatch
+  // matches), not display text, so renaming them would just be churn
+  // and risk losing this row's own frecency history.
   function wallpapersRow() {
     return {
       id: "extension:wallpapers",
       providerId: "wallpapers-extension",
       icon: "",
-      label: "Wallpapers",
+      label: "Wallpapers Effects",
       breadcrumb: "Ruixen",
       kind: "Extension",
       providerName: "",

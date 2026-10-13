@@ -113,6 +113,24 @@ Item {
     return out
   }
 
+  // Stateful left-edge icon -- direct request: three states, current
+  // (fa-check-circle, U+F058 -- the SAME glyph ThemeCatalog.js's own
+  // currentSlug row already uses for "this is the one actually active
+  // right now", not a new pick) beats ignored beats the plain default
+  // (fa-file-image-o, U+F1C5, same glyph ClipboardHistory.js's own
+  // Image kind already uses) since a wallpaper can't be both at once
+  // in a way that matters more than being current.
+  function rowIcon(isCurrent, ignored) {
+    if (isCurrent) return ""
+    if (ignored) return ""
+    return ""
+  }
+  function rowIconColor(isCurrent, ignored) {
+    if (isCurrent) return root.accent
+    if (ignored) return root.muted
+    return root.textColor
+  }
+
   readonly property var rows: {
     var q = root.searchText.trim().toLowerCase()
     var out = []
@@ -121,10 +139,12 @@ Item {
       var name = e.real.substring(e.real.lastIndexOf("/") + 1)
       if (q !== "" && name.toLowerCase().indexOf(q) === -1) continue
       var ignored = !!root.ignoredSet[name]
+      var isCurrent = e.identity === root.currentBackground
       out.push({
         id: "wallpaper-shuffle:" + e.identity,
         providerId: "wallpaper-shuffle-queue",
-        icon: "",
+        icon: root.rowIcon(isCurrent, ignored),
+        iconColor: root.rowIconColor(isCurrent, ignored),
         label: name,
         breadcrumb: (ignored ? "Ignored · " : "") + (i + 1) + " of " + root.orderedEntries.length,
         kind: root.kindLabel(e.kind),

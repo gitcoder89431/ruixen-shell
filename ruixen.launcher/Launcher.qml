@@ -18,6 +18,7 @@ import "extensions/wallpapers"
 import "extensions/theme-browser"
 import "extensions/clipboard"
 import "extensions/cliamp"
+import "extensions/wallpaper-shuffle"
 import "search/LauncherHelpers.js" as LauncherHelpers
 import "search/FileSearchRanking.js" as FileSearchRanking
 import "search/LauncherQueryOperators.js" as LauncherQueryOperators
@@ -194,7 +195,7 @@ Item {
         // "wallpapers-extension" branches). Same value either way, so
         // this just forwards it rather than a separate if-branch per
         // extension.
-        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser" || payload.extension === "clipboard" || payload.extension === "cliamp")) {
+        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser" || payload.extension === "clipboard" || payload.extension === "cliamp" || payload.extension === "wallpaper-shuffle")) {
           root.suppressResizeAnimation = true
           root.activeExtensionId = payload.extension
           root.openedDirectlyToExtension = true
@@ -452,7 +453,8 @@ Item {
     : root.activeExtensionId === "settings" ? settingsContent
     : root.activeExtensionId === "theme-browser" ? themeBrowserContent
     : root.activeExtensionId === "clipboard" ? clipboardContent
-    : root.activeExtensionId === "cliamp" ? cliampContent : null
+    : root.activeExtensionId === "cliamp" ? cliampContent
+    : root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent : null
   // Suppresses the panel's own width/height resize Behaviors below --
   // set true for exactly one synchronous open() call that jumps
   // straight to an extension via payload, so the window's first paint
@@ -782,12 +784,19 @@ Item {
   // already uses (confirmed directly against Overlay.qml's own
   // TabButton, not guessed) -- the row and what it opens read as the
   // same feature.
+  // "Wallpapers Effects" -- direct follow-up once Wallpaper Shuffle
+  // took over ordering/rotation (this extension's own earlier job):
+  // "i guess we rename it to Wallpapers Fx or maybe Wallpapers
+  // Effects?", picked when asked directly. id/providerId stay as
+  // "wallpapers" -- internal identifiers (frecency keys, dispatch
+  // matches), not display text, so renaming them would just be churn
+  // and risk losing this row's own frecency history.
   function wallpapersRow() {
     return {
       id: "extension:wallpapers",
       providerId: "wallpapers-extension",
       icon: "",
-      label: "Wallpapers",
+      label: "Wallpapers Effects",
       breadcrumb: "Ruixen",
       kind: "Extension",
       providerName: "",
@@ -892,6 +901,26 @@ Item {
     }
   }
 
+  // Direct ask: "give the Wallpaper Shuffle an icon for it to show up
+  // with and allow it in launcher search" -- this row and
+  // OmarchyActionsProvider.qml's own "ruixen.wallpaper-shuffle" entry
+  // (search discoverability) were both already wired in, just both
+  // left with an empty icon string. fa-shuffle (U+F074) -- confirmed
+  // present in the installed Nerd Font and literally named "shuffle"
+  // in its own glyph table, not a generic pick.
+  function wallpaperShuffleRow() {
+    return {
+      id: "extension:wallpaper-shuffle",
+      providerId: "wallpaper-shuffle-extension",
+      icon: "",
+      label: "Wallpaper Shuffle",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      providerName: "",
+      score: 0
+    }
+  }
+
   // A single flat list, each row tagged with its own sectionLabel --
   // fed straight into ResultsList's own model, which draws the group
   // headers and keeps the list virtualized (real perf concern once
@@ -949,9 +978,10 @@ Item {
         "extension:settings": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.settings"), extNow),
         "extension:theme-browser": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.theme-browser"), extNow),
         "extension:clipboard": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.clipboard"), extNow),
-        "extension:cliamp": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.cliamp"), extNow)
+        "extension:cliamp": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.cliamp"), extNow),
+        "extension:wallpaper-shuffle": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.wallpaper-shuffle"), extNow)
       }
-      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow(), root.clipboardRow(), root.cliampRow()]
+      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow(), root.clipboardRow(), root.cliampRow(), root.wallpaperShuffleRow()]
       extRows.sort(function(a, b) { return extBoost[b.id] - extBoost[a.id] })
       var ext = tag(extRows, "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
@@ -1403,6 +1433,13 @@ Item {
       omarchyActionsProvider.recordLaunch("ruixen.cliamp")
       return
     }
+    if (result.providerId === "wallpaper-shuffle-extension") {
+      root.activeExtensionId = "wallpaper-shuffle"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.wallpaper-shuffle")
+      return
+    }
     // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
     // (typed-query discoverability -- "settings"/"preferences" aliases;
     // settingsRow() above only ever appears on the empty-query landing
@@ -1456,6 +1493,13 @@ Item {
       searchHeader.text = ""
       root.query = ""
       omarchyActionsProvider.recordLaunch("ruixen.theme-browser")
+      return
+    }
+    if (result.id === "omarchy:ruixen.wallpaper-shuffle") {
+      root.activeExtensionId = "wallpaper-shuffle"
+      searchHeader.text = ""
+      root.query = ""
+      omarchyActionsProvider.recordLaunch("ruixen.wallpaper-shuffle")
       return
     }
     var provider = root.providerFor(result.providerId)
@@ -1766,6 +1810,13 @@ Item {
         placeholderOverride: (root.activeExtensionContent && root.activeExtensionContent.searchPlaceholder) || ""
         resultCount: root.results.length
         showSettingsHints: !!(root.activeExtensionContent && root.activeExtensionContent.showsEnterHint)
+        // Wallpaper Shuffle's own live countdown (or "Paused") instead
+        // of the plain "↵" -- see SearchHeader.qml's own
+        // settingsHintOverrideText comment and WallpaperShuffleContent
+        // .qml's own shuffleHintText comment for the direct ask behind
+        // this. Every other mode leaves this "", falling through to
+        // the unchanged default chip.
+        settingsHintOverrideText: root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent.shuffleHintText : ""
         // Wallpapers/Theme Browser mode each feed this same button/
         // dropdown their own options instead of real Search Files
         // sources -- see wallpaperTypeOptions' and
@@ -2391,6 +2442,27 @@ Item {
         // to the landing list" assignment the back-arrow/Escape path
         // already uses (see onBackClicked above).
         onExitRequested: root.activeExtensionId = ""
+      }
+
+      WallpaperShuffleContent {
+        id: wallpaperShuffleContent
+        anchors.top: filtersBar.bottom
+        anchors.topMargin: 4
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        anchors.left: parent.left
+        anchors.leftMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        visible: root.activeExtensionId === "wallpaper-shuffle"
+        active: root.activeExtensionId === "wallpaper-shuffle"
+        searchText: root.activeExtensionId === "wallpaper-shuffle" ? root.query : ""
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        glassTint: root.glassTint
+        glassBorder: root.glassBorder
+        fontFamily: root.fontFamily
       }
 
       // Same shared component Search Files' own empty state uses, just

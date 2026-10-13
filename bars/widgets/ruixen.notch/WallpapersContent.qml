@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
+import "WallpaperEffectModel.js" as EffectModel
 
 // A second copy of this file's own picker LOGIC lives at
 // ruixen.launcher/extensions/wallpapers/WallpapersContent.qml (a launcher "Wallpapers"
@@ -209,6 +210,23 @@ Item {
   // second window onto the same state, not a parallel one, exactly
   // like this file's wallpaper selection above it).
   property string mediaMode: "wallpapers"
+
+  // Direct ask: "next to the Top arrow... add the wallpaper shuffle
+  // icon there and then clicking it would open the wallpaper shuffle
+  // extension from the expanded notch" -- this file launches the jump
+  // itself (openWallpaperShuffleProc below, same self-contained
+  // Process-per-action shape every other button here already uses),
+  // but only Overlay.qml's own `panel` owns whether the notch is
+  // expanded, so collapsing it on the way out has to bubble up.
+  signal openWallpaperShuffleRequested()
+  // Same follow-up, for the launcher's Wallpapers Effects extension --
+  // direct ask: "can we do one for the wallpapers effect icon too
+  // that does that so users know we have these 2 other menus".
+  signal openWallpaperEffectsRequested()
+  // Same again, Theme mode's own equivalent -- direct follow-up: "for
+  // the theme, next to that up button we can add icon to the bjaneo
+  // themes too".
+  signal openThemeBrowserRequested()
 
   // Each entry: { name, display, preview }. name is the theme
   // directory's basename -- the exact string passed to
@@ -448,6 +466,43 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
   }
 
+  Process {
+    id: markCurrentProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  // Jumps to the launcher's own Wallpaper Shuffle extension -- same
+  // omarchy-shell wrapper (resolved $OMARCHY_PATH, a real timeout)
+  // every other shell call in this file already uses, same "toggle +
+  // extension payload" shape the launcher's own keybind recipes use
+  // (docs/KEYBINDS.md). "toggle", not "summon" -- there's no specific
+  // settings section to land on, just the extension itself.
+  Process {
+    id: openWallpaperShuffleProc
+    command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"wallpaper-shuffle\"}"]
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  // Same jump, for the launcher's Wallpapers Effects extension --
+  // "wallpapers" is still the real extension id/payload value (the
+  // rename to "Wallpapers Effects" was display-text only, see
+  // Launcher.qml's own wallpapersRow() comment; the id Launcher.qml's
+  // payload handler actually matches against never changed).
+  Process {
+    id: openWallpaperEffectsProc
+    command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"wallpapers\"}"]
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  // Same jump, for the launcher's Bjarneo Themes (theme-browser)
+  // extension -- Theme mode's own equivalent of the two wallpaper
+  // jump buttons above.
+  Process {
+    id: openThemeBrowserProc
+    command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"theme-browser\"}"]
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
   // omarchy-shell, not a raw `qs -p /usr/share/omarchy/shell ipc call`
   // -- direct review finding ("Replace hardcoded /usr/share/omarchy/
   // shell IPC calls with omarchy-shell", #24): the raw form hardcodes
@@ -488,6 +543,11 @@ Item {
       setProc.command = ["omarchy-theme-bg-set", entry.real]
       setProc.running = true
     }
+    // A manual pick won't wait for rotation's own timer to re-anchor
+    // the queue -- see WallpaperRotation.qml's own markCurrent() for
+    // why this needs to be a direct ask, not just self-healing.
+    markCurrentProc.command = ["omarchy-shell", "ruixen-wallpaper-rotation", "markCurrent", entry.real]
+    markCurrentProc.running = true
   }
 
   // Theme mode -- apply a theme. Same front door the stock
@@ -538,41 +598,33 @@ Item {
     themeSetProc.running = true
   }
 
+  // Headless probe/debounce/write state for the Shuffle and Transition
+  // filter-row chips -- no visual UI of their own, so these are root
+  // siblings, not ColumnLayout children (same place listProc/currentProc
+  // and this file's other non-visual Process/Timer helpers already
+  // live). Direct report after they'd drifted into the ColumnLayout at
+  // some point: the panel's own top content (the search row) was
+  // starting visibly lower than every other notch tab's. Root cause --
+  // ColumnLayout still reserves a full `spacing: 10` gap around a 0x0
+  // child unless it's explicitly `visible: false`, and these two
+  // defaulted to visible: true; two of them stacked ~20px of dead
+  // space above the search row that had nothing to do with its own
+  // layout at all.
+  WallpaperRotationState {
+    id: rotationState
+    active: root.active && root.mediaMode === "wallpapers"
+  }
+  WallpaperAppearanceState {
+    id: appearanceState
+    active: root.active && root.mediaMode === "wallpapers"
+  }
+
   // Outer ColumnLayout -- the search bar spans the full panel width,
   // while the wallpaper/theme content below can switch between its own
   // full-row grids without affecting that top chrome.
   ColumnLayout {
     anchors.fill: parent
     spacing: 10
-
-    // The notch picker's own expandable Wallpaper appearance card
-    // (transitions/CRT/Matrix/renderer toggle) moved entirely to the
-    // launcher's Wallpapers extension so the two surfaces split the
-    // feature set instead of both carrying everything (direct request:
-    // too crowded with both sections stacked here). This plugin keeps
-    // only a compact Transition chip (below) for quick access, talking
-    // to the same wallpaper-effects.py; the full card with sliders/
-    // CRT/Matrix/ambient controls lives only in WallpapersContent.qml
-    // under ruixen.launcher/extensions/wallpapers.
-    //
-    // Rotation itself used to be its own expandable card (title row +
-    // Rotate artwork/Shuffle toggles + interval chips + a folder path
-    // field). Direct correction: "kinda overdone", "what does rotate
-    // mean vs shuffle?", folder is always the one ruixen.wallpaper
-    // folder in practice so that field was dead weight too. Collapsed
-    // down to one chip living in the filter row below -- this headless
-    // component is just the probe/debounce/write state it uses.
-    WallpaperRotationState {
-      id: rotationState
-      active: root.active && root.mediaMode === "wallpapers"
-    }
-
-    // Same idea for Wallpaper appearance's quick Transition chip --
-    // headless probe/debounce/write state, no visual UI of its own.
-    WallpaperAppearanceState {
-      id: appearanceState
-      active: root.active && root.mediaMode === "wallpapers"
-    }
 
     // Search + WALLPAPER/THEME tab, collapsed into one row (direct
     // follow-up -- "instead of the two tabs up top and the search
@@ -864,6 +916,29 @@ Item {
         width: rotationChipRow.implicitWidth
         height: 28
 
+        // Value segment is a fixed width (the widest of Off/5m/15m/
+        // 30m/60m), not sized to whichever label happens to be
+        // showing -- direct report: "the shuffle chip on the expanded
+        // notch wallpaper panel is abit tight compared to the effect,
+        // we can like make it more not as compact". Same fixed-width
+        // technique backgroundEffectChip's own valueSegmentWidth
+        // already uses (see its own comment) -- that's the actual
+        // reason Effect read as roomier: its value segment always
+        // reserves room for "Matrix", the widest of its own three
+        // values, while this one used to shrink-wrap whatever was
+        // currently showing instead.
+        FontMetrics {
+          id: rotationValueMetrics
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+        readonly property real valueSegmentWidth: Math.max(
+          rotationValueMetrics.advanceWidth("Off"),
+          rotationValueMetrics.advanceWidth("5m"),
+          rotationValueMetrics.advanceWidth("15m"),
+          rotationValueMetrics.advanceWidth("30m"),
+          rotationValueMetrics.advanceWidth("60m")) + 14
+
         Row {
           id: rotationChipRow
           height: parent.height
@@ -893,7 +968,7 @@ Item {
           }
           Rectangle {
             height: parent.height
-            width: rotationValueLabel.implicitWidth + 14
+            width: rotationChip.valueSegmentWidth
             color: root.surfaceTint(0.04)
             topLeftRadius: 4
             bottomLeftRadius: 4
@@ -940,6 +1015,23 @@ Item {
         width: backgroundEffectChipRow.implicitWidth
         height: 28
 
+        // Value segment is a fixed width (the widest of Off/CRT/Matrix),
+        // not sized to whichever label happens to be showing -- direct
+        // report: cycling to "Matrix" grew the chip and clipped it
+        // under Transition next to it. A per-click-resizing chip would
+        // also shove Transition sideways on every cycle, same class of
+        // bug Transition's own header comment (below) already
+        // describes from the other direction.
+        FontMetrics {
+          id: backgroundEffectValueMetrics
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+        readonly property real valueSegmentWidth: Math.max(
+          backgroundEffectValueMetrics.advanceWidth("Off"),
+          backgroundEffectValueMetrics.advanceWidth("CRT"),
+          backgroundEffectValueMetrics.advanceWidth("Matrix")) + 14
+
         Row {
           id: backgroundEffectChipRow
           height: parent.height
@@ -964,7 +1056,7 @@ Item {
           }
           Rectangle {
             height: parent.height
-            width: backgroundEffectValueLabel.implicitWidth + 14
+            width: backgroundEffectChip.valueSegmentWidth
             color: root.surfaceTint(0.04)
             topLeftRadius: 4
             bottomLeftRadius: 4
@@ -1070,6 +1162,124 @@ Item {
       }
 
       Item { Layout.fillWidth: true }
+
+      // Direct follow-up, right after the Shuffle jump button below:
+      // "can we do one for the wallpapers effect icon too that does
+      // that so users know we have these 2 other menus" -- same shape
+      // again, this time for the launcher's Wallpapers Effects
+      // extension (its own transition/effect chip panel). fa-image
+      // (U+F03E), the exact same glyph wallpapersRow() uses for this
+      // extension's own landing-list icon in Launcher.qml, so it
+      // reads as the same feature there too.
+      Rectangle {
+        id: openWallpaperEffectsButton
+        visible: root.mediaMode === "wallpapers"
+        readonly property bool filled: openWallpaperEffectsArea.containsMouse
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        radius: 8
+        color: openWallpaperEffectsButton.filled ? root.secondary : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Text {
+          anchors.centerIn: parent
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: openWallpaperEffectsButton.filled ? "#000000" : root.secondary
+        }
+
+        MouseArea {
+          id: openWallpaperEffectsArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            openWallpaperEffectsProc.running = true
+            root.openWallpaperEffectsRequested()
+          }
+        }
+      }
+
+      // Direct ask: "next to the Top arrow that comes active when we
+      // scroll, to the left of it, can you add the wallpaper shuffle
+      // icon there and then clicking it would open the wallpaper
+      // shuffle extension from the expanded notch" -- same icon-button
+      // shape as Back to top right after it, but always active (no
+      // scroll state to gate on) and wallpapers-mode only, since
+      // Wallpaper Shuffle's own reorderable queue is a wallpaper-
+      // specific concept with no Theme equivalent. fa-shuffle
+      // (U+F074), the same glyph the launcher's own landing row and
+      // search entry already use for this extension, so it reads as
+      // the same feature wherever it shows up.
+      Rectangle {
+        id: openWallpaperShuffleButton
+        visible: root.mediaMode === "wallpapers"
+        readonly property bool filled: openWallpaperShuffleArea.containsMouse
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        radius: 8
+        color: openWallpaperShuffleButton.filled ? root.secondary : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Text {
+          anchors.centerIn: parent
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: openWallpaperShuffleButton.filled ? "#000000" : root.secondary
+        }
+
+        MouseArea {
+          id: openWallpaperShuffleArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            openWallpaperShuffleProc.running = true
+            root.openWallpaperShuffleRequested()
+          }
+        }
+      }
+
+      // Theme mode's own equivalent of the two wallpaper jump buttons
+      // above -- direct follow-up: "for the theme, next to that up
+      // button we can add icon to the bjaneo themes too". Same shape,
+      // themes-mode only. fa-paint-brush (U+F1FC), the exact glyph
+      // themeBrowserRow() already uses for this extension's own
+      // landing-list icon in Launcher.qml.
+      Rectangle {
+        id: openThemeBrowserButton
+        visible: root.mediaMode === "themes"
+        readonly property bool filled: openThemeBrowserArea.containsMouse
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        radius: 8
+        color: openThemeBrowserButton.filled ? root.secondary : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Text {
+          anchors.centerIn: parent
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: openThemeBrowserButton.filled ? "#000000" : root.secondary
+        }
+
+        MouseArea {
+          id: openThemeBrowserArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            openThemeBrowserProc.running = true
+            root.openThemeBrowserRequested()
+          }
+        }
+      }
 
       // Back to top -- moved here from the right sidebar (direct
       // follow-up: "move the top button up to the same top row but
@@ -1270,6 +1480,19 @@ Item {
         // lit at rest.
         readonly property bool active: tile.modelData.identity === root.currentBackground
 
+        // What the hover preview transitions INTO. Normally the
+        // hovered tile's own image. For the CURRENT wallpaper's own
+        // tile, that would mean transitioning the image into itself --
+        // direct follow-up after shipping that: "dont make it
+        // transition into itself. just pick another demo to use", so
+        // this picks any other real image from the grid instead, same
+        // "not the current background, not just a renamed copy of it"
+        // selection WallpaperEffectModel.js's nextPreviewArtwork
+        // already does for the launcher's own hero-tile preview.
+        readonly property string previewTarget: tile.active
+          ? EffectModel.nextPreviewArtwork(root.currentBackground, root.wallpaperPaths)
+          : tile.modelData.display
+
         width: grid.tileWidth
         height: grid.tileHeight
 
@@ -1297,6 +1520,50 @@ Item {
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             sourceSize: Qt.size(grid.tileWidth, grid.tileHeight)
+          }
+        }
+
+        // Hover preview: the grid itself IS the preview surface, no
+        // separate dropdown/preview box. Only while a real transition
+        // is selected (appearanceState.transitionOn) and only for
+        // image tiles -- the real renderer never transitions INTO a
+        // video/gif (confirmed: those are always an instant cut), so
+        // previewing an animated transition onto one would show
+        // something that can never actually happen. Loader keeps this
+        // to at most one live WallpaperEffectPreview instance across
+        // the whole (up to ~330-tile) grid at a time, since only one
+        // tile can be hovered.
+        //
+        // The CURRENT wallpaper's own tile previews too, using
+        // tile.previewTarget (any other real image, see its own
+        // comment above) instead of transitioning into itself -- a
+        // same-image preview was tried first and looked like nothing
+        // was happening for every mask-type effect (crossfading an
+        // image into an identical copy of itself has no visible
+        // difference at any point in the animation, no matter how
+        // correctly it's running); only the four glitch effects
+        // showed real motion that way, since their distortion is
+        // procedural, not content-driven. Direct follow-up: "dont
+        // make it transition into itself. just pick another demo to
+        // use."
+        Loader {
+          anchors.fill: parent
+          // No explicit z -- declared after the Image container and
+          // before the hover ring/label/MouseArea below, so plain
+          // document-order stacking already paints it above the
+          // static thumbnail and under the ring/label/mouse overlays.
+          active: tile.hovered && tile.modelData.kind === "image" && tile.previewTarget !== ""
+            && appearanceState.rendererEnabled && appearanceState.transitionOn
+          sourceComponent: WallpaperEffectPreview {
+            accent: root.accent
+            fromPath: root.currentBackground
+            toPath: tile.previewTarget
+            effect: appearanceState.settings.transitionEffect || "reveal"
+            durationMs: appearanceState.settings.transitionDurationMs || 900
+            softness: appearanceState.settings.transitionSoftness !== undefined ? appearanceState.settings.transitionSoftness : .02
+            transitionOptions: appearanceState.settings.transitionOptions || {}
+            playing: true
+            ambientActive: false
           }
         }
 

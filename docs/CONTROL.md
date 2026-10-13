@@ -197,14 +197,39 @@ The persistent `ruixen.wallpaper` service owns static-artwork rotation.
 omarchy-shell ruixen-wallpaper-rotation status
 omarchy-shell ruixen-wallpaper-rotation configure '{"enabled":true,"folder":"~/Pictures/ruixen-wallpapers","intervalMinutes":15}'
 omarchy-shell ruixen-wallpaper-rotation next
+omarchy-shell ruixen-wallpaper-rotation markCurrent "/absolute/path/to/file.jpg"
 ```
 
 `configure` accepts one JSON object argument, validates and persists it
 asynchronously, and preserves omitted settings. Poll `status` afterward for the
-applied values and any `error`. `next` advances once even with automatic rotation
-disabled; active video/GIF playback pauses both manual and scheduled advancement.
-`shuffle` accepts a boolean (default `false`); when enabled, both scheduled and
-manual advancement choose randomly and avoid the current image when possible.
+applied values, any `error`, and `nextRotationAt` (epoch ms; `0` while
+rotation is off or paused -- the launcher's own Wallpaper Shuffle extension
+renders this as a live countdown). `next` advances once even with automatic
+rotation disabled. Video/GIF are real rotation candidates, routed through
+`ruixen.wallpaper`'s own playback IPC rather than the plain static-image
+setter; rotation pauses for a video/GIF set from outside rotation (either
+picker), never for one it picked itself -- that keeps advancing on schedule
+exactly like it would from an image.
+
+`markCurrent` takes a full resolved path and does two things: re-anchors the
+round-robin queue (that file moves to the front, same as if rotation itself
+had just picked it -- see the Wallpaper Shuffle extension's own section in
+[`LAUNCHER.md`](LAUNCHER.md#wallpaper-shuffle)) and stamps it as rotation's
+own `lastAppliedPath`, clearing a pause immediately rather than leaving
+rotation stuck until something else happens to match. Both the launcher's
+Wallpaper Shuffle extension and the Wallpapers Effects/notch grid pickers call
+this automatically on every manual pick -- there's normally no reason to call
+it directly.
+
+`shuffle` accepts a boolean (default `false`, and expected to stay `false` in
+normal use now -- the Wallpaper Shuffle launcher extension's own reorderable
+queue is the intended way to control what plays and in what order; its own
+chips never set `shuffle:true`). When `false` (sequential mode), rotation
+steps through the persisted queue in order, rotating the picked file to the
+front and the retired one to the back on every real advance -- a genuine
+round-robin, not a fixed list. When `true`, both scheduled and manual
+advancement choose randomly instead and avoid the current image when
+possible; the queue order has nothing to rotate around in this mode.
 Defaults are disabled, `~/Pictures/ruixen-wallpapers`, and 15 minutes. Changing
 settings or returning from media playback starts a fresh interval. Disabling
 rotation does not change the current wallpaper.
@@ -213,14 +238,17 @@ rotation does not change the current wallpaper.
 
 `ruixen-wallpaper-preview-launcher` exposes `preview <effect-key>`,
 `clearPreview`, and `status`. `preview` drives the launcher Wallpapers
-extension's hero tile as a live transition preview; it does not change the
-selected effect or desktop artwork. Open the launcher's Wallpapers extension
-first. Effect keys are `reveal`, `bleed`, `pixel-dissolve`, `iris`, `shutters`,
-`scanline`, `ink-spread`, `aurora`, and `vortex`, `signal-tear`, `datamosh`,
+Effects extension's hero tile as a live transition preview; it does not
+change the selected effect or desktop artwork. Open the launcher's
+Wallpapers Effects extension first. Effect keys are `reveal`, `bleed`,
+`pixel-dissolve`, `iris`, `shutters`, `scanline`, `ink-spread`, `aurora`,
+and `vortex`, `signal-tear`, `datamosh`,
 `vhs`, and `code-bleed`; previews use that effect's own baked-in duration
 (900ms for mask effects, 550ms for the four glitch effects). The notch
-picker has no preview target -- its Transition chip applies a baked-in preset
-directly.
+picker has no scriptable IPC preview target -- hovering a wallpaper tile in
+its own grid previews Transition directly (see CUSTOMIZATION.md's own
+"Wallpaper appearance" section), but nothing drives that from a command the
+way `preview`/`clearPreview` do for the launcher.
 
 ## Native background renderer (`ruixen.background`)
 

@@ -194,6 +194,57 @@ Radio is the only cliamp provider this extension drives today — your
 own library, playlists, and the other streaming providers cliamp
 supports stay in cliamp's own TUI for now.
 
+## Wallpaper Shuffle
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"wallpaper-shuffle"}'` — see
+[`docs/KEYBINDS.md`](KEYBINDS.md)) that owns rotation's own queue —
+both WHICH artwork plays next and WHETHER/how often it advances.
+Separate from the **Wallpapers Effects** extension (appearance/
+transition/effect controls, plus its own grid layout, which doesn't
+fit a reorderable list). Lists every image, GIF, and video in
+`~/Pictures/ruixen-wallpapers` (the same folder rotation already reads
+from — no folder picker here), each with its own left-edge icon (a
+distinct glyph per image/GIF/video, current/ignored taking priority
+over that), a live preview on the right, and a checkmark on whichever
+one is actually playing right now.
+
+A two-part chip row sits above the list:
+
+- **Shuffle On/Off** — a toggle pill. Click to flip it; turning it
+  back on resumes at whichever interval was last set, same as turning
+  it off always remembers it.
+- **5m / 15m / 30m / 60m** — pick an interval directly; picking one
+  also turns Shuffle on with that interval highlighted.
+
+Rotation steps through this list in order (current always moves to the
+front, the one that just retired to the back) rather than picking
+randomly — the queue you see here is genuinely what plays next, not
+just a display of something else's own random pick. The search box's
+own Enter-hint chip doubles as a live countdown to the next rotation
+while this extension is open ("4:32"), or reads **Paused** whenever
+Shuffle is off (or, rarer, something outside rotation is mid-playback —
+see [`CONTROL.md`](CONTROL.md#wallpaper-rotation-ruixen-wallpaper-rotation)).
+
+- **Enter** or click a row to set it as the wallpaper right now — this
+  also re-anchors the queue (that pick moves to the front) and clears
+  any pause, exactly as if rotation itself had picked it.
+- **Tab** opens that row's actions, in priority order: **Move up** /
+  **Move down** (only the directions actually legal from that position
+  are shown) — **Ignore** (excludes it from rotation's own candidate
+  pool entirely, both the live queue and the actual pick; still listed
+  here, with its own icon, so there's a way back to Un-ignore it) — and
+  **Set as wallpaper** last, the same action Enter already does, kept
+  reachable here too.
+
+Reordering writes `~/.local/state/ruixen/wallpaper-order.json` directly
+(plain filenames, no IPC round-trip) — the same file
+`ruixen.wallpaper`'s own rotation reads and reconciles against the live
+folder on every pick: your explicit order wins, a file that's been
+removed drops out silently, and a new file not yet in the order appends
+at the end rather than breaking the sequence. Ignoring writes
+`~/.local/state/ruixen/wallpaper-ignored.json` the same way.
+
 ## Configuring search locations
 
 By default, Search Files walks your home directory plus every

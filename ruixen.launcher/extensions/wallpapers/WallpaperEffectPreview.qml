@@ -19,10 +19,19 @@ ClippingRectangle {
   property real progress: 0
   property int durationMs: 420
   property color accent: "#3ecf5b"
+  // A host whose preview surface pops fully in/out via `visible` (the
+  // launcher's hero tile, which has no border at rest) sets this false
+  // so the border isn't one more thing popping with it -- direct
+  // report: "theres like a border in accent that comes up around the
+  // preview, it looks jumpy". A host that toggles this component in
+  // alongside its own separate hover indicator (the notch's grid tiles,
+  // their own ring already pops at the same instant) leaves it at the
+  // default.
+  property bool showFrame: true
   function imageUrl(path) { return path ? "file://" + path.split("/").map(encodeURIComponent).join("/") : "" }
   radius: 10
   color: Qt.rgba(accent.r,accent.g,accent.b,.08)
-  border.width: 1
+  border.width: showFrame ? 1 : 0
   border.color: Qt.rgba(accent.r,accent.g,accent.b,.3)
   readonly property bool imagesReady: (!fromPath || fromImage.status === Image.Ready) && (!toPath || toImage.status === Image.Ready) && (!glitchTransition || glitchPreview.ready)
   function restartPreview() {

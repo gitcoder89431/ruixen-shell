@@ -256,6 +256,18 @@ Item {
     font.pixelSize: 11
   }
 
+  // Headless probe/debounce/write state for the Shuffle section below --
+  // ported from the notch's own WallpaperRotationState.qml (same public
+  // IPC surface, ruixen-wallpaper-rotation, not a local script, so no
+  // new helper file is needed here). A root sibling, not a Column child
+  // -- see content's own header comment above for exactly why a 0x0
+  // non-visual item inside that Column would reintroduce the dead-space
+  // bug already fixed once in the notch's equivalent panel.
+  WallpaperRotationState {
+    id: rotationState
+    active: root.active
+  }
+
   // Same public IPC surface the old card had (docs/CONTROL.md's own
   // "Local wallpaper previews" section) -- preview(effect) now drives
   // heroTile instead of a dedicated preview tile, status() drops the
@@ -318,11 +330,14 @@ Item {
     id: content
     anchors.fill: parent
     clip: true
-    // Tight and uniform now -- Transition's label/chips, Effect's
-    // label/chips, all 6px apart, one cluster ("chips up top"). The
-    // one real gap (before the slider section) is a manual spacer
-    // Item below instead of a second Layout's own spacing value.
-    spacing: 6
+    // Tight and uniform now -- every label/chip-row/slider-row 4px
+    // apart (was 6 -- direct report: adding the Shuffle group between
+    // Transition and Effect pushed Speed's row past this panel's fixed
+    // clipped height whenever Matrix shows both sliders, cutting it off
+    // instead of scrolling). The one real extra gap (before the slider
+    // section) is a manual spacer Item below instead of a second
+    // Layout's own spacing value.
+    spacing: 4
 
     Text { text: "Transition"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
     // Packed rows, not Flow -- see root.packTransitionRows's own
@@ -370,6 +385,48 @@ Item {
                 onClicked: transitionChip.isStock ? root.selectStock() : root.selectTransition(transitionChip.modelData.key)
               }
             }
+          }
+        }
+      }
+    }
+
+    // Shuffle, between Transition and Effect -- direct request: "adding
+    // the Shuffle interval inbetween Transition and Effect group for
+    // Off 5m 15m etc", Effect staying last specifically because its own
+    // Intensity/Speed sliders expand underneath it (see that section's
+    // own header comment). Same direct-pick chip style as Transition/
+    // Effect's own rows (click the exact interval you want), not the
+    // notch's single cycling pill -- every other control on this panel
+    // is already a direct pick, and there's room here for all five.
+    Text { text: "Shuffle"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
+    Row {
+      spacing: 6
+      Repeater {
+        model: [{minutes: 0, label: "Off"}, {minutes: 5, label: "5m"}, {minutes: 15, label: "15m"},
+          {minutes: 30, label: "30m"}, {minutes: 60, label: "60m"}]
+        Rectangle {
+          id: shuffleChip
+          required property var modelData
+          readonly property bool selected: shuffleChip.modelData.minutes === 0
+            ? rotationState.settings.enabled !== true
+            : (rotationState.settings.enabled === true && rotationState.settings.intervalMinutes === shuffleChip.modelData.minutes)
+          width: shuffleChipLabel.implicitWidth + 20
+          height: 28
+          radius: 8
+          color: shuffleChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .05)
+          border.width: 1
+          border.color: shuffleChip.selected ? root.accent : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, .12)
+          Text {
+            id: shuffleChipLabel
+            anchors.centerIn: parent
+            text: shuffleChip.modelData.label
+            color: shuffleChip.selected ? "#000000" : root.accent
+            font.family: root.fontFamily; font.pixelSize: 11
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: rotationState.selectInterval(shuffleChip.modelData.minutes)
           }
         }
       }
@@ -424,7 +481,7 @@ Item {
     // sidesteps whatever caused that instead of chasing it further.
     // clip:true above catches this section if it ever runs past the
     // panel's fixed height instead of spilling into the grid below.
-    Item { height: 10; visible: root.backgroundEffectOn }
+    Item { height: 6; visible: root.backgroundEffectOn }
     RowLayout {
       width: content.width
       visible: root.backgroundEffectOn

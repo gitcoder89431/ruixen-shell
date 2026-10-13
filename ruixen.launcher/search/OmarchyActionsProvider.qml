@@ -219,15 +219,22 @@ Item {
       // Launcher.qml and ruixen.notch's own Wallpapers tab, so the
       // palette row and what it opens read as the same thing.
       icon: "",
-      label: "Wallpapers",
+      // "Wallpapers Effects" -- direct follow-up, now that the
+      // Wallpaper Shuffle extension owns ordering/rotation (this
+      // extension's own earlier job): "i guess we rename it to
+      // Wallpapers Fx or maybe Wallpapers Effects?", picked when asked
+      // directly. "wallpaper"/"background" stay as aliases (still find
+      // this by what it shows, not just its new name); "effects"/"fx"
+      // added so the new name is searchable by its own short form too.
+      label: "Wallpapers Effects",
       breadcrumb: "Ruixen",
       kind: "Extension",
-      aliases: ["wallpaper", "background"],
+      aliases: ["wallpaper", "background", "effects", "fx"],
       // No known bound keybind today, but looked up live the same way
       // Settings' own row is -- if one ever gets added to
       // bindings.lua under this exact label, it shows up here with no
       // code change needed.
-      keybind: root.keybindFor("Wallpapers"),
+      keybind: root.keybindFor("Wallpapers Effects"),
       // Documentation only, not actually run -- same self-toggle-
       // closes-itself reason Settings' own action field's comment
       // documents. Launcher.qml's activateSelected() special-cases
@@ -264,6 +271,24 @@ Item {
       aliases: ["paste", "copy"],
       keybind: root.keybindFor("Clipboard History"),
       action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"clipboard\"}'"
+    },
+    // Same gap again, for the Wallpaper Shuffle extension --
+    // wallpaperShuffleRow() in Launcher.qml only ever appears on the
+    // empty-query landing list otherwise, same real limitation every
+    // other extension here already had before its own synthetic entry.
+    // fa-shuffle (U+F074) -- direct follow-up once this entry already
+    // existed: "give the Wallpaper Shuffle an icon for it to show up
+    // with and allow it in launcher search" -- the entry itself (and
+    // the landing row) were already wired in, both just had an empty
+    // icon string.
+    "ruixen.wallpaper-shuffle": {
+      icon: "",
+      label: "Wallpaper Shuffle",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      aliases: ["order", "queue", "reorder", "rotation"],
+      keybind: root.keybindFor("Wallpaper Shuffle"),
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"wallpaper-shuffle\"}'"
     },
     // "bjarneo" alone wouldn't match this label at all (their name
     // credits the catalog in the label, not an alias -- see

@@ -66,15 +66,20 @@ check "cliamp-extension result clears searchHeader.text" \
   "$(grep -A2 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
 check "cliamp-extension result clears root.query" \
   "$(grep -A3 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
+check "wallpaper-shuffle-extension result clears searchHeader.text" \
+  "$(grep -A2 'activeExtensionId = "wallpaper-shuffle"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
+check "wallpaper-shuffle-extension result clears root.query" \
+  "$(grep -A3 'activeExtensionId = "wallpaper-shuffle"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
 
-# 11 total across the file: finishClosing()'s own pre-existing pair, the
-# 4 Settings/Wallpapers branches, Theme Browser/Clipboard/Cliamp's own
-# landing-row branches, plus the 3 new synthetic omarchy:ruixen.* rows
-# (Cliamp/Clipboard/Theme Browser) added for typed-query discoverability.
-check "searchHeader.text is cleared exactly 11 times total (finishClosing + the 10 extension jumps)" \
-  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "11"
-check "root.query is cleared exactly 11 times total (finishClosing + the 10 extension jumps)" \
-  "$(grep -c 'root.query = ""' "$launcher_qml")" "11"
+# 13 total across the file: finishClosing()'s own pre-existing pair, the
+# 4 Settings/Wallpapers branches, Theme Browser/Clipboard/Cliamp/
+# Wallpaper Shuffle's own landing-row branches, plus the 4 synthetic
+# omarchy:ruixen.* rows (Cliamp/Clipboard/Theme Browser/Wallpaper
+# Shuffle) added for typed-query discoverability.
+check "searchHeader.text is cleared exactly 13 times total (finishClosing + the 12 extension jumps)" \
+  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "13"
+check "root.query is cleared exactly 13 times total (finishClosing + the 12 extension jumps)" \
+  "$(grep -c 'root.query = ""' "$launcher_qml")" "13"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

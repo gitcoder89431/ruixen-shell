@@ -77,6 +77,15 @@ Item {
   // drills into whatever's already open, even the default category, so
   // it isn't strictly gated behind pressing Enter first).
   property bool showSettingsHints: false
+  // Direct ask: "on the top search bar theres a enter kbd helper, im
+  // thiking about replacing that with a live timer of the next
+  // shuffle? is that something we can do" -- lets the Wallpaper
+  // Shuffle extension swap this chip's own content for a live
+  // countdown ("4:32") or "Paused" instead of the plain "↵", without
+  // Settings/Theme Browser (which also set showSettingsHints) losing
+  // their own Enter hint: empty string (every other mode's default)
+  // falls through to "↵" unchanged below.
+  property string settingsHintOverrideText: ""
 
   property color textColor: "#ffffff"
   property color mutedColor: "#888888"
@@ -296,7 +305,7 @@ Item {
     anchors.right: parent.right
     anchors.rightMargin: 12
     anchors.verticalCenter: parent.verticalCenter
-    width: 28
+    width: root.settingsHintOverrideText !== "" ? (settingsHintOverrideLabel.implicitWidth + 16) : 28
     height: 22
     radius: 6
     color: Qt.rgba(1, 1, 1, 0.06)
@@ -304,7 +313,18 @@ Item {
     border.color: Qt.rgba(1, 1, 1, 0.12)
 
     Text {
+      id: settingsHintOverrideLabel
       anchors.centerIn: parent
+      visible: root.settingsHintOverrideText !== ""
+      text: root.settingsHintOverrideText
+      color: root.mutedColor
+      font.family: root.fontFamily
+      font.pixelSize: 11
+    }
+
+    Text {
+      anchors.centerIn: parent
+      visible: root.settingsHintOverrideText === ""
       text: "↵"
       color: root.mutedColor
       font.family: root.fontFamily

@@ -2740,6 +2740,20 @@ Item {
                 secondary: root.themeSecondaryColor
                 dangerColor: root.kanbanDangerColor
                 fontFamily: root.fontFamily
+                // The jump button itself runs the actual launcher
+                // IPC call (see its own comment); this only collapses
+                // the notch on the way out, same property
+                // closeDashboard() above sets -- jumping to the
+                // launcher's Wallpaper Shuffle extension with the
+                // notch still expanded underneath it would look like
+                // two overlays stacked on top of each other.
+                onOpenWallpaperShuffleRequested: panel.pinnedOpen = false
+                // Same reasoning, for the Wallpapers Effects jump
+                // button right next to it.
+                onOpenWallpaperEffectsRequested: panel.pinnedOpen = false
+                // Same reasoning, for Theme mode's own Bjarneo Themes
+                // jump button.
+                onOpenThemeBrowserRequested: panel.pinnedOpen = false
               }
 
               MetricsContent {

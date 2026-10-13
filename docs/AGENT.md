@@ -178,15 +178,19 @@ plugins — dry-run it and show the user first. (`install.sh`,
   this file is what needs fixing.
 ## Wallpaper rotation and appearance
 
-Use `omarchy-shell ruixen-wallpaper-rotation status`, `configure '<JSON>'`, or
-`next` to drive the wallpaper plugin's rotation controls. Configuration is
-asynchronous: check `status` for applied settings and validation errors.
-See [CONTROL.md](CONTROL.md#wallpaper-rotation-ruixen-wallpaper-rotation).
+Use `omarchy-shell ruixen-wallpaper-rotation status`, `configure '<JSON>'`,
+`next`, or `markCurrent '<full-path>'` to drive the wallpaper plugin's
+rotation controls. Configuration is asynchronous: check `status` for
+applied settings, `nextRotationAt`, and validation errors. The launcher's
+Wallpaper Shuffle extension owns WHAT plays and in what order (its own
+reorderable queue, not this IPC) -- see
+[CONTROL.md](CONTROL.md#wallpaper-rotation-ruixen-wallpaper-rotation).
 
 Local preview target: `ruixen-wallpaper-preview-launcher`, with
 `preview <effect-key>`, `clearPreview`, and `status`. Open the launcher's
-Wallpapers extension first; `preview` drives its hero tile's live transition
-preview. The notch picker has no preview surface -- its Transition chip
-applies a baked-in preset directly, no separate preview step.
+Wallpapers Effects extension first; `preview` drives its hero tile's live
+transition preview. The notch picker has no scriptable preview target of its own --
+its wallpaper grid previews Transition on hover directly (any image tile,
+with a real transition selected), not through IPC.
 
 The bundled `ruixen.background` renderer is optional; see [CONTROL.md](CONTROL.md#native-background-renderer-ruixenbackground) for lifecycle and status.

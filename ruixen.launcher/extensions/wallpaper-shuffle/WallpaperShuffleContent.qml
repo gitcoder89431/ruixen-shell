@@ -334,6 +334,11 @@ Item {
       setProc.command = ["omarchy-theme-bg-set", e.real]
       setProc.running = true
     }
+    // A manual pick won't wait for rotation's own timer to re-anchor
+    // the queue -- see WallpaperRotation.qml's own markCurrent() for
+    // why this needs to be a direct ask, not just self-healing.
+    markCurrentProc.command = ["omarchy-shell", "ruixen-wallpaper-rotation", "markCurrent", e.real.substring(e.real.lastIndexOf("/") + 1)]
+    markCurrentProc.running = true
   }
 
   function refresh() {
@@ -397,6 +402,7 @@ Item {
   Process { id: stopVideoProc; stdout: StdioCollector { waitForEnd: true } }
   Process { id: playVideoProc; stdout: StdioCollector { waitForEnd: true } }
   Process { id: playGifProc; stdout: StdioCollector { waitForEnd: true } }
+  Process { id: markCurrentProc; stdout: StdioCollector { waitForEnd: true } }
 
   FileView {
     id: orderFile

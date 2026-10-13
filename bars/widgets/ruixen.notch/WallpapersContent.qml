@@ -449,6 +449,11 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
   }
 
+  Process {
+    id: markCurrentProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
   // omarchy-shell, not a raw `qs -p /usr/share/omarchy/shell ipc call`
   // -- direct review finding ("Replace hardcoded /usr/share/omarchy/
   // shell IPC calls with omarchy-shell", #24): the raw form hardcodes
@@ -489,6 +494,11 @@ Item {
       setProc.command = ["omarchy-theme-bg-set", entry.real]
       setProc.running = true
     }
+    // A manual pick won't wait for rotation's own timer to re-anchor
+    // the queue -- see WallpaperRotation.qml's own markCurrent() for
+    // why this needs to be a direct ask, not just self-healing.
+    markCurrentProc.command = ["omarchy-shell", "ruixen-wallpaper-rotation", "markCurrent", entry.real.substring(entry.real.lastIndexOf("/") + 1)]
+    markCurrentProc.running = true
   }
 
   // Theme mode -- apply a theme. Same front door the stock

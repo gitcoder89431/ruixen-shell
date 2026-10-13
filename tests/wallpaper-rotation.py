@@ -125,6 +125,53 @@ class RotationTests(unittest.TestCase):
                 if old is None:os.environ.pop('HOME',None)
                 else:os.environ['HOME']=old
 
+    def test_manual_pick_rotates_queue(self):
+        # Direct ask: "if i manually select something as the wallpaper,
+        # then the live que breaks?" -- it did: applySelected()/select()
+        # only ever flipped currentBackground, never touched the
+        # persisted order, so the queue stayed stale until rotation's
+        # own timer happened to fire again (or never, if it was off).
+        # rotate_to() (wired to the mark-current CLI action, called by
+        # every manual-pick call site right alongside its own apply
+        # IPC) runs the exact same round-robin next_artwork() does for
+        # its own pick, just anchored on a given name instead of
+        # reading current/background.
+        helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
+        spec=importlib.util.spec_from_file_location('rotation_manual',helper)
+        module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as home:
+            old=os.environ.get('HOME');os.environ['HOME']=home
+            try:
+                folder=Path(home)/'art';folder.mkdir()
+                for name in ['A.jpg','B.jpg','C.jpg','D.jpg']: (folder/name).write_bytes(b'x')
+                cfg=module.configure(dict(enabled=True,folder=str(folder),intervalMinutes=15))
+                self.assertEqual(module.load_order(),[])
+                # Jumping straight to D (never picked by rotation at all)
+                # still rotates D to the front, C/A/B keeping their
+                # existing relative order behind it.
+                module.rotate_to('D.jpg',cfg)
+                self.assertEqual(module.load_order(),['D.jpg','A.jpg','B.jpg','C.jpg'])
+                # A later real rotation continues sequentially from
+                # wherever the manual pick left the queue, exactly as if
+                # D had been reached by rotation itself.
+                bg=Path(home)/'.local/state/omarchy/current/background';bg.parent.mkdir(parents=True)
+                bg.symlink_to(folder/'D.jpg')
+                picked=Path(module.next_artwork(cfg)).name
+                self.assertEqual(picked,'A.jpg')
+                self.assertEqual(module.load_order(),['A.jpg','B.jpg','C.jpg','D.jpg'])
+                # Unknown name (outside the folder, or already ignored
+                # out of the pool) is a silent no-op, not an error.
+                module.rotate_to('nonexistent.jpg',cfg)
+                self.assertEqual(module.load_order(),['A.jpg','B.jpg','C.jpg','D.jpg'])
+                # Shuffle has no stable position to rotate around, same
+                # reasoning as next_artwork's own shuffle branch.
+                shuffled=module.configure(dict(shuffle=True))
+                module.rotate_to('C.jpg',shuffled)
+                self.assertEqual(module.load_order(),['A.jpg','B.jpg','C.jpg','D.jpg'])
+            finally:
+                if old is None:os.environ.pop('HOME',None)
+                else:os.environ['HOME']=old
+
     def test_ignored_wallpapers(self):
         # Direct ask: "in the tab dropdown i wanna add a feature for
         # ignore or like to make it not in rotation" -- excluded from

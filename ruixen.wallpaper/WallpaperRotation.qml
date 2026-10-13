@@ -52,6 +52,23 @@ Item {
     pendingConfig = ""
     save.running = true
   }
+  // Fired by a manual pick (any extension's own "Set as wallpaper"),
+  // not just rotation's own timer -- otherwise the queue only catches
+  // up to a manual pick once rotation happens to fire again next,
+  // which can be minutes away or never if rotation's off. Best-effort,
+  // fire-and-forget: queued behind any in-flight call rather than
+  // dropped, since a manual pick and a config save can legitimately
+  // land back-to-back.
+  property var pendingMarks: []
+  function markCurrent(name) {
+    pendingMarks.push(name)
+    drainMarks()
+  }
+  function drainMarks() {
+    if (mark.running || pendingMarks.length === 0) return
+    mark.command = ["python3", helper, "mark-current", pendingMarks.shift()]
+    mark.running = true
+  }
   FileView {
     id: config
     path: Quickshell.env("HOME") + "/.local/state/ruixen/wallpaper-rotation.json"
@@ -131,6 +148,11 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
   }
   Process {
+    id: mark
+    stdout: StdioCollector { waitForEnd: true }
+    onExited: root.drainMarks()
+  }
+  Process {
     id: apply
     onExited: (code, status) => { if(code !== 0) root.errorText="Unable to apply artwork"; root.resetClock() }
   }
@@ -142,5 +164,6 @@ Item {
       catch(e) { root.errorText="Invalid rotation settings" }
     }
     function next(): void { root.next() }
+    function markCurrent(name: string): void { root.markCurrent(name) }
   }
 }

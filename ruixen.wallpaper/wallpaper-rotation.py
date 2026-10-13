@@ -92,7 +92,7 @@ def load_ignored():
     except (ValueError,OSError):
         return set()
 
-def next_artwork(c):
+def reconciled_images(c):
     # Video/GIF included now -- Service.qml's own pause-during-playback
     # only backs off for a video/GIF someone set manually; a video/GIF
     # rotation picks itself no longer trips it (paused checks the path
@@ -130,7 +130,10 @@ def next_artwork(c):
         name=Path(p).name
         if name not in seen:
             ordered.append(p); seen.add(name)
-    images=ordered
+    return ordered
+
+def next_artwork(c):
+    images=reconciled_images(c)
     current=str((Path.home()/'.local/state/omarchy/current/background').resolve())
     if c.get('shuffle', False):
         return random.choice([image for image in images if image != current] or images)
@@ -150,11 +153,28 @@ def next_artwork(c):
     save_order([Path(p).name for p in images[index:] + images[:index]])
     return images[index]
 
+def rotate_to(name, c):
+    # Same rotation next_artwork() does for its own sequential pick,
+    # triggered by a manual "Set as wallpaper" instead of a timer tick --
+    # otherwise a manual pick leaves the queue showing stale order until
+    # rotation itself happens to fire again (or never, if it's off).
+    # Silently a no-op for a name outside the configured folder/ignored
+    # set (nothing we can reorder it against) or while shuffle is on
+    # (shuffle has no stable position to rotate around, same reasoning
+    # as next_artwork's own shuffle branch above).
+    if c.get('shuffle', False): return
+    images=reconciled_images(c)
+    by_name={Path(p).name:p for p in images}
+    if name not in by_name: return
+    index=images.index(by_name[name])
+    save_order([Path(p).name for p in images[index:] + images[:index]])
+
 if __name__=='__main__':
     try:
         action=sys.argv[1]
         if action=='configure': print(json.dumps(configure(json.loads(sys.argv[2]))))
         elif action=='next': print(json.dumps(dict(path=next_artwork(load()))))
+        elif action=='mark-current': rotate_to(sys.argv[2], load()); print(json.dumps(dict(ok=True)))
         else: print(json.dumps(load()))
     except (ValueError,OSError,KeyError) as e:
         print(json.dumps(dict(error=str(e))))

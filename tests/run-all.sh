@@ -77,6 +77,7 @@ suites=(
   "$script_dir/cliamp-idle-timeout.sh"
   "$script_dir/notch-wallpaper-grid-preview.sh"
   "$script_dir/notch-wallpaper-shuffle-jump.sh"
+  "$script_dir/notch-rotation-chip-width.sh"
   "$script_dir/wallpaper-rotation-video.sh"
   "$script_dir/wallpaper-manual-pick-rotation.sh"
   "$script_dir/launcher-wallpaper-shuffle-extension.sh"

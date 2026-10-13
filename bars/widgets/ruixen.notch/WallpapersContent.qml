@@ -916,6 +916,29 @@ Item {
         width: rotationChipRow.implicitWidth
         height: 28
 
+        // Value segment is a fixed width (the widest of Off/5m/15m/
+        // 30m/60m), not sized to whichever label happens to be
+        // showing -- direct report: "the shuffle chip on the expanded
+        // notch wallpaper panel is abit tight compared to the effect,
+        // we can like make it more not as compact". Same fixed-width
+        // technique backgroundEffectChip's own valueSegmentWidth
+        // already uses (see its own comment) -- that's the actual
+        // reason Effect read as roomier: its value segment always
+        // reserves room for "Matrix", the widest of its own three
+        // values, while this one used to shrink-wrap whatever was
+        // currently showing instead.
+        FontMetrics {
+          id: rotationValueMetrics
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+        readonly property real valueSegmentWidth: Math.max(
+          rotationValueMetrics.advanceWidth("Off"),
+          rotationValueMetrics.advanceWidth("5m"),
+          rotationValueMetrics.advanceWidth("15m"),
+          rotationValueMetrics.advanceWidth("30m"),
+          rotationValueMetrics.advanceWidth("60m")) + 14
+
         Row {
           id: rotationChipRow
           height: parent.height
@@ -945,7 +968,7 @@ Item {
           }
           Rectangle {
             height: parent.height
-            width: rotationValueLabel.implicitWidth + 14
+            width: rotationChip.valueSegmentWidth
             color: root.surfaceTint(0.04)
             topLeftRadius: 4
             bottomLeftRadius: 4

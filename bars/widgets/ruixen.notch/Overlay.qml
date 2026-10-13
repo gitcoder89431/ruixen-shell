@@ -2751,6 +2751,9 @@ Item {
                 // Same reasoning, for the Wallpapers Effects jump
                 // button right next to it.
                 onOpenWallpaperEffectsRequested: panel.pinnedOpen = false
+                // Same reasoning, for Theme mode's own Bjarneo Themes
+                // jump button.
+                onOpenThemeBrowserRequested: panel.pinnedOpen = false
               }
 
               MetricsContent {

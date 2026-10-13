@@ -223,6 +223,10 @@ Item {
   // direct ask: "can we do one for the wallpapers effect icon too
   // that does that so users know we have these 2 other menus".
   signal openWallpaperEffectsRequested()
+  // Same again, Theme mode's own equivalent -- direct follow-up: "for
+  // the theme, next to that up button we can add icon to the bjaneo
+  // themes too".
+  signal openThemeBrowserRequested()
 
   // Each entry: { name, display, preview }. name is the theme
   // directory's basename -- the exact string passed to
@@ -487,6 +491,15 @@ Item {
   Process {
     id: openWallpaperEffectsProc
     command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"wallpapers\"}"]
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  // Same jump, for the launcher's Bjarneo Themes (theme-browser)
+  // extension -- Theme mode's own equivalent of the two wallpaper
+  // jump buttons above.
+  Process {
+    id: openThemeBrowserProc
+    command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"theme-browser\"}"]
     stdout: StdioCollector { waitForEnd: true }
   }
 
@@ -1204,6 +1217,43 @@ Item {
           onClicked: {
             openWallpaperShuffleProc.running = true
             root.openWallpaperShuffleRequested()
+          }
+        }
+      }
+
+      // Theme mode's own equivalent of the two wallpaper jump buttons
+      // above -- direct follow-up: "for the theme, next to that up
+      // button we can add icon to the bjaneo themes too". Same shape,
+      // themes-mode only. fa-paint-brush (U+F1FC), the exact glyph
+      // themeBrowserRow() already uses for this extension's own
+      // landing-list icon in Launcher.qml.
+      Rectangle {
+        id: openThemeBrowserButton
+        visible: root.mediaMode === "themes"
+        readonly property bool filled: openThemeBrowserArea.containsMouse
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        radius: 8
+        color: openThemeBrowserButton.filled ? root.secondary : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Text {
+          anchors.centerIn: parent
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: openThemeBrowserButton.filled ? "#000000" : root.secondary
+        }
+
+        MouseArea {
+          id: openThemeBrowserArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            openThemeBrowserProc.running = true
+            root.openThemeBrowserRequested()
           }
         }
       }

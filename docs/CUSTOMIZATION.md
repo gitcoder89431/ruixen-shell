@@ -66,11 +66,11 @@ frame right next to it.
 
 The installer includes the native **ruixen.background** renderer, disabled on new
 installations to preserve Omarchy's stock behavior. The launcher's Wallpapers
-extension carries the full **Wallpaper appearance** panel (the notch picker
-carries Artwork rotation instead -- see below -- so the two surfaces split the
-feature set rather than both carrying everything), flattened into chips next
-to the hero tile rather than a separate expandable card: the hero itself
-doubles as the live preview, instead of a dedicated preview box.
+Effects extension carries the full **Wallpaper appearance** panel (Artwork
+rotation's interval/on-off lives on both pickers instead, and its actual
+ordering on the separate Wallpaper Shuffle extension -- see below), flattened
+into chips next to the hero tile rather than a separate expandable card: the
+hero itself doubles as the live preview, instead of a dedicated preview box.
 
 **Transition** is a row of chips -- **Stock** plus all thirteen effects
 (Reveal, Bleed through, Pixel dissolve, Iris bloom, Glass shutters, Scanline,
@@ -132,32 +132,49 @@ retain their MIT notices and source attribution in each plugin's
 ### Artwork rotation
 
 Both pickers include **Artwork rotation**, independently of the optional
-effects renderer. The notch picker gets one grouped chip in its wallpaper
-filter row, next to All/Images/Video/Gif -- same two-segment shape as
-Cliamp Radio's LIVE/clock pill, just square (radius 8) instead of fully
-rounded. A constant-accent **Shuffle** segment marks it as a feature, and a
-second segment shows the current value: **Off**, **5m**, **15m**, **30m**,
-or **60m**. Click anywhere on it to cycle **Off → 5m → 15m → 30m → 60m →
-Off**. The launcher's Wallpapers extension gets a **Shuffle** section in
-its appearance panel instead, between Transition and Effect -- five
-individually clickable chips (**Off**/**5m**/**15m**/**30m**/**60m**),
-same direct-pick style as Transition's and Effect's own chips, rather than
-one cycling pill. Both surfaces talk to the same rotation state over the
-same public IPC (`ruixen-wallpaper-rotation`), so a change from either one
-shows up on the other; rotation always shuffles when it's on, so there's
-no separate on/off for that. Always reads from
-`~/Pictures/ruixen-wallpapers`, the same folder the rest of the picker
-already shows artwork from.
+effects renderer, but neither one controls ordering any more -- that's the
+launcher's own **Wallpaper Shuffle** extension's job now (see
+[`LAUNCHER.md`](LAUNCHER.md#wallpaper-shuffle)), whose reorderable queue IS
+the sequence rotation steps through. The notch picker gets one grouped
+chip in its wallpaper filter row, next to All/Images/Video/Gif -- same
+two-segment shape as Cliamp Radio's LIVE/clock pill, just square (radius 8)
+instead of fully rounded. A constant-accent **Shuffle** segment marks it as
+a feature, and a second segment shows the current value: **Off**, **5m**,
+**15m**, **30m**, or **60m**. Click anywhere on it to cycle **Off → 5m →
+15m → 30m → 60m → Off**. The launcher's Wallpapers Effects extension gets a
+**Shuffle** section in its appearance panel instead, between Transition and
+Effect -- five individually clickable chips
+(**Off**/**5m**/**15m**/**30m**/**60m**), same direct-pick style as
+Transition's and Effect's own chips, rather than one cycling pill.
+Wallpaper Shuffle's own chip row offers the same five interval values too,
+as a two-tone **Shuffle On/Off** toggle pill plus four interval chips. All
+three talk to the same rotation state over the same public IPC
+(`ruixen-wallpaper-rotation`), so a change from any one shows up on the
+others -- but only Wallpaper Shuffle's chips (and its own reorderable list)
+ever touch WHAT plays or in what order; the notch chip and the appearance
+panel's own Shuffle section are interval/on-off only now, deliberately left
+out of the ordering question to avoid fighting Wallpaper Shuffle's queue
+back into random mode. Always reads from `~/Pictures/ruixen-wallpapers`,
+the same folder the rest of the picker already shows artwork from.
 
 The persistent `ruixen.wallpaper` service rotates PNG, JPEG, WebP, AVIF,
-GIF, and video (MP4/MKV/WebM/MOV/M4V) files in that folder at random,
-without repeating the current image when alternatives exist. Subfolders
-are excluded. Landing on a video/GIF plays it through the same renderer
-the picker itself uses, not a plain static image -- rotation still
-advances on schedule from there, same as it would from an image.
-Rotation only pauses for a video/GIF set OUTSIDE of rotation (picked
-directly from either picker), and starts a fresh interval once something
-else is set. Settings survive shell restarts in
+GIF, and video (MP4/MKV/WebM/MOV/M4V) files in that folder. Sequential mode
+(`shuffle:false`, the expected normal state) steps through Wallpaper
+Shuffle's own persisted order -- current always rotates to the front, the
+one that just retired to the back, a genuine round-robin rather than a
+fixed list or true randomness. `shuffle:true` picks randomly instead,
+avoiding the current image when possible; nothing in the UI sets this any
+more (the old notch-chip/appearance-panel behavior that used to force it
+on every write was removed), so it only applies if set directly over IPC.
+Subfolders are excluded, and an Ignored wallpaper (set from Wallpaper
+Shuffle's own Tab menu) is excluded from the candidate pool entirely in
+both modes. Landing on a video/GIF plays it through the same renderer the
+picker itself uses, not a plain static image -- rotation still advances on
+schedule from there, same as it would from an image. Rotation pauses for a
+video/GIF set manually (from any picker), but a manual pick -- from any
+picker -- also immediately clears that pause and re-anchors the queue, the
+same as if rotation itself had picked it; it no longer gets stuck paused
+until something else happens to match. Settings survive shell restarts in
 `~/.local/state/ruixen/wallpaper-rotation.json`. New installations default to off;
 rotation never edits the theme's wallpaper collection. Disable any independent
 wallpaper-rotation timer before enabling this feature to avoid competing changes.

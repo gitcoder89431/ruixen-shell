@@ -539,41 +539,33 @@ Item {
     themeSetProc.running = true
   }
 
+  // Headless probe/debounce/write state for the Shuffle and Transition
+  // filter-row chips -- no visual UI of their own, so these are root
+  // siblings, not ColumnLayout children (same place listProc/currentProc
+  // and this file's other non-visual Process/Timer helpers already
+  // live). Direct report after they'd drifted into the ColumnLayout at
+  // some point: the panel's own top content (the search row) was
+  // starting visibly lower than every other notch tab's. Root cause --
+  // ColumnLayout still reserves a full `spacing: 10` gap around a 0x0
+  // child unless it's explicitly `visible: false`, and these two
+  // defaulted to visible: true; two of them stacked ~20px of dead
+  // space above the search row that had nothing to do with its own
+  // layout at all.
+  WallpaperRotationState {
+    id: rotationState
+    active: root.active && root.mediaMode === "wallpapers"
+  }
+  WallpaperAppearanceState {
+    id: appearanceState
+    active: root.active && root.mediaMode === "wallpapers"
+  }
+
   // Outer ColumnLayout -- the search bar spans the full panel width,
   // while the wallpaper/theme content below can switch between its own
   // full-row grids without affecting that top chrome.
   ColumnLayout {
     anchors.fill: parent
     spacing: 10
-
-    // The notch picker's own expandable Wallpaper appearance card
-    // (transitions/CRT/Matrix/renderer toggle) moved entirely to the
-    // launcher's Wallpapers extension so the two surfaces split the
-    // feature set instead of both carrying everything (direct request:
-    // too crowded with both sections stacked here). This plugin keeps
-    // only a compact Transition chip (below) for quick access, talking
-    // to the same wallpaper-effects.py; the full card with sliders/
-    // CRT/Matrix/ambient controls lives only in WallpapersContent.qml
-    // under ruixen.launcher/extensions/wallpapers.
-    //
-    // Rotation itself used to be its own expandable card (title row +
-    // Rotate artwork/Shuffle toggles + interval chips + a folder path
-    // field). Direct correction: "kinda overdone", "what does rotate
-    // mean vs shuffle?", folder is always the one ruixen.wallpaper
-    // folder in practice so that field was dead weight too. Collapsed
-    // down to one chip living in the filter row below -- this headless
-    // component is just the probe/debounce/write state it uses.
-    WallpaperRotationState {
-      id: rotationState
-      active: root.active && root.mediaMode === "wallpapers"
-    }
-
-    // Same idea for Wallpaper appearance's quick Transition chip --
-    // headless probe/debounce/write state, no visual UI of its own.
-    WallpaperAppearanceState {
-      id: appearanceState
-      active: root.active && root.mediaMode === "wallpapers"
-    }
 
     // Search + WALLPAPER/THEME tab, collapsed into one row (direct
     // follow-up -- "instead of the two tabs up top and the search

@@ -10,23 +10,33 @@ from unittest.mock import patch
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-# The notch picker's full expandable "Wallpaper appearance" card (preview
-# QML/shaders included) lives only in the launcher's Wallpapers extension
-# now, but the notch still carries its own copy of this settings writer
-# for its compact Transition chip (WallpaperAppearanceState.qml) -- same
-# three-way parity the shader/QML assets below have among ruixen.background
-# and the launcher, just without the notch needing those preview assets.
+# The notch picker's own compact Transition chip (WallpaperAppearanceState
+# .qml) carries its own copy of this settings writer, same three-way parity
+# the shader/QML assets below have among ruixen.background and the
+# launcher. The notch's wallpaper grid ALSO doubles as a live transition
+# preview surface now (hover a tile, see it play) -- the same preview
+# wrapper and shader primitives ruixen.launcher's Wallpapers extension
+# uses, so the notch needs that asset set too, not just the renderer-only
+# subset it carried before.
 HELPERS = [ROOT / 'ruixen.launcher/extensions/wallpapers/wallpaper-effects.py',
            ROOT / 'bars/widgets/ruixen.notch/wallpaper-effects.py']
 VALID = dict(transitionEffect='pixel-dissolve', transitionDurationMs=8000, transitionSoftness=.12, ambientZoom=True, ambientGlow=True, disableMotion=False)
 
 class SettingsTests(unittest.TestCase):
     def test_packaged_assets_stay_in_sync(self):
-        folders=[ROOT/'ruixen.background',ROOT/'ruixen.launcher/extensions/wallpapers']
+        folders=[ROOT/'ruixen.background',ROOT/'ruixen.launcher/extensions/wallpapers',ROOT/'bars/widgets/ruixen.notch']
         for asset in ['WallpaperGlitch.qml','WallpaperAmbient.qml','WallpaperTransitionMask.qml','GLITCH-LICENSE.txt','shaders/glitch.frag','shaders/glitch.frag.qsb','shaders/ambient.frag','shaders/ambient.frag.qsb']:
             expected=(folders[0]/asset).read_bytes()
             for folder in folders[1:]:
                 self.assertEqual((folder/asset).read_bytes(),expected, str(folder/asset))
+        # WallpaperEffectPreview.qml itself only exists where something
+        # actually hosts a live hover preview -- ruixen.background is the
+        # real renderer, not a preview host, so it has no copy of this
+        # one and sits out of this check.
+        preview_folders=[ROOT/'ruixen.launcher/extensions/wallpapers',ROOT/'bars/widgets/ruixen.notch']
+        expected=(preview_folders[0]/'WallpaperEffectPreview.qml').read_bytes()
+        for folder in preview_folders[1:]:
+            self.assertEqual((folder/'WallpaperEffectPreview.qml').read_bytes(),expected, str(folder/'WallpaperEffectPreview.qml'))
 
     def test_writers(self):
         for helper in HELPERS:

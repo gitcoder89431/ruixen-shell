@@ -186,7 +186,8 @@ See [CONTROL.md](CONTROL.md#wallpaper-rotation-ruixen-wallpaper-rotation).
 Local preview target: `ruixen-wallpaper-preview-launcher`, with
 `preview <effect-key>`, `clearPreview`, and `status`. Open the launcher's
 Wallpapers extension first; `preview` drives its hero tile's live transition
-preview. The notch picker has no preview surface -- its Transition chip
-applies a baked-in preset directly, no separate preview step.
+preview. The notch picker has no scriptable preview target of its own --
+its wallpaper grid previews Transition on hover directly (any image tile,
+with a real transition selected), not through IPC.
 
 The bundled `ruixen.background` renderer is optional; see [CONTROL.md](CONTROL.md#native-background-renderer-ruixenbackground) for lifecycle and status.

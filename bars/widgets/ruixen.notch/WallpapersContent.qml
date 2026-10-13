@@ -1300,6 +1300,37 @@ Item {
           }
         }
 
+        // Hover preview: the grid itself IS the preview surface, no
+        // separate dropdown/preview box. Only while a real transition
+        // is selected (appearanceState.transitionOn) and only for
+        // image tiles -- the real renderer never transitions INTO a
+        // video/gif (confirmed: those are always an instant cut), so
+        // previewing an animated transition onto one would show
+        // something that can never actually happen. Loader keeps this
+        // to at most one live WallpaperEffectPreview instance across
+        // the whole (up to ~330-tile) grid at a time, since only one
+        // tile can be hovered.
+        Loader {
+          anchors.fill: parent
+          // No explicit z -- declared after the Image container and
+          // before the hover ring/label/MouseArea below, so plain
+          // document-order stacking already paints it above the
+          // static thumbnail and under the ring/label/mouse overlays.
+          active: tile.hovered && !tile.active && tile.modelData.kind === "image"
+            && appearanceState.rendererEnabled && appearanceState.transitionOn
+          sourceComponent: WallpaperEffectPreview {
+            accent: root.accent
+            fromPath: root.currentBackground
+            toPath: tile.modelData.display
+            effect: appearanceState.settings.transitionEffect || "reveal"
+            durationMs: appearanceState.settings.transitionDurationMs || 900
+            softness: appearanceState.settings.transitionSoftness !== undefined ? appearanceState.settings.transitionSoftness : .02
+            transitionOptions: appearanceState.settings.transitionOptions || {}
+            playing: true
+            ambientActive: false
+          }
+        }
+
         // Hover decoration only -- a separate overlay sibling, not
         // a property on the image's own container, so it can never
         // affect the image's geometry or force a clip rebuild.

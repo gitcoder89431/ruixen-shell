@@ -104,7 +104,18 @@ cycles **Stock → Reveal → Bleed through → … → Code bleed → Stock**, 
 baked-in per-effect durations and auto-enable as the launcher's chips.
 **Effect** cycles **Off → CRT → Matrix → Off**, same shared-renderer rule as
 above. Right-clicking either chip jumps straight back to its own Off/Stock.
-Intensity and Speed stay launcher-only.
+Intensity and Speed stay launcher-only -- Effect is a continuous overlay on
+whatever's already showing, not a between-two-images thing, so it has no
+preview of its own either.
+
+The notch's own wallpaper grid doubles as Transition's live preview surface
+-- no separate preview box. With a real transition selected, hovering any
+image tile (not the current wallpaper's own tile, and not a video/GIF tile,
+since the renderer never transitions into one of those -- always an instant
+cut) plays that transition from the current wallpaper into the hovered one,
+right in the grid, using the same baked-in duration/softness the chip
+already set. Moving off the tile stops it; nothing is selected or saved by
+hovering.
 
 Appearance is persisted atomically in
 `~/.local/state/ruixen/wallpaper-appearance.json`. The earlier local prototype's

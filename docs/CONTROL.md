@@ -219,8 +219,10 @@ first. Effect keys are `reveal`, `bleed`, `pixel-dissolve`, `iris`, `shutters`,
 `scanline`, `ink-spread`, `aurora`, and `vortex`, `signal-tear`, `datamosh`,
 `vhs`, and `code-bleed`; previews use that effect's own baked-in duration
 (900ms for mask effects, 550ms for the four glitch effects). The notch
-picker has no preview target -- its Transition chip applies a baked-in preset
-directly.
+picker has no scriptable IPC preview target -- hovering a wallpaper tile in
+its own grid previews Transition directly (see CUSTOMIZATION.md's own
+"Wallpaper appearance" section), but nothing drives that from a command the
+way `preview`/`clearPreview` do for the launcher.
 
 ## Native background renderer (`ruixen.background`)
 

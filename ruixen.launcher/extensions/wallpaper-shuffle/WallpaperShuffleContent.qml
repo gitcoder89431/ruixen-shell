@@ -199,10 +199,11 @@ Item {
   // still does the same thing as a quick default, this just stops
   // being the ONLY way to reach it.
   readonly property var shuffleActions: {
-    var out = [{ id: "apply", label: "Set as wallpaper" }]
+    var out = []
     if (root.selectedIndex > 0) out.push({ id: "up", label: "Move up" })
     if (root.selectedIndex < root.rows.length - 1) out.push({ id: "down", label: "Move down" })
     out.push({ id: "ignore", label: (root.selectedRow && root.selectedRow.ignored) ? "Un-ignore" : "Ignore" })
+    out.push({ id: "apply", label: "Set as wallpaper" })
     return out
   }
 

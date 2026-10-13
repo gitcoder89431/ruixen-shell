@@ -7,6 +7,18 @@ import tempfile
 import unittest
 
 class RotationTests(unittest.TestCase):
+    def test_qml_state_stays_in_sync(self):
+        # WallpaperRotationState.qml used to live only in the notch
+        # (its single cycling pill); the launcher's own Shuffle section
+        # (direct-pick chips, WallpaperAppearancePanel.qml) now carries
+        # a second copy -- same byte-identical-copy parity convention
+        # tests/wallpaper-effects.py's own test_packaged_assets_stay_in_sync
+        # already uses for the other shared wallpaper QML/shader assets.
+        root = Path(__file__).resolve().parents[1]
+        a = root / 'bars/widgets/ruixen.notch/WallpaperRotationState.qml'
+        b = root / 'ruixen.launcher/extensions/wallpapers/WallpaperRotationState.qml'
+        self.assertEqual(b.read_bytes(), a.read_bytes())
+
     def test_rotation_and_config(self):
         helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
         spec=importlib.util.spec_from_file_location('rotation',helper)

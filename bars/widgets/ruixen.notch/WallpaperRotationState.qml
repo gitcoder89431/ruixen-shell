@@ -51,6 +51,17 @@ Item {
     pending = JSON.stringify({enabled: false, shuffle: true, intervalMinutes: settings.intervalMinutes})
     debounce.restart()
   }
+  // Direct-select an exact interval (0 for Off) -- for a host whose
+  // chips are each individually clickable instead of cycling (the
+  // launcher's own Shuffle section, matching how every other control
+  // in that panel is a direct pick, not a cycle, unlike this file's
+  // own cycleInterval() the notch's single pill uses).
+  function selectInterval(minutes) {
+    if (minutes === 0) { turnOff(); return }
+    settings = Object.assign({}, settings, {enabled: true, intervalMinutes: minutes, shuffle: true})
+    pending = JSON.stringify({enabled: true, shuffle: true, intervalMinutes: minutes})
+    debounce.restart()
+  }
   function send() {
     if (writer.running || !pending) return
     writer.command = ["omarchy-shell", "ruixen-wallpaper-rotation", "configure", pending]

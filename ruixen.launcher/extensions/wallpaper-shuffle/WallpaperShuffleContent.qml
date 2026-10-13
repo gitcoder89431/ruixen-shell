@@ -370,6 +370,20 @@ Item {
   // .qml/WallpaperAppearancePanel.qml), not a new pattern.
   Timer { interval: 1000; running: root.active; repeat: true; onTriggered: root.refresh() }
 
+  // Headless probe/debounce/write state for the interval chip row below
+  // -- same public IPC surface (ruixen-wallpaper-rotation) and the same
+  // third-copy-per-plugin-folder convention WallpaperRotationState.qml
+  // already uses twice (notch's own pill, the launcher's older
+  // Wallpaper Appearance Shuffle section). A root sibling, not nested
+  // inside a layout -- a 0x0 non-visual item inside one would
+  // reintroduce the dead-space bug already fixed once in the notch's
+  // own panel (see WallpaperAppearancePanel.qml's own instantiation
+  // comment for the full story).
+  WallpaperRotationState {
+    id: rotationState
+    active: root.active
+  }
+
   onRowsChanged: {
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
   }
@@ -456,9 +470,71 @@ Item {
     Qt.callLater(function() { orderFile.reload(); ignoredFile.reload() })
   }
 
+  // Direct ask: "theres these chips we can use above left panel [...]
+  // lets do chips for the Shuffle Intervals so you can also change it
+  // here too" -- same chipRow shape Clipboard/Theme Browser already
+  // use above their own left panel (hand-rolled per file, no shared
+  // component -- SearchFiltersBar.qml exists but is Search Files'
+  // own thing), not the older Wallpaper Appearance panel's
+  // solid-fill/28px interval chips (a different visual language);
+  // values/semantics port exactly from there (selectInterval(minutes),
+  // the same five-option model, rotationState.settings.enabled/
+  // intervalMinutes), only the look matches this launcher's own
+  // chip-row convention instead.
+  Item {
+    id: chipRow
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    height: 32
+
+    Row {
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 6
+
+      Repeater {
+        model: [{minutes: 0, label: "Off"}, {minutes: 5, label: "5m"}, {minutes: 15, label: "15m"},
+          {minutes: 30, label: "30m"}, {minutes: 60, label: "60m"}]
+
+        Rectangle {
+          id: intervalChip
+          required property var modelData
+          readonly property bool selected: intervalChip.modelData.minutes === 0
+            ? rotationState.settings.enabled !== true
+            : (rotationState.settings.enabled === true && rotationState.settings.intervalMinutes === intervalChip.modelData.minutes)
+          width: intervalChipLabel.implicitWidth + 16
+          height: 24
+          radius: 6
+          color: intervalChip.selected ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+          border.width: 1
+          border.color: intervalChip.selected ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+          Text {
+            id: intervalChipLabel
+            anchors.centerIn: parent
+            text: intervalChip.modelData.label
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: rotationState.selectInterval(intervalChip.modelData.minutes)
+          }
+        }
+      }
+    }
+  }
+
   ExtensionTwoPanel {
     id: panel
-    anchors.fill: parent
+    anchors.top: chipRow.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
     detailRatio: 0.6
   }
 

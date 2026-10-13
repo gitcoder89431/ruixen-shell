@@ -114,10 +114,11 @@ image tile (not a video/GIF tile, since the renderer never transitions into
 one of those -- always an instant cut) plays that transition from the
 current wallpaper into the hovered one, right in the grid, using the same
 baked-in duration/softness the chip already set. The current wallpaper's
-own tile previews too (both ends are the same image -- mask effects won't
-show a visible swap, but the glitch effects still show real motion since
-their distortion is procedural, not content-driven). Moving off the tile
-stops it; nothing is selected or saved by hovering.
+own tile previews too, against another real image from the grid rather
+than itself -- a same-image preview looked like nothing was happening for
+every mask-type effect (crossfading an image into an identical copy of
+itself has no visible difference at any point in the animation). Moving
+off the tile stops it; nothing is selected or saved by hovering.
 
 Appearance is persisted atomically in
 `~/.local/state/ruixen/wallpaper-appearance.json`. The earlier local prototype's

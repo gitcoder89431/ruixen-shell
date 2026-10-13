@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
+import "WallpaperEffectModel.js" as EffectModel
 
 // A second copy of this file's own picker LOGIC lives at
 // ruixen.launcher/extensions/wallpapers/WallpapersContent.qml (a launcher "Wallpapers"
@@ -1270,6 +1271,19 @@ Item {
         // lit at rest.
         readonly property bool active: tile.modelData.identity === root.currentBackground
 
+        // What the hover preview transitions INTO. Normally the
+        // hovered tile's own image. For the CURRENT wallpaper's own
+        // tile, that would mean transitioning the image into itself --
+        // direct follow-up after shipping that: "dont make it
+        // transition into itself. just pick another demo to use", so
+        // this picks any other real image from the grid instead, same
+        // "not the current background, not just a renamed copy of it"
+        // selection WallpaperEffectModel.js's nextPreviewArtwork
+        // already does for the launcher's own hero-tile preview.
+        readonly property string previewTarget: tile.active
+          ? EffectModel.nextPreviewArtwork(root.currentBackground, root.wallpaperPaths)
+          : tile.modelData.display
+
         width: grid.tileWidth
         height: grid.tileHeight
 
@@ -1311,26 +1325,30 @@ Item {
         // the whole (up to ~330-tile) grid at a time, since only one
         // tile can be hovered.
         //
-        // The CURRENT wallpaper's own tile previews too, from/to both
-        // root.currentBackground -- direct follow-up after shipping
-        // without this: hovering it did nothing. A same-image preview
-        // still shows real motion for the glitch effects (the
-        // distortion is procedural, not content-driven) and for mask
-        // effects it at least confirms motion is happening, even if
-        // the swap itself is invisible since both layers are identical
-        // pixels.
+        // The CURRENT wallpaper's own tile previews too, using
+        // tile.previewTarget (any other real image, see its own
+        // comment above) instead of transitioning into itself -- a
+        // same-image preview was tried first and looked like nothing
+        // was happening for every mask-type effect (crossfading an
+        // image into an identical copy of itself has no visible
+        // difference at any point in the animation, no matter how
+        // correctly it's running); only the four glitch effects
+        // showed real motion that way, since their distortion is
+        // procedural, not content-driven. Direct follow-up: "dont
+        // make it transition into itself. just pick another demo to
+        // use."
         Loader {
           anchors.fill: parent
           // No explicit z -- declared after the Image container and
           // before the hover ring/label/MouseArea below, so plain
           // document-order stacking already paints it above the
           // static thumbnail and under the ring/label/mouse overlays.
-          active: tile.hovered && tile.modelData.kind === "image"
+          active: tile.hovered && tile.modelData.kind === "image" && tile.previewTarget !== ""
             && appearanceState.rendererEnabled && appearanceState.transitionOn
           sourceComponent: WallpaperEffectPreview {
             accent: root.accent
             fromPath: root.currentBackground
-            toPath: tile.modelData.display
+            toPath: tile.previewTarget
             effect: appearanceState.settings.transitionEffect || "reveal"
             durationMs: appearanceState.settings.transitionDurationMs || 900
             softness: appearanceState.settings.transitionSoftness !== undefined ? appearanceState.settings.transitionSoftness : .02

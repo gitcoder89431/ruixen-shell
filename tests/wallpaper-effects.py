@@ -29,14 +29,15 @@ class SettingsTests(unittest.TestCase):
             expected=(folders[0]/asset).read_bytes()
             for folder in folders[1:]:
                 self.assertEqual((folder/asset).read_bytes(),expected, str(folder/asset))
-        # WallpaperEffectPreview.qml itself only exists where something
-        # actually hosts a live hover preview -- ruixen.background is the
-        # real renderer, not a preview host, so it has no copy of this
-        # one and sits out of this check.
+        # WallpaperEffectPreview.qml and WallpaperEffectModel.js only
+        # exist where something actually hosts a live hover preview --
+        # ruixen.background is the real renderer, not a preview host,
+        # so it has no copy of either and sits out of this check.
         preview_folders=[ROOT/'ruixen.launcher/extensions/wallpapers',ROOT/'bars/widgets/ruixen.notch']
-        expected=(preview_folders[0]/'WallpaperEffectPreview.qml').read_bytes()
-        for folder in preview_folders[1:]:
-            self.assertEqual((folder/'WallpaperEffectPreview.qml').read_bytes(),expected, str(folder/'WallpaperEffectPreview.qml'))
+        for asset in ['WallpaperEffectPreview.qml','WallpaperEffectModel.js']:
+            expected=(preview_folders[0]/asset).read_bytes()
+            for folder in preview_folders[1:]:
+                self.assertEqual((folder/asset).read_bytes(),expected, str(folder/asset))
 
     def test_writers(self):
         for helper in HELPERS:

@@ -33,7 +33,7 @@ check() {
   fi
 }
 
-for asset in WallpaperAmbient.qml WallpaperGlitch.qml WallpaperTransitionMask.qml WallpaperEffectPreview.qml GLITCH-LICENSE.txt shaders/glitch.frag shaders/glitch.frag.qsb shaders/ambient.frag shaders/ambient.frag.qsb; do
+for asset in WallpaperAmbient.qml WallpaperGlitch.qml WallpaperTransitionMask.qml WallpaperEffectPreview.qml WallpaperEffectModel.js GLITCH-LICENSE.txt shaders/glitch.frag shaders/glitch.frag.qsb shaders/ambient.frag shaders/ambient.frag.qsb; do
   check "notch carries its own copy of $asset" \
     "$([[ -f "$notch_dir/$asset" ]] && echo yes || echo no)" "yes"
 done
@@ -41,8 +41,11 @@ done
 check "preview only activates for image tiles, never video/gif (the renderer never transitions into one)" \
   "$(grep -c 'tile.modelData.kind === "image"' "$content_qml")" "1"
 
-check "preview also plays on the current wallpaper's own tile (from/to both the current background)" \
-  "$(grep -A12 'Loader {' "$content_qml" | grep -c '!tile.active')" "0"
+check "the current wallpaper's own tile previews against another real image, not itself (mask effects show nothing on a same-image crossfade)" \
+  "$(grep -c 'EffectModel.nextPreviewArtwork(root.currentBackground, root.wallpaperPaths)' "$content_qml")" "1"
+
+check "preview never activates with an empty preview target (e.g. only one wallpaper in the folder)" \
+  "$(grep -A12 'Loader {' "$content_qml" | grep -Fc 'tile.previewTarget !== ""')" "1"
 
 check "preview is gated on a real transition actually being selected, not just hover" \
   "$(grep -A12 'Loader {' "$content_qml" | grep -c 'appearanceState.rendererEnabled && appearanceState.transitionOn')" "1"
@@ -53,8 +56,8 @@ check "the preview is a Loader (at most one live instance across the whole grid)
 check "preview plays from the real current wallpaper path, not a tile's own path" \
   "$(grep -c 'fromPath: root.currentBackground' "$content_qml")" "1"
 
-check "preview target is the tile's own display path, matching what its static thumbnail already renders" \
-  "$(grep -c 'toPath: tile.modelData.display' "$content_qml")" "1"
+check "preview target is tile.previewTarget (another real image for the current tile, the hovered tile's own image otherwise)" \
+  "$(grep -c 'toPath: tile.previewTarget' "$content_qml")" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

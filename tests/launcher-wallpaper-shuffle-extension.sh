@@ -64,8 +64,14 @@ check "rotation itself (not just the UI) excludes ignored wallpapers, both shuff
 check "the extension carries its own copy of WallpaperRotationState.qml (third copy, same plugin-folders-can't-share-files convention)" \
   "$([[ -f "$repo_dir/ruixen.launcher/extensions/wallpaper-shuffle/WallpaperRotationState.qml" ]] && echo yes || echo no)" "yes"
 
-check "the interval chip row offers the same five options as the Wallpaper Appearance panel's own chips (Off/5m/15m/30m/60m)" \
-  "$(grep -Fc '{minutes: 0, label: "Off"}, {minutes: 5, label: "5m"}, {minutes: 15, label: "15m"},' "$content_qml")" "1"
+check "the first chip is a merged Shuffle On/Off toggle, not a fifth peer interval option" \
+  "$(grep -Fc 'text: "Shuffle " + (shuffleToggleChip.on ? "On" : "Off")' "$content_qml")" "1"
+
+check "the Shuffle toggle turns off when on, and resumes the last remembered interval when off" \
+  "$(grep -Fc 'onClicked: shuffleToggleChip.on ? rotationState.turnOff() : rotationState.selectInterval(rotationState.settings.intervalMinutes || 15)' "$content_qml")" "1"
+
+check "the interval chip row offers the same four interval options as the Wallpaper Appearance panel's own chips (5m/15m/30m/60m)" \
+  "$(grep -Fc '{minutes: 5, label: "5m"}, {minutes: 15, label: "15m"},' "$content_qml")" "1"
 
 check "interval chips drive rotationState.selectInterval(), the same IPC-backed call the Wallpaper Appearance panel's own chips use" \
   "$(grep -Fc 'onClicked: rotationState.selectInterval(intervalChip.modelData.minutes)' "$content_qml")" "1"

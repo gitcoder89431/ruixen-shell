@@ -493,16 +493,52 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       spacing: 6
 
+      // Direct follow-up: "the first chip make it nicer, i think
+      // Shuffle then in the same chip Off and On can toggle in it...
+      // you click the intervals and it goes to Shuffle On with the
+      // interval hilighed too, then on off its Shuffle Off" -- one
+      // merged toggle chip instead of "Off" sitting as a fifth peer
+      // option. Clicking an interval chip below already turns rotation
+      // on with that interval (selectInterval's own enabled:true), so
+      // this chip only needs to handle the reverse (On -> Off) plus
+      // resuming at the last remembered interval (Off -> On) --
+      // turnOff()/selectInterval() already preserve that remembered
+      // interval themselves (see WallpaperRotationState.qml's own
+      // header comment), nothing new needed there.
+      Rectangle {
+        id: shuffleToggleChip
+        readonly property bool on: rotationState.settings.enabled === true
+        width: shuffleToggleLabel.implicitWidth + 16
+        height: 24
+        radius: 6
+        color: shuffleToggleChip.on ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: shuffleToggleChip.on ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: shuffleToggleLabel
+          anchors.centerIn: parent
+          text: "Shuffle " + (shuffleToggleChip.on ? "On" : "Off")
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: shuffleToggleChip.on ? rotationState.turnOff() : rotationState.selectInterval(rotationState.settings.intervalMinutes || 15)
+        }
+      }
+
       Repeater {
-        model: [{minutes: 0, label: "Off"}, {minutes: 5, label: "5m"}, {minutes: 15, label: "15m"},
+        model: [{minutes: 5, label: "5m"}, {minutes: 15, label: "15m"},
           {minutes: 30, label: "30m"}, {minutes: 60, label: "60m"}]
 
         Rectangle {
           id: intervalChip
           required property var modelData
-          readonly property bool selected: intervalChip.modelData.minutes === 0
-            ? rotationState.settings.enabled !== true
-            : (rotationState.settings.enabled === true && rotationState.settings.intervalMinutes === intervalChip.modelData.minutes)
+          readonly property bool selected: rotationState.settings.enabled === true && rotationState.settings.intervalMinutes === intervalChip.modelData.minutes
           width: intervalChipLabel.implicitWidth + 16
           height: 24
           radius: 6

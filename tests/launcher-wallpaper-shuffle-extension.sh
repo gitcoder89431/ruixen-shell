@@ -68,7 +68,10 @@ check "the first chip is a merged Shuffle On/Off toggle, not a fifth peer interv
   "$(grep -Fc 'text: shuffleToggleChip.on ? "On" : "Off"' "$content_qml")" "1"
 
 check "the Shuffle side is a solid accent-filled segment, not just accent-colored text" \
-  "$(grep -A2 'width: shuffleToggleLabel.implicitWidth' "$content_qml" | grep -Fc 'color: root.accent')" "1"
+  "$(grep -A3 'width: shuffleToggleChip.shuffleSegmentWidth' "$content_qml" | grep -Fc 'color: root.accent')" "1"
+
+check "the Shuffle segment is independently rounded on all four corners, not clipped to a hard-cornered box (the seam curve depends on this)" \
+  "$(grep -A3 'width: shuffleToggleChip.shuffleSegmentWidth' "$content_qml" | grep -Fc 'radius: 6')" "1"
 
 check "the On/Off side stays a flat neutral segment, not accent -- the interval chips below are what carry the accent-means-selected look" \
   "$(grep -A8 'id: shuffleToggleStateLabel' "$content_qml" | grep -c 'root.accent')" "0"

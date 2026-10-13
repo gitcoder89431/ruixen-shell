@@ -508,57 +508,67 @@ Item {
       //
       // Two-tone toggle-switch shape, not a tinted label -- direct
       // correction: "not the text shuffle in accent color, like a
-      // toggle kinda chip, shuffle is accent bg side". One pill, clipped
-      // to its own rounded corners, built from two flush segments: a
-      // solid-accent-fill "Shuffle" side (same solid-fill/black-text
-      // convention the Transition/Effect/old Shuffle chips in
+      // toggle kinda chip, shuffle is accent bg side". A solid-accent-
+      // fill "Shuffle" side (same solid-fill/black-text convention the
+      // Transition/Effect/old Shuffle chips in
       // WallpaperAppearancePanel.qml already use for "this is filled
-      // in, not just outlined") and a flat neutral "On"/"Off" side --
-      // the interval chips below are what carry the accent-outline-
-      // means-selected language, so this pill reads as a static toggle
-      // switch instead of competing with that.
+      // in, not just outlined") laid over a flat neutral pill that
+      // spans the whole chip -- the interval chips below are what
+      // carry the accent-outline-means-selected language, so this pill
+      // reads as a static toggle switch instead of competing with that.
+      //
+      // Follow-up correction: "not the hard corner on the shuffle left
+      // side, make it curve as well, same with the inner seperator,
+      // curve it toward shuffle" -- a flush two-Rectangle-in-a-Row
+      // split (the first attempt) only rounds the OUTER corners of the
+      // whole pill; each segment's own touching edge stays a hard
+      // right-angle since plain Rectangle.clip clips to the bounding
+      // box, not the rounded path. Fixed by overlap instead of
+      // flush-abutment: the neutral Rectangle is the full pill (its
+      // own radius matching the outer shape exactly, no separate
+      // border/wrapper needed), and the accent "Shuffle" segment is a
+      // SECOND, independently-fully-rounded Rectangle laid on top at
+      // the left edge, narrower than the pill. Giving it radius on
+      // ALL FOUR corners -- not just the left two -- means its own
+      // right edge curves away near the top/bottom of the seam,
+      // uncovering the neutral layer underneath in exactly that
+      // curved sliver: the separator's curve, carved into the accent
+      // shape, curving toward Shuffle.
       Rectangle {
         id: shuffleToggleChip
         readonly property bool on: rotationState.settings.enabled === true
-        width: shuffleToggleRow.implicitWidth
+        readonly property real shuffleSegmentWidth: shuffleToggleLabel.implicitWidth + 16
+        width: shuffleSegmentWidth + shuffleToggleStateLabel.implicitWidth + 16
         height: 24
         radius: 6
-        clip: true
-        color: "transparent"
+        color: Qt.rgba(1, 1, 1, 0.06)
         border.width: 1
         border.color: Qt.rgba(1, 1, 1, 0.12)
 
-        Row {
-          id: shuffleToggleRow
+        Text {
+          id: shuffleToggleStateLabel
+          anchors.right: parent.right
+          anchors.rightMargin: 8
+          anchors.verticalCenter: parent.verticalCenter
+          text: shuffleToggleChip.on ? "On" : "Off"
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        Rectangle {
+          width: shuffleToggleChip.shuffleSegmentWidth
           height: parent.height
-          spacing: 0
+          radius: 6
+          color: root.accent
 
-          Rectangle {
-            width: shuffleToggleLabel.implicitWidth + 16
-            height: parent.height
-            color: root.accent
-            Text {
-              id: shuffleToggleLabel
-              anchors.centerIn: parent
-              text: "Shuffle"
-              color: "#000000"
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
-          }
-
-          Rectangle {
-            width: shuffleToggleStateLabel.implicitWidth + 16
-            height: parent.height
-            color: Qt.rgba(1, 1, 1, 0.06)
-            Text {
-              id: shuffleToggleStateLabel
-              anchors.centerIn: parent
-              text: shuffleToggleChip.on ? "On" : "Off"
-              color: root.textColor
-              font.family: root.fontFamily
-              font.pixelSize: 11
-            }
+          Text {
+            id: shuffleToggleLabel
+            anchors.centerIn: parent
+            text: "Shuffle"
+            color: "#000000"
+            font.family: root.fontFamily
+            font.pixelSize: 11
           }
         }
 

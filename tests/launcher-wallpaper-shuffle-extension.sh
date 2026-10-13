@@ -67,11 +67,11 @@ check "the extension carries its own copy of WallpaperRotationState.qml (third c
 check "the first chip is a merged Shuffle On/Off toggle, not a fifth peer interval option" \
   "$(grep -Fc 'text: shuffleToggleChip.on ? "On" : "Off"' "$content_qml")" "1"
 
-check "the Shuffle label segment is always accent, not tied to on/off state" \
-  "$(grep -Fc 'text: "Shuffle"' "$content_qml")" "1"
+check "the Shuffle side is a solid accent-filled segment, not just accent-colored text" \
+  "$(grep -A2 'width: shuffleToggleLabel.implicitWidth' "$content_qml" | grep -Fc 'color: root.accent')" "1"
 
-check "the Shuffle toggle's own chip background/border stay neutral -- the interval chips below are what carry the accent-means-selected look" \
-  "$(grep -A8 'id: shuffleToggleChip' "$content_qml" | grep -c 'Qt.rgba(root.accent')" "0"
+check "the On/Off side stays a flat neutral segment, not accent -- the interval chips below are what carry the accent-means-selected look" \
+  "$(grep -A8 'id: shuffleToggleStateLabel' "$content_qml" | grep -c 'root.accent')" "0"
 
 check "the Shuffle toggle turns off when on, and resumes the last remembered interval when off" \
   "$(grep -Fc 'onClicked: shuffleToggleChip.on ? rotationState.turnOff() : rotationState.selectInterval(rotationState.settings.intervalMinutes || 15)' "$content_qml")" "1"

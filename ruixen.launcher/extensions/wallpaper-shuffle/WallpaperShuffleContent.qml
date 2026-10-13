@@ -506,40 +506,59 @@ Item {
       // interval themselves (see WallpaperRotationState.qml's own
       // header comment), nothing new needed there.
       //
-      // Two-sided label, not a whole-chip accent tint -- direct
-      // correction: "Shuffle is always accent and then the on and off
-      // isnt accent color, cause the intervals already shows up with
-      // the accent hilight". The interval chips below are what carry
-      // the accent-highlight-means-selected language; this chip's own
-      // background/border stay the same flat/neutral style regardless
-      // of state so the two don't visually compete, and "Shuffle"
-      // reads as a static label (always accent) with "On"/"Off" as the
-      // plain state word next to it.
+      // Two-tone toggle-switch shape, not a tinted label -- direct
+      // correction: "not the text shuffle in accent color, like a
+      // toggle kinda chip, shuffle is accent bg side". One pill, clipped
+      // to its own rounded corners, built from two flush segments: a
+      // solid-accent-fill "Shuffle" side (same solid-fill/black-text
+      // convention the Transition/Effect/old Shuffle chips in
+      // WallpaperAppearancePanel.qml already use for "this is filled
+      // in, not just outlined") and a flat neutral "On"/"Off" side --
+      // the interval chips below are what carry the accent-outline-
+      // means-selected language, so this pill reads as a static toggle
+      // switch instead of competing with that.
       Rectangle {
         id: shuffleToggleChip
         readonly property bool on: rotationState.settings.enabled === true
-        width: shuffleToggleRow.implicitWidth + 16
+        width: shuffleToggleRow.implicitWidth
         height: 24
         radius: 6
-        color: Qt.rgba(1, 1, 1, 0.06)
+        clip: true
+        color: "transparent"
         border.width: 1
         border.color: Qt.rgba(1, 1, 1, 0.12)
 
         Row {
           id: shuffleToggleRow
-          anchors.centerIn: parent
-          spacing: 4
-          Text {
-            text: "Shuffle"
+          height: parent.height
+          spacing: 0
+
+          Rectangle {
+            width: shuffleToggleLabel.implicitWidth + 16
+            height: parent.height
             color: root.accent
-            font.family: root.fontFamily
-            font.pixelSize: 11
+            Text {
+              id: shuffleToggleLabel
+              anchors.centerIn: parent
+              text: "Shuffle"
+              color: "#000000"
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
           }
-          Text {
-            text: shuffleToggleChip.on ? "On" : "Off"
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 11
+
+          Rectangle {
+            width: shuffleToggleStateLabel.implicitWidth + 16
+            height: parent.height
+            color: Qt.rgba(1, 1, 1, 0.06)
+            Text {
+              id: shuffleToggleStateLabel
+              anchors.centerIn: parent
+              text: shuffleToggleChip.on ? "On" : "Off"
+              color: root.textColor
+              font.family: root.fontFamily
+              font.pixelSize: 11
+            }
           }
         }
 

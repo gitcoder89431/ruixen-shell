@@ -101,6 +101,18 @@ Item {
 
   function kindLabel(kind) { return kind === "video" ? "Video" : kind === "gif" ? "GIF" : "Image" }
 
+  // Ignored wallpapers -- plain filenames, persisted and reconciled the
+  // same way storedOrder is (own header comment above). Still listed
+  // here (not hidden), so there's a way back to Un-ignore one; rotation
+  // itself is what actually excludes them (wallpaper-rotation.py's own
+  // next_artwork, see its header comment), this is just the toggle.
+  property var ignoredNames: []
+  readonly property var ignoredSet: {
+    var out = {}
+    for (var i = 0; i < root.ignoredNames.length; i++) out[root.ignoredNames[i]] = true
+    return out
+  }
+
   readonly property var rows: {
     var q = root.searchText.trim().toLowerCase()
     var out = []
@@ -108,17 +120,19 @@ Item {
       var e = root.orderedEntries[i]
       var name = e.real.substring(e.real.lastIndexOf("/") + 1)
       if (q !== "" && name.toLowerCase().indexOf(q) === -1) continue
+      var ignored = !!root.ignoredSet[name]
       out.push({
         id: "wallpaper-shuffle:" + e.identity,
         providerId: "wallpaper-shuffle-queue",
         icon: "",
         label: name,
-        breadcrumb: (i + 1) + " of " + root.orderedEntries.length,
+        breadcrumb: (ignored ? "Ignored · " : "") + (i + 1) + " of " + root.orderedEntries.length,
         kind: root.kindLabel(e.kind),
         providerName: "",
         sectionLabel: "Queue",
         score: 0,
-        entry: e
+        entry: e,
+        ignored: ignored
       })
     }
     return out
@@ -144,6 +158,7 @@ Item {
     var out = [{ id: "apply", label: "Set as wallpaper" }]
     if (root.selectedIndex > 0) out.push({ id: "up", label: "Move up" })
     if (root.selectedIndex < root.rows.length - 1) out.push({ id: "down", label: "Move down" })
+    out.push({ id: "ignore", label: (root.selectedRow && root.selectedRow.ignored) ? "Un-ignore" : "Ignore" })
     return out
   }
 
@@ -206,7 +221,30 @@ Item {
     if (id === "apply") root.applySelected()
     else if (id === "up") root.moveSelected(-1)
     else if (id === "down") root.moveSelected(1)
+    else if (id === "ignore") root.toggleIgnored()
     root.closeActionsMenu()
+  }
+
+  // Direct ask: "in the tab dropdown i wanna add a feature for ignore
+  // or like to make it not in rotation". Toggles the selected entry's
+  // own filename in the persisted ignored set -- excluding it from
+  // rotation's candidate pool entirely (both shuffle and sequential,
+  // see wallpaper-rotation.py's own next_artwork) without touching the
+  // file or removing it from this list.
+  function toggleIgnored() {
+    var row = root.selectedRow
+    if (!row) return
+    var name = row.label
+    var names = root.ignoredNames.slice()
+    var idx = names.indexOf(name)
+    if (idx === -1) names.push(name)
+    else names.splice(idx, 1)
+    root.persistIgnored(names)
+  }
+
+  function persistIgnored(names) {
+    root.ignoredNames = names
+    ignoredFile.setText(JSON.stringify({ version: 1, ignored: names }) + "\n")
   }
 
   // Swaps the selected row with its neighbor in the RECONCILED order,
@@ -321,6 +359,27 @@ Item {
     }
   }
 
+  FileView {
+    id: ignoredFile
+    path: Quickshell.env("HOME") + "/.local/state/ruixen/wallpaper-ignored.json"
+    watchChanges: true
+    printErrors: false
+    atomicWrites: true
+    onLoaded: root.loadIgnored(text())
+    onLoadFailed: root.ignoredNames = []
+    onFileChanged: reload()
+  }
+
+  function loadIgnored(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      var ignored = parsed && parsed.ignored
+      root.ignoredNames = Array.isArray(ignored) ? ignored.filter(function(n) { return typeof n === "string" }) : []
+    } catch (e) {
+      root.ignoredNames = []
+    }
+  }
+
   Process {
     id: ensureDirProc
     command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
@@ -328,7 +387,7 @@ Item {
 
   Component.onCompleted: {
     ensureDirProc.running = true
-    Qt.callLater(function() { orderFile.reload() })
+    Qt.callLater(function() { orderFile.reload(); ignoredFile.reload() })
   }
 
   ExtensionTwoPanel {

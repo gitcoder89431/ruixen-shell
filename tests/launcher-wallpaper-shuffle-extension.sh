@@ -49,6 +49,18 @@ check "only legal directions are ever offered -- no disabled-but-visible Move up
 check "applying a wallpaper dispatches by kind (video/gif/image), same three-way split WallpapersContent.qml's own select() uses" \
   "$(grep -c '"omarchy-shell", "ruixen.wallpaper", "playVideo"' "$content_qml")" "1"
 
+check "ignoring writes the shared ignored file directly, no IPC round-trip" \
+  "$(grep -c '.local/state/ruixen/wallpaper-ignored.json' "$content_qml")" "1"
+
+check "the Tab menu's Ignore entry toggles its own label between Ignore and Un-ignore" \
+  "$(grep -Fc 'Un-ignore" : "Ignore"' "$content_qml")" "1"
+
+check "ignored wallpapers stay visible in the list (not hidden), so there's a way back to Un-ignore" \
+  "$(grep -c 'ignored: ignored' "$content_qml")" "1"
+
+check "rotation itself (not just the UI) excludes ignored wallpapers, both shuffle and sequential" \
+  "$(grep -c 'def load_ignored' "$repo_dir/ruixen.wallpaper/wallpaper-rotation.py")" "1"
+
 check "Launcher.qml imports the extension folder" \
   "$(grep -c 'import "extensions/wallpaper-shuffle"' "$launcher_qml")" "1"
 

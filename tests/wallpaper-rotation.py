@@ -63,6 +63,40 @@ class RotationTests(unittest.TestCase):
                 if old is None:os.environ.pop('HOME',None)
                 else:os.environ['HOME']=old
 
+    def test_ignored_wallpapers(self):
+        # Direct ask: "in the tab dropdown i wanna add a feature for
+        # ignore or like to make it not in rotation" -- excluded from
+        # BOTH sequential and shuffle's candidate pool entirely, same
+        # shared-state-file precedent as the order file (plain
+        # filenames, no IPC round-trip, written directly by the
+        # Wallpaper Shuffle extension's own Tab -> Ignore action).
+        helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
+        spec=importlib.util.spec_from_file_location('rotation_ignored',helper)
+        module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as home:
+            old=os.environ.get('HOME');os.environ['HOME']=home
+            try:
+                folder=Path(home)/'art';folder.mkdir()
+                for name in ['A.jpg','B.jpg','C.jpg']: (folder/name).write_bytes(b'x')
+                cfg=module.configure(dict(enabled=True,folder=str(folder),intervalMinutes=15))
+                Path(home,'.local/state/omarchy/current/background').parent.mkdir(parents=True)
+                ignored_path=Path(home)/'.local/state/ruixen/wallpaper-ignored.json'
+                ignored_path.write_text(json.dumps({'version':1,'ignored':['A.jpg']}))
+                self.assertEqual(module.next_artwork(cfg),str(folder/'B.jpg'))
+                shuffled=module.configure(dict(shuffle=True))
+                for _ in range(20):
+                    self.assertIn(module.next_artwork(shuffled),[str(folder/'B.jpg'),str(folder/'C.jpg')])
+                ignored_path.write_text(json.dumps({'version':1,'ignored':['A.jpg','B.jpg','C.jpg']}))
+                with self.assertRaises(ValueError):
+                    module.next_artwork(cfg)
+                # Malformed ignored file fails closed to nothing ignored,
+                # never raises.
+                ignored_path.write_text('not json')
+                self.assertEqual(module.next_artwork(cfg),str(folder/'A.jpg'))
+            finally:
+                if old is None:os.environ.pop('HOME',None)
+                else:os.environ['HOME']=old
+
     def test_rotation_and_config(self):
         helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
         spec=importlib.util.spec_from_file_location('rotation',helper)

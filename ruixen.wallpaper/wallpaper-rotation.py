@@ -62,6 +62,23 @@ def load_order():
     except (ValueError,OSError):
         return []
 
+def ignored_path():
+    return Path.home()/'.local/state/ruixen/wallpaper-ignored.json'
+
+def load_ignored():
+    # Same shape and same fail-closed reasoning as load_order() above --
+    # plain filenames, written directly by the Wallpaper Shuffle
+    # extension's own Tab -> Ignore action, no IPC round-trip. A
+    # missing/corrupt file just means nothing is ignored yet.
+    path=ignored_path()
+    if not path.exists(): return set()
+    try:
+        data=json.loads(path.read_text())
+        ignored=data.get('ignored') if isinstance(data,dict) else None
+        return set(name for name in ignored if isinstance(name,str)) if isinstance(ignored,list) else set()
+    except (ValueError,OSError):
+        return set()
+
 def next_artwork(c):
     # Video/GIF included now -- Service.qml's own pause-during-playback
     # only backs off for a video/GIF someone set manually; a video/GIF
@@ -76,6 +93,15 @@ def next_artwork(c):
                 images.append(str(Path(entry.path).resolve()))
     images=sorted(set(images))
     if not images: raise ValueError('No supported artwork in this folder')
+    # Ignored wallpapers are excluded from the candidate pool entirely,
+    # same as if they weren't in the folder -- applies to both shuffle
+    # and sequential mode since this runs before either one picks.
+    # Checked separately from the "folder is genuinely empty" case
+    # above so the error here says why, not just that nothing's there.
+    ignored=load_ignored()
+    if ignored:
+        images=[p for p in images if Path(p).name not in ignored]
+        if not images: raise ValueError('Every wallpaper in this folder is ignored')
     # Reconcile the persisted order (if any) against what's actually in
     # the folder right now, rather than trusting it as a cached file
     # list: drop anything no longer present, append anything new to the

@@ -38,6 +38,7 @@ Rectangle {
       { label: "Position", value: root.row.breadcrumb + " in queue" }
     ]
     if (root.isCurrent) out.push({ label: "Current", value: "Yes" })
+    if (root.row.ignored) out.push({ label: "Ignored", value: "Not in rotation" })
     // "Where" -- the parent folder only, ~-abbreviated, not the full
     // path to the file itself (Name above already shows the filename;
     // repeating the whole absolute path doubled up on that and read as

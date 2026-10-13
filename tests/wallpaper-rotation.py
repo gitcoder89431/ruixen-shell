@@ -19,6 +19,23 @@ class RotationTests(unittest.TestCase):
         b = root / 'ruixen.launcher/extensions/wallpapers/WallpaperRotationState.qml'
         self.assertEqual(b.read_bytes(), a.read_bytes())
 
+    def test_rotation_state_never_forces_shuffle(self):
+        # Direct correction once the Wallpaper Shuffle launcher
+        # extension's own reorderable queue existed: "all that notch
+        # thing will do is control the interval and off now, the
+        # shuffle and rotation is managed with the list in wallpaper
+        # shuffle only" -- cycleInterval()/turnOff()/selectInterval()
+        # all used to hardcode shuffle:true on every write, silently
+        # fighting the queue back into random mode. None of them should
+        # mention shuffle at all any more -- configure()'s own
+        # "preserves omitted settings" merge is what leaves it alone.
+        root = Path(__file__).resolve().parents[1]
+        qml = (root / 'bars/widgets/ruixen.notch/WallpaperRotationState.qml').read_text()
+        code_lines = [line for line in qml.splitlines() if not line.strip().startswith('//')]
+        code = '\n'.join(code_lines)
+        self.assertEqual(code.count('shuffle: true'), 0)
+        self.assertEqual(code.count('shuffle:true'), 0)
+
     def test_order_reconciliation(self):
         # The Wallpaper Shuffle launcher extension writes
         # ~/.local/state/ruixen/wallpaper-order.json directly (plain

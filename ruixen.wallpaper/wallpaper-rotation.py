@@ -42,6 +42,26 @@ def configure(data):
         if os.path.exists(tmp): os.unlink(tmp)
     return current
 
+def order_path():
+    return Path.home()/'.local/state/ruixen/wallpaper-order.json'
+
+def load_order():
+    # Plain filenames, not full paths -- same file the Wallpaper
+    # Shuffle launcher extension writes directly (no IPC round-trip
+    # needed for this, same "shared state file, multiple writers"
+    # precedent wallpaper-appearance.json already uses). Fails closed
+    # to an empty order rather than raising: a missing/corrupt order
+    # file should just mean "no explicit order yet", never break
+    # rotation outright.
+    path=order_path()
+    if not path.exists(): return []
+    try:
+        data=json.loads(path.read_text())
+        order=data.get('order') if isinstance(data,dict) else None
+        return [name for name in order if isinstance(name,str)] if isinstance(order,list) else []
+    except (ValueError,OSError):
+        return []
+
 def next_artwork(c):
     # Video/GIF included now -- Service.qml's own pause-during-playback
     # only backs off for a video/GIF someone set manually; a video/GIF
@@ -56,6 +76,22 @@ def next_artwork(c):
                 images.append(str(Path(entry.path).resolve()))
     images=sorted(set(images))
     if not images: raise ValueError('No supported artwork in this folder')
+    # Reconcile the persisted order (if any) against what's actually in
+    # the folder right now, rather than trusting it as a cached file
+    # list: drop anything no longer present, append anything new to the
+    # end. No persisted order yet means this is a no-op -- `images` was
+    # already alphabetical, same default as before the Wallpaper
+    # Shuffle extension existed.
+    by_name={Path(p).name:p for p in images}
+    seen=set(); ordered=[]
+    for name in load_order():
+        if name in by_name and name not in seen:
+            ordered.append(by_name[name]); seen.add(name)
+    for p in images:
+        name=Path(p).name
+        if name not in seen:
+            ordered.append(p); seen.add(name)
+    images=ordered
     current=str((Path.home()/'.local/state/omarchy/current/background').resolve())
     if c.get('shuffle', False):
         return random.choice([image for image in images if image != current] or images)

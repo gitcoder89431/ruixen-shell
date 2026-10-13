@@ -19,6 +19,50 @@ class RotationTests(unittest.TestCase):
         b = root / 'ruixen.launcher/extensions/wallpapers/WallpaperRotationState.qml'
         self.assertEqual(b.read_bytes(), a.read_bytes())
 
+    def test_order_reconciliation(self):
+        # The Wallpaper Shuffle launcher extension writes
+        # ~/.local/state/ruixen/wallpaper-order.json directly (plain
+        # filenames, no IPC round-trip -- same shared-state-file
+        # precedent wallpaper-appearance.json already uses), and
+        # next_artwork reconciles it against the live folder on every
+        # call: explicit order wins, a file no longer present is
+        # dropped silently, a file not yet in the order is appended at
+        # the end rather than breaking the whole sequence.
+        helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
+        spec=importlib.util.spec_from_file_location('rotation_order',helper)
+        module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as home:
+            old=os.environ.get('HOME');os.environ['HOME']=home
+            try:
+                folder=Path(home)/'art';folder.mkdir()
+                for name in ['A.jpg','B.jpg','C.jpg']: (folder/name).write_bytes(b'x')
+                cfg=module.configure(dict(enabled=True,folder=str(folder),intervalMinutes=15))
+                bg=Path(home)/'.local/state/omarchy/current/background';bg.parent.mkdir(parents=True)
+                # No order file yet -- falls back to alphabetical, same
+                # as before this feature existed.
+                self.assertEqual(module.next_artwork(cfg),str(folder/'A.jpg'))
+                order_path=Path(home)/'.local/state/ruixen/wallpaper-order.json'
+                order_path.write_text(json.dumps({'version':1,'order':['C.jpg','A.jpg','B.jpg']}))
+                bg.symlink_to(folder/'C.jpg')
+                self.assertEqual(module.next_artwork(cfg),str(folder/'A.jpg'))
+                # A file referenced by the order but deleted from disk
+                # is dropped silently, not an error.
+                (folder/'A.jpg').unlink()
+                self.assertEqual(module.next_artwork(cfg),str(folder/'B.jpg'))
+                # A file that exists but was never in the order is
+                # appended at the end, not inserted mid-sequence.
+                (folder/'D.jpg').write_bytes(b'x')
+                bg.unlink();bg.symlink_to(folder/'B.jpg')
+                self.assertEqual(module.next_artwork(cfg),str(folder/'D.jpg'))
+                # Malformed order file fails closed to no explicit
+                # order (alphabetical), never raises.
+                order_path.write_text('not json')
+                bg.unlink();bg.symlink_to(folder/'B.jpg')
+                self.assertEqual(module.next_artwork(cfg),str(folder/'C.jpg'))
+            finally:
+                if old is None:os.environ.pop('HOME',None)
+                else:os.environ['HOME']=old
+
     def test_rotation_and_config(self):
         helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
         spec=importlib.util.spec_from_file_location('rotation',helper)

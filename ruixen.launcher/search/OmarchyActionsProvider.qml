@@ -265,6 +265,19 @@ Item {
       keybind: root.keybindFor("Clipboard History"),
       action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"clipboard\"}'"
     },
+    // Same gap again, for the Wallpaper Shuffle extension --
+    // wallpaperShuffleRow() in Launcher.qml only ever appears on the
+    // empty-query landing list otherwise, same real limitation every
+    // other extension here already had before its own synthetic entry.
+    "ruixen.wallpaper-shuffle": {
+      icon: "",
+      label: "Wallpaper Shuffle",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      aliases: ["order", "queue", "reorder", "rotation"],
+      keybind: root.keybindFor("Wallpaper Shuffle"),
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"wallpaper-shuffle\"}'"
+    },
     // "bjarneo" alone wouldn't match this label at all (their name
     // credits the catalog in the label, not an alias -- see
     // themeBrowserRow()'s own comment in Launcher.qml), so it goes

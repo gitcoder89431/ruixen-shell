@@ -34,8 +34,10 @@ check "OmarchyActionsProvider has a synthetic ruixen.clipboard entry" \
   "$(( $(grep -c '"ruixen.clipboard": {' "$actions_qml") + $(grep -c 'label: "Clipboard History"' "$actions_qml") + $(grep -c 'extension\\":\\"clipboard\\"' "$actions_qml") ))" "3"
 check "OmarchyActionsProvider has a synthetic ruixen.theme-browser entry" \
   "$(( $(grep -c '"ruixen.theme-browser": {' "$actions_qml") + $(grep -c 'label: "Bjarneo Themes"' "$actions_qml") + $(grep -c 'extension\\":\\"theme-browser\\"' "$actions_qml") ))" "3"
-check "All three new synthetic entries are tagged Extension, same kind as every other extension row" \
-  "$(grep -c 'kind: "Extension"' "$actions_qml")" "5"
+check "OmarchyActionsProvider has a synthetic ruixen.wallpaper-shuffle entry" \
+  "$(( $(grep -c '"ruixen.wallpaper-shuffle": {' "$actions_qml") + $(grep -c 'label: "Wallpaper Shuffle"' "$actions_qml") + $(grep -c 'extension\\":\\"wallpaper-shuffle\\"' "$actions_qml") ))" "3"
+check "All four new synthetic entries are tagged Extension, same kind as every other extension row" \
+  "$(grep -c 'kind: "Extension"' "$actions_qml")" "6"
 
 check "Launcher.qml jumps in-process for the synthetic Cliamp Radio row, same as Settings/Wallpapers, instead of shelling out and closing itself" \
   "$(grep -A5 'result.id === "omarchy:ruixen.cliamp"' "$launcher_qml" | grep -c 'activeExtensionId = "cliamp"\|recordLaunch("ruixen.cliamp")')" "2"
@@ -43,6 +45,8 @@ check "Launcher.qml jumps in-process for the synthetic Clipboard History row" \
   "$(grep -A5 'result.id === "omarchy:ruixen.clipboard"' "$launcher_qml" | grep -c 'activeExtensionId = "clipboard"\|recordLaunch("ruixen.clipboard")')" "2"
 check "Launcher.qml jumps in-process for the synthetic Bjarneo Themes row" \
   "$(grep -A5 'result.id === "omarchy:ruixen.theme-browser"' "$launcher_qml" | grep -c 'activeExtensionId = "theme-browser"\|recordLaunch("ruixen.theme-browser")')" "2"
+check "Launcher.qml jumps in-process for the synthetic Wallpaper Shuffle row" \
+  "$(grep -A5 'result.id === "omarchy:ruixen.wallpaper-shuffle"' "$launcher_qml" | grep -c 'activeExtensionId = "wallpaper-shuffle"\|recordLaunch("ruixen.wallpaper-shuffle")')" "2"
 
 check "run-all includes the extension search discoverability contract" \
   "$(grep -c 'launcher-extension-search-discoverability\.sh' "$script_dir/run-all.sh")" "1"

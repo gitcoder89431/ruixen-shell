@@ -194,6 +194,30 @@ Radio is the only cliamp provider this extension drives today — your
 own library, playlists, and the other streaming providers cliamp
 supports stay in cliamp's own TUI for now.
 
+## Wallpaper Shuffle
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"wallpaper-shuffle"}'` — see
+[`docs/KEYBINDS.md`](KEYBINDS.md)) for ordering the artwork rotation's
+own shuffle queue — separate from the Wallpapers extension's own
+appearance/effects panel, and from that extension's grid layout, which
+doesn't fit a reorderable list. Lists every image, GIF, and video in
+`~/Pictures/ruixen-wallpapers` (the same folder rotation already reads
+from — no folder picker here) with a live preview on the right.
+
+- **Enter** or click a row to set it as the wallpaper right now.
+- **Tab** opens that row's actions: **Move up** / **Move down** (only
+  the directions actually legal from that position are shown).
+  Reordering writes `~/.local/state/ruixen/wallpaper-order.json`
+  directly (plain filenames, no IPC round-trip) — the same file
+  `ruixen.wallpaper`'s own rotation reads and reconciles against the
+  live folder on every pick: your explicit order wins, a file that's
+  been removed drops out silently, and a new file not yet in the order
+  appends at the end rather than breaking the sequence. Shuffle mode
+  still picks randomly rather than stepping through this order in
+  sequence, but it only ever picks from what's actually in the folder,
+  same as this list shows.
+
 ## Configuring search locations
 
 By default, Search Files walks your home directory plus every

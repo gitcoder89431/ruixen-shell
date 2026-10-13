@@ -31,6 +31,12 @@ Rectangle {
   // Skips anything with no value, same reasoning CliampStationPanel.qml's
   // own metadataFields comment gives: never leave the zebra tint (by
   // array position) with a gap over an empty row.
+  //
+  // No "Current" row -- direct ask: "we dont need the current Yes in
+  // the metadata zebra group". The CURRENT badge already sits right on
+  // the preview image itself, so a Current/Yes row below it only ever
+  // repeated what's already shown, never carried new information the
+  // way Ignored (not visible elsewhere on this panel) does.
   readonly property var metadataFields: {
     if (!root.row) return []
     var out = [
@@ -38,7 +44,6 @@ Rectangle {
       { label: "Kind", value: root.row.kind },
       { label: "Position", value: root.row.breadcrumb + " in queue" }
     ]
-    if (root.isCurrent) out.push({ label: "Current", value: "Yes" })
     if (root.row.ignored) out.push({ label: "Ignored", value: "Not in rotation" })
     // "Where" -- the parent folder only, ~-abbreviated, not the full
     // path to the file itself (Name above already shows the filename;

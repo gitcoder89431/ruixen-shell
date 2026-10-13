@@ -1100,6 +1100,7 @@ Item {
       disableMotion: appearancePanel.settings.disableMotion === true
       softness: appearancePanel.settings.transitionSoftness || .02
       accent: root.accent
+      showFrame: false
     }
   }
 

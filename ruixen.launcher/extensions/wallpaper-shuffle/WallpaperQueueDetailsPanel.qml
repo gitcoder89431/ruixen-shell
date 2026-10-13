@@ -1,11 +1,16 @@
 import QtQuick
 
-// Right-pane preview for the selected queue entry -- deliberately
-// simple compared to ClipboardDetailsPanel.qml's own richer metadata
-// list: a wallpaper's own content IS the useful detail here, not a
-// field list, so this is mostly a large preview image plus the handful
-// of facts that actually matter (filename, kind, queue position,
-// whether it's the one currently on screen).
+// Right-pane preview for the selected queue entry -- a large preview
+// image on top, then zebra-striped metadata rows below it, same shape
+// FileDetailsPanel.qml originated and ThemeBrowserContent.qml/
+// CliampStationPanel.qml's own right panes already reuse (that file's
+// own header comment: "a featured box on top, then a 'Metadata' header
+// and zebra-striped label/value rows below it"). Direct correction:
+// "we dont need a set as wallpaper now, maybe put that in the tab
+// dropdown too... just make the stuff under preview use metadata info
+// with the zebra stripe pattern" -- applying now moved to the Tab
+// actions menu (WallpaperShuffleContent.qml's own shuffleActions),
+// this panel is purely informational now.
 Rectangle {
   id: root
 
@@ -18,7 +23,20 @@ Rectangle {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
 
-  signal applyRequested()
+  // Skips anything with no value, same reasoning CliampStationPanel.qml's
+  // own metadataFields comment gives: never leave the zebra tint (by
+  // array position) with a gap over an empty row.
+  readonly property var metadataFields: {
+    if (!root.row) return []
+    var out = [
+      { label: "Name", value: root.row.label },
+      { label: "Kind", value: root.row.kind },
+      { label: "Position", value: root.row.breadcrumb + " in queue" }
+    ]
+    if (root.isCurrent) out.push({ label: "Current", value: "Yes" })
+    if (root.entry) out.push({ label: "Path", value: root.entry.real })
+    return out
+  }
 
   color: "transparent"
   radius: 12
@@ -27,7 +45,7 @@ Rectangle {
   Column {
     anchors.fill: parent
     anchors.margins: 16
-    spacing: 12
+    spacing: 16
     visible: root.entry !== null
 
     Rectangle {
@@ -67,49 +85,70 @@ Rectangle {
     }
 
     Text {
-      width: parent.width
-      text: root.row ? root.row.label : ""
-      color: root.textColor
-      font.family: root.fontFamily
-      font.pixelSize: 13
-      elide: Text.ElideMiddle
-    }
-
-    Text {
-      width: parent.width
-      text: root.row ? (root.row.kind + " · " + root.row.breadcrumb + " in queue") : ""
+      text: "Metadata"
       color: root.muted
       font.family: root.fontFamily
-      font.pixelSize: 11
+      font.pixelSize: 10
+      font.capitalization: Font.AllUppercase
+      font.bold: true
     }
 
-    Rectangle {
-      width: applyLabel.implicitWidth + 24
-      height: 30
-      radius: 8
-      color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, .15)
-      border.width: 1
-      border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, .4)
+    // Same zebra-striping shape as FileDetailsPanel.qml's own Repeater:
+    // label left (muted, uppercase), value right (elided middle), an
+    // outdented tint Rectangle behind even-index rows only.
+    Column {
+      width: parent.width
+      spacing: 0
 
-      Text {
-        id: applyLabel
-        anchors.centerIn: parent
-        text: "Set as wallpaper now"
-        color: root.accent
-        font.family: root.fontFamily
-        font.pixelSize: 11
-      }
+      Repeater {
+        model: root.metadataFields
 
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.applyRequested()
+        Item {
+          id: field
+          required property var modelData
+          required property int index
+          width: parent.width
+          height: 26
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: -10
+            anchors.rightMargin: -10
+            anchors.topMargin: -2
+            anchors.bottomMargin: -2
+            radius: 4
+            color: field.index % 2 === 0 ? Qt.rgba(0, 0, 0, 0.18) : "transparent"
+          }
+
+          Text {
+            id: fieldLabel
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: field.modelData.label
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: 11
+            font.capitalization: Font.AllUppercase
+          }
+          Text {
+            anchors.left: fieldLabel.right
+            anchors.leftMargin: 12
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignRight
+            elide: Text.ElideMiddle
+            text: field.modelData.value
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 12
+          }
+        }
       }
     }
 
     Text {
       width: parent.width
-      text: "Tab for Move up/Move down"
+      text: "Tab for actions (Set as wallpaper, Move up/down)"
       color: root.muted
       font.family: root.fontFamily
       font.pixelSize: 10

@@ -132,12 +132,16 @@ Item {
   property int actionsSelectedIndex: 0
   property real actionsMenuX: 0
   property real actionsMenuY: 0
-  // Only the two directions that are actually legal from here -- no
-  // disabled-but-visible entries, same "just don't show it" approach
-  // Clipboard's own clipboardActions already takes for its own
-  // conditional entries (QR/reveal/etc.).
+  // "Set as wallpaper" plus only the directions actually legal from
+  // here -- no disabled-but-visible Move entries, same "just don't
+  // show it" approach Clipboard's own clipboardActions already takes
+  // for its own conditional entries (QR/reveal/etc.). Direct
+  // correction: "we dont need a set as wallpaper now [button in the
+  // detail panel], maybe put that in the tab dropdown too" -- Enter
+  // still does the same thing as a quick default, this just stops
+  // being the ONLY way to reach it.
   readonly property var shuffleActions: {
-    var out = []
+    var out = [{ id: "apply", label: "Set as wallpaper" }]
     if (root.selectedIndex > 0) out.push({ id: "up", label: "Move up" })
     if (root.selectedIndex < root.rows.length - 1) out.push({ id: "down", label: "Move down" })
     return out
@@ -199,7 +203,8 @@ Item {
   }
 
   function runAction(id) {
-    if (id === "up") root.moveSelected(-1)
+    if (id === "apply") root.applySelected()
+    else if (id === "up") root.moveSelected(-1)
     else if (id === "down") root.moveSelected(1)
     root.closeActionsMenu()
   }
@@ -375,6 +380,5 @@ Item {
     muted: root.muted
     accent: root.accent
     fontFamily: root.fontFamily
-    onApplyRequested: root.applySelected()
   }
 }

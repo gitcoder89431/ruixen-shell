@@ -144,5 +144,14 @@ check "the Enter-hint chip falls back to the plain glyph when no mode supplies a
 check "Launcher.qml wires the Shuffle hint text into the chip only while Wallpaper Shuffle is the active extension" \
   "$(grep -Fc 'settingsHintOverrideText: root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent.shuffleHintText : ""' "$launcher_qml")" "1"
 
+check "the countdown/Paused chip reads accent color, not muted -- direct report: \"the clock and pause is abit hard to read\"" \
+  "$(grep -A4 'id: settingsHintOverrideLabel' "$search_header_qml" | grep -Fc 'color: root.accentColor')" "1"
+
+check "the chip's own background/border tint accent too whenever an override is showing, not just the text" \
+  "$(grep -Fc 'root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.18' "$search_header_qml")" "1"
+
+check "Launcher.qml wires accentColor into SearchHeader" \
+  "$(awk '/^      SearchHeader \{/,/^      \}/' "$launcher_qml" | grep -Fc 'accentColor: root.accent')" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

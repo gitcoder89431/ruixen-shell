@@ -1859,6 +1859,7 @@ Item {
         }
         textColor: root.textColor
         mutedColor: root.muted
+        accentColor: root.accent
         fontFamily: root.fontFamily
         onTextChanged: root.query = text
         // Seeds the keyboard highlight whenever the dropdown opens,

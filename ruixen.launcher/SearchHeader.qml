@@ -89,6 +89,11 @@ Item {
 
   property color textColor: "#ffffff"
   property color mutedColor: "#888888"
+  // Only read by the Wallpaper Shuffle countdown/Paused override below
+  // -- direct report: "the clock and pause is abit hard to read, maybe
+  // put them in accent color text chips". Every other mode's plain "↵"
+  // stays mutedColor, unchanged.
+  property color accentColor: "#ffffff"
   property string fontFamily: ""
 
   // Two-way: Launcher.qml clears this on close (`searchHeader.text =
@@ -308,16 +313,25 @@ Item {
     width: root.settingsHintOverrideText !== "" ? (settingsHintOverrideLabel.implicitWidth + 16) : 28
     height: 22
     radius: 6
-    color: Qt.rgba(1, 1, 1, 0.06)
+    // Accent-tinted whenever an override (Wallpaper Shuffle's own
+    // countdown/Paused) is actually showing, same tinted-bg/border
+    // language the interval chips themselves already use for "this
+    // reads as a live, lit-up value" -- plain neutral otherwise, same
+    // as every other mode's bare "↵" always was.
+    color: root.settingsHintOverrideText !== ""
+      ? Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.18)
+      : Qt.rgba(1, 1, 1, 0.06)
     border.width: 1
-    border.color: Qt.rgba(1, 1, 1, 0.12)
+    border.color: root.settingsHintOverrideText !== ""
+      ? Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.45)
+      : Qt.rgba(1, 1, 1, 0.12)
 
     Text {
       id: settingsHintOverrideLabel
       anchors.centerIn: parent
       visible: root.settingsHintOverrideText !== ""
       text: root.settingsHintOverrideText
-      color: root.mutedColor
+      color: root.accentColor
       font.family: root.fontFamily
       font.pixelSize: 11
     }

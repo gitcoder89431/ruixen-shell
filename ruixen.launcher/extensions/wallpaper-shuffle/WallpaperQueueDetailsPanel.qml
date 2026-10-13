@@ -1,4 +1,6 @@
 import QtQuick
+import Quickshell
+import "../../search/LauncherHelpers.js" as LauncherHelpers
 
 // Right-pane preview for the selected queue entry -- a large preview
 // image on top, then zebra-striped metadata rows below it, same shape
@@ -23,6 +25,8 @@ Rectangle {
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
 
+  readonly property string homeDir: Quickshell.env("HOME")
+
   // Skips anything with no value, same reasoning CliampStationPanel.qml's
   // own metadataFields comment gives: never leave the zebra tint (by
   // array position) with a gap over an empty row.
@@ -34,7 +38,13 @@ Rectangle {
       { label: "Position", value: root.row.breadcrumb + " in queue" }
     ]
     if (root.isCurrent) out.push({ label: "Current", value: "Yes" })
-    if (root.entry) out.push({ label: "Path", value: root.entry.real })
+    // "Where" -- the parent folder only, ~-abbreviated, not the full
+    // path to the file itself (Name above already shows the filename;
+    // repeating the whole absolute path doubled up on that and read as
+    // deeply nested for no reason). Same field name and
+    // LauncherHelpers.parentDirOf() the main search results' own
+    // details panel already uses for file results.
+    if (root.entry) out.push({ label: "Where", value: LauncherHelpers.parentDirOf(root.entry.real, root.homeDir) })
     return out
   }
 
@@ -144,14 +154,6 @@ Rectangle {
           }
         }
       }
-    }
-
-    Text {
-      width: parent.width
-      text: "Tab for actions (Set as wallpaper, Move up/down)"
-      color: root.muted
-      font.family: root.fontFamily
-      font.pixelSize: 10
     }
   }
 

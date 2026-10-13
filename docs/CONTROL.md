@@ -202,7 +202,11 @@ omarchy-shell ruixen-wallpaper-rotation next
 `configure` accepts one JSON object argument, validates and persists it
 asynchronously, and preserves omitted settings. Poll `status` afterward for the
 applied values and any `error`. `next` advances once even with automatic rotation
-disabled; active video/GIF playback pauses both manual and scheduled advancement.
+disabled. Video/GIF are real rotation candidates, routed through
+`ruixen.wallpaper`'s own playback IPC rather than the plain static-image
+setter; rotation only pauses for a video/GIF set from outside rotation
+(either picker), never for one it picked itself -- that keeps advancing on
+schedule exactly like it would from an image.
 `shuffle` accepts a boolean (default `false`); when enabled, both scheduled and
 manual advancement choose randomly and avoid the current image when possible.
 Defaults are disabled, `~/Pictures/ruixen-wallpapers`, and 15 minutes. Changing

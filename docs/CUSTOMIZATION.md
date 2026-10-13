@@ -149,11 +149,15 @@ no separate on/off for that. Always reads from
 `~/Pictures/ruixen-wallpapers`, the same folder the rest of the picker
 already shows artwork from.
 
-The persistent `ruixen.wallpaper` service rotates PNG, JPEG, WebP, and AVIF
-images in that folder at random, without repeating the current image when
-alternatives exist. Subfolders and video/GIF files are excluded.
-Rotation pauses during video/GIF playback and starts a fresh interval afterward.
-Settings survive shell restarts in
+The persistent `ruixen.wallpaper` service rotates PNG, JPEG, WebP, AVIF,
+GIF, and video (MP4/MKV/WebM/MOV/M4V) files in that folder at random,
+without repeating the current image when alternatives exist. Subfolders
+are excluded. Landing on a video/GIF plays it through the same renderer
+the picker itself uses, not a plain static image -- rotation still
+advances on schedule from there, same as it would from an image.
+Rotation only pauses for a video/GIF set OUTSIDE of rotation (picked
+directly from either picker), and starts a fresh interval once something
+else is set. Settings survive shell restarts in
 `~/.local/state/ruixen/wallpaper-rotation.json`. New installations default to off;
 rotation never edits the theme's wallpaper collection. Disable any independent
 wallpaper-rotation timer before enabling this feature to avoid competing changes.

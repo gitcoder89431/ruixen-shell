@@ -75,6 +75,18 @@ check "rotation itself (not just the UI) excludes ignored wallpapers, both shuff
 check "the extension carries its own copy of WallpaperRotationState.qml (third copy, same plugin-folders-can't-share-files convention)" \
   "$([[ -f "$repo_dir/ruixen.launcher/extensions/wallpaper-shuffle/WallpaperRotationState.qml" ]] && echo yes || echo no)" "yes"
 
+check "the left-edge icon has a per-kind default (video/gif/image), not one glyph for every row" \
+  "$(grep -Fc 'function kindIcon(kind)' "$content_qml")" "1"
+
+check "video and gif each branch to their own glyph in kindIcon, not falling through to the same default" \
+  "$(grep -A4 'function kindIcon(kind)' "$content_qml" | grep -Fc 'kind === "video"')" "1"
+
+check "rowIcon forwards kind through to kindIcon for the plain (non-current, non-ignored) case" \
+  "$(grep -Fc 'return root.kindIcon(kind)' "$content_qml")" "1"
+
+check "the row builder actually passes each entry's own kind, not a hardcoded default" \
+  "$(grep -Fc 'root.rowIcon(isCurrent, ignored, e.kind)' "$content_qml")" "1"
+
 check "the first chip is a merged Shuffle On/Off toggle, not a fifth peer interval option" \
   "$(grep -Fc 'text: shuffleToggleChip.on ? "On" : "Off"' "$content_qml")" "1"
 

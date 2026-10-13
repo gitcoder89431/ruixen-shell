@@ -140,14 +140,31 @@ Item {
   // Stateful left-edge icon -- direct request: three states, current
   // (fa-check-circle, U+F058 -- the SAME glyph ThemeCatalog.js's own
   // currentSlug row already uses for "this is the one actually active
-  // right now", not a new pick) beats ignored beats the plain default
-  // (fa-file-image-o, U+F1C5, same glyph ClipboardHistory.js's own
-  // Image kind already uses) since a wallpaper can't be both at once
-  // in a way that matters more than being current.
-  function rowIcon(isCurrent, ignored) {
+  // right now", not a new pick) beats ignored beats the plain
+  // per-kind default, since a wallpaper can't be both at once in a way
+  // that matters more than being current.
+  //
+  // Per-kind default -- direct follow-up: "can we have diffirent
+  // icons for types too like image gif and video instead of all the
+  // same". No existing glyph to port for video/GIF (this codebase's
+  // only prior per-kind icon, ClipboardHistory.js's own Image kind,
+  // never had a video/GIF counterpart to reuse), so these are new
+  // picks, verified by codepoint rather than guessed by eye (same
+  // lesson this file's own icon work hit earlier): fa-file-image-o
+  // (U+F1C5, same glyph as before, image unchanged), fa-file-video-o
+  // (U+F1C8, same "file-o" family as image for a visually consistent
+  // pair), fa-film (U+F008, a filmstrip rather than another file-o
+  // glyph -- GIF is the one kind that's actually animated, so it
+  // reads differently from "this is a video FILE" on purpose).
+  function kindIcon(kind) {
+    if (kind === "video") return ""
+    if (kind === "gif") return ""
+    return ""
+  }
+  function rowIcon(isCurrent, ignored, kind) {
     if (isCurrent) return ""
     if (ignored) return ""
-    return ""
+    return root.kindIcon(kind)
   }
   function rowIconColor(isCurrent, ignored) {
     if (isCurrent) return root.accent
@@ -167,7 +184,7 @@ Item {
       out.push({
         id: "wallpaper-shuffle:" + e.identity,
         providerId: "wallpaper-shuffle-queue",
-        icon: root.rowIcon(isCurrent, ignored),
+        icon: root.rowIcon(isCurrent, ignored, e.kind),
         iconColor: root.rowIconColor(isCurrent, ignored),
         label: name,
         breadcrumb: (ignored ? "Ignored · " : "") + (i + 1) + " of " + root.orderedEntries.length,

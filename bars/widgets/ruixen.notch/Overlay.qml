@@ -2740,6 +2740,14 @@ Item {
                 secondary: root.themeSecondaryColor
                 dangerColor: root.kanbanDangerColor
                 fontFamily: root.fontFamily
+                // The jump button itself runs the actual launcher
+                // IPC call (see its own comment); this only collapses
+                // the notch on the way out, same property
+                // closeDashboard() above sets -- jumping to the
+                // launcher's Wallpaper Shuffle extension with the
+                // notch still expanded underneath it would look like
+                // two overlays stacked on top of each other.
+                onOpenWallpaperShuffleRequested: panel.pinnedOpen = false
               }
 
               MetricsContent {

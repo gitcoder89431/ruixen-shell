@@ -211,6 +211,15 @@ Item {
   // like this file's wallpaper selection above it).
   property string mediaMode: "wallpapers"
 
+  // Direct ask: "next to the Top arrow... add the wallpaper shuffle
+  // icon there and then clicking it would open the wallpaper shuffle
+  // extension from the expanded notch" -- this file launches the jump
+  // itself (openWallpaperShuffleProc below, same self-contained
+  // Process-per-action shape every other button here already uses),
+  // but only Overlay.qml's own `panel` owns whether the notch is
+  // expanded, so collapsing it on the way out has to bubble up.
+  signal openWallpaperShuffleRequested()
+
   // Each entry: { name, display, preview }. name is the theme
   // directory's basename -- the exact string passed to
   // omarchy-theme-set (which re-normalizes case/dashes itself).
@@ -451,6 +460,18 @@ Item {
 
   Process {
     id: markCurrentProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  // Jumps to the launcher's own Wallpaper Shuffle extension -- same
+  // omarchy-shell wrapper (resolved $OMARCHY_PATH, a real timeout)
+  // every other shell call in this file already uses, same "toggle +
+  // extension payload" shape the launcher's own keybind recipes use
+  // (docs/KEYBINDS.md). "toggle", not "summon" -- there's no specific
+  // settings section to land on, just the extension itself.
+  Process {
+    id: openWallpaperShuffleProc
+    command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"wallpaper-shuffle\"}"]
     stdout: StdioCollector { waitForEnd: true }
   }
 
@@ -1090,6 +1111,48 @@ Item {
       }
 
       Item { Layout.fillWidth: true }
+
+      // Direct ask: "next to the Top arrow that comes active when we
+      // scroll, to the left of it, can you add the wallpaper shuffle
+      // icon there and then clicking it would open the wallpaper
+      // shuffle extension from the expanded notch" -- same icon-button
+      // shape as Back to top right after it, but always active (no
+      // scroll state to gate on) and wallpapers-mode only, since
+      // Wallpaper Shuffle's own reorderable queue is a wallpaper-
+      // specific concept with no Theme equivalent. fa-shuffle
+      // (U+F074), the same glyph the launcher's own landing row and
+      // search entry already use for this extension, so it reads as
+      // the same feature wherever it shows up.
+      Rectangle {
+        id: openWallpaperShuffleButton
+        visible: root.mediaMode === "wallpapers"
+        readonly property bool filled: openWallpaperShuffleArea.containsMouse
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        radius: 8
+        color: openWallpaperShuffleButton.filled ? root.secondary : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Text {
+          anchors.centerIn: parent
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: openWallpaperShuffleButton.filled ? "#000000" : root.secondary
+        }
+
+        MouseArea {
+          id: openWallpaperShuffleArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            openWallpaperShuffleProc.running = true
+            root.openWallpaperShuffleRequested()
+          }
+        }
+      }
 
       // Back to top -- moved here from the right sidebar (direct
       // follow-up: "move the top button up to the same top row but

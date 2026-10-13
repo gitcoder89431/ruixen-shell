@@ -2748,6 +2748,9 @@ Item {
                 // notch still expanded underneath it would look like
                 // two overlays stacked on top of each other.
                 onOpenWallpaperShuffleRequested: panel.pinnedOpen = false
+                // Same reasoning, for the Wallpapers Effects jump
+                // button right next to it.
+                onOpenWallpaperEffectsRequested: panel.pinnedOpen = false
               }
 
               MetricsContent {

@@ -219,6 +219,10 @@ Item {
   // but only Overlay.qml's own `panel` owns whether the notch is
   // expanded, so collapsing it on the way out has to bubble up.
   signal openWallpaperShuffleRequested()
+  // Same follow-up, for the launcher's Wallpapers Effects extension --
+  // direct ask: "can we do one for the wallpapers effect icon too
+  // that does that so users know we have these 2 other menus".
+  signal openWallpaperEffectsRequested()
 
   // Each entry: { name, display, preview }. name is the theme
   // directory's basename -- the exact string passed to
@@ -472,6 +476,17 @@ Item {
   Process {
     id: openWallpaperShuffleProc
     command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"wallpaper-shuffle\"}"]
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  // Same jump, for the launcher's Wallpapers Effects extension --
+  // "wallpapers" is still the real extension id/payload value (the
+  // rename to "Wallpapers Effects" was display-text only, see
+  // Launcher.qml's own wallpapersRow() comment; the id Launcher.qml's
+  // payload handler actually matches against never changed).
+  Process {
+    id: openWallpaperEffectsProc
+    command: ["omarchy-shell", "shell", "toggle", "ruixen.launcher", "{\"extension\":\"wallpapers\"}"]
     stdout: StdioCollector { waitForEnd: true }
   }
 
@@ -1111,6 +1126,45 @@ Item {
       }
 
       Item { Layout.fillWidth: true }
+
+      // Direct follow-up, right after the Shuffle jump button below:
+      // "can we do one for the wallpapers effect icon too that does
+      // that so users know we have these 2 other menus" -- same shape
+      // again, this time for the launcher's Wallpapers Effects
+      // extension (its own transition/effect chip panel). fa-image
+      // (U+F03E), the exact same glyph wallpapersRow() uses for this
+      // extension's own landing-list icon in Launcher.qml, so it
+      // reads as the same feature there too.
+      Rectangle {
+        id: openWallpaperEffectsButton
+        visible: root.mediaMode === "wallpapers"
+        readonly property bool filled: openWallpaperEffectsArea.containsMouse
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        radius: 8
+        color: openWallpaperEffectsButton.filled ? root.secondary : root.surfaceTint(0.04)
+        border.width: 1
+        border.color: root.surfaceTint(0.12)
+
+        Text {
+          anchors.centerIn: parent
+          text: ""
+          font.family: root.fontFamily
+          font.pixelSize: 12
+          color: openWallpaperEffectsButton.filled ? "#000000" : root.secondary
+        }
+
+        MouseArea {
+          id: openWallpaperEffectsArea
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            openWallpaperEffectsProc.running = true
+            root.openWallpaperEffectsRequested()
+          }
+        }
+      }
 
       // Direct ask: "next to the Top arrow that comes active when we
       // scroll, to the left of it, can you add the wallpaper shuffle

@@ -330,11 +330,14 @@ Item {
     id: content
     anchors.fill: parent
     clip: true
-    // Tight and uniform now -- Transition's label/chips, Effect's
-    // label/chips, all 6px apart, one cluster ("chips up top"). The
-    // one real gap (before the slider section) is a manual spacer
-    // Item below instead of a second Layout's own spacing value.
-    spacing: 6
+    // Tight and uniform now -- every label/chip-row/slider-row 4px
+    // apart (was 6 -- direct report: adding the Shuffle group between
+    // Transition and Effect pushed Speed's row past this panel's fixed
+    // clipped height whenever Matrix shows both sliders, cutting it off
+    // instead of scrolling). The one real extra gap (before the slider
+    // section) is a manual spacer Item below instead of a second
+    // Layout's own spacing value.
+    spacing: 4
 
     Text { text: "Transition"; color: root.hintColor; font.family: root.fontFamily; font.pixelSize: 11 }
     // Packed rows, not Flow -- see root.packTransitionRows's own
@@ -478,7 +481,7 @@ Item {
     // sidesteps whatever caused that instead of chasing it further.
     // clip:true above catches this section if it ever runs past the
     // panel's fixed height instead of spilling into the grid below.
-    Item { height: 10; visible: root.backgroundEffectOn }
+    Item { height: 6; visible: root.backgroundEffectOn }
     RowLayout {
       width: content.width
       visible: root.backgroundEffectOn

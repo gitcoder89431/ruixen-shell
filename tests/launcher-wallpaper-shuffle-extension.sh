@@ -15,6 +15,8 @@ repo_dir="$(cd -- "$script_dir/.." && pwd)"
 content_qml="$repo_dir/ruixen.launcher/extensions/wallpaper-shuffle/WallpaperShuffleContent.qml"
 details_qml="$repo_dir/ruixen.launcher/extensions/wallpaper-shuffle/WallpaperQueueDetailsPanel.qml"
 launcher_qml="$repo_dir/ruixen.launcher/Launcher.qml"
+search_header_qml="$repo_dir/ruixen.launcher/SearchHeader.qml"
+rotation_qml="$repo_dir/ruixen.wallpaper/WallpaperRotation.qml"
 
 pass=0
 fail_count=0
@@ -101,10 +103,34 @@ check "Launcher.qml imports the extension folder" \
   "$(grep -c 'import "extensions/wallpaper-shuffle"' "$launcher_qml")" "1"
 
 check "Launcher.qml's activeExtensionContent dispatch includes wallpaper-shuffle" \
-  "$(grep -Fc 'root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent' "$launcher_qml")" "1"
+  "$(grep -Fc 'root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent : null' "$launcher_qml")" "1"
 
 check "the extension is instantiated in the content area" \
   "$(grep -c 'WallpaperShuffleContent {' "$launcher_qml")" "1"
+
+check "the rotation service tracks when the clock will next fire" \
+  "$(grep -Fc 'property real nextRotationAt: 0' "$rotation_qml")" "1"
+
+check "nextRotationAt is reset to 0 (not left stale) whenever the clock stops" \
+  "$(grep -A8 'function resetClock' "$rotation_qml" | grep -Fc 'nextRotationAt = 0')" "1"
+
+check "nextRotationAt is exposed through the status IPC, so other extensions can poll it" \
+  "$(grep -Fc 'nextRotationAt:root.nextRotationAt' "$rotation_qml")" "1"
+
+check "the extension computes a live Shuffle hint text (countdown or Paused)" \
+  "$(grep -Fc 'readonly property string shuffleHintText' "$content_qml")" "1"
+
+check "the hint reads Paused whenever Shuffle is off or genuinely paused, not a frozen/negative countdown" \
+  "$(grep -Fc 'rotationState.settings.enabled !== true || rotationState.settings.paused === true) return "Paused"' "$content_qml")" "1"
+
+check "SearchHeader exposes a per-mode override for its Enter-hint chip" \
+  "$(grep -Fc 'property string settingsHintOverrideText: ""' "$search_header_qml")" "1"
+
+check "the Enter-hint chip falls back to the plain glyph when no mode supplies an override" \
+  "$(grep -Fc 'visible: root.settingsHintOverrideText === ""' "$search_header_qml")" "1"
+
+check "Launcher.qml wires the Shuffle hint text into the chip only while Wallpaper Shuffle is the active extension" \
+  "$(grep -Fc 'settingsHintOverrideText: root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent.shuffleHintText : ""' "$launcher_qml")" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

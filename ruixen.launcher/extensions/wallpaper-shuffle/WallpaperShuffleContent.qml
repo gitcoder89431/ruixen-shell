@@ -384,6 +384,27 @@ Item {
     active: root.active
   }
 
+  // Direct ask: "theres a enter kbd helper, im thiking about replacing
+  // that with a live timer of the next shuffle? is that something we
+  // can do" -- surfaced through SearchHeader's own
+  // settingsHintOverrideText (see that file's own comment), wired from
+  // Launcher.qml. "Paused" whenever nothing's actively counting down:
+  // Shuffle Off (enabled !== true), direct follow-up "on Shuffle off
+  // just say Paused" -- and the rarer manual-video/gif-override case
+  // (settings.paused === true) for the same reason, a frozen or
+  // negative countdown would read as broken, not as "it's working".
+  // rotationState.settings is reassigned to a fresh JSON.parse() on
+  // every ~1s poll already (its own probe Process), so this recomputes
+  // live without a dedicated timer of its own.
+  readonly property string shuffleHintText: {
+    if (rotationState.settings.enabled !== true || rotationState.settings.paused === true) return "Paused"
+    var remainMs = Math.max(0, (rotationState.settings.nextRotationAt || 0) - Date.now())
+    var totalSec = Math.floor(remainMs / 1000)
+    var m = Math.floor(totalSec / 60)
+    var s = totalSec % 60
+    return m + ":" + (s < 10 ? "0" : "") + s
+  }
+
   onRowsChanged: {
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
   }

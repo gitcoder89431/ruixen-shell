@@ -1796,6 +1796,13 @@ Item {
         placeholderOverride: (root.activeExtensionContent && root.activeExtensionContent.searchPlaceholder) || ""
         resultCount: root.results.length
         showSettingsHints: !!(root.activeExtensionContent && root.activeExtensionContent.showsEnterHint)
+        // Wallpaper Shuffle's own live countdown (or "Paused") instead
+        // of the plain "↵" -- see SearchHeader.qml's own
+        // settingsHintOverrideText comment and WallpaperShuffleContent
+        // .qml's own shuffleHintText comment for the direct ask behind
+        // this. Every other mode leaves this "", falling through to
+        // the unchanged default chip.
+        settingsHintOverrideText: root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent.shuffleHintText : ""
         // Wallpapers/Theme Browser mode each feed this same button/
         // dropdown their own options instead of real Search Files
         // sources -- see wallpaperTypeOptions' and

@@ -11,6 +11,16 @@ Item {
   // schedule" apart from "someone set a video/GIF manually, leave it
   // alone", rather than pausing on every video/GIF unconditionally.
   property string lastAppliedPath: ""
+  // Direct ask: "theres a enter kbd helper, im thiking about replacing
+  // that with a live timer of the next shuffle... is that something we
+  // can do" -- nothing tracked this before; the clock Timer below just
+  // fired on its own schedule with no record of WHEN it'd next fire.
+  // Set to Date.now() + the interval every time the clock actually
+  // (re)starts (resetClock() below), 0 while it isn't running (off, or
+  // paused) -- exposed through status() so any extension can render a
+  // live countdown from it, same "poll settings, format locally" shape
+  // WallpaperRotationState.qml's own settings already works.
+  property real nextRotationAt: 0
   property real selectionEpoch: -1
   property real requestedEpoch: -1
   property int revision: 0
@@ -34,7 +44,12 @@ Item {
   }
   function resetClock() {
     clock.stop()
-    if (settings.enabled === true && !paused) clock.start()
+    if (settings.enabled === true && !paused) {
+      clock.start()
+      nextRotationAt = Date.now() + clock.interval
+    } else {
+      nextRotationAt = 0
+    }
   }
   onPausedChanged: { if(paused && apply.running) apply.running=false; resetClock() }
   onSelectionEpochChanged: if(apply.running && requestedEpoch!==selectionEpoch) apply.running=false
@@ -158,7 +173,7 @@ Item {
   }
   IpcHandler {
     target: "ruixen-wallpaper-rotation"
-    function status(): string { return JSON.stringify(Object.assign({}, root.settings, {paused:root.paused, error:root.errorText})) }
+    function status(): string { return JSON.stringify(Object.assign({}, root.settings, {paused:root.paused, error:root.errorText, nextRotationAt:root.nextRotationAt})) }
     function configure(json: string): void {
       try { JSON.parse(json); root.revision++; root.pendingConfig=json; root.drainConfig() }
       catch(e) { root.errorText="Invalid rotation settings" }

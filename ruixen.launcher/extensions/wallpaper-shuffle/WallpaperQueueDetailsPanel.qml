@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import "../../search/LauncherHelpers.js" as LauncherHelpers
 
@@ -60,6 +61,7 @@ Rectangle {
     visible: root.entry !== null
 
     Rectangle {
+      id: previewBox
       width: parent.width
       height: width / 1.6
       radius: 10
@@ -68,11 +70,44 @@ Rectangle {
       border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, .25)
       clip: true
 
+      // Direct ask: "add corner curves to them similar to our other
+      // extension preview. so not a hard corner please" -- clip on a
+      // Rectangle only clips to its own plain bounding box, radius
+      // never participates in child clipping (confirmed in this
+      // repo's own FilePreview.qml/ThemeBrowserContent.qml comments,
+      // the first attempt there hit the exact same hard-cornered
+      // Image). Same MultiEffect mask technique those two already
+      // use: a hidden source Image, a hidden layered rounded-Rectangle
+      // mask (radius bound to this box's own radius, not a separate
+      // constant, so they can never drift apart), and the MultiEffect
+      // that composites them.
       Image {
+        id: previewImage
         anchors.fill: parent
         source: root.entry ? ("file://" + root.entry.display) : ""
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
+        visible: false
+        sourceSize.width: width
+        sourceSize.height: height
+      }
+
+      Rectangle {
+        id: previewMask
+        anchors.fill: parent
+        radius: previewBox.radius
+        color: "#ffffff"
+        visible: false
+        layer.enabled: true
+      }
+
+      MultiEffect {
+        anchors.fill: parent
+        source: previewImage
+        maskEnabled: true
+        maskSource: previewMask
+        maskThresholdMin: 0.5
+        maskThresholdMax: 1.0
       }
 
       Rectangle {

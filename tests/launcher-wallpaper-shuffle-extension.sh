@@ -34,6 +34,15 @@ check "the extension's content file exists" \
 check "the extension's detail panel exists" \
   "$([[ -f "$details_qml" ]] && echo yes || echo no)" "yes"
 
+check "the detail panel imports QtQuick.Effects for the preview's rounded-corner mask" \
+  "$(grep -Fc 'import QtQuick.Effects' "$details_qml")" "1"
+
+check "the preview image is masked (genuinely rounded corners), not just clipped (clip never rounds a child Image -- confirmed elsewhere in this repo)" \
+  "$(grep -Fc 'maskSource: previewMask' "$details_qml")" "1"
+
+check "the mask's radius is bound to the preview box's own radius, not a separate constant that could drift" \
+  "$(grep -Fc 'radius: previewBox.radius' "$details_qml")" "1"
+
 check "discovery reuses ruixen.notch's deployed list-wallpapers.sh, same cross-plugin path the Wallpapers extension already relies on" \
   "$(grep -c '/.config/omarchy/plugins/ruixen.notch' "$content_qml")" "1"
 

@@ -26,12 +26,17 @@ check() {
 
 check "Launcher imports the clipboard extension folder" \
   "$(grep -c 'import "extensions/clipboard"' "$launcher_qml")" "1"
-check "Launcher has a Clipboard History landing row" \
-  "$(grep -c 'label: "Clipboard History"' "$launcher_qml")" "1"
-check "Launcher activates clipboard-extension in-process" \
-  "$(grep -A8 'result.providerId === "clipboard-extension"' "$launcher_qml" | grep -c 'activeExtensionId = "clipboard"')" "1"
-check "Launcher records clipboard frecency" \
-  "$(grep -c 'recordLaunch("ruixen.clipboard")\|frecencyFor("ruixen.clipboard")' "$launcher_qml")" "3"
+# Issue #104: row id/providerId/label and the activation dispatch all
+# moved out of Launcher.qml into ExtensionRegistry.js / its one generic
+# extMatch block -- see that file's own header and
+# launcher-settings-search-clear.sh's for the before/after.
+registry_js="$repo_dir/ruixen.launcher/extensions/ExtensionRegistry.js"
+check "ExtensionRegistry has a Clipboard History landing row" \
+  "$(grep -c 'label: "Clipboard History"' "$registry_js")" "1"
+check "Launcher activates clipboard-extension in-process, through the generic registry lookup" \
+  "$(grep -c 'ExtensionRegistry.byProviderId(result.providerId)' "$launcher_qml")" "1"
+check "Launcher records clipboard frecency, through the generic registry lookup" \
+  "$(grep -c 'omarchyActionId: "ruixen.clipboard"' "$registry_js")" "1"
 check "Launcher instantiates ClipboardContent" \
   "$(grep -c 'ClipboardContent {' "$launcher_qml")" "1"
 

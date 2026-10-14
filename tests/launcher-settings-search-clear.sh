@@ -22,6 +22,17 @@
 # Static QML checks only -- verifying the actual on-screen "side panels
 # reappear" result needs a live launcher and a real query, not
 # something a CI fixture can measure cheaply.
+#
+# Issue #104: the 12 separate per-extension activateSelected() branches
+# this test used to pin one by one (6 providerId branches + 6 synthetic
+# omarchy:ruixen.* branches, each with its own activeExtensionId/
+# searchHeader.text/root.query/recordLaunch triplet) collapsed into one
+# generic block keyed through ExtensionRegistry -- see Launcher.qml's
+# own extMatch comment. There is now exactly one place in the whole file
+# that clears searchHeader.text/root.query on an extension jump, not 12,
+# so this test's own job shrank to matching: that one generic block
+# really does still clear both, and the file-wide total reflects that
+# collapse (2, not 13) rather than quietly still being 13 some other way.
 set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -41,45 +52,25 @@ check() {
   fi
 }
 
-# Each of the 4 activateSelected() branches that enter Settings/
-# Wallpapers sets activeExtensionId then clears both -- 3 lines each,
-# so grep -A2 right after the activeExtensionId assignment catches all
-# of them individually.
+# The one generic block (keyed by ExtensionRegistry.byProviderId/
+# byOmarchyActionId, see Launcher.qml's own extMatch comment) that now
+# covers every extension -- both strings cleared right after
+# activeExtensionId is set, same as every one of the 12 branches it
+# replaced always did.
+check "the generic extension-jump block clears searchHeader.text" \
+  "$(grep -A3 'root.activeExtensionId = extMatch.id$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "1"
+check "the generic extension-jump block clears root.query" \
+  "$(grep -A4 'root.activeExtensionId = extMatch.id$' "$launcher_qml" | grep -c 'root.query = ""')" "1"
 
-check "wallpapers-extension result clears searchHeader.text" \
-  "$(grep -A2 'activeExtensionId = "wallpapers"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
-check "wallpapers-extension result clears root.query" \
-  "$(grep -A3 'activeExtensionId = "wallpapers"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
-check "settings-extension result clears searchHeader.text" \
-  "$(grep -A2 'activeExtensionId = "settings"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
-check "settings-extension result clears root.query" \
-  "$(grep -A3 'activeExtensionId = "settings"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
-# 2 each now, not 1 -- the landing-row providerId branch AND the
-# synthetic typed-search omarchy:ruixen.* row (added for typed-query
-# discoverability, see launcher-extension-search-discoverability.sh)
-# both land on this same activeExtensionId value.
-check "clipboard-extension result clears searchHeader.text" \
-  "$(grep -A2 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
-check "clipboard-extension result clears root.query" \
-  "$(grep -A3 'activeExtensionId = "clipboard"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
-check "cliamp-extension result clears searchHeader.text" \
-  "$(grep -A2 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
-check "cliamp-extension result clears root.query" \
-  "$(grep -A3 'activeExtensionId = "cliamp"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
-check "wallpaper-shuffle-extension result clears searchHeader.text" \
-  "$(grep -A2 'activeExtensionId = "wallpaper-shuffle"$' "$launcher_qml" | grep -c 'searchHeader.text = ""')" "2"
-check "wallpaper-shuffle-extension result clears root.query" \
-  "$(grep -A3 'activeExtensionId = "wallpaper-shuffle"$' "$launcher_qml" | grep -c 'root.query = ""')" "2"
-
-# 13 total across the file: finishClosing()'s own pre-existing pair, the
-# 4 Settings/Wallpapers branches, Theme Browser/Clipboard/Cliamp/
-# Wallpaper Shuffle's own landing-row branches, plus the 4 synthetic
-# omarchy:ruixen.* rows (Cliamp/Clipboard/Theme Browser/Wallpaper
-# Shuffle) added for typed-query discoverability.
-check "searchHeader.text is cleared exactly 13 times total (finishClosing + the 12 extension jumps)" \
-  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "13"
-check "root.query is cleared exactly 13 times total (finishClosing + the 12 extension jumps)" \
-  "$(grep -c 'root.query = ""' "$launcher_qml")" "13"
+# 2 total across the file: finishClosing()'s own pre-existing pair, plus
+# the one generic extension-jump block above -- down from 13 (the 12
+# near-identical per-extension branches this test used to pin
+# individually, see this file's own header) now that all of them share
+# one implementation.
+check "searchHeader.text is cleared exactly 2 times total (finishClosing + the one generic extension jump)" \
+  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "2"
+check "root.query is cleared exactly 2 times total (finishClosing + the one generic extension jump)" \
+  "$(grep -c 'root.query = ""' "$launcher_qml")" "2"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

@@ -30,12 +30,17 @@ check() {
 
 check "Launcher imports the cliamp extension folder" \
   "$(grep -c 'import "extensions/cliamp"' "$launcher_qml")" "1"
-check "Launcher has a Cliamp Radio landing row" \
-  "$(grep -c 'label: "Cliamp Radio"' "$launcher_qml")" "1"
-check "Launcher activates cliamp-extension in-process" \
-  "$(grep -A6 'result.providerId === "cliamp-extension"' "$launcher_qml" | grep -c 'activeExtensionId = "cliamp"')" "1"
-check "Launcher records cliamp frecency" \
-  "$(grep -c 'recordLaunch("ruixen.cliamp")\|frecencyFor("ruixen.cliamp")' "$launcher_qml")" "3"
+# Issue #104: row id/providerId/label and the activation dispatch all
+# moved out of Launcher.qml into ExtensionRegistry.js / its one generic
+# extMatch block -- see that file's own header and
+# launcher-settings-search-clear.sh's for the before/after.
+registry_js="$repo_dir/ruixen.launcher/extensions/ExtensionRegistry.js"
+check "ExtensionRegistry has a Cliamp Radio landing row" \
+  "$(grep -c 'label: "Cliamp Radio"' "$registry_js")" "1"
+check "Launcher activates cliamp-extension in-process, through the generic registry lookup" \
+  "$(grep -c 'ExtensionRegistry.byProviderId(result.providerId)' "$launcher_qml")" "1"
+check "Launcher records cliamp frecency, through the generic registry lookup" \
+  "$(grep -c 'omarchyActionId: "ruixen.cliamp"' "$registry_js")" "1"
 check "Launcher instantiates CliampContent" \
   "$(grep -c 'CliampContent {' "$launcher_qml")" "1"
 
@@ -200,10 +205,17 @@ check "Launcher's own All-Types/All dropdown mechanism (Wallpapers, Theme Browse
   "$(( $(grep -c 'label: "All Countries"' "$launcher_qml") + $(grep -c 'cliampContent.countryFilter = opt.path' "$launcher_qml") + $(grep -c 'cliampContent.countryFilter$' "$launcher_qml") + $(grep -c 'cliampContent.countryOptions.map' "$launcher_qml") ))" "6"
 check "Dropdown list is a real scrollable ListView, capped to 7 visible rows -- direct report Country's 20+ entries overflowed the launcher's own bottom edge" \
   "$(( $(grep -c 'id: sourceFilterListView' "$launcher_qml") + $(grep -c 'Math.min(sourceFilterListView.count, 7)' "$launcher_qml") + $(grep -c 'clip: true' "$launcher_qml") ))" "4"
+# Issue #104: was its own independent, drifting copy of the exact same
+# OR-chain showSourceFilter below used -- both now read the one
+# ExtensionRegistry.usesSourceFilter flag.
 check "Shift+Tab (the dropdown's own keyboard entry point) opens Cliamp Radio's Country dropdown too, not just Wallpapers/Theme Browser/Search Files" \
-  "$(grep -c 'root.activeExtensionId === \"wallpapers\" || root.activeExtensionId === \"theme-browser\" || root.activeExtensionId === \"cliamp\" || root.filesMode' "$launcher_qml")" "1"
+  "$(grep -c 'if (root.filesMode || ExtensionRegistry.usesSourceFilter(root.activeExtensionId)) root.openDropdown()' "$launcher_qml")" "1"
+# Issue #104: this OR-chain became ExtensionRegistry's own per-entry
+# usesSourceFilter flag -- cliamp's entry sets it true, same as before.
 check "Cliamp Radio's search row shows the Country dropdown, same control Wallpapers/Theme Browser already use" \
-  "$(grep -c 'showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp"' "$launcher_qml")" "1"
+  "$(grep -c 'showSourceFilter: root.filesMode || ExtensionRegistry.usesSourceFilter(root.activeExtensionId)' "$launcher_qml")" "1"
+check "ExtensionRegistry marks cliamp as usesSourceFilter: true" \
+  "$(grep -A5 'id: "cliamp",' "$registry_js" | grep -c 'usesSourceFilter: true')" "1"
 
 check "CliampStations expands cliamp's own bundled station bouquet (Lofi, Omarchy, the NCS family, etc.) from its M3U, flagged bundled:true for its own Catalogues section, since provider.catalog's l:0 entry only ever hands back one dead pointer row, never the real stations inside" \
   "$(( $(grep -c 'function parseBundledPlaylist' "$model_js") + $(grep -c 'bundled: true' "$model_js") ))" "2"

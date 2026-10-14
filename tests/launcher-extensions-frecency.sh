@@ -44,21 +44,20 @@ check() {
 check "Launcher.qml imports the shared frecency module" \
   "$(grep -c 'import "search/LauncherFrecency.js" as Frecency' "$launcher_qml")" "1"
 
-# --- recording: all 4 activation paths now call recordLaunch ------------
+# --- recording: all activation paths (now one generic block, issue #104,
+# see launcher-settings-search-clear.sh's own header for the full
+# before/after) still call recordLaunch, keyed by whichever registry
+# entry matched -------------------------------------------------------
 
-check "wallpapers-extension landing row records a launch" \
-  "$(grep -A5 'result.providerId === "wallpapers-extension"' "$launcher_qml" | grep -c 'recordLaunch("ruixen.wallpapers")')" "1"
-check "settings-extension landing row records a launch" \
-  "$(grep -A5 'result.providerId === "settings-extension"' "$launcher_qml" | grep -c 'recordLaunch("ruixen.settings")')" "1"
-check "omarchy:ruixen.settings synthetic row records a launch" \
-  "$(grep -A5 'result.id === "omarchy:ruixen.settings"' "$launcher_qml" | grep -c 'recordLaunch("ruixen.settings")')" "1"
-check "omarchy:ruixen.wallpapers synthetic row records a launch" \
-  "$(grep -A5 'result.id === "omarchy:ruixen.wallpapers"' "$launcher_qml" | grep -c 'recordLaunch("ruixen.wallpapers")')" "1"
+check "the generic extension-jump block records a launch, keyed by the matched registry entry" \
+  "$(grep -A4 'root.activeExtensionId = extMatch.id$' "$launcher_qml" | grep -c 'recordLaunch(extMatch.omarchyActionId)')" "1"
+check "wallpapers and settings are both real registered omarchyActionIds that generic lookup can match" \
+  "$(grep -c 'omarchyActionId: "ruixen.wallpapers"\|omarchyActionId: "ruixen.settings"' "$repo_dir/ruixen.launcher/extensions/ExtensionRegistry.js")" "2"
 
 # --- ranking: the landing-list Extensions group is now frecency-sorted --
 
-check "the Extensions group looks up frecency for both wallpapers and settings" \
-  "$(grep -c 'frecencyFor("ruixen.wallpapers")\|frecencyFor("ruixen.settings")' "$launcher_qml")" "2"
+check "the Extensions group looks up frecency generically, from the registry's own list" \
+  "$(grep -c 'omarchyActionsProvider.frecencyFor(extEntryForRow.omarchyActionId)' "$launcher_qml")" "1"
 check "the Extensions rows are actually sorted (not just scored and left in place)" \
   "$(grep -c 'extRows.sort(' "$launcher_qml")" "1"
 

@@ -19,6 +19,7 @@ import "extensions/theme-browser"
 import "extensions/clipboard"
 import "extensions/cliamp"
 import "extensions/wallpaper-shuffle"
+import "extensions/ExtensionRegistry.js" as ExtensionRegistry
 import "search/LauncherHelpers.js" as LauncherHelpers
 import "search/FileSearchRanking.js" as FileSearchRanking
 import "search/LauncherQueryOperators.js" as LauncherQueryOperators
@@ -189,13 +190,13 @@ Item {
     if (payloadJson) {
       try {
         var payload = JSON.parse(payloadJson)
-        // "settings" or "wallpapers" -- the exact two activeExtensionId
-        // values activateSelected() already dispatches to for an
-        // in-palette pick (see its own "settings-extension"/
-        // "wallpapers-extension" branches). Same value either way, so
-        // this just forwards it rather than a separate if-branch per
-        // extension.
-        if (payload && (payload.extension === "settings" || payload.extension === "wallpapers" || payload.extension === "theme-browser" || payload.extension === "clipboard" || payload.extension === "cliamp" || payload.extension === "wallpaper-shuffle")) {
+        // Issue #104: validated against ExtensionRegistry's own id list
+        // (extensions/ExtensionRegistry.js) rather than a hand-maintained
+        // OR-chain -- a new extension registering itself there is
+        // automatically a valid deep-link target here too, same value
+        // either way activateSelected() already dispatches to for an
+        // in-palette pick (see its own extEntry lookup).
+        if (payload && ExtensionRegistry.isValidId(payload.extension)) {
           root.suppressResizeAnimation = true
           root.activeExtensionId = payload.extension
           root.openedDirectlyToExtension = true
@@ -449,12 +450,22 @@ Item {
   // (falsy), the same as a plain JS object -- an extension that never
   // declares one of the optional ones above needs no explicit "false"/
   // empty-string default of its own, it just doesn't show up here.
-  readonly property Item activeExtensionContent: root.activeExtensionId === "wallpapers" ? wallpapersContent
-    : root.activeExtensionId === "settings" ? settingsContent
-    : root.activeExtensionId === "theme-browser" ? themeBrowserContent
-    : root.activeExtensionId === "clipboard" ? clipboardContent
-    : root.activeExtensionId === "cliamp" ? cliampContent
-    : root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent : null
+  // Issue #104: the one place a new extension's content-item still needs
+  // manual wiring -- QML has no way to resolve an id string to an actual
+  // component instance without either this map or dynamic (Loader-based)
+  // instantiation, which this issue explicitly says not to force. Keys
+  // are pinned against ExtensionRegistry's own id list by
+  // tests/launcher-extension-registry-consistency.sh, so the two can
+  // never silently drift apart.
+  readonly property var extensionContentById: ({
+    "wallpapers": wallpapersContent,
+    "settings": settingsContent,
+    "theme-browser": themeBrowserContent,
+    "clipboard": clipboardContent,
+    "cliamp": cliampContent,
+    "wallpaper-shuffle": wallpaperShuffleContent
+  })
+  readonly property Item activeExtensionContent: root.extensionContentById[root.activeExtensionId] || null
   // Suppresses the panel's own width/height resize Behaviors below --
   // set true for exactly one synchronous open() call that jumps
   // straight to an extension via payload, so the window's first paint
@@ -777,149 +788,33 @@ Item {
     }
   }
 
-  // Landing-list-only counterpart to filesFallbackRow above -- see
-  // activeExtensionId's own comment for why this needs a genuinely
-  // different dispatch (a full picker UI, not a search mode). fa-image
-  // (U+F03E), the exact same glyph ruixen.notch's own Wallpapers tab
-  // already uses (confirmed directly against Overlay.qml's own
-  // TabButton, not guessed) -- the row and what it opens read as the
-  // same feature.
-  // "Wallpapers Effects" -- direct follow-up once Wallpaper Shuffle
-  // took over ordering/rotation (this extension's own earlier job):
-  // "i guess we rename it to Wallpapers Fx or maybe Wallpapers
-  // Effects?", picked when asked directly. id/providerId stay as
-  // "wallpapers" -- internal identifiers (frecency keys, dispatch
-  // matches), not display text, so renaming them would just be churn
-  // and risk losing this row's own frecency history.
-  function wallpapersRow() {
-    return {
-      id: "extension:wallpapers",
-      providerId: "wallpapers-extension",
-      icon: "",
-      label: "Wallpapers Effects",
+  // Issue #104: one generic builder reading from ExtensionRegistry
+  // instead of six near-identical functions (wallpapersRow, settingsRow,
+  // themeBrowserRow, clipboardRow, cliampRow, wallpaperShuffleRow) that
+  // only ever differed in a handful of literal strings -- each row's own
+  // id/providerId/icon/label now lives once, in the registry, instead of
+  // once per row-builder here AND once more per dispatch branch below.
+  // keybind is the one per-row special case (settings only) -- see that
+  // entry's own keybindLookupLabel comment in ExtensionRegistry.js for
+  // why it can't just be more registry data (needs a live, QML-context
+  // provider lookup, which a plain JS data module can't make itself).
+  function extensionRow(id) {
+    var entry = ExtensionRegistry.byId(id)
+    if (!entry) return null
+    var row = {
+      id: "extension:" + entry.id,
+      providerId: entry.providerId,
+      icon: entry.icon,
+      label: entry.label,
       breadcrumb: "Ruixen",
       kind: "Extension",
       providerName: "",
       score: 0
     }
+    if (entry.keybindLookupLabel) row.keybind = omarchyActionsProvider.keybindFor(entry.keybindLookupLabel)
+    return row
   }
 
-  // Same shape/dispatch again -- fa-paint-brush (U+F1FC), no existing
-  // precedent elsewhere in this plugin to match, picked fresh for
-  // "browse/install a theme" specifically (distinct from the gear
-  // Settings uses below for its own Window Curvature/corner controls,
-  // a different concept -- picking a theme, not tuning one). fa-palette
-  // (U+F53F) was the first real choice, confirmed live as a broken/
-  // missing glyph in this font rather than just assumed -- this is the
-  // same icon ThemeBrowserContent.qml's own per-theme installed-status
-  // indicator uses too, so the two read as the same feature.
-  function themeBrowserRow() {
-    return {
-      id: "extension:theme-browser",
-      providerId: "theme-browser-extension",
-      icon: "",
-      // "Bjarneo Themes", not bare "Themes" -- direct follow-up: Omarchy's
-      // own native actions already include "Change Theme" and "Install
-      // Theme" (see scoreEntry's own comment in OmarchyMenuParser.js),
-      // so a plain "Themes" row reads as a third, easily-confused
-      // theme-related entry searching "theme" turns up. Naming the
-      // actual catalog this browses (bjarneo/100-themes,
-      // bjarneo/100-themes-day -- their own original work, confirmed
-      // "bjarneo" is their real self-chosen name, not a guess) directly
-      // in the label disambiguates it from those AND credits them, in
-      // one move.
-      label: "Bjarneo Themes",
-      // Back to "Ruixen", matching every sibling row here -- this
-      // extension (the browse/install UI itself) is Ruixen's own, even
-      // though the theme content it browses is bjarneo's; the label
-      // above already carries that credit, so the breadcrumb goes back
-      // to meaning what it means everywhere else: which Ruixen module
-      // owns this row.
-      breadcrumb: "Ruixen",
-      kind: "Extension",
-      providerName: "",
-      score: 0
-    }
-  }
-
-  // Same shape/dispatch as wallpapersRow above -- fa-gear (U+F013),
-  // the same glyph OmarchyActionsProvider'''s own synthetic "Ruixen
-  // Settings" row already uses, so this reads as the same feature
-  // everywhere it shows up. Direct request: "lets do the Settings as
-  // Extension so Settings 2nd Column Ruixen and type extension?"
-  //
-  // keybind uses the exact same live, config-driven lookup as that
-  // synthetic row -- direct follow-up: "make it show up for the
-  // extension group too... a user has to bind them right, they
-  // shouldnt be hardcoded". Called fresh every time results (below)
-  // re-evaluates, same as any other row's own keybind hint already
-  // works -- empty until the user actually has "Ruixen Settings" bound
-  // in their own bindings.lua, whatever combo that currently is.
-  function settingsRow() {
-    return {
-      id: "extension:settings",
-      providerId: "settings-extension",
-      icon: "",
-      label: "Settings",
-      breadcrumb: "Ruixen",
-      kind: "Extension",
-      providerName: "",
-      score: 0,
-      keybind: omarchyActionsProvider.keybindFor("Ruixen Settings")
-    }
-  }
-
-  function clipboardRow() {
-    return {
-      id: "extension:clipboard",
-      providerId: "clipboard-extension",
-      icon: "",
-      label: "Clipboard History",
-      breadcrumb: "Ruixen",
-      kind: "Extension",
-      providerName: "",
-      score: 0
-    }
-  }
-
-  // fa-music -- fa-broadcast-tower (U+F519) was the first choice, but
-  // confirmed live as a broken/missing glyph in this font (same
-  // "confirmed live" process ThemeBrowserRow's own icon comment already
-  // documents for fa-palette) -- this is the same glyph
-  // CliampStations.js's own default station-row icon uses, so this
-  // landing row reads as the same feature once opened.
-  function cliampRow() {
-    return {
-      id: "extension:cliamp",
-      providerId: "cliamp-extension",
-      icon: "",
-      label: "Cliamp Radio",
-      breadcrumb: "Ruixen",
-      kind: "Extension",
-      providerName: "",
-      score: 0
-    }
-  }
-
-  // Direct ask: "give the Wallpaper Shuffle an icon for it to show up
-  // with and allow it in launcher search" -- this row and
-  // OmarchyActionsProvider.qml's own "ruixen.wallpaper-shuffle" entry
-  // (search discoverability) were both already wired in, just both
-  // left with an empty icon string. fa-shuffle (U+F074) -- confirmed
-  // present in the installed Nerd Font and literally named "shuffle"
-  // in its own glyph table, not a generic pick.
-  function wallpaperShuffleRow() {
-    return {
-      id: "extension:wallpaper-shuffle",
-      providerId: "wallpaper-shuffle-extension",
-      icon: "",
-      label: "Wallpaper Shuffle",
-      breadcrumb: "Ruixen",
-      kind: "Extension",
-      providerName: "",
-      score: 0
-    }
-  }
 
   // A single flat list, each row tagged with its own sectionLabel --
   // fed straight into ResultsList's own model, which draws the group
@@ -972,16 +867,19 @@ Item {
       // actually used). Array.prototype.sort is stable, so a tie (no
       // usage yet for either) keeps that same original order rather
       // than shuffling on every launcher open.
+      // Issue #104: built from ExtensionRegistry.EXTENSIONS (declaration
+      // order there is this group's own fixed tie-break order) instead
+      // of one literal object key plus one wallpapersRow()/settingsRow()/
+      // ...-style call per extension.
       var extNow = Date.now()
-      var extBoost = {
-        "extension:wallpapers": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.wallpapers"), extNow),
-        "extension:settings": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.settings"), extNow),
-        "extension:theme-browser": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.theme-browser"), extNow),
-        "extension:clipboard": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.clipboard"), extNow),
-        "extension:cliamp": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.cliamp"), extNow),
-        "extension:wallpaper-shuffle": Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor("ruixen.wallpaper-shuffle"), extNow)
+      var extBoost = {}
+      var extRows = []
+      for (var extI = 0; extI < ExtensionRegistry.EXTENSIONS.length; extI++) {
+        var extEntryForRow = ExtensionRegistry.EXTENSIONS[extI]
+        var extRow = root.extensionRow(extEntryForRow.id)
+        extBoost[extRow.id] = Frecency.frecencyBoost(omarchyActionsProvider.frecencyFor(extEntryForRow.omarchyActionId), extNow)
+        extRows.push(extRow)
       }
-      var extRows = [root.wallpapersRow(), root.settingsRow(), root.themeBrowserRow(), root.clipboardRow(), root.cliampRow(), root.wallpaperShuffleRow()]
       extRows.sort(function(a, b) { return extBoost[b.id] - extBoost[a.id] })
       var ext = tag(extRows, "Extensions")
       var sug = tag(omarchyActionsProvider.suggestions(), "Suggestions")
@@ -1385,121 +1283,23 @@ Item {
     // items on the left too?"); it's only wrong for whatever query got
     // you there in the first place, which this clears.
     //
-    // Each of these 4 branches also records a launch (same
-    // omarchyActionsProvider frecency store the "ruixen.settings"/
-    // "ruixen.wallpapers" synthetic rows' own scoreEntry() call already
-    // reads from, see OmarchyMenuParser.js) -- direct follow-up: "these
-    // aren't included in the ranking thing yet." Neither extension ever
-    // ran provider.activate() before this (this function returns
-    // early, well above that call, for all 4 of them), so nothing was
-    // ever recorded no matter how often either was opened. Recording
-    // here from BOTH the landing-list row (providerId branches) and
-    // the typed-search synthetic row (result.id branches below) means
-    // either path to Settings/Wallpapers counts toward the same usage
-    // data -- extensionsOrder below reads it back to reorder the
-    // landing list's own "Extensions" group by the same signal.
-    if (result.providerId === "wallpapers-extension") {
-      root.activeExtensionId = "wallpapers"
+    // Issue #104: was 12 near-identical branches (one providerId check
+    // per extension for an in-palette landing-row pick, plus one more
+    // result.id check per extension for OmarchyActionsProvider's own
+    // synthetic typed-query row -- "settings"/"preferences" aliases,
+    // etc.) -- both shapes now resolve through ExtensionRegistry instead.
+    // Each still records a launch into the same omarchyActionsProvider
+    // frecency store (direct follow-up: "these aren't included in the
+    // ranking thing yet") -- either path to a given extension counts
+    // toward the same usage data, which the "Extensions" group's own
+    // frecency sort above reads back.
+    var extMatch = ExtensionRegistry.byProviderId(result.providerId)
+      || ExtensionRegistry.byOmarchyActionId(String(result.id || "").replace(/^omarchy:/, ""))
+    if (extMatch) {
+      root.activeExtensionId = extMatch.id
       searchHeader.text = ""
       root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.wallpapers")
-      return
-    }
-    if (result.providerId === "settings-extension") {
-      root.activeExtensionId = "settings"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.settings")
-      return
-    }
-    if (result.providerId === "theme-browser-extension") {
-      root.activeExtensionId = "theme-browser"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.theme-browser")
-      return
-    }
-    if (result.providerId === "clipboard-extension") {
-      root.activeExtensionId = "clipboard"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.clipboard")
-      return
-    }
-    if (result.providerId === "cliamp-extension") {
-      root.activeExtensionId = "cliamp"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.cliamp")
-      return
-    }
-    if (result.providerId === "wallpaper-shuffle-extension") {
-      root.activeExtensionId = "wallpaper-shuffle"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.wallpaper-shuffle")
-      return
-    }
-    // OmarchyActionsProvider's own synthetic "Ruixen Settings" row
-    // (typed-query discoverability -- "settings"/"preferences" aliases;
-    // settingsRow() above only ever appears on the empty-query landing
-    // list, never as a search match) needs this same in-process jump,
-    // not its own action string's real `omarchy-shell shell toggle
-    // ruixen.launcher ...` command -- shelling that out from INSIDE
-    // this already-open launcher would hit shell.toggle()'s own
-    // isPluginOpen(id) ? hide(id) : summon(id) branch and just close
-    // this palette instead of opening Settings, since it's the exact
-    // same plugin toggling itself while already open. Direct follow-
-    // through on phasing out ruixen.settings as the primary entry
-    // point (bindings.lua's Super+Shift+R and ruixen.settingsbutton's
-    // own bar icon already made the same switch).
-    if (result.id === "omarchy:ruixen.settings") {
-      root.activeExtensionId = "settings"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.settings")
-      return
-    }
-    // Same reasoning as the synthetic Settings row above, for
-    // Wallpapers' own equivalent gap -- direct report: "we need
-    // wallpaper and setting to show up too" (typing "wallpaper"/
-    // "background" found nothing at all before this row existed).
-    if (result.id === "omarchy:ruixen.wallpapers") {
-      root.activeExtensionId = "wallpapers"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.wallpapers")
-      return
-    }
-    // Same reasoning again, for the three gaps left once Settings and
-    // Wallpapers got their own synthetic rows -- direct report: "only
-    // have settings and wallpapers working on search lol".
-    if (result.id === "omarchy:ruixen.cliamp") {
-      root.activeExtensionId = "cliamp"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.cliamp")
-      return
-    }
-    if (result.id === "omarchy:ruixen.clipboard") {
-      root.activeExtensionId = "clipboard"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.clipboard")
-      return
-    }
-    if (result.id === "omarchy:ruixen.theme-browser") {
-      root.activeExtensionId = "theme-browser"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.theme-browser")
-      return
-    }
-    if (result.id === "omarchy:ruixen.wallpaper-shuffle") {
-      root.activeExtensionId = "wallpaper-shuffle"
-      searchHeader.text = ""
-      root.query = ""
-      omarchyActionsProvider.recordLaunch("ruixen.wallpaper-shuffle")
+      omarchyActionsProvider.recordLaunch(extMatch.omarchyActionId)
       return
     }
     var provider = root.providerFor(result.providerId)
@@ -1798,8 +1598,9 @@ Item {
         // Wallpapers' own All Types dropdown) -- direct QA finding:
         // reusing filesMode alone here showed "All Sources" floating
         // over Settings' own detail panel with nothing real for it to
-        // filter.
-        showSourceFilter: root.filesMode || root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp"
+        // filter. Issue #104: usesSourceFilter is now ExtensionRegistry's
+        // own per-entry flag rather than one more id OR-chain here.
+        showSourceFilter: root.filesMode || ExtensionRegistry.usesSourceFilter(root.activeExtensionId)
         // Every extension reads this same outer query directly now (see
         // wallpapersContent/settingsContent's own searchText below),
         // no second inner search box any of them owns -- each one's own
@@ -2003,7 +1804,10 @@ Item {
         onShiftTabPressed: {
           if (searchHeader.dropdownOpen) { searchHeader.dropdownOpen = false; return }
           if (root.actionsMenuOpen) return
-          if (root.activeExtensionId === "wallpapers" || root.activeExtensionId === "theme-browser" || root.activeExtensionId === "cliamp" || root.filesMode) root.openDropdown()
+          // Issue #104: same usesSourceFilter flag showSourceFilter
+          // above already reads -- this was an independent, drifting
+          // copy of that exact same OR-chain.
+          if (root.filesMode || ExtensionRegistry.usesSourceFilter(root.activeExtensionId)) root.openDropdown()
         }
       }
 

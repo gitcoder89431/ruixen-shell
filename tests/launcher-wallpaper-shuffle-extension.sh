@@ -114,8 +114,11 @@ check "the chip row sits above the two-panel layout, not overlapping it" \
 check "Launcher.qml imports the extension folder" \
   "$(grep -c 'import "extensions/wallpaper-shuffle"' "$launcher_qml")" "1"
 
+# Issue #104: the ternary chain this pinned became a plain id -> Item map
+# (extensionContentById) -- see Launcher.qml's own comment on why that
+# one-line-per-extension wiring is still needed even with the registry.
 check "Launcher.qml's activeExtensionContent dispatch includes wallpaper-shuffle" \
-  "$(grep -Fc 'root.activeExtensionId === "wallpaper-shuffle" ? wallpaperShuffleContent : null' "$launcher_qml")" "1"
+  "$(grep -Fc '"wallpaper-shuffle": wallpaperShuffleContent' "$launcher_qml")" "1"
 
 check "the extension is instantiated in the content area" \
   "$(grep -c 'WallpaperShuffleContent {' "$launcher_qml")" "1"

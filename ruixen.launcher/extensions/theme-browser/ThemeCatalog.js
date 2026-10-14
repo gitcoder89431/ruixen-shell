@@ -354,10 +354,10 @@ function installedSlugFor(theme, variant) {
 // icon/iconColor -- direct follow-up ("lets make the icons useful, so
 // it is surface if not installed, but if the theme is installed so can
 // it be theme green"). Same fa-paint-brush glyph the landing list's own
-// Themes extension row uses (Launcher.qml's themeBrowserRow -- U+F1FC;
-// fa-palette, U+F53F, tried first, rendered as a broken/missing glyph
-// live, confirmed not just assumed before settling on this one), so
-// the two read as the same feature. Muted when the variant currently
+// Themes extension row uses (ExtensionRegistry.js's theme-browser entry
+// -- U+F1FC; fa-palette, U+F53F, tried first, rendered as a broken/
+// missing glyph live, confirmed not just assumed before settling on
+// this one), so the two read as the same feature. Muted when the variant currently
 // being previewed (installedSlugs/variant) isn't installed under
 // ~/.config/omarchy/themes, or tinted with THIS theme's own real green
 // (from its own colors, already in memory -- no extra fetch) once it

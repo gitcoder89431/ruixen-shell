@@ -2479,7 +2479,9 @@ Item {
       activate: function() {
         root.connectToWifi(row)
         if (root.wifiPasswordSsid === row.ssid) {
-          Qt.callLater(function() { otherRepeater.itemAt(index).focusPasswordInput() })
+          // Issue #102 phase 8: otherRepeater now lives inside wifiPage
+          // (WifiPage.qml), exposed through its own alias.
+          Qt.callLater(function() { wifiPage.otherRepeater.itemAt(index).focusPasswordInput() })
         }
       }
     }
@@ -2739,13 +2741,16 @@ Item {
         visualizerPage.cavaPositionItem, visualizerPage.cavaBandsItem, visualizerPage.cavaThicknessItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
-      if (root.focusedItemIndex === 0) return wifiRadioRow
-      if (root.focusedItemIndex === 1) return wifiQrButton
-      if (root.focusedItemIndex === 2) return wifiSpeedTestButton
+      // Issue #102 phase 8: every one of these now lives inside
+      // wifiPage (WifiPage.qml), exposed through its own aliases --
+      // see that file's own header.
+      if (root.focusedItemIndex === 0) return wifiPage.wifiRadioRow
+      if (root.focusedItemIndex === 1) return wifiPage.wifiQrButton
+      if (root.focusedItemIndex === 2) return wifiPage.wifiSpeedTestButton
       var knownIdx = root.focusedItemIndex - 3
-      if (knownIdx < root.knownWifiRows.length) return knownRepeater.itemAt(knownIdx)
+      if (knownIdx < root.knownWifiRows.length) return wifiPage.knownRepeater.itemAt(knownIdx)
       var otherIdx = knownIdx - root.knownWifiRows.length
-      return otherRepeater.itemAt(otherIdx)
+      return wifiPage.otherRepeater.itemAt(otherIdx)
     }
     if (root.btOpen) {
       if (root.focusedItemIndex === 0) return btRadioRow
@@ -3104,283 +3109,9 @@ Item {
     settingsRoot: root
   }
 
-  // Wi-Fi's own three items -- the radio toggle (reuses
-  // SettingsToggleRow.qml directly, same as Launcher's own toggles),
-  // then QR-share and Speed Test buttons (real Omarchy panel plugins,
-  // summoned via the unscoped omarchy-shell CLI -- see summonWifiQr()/
-  // summonSpeedTest()'s own comment for why NOT the in-process
-  // root.shell), then Known Networks and Available Networks, both on
-  // SettingsWifiRow.qml (see its own header comment). Real backend on
-  // root above, ported from
-  // ruixen.settings/WifiContent.qml + Settings.qml.
-  Rectangle {
-    id: wifiRadioItem
-    width: parent.width
-    height: wifiRadioContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.wifiOpen
-
-    Column {
-      id: wifiRadioContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Wi-Fi"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      SettingsToggleRow {
-        id: wifiRadioRow
-        label: "Enabled"
-        checked: Networking.wifiEnabled
-        rowFocused: root.wifiOpen && root.rightFocused && root.focusedItemIndex === 0
-        textColor: root.textColor
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onToggled: root.toggleWifiRadio()
-      }
-
-      Row {
-        width: parent.width
-        spacing: 8
-
-        Rectangle {
-          id: wifiQrButton
-          width: (parent.width - 8) / 2
-          height: 32
-          radius: 8
-          color: wifiQrMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-          border.width: root.wifiOpen && root.rightFocused && root.focusedItemIndex === 1 ? 1 : 0
-          border.color: root.accent
-
-          Row {
-            anchors.centerIn: parent
-            spacing: 8
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: ""
-              font.family: root.fontFamily
-              font.pixelSize: 13
-              color: root.textColor
-            }
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "QR Code"
-              font.family: root.fontFamily
-              font.pixelSize: 12
-              color: root.textColor
-            }
-          }
-
-          MouseArea {
-            id: wifiQrMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.summonWifiQr()
-          }
-        }
-
-        Rectangle {
-          id: wifiSpeedTestButton
-          width: (parent.width - 8) / 2
-          height: 32
-          radius: 8
-          color: wifiSpeedTestMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-          border.width: root.wifiOpen && root.rightFocused && root.focusedItemIndex === 2 ? 1 : 0
-          border.color: root.accent
-
-          Row {
-            anchors.centerIn: parent
-            spacing: 8
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: ""
-              font.family: root.fontFamily
-              font.pixelSize: 13
-              color: root.textColor
-            }
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Speed Test"
-              font.family: root.fontFamily
-              font.pixelSize: 12
-              color: root.textColor
-            }
-          }
-
-          MouseArea {
-            id: wifiSpeedTestMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.summonSpeedTest()
-          }
-        }
-      }
-    }
-  }
-
-  Rectangle {
-    id: knownNetworksItem
-    width: parent.width
-    height: knownNetworksContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.wifiOpen && Networking.wifiEnabled
-
-    Column {
-      id: knownNetworksContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Known Networks"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      // Connection stats -- describes whichever known network is
-      // currently active, same placement as the real page.
-      Column {
-        width: parent.width
-        visible: root.connectedWifiNetwork !== null
-        spacing: 2
-
-        Item {
-          width: parent.width
-          height: 16
-          Text { anchors.left: parent.left; text: "IP Address"; font.family: root.fontFamily; font.pixelSize: 11; color: root.muted }
-          Text { anchors.right: parent.right; text: root.netInfo.ip || "--"; font.family: root.fontFamily; font.pixelSize: 11; color: root.textColor; elide: Text.ElideLeft }
-        }
-        Item {
-          width: parent.width
-          height: 16
-          Text { anchors.left: parent.left; text: "Gateway"; font.family: root.fontFamily; font.pixelSize: 11; color: root.muted }
-          Text { anchors.right: parent.right; text: root.netInfo.gateway || "--"; font.family: root.fontFamily; font.pixelSize: 11; color: root.textColor; elide: Text.ElideLeft }
-        }
-        Item {
-          width: parent.width
-          height: 16
-          Text { anchors.left: parent.left; text: "Ping"; font.family: root.fontFamily; font.pixelSize: 11; color: root.muted }
-          Text { anchors.right: parent.right; text: root.netInfo.internet_ping_ms ? Math.round(parseFloat(root.netInfo.internet_ping_ms)) + " ms" : "--"; font.family: root.fontFamily; font.pixelSize: 11; color: root.textColor }
-        }
-      }
-
-      Column {
-        width: parent.width
-        spacing: 4
-
-        Repeater {
-          id: knownRepeater
-          model: root.knownWifiRows
-
-          SettingsWifiRow {
-            required property var modelData
-            required property int index
-            width: parent.width
-            ssid: modelData.ssid
-            connected: modelData.connected
-            signalPercent: modelData.signal
-            secured: !root.isOpenNetwork(modelData.security)
-            showForget: !modelData.connected
-            rowFocused: root.wifiOpen && root.rightFocused && root.focusedItemIndex === (3 + index)
-            textColor: root.textColor
-            muted: root.muted
-            accent: root.accent
-            fontFamily: root.fontFamily
-            onActivated: root.connectToWifi(modelData)
-            onForgetRequested: root.forgetWifi(modelData)
-          }
-        }
-
-        Text {
-          visible: root.knownWifiRows.length === 0
-          text: "No known networks"
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          color: root.muted
-        }
-      }
-    }
-  }
-
-  Rectangle {
-    id: otherNetworksItem
-    width: parent.width
-    height: otherNetworksContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.wifiOpen && Networking.wifiEnabled && root.otherWifiRows.length > 0
-
-    Column {
-      id: otherNetworksContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 10
-
-      Text {
-        text: "Available Networks"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Column {
-        width: parent.width
-        spacing: 4
-
-        Repeater {
-          id: otherRepeater
-          model: root.otherWifiRows
-
-          SettingsWifiRow {
-            required property var modelData
-            required property int index
-            width: parent.width
-            ssid: modelData.ssid
-            connected: modelData.connected
-            signalPercent: modelData.signal
-            secured: !root.isOpenNetwork(modelData.security)
-            expanded: root.wifiPasswordSsid === modelData.ssid
-            connecting: root.wifiConnecting
-            errorText: root.wifiPasswordSsid === modelData.ssid ? root.wifiConnectError : ""
-            rowFocused: root.wifiOpen && root.rightFocused
-              && root.focusedItemIndex === (3 + root.knownWifiRows.length + index)
-            textColor: root.textColor
-            muted: root.muted
-            accent: root.accent
-            fontFamily: root.fontFamily
-            onActivated: root.connectToWifi(modelData)
-            onPasswordSubmitted: (password) => root.submitWifiPassword(password)
-            onCancelled: { root.closeWifiPasswordPrompt(); root.returnFocusRequested() }
-          }
-        }
-      }
-    }
-  }
-
-  Text {
-    visible: root.wifiOpen && !Networking.wifiEnabled
-    width: parent.width
-    horizontalAlignment: Text.AlignHCenter
-    topPadding: 24
-    text: "Turn on Wi-Fi to see nearby networks"
-    font.family: root.fontFamily
-    font.pixelSize: 12
-    color: root.muted
+  WifiPage {
+    id: wifiPage
+    settingsRoot: root
   }
 
   // Bluetooth's own three items -- radio toggle, then Paired Devices

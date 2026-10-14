@@ -270,6 +270,66 @@ class RotationTests(unittest.TestCase):
                 if old is None:os.environ.pop('HOME',None)
                 else:os.environ['HOME']=old
 
+    def test_next_artwork_advances_past_a_video_current(self):
+        # Direct live report: "i just wait 5 min but the wallpaper didnt
+        # change, i think the interval shuffle is broken" -- confirmed
+        # live, reproducible: with a video/GIF actually active,
+        # next_artwork() kept returning the SAME first item in the
+        # queue forever, both via the real IPC call and this exact
+        # helper invoked standalone. Root cause: $HOME/.local/state/
+        # omarchy/current/background never resolves to a video/GIF's
+        # own raw path -- ruixen.wallpaper/Service.qml's own play()/
+        # playGif() always retarget it at a generated POSTER jpg
+        # instead (md5(raw path) under ~/.cache/ruixen/wallpaper-
+        # posters/, issue #66's own fix for an ImageMagick memory
+        # blowup). Every OTHER test in this file symlinks current/
+        # background directly to a raw file in the scanned folder,
+        # which never exercises this -- only a real video/GIF, made
+        # current through its own poster indirection exactly like
+        # production actually does it, reproduces the bug (and would
+        # have caught it before it ever reached a real session).
+        helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
+        spec=importlib.util.spec_from_file_location('rotation_video_current',helper)
+        module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as home:
+            old=os.environ.get('HOME');os.environ['HOME']=home
+            try:
+                folder=Path(home)/'art';folder.mkdir()
+                for name in ['A.mp4','B.mp4','C.mp4']: (folder/name).write_bytes(b'x')
+                cfg=module.configure(dict(enabled=True,folder=str(folder),intervalMinutes=15))
+                bg=Path(home)/'.local/state/omarchy/current/background';bg.parent.mkdir(parents=True)
+                poster_dir=Path(home)/'.cache/ruixen/wallpaper-posters';poster_dir.mkdir(parents=True)
+                def point_bg_at(name):
+                    real=str(folder/name)
+                    poster=poster_dir/(module.current_identity(real).rsplit('/',1)[-1])
+                    poster.write_bytes(b'poster')
+                    if bg.exists() or bg.is_symlink(): bg.unlink()
+                    bg.symlink_to(poster)
+                # A.mp4 is current (via its own poster, not its raw path
+                # -- the real production shape) -- advances to B, not
+                # back to A.
+                point_bg_at('A.mp4')
+                picked=Path(module.next_artwork(cfg)).name
+                self.assertEqual(picked,'B.mp4')
+                self.assertEqual(module.load_order(),['B.mp4','C.mp4','A.mp4'])
+                # Confirmed the fix, not just a one-off: advances again
+                # from B to C the same way.
+                point_bg_at('B.mp4')
+                picked=Path(module.next_artwork(cfg)).name
+                self.assertEqual(picked,'C.mp4')
+                self.assertEqual(module.load_order(),['C.mp4','A.mp4','B.mp4'])
+                # Shuffle mode's own "don't immediately repeat" exclusion
+                # has the identical comparison -- same fix, same video-
+                # as-current setup, asserted over enough draws that a
+                # real bug (current never excluded) would show up.
+                point_bg_at('C.mp4')
+                shuffled=module.configure(dict(shuffle=True))
+                for _ in range(20):
+                    self.assertIn(Path(module.next_artwork(shuffled)).name,['A.mp4','B.mp4'])
+            finally:
+                if old is None:os.environ.pop('HOME',None)
+                else:os.environ['HOME']=old
+
     def test_rotation_and_config(self):
         helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
         spec=importlib.util.spec_from_file_location('rotation',helper)

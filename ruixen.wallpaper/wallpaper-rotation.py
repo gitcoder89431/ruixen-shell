@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Validated rotation settings and bounded, non-recursive artwork discovery."""
-import json, os, random, sys, tempfile
+import hashlib, json, os, random, sys, tempfile
 from pathlib import Path
 
 def config_path():
@@ -177,12 +177,38 @@ def reconciled_images(c):
             ordered.append(p); seen.add(name)
     return ordered
 
+def current_identity(path):
+    # Real, confirmed-live bug ("i just wait 5 min but the wallpaper
+    # didnt change"): $HOME/.local/state/omarchy/current/background
+    # never resolves to a video/GIF's own raw path -- ruixen.wallpaper
+    # /Service.qml's own play()/playGif() always retarget it at a
+    # generated POSTER jpg instead (ffmpeg-extracted single frame,
+    # named by md5(raw path) under ~/.cache/ruixen/wallpaper-posters/,
+    # issue #66's own fix for an ImageMagick memory blowup on a raw
+    # multi-frame source). next_artwork() below used to compare that
+    # resolved poster path directly against reconciled_images()'s own
+    # list of RAW source paths, which can never match for a video/GIF
+    # -- silently falling through to "current not found, start from
+    # index 0" every single time one was active, which is exactly why
+    # rotation looked stuck replaying the first item in the queue
+    # forever instead of advancing. This computes the SAME identity
+    # list-wallpapers.sh's own picker UI already uses to decide which
+    # tile is the active one (see that script's own "identity" comment)
+    # -- the poster path for video/GIF, the raw path unchanged for a
+    # plain image -- so the comparison below is apples to apples again.
+    suffix=Path(path).suffix.lower()
+    if suffix not in ('.mp4','.mkv','.webm','.mov','.m4v','.gif'):
+        return path
+    digest=hashlib.md5(path.encode()).hexdigest()
+    return str(Path.home()/'.cache/ruixen/wallpaper-posters'/(digest+'.jpg'))
+
 def next_artwork(c):
     images=reconciled_images(c)
     current=str((Path.home()/'.local/state/omarchy/current/background').resolve())
+    identities=[current_identity(image) for image in images]
     if c.get('shuffle', False):
-        return random.choice([image for image in images if image != current] or images)
-    index=(images.index(current)+1)%len(images) if current in images else 0
+        return random.choice([image for image, identity in zip(images, identities) if identity != current] or images)
+    index=(identities.index(current)+1)%len(images) if current in identities else 0
     # Live queue: current always sits at the front of the persisted
     # order, retired to the back the moment something else becomes
     # current -- direct ask ("make this left panel list live so

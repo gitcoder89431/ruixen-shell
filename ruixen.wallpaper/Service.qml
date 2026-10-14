@@ -329,12 +329,18 @@ Item {
     }
   }
 
+  // Issue #103: gates the Timer itself rather than running it
+  // unconditionally forever and only skipping the process spawn inside
+  // onTriggered -- nothing in this safety net matters while neither kind
+  // is active (readCurrentBgProc only ever acts when videoPath/gifPath
+  // is set, see its own onStreamFinished guard above), so there's no
+  // reason to keep the Timer itself ticking every second in that state.
   Timer {
     interval: 1000
     repeat: true
-    running: true
+    running: root.videoPath !== "" || root.gifPath !== ""
     onTriggered: {
-      if ((root.videoPath !== "" || root.gifPath !== "") && !readCurrentBgProc.running) readCurrentBgProc.running = true
+      if (!readCurrentBgProc.running) readCurrentBgProc.running = true
     }
   }
 

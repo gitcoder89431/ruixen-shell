@@ -103,7 +103,23 @@ Item {
       if(root.pendingTheme) {var args=JSON.parse(root.pendingTheme);root.pendingTheme="";root.applyTheme(args[0],args[1])}
     }
   }
-  Timer { interval:2000; repeat:true; running:true; onTriggered:root.refresh() }
+  // Issue #103: this poll is a safety net only -- the real path for a
+  // background change (omarchy-theme-bg-set, or this plugin's own
+  // set()/transition() IPC methods below) already notifies this service
+  // synchronously, either directly or via `omarchy-shell -q background
+  // set` (see that script's own comment: "IPC avoids the visible
+  // delay"). The only thing this interval still needs to catch is an
+  // out-of-band symlink edit that bypasses both of those paths entirely
+  // -- genuinely rare, so a long interval costs nothing real. Confirmed
+  // directly (isolated Quickshell FileView probe, not assumed) that a
+  // file-watch alternative wouldn't even be reliable here: watchChanges
+  // fires for a symlink's first creation but does not reliably refire
+  // after the SAME path's symlink target is later atomically replaced
+  // (ln -nsf, what every writer here actually does) -- the same reason
+  // every other direct reader of this exact symlink in this repo polls
+  // it too (see e.g. ruixen.notch/Overlay.qml's own comment) rather than
+  // watching it.
+  Timer { interval:15000; repeat:true; running:true; onTriggered:root.refresh() }
   Timer { id:loadDeadline; interval:10000; onTriggered:root.cancelIncoming("Unable to load wallpaper") }
   NumberAnimation {
     id:animation

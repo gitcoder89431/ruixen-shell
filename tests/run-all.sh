@@ -68,6 +68,7 @@ suites=(
   "$script_dir/cava-missing-dependency.sh"
   "$script_dir/notch-media-viz-mode.sh"
   "$script_dir/cava-idle-quiesce.sh"
+  "$script_dir/idle-polling-gating.sh"
   "$script_dir/cava-state-contract.sh"
   "$script_dir/idle-nightlight-relay.sh"
   "$script_dir/notification-relay.sh"

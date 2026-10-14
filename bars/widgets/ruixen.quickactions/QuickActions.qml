@@ -64,9 +64,17 @@ BarWidget {
     refreshReminders()
   }
 
+  // Issue #103: gated on popupOpen, not unconditional -- root.recording
+  // only ever feeds the popup's own Screen Recording row (the bar
+  // button's own color/tooltip deliberately stopped reflecting it, see
+  // that button's own comment below), so polling pgrep every 2s while
+  // the popup is closed and nothing reads the result was pure waste.
+  // Component.onCompleted and onPopupOpenChanged already cover the
+  // "fresh value the instant it's needed" cases this Timer would
+  // otherwise exist for.
   Timer {
     interval: 2000
-    running: true
+    running: root.popupOpen
     repeat: true
     onTriggered: root.refreshRecording()
   }

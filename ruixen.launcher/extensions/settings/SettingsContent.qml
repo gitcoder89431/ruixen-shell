@@ -2709,7 +2709,10 @@ Item {
       return audioPage.inputChannelItem.deviceRowAt(inputIdx - 1)
     }
     if (root.displayOpen) {
-      return [nightLightRow, brightnessItem, displayScaleItem][root.focusedItemIndex]
+      // Issue #102 phase 3: nightLightRow/brightnessItem/
+      // displayScaleItem now live inside displayPage (DisplayPage.qml),
+      // exposed through its own aliases -- see that file's own header.
+      return [displayPage.nightLightRow, displayPage.brightnessItem, displayPage.displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
       return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
@@ -3949,100 +3952,9 @@ Item {
     settingsRoot: root
   }
 
-  // Display's own three items, top to bottom -- Night Light (direct
-  // follow-up: "put it as the top option above brightness"),
-  // Brightness (a plain slider, no mute concept, hence
-  // SettingsSliderRow.qml rather than SettingsAudioChannelItem's own),
-  // and Display Scale (a plain segmented item, same shape as Bar
-  // Layout/Window Curvature). All three gated on brightnessAvailable,
-  // same as ruixen.settings' own DisplayContent.qml -- a laptop-less/
-  // headless session has no backlight to control (Night Light itself
-  // doesn't strictly need this gate, see displayItems' own comment for
-  // why it's bundled under it anyway).
-  Rectangle {
-    id: nightLightItem
-    width: parent.width
-    height: nightLightContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.displayOpen && root.brightnessAvailable
-
-    Column {
-      id: nightLightContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Night Light"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      SettingsToggleRow {
-        id: nightLightRow
-        label: "Enabled"
-        checked: root.nightLightEnabled
-        rowFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 0
-        textColor: root.textColor
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onToggled: root.toggleNightLight()
-      }
-    }
-  }
-
-  Rectangle {
-    id: brightnessItem
-    width: parent.width
-    height: brightnessContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: (root.displayOpen && root.rightFocused && root.focusedItemIndex === 1) ? 1 : 0
-    border.color: root.accent
-    visible: root.displayOpen && root.brightnessAvailable
-
-    Column {
-      id: brightnessContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Brightness"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      SettingsSliderRow {
-        icon: ""
-        value: root.brightnessPercent / 100
-        textColor: root.textColor
-        muted: root.muted
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onAdjusted: (value) => root.setBrightness(value * 100)
-      }
-    }
-  }
-
-  SettingsSegmentedItem {
-    id: displayScaleItem
-    label: "Display Scale"
-    options: root.scalePresets.map(function(s) { return { id: s, label: s + "x" } })
-    current: root.displayScale
-    cardFocused: root.displayOpen && root.rightFocused && root.focusedItemIndex === 2
-    focusedOptionIndex: displayScaleItem.cardFocused ? root.focusedOptionIndex : -1
-    visible: root.displayOpen && root.brightnessAvailable
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setDisplayScale(id)
+  DisplayPage {
+    id: displayPage
+    settingsRoot: root
   }
 
   // Visualizer -- direct request. Enable toggle same shape as

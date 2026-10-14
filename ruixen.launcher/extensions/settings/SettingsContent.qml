@@ -2576,7 +2576,9 @@ Item {
     return [
       {
         kind: "textEntry",
-        focus: function() { uninstallConfirmField.forceActiveFocus() }
+        // Issue #102 phase 10: uninstallConfirmField now lives inside
+        // aboutPage (AboutPage.qml), exposed through its own alias.
+        focus: function() { aboutPage.uninstallConfirmField.forceActiveFocus() }
       },
       {
         kind: "select",
@@ -2779,7 +2781,10 @@ Item {
       return null
     }
     if (root.aboutOpen) {
-      return [uninstallConfirmRow, uninstallButtonRow][root.focusedItemIndex]
+      // Issue #102 phase 10: both now live inside aboutPage
+      // (AboutPage.qml), exposed through its own aliases -- see that
+      // file's own header.
+      return [aboutPage.uninstallConfirmRow, aboutPage.uninstallButtonRow][root.focusedItemIndex]
     }
     return null
   }
@@ -3127,257 +3132,9 @@ Item {
     settingsRoot: root
   }
 
-  // About's own two items -- the version card (small and static, same
-  // reasoning as ruixen.settings' own: no real version tracking exists
-  // in this repo yet, so this mirrors the one number that does --
-  // ruixen.launcher's own manifest.json "version" field, "Ruixen
-  // Launcher" not "Ruixen Shell" since that's this plugin's own name)
-  // and the danger-zone full uninstall, ported from
-  // ruixen.settings/AboutContent.qml. Gated behind typing an exact
-  // phrase, not just a click-through confirm.
-  Rectangle {
-    id: aboutVersionItem
-    width: parent.width
-    height: aboutVersionContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.aboutOpen
-
-    Column {
-      id: aboutVersionContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 4
-
-      Text {
-        // Real manifest.json "name" for this plugin -- matches the
-        // Plugins page's own checklist row for it, not a separate name
-        // invented just for this page.
-        text: "Ruixen Launcher"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Text {
-        text: "v0.1.0 -- github.com/gitcoder89431/ruixen-shell"
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: root.muted
-      }
-
-      Text {
-        // Confirmed directly against this machine's own Omarchy
-        // install (contributing.md, os-release BUG_REPORT_URL, several
-        // systemd unit Documentation= lines all agree) -- basecamp/
-        // omarchy, not omacom/omarchy.
-        visible: root.omarchyVersion !== ""
-        text: "Omarchy " + root.omarchyVersion + " -- github.com/basecamp/omarchy"
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: root.muted
-      }
-    }
-  }
-
-  // Health card -- see healthChecks' own comment above for what this
-  // checks and why. Purely informational (no MouseArea/focus ring, same
-  // as aboutVersionItem above it), so it has no entry in aboutItems --
-  // there's nothing here to activate or type into.
-  Rectangle {
-    id: healthItem
-    width: parent.width
-    height: healthContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.aboutOpen
-
-    Column {
-      id: healthContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 8
-
-      Text {
-        text: "Health"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Text {
-        visible: root.healthChecks.length === 0
-        text: "Checking…"
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: root.muted
-      }
-
-      // Fixed-ish pass/fail dot, not the live theme accent -- direct
-      // report: "my accent is red so the dot status shows red, can you
-      // make it green or red token to show service status?" A status dot
-      // needs to read as pass/fail on its own, independent of whatever
-      // color the active theme happens to assign accent (confirmed live:
-      // the Matcha theme's own accent is #f1735a, a coral/red that was
-      // visually indistinguishable from the "#e05252" failure color used
-      // right next to it). "#3ecf5b" is already this codebase's own
-      // established default accent/connected-dot green (SettingsWifiRow's
-      // own fallback), reused here as a real token instead of a new one;
-      // "#e05252" is the same failure red every other error state in this
-      // file already uses -- unchanged, it just no longer shares a hue
-      // with a theme's own accent by coincidence.
-      Repeater {
-        model: root.healthChecks
-
-        delegate: Item {
-          width: healthContent.width
-          height: 16
-
-          Rectangle {
-            id: healthDot
-            anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            width: 6
-            height: 6
-            radius: 3
-            color: modelData.ok ? "#3ecf5b" : "#e05252"
-          }
-
-          Text {
-            anchors.left: healthDot.right
-            anchors.leftMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            text: modelData.label + " -- " + modelData.detail
-            font.family: root.fontFamily
-            font.pixelSize: 10
-            color: modelData.ok ? root.muted : "#e05252"
-          }
-        }
-      }
-    }
-  }
-
-  Rectangle {
-    id: dangerZoneItem
-    width: parent.width
-    height: dangerZoneContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0.878, 0.322, 0.322, 0.08)
-    border.width: 1
-    border.color: Qt.rgba(0.878, 0.322, 0.322, 0.35)
-    visible: root.aboutOpen
-
-    Column {
-      id: dangerZoneContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 8
-
-      Text {
-        visible: root.ruixenRepoPath === ""
-        width: parent.width
-        text: "Uninstall needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable it here."
-        wrapMode: Text.WordWrap
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: root.muted
-      }
-
-      Item {
-        id: uninstallConfirmRow
-        width: parent.width
-        height: 32
-
-        Rectangle {
-          visible: root.aboutOpen && root.rightFocused && root.focusedItemIndex === 0
-          anchors.fill: parent
-          anchors.margins: -4
-          radius: 10
-          color: "transparent"
-          border.width: 1
-          border.color: root.accent
-        }
-
-        Rectangle {
-          anchors.left: parent.left
-          anchors.right: uninstallButtonRow.left
-          anchors.rightMargin: 8
-          anchors.verticalCenter: parent.verticalCenter
-          height: 32
-          radius: 10
-          color: Qt.rgba(1, 1, 1, 0.06)
-
-          TextInput {
-            id: uninstallConfirmField
-            anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
-            verticalAlignment: TextInput.AlignVCenter
-            color: root.textColor
-            font.family: root.fontFamily
-            font.pixelSize: 12
-            clip: true
-            text: root.uninstallConfirmInput
-            onTextChanged: root.uninstallConfirmInput = text
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.uninstallConfirmPhrase
-              color: root.muted
-              font.family: root.fontFamily
-              font.pixelSize: 12
-              visible: uninstallConfirmField.text.length === 0
-            }
-
-            Keys.onEscapePressed: root.returnFocusRequested()
-          }
-        }
-
-        Rectangle {
-          id: uninstallButtonRow
-          readonly property bool ready: root.ruixenRepoPath !== "" && root.uninstallConfirmInput === root.uninstallConfirmPhrase
-
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          width: 96
-          height: 32
-          radius: 10
-          color: !uninstallButtonRow.ready ? Qt.rgba(1, 1, 1, 0.06)
-            : (uninstallMouse.containsMouse ? Qt.rgba(0.878, 0.322, 0.322, 0.55) : Qt.rgba(0.878, 0.322, 0.322, 0.4))
-          opacity: uninstallButtonRow.ready ? 1 : 0.5
-
-          Rectangle {
-            visible: root.aboutOpen && root.rightFocused && root.focusedItemIndex === 1
-            anchors.fill: parent
-            anchors.margins: -4
-            radius: 12
-            color: "transparent"
-            border.width: 1
-            border.color: root.accent
-          }
-
-          Text {
-            anchors.centerIn: parent
-            text: "Uninstall"
-            font.family: root.fontFamily
-            font.pixelSize: 12
-            font.weight: Font.DemiBold
-            color: root.textColor
-          }
-
-          MouseArea {
-            id: uninstallMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: uninstallButtonRow.ready
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.confirmFullUninstall()
-          }
-        }
-      }
-    }
+  AboutPage {
+    id: aboutPage
+    settingsRoot: root
   }
     }
   }

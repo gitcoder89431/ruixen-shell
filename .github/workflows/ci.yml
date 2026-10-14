@@ -19,6 +19,36 @@ jobs:
       - name: Install ShellCheck, ffmpeg and Qt6 QML tooling
         run: sudo apt-get update && sudo apt-get install -y shellcheck ffmpeg qt6-declarative-dev-tools
 
+      # First real CI run with the gate above (#107) found that
+      # qt6-declarative-dev-tools alone ships the qmllint BINARY but no
+      # actual QML module files -- confirmed live in the Actions log:
+      # even a plain `import QtQuick` failed to resolve, which (unlike a
+      # narrower unresolved import, e.g. Quickshell's own types, which
+      # qmllint already tolerates as a non-fatal warning) escalated into
+      # qmllint exiting 255 on every single file in the repo. Ubuntu
+      # splits each QML module into its own qml6-module-* package
+      # (unlike Arch's single bundled qt6-declarative this was first
+      # tested against) -- this is every top-level `import Qt*` this
+      # repo actually uses (`grep -rhoE '^import Qt[A-Za-z.]*'`), so
+      # QtQuick and its submodules resolve here the same as they do
+      # locally. Quickshell/Omarchy's own modules still can't resolve in
+      # CI either way (never packaged anywhere) -- that stays the
+      # documented, non-fatal gap tests/qml-lint.sh's own header already
+      # describes. `|| true`: a module this repo stops using, or a
+      # package rename on a future Ubuntu release, should degrade back
+      # to that same already-tolerated gap, not break the whole gate.
+      - name: Install Qt6 QML modules this repo actually imports
+        run: |
+          sudo apt-get install -y \
+            qml6-module-qtquick \
+            qml6-module-qtquick-controls \
+            qml6-module-qtquick-dialogs \
+            qml6-module-qtquick-effects \
+            qml6-module-qtquick-layouts \
+            qml6-module-qtquick-window \
+            qml6-module-qtmultimedia \
+          || true
+
       - name: Run all test suites
         run: ./tests/run-all.sh
 

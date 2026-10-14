@@ -28,6 +28,8 @@
 # repair.sh's --dry-run / detection-only path: right after hashing).
 STAGED_TMP_DIRS=()
 
+# shellcheck disable=SC2154 # script_dir: see this file's own header --
+# always set by the caller (install.sh/ruixen-repair.sh) before sourcing.
 inject_shared_wallpaper_files() {
   local id="$1" real_source="$2" parent staged
   parent="$(mktemp -d)"

@@ -92,18 +92,63 @@ def load_ignored():
     except (ValueError,OSError):
         return set()
 
+def theme_background_dirs():
+    # Same two locations list-wallpapers.sh's own "omarchy" find
+    # pipeline already scans for the picker's own display list --
+    # direct ask: "if i switch theme, the wallpapers that came with
+    # the theme is included in the shuffle rotation right, it doesnt
+    # skip those that comes with the theme right." It did skip them:
+    # reconciled_images() below used to only ever scan the single
+    # configured `folder`, with no knowledge of either theme-
+    # background location, even though the Wallpaper Shuffle
+    # extension's own queue list already showed theme wallpapers
+    # (via list-wallpapers.sh) -- rows that looked actionable but
+    # weren't, since rotation would never actually pick one. Read
+    # fresh on every call (theme.name is a plain file read, nothing
+    # cached), so a theme switch takes effect on the very next pick
+    # with no separate "re-scan on theme change" hook needed.
+    home=Path.home()
+    try:
+        theme=(home/'.local/state/omarchy/current/theme.name').read_text().strip()
+    except OSError:
+        theme=''
+    dirs=[home/'.local/state/omarchy/current/theme/backgrounds']
+    if theme:
+        dirs.append(home/'.config/omarchy/backgrounds'/theme)
+    return dirs
+
 def reconciled_images(c):
     # Video/GIF included now -- Service.qml's own pause-during-playback
     # only backs off for a video/GIF someone set manually; a video/GIF
     # rotation picks itself no longer trips it (paused checks the path
     # against WallpaperRotation's own lastAppliedPath), so the normal
     # interval timer advances past one exactly like it would an image.
+    #
+    # Scans the configured folder AND the current theme's own
+    # background directories (see theme_background_dirs() above) --
+    # each one tolerates not existing at all (same 2>/dev/null
+    # tolerance list-wallpapers.sh's own find already has for themes
+    # that ship no backgrounds), only the configured folder itself is
+    # ever required to exist (validate() already enforces that
+    # separately). Resolved-path de-duping below means a theme dir
+    # that happens to equal the configured folder itself is harmless.
     images=[]
-    with os.scandir(c['folder']) as entries:
-        for index,entry in enumerate(entries):
-            if index >= 10000: raise ValueError('Folder exceeds 10000 entries; choose a smaller folder')
-            if Path(entry.name).suffix.lower() in ('.png','.jpg','.jpeg','.webp','.avif','.gif','.mp4','.mkv','.webm','.mov','.m4v') and entry.is_file():
-                images.append(str(Path(entry.path).resolve()))
+    seen_dirs=set()
+    for raw_dir in [Path(c['folder'])] + theme_background_dirs():
+        try:
+            resolved_dir=raw_dir.resolve()
+        except OSError:
+            continue
+        if resolved_dir in seen_dirs: continue
+        seen_dirs.add(resolved_dir)
+        try:
+            with os.scandir(raw_dir) as entries:
+                for index,entry in enumerate(entries):
+                    if index >= 10000: raise ValueError('Folder exceeds 10000 entries; choose a smaller folder')
+                    if Path(entry.name).suffix.lower() in ('.png','.jpg','.jpeg','.webp','.avif','.gif','.mp4','.mkv','.webm','.mov','.m4v') and entry.is_file():
+                        images.append(str(Path(entry.path).resolve()))
+        except (FileNotFoundError,NotADirectoryError):
+            continue
     images=sorted(set(images))
     if not images: raise ValueError('No supported artwork in this folder')
     # Ignored wallpapers are excluded from the candidate pool entirely,

@@ -24,6 +24,52 @@ class RotationTests(unittest.TestCase):
         self.assertEqual(b.read_bytes(), a.read_bytes())
         self.assertEqual(c.read_bytes(), a.read_bytes())
 
+    def test_theme_backgrounds_included(self):
+        # Direct ask: "if i switch theme, the wallpapers that came
+        # with the theme is included in the shuffle rotation right,
+        # it doesnt skip those that comes with the theme right." It
+        # did skip them -- reconciled_images() used to only ever scan
+        # the single configured folder, with no knowledge of either
+        # theme-background location list-wallpapers.sh's own "omarchy"
+        # find pipeline already scans for the picker's display list.
+        # Both locations covered here: the active-theme symlink
+        # (.../current/theme/backgrounds) and the theme-name-keyed
+        # directory (.../backgrounds/<theme>), plus a theme with
+        # neither (no backgrounds shipped) failing closed instead of
+        # raising.
+        helper=Path(__file__).resolve().parents[1]/'ruixen.wallpaper/wallpaper-rotation.py'
+        spec=importlib.util.spec_from_file_location('rotation_theme',helper)
+        module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as home:
+            old=os.environ.get('HOME');os.environ['HOME']=home
+            try:
+                folder=Path(home)/'art';folder.mkdir()
+                (folder/'Custom.jpg').write_bytes(b'x')
+                cfg=module.configure(dict(enabled=True,folder=str(folder),intervalMinutes=15))
+                Path(home,'.local/state/omarchy/current/background').parent.mkdir(parents=True)
+                # No theme.name / no theme backgrounds at all yet --
+                # behaves exactly as before this feature, just the
+                # configured folder.
+                self.assertEqual(module.next_artwork(cfg),str(folder/'Custom.jpg'))
+                active_theme_dir=Path(home)/'.local/state/omarchy/current/theme/backgrounds'
+                active_theme_dir.mkdir(parents=True)
+                (active_theme_dir/'ThemeActive.jpg').write_bytes(b'x')
+                theme_name_file=Path(home)/'.local/state/omarchy/current/theme.name'
+                theme_name_file.parent.mkdir(parents=True,exist_ok=True)
+                theme_name_file.write_text('aurora')
+                named_theme_dir=Path(home)/'.config/omarchy/backgrounds/aurora'
+                named_theme_dir.mkdir(parents=True)
+                (named_theme_dir/'ThemeNamed.jpg').write_bytes(b'x')
+                images={Path(p).name for p in module.reconciled_images(cfg)}
+                self.assertEqual(images,{'Custom.jpg','ThemeActive.jpg','ThemeNamed.jpg'})
+                # A real pick can land on a theme wallpaper too, not
+                # just ones from the configured folder.
+                picks={Path(module.next_artwork(cfg)).name for _ in range(3)}
+                self.assertTrue(picks.issubset({'Custom.jpg','ThemeActive.jpg','ThemeNamed.jpg'}))
+            finally:
+                if old is None:os.environ.pop('HOME',None)
+                else:os.environ['HOME']=old
+
     def test_rotation_state_never_forces_shuffle(self):
         # Direct correction once the Wallpaper Shuffle launcher
         # extension's own reorderable queue existed: "all that notch

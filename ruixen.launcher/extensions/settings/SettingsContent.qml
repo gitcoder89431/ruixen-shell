@@ -2301,9 +2301,12 @@ Item {
     for (var i = 0; i < root.mountChecklist.length; i++) {
       items.push(root.mountToggleItem(root.mountChecklist[i]))
     }
-    items.push({ kind: "textEntry", focus: function() { customRootsItem.focusTextInput() } })
-    items.push({ kind: "textEntry", focus: function() { excludedPathsItem.focusTextInput() } })
-    items.push({ kind: "textEntry", focus: function() { excludedNamesItem.focusTextInput() } })
+    // Issue #102 phase 7: customRootsItem/excludedPathsItem/
+    // excludedNamesItem now live inside fileSearchPage
+    // (FileSearchPage.qml), exposed through its own aliases.
+    items.push({ kind: "textEntry", focus: function() { fileSearchPage.customRootsItem.focusTextInput() } })
+    items.push({ kind: "textEntry", focus: function() { fileSearchPage.excludedPathsItem.focusTextInput() } })
+    items.push({ kind: "textEntry", focus: function() { fileSearchPage.excludedNamesItem.focusTextInput() } })
     return items
   }
 
@@ -2699,12 +2702,15 @@ Item {
         barPage.iconToneItem, barPage.notchVisibilityItem, barPage.appLauncherIconItem][root.focusedItemIndex]
     }
     if (root.launcherOpen) {
-      if (root.focusedItemIndex === 0) return includeHomeRow
-      if (root.focusedItemIndex === 1) return includeMountedRow
+      // Issue #102 phase 7: every one of these now lives inside
+      // fileSearchPage (FileSearchPage.qml), exposed through its own
+      // aliases -- see that file's own header.
+      if (root.focusedItemIndex === 0) return fileSearchPage.includeHomeRow
+      if (root.focusedItemIndex === 1) return fileSearchPage.includeMountedRow
       var mountIdx = root.focusedItemIndex - 2
-      if (mountIdx < root.mountChecklist.length) return mountRepeater.itemAt(mountIdx)
+      if (mountIdx < root.mountChecklist.length) return fileSearchPage.mountRepeater.itemAt(mountIdx)
       var textEntryIdx = mountIdx - root.mountChecklist.length
-      return [customRootsItem, excludedPathsItem, excludedNamesItem][textEntryIdx]
+      return [fileSearchPage.customRootsItem, fileSearchPage.excludedPathsItem, fileSearchPage.excludedNamesItem][textEntryIdx]
     }
     if (root.audioOpen) {
       // Issue #102 phase 2: audioRadioRow/outputChannelItem/
@@ -3078,201 +3084,9 @@ Item {
     settingsRoot: root
   }
 
-  // Launcher's own first item -- two on/off toggles grouped in one
-  // card, matching ruixen.settings/LauncherSettingsContent.qml's own
-  // "Launcher" card exactly (both toggles together, not one card
-  // each). Mouse-only for this pass, deliberately not wired into the
-  // Tab/Up-Down/Left-Right/Enter keyboard model SettingsSegmentedItem
-  // items use -- a toggle's own natural interaction (flip it directly)
-  // doesn't fit that "cycle between N options" shape, and building a
-  // real keyboard model for it is its own separate piece of work, not
-  // a same-shape extension of this one. The mounted-drives checklist,
-  // custom roots, and path/name exclusions from the real page are
-  // real follow-on work too, not part of this pass.
-  Rectangle {
-    id: launcherToggleItem
-    width: parent.width
-    height: launcherToggleContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.launcherOpen
-
-    Column {
-      id: launcherToggleContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Search Settings"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      SettingsToggleRow {
-        id: includeHomeRow
-        label: "Include Home"
-        checked: root.launcherSearchConfig.includeHome
-        rowFocused: root.launcherOpen && root.rightFocused && root.focusedItemIndex === 0
-        textColor: root.textColor
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onToggled: (value) => root.setLauncherIncludeHome(value)
-      }
-
-      SettingsToggleRow {
-        id: includeMountedRow
-        label: "Auto-include Mounted Drives"
-        checked: root.launcherSearchConfig.includeMountedRoots
-        rowFocused: root.launcherOpen && root.rightFocused && root.focusedItemIndex === 1
-        textColor: root.textColor
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onToggled: (value) => root.setLauncherIncludeMountedRoots(value)
-      }
-    }
-  }
-
-  // Launcher's second item -- one toggle per discovered mount, ported
-  // from ruixen.settings/LauncherSettingsContent.qml's own "MOUNTED
-  // DRIVES" checklist. A disabled-but-unmounted entry (see
-  // toggleLauncherAutoRootDisabled's own comment) shows its own "Not
-  // currently connected" subtitle via SettingsToggleRow's own
-  // `subtitle` -- the exact shape that prop was added for.
-  Rectangle {
-    id: mountedDrivesItem
-    width: parent.width
-    height: mountedDrivesContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.launcherOpen
-
-    Column {
-      id: mountedDrivesContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 10
-
-      Text {
-        text: "Mounted Drives"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      // Centered icon + caption, matching ruixen.launcher's own
-      // EmptyState.qml "No Results" treatment -- same fa-hdd_o
-      // (U+F0A0) glyph, confirmed present in JetBrainsMono Nerd Font's
-      // cmap directly (same convention as every other \u-escaped glyph
-      // in this file).
-      Column {
-        width: parent.width
-        visible: root.mountChecklist.length === 0
-        spacing: 4
-
-        Text {
-          anchors.horizontalCenter: parent.horizontalCenter
-          text: ""
-          font.family: root.fontFamily
-          font.pixelSize: 20
-          color: root.muted
-        }
-        Text {
-          anchors.horizontalCenter: parent.horizontalCenter
-          text: "No drives detected"
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          color: root.muted
-        }
-      }
-
-      Column {
-        width: parent.width
-        spacing: 10
-
-        Repeater {
-          id: mountRepeater
-          model: root.mountChecklist
-
-          SettingsToggleRow {
-            required property var modelData
-            required property int index
-            width: parent.width
-            label: modelData.path
-            subtitle: modelData.connected ? "" : "Not currently connected"
-            elideLabel: true
-            checked: !modelData.disabled
-            rowFocused: root.launcherOpen && root.rightFocused && root.focusedItemIndex === (2 + index)
-            textColor: root.textColor
-            muted: root.muted
-            accent: root.accent
-            fontFamily: root.fontFamily
-            onToggled: root.toggleLauncherAutoRootDisabled(modelData.path)
-          }
-        }
-      }
-    }
-  }
-
-  // Launcher's third/fourth/fifth items -- the three remaining
-  // sections from ruixen.settings/LauncherSettingsContent.qml, all on
-  // SettingsAddListItem.qml (see its own header comment for why one
-  // component covers all three shapes).
-  SettingsAddListItem {
-    id: customRootsItem
-    label: "Custom Search Roots"
-    placeholder: "~/Work or /mnt/Documents"
-    items: root.launcherSearchConfig.roots
-    // launcherItems' own order: 2 fixed toggles, then one per mount,
-    // then these three text-entry cards last.
-    cardFocused: root.launcherOpen && root.rightFocused
-      && root.focusedItemIndex === 2 + root.mountChecklist.length
-    visible: root.launcherOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onAdded: (value) => root.addLauncherRoot(value)
-    onRemoved: (value) => root.removeLauncherRoot(value)
-    onCancelled: root.returnFocusRequested()
-  }
-
-  SettingsAddListItem {
-    id: excludedPathsItem
-    label: "Excluded Paths"
-    placeholder: "~/VMs or ~/Downloads/ISOs"
-    items: root.launcherSearchConfig.excludePaths
-    cardFocused: root.launcherOpen && root.rightFocused
-      && root.focusedItemIndex === 3 + root.mountChecklist.length
-    visible: root.launcherOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onAdded: (value) => root.addLauncherExcludePath(value)
-    onRemoved: (value) => root.removeLauncherExcludePath(value)
-    onCancelled: root.returnFocusRequested()
-  }
-
-  SettingsAddListItem {
-    id: excludedNamesItem
-    label: "Excluded Directory Names"
-    placeholder: "e.g. dist or .venv"
-    chipMode: true
-    items: root.launcherSearchConfig.excludeNames
-    cardFocused: root.launcherOpen && root.rightFocused
-      && root.focusedItemIndex === 4 + root.mountChecklist.length
-    visible: root.launcherOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onAdded: (value) => root.addLauncherExcludeName(value)
-    onRemoved: (value) => root.removeLauncherExcludeName(value)
-    onCancelled: root.returnFocusRequested()
+  FileSearchPage {
+    id: fileSearchPage
+    settingsRoot: root
   }
 
   AudioPage {

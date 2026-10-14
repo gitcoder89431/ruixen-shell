@@ -9,6 +9,11 @@ bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 pill_qml="$repo_dir/bars/v2/ruixen.bar/GroupPill.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 5: the Surface Color/Material controls' own visual
+# markup moved out of SettingsContent.qml into pages/BarPage.qml -- the
+# state default/write/reload logic (checked below against settings_qml)
+# stayed put.
+bar_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/BarPage.qml"
 ruixen_lua="$repo_dir/hyprland/looknfeel.ruixen.lua"
 half_lua="$repo_dir/hyprland/looknfeel.half.lua"
 square_lua="$repo_dir/hyprland/looknfeel.square.lua"
@@ -91,25 +96,25 @@ check "GroupPill shadow uses the semantic shadow token" \
   "$(grep -c 'shadowColor: pillRoot.barRoot.surfaceShadow' "$pill_qml")" "1"
 
 check "launcher settings labels the shared control as Surface Color" \
-  "$(grep -c 'label: "Surface Color"' "$settings_qml")" "1"
+  "$(grep -c 'label: "Surface Color"' "$bar_page_qml")" "1"
 
 check "launcher settings keeps Bar Layout first on the Bar page" \
-  "$(grep -Fc 'return [barLayoutItem, frameColorModeItem, surfaceMaterialItem, iconToneItem, notchVisibilityItem, appLauncherIconItem]' "$settings_qml")" "1"
+  "$(grep -Fc 'return [barPage.barLayoutItem, barPage.frameColorModeItem, barPage.surfaceMaterialItem,' "$settings_qml")" "1"
 
 check "launcher settings focuses Bar Layout at index 0" \
-  "$(grep -A18 'id: barLayoutItem' "$settings_qml" | grep -c 'focusedItemIndex === 0')" "1"
+  "$(grep -A18 'id: barLayoutItem' "$bar_page_qml" | grep -c 'focusedItemIndex === 0')" "1"
 
 check "launcher settings exposes the independent Surface Material control" \
-  "$(grep -c 'label: "Surface Material"' "$settings_qml")" "1"
+  "$(grep -c 'label: "Surface Material"' "$bar_page_qml")" "1"
 
 check "launcher settings orders Surface Color with default Black first" \
-  "$(grep -A6 'id: frameColorModeItem' "$settings_qml" | grep -c '{ id: "black", label: "Black" }')" "1"
+  "$(grep -A6 'id: frameColorModeItem' "$bar_page_qml" | grep -c '{ id: "black", label: "Black" }')" "1"
 
 check "launcher settings orders Surface Material with default Glass first" \
-  "$(grep -A6 'id: surfaceMaterialItem' "$settings_qml" | grep -c '{ id: "glass", label: "Glass" }')" "1"
+  "$(grep -A6 'id: surfaceMaterialItem' "$bar_page_qml" | grep -c '{ id: "glass", label: "Glass" }')" "1"
 
 check "launcher settings offers Solid and Glass material options" \
-  "$(( $(grep -c '{ id: "glass", label: "Glass" }' "$settings_qml") + $(grep -c '{ id: "solid", label: "Solid" }' "$settings_qml") ))" "2"
+  "$(( $(grep -c '{ id: "glass", label: "Glass" }' "$bar_page_qml") + $(grep -c '{ id: "solid", label: "Solid" }' "$bar_page_qml") ))" "2"
 
 check "bar reads the new bar surface state file" \
   "$(grep -c 'readonly property string barSurfaceStatePath: root.stateHome + "/ruixen/bar-surface.json"' "$bar_qml")" "1"

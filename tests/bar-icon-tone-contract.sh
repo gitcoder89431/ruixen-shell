@@ -8,6 +8,10 @@ repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 facade_qml="$repo_dir/bars/v2/ruixen.bar/PluginBarFacade.qml"
 settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 5: the Icon Tone control's own visual markup moved
+# out of SettingsContent.qml into pages/BarPage.qml -- its state
+# default/write logic (checked below against settings_qml) stayed put.
+bar_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/BarPage.qml"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0
@@ -56,14 +60,14 @@ check "Bar.qml reads the independent icon tone state file" \
 check "SettingsContent.qml defaults Icon Tone to accent when no user state exists" \
   "$(grep -c 'property string barIconTone: "accent"' "$settings_qml")" "1"
 
-check "SettingsContent.qml exposes Icon Tone on the Bar page" \
-  "$(grep -c 'label: "Icon Tone"' "$settings_qml")" "1"
+check "BarPage.qml exposes Icon Tone on the Bar page" \
+  "$(grep -c 'label: "Icon Tone"' "$bar_page_qml")" "1"
 
-check "SettingsContent.qml orders Icon Tone with default Accent first" \
-  "$(grep -A6 'id: iconToneItem' "$settings_qml" | grep -c '{ id: "accent", label: "Accent" }')" "1"
+check "BarPage.qml orders Icon Tone with default Accent first" \
+  "$(grep -A6 'id: iconToneItem' "$bar_page_qml" | grep -c '{ id: "accent", label: "Accent" }')" "1"
 
-check "SettingsContent.qml offers exactly Accent and Mono" \
-  "$(( $(grep -c '{ id: "accent", label: "Accent" }' "$settings_qml") + $(grep -c '{ id: "mono", label: "Mono" }' "$settings_qml") ))" "2"
+check "BarPage.qml offers exactly Accent and Mono" \
+  "$(( $(grep -c '{ id: "accent", label: "Accent" }' "$bar_page_qml") + $(grep -c '{ id: "mono", label: "Mono" }' "$bar_page_qml") ))" "2"
 
 check "SettingsContent.qml writes the same icon tone state file" \
   "$(grep -c 'bar-icon-tone.json' "$settings_qml")" "1"

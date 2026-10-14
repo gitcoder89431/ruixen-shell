@@ -2753,11 +2753,14 @@ Item {
       return wifiPage.otherRepeater.itemAt(otherIdx)
     }
     if (root.btOpen) {
-      if (root.focusedItemIndex === 0) return btRadioRow
+      // Issue #102 phase 9: every one of these now lives inside
+      // bluetoothPage (BluetoothPage.qml), exposed through its own
+      // aliases -- see that file's own header.
+      if (root.focusedItemIndex === 0) return bluetoothPage.btRadioRow
       var knownBtIdx = root.focusedItemIndex - 1
-      if (knownBtIdx < root.knownBtRows.length) return knownBtRepeater.itemAt(knownBtIdx)
+      if (knownBtIdx < root.knownBtRows.length) return bluetoothPage.knownBtRepeater.itemAt(knownBtIdx)
       var otherBtIdx = knownBtIdx - root.knownBtRows.length
-      return otherBtRepeater.itemAt(otherBtIdx)
+      return bluetoothPage.otherBtRepeater.itemAt(otherBtIdx)
     }
     if (root.pluginsOpen) {
       // Issue #102 phase 1: pluginCheckButton/pluginUpdateButton/
@@ -3114,168 +3117,9 @@ Item {
     settingsRoot: root
   }
 
-  // Bluetooth's own three items -- radio toggle, then Paired Devices
-  // and Available Devices, both on SettingsBtRow.qml (see its own
-  // header comment). Real backend on root above, ported from
-  // ruixen.settings/BluetoothContent.qml + Settings.qml.
-  Rectangle {
-    id: btRadioItem
-    width: parent.width
-    height: btRadioContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.btOpen
-
-    Column {
-      id: btRadioContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Bluetooth"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      SettingsToggleRow {
-        id: btRadioRow
-        label: "Enabled"
-        checked: root.btEnabled
-        rowFocused: root.btOpen && root.rightFocused && root.focusedItemIndex === 0
-        textColor: root.textColor
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onToggled: root.toggleBluetoothRadio()
-      }
-    }
-  }
-
-  Rectangle {
-    id: pairedDevicesItem
-    width: parent.width
-    height: pairedDevicesContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.btOpen && root.btEnabled
-
-    Column {
-      id: pairedDevicesContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Paired Devices"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Column {
-        width: parent.width
-        spacing: 4
-
-        Repeater {
-          id: knownBtRepeater
-          model: root.knownBtRows
-
-          SettingsBtRow {
-            required property var modelData
-            required property int index
-            width: parent.width
-            name: modelData.name
-            connected: modelData.connected
-            known: true
-            pairedFormally: modelData.pairedFormally
-            busy: root.btBusyAddress === modelData.address
-            showForget: !modelData.connected
-            rowFocused: root.btOpen && root.rightFocused && root.focusedItemIndex === (1 + index)
-            textColor: root.textColor
-            muted: root.muted
-            accent: root.accent
-            fontFamily: root.fontFamily
-            onActivated: root.toggleBtConnection(modelData)
-            onForgetRequested: root.forgetBtDevice(modelData)
-          }
-        }
-
-        Text {
-          visible: root.knownBtRows.length === 0
-          text: "No paired devices"
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          color: root.muted
-        }
-      }
-    }
-  }
-
-  Rectangle {
-    id: availableDevicesItem
-    width: parent.width
-    height: availableDevicesContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.btOpen && root.btEnabled && root.otherBtRows.length > 0
-
-    Column {
-      id: availableDevicesContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Available Devices"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      Column {
-        width: parent.width
-        spacing: 4
-
-        Repeater {
-          id: otherBtRepeater
-          model: root.otherBtRows
-
-          SettingsBtRow {
-            required property var modelData
-            required property int index
-            width: parent.width
-            name: modelData.name
-            connected: false
-            known: false
-            busy: root.btBusyAddress === modelData.address
-            armed: root.btPairArmedAddress === modelData.address
-            rowFocused: root.btOpen && root.rightFocused
-              && root.focusedItemIndex === (1 + root.knownBtRows.length + index)
-            textColor: root.textColor
-            muted: root.muted
-            accent: root.accent
-            fontFamily: root.fontFamily
-            onActivated: root.toggleBtConnection(modelData)
-            onConfirmPair: root.confirmPairBtDevice(modelData)
-          }
-        }
-      }
-    }
-  }
-
-  Text {
-    visible: root.btOpen && !root.btEnabled
-    width: parent.width
-    horizontalAlignment: Text.AlignHCenter
-    topPadding: 24
-    text: "Turn on Bluetooth to see nearby devices"
-    font.family: root.fontFamily
-    font.pixelSize: 12
-    color: root.muted
+  BluetoothPage {
+    id: bluetoothPage
+    settingsRoot: root
   }
 
   PluginsPage {

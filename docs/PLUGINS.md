@@ -57,7 +57,17 @@ unchanged. Back to the [manual index](README.md).
   support, plus the artwork rotation queue (see
   [Wallpaper Shuffle](LAUNCHER.md#wallpaper-shuffle)), chosen from the
   notch's own Wallpapers picker; it sits alongside Omarchy's static
-  background rather than replacing it.
+  background rather than replacing it. Also the authoritative owner of
+  the rotation-state client (`WallpaperRotationState.qml`) and the
+  appearance-settings writer/validator (`wallpaper-effects.py`) every
+  picker UI shares — each lives here as the one real copy, deployed
+  into `ruixen.notch` and `ruixen.launcher`'s own Wallpapers/Wallpaper
+  Shuffle extensions by `install.sh` at install/update time
+  (`lib/inject-shared-wallpaper-files.sh`), not hand-copied. Shader/
+  preview QML assets (`WallpaperGlitch.qml`, `WallpaperEffectPreview.qml`,
+  ...) stay genuinely duplicated across `ruixen.background` and both
+  picker UIs — real packaging requirements, not drift risk, covered by
+  their own parity test.
 - **`ruixen.background`** — optional native replacement for Omarchy's own
   static background renderer, enabled from the Wallpapers picker's own
   appearance controls: transitions between wallpapers, independent

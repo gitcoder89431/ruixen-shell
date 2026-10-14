@@ -251,18 +251,30 @@ dir_hash() {
   # content and structure actually match.
   (cd "$dir" && find . -type f -print0 | sort -z | xargs -0 sha256sum 2>/dev/null) | sha256sum | awk '{print $1}'
 }
+# Issue #105: ruixen.launcher/ruixen.notch's own deployed content
+# legitimately includes ruixen.wallpaper's shared WallpaperRotationState
+# .qml/wallpaper-effects.py now (see that lib file's own header) --
+# comparing their deployed hash against the raw checkout directory alone
+# would permanently, falsely report both as a content mismatch. The
+# staged copy install.sh itself actually deploys FROM is hashed instead,
+# for these two ids only.
+source "$script_dir/lib/inject-shared-wallpaper-files.sh"
 printf -- '-- Plugin files (source in this checkout vs deployed, by content hash) --\n'
 mismatch_count=0
 for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
   source_version="$(jq -r '.version // "?"' "$dir/manifest.json" 2>/dev/null || echo "?")"
+  compare_dir="$dir"
+  case "$id" in
+    ruixen.launcher|ruixen.notch) compare_dir="$(inject_shared_wallpaper_files "$id" "$dir")" ;;
+  esac
 
   if [[ ! -e "$plugins_dir/$id" ]]; then
     printf '%-24s v%-8s deployed MISSING (never installed here)\n' "$id" "$source_version"
     mismatch_count=$((mismatch_count + 1))
   else
-    source_hash="$(dir_hash "$dir")"
+    source_hash="$(dir_hash "$compare_dir")"
     deployed_hash="$(dir_hash "$plugins_dir/$id")"
     if [[ "$source_hash" == "$deployed_hash" ]]; then
       printf '%-24s v%-8s -- OK, file contents match exactly\n' "$id" "$source_version"
@@ -272,6 +284,7 @@ for dir in "${plugin_source_dirs[@]}"; do
     fi
   fi
 done
+for staged_parent in "${STAGED_TMP_DIRS[@]}"; do rm -rf "$staged_parent"; done
 if [[ "$mismatch_count" -eq 0 ]]; then
   printf '(every plugin file exactly matches this checkout own source)\n'
 fi

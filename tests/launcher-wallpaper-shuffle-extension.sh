@@ -72,8 +72,15 @@ check "ignored wallpapers stay visible in the list (not hidden), so there's a wa
 check "rotation itself (not just the UI) excludes ignored wallpapers, both shuffle and sequential" \
   "$(grep -c 'def load_ignored' "$repo_dir/ruixen.wallpaper/wallpaper-rotation.py")" "1"
 
-check "the extension carries its own copy of WallpaperRotationState.qml (third copy, same plugin-folders-can't-share-files convention)" \
-  "$([[ -f "$repo_dir/ruixen.launcher/extensions/wallpaper-shuffle/WallpaperRotationState.qml" ]] && echo yes || echo no)" "yes"
+# Issue #105: no longer a hand-maintained third copy in this checkout --
+# ruixen.wallpaper/WallpaperRotationState.qml is the one real copy now,
+# deployed here by install.sh's own inject_shared_wallpaper_files at
+# install time (proven against the real install.sh in
+# tests/install-shared-wallpaper-files.sh, not just asserted here).
+check "this extension no longer carries its own hand-maintained copy of WallpaperRotationState.qml in the checkout" \
+  "$([[ -f "$repo_dir/ruixen.launcher/extensions/wallpaper-shuffle/WallpaperRotationState.qml" ]] && echo yes || echo no)" "no"
+check "the one real copy lives under ruixen.wallpaper/ instead" \
+  "$([[ -f "$repo_dir/ruixen.wallpaper/WallpaperRotationState.qml" ]] && echo yes || echo no)" "yes"
 
 check "the left-edge icon has a per-kind default (video/gif/image), not one glyph for every row" \
   "$(grep -Fc 'function kindIcon(kind)' "$content_qml")" "1"

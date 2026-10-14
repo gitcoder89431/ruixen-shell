@@ -795,9 +795,28 @@ for dir in "${plugin_source_dirs[@]}"; do
   CURRENT_SOURCE_IDS["$(basename "$dir")"]=1
 done
 
+# Issue #105: stages a temporary merged copy of ruixen.launcher's/
+# ruixen.notch's own source with ruixen.wallpaper's canonical
+# WallpaperRotationState.qml/wallpaper-effects.py layered in, and the
+# deploy loop below installs FROM that staged copy instead of the raw
+# checkout. See lib/inject-shared-wallpaper-files.sh's own header for
+# the full why. Nothing else in this script (hash verification just
+# below, rollback_plugins) needs to know the difference: both only ever
+# look at "the source dir for this id" through PLUGIN_SOURCE_DIR_FOR_ID,
+# never the raw plugin_source_dirs list directly.
+source "$script_dir/lib/inject-shared-wallpaper-files.sh"
+
 for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
+
+  # A failure inside this command substitution's own subshell is safe,
+  # not a double-rollback risk -- rollback_all's own reentrancy guard
+  # (see its own comment) already exists for exactly this shape.
+  deploy_source="$dir"
+  case "$id" in
+    ruixen.launcher|ruixen.notch) deploy_source="$(inject_shared_wallpaper_files "$id" "$dir")" ;;
+  esac
 
   target="$plugins_dir/$id"
   if [[ -e "$target" ]]; then
@@ -810,8 +829,8 @@ for dir in "${plugin_source_dirs[@]}"; do
   # cleaned up by rollback_plugins, not just the plugins that fully
   # completed before it.
   DEPLOYED_PLUGIN_IDS+=("$id")
-  PLUGIN_SOURCE_DIR_FOR_ID["$id"]="$dir"
-  cp -r "$dir" "$target"
+  PLUGIN_SOURCE_DIR_FOR_ID["$id"]="$deploy_source"
+  cp -r "$deploy_source" "$target"
   printf '  installed %s\n' "$id"
 done
 
@@ -840,6 +859,12 @@ for id in "${DEPLOYED_PLUGIN_IDS[@]}"; do
   [[ "$source_hash" == "$deployed_hash" ]] \
     || fail "$id was deployed but does not match this checkout's own source -- the copy did not complete cleanly (nothing else has been changed; safe to just run this again)"
 done
+# Only needed up to the verification above, which still reads
+# PLUGIN_SOURCE_DIR_FOR_ID for ruixen.launcher/ruixen.notch -- that
+# points at these staged dirs (see inject_shared_wallpaper_files), not
+# the raw checkout, for exactly as long as this script still needs a
+# "source dir for this id" to exist on disk.
+for staged_parent in "${STAGED_TMP_DIRS[@]}"; do rm -rf "$staged_parent"; done
 # Orphan DETECTION only (not removal yet) -- a plugin id this checkout
 # used to ship as its own source directory, but no longer does (e.g.
 # ruixen.frame-widget, retired once v2 merged it into ruixen.bar itself),

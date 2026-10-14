@@ -36,6 +36,7 @@ suites=(
   "$script_dir/uninstall-failure-aggregation.sh"
   "$script_dir/install-lifecycle.sh"
   "$script_dir/install-rollback.sh"
+  "$script_dir/install-shared-wallpaper-files.sh"
   "$script_dir/lifecycle-journal-recovery.sh"
   "$script_dir/lifecycle-flag-parsing.sh"
   "$script_dir/settings-update-interruption.sh"

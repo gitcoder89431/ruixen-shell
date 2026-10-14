@@ -7,22 +7,30 @@ import tempfile
 import unittest
 
 class RotationTests(unittest.TestCase):
-    def test_qml_state_stays_in_sync(self):
-        # WallpaperRotationState.qml used to live only in the notch
-        # (its single cycling pill); the launcher's own Shuffle section
-        # (direct-pick chips, WallpaperAppearancePanel.qml) carried a
-        # second copy, and the Wallpaper Shuffle extension's own
-        # interval chip row ("lets do chips for the Shuffle Intervals
-        # so you can also change it here too") now carries a third --
-        # same byte-identical-copy parity convention
-        # tests/wallpaper-effects.py's own test_packaged_assets_stay_in_sync
-        # already uses for the other shared wallpaper QML/shader assets.
+    def test_qml_state_is_a_single_real_copy_now(self):
+        # Issue #105: WallpaperRotationState.qml used to be a hand-
+        # copied, byte-identical duplicate in three places (the notch's
+        # single cycling pill, the launcher Wallpapers extension's own
+        # Shuffle section, and the Wallpaper Shuffle extension's own
+        # interval chip row) with nothing enforcing the copies stayed in
+        # sync -- this test used to BE that enforcement, three-way
+        # byte-identity. Now there is exactly one real, hand-maintained
+        # copy (ruixen.wallpaper/), deployed into the other two plugins
+        # at install time by install.sh's own
+        # inject_shared_wallpaper_files -- proven against the real
+        # install.sh in tests/install-shared-wallpaper-files.sh, not
+        # re-proven here. What's left to guard here is that a future
+        # edit doesn't silently reintroduce a hand-maintained duplicate
+        # in this checkout.
         root = Path(__file__).resolve().parents[1]
-        a = root / 'bars/widgets/ruixen.notch/WallpaperRotationState.qml'
-        b = root / 'ruixen.launcher/extensions/wallpapers/WallpaperRotationState.qml'
-        c = root / 'ruixen.launcher/extensions/wallpaper-shuffle/WallpaperRotationState.qml'
-        self.assertEqual(b.read_bytes(), a.read_bytes())
-        self.assertEqual(c.read_bytes(), a.read_bytes())
+        canonical = root / 'ruixen.wallpaper/WallpaperRotationState.qml'
+        self.assertTrue(canonical.is_file())
+        for stale in (
+            root / 'bars/widgets/ruixen.notch/WallpaperRotationState.qml',
+            root / 'ruixen.launcher/extensions/wallpapers/WallpaperRotationState.qml',
+            root / 'ruixen.launcher/extensions/wallpaper-shuffle/WallpaperRotationState.qml',
+        ):
+            self.assertFalse(stale.is_file(), str(stale) + ' should not exist in the checkout any more')
 
     def test_theme_backgrounds_included(self):
         # Direct ask: "if i switch theme, the wallpapers that came
@@ -81,7 +89,7 @@ class RotationTests(unittest.TestCase):
         # mention shuffle at all any more -- configure()'s own
         # "preserves omitted settings" merge is what leaves it alone.
         root = Path(__file__).resolve().parents[1]
-        qml = (root / 'bars/widgets/ruixen.notch/WallpaperRotationState.qml').read_text()
+        qml = (root / 'ruixen.wallpaper/WallpaperRotationState.qml').read_text()
         code_lines = [line for line in qml.splitlines() if not line.strip().startswith('//')]
         code = '\n'.join(code_lines)
         self.assertEqual(code.count('shuffle: true'), 0)

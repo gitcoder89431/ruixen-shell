@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 """Persist a validated GUI snapshot atomically, preserving unrelated settings."""
+# Issue #105: this is now the one real, hand-maintained copy. Every
+# picker UI that needs it (ruixen.launcher's Wallpapers extension,
+# ruixen.notch) gets its own copy deployed here by install.sh
+# (inject_shared_wallpaper_files) at install/update time -- plugins must
+# be self-contained directories (no cross-plugin imports), so each
+# still carries a real file on disk, just no longer a hand-copied one.
+# Edit only here; tests/wallpaper-effects.py exercises this file
+# directly, and tests/install-shared-wallpaper-files.sh proves
+# install.sh actually deploys an identical copy to both picker UIs.
 import json, math, os, re, subprocess, sys, tempfile
 from pathlib import Path
 

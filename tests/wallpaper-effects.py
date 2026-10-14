@@ -10,16 +10,30 @@ from unittest.mock import patch
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
+# Issue #105: wallpaper-effects.py used to be a hand-copied, byte-
+# identical duplicate under both picker packages -- real backend logic
+# (appearance-settings validation, the renderer enable/disable
+# lifecycle), not a rendering asset, so it's now a single real file
+# under ruixen.wallpaper/, deployed into both picker packages at
+# install time by install.sh's own inject_shared_wallpaper_files (see
+# that function's header comment, and tests/install-shared-wallpaper-
+# files.sh, which proves the deploy side against the real install.sh).
+# This test only needs to exercise the one real copy's own behavior --
+# a second, third deployed copy is guaranteed byte-identical by
+# construction (a plain `cp`), not by independently re-implementing the
+# same logic twice, so there is nothing left to parity-test for it here.
+#
 # The notch picker's own compact Transition chip (WallpaperAppearanceState
-# .qml) carries its own copy of this settings writer, same three-way parity
-# the shader/QML assets below have among ruixen.background and the
-# launcher. The notch's wallpaper grid ALSO doubles as a live transition
-# preview surface now (hover a tile, see it play) -- the same preview
-# wrapper and shader primitives ruixen.launcher's Wallpapers extension
-# uses, so the notch needs that asset set too, not just the renderer-only
-# subset it carried before.
-HELPERS = [ROOT / 'ruixen.launcher/extensions/wallpapers/wallpaper-effects.py',
-           ROOT / 'bars/widgets/ruixen.notch/wallpaper-effects.py']
+# .qml) carries its own copy of the render/preview assets below, same
+# three-way parity the shader/QML assets below have among ruixen.background
+# and the launcher. The notch's wallpaper grid ALSO doubles as a live
+# transition preview surface now (hover a tile, see it play) -- the same
+# preview wrapper and shader primitives ruixen.launcher's Wallpapers
+# extension uses, so the notch needs that asset set too, not just the
+# renderer-only subset it carried before. Those remain genuinely
+# duplicated UI/render assets (packaging requires each surface to carry
+# its own), unlike wallpaper-effects.py above.
+HELPERS = [ROOT / 'ruixen.wallpaper/wallpaper-effects.py']
 VALID = dict(transitionEffect='pixel-dissolve', transitionDurationMs=8000, transitionSoftness=.12, ambientZoom=True, ambientGlow=True, disableMotion=False)
 
 class SettingsTests(unittest.TestCase):

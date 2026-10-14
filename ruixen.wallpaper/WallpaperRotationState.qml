@@ -2,6 +2,16 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
+// Issue #105: this is now the one real, hand-maintained copy. Every
+// picker UI that needs it (ruixen.notch, and both of ruixen.launcher's
+// Wallpapers/Wallpaper Shuffle extensions) gets its own copy deployed
+// here by install.sh (inject_shared_wallpaper_files) at install/update
+// time -- plugins must be self-contained directories (no cross-plugin
+// imports), so each still carries a real file on disk, just no longer a
+// hand-copied one. Edit only here; tests/install-shared-wallpaper-
+// files.sh proves install.sh actually deploys an identical copy to all
+// three picker UIs.
+//
 // Headless state for Artwork rotation -- used to be a full expandable
 // card (WallpaperRotationControls: title row, Rotate artwork/Shuffle
 // toggles, interval chips, a folder path field, a Next artwork button),

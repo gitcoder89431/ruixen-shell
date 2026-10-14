@@ -23,6 +23,14 @@ plugins_dir="$HOME/.config/omarchy/plugins"
 # bars/v2/ruixen.bar, the widgets that plug into it at bars/widgets/),
 # the rest at the root.
 plugin_source_dirs=("$script_dir"/ruixen.*/ "$script_dir"/bars/*/ruixen.*/)
+# Issue #105: ruixen.launcher/ruixen.notch's own deployed content
+# legitimately includes ruixen.wallpaper's shared WallpaperRotationState
+# .qml/wallpaper-effects.py now (see that lib file's own header) --
+# comparing their deployed hash against the raw checkout directory alone
+# would permanently, falsely report both as drifted. dir_hash() below
+# hashes the same staged copy install.sh itself actually deploys FROM,
+# for these two ids, instead of the raw source directory.
+source "$script_dir/lib/inject-shared-wallpaper-files.sh"
 dry_run=0
 
 for arg in "$@"; do
@@ -60,10 +68,15 @@ broken_plugins=()
 for dir in "${plugin_source_dirs[@]}"; do
   [[ -d "$dir" ]] || continue
   id="$(basename "$dir")"
-  if [[ ! -e "$plugins_dir/$id" ]] || [[ "$(dir_hash "$dir")" != "$(dir_hash "$plugins_dir/$id")" ]]; then
+  compare_dir="$dir"
+  case "$id" in
+    ruixen.launcher|ruixen.notch) compare_dir="$(inject_shared_wallpaper_files "$id" "$dir")" ;;
+  esac
+  if [[ ! -e "$plugins_dir/$id" ]] || [[ "$(dir_hash "$compare_dir")" != "$(dir_hash "$plugins_dir/$id")" ]]; then
     broken_plugins+=("$id")
   fi
 done
+for staged_parent in "${STAGED_TMP_DIRS[@]}"; do rm -rf "$staged_parent"; done
 
 looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
 looknfeel_broken=0

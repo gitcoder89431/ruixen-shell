@@ -9,6 +9,11 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 service_qml="$repo_dir/ruixen.launcher/extensions/settings/services/PluginService.qml"
 settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 1: the actual Update/Check buttons' own markup moved
+# out of SettingsContent.qml into pages/PluginsPage.qml -- the status-
+# line TEXT itself (checked above against settings_qml) is a computed
+# property that stayed put, see that property's own comment.
+plugins_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/PluginsPage.qml"
 
 pass=0
 fail_count=0
@@ -44,10 +49,12 @@ check "SettingsContent status line names interrupted updates" \
   "$(grep -c 'Update Interrupted' "$settings_qml")" "1"
 check "SettingsContent status line names generic update and check failures" \
   "$(( $(grep -c 'Update Failed' "$settings_qml") + $(grep -c 'Check Failed' "$settings_qml") ))" "2"
-check "SettingsContent update button remains plain Update" \
-  "$(( $(grep -c 'text: "Update"' "$settings_qml") + $(grep -c 'Acknowledge & Update' "$settings_qml") ))" "1"
-check "SettingsContent update button calls the simple GUI update function" \
-  "$(grep -c 'root.updateRuixenShell()' "$settings_qml")" "2"
+check "PluginsPage update button remains plain Update" \
+  "$(( $(grep -c 'text: "Update"' "$plugins_page_qml") + $(grep -c 'Acknowledge & Update' "$plugins_page_qml") ))" "1"
+check "PluginsPage update button calls the simple GUI update function" \
+  "$(grep -c 'settingsRoot.updateRuixenShell()' "$plugins_page_qml")" "1"
+check "SettingsContent's own cross-section keyboard-nav model also calls it (pluginItems)" \
+  "$(grep -c 'root.updateRuixenShell()' "$settings_qml")" "1"
 check "run-all includes Settings update interruption recovery contract" \
   "$(grep -c 'settings-update-interruption\.sh' "$script_dir/run-all.sh")" "1"
 

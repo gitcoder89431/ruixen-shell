@@ -6,6 +6,10 @@ import Quickshell.Services.Pipewire
 import Quickshell.Networking
 import Quickshell.Bluetooth
 import "services"
+// Issue #102 phase 1: same directory-import convention as "services"
+// above -- pages/ holds category content extracted out of this file's
+// own former giant flat body, one page at a time.
+import "pages"
 // Folder reorg: this extension now lives in extensions/settings/, two
 // levels below the plugin root -- "../.." reaches the shared chrome
 // (ExtensionTwoPanel/ResultsList below) the same way "services" above
@@ -2724,13 +2728,18 @@ Item {
       return otherBtRepeater.itemAt(otherBtIdx)
     }
     if (root.pluginsOpen) {
-      if (root.focusedItemIndex === 0) return pluginCheckButton
-      if (root.focusedItemIndex === 1) return pluginUpdateButton
+      // Issue #102 phase 1: pluginCheckButton/pluginUpdateButton/
+      // pluginRepeater now live inside pluginsPage (PluginsPage.qml),
+      // exposed through its own checkButton/updateButton/repeater
+      // aliases specifically so this shared, cross-section coordinator
+      // can still reach them -- see that file's own header.
+      if (root.focusedItemIndex === 0) return pluginsPage.checkButton
+      if (root.focusedItemIndex === 1) return pluginsPage.updateButton
       var togIdx = root.focusedItemIndex - 2
       var target = root.togglablePluginRows[togIdx]
       if (!target) return null
       for (var i = 0; i < root.pluginRows.length; i++) {
-        if (root.pluginRows[i].id === target.id) return pluginRepeater.itemAt(i)
+        if (root.pluginRows[i].id === target.id) return pluginsPage.repeater.itemAt(i)
       }
       return null
     }
@@ -4746,360 +4755,9 @@ Item {
     color: root.muted
   }
 
-  // Plugins' own two items -- Check for Updates and Update actions,
-  // then the checklist. Ported from ruixen.settings/PluginsContent.qml
-  // + Settings.qml's own header-row Check/Update icons -- this plugin
-  // has no shared header-icon chrome to put those in, so they're their
-  // own action rows in a small card instead, same "adapt the chrome,
-  // not the backend" approach Wi-Fi's own dropped QR/speed-test buttons
-  // took the other way (dropped entirely there; kept here since these
-  // two are core to the page, not optional extras).
-  Rectangle {
-    id: pluginActionsItem
-    width: parent.width
-    height: pluginActionsContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.pluginsOpen
-
-    Column {
-      id: pluginActionsContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 10
-
-      Text {
-        visible: root.ruixenRepoPath === ""
-        width: parent.width
-        text: "Update needs a repo checkout path -- run install.sh or update.sh once from your ruixen-shell clone to enable it here."
-        wrapMode: Text.WordWrap
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: root.muted
-      }
-
-      // Always exactly these two rows, never a third jumping in/out --
-      // direct follow-up: "on the button press like Up to Date the
-      // status, can we not make it jump to a new one row status, like
-      // keep the commit version and last updated time and just show a
-      // check or replace one of the line. keep it consistent 2 rows so
-      // its not jumpy please". Commit Version never changes; the
-      // second row swaps its own text/color between "Last Updated:
-      // <date>" (nothing in flight yet) and the live Checking/
-      // Updating/result message -- same information, just no longer a
-      // separate line that appears and disappears.
-      Column {
-        visible: root.pluginLastCommitSha !== ""
-        width: parent.width
-        spacing: 2
-
-        Row {
-          spacing: 4
-          Text {
-            text: "Commit Version:"
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: root.muted
-          }
-          Text {
-            text: root.pluginLastCommitSha
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            font.weight: Font.DemiBold
-            color: root.textColor
-          }
-        }
-
-        Text {
-          text: root.pluginStatusLine !== "" ? root.pluginStatusLine : ("Last Updated: " + root.pluginLastCommitDate)
-          font.family: root.fontFamily
-          font.pixelSize: 11
-          color: root.pluginStatusLine !== "" ? root.pluginStatusLineColor : root.muted
-        }
-      }
-
-      Text {
-        visible: (root.pluginUpdateStatus === "error" || root.pluginUpdateStatus === "interrupted") && root.pluginUpdateError !== ""
-        width: parent.width
-        text: root.pluginUpdateError
-        wrapMode: Text.WordWrap
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: root.pluginUpdateStatus === "interrupted" ? "#e8c34a" : "#e05252"
-      }
-
-      Text {
-        visible: root.pluginCheckStatus === "error" && root.pluginCheckError !== ""
-        width: parent.width
-        text: root.pluginCheckError
-        wrapMode: Text.WordWrap
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        color: "#e05252"
-      }
-
-      // Two real buttons side by side, not a plain 1-column/2-row list
-      // -- direct follow-up: "the update thing on top the 1 column 2
-      // row doesnt look nice. can they be buttons or something else".
-      // Rest-state light tint (Qt.rgba(1,1,1,0.06)/0.12 hover) is safe
-      // here -- unlike Wi-Fi/Bluetooth's own buttons, these sit
-      // directly on this card's plain dark background, never a
-      // lightened row, so there's no low-contrast risk to design
-      // around (see SettingsWifiRow.qml's own header comment for that
-      // specific bug).
-      Row {
-        width: parent.width
-        spacing: 8
-
-        Rectangle {
-          id: pluginCheckButton
-          readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginCheckStatus !== "checking"
-
-          width: (parent.width - 8) / 2
-          height: 36
-          radius: 8
-          color: checkMouse.containsMouse && actionEnabled ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-          border.width: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 0 ? 1 : 0
-          border.color: root.accent
-
-          Row {
-            anchors.centerIn: parent
-            spacing: 8
-
-            Text {
-              id: checkGlyph
-              anchors.verticalCenter: parent.verticalCenter
-              text: "\uf058"
-              font.family: root.fontFamily
-              font.pixelSize: 13
-              color: pluginCheckButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
-              rotation: root.pluginCheckStatus === "checking" ? checkSpinAngle : 0
-              property real checkSpinAngle: 0
-
-              NumberAnimation on checkSpinAngle {
-                running: root.pluginCheckStatus === "checking"
-                loops: Animation.Infinite
-                from: 0
-                to: 360
-                duration: 900
-              }
-            }
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Check Updates"
-              font.family: root.fontFamily
-              font.pixelSize: 12
-              color: pluginCheckButton.actionEnabled ? root.textColor : root.muted
-            }
-          }
-
-          MouseArea {
-            id: checkMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: pluginCheckButton.actionEnabled
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.checkForUpdates()
-          }
-        }
-
-        Rectangle {
-          id: pluginUpdateButton
-          readonly property bool actionEnabled: root.ruixenRepoPath !== "" && root.pluginUpdateStatus !== "updating"
-
-          width: (parent.width - 8) / 2
-          height: 36
-          radius: 8
-          color: updateMouse.containsMouse && actionEnabled ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-          border.width: root.pluginsOpen && root.rightFocused && root.focusedItemIndex === 1 ? 1 : 0
-          border.color: root.accent
-
-          Row {
-            anchors.centerIn: parent
-            spacing: 8
-
-            Text {
-              id: updateGlyph
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.pluginUpdateStatus === "updating" ? "\uf1ce" : "\uf021"
-              font.family: root.fontFamily
-              font.pixelSize: 13
-              color: pluginUpdateButton.actionEnabled ? root.textColor : Qt.rgba(1, 1, 1, 0.25)
-              rotation: root.pluginUpdateStatus === "updating" ? updateSpinAngle : 0
-              property real updateSpinAngle: 0
-
-              NumberAnimation on updateSpinAngle {
-                running: root.pluginUpdateStatus === "updating"
-                loops: Animation.Infinite
-                from: 0
-                to: 360
-                duration: 900
-              }
-            }
-
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Update"
-              font.family: root.fontFamily
-              font.pixelSize: 12
-              color: pluginUpdateButton.actionEnabled ? root.textColor : root.muted
-            }
-          }
-
-          MouseArea {
-            id: updateMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: pluginUpdateButton.actionEnabled
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.updateRuixenShell()
-          }
-        }
-      }
-    }
-  }
-
-  Rectangle {
-    id: pluginListItem
-    width: parent.width
-    height: pluginListContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.pluginsOpen
-
-    Column {
-      id: pluginListContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 4
-
-      Text {
-        visible: root.pluginRows.length === 0
-        text: "No plugins found"
-        font.family: root.fontFamily
-        font.pixelSize: 11
-        color: root.muted
-      }
-
-      Repeater {
-        id: pluginRepeater
-        model: root.pluginRows
-
-        Item {
-          id: pluginRow
-          required property var modelData
-          required property int index
-          readonly property bool isProtected: root.pluginIsProtected(modelData)
-          readonly property bool busy: root.pluginBusyId === modelData.id
-          readonly property int focusIndex: {
-            for (var i = 0; i < root.togglablePluginRows.length; i++)
-              if (root.togglablePluginRows[i].id === modelData.id) return i
-            return -1
-          }
-
-          width: parent.width
-          height: 28
-
-          Rectangle {
-            visible: !pluginRow.isProtected && root.pluginsOpen && root.rightFocused
-              && root.focusedItemIndex === (2 + pluginRow.focusIndex)
-            anchors.fill: parent
-            anchors.margins: -4
-            radius: 6
-            color: "transparent"
-            border.width: 1
-            border.color: root.accent
-          }
-
-          // Reserved width for whatever sits at the row's far right
-          // (lock glyph for protected rows, the toggle otherwise) plus
-          // its own margin -- the name's own width budget below is
-          // capped against this, not against the status dot, now that
-          // the dot follows the name instead of living out at the
-          // far-right edge.
-          readonly property real trailingWidth: (pluginRow.isProtected ? pluginLock.implicitWidth : pluginToggle.width) + 8
-
-          Text {
-            id: pluginNameText
-            anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            text: pluginRow.modelData.name
-            font.family: root.fontFamily
-            font.pixelSize: 12
-            color: pluginRow.isProtected ? root.muted : root.textColor
-            elide: Text.ElideRight
-            // Sized to its own content (capped by the leftover space
-            // before the lock/toggle, reserving a bit more when the
-            // status dot is actually showing) instead of stretching
-            // to fill that whole space -- so pluginStatusDot below,
-            // anchored off this Text's own right edge, sits right
-            // behind the plugin's name instead of pinned out next to
-            // the toggle. Direct report: "instead of alligning it
-            // with the toggle, can we make it right behind the name
-            // of the plugin instead."
-            width: Math.min(implicitWidth, pluginRow.width - pluginRow.trailingWidth - (pluginStatusDot.visible ? 12 : 0))
-          }
-
-          // Update-status dot -- pending (yellow) if this plugin has
-          // files in the checked batch, up to date (accent) otherwise.
-          // Only shown once a real check has actually run.
-          Rectangle {
-            id: pluginStatusDot
-            visible: root.pluginCheckStatus === "checked"
-            readonly property bool pending: root.pluginChangedIds.indexOf(pluginRow.modelData.id) >= 0
-            anchors.left: pluginNameText.right
-            anchors.leftMargin: 6
-            anchors.verticalCenter: parent.verticalCenter
-            width: 6
-            height: 6
-            radius: 3
-            color: pending ? "#e8c34a" : "#3ecf5b"
-          }
-
-          Text {
-            id: pluginLock
-            visible: pluginRow.isProtected
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            font.family: root.fontFamily
-            font.pixelSize: 11
-            color: root.muted
-          }
-
-          Rectangle {
-            id: pluginToggle
-            visible: !pluginRow.isProtected
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            width: 32
-            height: 16
-            radius: 8
-            color: pluginRow.modelData.enabled ? root.accent : Qt.rgba(1, 1, 1, 0.15)
-            opacity: pluginRow.busy ? 0.5 : 1
-            Behavior on color { ColorAnimation { duration: 120 } }
-
-            Rectangle {
-              width: 12
-              height: 12
-              radius: 6
-              color: "#ffffff"
-              anchors.verticalCenter: parent.verticalCenter
-              x: pluginRow.modelData.enabled ? parent.width - width - 2 : 2
-              Behavior on x { NumberAnimation { duration: 120 } }
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              enabled: !pluginRow.busy
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.togglePluginEnabled(pluginRow.modelData)
-            }
-          }
-        }
-      }
-    }
+  PluginsPage {
+    id: pluginsPage
+    settingsRoot: root
   }
 
   // About's own two items -- the version card (small and static, same

@@ -74,8 +74,13 @@ The first two are described for users in
 2. For runtime, QML or IPC changes do a real `omarchy restart shell`
    rather than trusting hot reload, and check
    `journalctl --user -b 0` for `is not a type`, `Type ... unavailable`,
-   `TypeError` and binding loops. Neither `omarchy plugin validate` nor the
-   test suite compiles QML, so a missing `import` only shows up there.
+   `TypeError` and binding loops. `tests/qml-lint.sh` (issue #107) catches
+   real parse/syntax errors and a broken local relative import (`import
+   "File.js"`), but it cannot resolve Quickshell/Omarchy's own modules
+   without a real desktop, so a renamed/broken *sibling component*
+   reference or anything about actual runtime/compositor behavior still
+   only ever shows up via a real restart + journal check -- see that
+   script's own header for exactly where the line is.
 3. `omarchy plugin validate <plugin>` after manifest or structure changes.
 4. Run the tests (below) before pushing.
 
@@ -99,11 +104,12 @@ verification.
 ```
 
 Runs almost everything CI runs (`.github/workflows/ci.yml`) in one go:
-shell script lint (`bash -n` + ShellCheck, when installed), plugin
-manifest validation, the JS model tests, and the installer lifecycle/
-config/uninstall-restore tests. Each suite can also be run on its own --
-see `tests/*.sh`, every file has its own header comment explaining
-what it covers.
+shell script lint (`bash -n` + ShellCheck, when installed), QML lint
+(`qmllint`, when a real Qt 6 one is found locally -- CI always has it),
+plugin manifest validation, the JS model tests, and the installer
+lifecycle/config/uninstall-restore tests. Each suite can also be run on
+its own -- see `tests/*.sh`, every file has its own header comment
+explaining what it covers.
 
 CI runs one additional step this doesn't: `tests/host-contract-
 regression.sh` (issue #34), which fetches real source from

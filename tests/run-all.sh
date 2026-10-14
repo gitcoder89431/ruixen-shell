@@ -9,6 +9,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 suites=(
   "$script_dir/lint-shell.sh"
+  "$script_dir/qml-lint.sh"
   "$script_dir/validate-manifests.sh"
   "$script_dir/js-model-tests.sh"
   "$script_dir/shell-json-merge.sh"

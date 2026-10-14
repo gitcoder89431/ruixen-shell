@@ -36,7 +36,25 @@ stamp="$(date +%s%N)"
 
 fail() {
   printf 'ruixen-shell install: %s\n' "$*" >&2
-  exit 1
+  # `return`, never `exit` -- a plain `exit` inside a function does NOT
+  # fire bash's ERR trap (confirmed directly, repeatedly, across every
+  # real call-site shape this script actually uses: bare `fail "msg"`,
+  # `cmd || fail "msg"`, `[[ ... ]] && fail "msg"`, and `cmd || { ...;
+  # fail "msg"; }`) -- found while adding test coverage for a late-step
+  # rollback case that this exact gap made impossible to pass no matter
+  # how correct rollback_all() itself was. `return`'s own non-zero exit
+  # status IS picked up by `set -e` at the call site instead, which DOES
+  # fire the trap for every one of those same shapes (same tests, same
+  # four shapes, re-run with this change). Every existing `|| fail
+  # "..."` call site after plugins/shell.json/looknfeel/theme-overlays
+  # have started being touched was silently skipping rollback_all()
+  # entirely until now -- the install only ever rolled back for an
+  # ACCIDENTAL command failure (a permission error, a missing file),
+  # never for one of this script's own DELIBERATE validation checks
+  # (the post-deploy hash-mismatch check, a malformed existing
+  # shell.json, build-shell-json.sh failing), exactly the cases #5/#20
+  # most needed this to work for.
+  return 1
 }
 
 command -v omarchy >/dev/null 2>&1 || fail "Omarchy is required (command 'omarchy' not found)"
@@ -545,10 +563,13 @@ mkdir -p "$theme_overlay_backup_dir"
 # previous working installation intact, never a mix of old and new.
 # `set -Eeuo pipefail`'s ERR trap fires for a failing command
 # regardless of whether it's inside a function or a plain `A || fail
-# "..."` top-level statement (confirmed, not assumed -- fail()'s own
-# `exit 1` really does trigger it), so every existing `|| fail "..."`
-# call site in this script gets rollback for free, no per-call-site
-# changes needed.
+# "..."` top-level statement -- AS LONG AS fail() itself signals
+# failure via `return`, not `exit` (an `exit` inside a function bypasses
+# the trap entirely; this was wrongly believed "confirmed" here for a
+# while -- see fail()'s own comment, corrected once an actual late-step
+# rollback test exposed it). With that in place, every existing `|| fail
+# "..."` call site in this script gets rollback for free, no per-call-
+# site changes needed.
 DEPLOYED_PLUGIN_IDS=()
 # id -> its own source dir (could be "$script_dir/ruixen.X",
 # "$script_dir/bars/v2/ruixen.X", or "$script_dir/bars/widgets/ruixen.X")
@@ -696,6 +717,30 @@ rollback_theme_overlays() {
 
 rollback_all() {
   trap - ERR
+  # Guards against running this function's own destructive logic twice
+  # for what is really just ONE underlying failure. Real, found live
+  # (not theoretical): `tmp_target="$(mktemp ...)"` failing (e.g.
+  # mktemp hitting a permission error) fires the ERR trap once INSIDE
+  # the subshell bash forks to run that command substitution (`set -E`
+  # above means traps ARE inherited there) -- rollback_all runs there
+  # and genuinely restores everything on the real filesystem, since a
+  # subshell shares it. Control then returns to the assignment, which
+  # bash does not always treat as fatal on its own; execution can reach
+  # the NEXT line still holding an empty variable, fail again there for
+  # an unrelated reason, and fire the trap a SECOND time -- this time
+  # in the parent shell. Every rollback_* helper above unconditionally
+  # `rm -f`/`rm -rf`s its target before conditionally restoring it from
+  # a backup, on the assumption that this is the first and only undo
+  # pass -- a second pass deletes what the first one just correctly put
+  # back, and the one-time backup it would restore from is already
+  # gone (consumed by the first pass), leaving that file/directory
+  # missing entirely. A plain in-memory flag would not catch this: the
+  # first run happens in a forked subshell, whose variables never
+  # propagate back up to the parent. A file on the real, shared
+  # filesystem does.
+  local rollback_guard="$state_dir/.rollback-ran.$stamp"
+  [[ -e "$rollback_guard" ]] && return 0
+  : > "$rollback_guard" 2>/dev/null || true
   if [[ ${#DEPLOYED_PLUGIN_IDS[@]} -eq 0 && "$SHELL_JSON_TOUCHED" -eq 0 && "$LOOKNFEEL_TOUCHED" -eq 0 && "$LOOKNFEEL_DATA_TOUCHED" -eq 0 && "$THEME_OVERLAYS_TOUCHED" -eq 0 ]]; then
     # Failed before anything was actually changed (e.g. plugin
     # validation) -- fail()'s own message already explained why,
@@ -1077,6 +1122,19 @@ else
   fi
 fi
 
+# Test-only fault injection, never set by a real user/install path:
+# every other late-step fixture (FAKE_OMARCHY_FAIL_RESTART) forced a
+# real failure by making the fake omarchy stub's own "restart shell"
+# fail -- but that specific failure is now deliberately tolerated (see
+# the retry loop inside the detached tail below), so it can no longer
+# stand in for "some genuinely fatal error happened after every real
+# deploy step already succeeded." This is the one remaining seam where
+# tests that need exactly that shape (tests/install-theme-overlays.sh's
+# own rollback cases 4b/5) can still force it, without reaching for a
+# real filesystem-permission trick at a point where none naturally
+# exists between theme overlays finishing and the restart starting.
+[[ -n "${RUIXEN_INSTALL_TEST_FORCE_FAILURE:-}" ]] && fail "forced failure for test purposes (RUIXEN_INSTALL_TEST_FORCE_FAILURE)"
+
 update_lifecycle_journal_phase "$state_dir" "7/7 restarting Omarchy shell"
 printf '\n[7/7] Restarting Omarchy shell\n'
 # Direct real-world report: a tester's install/update completed with
@@ -1126,7 +1184,42 @@ setsid bash -c '
   # shellcheck source=lib/lifecycle-journal.sh
   source "$tail_script_dir/lib/lifecycle-journal.sh"
 
-  omarchy restart shell
+  # Direct report ("omarchy restart shell had to be manually pressed to
+  # get the reloaded update, I noticed sometimes on my update too"):
+  # omarchy-restart-shell (not ours to edit -- lives under
+  # /usr/share/omarchy/) kills the old shell, asks Hyprland to launch a
+  # fresh one, then gives up and exits non-zero if ITS OWN short
+  # readiness poll does not see the new shell answer ping in time. The
+  # qmlcache wipe just above this makes that race worse on purpose --
+  # every plugin now needs a cold recompile instead of reusing cached
+  # bytecode, and that alone measured ~4x slower live on this machine
+  # (0.78s warm vs 3.93s cold) than a normal restart. With no guard here,
+  # a single slow-but-not-actually-broken restart trips the `set -e` at
+  # the top of this tail and kills the WHOLE thing right here -- orphan cleanup,
+  # repo-path, and clear_lifecycle_journal below silently never run (the
+  # stale, never-cleared lifecycle-journal.json this exact gap can leave
+  # behind is what then forces --acknowledge-interrupted on every
+  # following run), and the failure itself is invisible: a GUI-triggered
+  # update loses its stderr listener the moment the old shell dies (see
+  # updateRuixenShell() own comment), so nothing ever surfaces it.
+  #
+  # One retry, not a bare `|| true`: the new shell from the first attempt
+  # already did most of the cold-compile work before this gave up on it,
+  # so a second `omarchy restart shell` (which kills whatever is there
+  # and relaunches again) starts from an already-warm cache and is the
+  # fast case above, not another cold one -- far more likely to confirm
+  # ready within its own poll window than the first call was. Either way,
+  # the result is only ever a printed warning, never a reason to stop:
+  # by the time omarchy-restart-shell returns at all (success or its own
+  # timeout), it has ALREADY killed the old shell and dispatched the new
+  # one, so the bookkeeping below is safe to run regardless.
+  if ! omarchy restart shell; then
+    echo "ruixen-shell: omarchy restart shell did not confirm the new shell was ready in time (common right after a cold QML cache rebuild) -- retrying once" >&2
+    sleep 1
+    if ! omarchy restart shell; then
+      echo "ruixen-shell: still not confirmed after a retry. The update itself is still being finished below; if the bar/launcher still looks stale afterward, run: omarchy restart shell" >&2
+    fi
+  fi
 
   # Orphan plugins detected earlier (step [3/7]) are only physically
   # removed now, AFTER the restart above has actually happened -- see

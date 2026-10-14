@@ -60,5 +60,36 @@ restart_sid="$(cat "$record_prefix.sid" 2>/dev/null || echo "")"
 check "the restart step ran in a DIFFERENT session than the rest of this script (proves setsid actually took effect, not just present in the source)" \
   "$([[ -n "$restart_sid" && "$restart_sid" != "$outer_sid" ]] && echo yes || echo no)" "yes"
 
+# --- omarchy restart shell reporting "not ready in time" (direct report:
+# "omarchy restart shell had to be manually pressed... I noticed sometimes
+# on my update too") must not silently abort the rest of the tail --------
+# omarchy-restart-shell (not ours to edit) can legitimately exit non-zero
+# on nothing more than its own short readiness poll losing the race against
+# install.sh's qmlcache wipe forcing a cold recompile -- by the time it
+# returns at all, the old shell is already dead and a new one already
+# dispatched, so bookkeeping below it (orphan cleanup, repo-path,
+# clear_lifecycle_journal) must still run rather than being skipped by
+# `set -e` reacting to that one command. The fake stub fails EVERY restart
+# call while this flag is set (both the first attempt and the retry), so a
+# passing install here proves the tail tolerates a restart that never
+# confirms ready at all, not just a flaky-once case.
+home2="$(mktemp -d)"
+trap 'rm -rf "$home1" "$home2"' EXIT
+
+if ( HOME="$home2" PATH="$fake_bin:$PATH" FAKE_OMARCHY_FAIL_RESTART=1 "$repo_dir/install.sh" ) \
+  >"$home2/install.out" 2>&1; then
+  status2=0
+else
+  status2=$?
+fi
+
+check "install.sh still exits 0 when omarchy restart shell never confirms ready" "$status2" "0"
+check "repo-path is still written (not skipped by the restart step's own failure)" \
+  "$([[ -s "$home2/.local/state/ruixen/repo-path" ]] && echo yes || echo no)" "yes"
+check "the lifecycle journal is still cleared (not left stale, forcing --acknowledge-interrupted on the next run)" \
+  "$([[ -e "$home2/.local/state/ruixen/lifecycle-journal.json" ]] && echo no || echo yes)" "yes"
+check "a warning about the unconfirmed restart is printed, not swallowed silently" \
+  "$(grep -Fc 'did not confirm the new shell was ready in time' "$home2/install.out")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

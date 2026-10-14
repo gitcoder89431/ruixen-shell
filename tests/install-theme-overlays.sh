@@ -173,7 +173,7 @@ homes+=("$home4b")
 mkdir -p "$home4b/.config/omarchy/themes/white"
 printf '# my own custom shell.toml\n' > "$home4b/.config/omarchy/themes/white/shell.toml"
 
-run_install "$home4b" FAKE_OMARCHY_FAIL_RESTART=1 >/dev/null 2>&1 || true
+run_install "$home4b" RUIXEN_INSTALL_TEST_FORCE_FAILURE=1 >/dev/null 2>&1 || true
 check "user's own file: a failing run's rollback restores the real file (not our symlink)" \
   "$([[ -L "$home4b/.config/omarchy/themes/white/shell.toml" ]] && echo symlink || echo realfile)" "realfile"
 check "user's own file: a failing run's rollback restores its exact original content" \
@@ -194,7 +194,7 @@ run_install "$home5" >/dev/null 2>&1
 check "second-run setup: run 1 succeeded" "$?" "0"
 data_before="$(readlink "$home5/.config/omarchy/themes/white/shell.toml")"
 
-run_install "$home5" FAKE_OMARCHY_FAIL_RESTART=1 >/dev/null 2>&1 || true
+run_install "$home5" RUIXEN_INSTALL_TEST_FORCE_FAILURE=1 >/dev/null 2>&1 || true
 check "already-ours symlink: still present after a later rollback" \
   "$([[ -L "$home5/.config/omarchy/themes/white/shell.toml" ]] && echo yes || echo no)" "yes"
 check "already-ours symlink: points at the (restored) stable data path again" \

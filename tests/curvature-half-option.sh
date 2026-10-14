@@ -18,6 +18,11 @@ half_lua="$repo_dir/hyprland/looknfeel.half.lua"
 lookfeel="$repo_dir/hyprland/ruixen-lookfeel.sh"
 install_sh="$repo_dir/install.sh"
 launcher_settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 6: the Window Curvature control's own visual markup
+# moved out of SettingsContent.qml into pages/ProfilePage.qml -- its
+# state read/write logic (checked above against launcher_settings_qml)
+# stayed put.
+profile_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/ProfilePage.qml"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
 run_all="$repo_dir/tests/run-all.sh"
@@ -85,8 +90,8 @@ check "SettingsContent.qml: keyboard-nav options include half in the middle" \
   "$(grep -m1 'options: \["rounded", "half", "sharp"\]' "$launcher_settings_qml")" \
   '      options: ["rounded", "half", "sharp"],'
 
-check "SettingsContent.qml: Window Curvature item offers Half" \
-  "$(grep -m1 '{ id: "half", label: "Half" }' "$launcher_settings_qml")" \
+check "ProfilePage.qml: Window Curvature item offers Half" \
+  "$(grep -m1 '{ id: "half", label: "Half" }' "$profile_page_qml")" \
   '      { id: "half", label: "Half" },'
 
 # --- ruixen.bar (the frame corner mask) ---------------------------------

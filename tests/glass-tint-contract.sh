@@ -27,6 +27,11 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 launcher_qml="$repo_dir/ruixen.launcher/Launcher.qml"
 settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 6: the Glass Tint control's own visual markup moved
+# out of SettingsContent.qml into pages/ProfilePage.qml -- its state
+# default/write/validate logic (checked above against settings_qml)
+# stayed put.
+profile_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/ProfilePage.qml"
 
 pass=0
 fail_count=0
@@ -53,10 +58,10 @@ check "SettingsContent.qml validates against exactly themed/black" \
   "$(grep -c 'if (mode !== "themed" && mode !== "black") return' "$settings_qml")" "1"
 check "SettingsContent.qml defaults Glass Tint to black" \
   "$(grep -c 'property string glassTintMode: "black"' "$settings_qml")" "1"
-check "SettingsContent.qml's own Glass Tint picker orders default Dark first" \
-  "$(grep -A6 'id: glassTintItem' "$settings_qml" | grep -c '{ id: "black", label: "Dark" }')" "1"
-check "SettingsContent.qml's own Glass Tint picker offers exactly those two ids" \
-  "$(grep -c '{ id: "black", label: "Dark" }\|{ id: "themed", label: "Theme" }' "$settings_qml")" "2"
+check "ProfilePage.qml's own Glass Tint picker orders default Dark first" \
+  "$(grep -A6 'id: glassTintItem' "$profile_page_qml" | grep -c '{ id: "black", label: "Dark" }')" "1"
+check "ProfilePage.qml's own Glass Tint picker offers exactly those two ids" \
+  "$(grep -c '{ id: "black", label: "Dark" }\|{ id: "themed", label: "Theme" }' "$profile_page_qml")" "2"
 
 # --- the Black value is an exact revival of this property's real original,
 # not a fresh guess (confirmed directly in git history: d527a25/e864c76) ---

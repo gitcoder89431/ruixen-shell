@@ -11,6 +11,11 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 launcher_settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 6: the avatar preview card's own visual markup moved
+# out of SettingsContent.qml into pages/ProfilePage.qml -- the
+# conversion entry point/Process command construction (checked above
+# against launcher_settings_qml) stayed put.
+profile_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/ProfilePage.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 metrics_qml="$repo_dir/bars/widgets/ruixen.notch/MetricsContent.qml"
 
@@ -40,13 +45,13 @@ check "launcher settings writes PNG face-icon fallbacks for custom avatars" \
 check "launcher settings persists whether the active avatar is animated" \
   "$(grep -cF 'animated: root.avatarAnimated' "$launcher_settings_qml")" "1"
 check "launcher settings preview switches to extracted frame sources when avatar state is animated" \
-  "$(grep -cF 'root.avatarFrameDir' "$launcher_settings_qml")" "5"
+  "$(grep -cF 'settingsRoot.avatarFrameDir' "$profile_page_qml")" "1"
 check "launcher settings preview advances extracted avatar frames with a timer" \
-  "$(grep -cF 'root.avatarFrameCount > 1' "$launcher_settings_qml")" "1"
+  "$(grep -cF 'settingsRoot.avatarFrameCount > 1' "$profile_page_qml")" "1"
 check "launcher settings preview renders animated avatars directly instead of through MultiEffect" \
-  "$(grep -cF 'visible: root.avatarAnimated' "$launcher_settings_qml")" "1"
+  "$(grep -cF 'visible: settingsRoot.avatarAnimated' "$profile_page_qml")" "1"
 check "launcher settings preview keeps the MultiEffect mask for static avatars only" \
-  "$(grep -cF 'visible: !root.avatarAnimated' "$launcher_settings_qml")" "2"
+  "$(grep -cF 'visible: !settingsRoot.avatarAnimated' "$profile_page_qml")" "2"
 check "notch avatar uses AnimatedImage so a valid GIF can animate" \
   "$(grep -c 'AnimatedImage {' "$notch_qml")" "1"
 check "notch reads avatar state to decide whether the active avatar is animated" \

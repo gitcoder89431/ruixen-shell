@@ -18,6 +18,11 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 6: the Glass Effect control's own visual markup moved
+# out of SettingsContent.qml into pages/ProfilePage.qml -- its state
+# default/write/reload logic (checked above and below against
+# settings_qml) stayed put.
+profile_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/ProfilePage.qml"
 ruixen_lua="$repo_dir/hyprland/looknfeel.ruixen.lua"
 square_lua="$repo_dir/hyprland/looknfeel.square.lua"
 
@@ -60,10 +65,10 @@ check "SettingsContent.qml validates against exactly frosted/transparent" \
   "$(grep -c 'profile !== "frosted" && profile !== "transparent"' "$settings_qml")" "1"
 check "SettingsContent.qml defaults Glass Effect to transparent" \
   "$(grep -c 'property string glassProfile: "transparent"' "$settings_qml")" "1"
-check "SettingsContent.qml's own Glass picker orders default Transparent first" \
-  "$(grep -A6 'id: glassProfileItem' "$settings_qml" | grep -c '{ id: "transparent", label: "Transparent" }')" "1"
-check "SettingsContent.qml's own Glass picker offers exactly those two ids" \
-  "$(grep -c '{ id: "transparent", label: "Transparent" }\|{ id: "frosted", label: "Frosted" }' "$settings_qml")" "2"
+check "ProfilePage.qml's own Glass picker orders default Transparent first" \
+  "$(grep -A6 'id: glassProfileItem' "$profile_page_qml" | grep -c '{ id: "transparent", label: "Transparent" }')" "1"
+check "ProfilePage.qml's own Glass picker offers exactly those two ids" \
+  "$(grep -c '{ id: "transparent", label: "Transparent" }\|{ id: "frosted", label: "Frosted" }' "$profile_page_qml")" "2"
 check "looknfeel.ruixen.lua defaults to transparent, only flips on an exact frosted match" \
   "$(grep -c 'if line == "frosted" then return line end' "$ruixen_lua")" "1"
 check "looknfeel.square.lua has the identical reader (independent files, no shared base)" \
@@ -83,7 +88,7 @@ check "both Lua files use the same Transparent blur passes (2 vs. Frosted's 3)" 
 check "no leftover vibrant/solid branching anywhere in either Lua file" \
   "$(grep -c 'ruixenGlassProfile == "vibrant"\|ruixenGlassProfile == "solid"\|ruixenGlassProfile ~= "solid"' "$ruixen_lua")$(grep -c 'ruixenGlassProfile == "vibrant"\|ruixenGlassProfile == "solid"\|ruixenGlassProfile ~= "solid"' "$square_lua")" "00"
 check "no leftover vibrant/solid ids in Profile Glass picker" \
-  "$(awk '/id: glassProfileItem/ { in_block = 1 } in_block && /id: "vibrant"|id: "solid"/ { count++ } index($0, "onActivated: (id) => root.setGlassProfile(id)") { in_block = 0 } END { print count + 0 }' "$settings_qml")" "0"
+  "$(awk '/id: glassProfileItem/ { in_block = 1 } in_block && /id: "vibrant"|id: "solid"/ { count++ } index($0, "onActivated: (id) => settingsRoot.setGlassProfile(id)") { in_block = 0 } END { print count + 0 }' "$profile_page_qml")" "0"
 
 # --- the actual decoration block reads the profile-driven variables, not a
 # leftover hardcoded literal ------------------------------------------------

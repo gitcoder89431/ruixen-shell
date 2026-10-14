@@ -37,8 +37,13 @@ unchanged. Back to the [manual index](README.md).
   snippet — plus metadata (type, dimensions/duration, created/modified,
   permissions), and a contextual action menu (Tab, or right-click a row)
   for opening its containing folder or copying its path/name. It also hosts
-a Clipboard History view (see [`LAUNCHER.md`](LAUNCHER.md#clipboard-history))
-and a browser for the bjarneo community Omarchy themes. Its own
+  further extensions under `extensions/`: a
+  [Clipboard History](LAUNCHER.md#clipboard-history) view, a browser for
+  the bjarneo community Omarchy themes,
+  [Cliamp Radio](LAUNCHER.md#cliamp-radio) (browse/play Omarchy's bundled
+  `cliamp` station directory), and
+  [Wallpaper Shuffle](LAUNCHER.md#wallpaper-shuffle) (the rotation queue
+  and its interval, as a reorderable list). Its own
   built-in Settings extension is also the full settings app for this
   shell — Profile, Bar, Audio, Wi-Fi, Bluetooth, Display, Night Light,
   Plugins — replacing the default Omarchy settings panel entirely. Full
@@ -48,9 +53,16 @@ and a browser for the bjarneo community Omarchy themes. Its own
   `ruixen.frame-widget` was merged into it).
 - **`ruixen.shelf`** — the drop pocket under the notch (see
   [Shelf](#shelf-drop-pocket) below).
-- **`ruixen.wallpaper`** — muted looping video wallpaper support, chosen
-  from the notch's own Wallpapers picker; it sits alongside Omarchy's static
+- **`ruixen.wallpaper`** — muted looping video and animated GIF wallpaper
+  support, plus the artwork rotation queue (see
+  [Wallpaper Shuffle](LAUNCHER.md#wallpaper-shuffle)), chosen from the
+  notch's own Wallpapers picker; it sits alongside Omarchy's static
   background rather than replacing it.
+- **`ruixen.background`** — optional native replacement for Omarchy's own
+  static background renderer, enabled from the Wallpapers picker's own
+  appearance controls: transitions between wallpapers, independent
+  CRT/Matrix ambient backgrounds, and live hover previews. Defaults
+  preserve stock motion (effectively off) until turned on.
 - **`ruixen.cava`** — a live, edge-docked, audio-reactive spectrum overlay,
   controlled from Ruixen Settings. Needs `cava` and PipeWire.
 - **`ruixen.workspaces`**, **`ruixen.power`**, **`ruixen.capturestatus`** —

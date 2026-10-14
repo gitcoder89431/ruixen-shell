@@ -3,7 +3,7 @@
 For people changing Ruixen rather than using it: where things live, how it
 plugs into Omarchy, the dev scripts, and how to test. The repo-wide rules for
 humans and coding agents are in [`AGENTS.md`](../AGENTS.md) at the repository
-root: read that first, it is deliberately short. User-facing docs are in
+root: read that first, it's the actionable development contract. User-facing docs are in
 [`docs/`](../docs/README.md).
 
 ## How Ruixen plugs into Omarchy
@@ -25,7 +25,8 @@ actual rules, including which Omarchy internals not to depend on.
 ```text
 bars/v2/ruixen.bar/        the bar, the screen frame, docked chrome
 bars/widgets/ruixen.*/     bar widgets and the notch (ruixen.notch)
-ruixen.launcher/           launcher, Search Files, Settings, Clipboard, Theme browser
+ruixen.launcher/           launcher, Search Files, Settings, and extensions/ (Clipboard,
+                            Theme browser, Cliamp Radio, Wallpaper Shuffle, ...)
 ruixen.shelf/              the drop-pocket overlay
 ruixen.wallpaper/          video/GIF playback and artwork rotation
 ruixen.background/         optional native static wallpaper renderer

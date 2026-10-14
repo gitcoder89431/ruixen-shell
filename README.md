@@ -114,6 +114,10 @@ your coding agent.
 ### And more
 
 - **Kanban** in the notch: a three-column board you and an agent can both drive.
+- **Cliamp Radio** in the launcher: browse and play Omarchy's bundled
+  internet radio stations from a searchable list instead of its own TUI,
+  with favorites and MPRIS transport controls through the notch's media
+  widget.
 - **Wallpapers**, including muted looping video/GIF playback, a reorderable
   rotation queue with its own live countdown, and an audio visualizer.
 - **Optional native wallpaper appearance**: thirteen transitions with baked-in

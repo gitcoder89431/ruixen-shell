@@ -2715,7 +2715,12 @@ Item {
       return [displayPage.nightLightRow, displayPage.brightnessItem, displayPage.displayScaleItem][root.focusedItemIndex]
     }
     if (root.visualizerOpen) {
-      return [cavaEnableRow, cavaMirrorRow, cavaStyleItem, cavaPositionItem, cavaBandsItem, cavaThicknessItem][root.focusedItemIndex]
+      // Issue #102 phase 4: cavaEnableRow/cavaMirrorRow/cavaStyleItem/
+      // cavaPositionItem/cavaBandsItem/cavaThicknessItem now live inside
+      // visualizerPage (VisualizerPage.qml), exposed through its own
+      // aliases -- see that file's own header.
+      return [visualizerPage.cavaEnableRow, visualizerPage.cavaMirrorRow, visualizerPage.cavaStyleItem,
+        visualizerPage.cavaPositionItem, visualizerPage.cavaBandsItem, visualizerPage.cavaThicknessItem][root.focusedItemIndex]
     }
     if (root.wifiOpen) {
       if (root.focusedItemIndex === 0) return wifiRadioRow
@@ -3957,175 +3962,9 @@ Item {
     settingsRoot: root
   }
 
-  // Visualizer -- direct request. Enable toggle same shape as
-  // Night Light's own card above; Position/Bands/Size are plain
-  // segmented items, same shape as Bar Layout/Display Scale. The actual
-  // effect lives entirely in a separate, always-loaded plugin
-  // (ruixen.cava/Overlay.qml) -- this page only ever writes
-  // cava-visualizer.json, same Settings-writes/plugin-reads split as
-  // Notch above.
-  Rectangle {
-    id: cavaEnableItem
-    width: parent.width
-    height: cavaEnableContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.visualizerOpen
-
-    Column {
-      id: cavaEnableContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Visualizer"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      // Same row, same card -- direct request/answer to "where does an
-      // install hint go? a new row? thats jumpy, on the enable or
-      // visualer row then?" Swaps the switch's own dim state and adds
-      // an inline subtitle when cava isn't found, rather than a
-      // separate settings block appearing/disappearing above or below
-      // this one.
-      SettingsToggleRow {
-        id: cavaEnableRow
-        label: "Enabled"
-        subtitle: root.cavaInstalled ? "" : "cava not found — install: sudo pacman -S cava"
-        toggleEnabled: root.cavaInstalled
-        checked: root.cavaEnabled
-        rowFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 0
-        textColor: root.textColor
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onToggled: if (root.cavaInstalled) root.setCavaEnabled(!root.cavaEnabled)
-      }
-
-      // Mirror -- real bass-on-both-edges/treble-in-the-center, not a
-      // plain left-to-right sweep. Grouped into the same card as
-      // Enabled, right below it -- direct follow-up: "might as well
-      // put the toggles together" (was its own separate card between
-      // Bands and Height). Direct follow-up after shipping the same
-      // fold on the compact notch's own mini cava first ("looks better
-      // that way for aesthetic").
-      SettingsToggleRow {
-        id: cavaMirrorRow
-        label: "Mirror"
-        checked: root.cavaMirror
-        rowFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 1
-        textColor: root.textColor
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onToggled: root.setCavaMirror(!root.cavaMirror)
-      }
-    }
-  }
-
-  // Style -- Bars vs Segments, direct follow-up: "so for the segment,
-  // i guess its pretty much similar kinda vibe right" / "yup lets do
-  // it." Same card shape as Position/Bands right below; Segments
-  // reuses every other knob on this page unchanged.
-  SettingsSegmentedItem {
-    id: cavaStyleItem
-    label: "Style"
-    options: [
-      { id: "bars", label: "Bars" },
-      { id: "segments", label: "Segments" },
-      { id: "wave", label: "Wave" }
-    ]
-    current: root.cavaStyle
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 2
-    focusedOptionIndex: cavaStyleItem.cardFocused ? root.focusedOptionIndex : -1
-    visible: root.visualizerOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setCavaStyle(id)
-  }
-
-  SettingsSegmentedItem {
-    id: cavaPositionItem
-    label: "Position"
-    options: [
-      { id: "top", label: "Top" },
-      { id: "bottom", label: "Bottom" },
-      { id: "left", label: "Left" },
-      { id: "right", label: "Right" }
-    ]
-    current: root.cavaPosition
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 3
-    focusedOptionIndex: cavaPositionItem.cardFocused ? root.focusedOptionIndex : -1
-    visible: root.visualizerOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setCavaPosition(id)
-  }
-
-  SettingsSegmentedItem {
-    id: cavaBandsItem
-    label: "Bands"
-    options: [
-      { id: 32, label: "32" },
-      { id: 48, label: "48" },
-      { id: 64, label: "64" },
-      { id: 96, label: "96" }
-    ]
-    current: root.cavaBands
-    cardFocused: root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 4
-    focusedOptionIndex: cavaBandsItem.cardFocused ? root.focusedOptionIndex : -1
-    visible: root.visualizerOpen
-    textColor: root.textColor
-    muted: root.muted
-    accent: root.accent
-    fontFamily: root.fontFamily
-    onActivated: (id) => root.setCavaBands(id)
-  }
-
-  // Height -- a real pixel slider, not Small/Medium/Large. Same
-  // Rectangle-card + labeled SettingsSliderRow shape as Display's own
-  // Brightness card right above in this file, not a new pattern.
-  Rectangle {
-    id: cavaThicknessItem
-    width: parent.width
-    height: cavaThicknessContent.implicitHeight + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    border.width: (root.visualizerOpen && root.rightFocused && root.focusedItemIndex === 5) ? 1 : 0
-    border.color: root.accent
-    visible: root.visualizerOpen
-
-    Column {
-      id: cavaThicknessContent
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 12
-
-      Text {
-        text: "Height"
-        font.family: root.fontFamily
-        font.pixelSize: 12
-        font.weight: Font.DemiBold
-        color: root.textColor
-      }
-
-      SettingsSliderRow {
-        icon: ""
-        value: (root.cavaThickness - root.cavaThicknessMin) / (root.cavaThicknessMax - root.cavaThicknessMin)
-        valueLabel: root.cavaThickness + "px"
-        textColor: root.textColor
-        muted: root.muted
-        accent: root.accent
-        fontFamily: root.fontFamily
-        onAdjusted: (value) => root.setCavaThickness(root.cavaThicknessMin + value * (root.cavaThicknessMax - root.cavaThicknessMin))
-      }
-    }
+  VisualizerPage {
+    id: visualizerPage
+    settingsRoot: root
   }
 
   // Wi-Fi's own three items -- the radio toggle (reuses

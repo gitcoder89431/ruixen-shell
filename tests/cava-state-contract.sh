@@ -30,6 +30,11 @@ repo_dir="$(cd -- "$script_dir/.." && pwd)"
 manifest_json="$repo_dir/ruixen.cava/manifest.json"
 overlay_qml="$repo_dir/ruixen.cava/Overlay.qml"
 settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
+# Issue #102 phase 4: the Style/Bands pickers' own visual markup moved
+# out of SettingsContent.qml into pages/VisualizerPage.qml -- the load/
+# write validation logic itself (checked above against settings_qml)
+# stayed put, see that logic's own comment.
+visualizer_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/VisualizerPage.qml"
 
 pass=0
 fail_count=0
@@ -61,9 +66,9 @@ check "Overlay.qml validates style against exactly bars/segments/wave" \
   "$(grep -c '\["bars", "segments", "wave"\].indexOf(p.style)' "$overlay_qml")" "1"
 check "SettingsContent.qml validates the same style set on load" \
   "$(grep -c '\["bars", "segments", "wave"\].indexOf(p.style)' "$settings_qml")" "1"
-check "SettingsContent.qml's own Style picker offers exactly those three ids" \
-  "$(grep -A4 'options: \[' "$settings_qml" | grep -c '{ id: "bars", label: "Bars" }\|{ id: "segments", label: "Segments" }\|{ id: "wave", label: "Wave" }' || true)" \
-  "$(grep -c '{ id: "bars", label: "Bars" }\|{ id: "segments", label: "Segments" }\|{ id: "wave", label: "Wave" }' "$settings_qml")"
+check "VisualizerPage.qml's own Style picker offers exactly those three ids" \
+  "$(grep -A4 'options: \[' "$visualizer_page_qml" | grep -c '{ id: "bars", label: "Bars" }\|{ id: "segments", label: "Segments" }\|{ id: "wave", label: "Wave" }' || true)" \
+  "3"
 
 # --- positions: reader and writer agree --------------------------------
 
@@ -78,8 +83,8 @@ check "Overlay.qml validates bands against exactly 32/48/64/96" \
   "$(grep -c '\[32, 48, 64, 96\].indexOf(p.bands)' "$overlay_qml")" "1"
 check "SettingsContent.qml validates the same band presets on load" \
   "$(grep -c '\[32, 48, 64, 96\].indexOf(p.bands)' "$settings_qml")" "1"
-check "SettingsContent.qml's own Bands picker offers exactly those four values" \
-  "$(grep -c '{ id: 32, label: "32" }\|{ id: 48, label: "48" }\|{ id: 64, label: "64" }\|{ id: 96, label: "96" }' "$settings_qml")" "4"
+check "VisualizerPage.qml's own Bands picker offers exactly those four values" \
+  "$(grep -c '{ id: 32, label: "32" }\|{ id: 48, label: "48" }\|{ id: 64, label: "64" }\|{ id: 96, label: "96" }' "$visualizer_page_qml")" "4"
 
 # --- mirror: reader and writer agree, and the fold/halving is real ------
 

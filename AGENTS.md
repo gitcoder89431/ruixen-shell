@@ -105,6 +105,9 @@ Ruixen has hit real stale-process races more than once. The house rules:
   synchronous call on the render thread.
 - Bound search/output/cache work — no unbounded scans, unbounded output
   buffers, or unbounded cache growth.
+- GUI lifecycle jobs must survive their launching plugin being reloaded
+  during deployment, before the final restart. Detach the whole worker
+  with independent stdio (see `lib/settings-update.sh`), not just its tail.
 
 Don't reinvent this from scratch. `ruixen.launcher/search/WorkerPool.js` (see
 `tests/js/WorkerPool.test.js`) and `ruixen.wallpaper/GenerationGuard.js`

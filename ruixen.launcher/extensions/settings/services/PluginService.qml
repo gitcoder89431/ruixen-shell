@@ -160,12 +160,10 @@ Item {
     stderr: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        // A successful run never gets here to report success --
-        // update.sh ends with `omarchy restart shell`, which tears down
-        // and reloads this very plugin instance before this handler
-        // would ever fire. Only a failure that happens BEFORE that
-        // point (network down, git pull conflict, etc.) leaves this
-        // instance alive long enough to actually show the error.
+        // The relay reports failures while this instance is alive.
+        // Deployment itself can reload Settings BEFORE the final shell
+        // restart; the independent worker survives either teardown and
+        // keeps its output in ~/.local/state/ruixen/settings-update.log.
         if (updateProc.exitCode !== 0) {
           var raw = String(text || "").trim()
           var interrupted = raw.indexOf("--acknowledge-interrupted") !== -1
@@ -197,7 +195,7 @@ Item {
     // GUI updates should be one-click recoverable. The flag is a no-op
     // when no stale lifecycle journal exists; when one does, the lock
     // still guarantees there is no real concurrent lifecycle operation.
-    updateProc.command = ["bash", "-c", "cd '" + safePath + "' && ./update.sh --acknowledge-interrupted"]
+    updateProc.command = ["bash", "-c", "exec bash '" + safePath + "/lib/settings-update.sh'"]
     updateProc.running = true
   }
 
@@ -252,7 +250,8 @@ Item {
   // Omarchy's own default if there was none), and restarts the shell.
   //
   // Deliberately fired via Quickshell.execDetached, not a lifecycle-
-  // bound Process like updateProc above -- the script's own last real
+  // bound Process -- updateProc above uses an independent worker too.
+  // The script's own last real
   // step disables/removes ruixen.launcher itself (this very plugin),
   // which would tear down this QML instance (and, plausibly, any
   // Process objects it owns) mid-script if that happened before the

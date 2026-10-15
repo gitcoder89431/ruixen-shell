@@ -2545,7 +2545,7 @@ Item {
               // everything, say), rather than leaving the pill blank.
               // No toggle of its own -- unconditional whenever there's
               // no media, see nowPlayingSlot's own header comment for why.
-              Text {
+              CompactWindowTitle {
                 anchors.fill: parent
                 visible: !root.hasMedia
                 text: root.compactWindowTitle !== "" ? root.compactWindowTitle : "~"
@@ -2556,9 +2556,6 @@ Item {
                 color: root.textColor
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
               }
               }
             }

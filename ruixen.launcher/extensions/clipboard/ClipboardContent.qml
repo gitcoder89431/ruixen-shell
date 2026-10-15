@@ -115,16 +115,31 @@ Item {
   property int actionsSelectedIndex: 0
   property real actionsMenuX: 0
   property real actionsMenuY: 0
+  // Copy first, not Paste -- matches activateSelection()'s own Enter
+  // default (copy, never an auto-paste into whatever's focused; see
+  // its own comment). Then Paste, Open, then the image-only extras
+  // grouped together (QR text/link, path), then Pin (works on any
+  // entry, but a management action, not a "do something with the
+  // content" one), Reveal (secret-only, a visibility toggle), Delete
+  // always last since it's destructive.
   readonly property var clipboardActions: root.selectedEntry ? (function() {
     var out = [
-      { id: "paste", label: "Paste" },
       { id: "copy", label: "Copy" },
-      { id: "open", label: "Open" },
-      { id: "pin", label: root.selectedIsPinned ? "Unpin" : "Pin" }
+      { id: "paste", label: "Paste" },
+      { id: "open", label: "Open" }
     ]
     if (root.selectedEntry.qr) out.push({ id: "copy-qr", label: "Copy QR Text" })
     if (root.selectedEntry.qrUrl) out.push({ id: "open-qr", label: "Open QR Link" })
-    if (root.selectedEntry.type === "image") out.push({ id: "path", label: "Paste Path" })
+    // Copy, not paste: direct follow-up -- "no reason to paste the path
+    // into the launcher search input". The old "Paste Path" wl-copied
+    // the path and then simulated a paste keystroke immediately,
+    // landing wherever currently had keyboard focus -- the launcher's
+    // own search field itself, since nothing closes the launcher
+    // first. A path's value is being on the clipboard to paste
+    // wherever the user actually wants it (a save dialog, a terminal
+    // cd), not an immediate guess at the right target.
+    if (root.selectedEntry.type === "image") out.push({ id: "path", label: "Copy Path" })
+    out.push({ id: "pin", label: root.selectedIsPinned ? "Unpin" : "Pin" })
     if (root.selectedEntry.secret) out.push({ id: "reveal", label: root.revealed ? "Hide" : "Reveal" })
     out.push({ id: "delete", label: root.deleteArmed ? "Confirm Delete" : "Delete" })
     return out
@@ -266,7 +281,7 @@ Item {
     else if (id === "open") root.openSelected()
     else if (id === "copy-qr") root.copyQrSelected()
     else if (id === "open-qr") root.openQrSelected()
-    else if (id === "path") root.pasteSelectedPath()
+    else if (id === "path") root.copySelectedPath()
     else if (id === "reveal") root.toggleReveal()
     else if (id === "pin") root.togglePinSelected()
     else if (id === "delete") root.deleteSelected()
@@ -420,24 +435,23 @@ Item {
   function handleShortcut(key) {
     if (key === Qt.Key_C) root.copySelected()
     else if (key === Qt.Key_O) root.openSelected()
-    else if (key === Qt.Key_P) root.pasteSelectedPath()
+    else if (key === Qt.Key_P) root.copySelectedPath()
     else if (key === Qt.Key_R) root.toggleReveal()
     else if (key === Qt.Key_I) root.togglePinSelected()
     else if (key === Qt.Key_D || key === Qt.Key_Delete || key === Qt.Key_Backspace) root.deleteSelected()
   }
 
-  function pasteSelectedPath() {
+  // Copies the path onto the clipboard and stops -- no paste keystroke.
+  // Direct follow-up: "no reason to paste the path into the launcher
+  // search input". The old version simulated a paste immediately after
+  // copying, which landed wherever currently had keyboard focus: the
+  // launcher's own search field, since nothing closes the launcher
+  // first. A path is useful ON the clipboard, to paste wherever the
+  // user actually wants it -- a save dialog, a terminal -- not
+  // auto-typed into a guessed target.
+  function copySelectedPath() {
     if (!root.selectedEntry || root.selectedEntry.type !== "image") return
-    pastePathProc.exec(["bash", "-c",
-      "set -euo pipefail\n" +
-      "printf '%s' \"$1\" | wl-copy\n" +
-      "sleep 0.15\n" +
-      "class=$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // \"\"' 2>/dev/null || true)\n" +
-      "case \"$class\" in\n" +
-      "  kitty|Alacritty|org.wezfurlong.wezterm|foot|ghostty|com.mitchellh.ghostty) wtype -M shift -k Insert -m shift 2>/dev/null || true ;;\n" +
-      "  *) wtype -M ctrl -k v -m ctrl 2>/dev/null || true ;;\n" +
-      "esac",
-      "ruixen-clipboard-paste-path", root.selectedEntry.path])
+    copyPathProc.exec(["wl-copy", root.selectedEntry.path])
   }
 
   property string pendingPathStatusPath: ""
@@ -567,7 +581,7 @@ Item {
   Process { id: pasteTextProc }
   Process { id: pasteFileProc }
   Process { id: openProc }
-  Process { id: pastePathProc }
+  Process { id: copyPathProc }
   Process { id: qrTextProc }
   Process {
     id: pathStatusProc
@@ -835,7 +849,7 @@ Item {
     pathStatus: root.pathStatus
     onRevealRequested: root.toggleReveal()
     filtered: (root.searchText.trim() !== "" || root.kindFilter !== "") && root.entries.length > 0
-    onPastePathRequested: root.pasteSelectedPath()
+    onCopyPathRequested: root.copySelectedPath()
     pinned: root.selectedIsPinned
     onPinRequested: root.togglePinSelected()
     onDeleteRequested: root.deleteSelected()

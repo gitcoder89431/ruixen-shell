@@ -56,8 +56,8 @@ check "Clipboard model classifies URL-shaped text as Link with a link icon" \
   "$(( $(grep -c 'looksLikeLink' "$model_js") + $(grep -c '"\\uf0c1"' "$model_js") + $(grep -c 'kind: "Link"' "$model_js") ))" "7"
 check "Clipboard model labels image rows by dimensions instead of filename" \
   "$(( $(grep -c 'var prefix = entry.qr ? "QR Image" : "Image"' "$model_js") + $(grep -c 'prefix + " (" + dims + ")"' "$model_js") ))" "2"
-check "ClipboardDetailsPanel exposes an image path action" \
-  "$(grep -c 'onPastePathRequested' "$content_qml")$(grep -c 'label: "Path"' "$details_qml")" "11"
+check "ClipboardDetailsPanel exposes an image path action (copy, not paste -- no reason to auto-type a path into whatever's focused)" \
+  "$(grep -c 'onCopyPathRequested' "$content_qml")$(grep -c 'label: "Copy Path"' "$details_qml")" "11"
 check "ClipboardDetailsPanel omits temporary/internal path metadata rows" \
   "$(grep -c 'value: root.entry.path' "$details_qml")" "0"
 check "ClipboardContent fetches image dimensions through the shared file parser" \

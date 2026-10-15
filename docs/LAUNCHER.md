@@ -129,7 +129,7 @@ helpers rather than a second clipboard backend.
 | `Enter` | Copy the highlighted entry |
 | `Alt+C` | Copy the highlighted entry |
 | `Alt+O` | Open |
-| `Alt+P` | Paste an image's file path |
+| `Alt+P` | Copy an image's file path |
 | `Alt+D` | Delete (press twice to confirm) |
 | `Alt+R` | Reveal / hide a masked possible secret |
 | `Alt+I` | Pin / unpin |

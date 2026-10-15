@@ -17,7 +17,7 @@ Rectangle {
   signal pasteRequested()
   signal copyRequested()
   signal openRequested()
-  signal pastePathRequested()
+  signal copyPathRequested()
   signal pinRequested()
   signal deleteRequested()
 
@@ -224,17 +224,17 @@ Rectangle {
           spacing: 6
 
           ClipboardMetaActionButton {
-            label: "Paste"
-            icon: "\uf0ea"
-            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-            onClicked: root.pasteRequested()
-          }
-
-          ClipboardMetaActionButton {
             label: "Copy"
             icon: "\uf0c5"
             textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
             onClicked: root.copyRequested()
+          }
+
+          ClipboardMetaActionButton {
+            label: "Paste"
+            icon: "\uf0ea"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.pasteRequested()
           }
 
           ClipboardMetaActionButton {
@@ -246,10 +246,17 @@ Rectangle {
 
           ClipboardMetaActionButton {
             visible: !!root.entry && root.entry.type === "image"
-            label: "Path"
+            label: "Copy Path"
             icon: "\uf101"
             textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-            onClicked: root.pastePathRequested()
+            onClicked: root.copyPathRequested()
+          }
+
+          ClipboardMetaActionButton {
+            label: root.pinned ? "Unpin" : "Pin"
+            icon: "\uf08d"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.pinRequested()
           }
 
           ClipboardMetaActionButton {
@@ -258,13 +265,6 @@ Rectangle {
             icon: "\uf06e"
             textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
             onClicked: root.revealRequested()
-          }
-
-          ClipboardMetaActionButton {
-            label: root.pinned ? "Unpin" : "Pin"
-            icon: "\uf08d"
-            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
-            onClicked: root.pinRequested()
           }
 
           ClipboardMetaActionButton {

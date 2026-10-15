@@ -444,6 +444,20 @@ install_recommended_keybind() {
   local line="$3"
   local existing=""
 
+  # Checked unconditionally, before the live `omarchy menu keybindings
+  # --print` lookup below -- real bug hit live (bindings.lua ended up
+  # with ~20 duplicate "Ruixen Settings"/"Ruixen wallpapers" blocks):
+  # this dedup used to only run INSIDE the `-n "$existing"` branch, so
+  # if that live lookup ever failed to recognize a key as bound (seems
+  # to happen specifically for a JSON-payload o.bind line, not a plain
+  # one -- the Shelf binding below never duplicated, only these two
+  # did), the function fell straight through to blind-append, even
+  # though the exact line was already sitting in the file.
+  if grep -Fq "$line" "$bindings_file" 2>/dev/null; then
+    printf '  %s already opens %s\n' "$normalized_key" "$label"
+    return 0
+  fi
+
   existing="$(omarchy menu keybindings --print 2>/dev/null | awk -F '→' -v wanted="$normalized_key" '
     function norm(s) {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
@@ -455,11 +469,6 @@ install_recommended_keybind() {
   ' || true)"
 
   if [[ -n "$existing" ]]; then
-    if grep -Fq "$line" "$bindings_file" 2>/dev/null; then
-      printf '  %s already opens %s\n' "$normalized_key" "$label"
-      return 0
-    fi
-
     printf '  WARNING: %s is already bound; leaving that key untouched:\n' "$normalized_key"
     printf '    %s\n' "$existing"
     printf '  Add this manually after unbinding %s if you want %s there:\n' "$normalized_key" "$label"

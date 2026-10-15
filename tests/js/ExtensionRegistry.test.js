@@ -43,11 +43,22 @@ check("usesSourceFilter: clipboard", M.usesSourceFilter("clipboard"), false);
 check("usesSourceFilter: wallpaper-shuffle", M.usesSourceFilter("wallpaper-shuffle"), false);
 check("usesSourceFilter: empty activeExtensionId (plain search mode)", M.usesSourceFilter(""), false);
 
-// ---- settings is the only entry with these two special-case fields -----------
+// ---- keybindLookupLabel: direct follow-up ("how does the keybind for
+// our stuff... update it so it has the kbd helper on the launcher") --
+// every entry needs one now, not just settings, or extensionRow() never
+// even calls omarchyActionsProvider.keybindFor() for it regardless of
+// whether the user has a real keybind bound. -------------------------
 
-check("only settings declares keybindLookupLabel",
-  M.EXTENSIONS.filter(function(e) { return e.keybindLookupLabel; }).map(function(e) { return e.id; }),
-  ["settings"]);
+check("every entry declares a non-empty keybindLookupLabel",
+  M.EXTENSIONS.every(function(e) { return !!e.keybindLookupLabel; }), true);
+check("every entry's keybindLookupLabel matches its own row label, except settings",
+  M.EXTENSIONS.filter(function(e) { return e.id !== "settings"; })
+    .every(function(e) { return e.keybindLookupLabel === e.label; }), true);
+check("settings deliberately uses \"Ruixen Settings\", not its own bare \"Settings\" label (collision-prone)",
+  M.byId("settings").keybindLookupLabel, "Ruixen Settings");
+
+// ---- settings is the only entry with this special-case field ---------
+
 check("only settings declares supportsSection",
   M.EXTENSIONS.filter(function(e) { return e.supportsSection; }).map(function(e) { return e.id; }),
   ["settings"]);

@@ -31,7 +31,16 @@ var EXTENSIONS = [
     omarchyActionId: "ruixen.wallpapers",
     label: "Wallpapers Effects",
     icon: "",
-    usesSourceFilter: true
+    usesSourceFilter: true,
+    // Direct follow-up ("how does the keybind for our stuff... update
+    // it so it has the kbd helper on the launcher"): this landing row
+    // used to be one of several with no keybindLookupLabel at all (only
+    // "settings" originally had one) -- extensionRow() only ever calls
+    // omarchyActionsProvider.keybindFor() when this is set, so no other
+    // row could ever show a hint regardless of whether the user had one
+    // bound. Matches the row's own label exactly -- see
+    // docs/KEYBINDS.md's matching recipe, which uses this same string.
+    keybindLookupLabel: "Wallpapers Effects"
   },
   {
     id: "settings",
@@ -40,12 +49,12 @@ var EXTENSIONS = [
     label: "Settings",
     icon: "",
     usesSourceFilter: false,
-    // The only extension whose landing row shows a live keybind-hint
-    // chip (see Launcher.qml's own settingsRow() comment on why --
-    // "a user has to bind them right, they shouldnt be hardcoded").
-    // Names the action string omarchyActionsProvider.keybindFor()
-    // already looks up live for the synthetic "Ruixen Settings" search
-    // row, so both rows read the same real binding.
+    // "Ruixen Settings", not bare "Settings" -- deliberately distinct
+    // from the plain, more collision-prone row label (see
+    // omarchyActionsProvider's own "Ruixen Settings" synthetic search
+    // row, which already looks up the identical label, so both rows
+    // read the same real binding -- "a user has to bind them right,
+    // they shouldnt be hardcoded").
     keybindLookupLabel: "Ruixen Settings",
     // Settings is the only extension deep-linkable to a sub-page via
     // `{"extension":"settings","section":"..."}` -- see Launcher.qml's
@@ -58,7 +67,8 @@ var EXTENSIONS = [
     omarchyActionId: "ruixen.theme-browser",
     label: "Bjarneo Themes",
     icon: "",
-    usesSourceFilter: true
+    usesSourceFilter: true,
+    keybindLookupLabel: "Bjarneo Themes"
   },
   {
     id: "clipboard",
@@ -66,7 +76,8 @@ var EXTENSIONS = [
     omarchyActionId: "ruixen.clipboard",
     label: "Clipboard History",
     icon: "",
-    usesSourceFilter: false
+    usesSourceFilter: false,
+    keybindLookupLabel: "Clipboard History"
   },
   {
     id: "cliamp",
@@ -74,7 +85,8 @@ var EXTENSIONS = [
     omarchyActionId: "ruixen.cliamp",
     label: "Cliamp Radio",
     icon: "",
-    usesSourceFilter: true
+    usesSourceFilter: true,
+    keybindLookupLabel: "Cliamp Radio"
   },
   {
     id: "wallpaper-shuffle",
@@ -82,7 +94,8 @@ var EXTENSIONS = [
     omarchyActionId: "ruixen.wallpaper-shuffle",
     label: "Wallpaper Shuffle",
     icon: "",
-    usesSourceFilter: false
+    usesSourceFilter: false,
+    keybindLookupLabel: "Wallpaper Shuffle"
   }
 ]
 

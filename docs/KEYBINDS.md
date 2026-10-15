@@ -79,6 +79,29 @@ Inside it, `Enter` copies the highlighted entry; `Alt+C` copies it, `Alt+O`
 opens it, `Alt+P` pastes an image's file path, and `Alt+D` deletes it (press
 twice to confirm), and `Alt+R` reveals a masked possible secret.
 
+## Cliamp Radio, Wallpaper Shuffle, Bjarneo Themes, Wallpapers Effects
+
+Same `extension` payload shape as Clipboard History above — each is its own
+extension inside Ruixen Launcher:
+
+```lua
+o.bind("SUPER + SHIFT + U", "Cliamp Radio", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"cliamp"}']])
+o.bind("SUPER + SHIFT + J", "Wallpaper Shuffle", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"wallpaper-shuffle"}']])
+o.bind("SUPER + SHIFT + T", "Bjarneo Themes", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"theme-browser"}']])
+o.bind("SUPER + SHIFT + K", "Wallpapers Effects", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"wallpapers"}']])
+```
+
+Confirmed free via `omarchy menu keybindings --print` first -- the more
+mnemonic SHIFT+C/W/E collide with stock Calendar/Omawrite/Email, which is
+exactly the check this doc's own intro says to run before picking a key.
+
+The label (the quoted string in the middle) has to be exactly this —
+Ruixen Launcher's own landing row for each extension looks up a keybind
+hint to show next to it by that same label text, same mechanism the
+"Ruixen Settings" binding above already relies on. No binding yet (or a
+label that doesn't match) just means no hint shows — it doesn't stop the
+extension working.
+
 ## Shelf (drop pocket)
 
 `ruixen.shelf` is its own overlay plugin with its own IPC target. Toggle its

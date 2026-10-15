@@ -238,8 +238,15 @@ check "CliampStationPanel draws the EQ chips after Now Playing, not inside it" \
   "$(( $(grep -n 'id: nowPlayingCard' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'id: eqColumn' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
 check "CliampStationPanel draws the EQ chips before Metadata, not inside it" \
   "$(( $(grep -n 'id: eqColumn' "$station_panel_qml" | head -1 | cut -d: -f1) < $(grep -n 'text: "Metadata"' "$station_panel_qml" | head -1 | cut -d: -f1) ))" "1"
-check "EQ section has no standalone label row anymore (removed for a cleaner, more-centered chip block)" \
-  "$(grep -c 'text: "Equalizer"' "$station_panel_qml")" "0"
+# Direct follow-up ("splitting them out and putting the equalizer
+# header for the equalizer group, so it will be Radio Equalizer
+# Metadata as the three group"): reverses an earlier pass here that had
+# deliberately removed this same label. Panel is now three parallel
+# groups, each with the same plain muted-uppercase header style.
+check "Right panel is three parallel groups -- Radio, Equalizer, Metadata -- each with the same header style" \
+  "$(( $(grep -c 'text: "Radio"' "$station_panel_qml") + $(grep -c 'text: "Equalizer"' "$station_panel_qml") + $(grep -c 'text: "Metadata"' "$station_panel_qml") ))" "3"
+check "Equalizer is its own top-level group now, not nested inside Radio's own card" \
+  "$(grep -c 'id: eqColumn' "$station_panel_qml")" "1"
 check "EQ chip highlights the currently active preset and reports a tap back up via a signal, same split as every other piece of state in this panel" \
   "$(( $(grep -c 'readonly property bool isActive: root.eqPreset === modelData' "$station_panel_qml") + $(grep -c 'signal eqPresetSelected(string name)' "$station_panel_qml") + $(grep -c 'onClicked: root.eqPresetSelected(eqChip.modelData)' "$station_panel_qml") ))" "3"
 check "CliampContent wires the panel's EQ signal back to setEqPreset" \

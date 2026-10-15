@@ -19,15 +19,26 @@ import QtQuick
 // which was already fully isolated before this phase and stays that
 // way.
 //
-// uninstallConfirmRow/uninstallButtonRow are exposed because
-// SettingsContent.qml's own shared, cross-section focusedItemVisual()
-// keyboard-navigation coordinator needs to reach them regardless of
-// which page owns them. uninstallConfirmField is ALSO exposed, for the
-// same reason, by SettingsContent.qml's own aboutItems keyboard-nav
-// data model (same role as pluginItems/audioItems/profileItems/
-// launcherItems/wifiItems before it) -- its own text-entry row needs
-// to hand real Qt focus to the actual input field, not just report
-// which one is focused.
+// restartShellButton/uninstallConfirmRow/uninstallButtonRow are exposed
+// because SettingsContent.qml's own shared, cross-section
+// focusedItemVisual() keyboard-navigation coordinator needs to reach
+// them regardless of which page owns them. uninstallConfirmField is
+// ALSO exposed, for the same reason, by SettingsContent.qml's own
+// aboutItems keyboard-nav data model (same role as pluginItems/
+// audioItems/profileItems/launcherItems/wifiItems before it) -- its
+// own text-entry row needs to hand real Qt focus to the actual input
+// field, not just report which one is focused.
+//
+// Restart Shell (restartShellItem) -- direct ask: "above the uninstall
+// component, is it safe or possible to add an omarchy restart shell
+// button?" -- confirmed safe (restartOmarchyShell's own comment in
+// SettingsContent.qml has the reasoning: this exact command already
+// fires from a live button elsewhere in this same plugin). Sits above
+// the danger zone, its own plain action button rather than a card --
+// same bare-button weight Plugins' own Check/Update buttons use, not
+// the red destructive styling Uninstall below it has, since this isn't
+// destructive. Index 0 in aboutItems now, ahead of the uninstall
+// confirm field/button which shifted to 1/2.
 Column {
   id: root
   required property Item settingsRoot
@@ -36,6 +47,7 @@ Column {
   spacing: 16
   visible: settingsRoot.aboutOpen
 
+  readonly property alias restartShellButton: restartShellItem
   readonly property alias uninstallConfirmRow: uninstallConfirmRow
   readonly property alias uninstallButtonRow: uninstallButtonRow
   readonly property alias uninstallConfirmField: uninstallConfirmField
@@ -173,6 +185,46 @@ Column {
   }
 
   Rectangle {
+    id: restartShellItem
+    width: parent.width
+    height: 36
+    radius: 10
+    color: restartShellMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+    visible: settingsRoot.aboutOpen
+    border.width: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 0 ? 1 : 0
+    border.color: settingsRoot.accent
+
+    Row {
+      anchors.centerIn: parent
+      spacing: 8
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: ""
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 13
+        color: settingsRoot.textColor
+      }
+
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Restart Shell"
+        font.family: settingsRoot.fontFamily
+        font.pixelSize: 12
+        color: settingsRoot.textColor
+      }
+    }
+
+    MouseArea {
+      id: restartShellMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: settingsRoot.restartOmarchyShell()
+    }
+  }
+
+  Rectangle {
     id: dangerZoneItem
     width: parent.width
     height: dangerZoneContent.implicitHeight + 24
@@ -204,7 +256,7 @@ Column {
         height: 32
 
         Rectangle {
-          visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 0
+          visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 1
           anchors.fill: parent
           anchors.margins: -4
           radius: 10
@@ -262,7 +314,7 @@ Column {
           opacity: uninstallButtonRow.ready ? 1 : 0.5
 
           Rectangle {
-            visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 1
+            visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 2
             anchors.fill: parent
             anchors.margins: -4
             radius: 12

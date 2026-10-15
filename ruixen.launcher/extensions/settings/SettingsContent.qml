@@ -1897,6 +1897,21 @@ Item {
   function checkForUpdates() { pluginService.checkForUpdates() }
   function confirmFullUninstall() { pluginService.confirmFullUninstall() }
 
+  // Direct ask: "above the uninstall component, is it safe or possible
+  // to add an omarchy restart shell button?" -- yes: this exact command
+  // already fires from a live button elsewhere in this same file (see
+  // setCornerCurvature's own trailing restart, and the docked/bar-style
+  // toggle below), this plugin's own process included, same as the real
+  // install/update scripts always do unprompted at the end of a run. No
+  // confirmation gate, unlike Uninstall -- restarting is quick and
+  // non-destructive (no data loss, just the bar/launcher blinking back
+  // in for a couple seconds).
+  Process {
+    id: restartShellProc
+    command: ["bash", "-c", "omarchy restart shell >/dev/null 2>&1 || true"]
+  }
+  function restartOmarchyShell() { restartShellProc.running = true }
+
   // Keyboard-navigable subset of pluginRows -- protected rows (locked,
   // no toggle to reach) are drawn but deliberately not part of
   // currentItems, same "nothing there to interact with" reasoning empty
@@ -2567,13 +2582,18 @@ Item {
     }
   }
 
-  // About's own two items -- the uninstall confirm field (kind
-  // "textEntry", same real Qt focus handoff Launcher's own add-list
-  // boxes use) and the Uninstall button itself ("select", no-op via its
-  // own activate() guard until ready, same disabled-button reasoning
-  // Plugins' own Check/Update items use).
+  // About's own three items -- Restart Shell ("select", no confirm
+  // gate, see restartOmarchyShell's own comment for why), the uninstall
+  // confirm field (kind "textEntry", same real Qt focus handoff
+  // Launcher's own add-list boxes use), and the Uninstall button itself
+  // ("select", no-op via its own activate() guard until ready, same
+  // disabled-button reasoning Plugins' own Check/Update items use).
   readonly property var aboutItems: {
     return [
+      {
+        kind: "select",
+        activate: function() { root.restartOmarchyShell() }
+      },
       {
         kind: "textEntry",
         // Issue #102 phase 10: uninstallConfirmField now lives inside
@@ -2781,10 +2801,10 @@ Item {
       return null
     }
     if (root.aboutOpen) {
-      // Issue #102 phase 10: both now live inside aboutPage
+      // Issue #102 phase 10: all three now live inside aboutPage
       // (AboutPage.qml), exposed through its own aliases -- see that
       // file's own header.
-      return [aboutPage.uninstallConfirmRow, aboutPage.uninstallButtonRow][root.focusedItemIndex]
+      return [aboutPage.restartShellButton, aboutPage.uninstallConfirmRow, aboutPage.uninstallButtonRow][root.focusedItemIndex]
     }
     return null
   }

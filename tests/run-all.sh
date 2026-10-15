@@ -63,6 +63,7 @@ suites=(
   "$script_dir/media-status-relay.sh"
   "$script_dir/launcher-open-defer.sh"
   "$script_dir/launcher-settings-search-clear.sh"
+  "$script_dir/launcher-settings-about-restart.sh"
   "$script_dir/launcher-extensions-frecency.sh"
   "$script_dir/launcher-extension-search-discoverability.sh"
   "$script_dir/launcher-extension-registry-consistency.sh"

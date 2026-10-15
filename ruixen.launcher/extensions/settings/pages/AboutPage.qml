@@ -19,26 +19,28 @@ import QtQuick
 // which was already fully isolated before this phase and stays that
 // way.
 //
-// restartShellButton/uninstallConfirmRow/uninstallButtonRow are exposed
-// because SettingsContent.qml's own shared, cross-section
-// focusedItemVisual() keyboard-navigation coordinator needs to reach
-// them regardless of which page owns them. uninstallConfirmField is
-// ALSO exposed, for the same reason, by SettingsContent.qml's own
-// aboutItems keyboard-nav data model (same role as pluginItems/
-// audioItems/profileItems/launcherItems/wifiItems before it) -- its
-// own text-entry row needs to hand real Qt focus to the actual input
-// field, not just report which one is focused.
+// restartShellButton/openGithubButton/uninstallConfirmRow/
+// uninstallButtonRow are exposed because SettingsContent.qml's own
+// shared, cross-section focusedItemVisual() keyboard-navigation
+// coordinator needs to reach them regardless of which page owns them.
+// uninstallConfirmField is ALSO exposed, for the same reason, by
+// SettingsContent.qml's own aboutItems keyboard-nav data model (same
+// role as pluginItems/audioItems/profileItems/launcherItems/wifiItems
+// before it) -- its own text-entry row needs to hand real Qt focus to
+// the actual input field, not just report which one is focused.
 //
-// Restart Shell (restartShellItem) -- direct ask: "above the uninstall
-// component, is it safe or possible to add an omarchy restart shell
-// button?" -- confirmed safe (restartOmarchyShell's own comment in
-// SettingsContent.qml has the reasoning: this exact command already
-// fires from a live button elsewhere in this same plugin). Sits above
-// the danger zone, its own plain action button rather than a card --
-// same bare-button weight Plugins' own Check/Update buttons use, not
-// the red destructive styling Uninstall below it has, since this isn't
-// destructive. Index 0 in aboutItems now, ahead of the uninstall
-// confirm field/button which shifted to 1/2.
+// Restart Shell + Open on GitHub (restartShellItem/openGithubItem, one
+// Row, side by side) -- direct asks: "above the uninstall component,
+// is it safe or possible to add an omarchy restart shell button?" (yes
+// -- restartOmarchyShell's own comment in SettingsContent.qml has the
+// reasoning: this exact command already fires from a live button
+// elsewhere in this same plugin) and "on the same row or above it...
+// one Open on Github". Both sit above the danger zone, plain action
+// buttons rather than cards -- same bare-button weight and side-by-
+// side pairing shape Plugins' own Check/Update row already uses, not
+// the red destructive styling Uninstall below them has, since neither
+// is destructive. Indices 0/1 in aboutItems now, ahead of the
+// uninstall confirm field/button which shifted to 2/3.
 Column {
   id: root
   required property Item settingsRoot
@@ -48,6 +50,7 @@ Column {
   visible: settingsRoot.aboutOpen
 
   readonly property alias restartShellButton: restartShellItem
+  readonly property alias openGithubButton: openGithubItem
   readonly property alias uninstallConfirmRow: uninstallConfirmRow
   readonly property alias uninstallButtonRow: uninstallButtonRow
   readonly property alias uninstallConfirmField: uninstallConfirmField
@@ -184,43 +187,88 @@ Column {
     }
   }
 
-  Rectangle {
-    id: restartShellItem
+  Row {
     width: parent.width
-    height: 36
-    radius: 10
-    color: restartShellMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-    visible: settingsRoot.aboutOpen
-    border.width: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 0 ? 1 : 0
-    border.color: settingsRoot.accent
+    spacing: 8
 
-    Row {
-      anchors.centerIn: parent
-      spacing: 8
+    Rectangle {
+      id: restartShellItem
+      width: (parent.width - 8) / 2
+      height: 36
+      radius: 10
+      color: restartShellMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+      visible: settingsRoot.aboutOpen
+      border.width: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 0 ? 1 : 0
+      border.color: settingsRoot.accent
 
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: ""
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 13
-        color: settingsRoot.textColor
+      Row {
+        anchors.centerIn: parent
+        spacing: 8
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: ""
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 13
+          color: settingsRoot.textColor
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Restart Shell"
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 12
+          color: settingsRoot.textColor
+        }
       }
 
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: "Restart Shell"
-        font.family: settingsRoot.fontFamily
-        font.pixelSize: 12
-        color: settingsRoot.textColor
+      MouseArea {
+        id: restartShellMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: settingsRoot.restartOmarchyShell()
       }
     }
 
-    MouseArea {
-      id: restartShellMouse
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: settingsRoot.restartOmarchyShell()
+    Rectangle {
+      id: openGithubItem
+      width: (parent.width - 8) / 2
+      height: 36
+      radius: 10
+      color: openGithubMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+      visible: settingsRoot.aboutOpen
+      border.width: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 1 ? 1 : 0
+      border.color: settingsRoot.accent
+
+      Row {
+        anchors.centerIn: parent
+        spacing: 8
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: ""
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 13
+          color: settingsRoot.textColor
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Open on GitHub"
+          font.family: settingsRoot.fontFamily
+          font.pixelSize: 12
+          color: settingsRoot.textColor
+        }
+      }
+
+      MouseArea {
+        id: openGithubMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: settingsRoot.openRepoInBrowser()
+      }
     }
   }
 
@@ -256,7 +304,7 @@ Column {
         height: 32
 
         Rectangle {
-          visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 1
+          visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 2
           anchors.fill: parent
           anchors.margins: -4
           radius: 10
@@ -314,7 +362,7 @@ Column {
           opacity: uninstallButtonRow.ready ? 1 : 0.5
 
           Rectangle {
-            visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 2
+            visible: settingsRoot.aboutOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 3
             anchors.fill: parent
             anchors.margins: -4
             radius: 12

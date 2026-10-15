@@ -1912,6 +1912,19 @@ Item {
   }
   function restartOmarchyShell() { restartShellProc.running = true }
 
+  // Same real repo URL the version card already shows as plain text
+  // (aboutVersionContent in AboutPage.qml) -- direct follow-up: "can we
+  // do one Open on Github and then when user clicks on it opens the
+  // default browser with the link open". omarchy-launch-browser is the
+  // same real open-in-default-browser helper Clipboard History's own
+  // link/QR opening already uses, not a second mechanism.
+  readonly property string repoUrl: "https://github.com/gitcoder89431/ruixen-shell"
+  Process {
+    id: openRepoProc
+    command: ["omarchy-launch-browser", root.repoUrl]
+  }
+  function openRepoInBrowser() { openRepoProc.running = true }
+
   // Keyboard-navigable subset of pluginRows -- protected rows (locked,
   // no toggle to reach) are drawn but deliberately not part of
   // currentItems, same "nothing there to interact with" reasoning empty
@@ -2582,17 +2595,26 @@ Item {
     }
   }
 
-  // About's own three items -- Restart Shell ("select", no confirm
-  // gate, see restartOmarchyShell's own comment for why), the uninstall
-  // confirm field (kind "textEntry", same real Qt focus handoff
-  // Launcher's own add-list boxes use), and the Uninstall button itself
-  // ("select", no-op via its own activate() guard until ready, same
-  // disabled-button reasoning Plugins' own Check/Update items use).
+  // About's own four items -- Restart Shell and Open on GitHub (both
+  // "select", no confirm gate, see restartOmarchyShell's/
+  // openRepoInBrowser's own comments for why), the uninstall confirm
+  // field (kind "textEntry", same real Qt focus handoff Launcher's own
+  // add-list boxes use), and the Uninstall button itself ("select",
+  // no-op via its own activate() guard until ready, same disabled-
+  // button reasoning Plugins' own Check/Update items use). Order
+  // matches the two side-by-side buttons' own left-to-right position
+  // (AboutPage.qml's own restartShellItem/openGithubItem row), same
+  // left-then-right Tab order Plugins' own Check/Update row already
+  // establishes.
   readonly property var aboutItems: {
     return [
       {
         kind: "select",
         activate: function() { root.restartOmarchyShell() }
+      },
+      {
+        kind: "select",
+        activate: function() { root.openRepoInBrowser() }
       },
       {
         kind: "textEntry",
@@ -2801,10 +2823,10 @@ Item {
       return null
     }
     if (root.aboutOpen) {
-      // Issue #102 phase 10: all three now live inside aboutPage
+      // Issue #102 phase 10: all four now live inside aboutPage
       // (AboutPage.qml), exposed through its own aliases -- see that
       // file's own header.
-      return [aboutPage.restartShellButton, aboutPage.uninstallConfirmRow, aboutPage.uninstallButtonRow][root.focusedItemIndex]
+      return [aboutPage.restartShellButton, aboutPage.openGithubButton, aboutPage.uninstallConfirmRow, aboutPage.uninstallButtonRow][root.focusedItemIndex]
     }
     return null
   }

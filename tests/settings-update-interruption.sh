@@ -36,8 +36,10 @@ check "PluginService uses a distinct interrupted update status" \
   "$(grep -c 'pluginUpdateStatus = interrupted ? "interrupted" : "error"' "$service_qml")" "1"
 check "PluginService keeps more generic error context than the old three-line truncation" \
   "$(grep -c 'errLines.length - 5' "$service_qml")" "1"
-check "PluginService GUI update always passes --acknowledge-interrupted" \
-  "$(grep -c './update.sh --acknowledge-interrupted' "$service_qml")" "1"
+check "PluginService GUI update uses the independent worker relay" \
+  "$(grep -c '/lib/settings-update.sh' "$service_qml")" "1"
+check "GUI worker always passes --acknowledge-interrupted" \
+  "$(grep -c './update.sh --acknowledge-interrupted' "$repo_dir/lib/settings-update.sh")" "1"
 check "PluginService clears stale check status when update starts" \
   "$(awk '/function updateRuixenShell/ { in_fn = 1 } in_fn && /function checkForUpdates/ { in_fn = 0 } in_fn && /pluginCheckStatus = ""|pluginCheckError = ""/ { count++ } END { print count + 0 }' "$service_qml")" "2"
 check "PluginService clears stale update status when check starts" \

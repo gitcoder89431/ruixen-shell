@@ -40,6 +40,7 @@ suites=(
   "$script_dir/lifecycle-journal-recovery.sh"
   "$script_dir/lifecycle-flag-parsing.sh"
   "$script_dir/settings-update-interruption.sh"
+  "$script_dir/settings-update-worker.sh"
   "$script_dir/install-restart-detached-tail.sh"
   "$script_dir/install-theme-overlays.sh"
   "$script_dir/lifecycle-lock.sh"

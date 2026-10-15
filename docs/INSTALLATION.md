@@ -93,6 +93,12 @@ and `uninstall.sh` accept it, and reject any option they don't recognize
 ./update.sh
 ```
 
+Settings' Update button runs the same updater in an independent worker,
+so replacing the Settings plugin cannot interrupt its own installation
+or final shell restart. Its latest output is saved in
+`~/.local/state/ruixen/settings-update.log`, including failures that happen
+after Settings has reloaded.
+
 `./update.sh --dry-run` previews it first: current vs. candidate revision,
 then the same install plan above for whatever is currently on disk
 (pulling itself is skipped, so it can't preview code not yet checked out —

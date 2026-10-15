@@ -142,4 +142,49 @@ check("view: by type uses the kind as section label", M.rows(mixed, "", "#fff", 
 check("view: default section label stays Clipboard", M.rows(mixed, "", "#fff", {})[0].sectionLabel, "Clipboard");
 check("view: filter and search combine", M.rows(mixed, "two", "#fff", {}, { kind: "Text" }).map((r) => r.id), ["clipboard:4"]);
 
+// ---- pinned entries: survive Omarchy's own history cap, shown as
+// their own "Pinned" section on top (direct ask: "an option to tab and
+// pin an item. so it doesnt get cleared out, pin clipboard items shows
+// uptop in PINNED group") ------------------------------------------
+
+check("isPinned: false for an empty stats object", M.isPinned({}, mixed[0]), false);
+check("togglePinned: pins, keyed by entryKey", Object.keys(M.togglePinned({}, mixed[0])), [M.entryKey(mixed[0])]);
+check("togglePinned: pinning twice unpins", M.togglePinned(M.togglePinned({}, mixed[0]), mixed[0]), {});
+check("togglePinned: stores the raw text entry shape, not the enriched display shape",
+  M.togglePinned({}, mixed[1])[M.entryKey(mixed[1])].entry,
+  { type: "text", text: "https://a.example.com", capturedAt: "" });
+check("togglePinned: stores the raw image entry shape, including qr",
+  M.togglePinned({}, Object.assign({}, mixed[2], { qr: "https://omarchy.org" }))[M.entryKey(mixed[2])].entry,
+  { type: "image", path: "/x/clipboard-images/a.png", mime: "image/png", capturedAt: "", qr: "https://omarchy.org" });
+check("isPinned: true once pinned", M.isPinned(M.togglePinned({}, mixed[0]), mixed[0]), true);
+
+const pinStats = M.togglePinned(M.togglePinned({}, mixed[0], 1000), mixed[3], 2000);
+check("pinnedEntries: resolves live entries by identity, newest-pinned-first",
+  M.pinnedEntries(pinStats, mixed).map((e) => e.sourceIndex), [3, 0]);
+
+const purgedStats = M.togglePinned({}, mixed[0]);
+check("pinnedEntries: a pin whose entry has fallen out of live history is still reconstructed, sourceIndex -1",
+  M.pinnedEntries(purgedStats, []).map((e) => [e.sourceIndex, e.title]), [[-1, "plain one"]]);
+
+check("rows: pinned entries form their own Pinned section ahead of the rest",
+  M.rows(mixed, "", "#fff", {}, {}, M.pinnedEntries(pinStats, mixed)).map((r) => [r.sectionLabel, r.id]),
+  [["Pinned", "clipboard:3"], ["Pinned", "clipboard:0"], ["Clipboard", "clipboard:1"], ["Clipboard", "clipboard:2"], ["Clipboard", "clipboard:4"]]);
+check("rows: a pinned entry is never duplicated in the rest of the list",
+  M.rows(mixed, "", "#fff", {}, {}, M.pinnedEntries(pinStats, mixed)).filter((r) => r.id === "clipboard:0").length, 1);
+check("rows: Pinned section ignores Recent/By Type sort, stays newest-pinned-first",
+  M.rows(mixed, "", "#fff", {}, { sort: "type", direction: "desc" }, M.pinnedEntries(pinStats, mixed)).slice(0, 2).map((r) => r.id),
+  ["clipboard:3", "clipboard:0"]);
+check("rows: Pinned section still respects the Type filter (neither pin is a Link, so Pinned drops out but the real Link row still shows)",
+  M.rows(mixed, "", "#fff", {}, { kind: "Link" }, M.pinnedEntries(pinStats, mixed)).map((r) => [r.sectionLabel, r.id]),
+  [["Clipboard", "clipboard:1"]]);
+check("rows: Pinned section still respects the search query",
+  M.rows(mixed, "plain", "#fff", {}, {}, M.pinnedEntries(pinStats, mixed)).map((r) => r.id),
+  ["clipboard:0", "clipboard:4"]);
+check("rows: a purged pin gets a stable id from its entryKey, not a colliding sourceIndex",
+  M.rows([], "", "#fff", {}, {}, M.pinnedEntries(purgedStats, [])).map((r) => r.id),
+  ["clipboard:pinned:" + M.entryKey(mixed[0])]);
+check("rows: with no pinned entries, output is byte-identical to the pre-pin call shape",
+  M.rows(mixed, "", "#fff", {}, { sort: "type" }),
+  M.rows(mixed, "", "#fff", {}, { sort: "type" }, []));
+
 summary();

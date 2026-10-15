@@ -76,8 +76,11 @@ o.bind("SUPER + SHIFT + V", "Clipboard History", [[omarchy-shell shell toggle ru
 ```
 
 Inside it, `Enter` copies the highlighted entry; `Alt+C` copies it, `Alt+O`
-opens it, `Alt+P` pastes an image's file path, and `Alt+D` deletes it (press
-twice to confirm), and `Alt+R` reveals a masked possible secret.
+opens it, `Alt+P` pastes an image's file path, `Alt+D` deletes it (press
+twice to confirm), `Alt+R` reveals a masked possible secret, and `Alt+I`
+pins or unpins it -- a pinned entry gets its own "Pinned" section at the
+top of the list and keeps showing (and stays pasteable) even once
+Omarchy's own 300-entry history cap would otherwise have dropped it.
 
 ## Cliamp Radio, Wallpaper Shuffle, Bjarneo Themes, Wallpapers Effects
 

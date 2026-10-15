@@ -25,17 +25,58 @@ Item {
 
   readonly property string historyPath: Quickshell.env("HOME") + "/.local/state/omarchy/clipboard-history.json"
   readonly property string qrCachePath: Quickshell.env("HOME") + "/.local/state/ruixen/clipboard-qr-cache.json"
+  // Our own pin layer, independent of Omarchy's own 300-entry history
+  // cap -- same FileView/mkdir-p/atomicWrites convention CliampFavorites'
+  // own favoritesStatePath uses (see ClipboardHistory.js's own header on
+  // pinnedEntries()/togglePinned() for why). Direct ask: "an option to
+  // tab and pin an item. so it doesnt get cleared out, pin clipboard
+  // items shows uptop in PINNED group."
+  readonly property string pinnedStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/clipboard-pinned.json"
   property string lastHistoryRaw: "[]"
   property var entries: []
   property var imageDimensionsByPath: ({})
   property var qrByPath: ({})
+  property var pinStats: ({})
+  readonly property var pinnedEntries: ClipboardHistory.pinnedEntries(root.pinStats, root.entries, root.qrByPath)
+  readonly property bool selectedIsPinned: root.selectedEntry !== null && ClipboardHistory.isPinned(root.pinStats, root.selectedEntry)
   // Chip-row view state (see chipRow below): Type filter + sort.
   property string kindFilter: ""
   property string sortKey: "recent"
   property string sortDirection: "asc"
   readonly property var kindsPresent: ClipboardHistory.kindsPresent(root.entries)
   readonly property var view: ({ kind: root.kindFilter, sort: root.sortKey, direction: root.sortDirection })
-  readonly property var rows: ClipboardHistory.rows(root.entries, root.searchText, root.accent, root.imageDimensionsByPath, root.view)
+  readonly property var rows: ClipboardHistory.rows(root.entries, root.searchText, root.accent, root.imageDimensionsByPath, root.view, root.pinnedEntries)
+
+  function loadPinStats(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.pinStats = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : ({})
+    } catch (e) {
+      root.pinStats = ({})
+    }
+  }
+
+  // Keeps the same entry highlighted across a pin/unpin even though it
+  // physically moves between the Pinned section and the rest of the
+  // list -- same reason loadHistory() below re-finds the selection by
+  // identity instead of trusting the old index.
+  function reselectByKey(key) {
+    if (key === "") return
+    for (var i = 0; i < root.rows.length; i++) {
+      if (ClipboardHistory.entryKey(root.rows[i].clipboardEntry) === key) {
+        root.selectedIndex = i
+        return
+      }
+    }
+  }
+
+  function togglePinSelected() {
+    if (!root.selectedEntry) return
+    var key = ClipboardHistory.entryKey(root.selectedEntry)
+    root.pinStats = ClipboardHistory.togglePinned(root.pinStats, root.selectedEntry)
+    pinnedFile.setText(JSON.stringify(root.pinStats))
+    root.reselectByKey(key)
+  }
 
   function cycleKindFilter() {
     var options = [""].concat(root.kindsPresent)
@@ -78,7 +119,8 @@ Item {
     var out = [
       { id: "paste", label: "Paste" },
       { id: "copy", label: "Copy" },
-      { id: "open", label: "Open" }
+      { id: "open", label: "Open" },
+      { id: "pin", label: root.selectedIsPinned ? "Unpin" : "Pin" }
     ]
     if (root.selectedEntry.qr) out.push({ id: "copy-qr", label: "Copy QR Text" })
     if (root.selectedEntry.qrUrl) out.push({ id: "open-qr", label: "Open QR Link" })
@@ -226,14 +268,25 @@ Item {
     else if (id === "open-qr") root.openQrSelected()
     else if (id === "path") root.pasteSelectedPath()
     else if (id === "reveal") root.toggleReveal()
+    else if (id === "pin") root.togglePinSelected()
     else if (id === "delete") root.deleteSelected()
     if (!(id === "delete" && root.deleteArmed)) root.closeActionsMenu()
   }
 
+  // sourceIndex -1 is a pinned entry Omarchy's own history cap has
+  // already dropped (see ClipboardHistory.js's own pinnedEntries()) --
+  // there's no live history-index to hand the native helper, so these
+  // fall back to the raw text/path it was pinned with directly. The
+  // image branch already always used a direct path, never an index, so
+  // it was purge-safe before pinning existed and needs no change here.
   function pasteSelected() {
     if (!root.selectedEntry) return
     if (root.selectedEntry.type === "text" || root.selectedEntry.type === "link") {
-      pasteTextProc.exec(["omarchy-clipboard-paste-text", "--history-index", String(root.selectedEntry.sourceIndex)])
+      if (root.selectedEntry.sourceIndex < 0) {
+        pasteTextProc.exec(["omarchy-clipboard-paste-text", "--shift-insert", root.selectedEntry.text])
+      } else {
+        pasteTextProc.exec(["omarchy-clipboard-paste-text", "--history-index", String(root.selectedEntry.sourceIndex)])
+      }
     } else if (root.selectedEntry.type === "image") {
       pasteFileProc.exec(["omarchy-clipboard-paste-file", root.selectedEntry.mime || "image/png", root.selectedEntry.path])
     }
@@ -242,7 +295,11 @@ Item {
   function copySelected() {
     if (!root.selectedEntry) return
     if (root.selectedEntry.type === "text" || root.selectedEntry.type === "link") {
-      pasteTextProc.exec(["omarchy-clipboard-paste-text", "--copy-only", "--history-index", String(root.selectedEntry.sourceIndex)])
+      if (root.selectedEntry.sourceIndex < 0) {
+        pasteTextProc.exec(["omarchy-clipboard-paste-text", "--copy-only", root.selectedEntry.text])
+      } else {
+        pasteTextProc.exec(["omarchy-clipboard-paste-text", "--copy-only", "--history-index", String(root.selectedEntry.sourceIndex)])
+      }
     } else if (root.selectedEntry.type === "image") {
       pasteFileProc.exec(["omarchy-clipboard-paste-file", "--copy-only", root.selectedEntry.mime || "image/png", root.selectedEntry.path])
     }
@@ -257,9 +314,17 @@ Item {
       openProc.exec(["xdg-open", "mailto:" + e.text.trim()])
     } else if (e.qrUrl) {
       openProc.exec(["omarchy-launch-browser", e.qrUrl])
-    } else {
+    } else if (e.type === "link") {
+      // Position-independent for every link, not just a purged pin --
+      // omarchy-clipboard-open's own open_text() would just detect this
+      // same URL and do the same thing, one history-index lookup later.
+      openProc.exec(["omarchy-launch-browser", e.text])
+    } else if (e.sourceIndex >= 0) {
       openProc.exec(["omarchy-clipboard-open", "--history-index", String(e.sourceIndex)])
     }
+    // else: a purged pin that's plain text/JSON/color/secret has no
+    // live index to open by and no direct equivalent here -- Open is
+    // silently unavailable for it until it's copied again.
   }
 
   function copyQrSelected() {
@@ -287,6 +352,11 @@ Item {
     }
     root.deleteArmedKey = ""
     var e = root.selectedEntry
+    if (root.selectedIsPinned) root.togglePinSelected()
+    // A purged pin (see pasteSelected()'s own comment above) has
+    // nothing left in the live history to delete -- unpinning it above
+    // is the whole delete.
+    if (e.sourceIndex < 0) return
     // Identity-matched, never a bare index: the history file can have
     // shifted since this row was drawn. Atomic temp+rename rewrite; an
     // ambiguous or vanished entry aborts rather than guessing.
@@ -352,6 +422,7 @@ Item {
     else if (key === Qt.Key_O) root.openSelected()
     else if (key === Qt.Key_P) root.pasteSelectedPath()
     else if (key === Qt.Key_R) root.toggleReveal()
+    else if (key === Qt.Key_I) root.togglePinSelected()
     else if (key === Qt.Key_D || key === Qt.Key_Delete || key === Qt.Key_Backspace) root.deleteSelected()
   }
 
@@ -413,7 +484,7 @@ Item {
       root.imageLabelsDirty = true
       return
     }
-    var paths = ClipboardHistory.pathsToProbe(root.entries, root.imageDimensionsByPath, root.imageProbeLimit)
+    var paths = ClipboardHistory.pathsToProbe(root.entries.concat(root.pinnedEntries), root.imageDimensionsByPath, root.imageProbeLimit)
     if (paths.length === 0) return
     imageRowLabelsProc.exec(["python3", "-c",
       "import json, re, subprocess, sys\n" +
@@ -434,7 +505,7 @@ Item {
       root.qrPayloadsDirty = true
       return
     }
-    var paths = ClipboardHistory.qrPathsToProbe(root.entries, root.qrByPath, root.qrProbeLimit)
+    var paths = ClipboardHistory.qrPathsToProbe(root.entries.concat(root.pinnedEntries), root.qrByPath, root.qrProbeLimit)
     if (paths.length === 0) return
     qrPayloadsProc.exec(["python3", "-c",
       "import json, shutil, subprocess, sys\n" +
@@ -471,6 +542,26 @@ Item {
     onFileChanged: reload()
     onLoaded: root.loadQrCache(text())
     onLoadFailed: root.loadQrCache("{}")
+  }
+
+  // mkdir -p before pinnedFile's first write rather than assuming
+  // ~/.local/state/ruixen already exists -- same belt-and-suspenders
+  // pattern CliampContent.qml's own favoritesFile uses.
+  Process {
+    id: ensurePinnedDirProc
+    command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
+  }
+  Component.onCompleted: ensurePinnedDirProc.running = true
+
+  FileView {
+    id: pinnedFile
+    path: root.pinnedStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadPinStats(text())
+    onLoadFailed: root.loadPinStats("")
   }
 
   Process { id: pasteTextProc }
@@ -745,6 +836,8 @@ Item {
     onRevealRequested: root.toggleReveal()
     filtered: (root.searchText.trim() !== "" || root.kindFilter !== "") && root.entries.length > 0
     onPastePathRequested: root.pasteSelectedPath()
+    pinned: root.selectedIsPinned
+    onPinRequested: root.togglePinSelected()
     onDeleteRequested: root.deleteSelected()
   }
 }

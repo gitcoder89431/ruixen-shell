@@ -18,8 +18,10 @@ Rectangle {
   signal copyRequested()
   signal openRequested()
   signal pastePathRequested()
+  signal pinRequested()
   signal deleteRequested()
 
+  property bool pinned: false
   property bool deleteArmed: false
   property bool filtered: false
   property bool revealed: false
@@ -256,6 +258,13 @@ Rectangle {
             icon: "\uf06e"
             textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
             onClicked: root.revealRequested()
+          }
+
+          ClipboardMetaActionButton {
+            label: root.pinned ? "Unpin" : "Pin"
+            icon: "\uf08d"
+            textColor: root.textColor; muted: root.muted; accent: root.accent; fontFamily: root.fontFamily
+            onClicked: root.pinRequested()
           }
 
           ClipboardMetaActionButton {

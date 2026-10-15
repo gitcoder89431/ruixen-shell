@@ -81,14 +81,14 @@ check "Clipboard model preserves source history indexes" \
 
 check "ClipboardContent probes image labels through a bounded, cached, single worker" \
   "$(( $(grep -c 'imageProbeLimit' "$content_qml") + $(grep -c 'imageLabelsDirty' "$content_qml") + $(grep -c 'mergeDimensions' "$content_qml") ))" "7"
-check "ClipboardContent keeps the selection by identity across history reloads" \
-  "$(grep -c 'ClipboardHistory.entryKey' "$content_qml")" "6"
+check "ClipboardContent keeps the selection by identity across history reloads and pin/unpin" \
+  "$(grep -c 'ClipboardHistory.entryKey' "$content_qml")" "8"
 check "ClipboardDetailsPanel caps the text preview" \
   "$(grep -c 'ClipboardHistory.previewText' "$details_qml")" "1"
 
 launcher_header="$repo_dir/ruixen.launcher/SearchHeader.qml"
 check "Actions are collapsed into one metadata row with compact buttons" \
-  "$(grep -c 'text: "Actions"' "$details_qml")$(grep -c 'ClipboardMetaActionButton {' "$details_qml")" "16"
+  "$(grep -c 'text: "Actions"' "$details_qml")$(grep -c 'ClipboardMetaActionButton {' "$details_qml")" "17"
 check "Action controls do not render keyboard helper text in the details panel" \
   "$(( $(grep -c 'hint:' "$details_qml") + $(grep -c 'Alt+' "$details_qml") + $(grep -c 'ClipboardActionRow' "$details_qml") ))" "0"
 check "ClipboardContent reuses the Search Files action menu for Tab and right-click row actions" \
@@ -131,6 +131,19 @@ check "ClipboardContent guards mouse hover against keyboard-nav scroll snapback 
   "$(( $(grep -c 'property bool hoverArmed: false' "$content_qml") + $(grep -c 'property point hoverArmBaseline: Qt.point(-1, -1)' "$content_qml") + $(grep -c 'if (root.hoverArmed) root.selectedIndex = idx' "$content_qml") + $(grep -c 'HoverHandler {' "$content_qml") ))" "4"
 check "hoverArmed resets on every selectedIndex change AND on (re)open" \
   "$(( $(grep -c 'root.hoverArmed = false' "$content_qml") + $(grep -c 'root.hoverArmBaseline = Qt.point(-1, -1)' "$content_qml") ))" "4"
+
+check "Pinned entries live in a Ruixen-owned state file, independent of Omarchy's own capped history" \
+  "$(grep -c 'clipboard-pinned.json' "$content_qml")" "1"
+check "Pin/unpin is wired through the action menu, Alt+I, and the details panel" \
+  "$(( $(grep -c 'id: "pin"' "$content_qml") + $(grep -c 'Qt.Key_I' "$content_qml") + $(grep -c 'onPinRequested' "$content_qml") + $(grep -c 'signal pinRequested' "$details_qml") ))" "4"
+check "Pin layer reuses the same mkdir-p + atomicWrites FileView convention as Cliamp's own favorites" \
+  "$(( $(grep -c 'id: pinnedFile' "$content_qml") + $(grep -c 'atomicWrites: true' "$content_qml") + $(grep -c 'id: ensurePinnedDirProc' "$content_qml") ))" "3"
+check "rows() is handed the resolved pinned list so the Pinned section renders, and image/QR probing covers it too" \
+  "$(grep -c 'root.pinnedEntries)' "$content_qml")" "3"
+check "A purged pin still pastes/copies/deletes by identity, not a stale history index" \
+  "$(( $(grep -c 'sourceIndex < 0' "$content_qml") + $(grep -c 'sourceIndex >= 0' "$content_qml") ))" "4"
+check "Pin shortcut is documented" \
+  "$(grep -c 'Alt+I' "$repo_dir/docs/LAUNCHER.md")$(grep -c 'Alt+I' "$repo_dir/docs/KEYBINDS.md")" "11"
 
 check "run-all includes launcher clipboard extension contract" \
   "$(grep -c 'launcher-clipboard-extension\.sh' "$script_dir/run-all.sh")" "1"

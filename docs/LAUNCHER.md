@@ -132,6 +132,7 @@ helpers rather than a second clipboard backend.
 | `Alt+P` | Paste an image's file path |
 | `Alt+D` | Delete (press twice to confirm) |
 | `Alt+R` | Reveal / hide a masked possible secret |
+| `Alt+I` | Pin / unpin |
 
 Text entries are sorted into kinds, each with its own icon and metadata:
 **Link** (host, scheme, parameter count), **Color** (hex/rgb()/hsl() with a
@@ -153,6 +154,15 @@ Delete rewrites the history file atomically and matches the entry by
 identity, not position; an entry that has changed or vanished since it was
 drawn is left alone. Deleting an image also removes its file from
 `clipboard-images` if no other entry uses it.
+
+Pinning keeps an entry in its own **Pinned** section at the top of the
+list, ahead of the Recent/By Type sort — a separate, Ruixen-owned layer
+(`~/.local/state/ruixen/clipboard-pinned.json`), not Omarchy's own
+history. Omarchy's own clipboard watcher caps that history at 300
+entries and silently drops the oldest once it's full, with no pin
+concept of its own; a pinned entry keeps showing (and stays pasteable)
+even once Omarchy's own cap has pushed it out of the live file. Deleting
+a pinned entry also unpins it.
 
 ## Cliamp Radio
 

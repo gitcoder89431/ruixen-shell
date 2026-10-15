@@ -258,6 +258,79 @@ function entryKey(entry) {
   return entry.type + "|" + (entry.type === "image" ? entry.path : String(entry.text).slice(0, 200) + "|" + String(entry.text).length) + "|" + (entry.capturedAt || "")
 }
 
+// Pinned clipboard entries: our own layer, independent of Omarchy's own
+// clipboard-history.json and its 300-entry cap -- same shape as
+// CliampFavorites.js's own favorite layer (keyed state object, Object.assign
+// immutable updates, FileView + mkdir -p + atomicWrites on the QML side),
+// adapted for clipboard entries since there's no single stable "name" here
+// the way a radio station has -- entryKey() is the identity instead, and
+// the full raw entry (not just a boolean) has to be stored so a pin can
+// still be shown, copied and pasted after Omarchy's own daemon has
+// trimmed it out of the live capped history. Confirmed live: addEntry()
+// in Omarchy's own ClipboardHistory.js silently drops anything past
+// historyLimit, oldest first, no pin concept of its own -- direct ask:
+// "so it doesnt get cleared out".
+function isPinned(pinStats, entry) {
+  var k = entryKey(entry)
+  return !!(k && pinStats && pinStats[k])
+}
+
+// Only ever {type:"text",...}/{type:"image",...} -- the same raw shape
+// Omarchy's own history file uses, never our enriched/classified display
+// shape. A "link" display-type is still raw "text": classifyText()
+// recomputes link-ness from the text itself on the next normalizeEntry()
+// pass, exactly like a live history entry does, so there's no separate
+// "link" case to store.
+function toRawEntry(entry) {
+  if (!entry) return null
+  if (entry.type === "image") {
+    return { type: "image", path: entry.path, mime: entry.mime || "image/png", capturedAt: entry.capturedAt || "", qr: entry.qr || "" }
+  }
+  return { type: "text", text: entry.text, capturedAt: entry.capturedAt || "" }
+}
+
+// now, when given, overrides Date.now() -- test-only hook so pinning
+// order can be asserted without depending on two real calls landing in
+// different milliseconds (they usually will in practice; nothing in
+// here relies on that for correctness, only for the test's own
+// determinism).
+function togglePinned(pinStats, entry, now) {
+  var k = entryKey(entry)
+  if (k === "") return pinStats
+  var next = Object.assign({}, pinStats)
+  if (next[k]) {
+    delete next[k]
+  } else {
+    var raw = toRawEntry(entry)
+    if (raw) next[k] = { pinnedAt: now || Date.now(), entry: raw }
+  }
+  return next
+}
+
+// Resolved pinned entries, newest-pinned-first, run through the same
+// normalizeEntry() pipeline a live history entry goes through -- a
+// pinned row looks and behaves exactly like a live one, right down to
+// its classification (color/link/secret/...). sourceIndex stays -1
+// (never a real position in clipboard-history.json) unless a live entry
+// with the same identity exists right now, in which case THAT one is
+// used instead -- keeps paste/copy/open on the normal --history-index
+// path whenever possible, only falling back to the raw stored text/path
+// once Omarchy's own cap has genuinely dropped it (see
+// ClipboardContent.qml's own pasteSelected()/copySelected()/openSelected()).
+function pinnedEntries(pinStats, liveEntries, qrByPath) {
+  var liveByKey = {}
+  for (var i = 0; i < liveEntries.length; i++) liveByKey[entryKey(liveEntries[i])] = liveEntries[i]
+  var keys = Object.keys(pinStats || {})
+  keys.sort(function(a, b) { return (pinStats[b].pinnedAt || 0) - (pinStats[a].pinnedAt || 0) })
+  var out = []
+  for (var j = 0; j < keys.length; j++) {
+    var stat = pinStats[keys[j]]
+    if (!stat || !stat.entry) continue
+    out.push(liveByKey[keys[j]] || normalizeEntry(stat.entry, -1, qrByPath || {}))
+  }
+  return out
+}
+
 function previewText(text, limit) {
   var s = String(text || "")
   var max = limit || PREVIEW_LIMIT
@@ -423,7 +496,11 @@ function visibleEntries(entries, query, view) {
   return out
 }
 
-function rows(entries, query, accent, dimensionsByPath, view) {
+// sectionLabelOverride, when given, wins over the grouped/"Clipboard"
+// logic below -- used to force every row built from this call into one
+// "Pinned" section regardless of the active Recent/By Type sort (see
+// rows() below).
+function buildRows(entries, query, accent, dimensionsByPath, view, sectionLabelOverride) {
   var out = []
   var visible = visibleEntries(entries, query, view)
   var grouped = !!view && view.sort === "type"
@@ -431,7 +508,10 @@ function rows(entries, query, accent, dimensionsByPath, view) {
     var entry = visible[i]
     var label = entry.type === "image" ? imageLabel(entry, dimensionsByPath) : entry.title
     out.push({
-      id: "clipboard:" + entry.sourceIndex,
+      // A purged-pinned entry (see pinnedEntries() below) has no real
+      // position in clipboard-history.json -- sourceIndex stays -1 for
+      // every one of them, so entryKey stands in to keep ids unique.
+      id: "clipboard:" + (entry.sourceIndex >= 0 ? entry.sourceIndex : ("pinned:" + entryKey(entry))),
       providerId: "clipboard-history",
       icon: entry.icon,
       iconColor: entry.swatch ? entry.swatch : (entry.type === "image" ? accent : undefined),
@@ -439,10 +519,30 @@ function rows(entries, query, accent, dimensionsByPath, view) {
       breadcrumb: entry.subtitle,
       kind: entry.kind,
       providerName: "",
-      sectionLabel: grouped ? entry.kind : "Clipboard",
+      sectionLabel: sectionLabelOverride != null ? sectionLabelOverride : (grouped ? entry.kind : "Clipboard"),
       score: 0,
       clipboardEntry: entry
     })
   }
   return out
+}
+
+// pinned, when given, is the resolved list pinnedEntries() below
+// returns (already newest-pinned-first) -- rendered as its own
+// "Pinned" section ahead of everything else, excluded from the normal
+// section/sort flow so a pin can't appear twice. Still subject to the
+// active search query and Type filter, just never to Recent/By Type
+// sort or By Type's per-kind split -- same one-section treatment
+// CliampFavorites.js's own Favorites section gets, for the same
+// reason: a persistent shelf you pinned on purpose shouldn't
+// reshuffle or fragment every time you flip a sort chip.
+function rows(entries, query, accent, dimensionsByPath, view, pinned) {
+  var pinnedList = pinned || []
+  var pinnedKeys = {}
+  for (var i = 0; i < pinnedList.length; i++) pinnedKeys[entryKey(pinnedList[i])] = true
+  var rest = (entries || []).filter(function(e) { return !pinnedKeys[entryKey(e)] })
+  var kindFilter = view && view.kind ? view.kind : ""
+  var pinnedOut = buildRows(pinnedList, query, accent, dimensionsByPath, { kind: kindFilter, sort: "recent", direction: "asc" }, "Pinned")
+  var restOut = buildRows(rest, query, accent, dimensionsByPath, view, null)
+  return pinnedOut.concat(restOut)
 }

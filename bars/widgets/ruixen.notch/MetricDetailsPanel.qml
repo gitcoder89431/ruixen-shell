@@ -23,6 +23,7 @@ Rectangle {
   property string requestedKind: ""
   property int generation: 0
   property int requestedGeneration: -1
+  property bool requestTimedOut: false
   property string queuedKind: ""
   signal back
   visible: kind !== ""
@@ -36,8 +37,19 @@ Rectangle {
     }
     requestedKind = kind;
     requestedGeneration = generation;
+    requestTimedOut = false;
     reader.command = ["python3", decodeURIComponent(Qt.resolvedUrl("metric-details.py").toString().replace(/^file:\/\//, "")), kind];
     reader.running = true;
+  }
+  function timeoutReader() {
+    if (!reader.running)
+      return;
+    requestTimedOut = true;
+    if (active && kind === requestedKind && generation === requestedGeneration)
+      errorText = "System details timed out";
+    // Signalling preserves running until the actual exit; a queued refresh
+    // must not reuse the worker while cancellation is still pending.
+    reader.signal(9);
   }
   onKindChanged: {
     generation++;
@@ -58,12 +70,17 @@ Rectangle {
     running: root.active && root.visible
     onTriggered: root.refresh()
   }
+  Timer {
+    interval: 8000
+    running: reader.running
+    onTriggered: root.timeoutReader()
+  }
   Process {
     id: reader
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        if (!root.active || root.kind !== root.requestedKind || root.generation !== root.requestedGeneration)
+        if (!root.active || root.requestTimedOut || root.kind !== root.requestedKind || root.generation !== root.requestedGeneration)
           return;
         try {
           var result = JSON.parse(text);
@@ -78,7 +95,7 @@ Rectangle {
       }
     }
     onExited: (code, status) => {
-      if (code !== 0 && root.active && root.kind === root.requestedKind && root.generation === root.requestedGeneration)
+      if (code !== 0 && !root.requestTimedOut && root.active && root.kind === root.requestedKind && root.generation === root.requestedGeneration)
         root.errorText = "Details helper failed";
       if (root.queuedKind) {
         root.queuedKind = "";

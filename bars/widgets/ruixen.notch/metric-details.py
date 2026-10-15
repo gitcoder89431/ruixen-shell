@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Read-only, bounded system details for the dashboard's open detail page."""
-import argparse
+import heapq
 import json
 import os
 import re
-import selectors
+import sys
 from itertools import islice
 from pathlib import Path
-import subprocess
 import time
 
 
 def command(args):
+    # Only the network page needs command execution; other pages avoid these
+    # imports and child processes on each refresh.
+    import selectors
+    import subprocess
     # Bound the buffer while reading, rather than checking after capture_output.
     environment = dict(os.environ, LC_ALL="C")
     with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -49,27 +52,8 @@ def size(value):
         value /= 1024
 
 
-def processes(order, capacity=None):
-    rows = []
-    output = command(["ps", "-eo", "pid=,comm=,pcpu=,rss=", "--sort=-" + order])
-    for line in output.splitlines()[:10]:
-        parts = line.split()
-        if len(parts) < 4:
-            continue
-        pid, name, cpu, rss = parts[0], " ".join(parts[1:-2]), parts[-2], parts[-1]
-        amount = int(rss) * 1024
-        row = {"label": f"{name} · PID {pid}", "value": f"{cpu}% CPU · {size(amount)} RAM"}
-        if capacity:
-            share = amount / capacity
-            row.update(value=size(amount) + f" · {share * 100:.1f}% of RAM", fraction=share)
-        rows.append(row)
-    return rows
-
-
-def cpu_snapshot():
-    values = [int(v) for v in Path("/proc/stat").read_text().splitlines()[0].split()[1:9]]
-    total, idle = sum(values), values[3] + values[4]
-    items = {}
+def process_stats():
+    """One bounded read per process, shared by CPU and resident RAM readers."""
     for proc in islice(Path("/proc").iterdir(), 8192):
         if not proc.name.isdigit():
             continue
@@ -77,9 +61,43 @@ def cpu_snapshot():
             stat = (proc / "stat").read_text()
             end = stat.rfind(")")
             fields = stat[end + 2:].split()
+            if len(fields) < 22:
+                continue
+            yield proc.name, stat[stat.index("(") + 1:end], fields
+        except (OSError, ValueError):
+            continue
+
+
+def memory_processes(capacity):
+    page_size = os.sysconf("SC_PAGE_SIZE")
+    candidates = []
+    for pid, name, fields in process_stats():
+        try:
+            amount = int(fields[21]) * page_size
+        except ValueError:
+            continue
+        if amount >= 0:
+            candidates.append((amount, pid, name))
+    return [{"label": f"{name} · PID {pid}",
+             "value": size(amount) + f" · {amount / capacity * 100:.1f}% of RAM",
+             "fraction": amount / capacity}
+            for amount, pid, name in heapq.nlargest(10, candidates, key=lambda row: row[0])]
+
+
+def mount_lines():
+    with Path("/proc/self/mounts").open() as mounts:
+        yield from islice(mounts, 128)
+
+
+def cpu_snapshot():
+    values = [int(v) for v in Path("/proc/stat").read_text().splitlines()[0].split()[1:9]]
+    total, idle = sum(values), values[3] + values[4]
+    items = {}
+    for pid, name, fields in process_stats():
+        try:
             # PID plus start time prevents attributing a reused PID's old ticks.
-            items[(proc.name, fields[19])] = (stat[stat.index("(") + 1:end], int(fields[11]) + int(fields[12]))
-        except (OSError, ValueError, IndexError):
+            items[(pid, fields[19])] = (name, int(fields[11]) + int(fields[12]))
+        except ValueError:
             continue
     return total, idle, items
 
@@ -122,7 +140,21 @@ def drm_fields(text):
     return identity, engines, capacities, memory
 
 
-def gpu_snapshot():
+def gpu_snapshot(previous=None):
+    if previous is not None:
+        # Discovery is repeated next refresh. The second counter read only
+        # needs the clients found 0.4 seconds ago; validate identity in case an
+        # FD closed or was reused rather than attributing a different client.
+        clients = {}
+        for identity, client in previous.items():
+            try:
+                parsed = drm_fields(Path(client["fdinfo"]).read_text())
+                if parsed and parsed[0] == identity:
+                    clients[identity] = dict(client, sampledAt=time.monotonic(),
+                        engines=parsed[1], capacities=parsed[2], memory=parsed[3])
+            except (OSError, ValueError):
+                continue
+        return clients
     clients = {}
     deadline = time.monotonic() + 2
     for proc in islice(Path("/proc").iterdir(), 8192):
@@ -143,6 +175,7 @@ def gpu_snapshot():
                             continue
                         identity, engines, capacities, memory = parsed
                         clients[identity] = {"pid": proc.name, "name": (proc / "comm").read_text().strip(),
+                                             "fdinfo": str(proc / "fdinfo" / fd.name),
                                              "sampledAt": time.monotonic(),
                                              "engines": engines, "capacities": capacities, "memory": memory}
                     except (OSError, ValueError):
@@ -222,7 +255,7 @@ def collect(kind):
         used = total - available
         summaries = [{"label": "RAM in use / total", "value": size(used) + " / " + size(total), "fraction": used / total,
                       "detail": "Used = total − available. Process RSS rows overlap and do not sum to this total."}]
-        rows = processes("rss", total) + rows
+        rows = memory_processes(total) + rows
         note = "Resident RAM · percentages use physical RAM. Shared pages can appear in multiple processes."
     elif kind == "network":
         routes = json.loads(command(["ip", "-j", "route", "show", "default"]))
@@ -236,21 +269,27 @@ def collect(kind):
         note = "Interface state and addresses. Dashboard transfer totals are counters since the interface came up, not a billing-period total."
     elif kind == "storage":
         seen = set()
-        for line in command(["df", "-B1", "--output=source,target,size,used,avail,pcent"]).splitlines()[1:][:128]:
-            parts = line.rsplit(None, 4)
-            if len(parts) != 5:
+        for line in mount_lines():
+            parts = line.split()
+            if len(parts) < 2:
                 continue
-            source_mount, total, used, available, percent = parts
-            source, mount = source_mount.split(None, 1)
+            source, mount = [re.sub(r"\\([0-7]{3})", lambda m: chr(int(m[1], 8)), value) for value in parts[:2]]
             if not source.startswith("/dev/") or source in seen:
                 continue
-            seen.add(source)
-            total_bytes, used_bytes, available_bytes = int(total), int(used), int(available)
-            if total_bytes <= 0 or used_bytes < 0 or available_bytes < 0:
+            try:
+                stat = os.statvfs(mount)
+            except OSError:
                 continue
+            block_size = stat.f_frsize or stat.f_bsize
+            total_bytes = stat.f_blocks * block_size
+            used_bytes = (stat.f_blocks - stat.f_bfree) * block_size
+            available_bytes = stat.f_bavail * block_size
+            if total_bytes <= 0 or not 0 <= used_bytes <= total_bytes or not 0 <= available_bytes <= total_bytes:
+                continue
+            seen.add(source)
             rows.extend([{"label": mount + " · " + source, "value": f"{used_bytes / total_bytes * 100:.1f}% capacity used"},
-                         {"label": "  Used / total", "value": size(used) + " / " + size(total)},
-                         {"label": "  Available", "value": size(available)}])
+                         {"label": "  Used / total", "value": size(used_bytes) + " / " + size(total_bytes)},
+                         {"label": "  Available", "value": size(available_bytes)}])
         note = "Device-backed filesystems · used ÷ total capacity, matching the overview. Available space can exclude reserved space. Amounts use binary units."
     elif kind == "gpu":
         seen = set()
@@ -288,7 +327,7 @@ def collect(kind):
         before = gpu_snapshot()
         start = time.monotonic()
         time.sleep(.4)
-        after = gpu_snapshot()
+        after = gpu_snapshot(before)
         elapsed = time.monotonic() - start
         ranked = rank_gpu(before, after, elapsed)
         rows = ranked + rows
@@ -300,11 +339,17 @@ def collect(kind):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("kind", choices=["cpu", "gpu", "memory", "network", "storage"])
-    args = parser.parse_args()
+    kinds = ("cpu", "gpu", "memory", "network", "storage")
+    usage = "Usage: metric-details.py <" + "|".join(kinds) + ">"
+    if sys.argv[1:] in [["-h"], ["--help"]]:
+        print(usage)
+        sys.exit(0)
+    if len(sys.argv) != 2 or sys.argv[1] not in kinds:
+        print(usage, file=sys.stderr)
+        sys.exit(2)
+    kind = sys.argv[1]
     try:
-        result = collect(args.kind)
+        result = collect(kind)
     except Exception:
-        result = {"kind": args.kind, "rows": [], "note": "", "error": "Unable to read system details. Try refreshing."}
+        result = {"kind": kind, "rows": [], "note": "", "error": "Unable to read system details. Try refreshing."}
     print(json.dumps(result))

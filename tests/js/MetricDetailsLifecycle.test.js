@@ -25,15 +25,16 @@ const refreshBody = body("function refresh()");
 const changedBody = body("onKindChanged:");
 const resultBody = body("onStreamFinished:");
 const exitBody = body("onExited: (code, status) =>");
+const timeoutBody = body("function timeoutReader()");
 const pollExpression = qml.match(/Timer\s*\{[^}]*running:\s*([^\n]+)/)[1];
 
 function harness() {
   const deferred = [];
   const state = {
-    kind: "cpu", active: true, generation: 0, requestedGeneration: -1,
+    kind: "cpu", active: true, generation: 0, requestedGeneration: -1, requestTimedOut: false,
     requestedKind: "", queuedKind: "", rows: [], summaries: [], note: "",
     errorText: "", checkedAt: "", relativeBars: false,
-    reader: {running: false, command: []},
+    reader: {running: false, command: [], signals: [], signal(value) {this.signals.push(value);}},
     Qt: {
       callLater: fn => deferred.push(fn),
       resolvedUrl: () => ({toString: () => "file:///tmp/plugin%20dir/metric-details.py"}),
@@ -46,7 +47,8 @@ function harness() {
   vm.runInContext("function refresh(){" + refreshBody + "}\n" +
     "function changed(){" + changedBody + "}\n" +
     "function result(text){" + resultBody + "}\n" +
-    "function exited(code,status){" + exitBody + "}", context);
+    "function exited(code,status){" + exitBody + "}\n" +
+    "function timeoutReader(){" + timeoutBody + "}", context);
   return {
     state,
     refresh: () => state.refresh(),
@@ -147,5 +149,25 @@ test("polling requires both an active tab and a visible detail page", () => {
   const h = harness(); assert.equal(h.polling(), true);
   h.state.active = false; assert.equal(h.polling(), false);
   h.state.active = true; h.select(""); assert.equal(h.polling(), false);
+});
+test("timeout rejects output and waits for real exit before a queued restart", () => {
+  const h = harness(); h.refresh(); h.state.timeoutReader();
+  assert.deepEqual(h.state.reader.signals, [9]);
+  assert.equal(h.state.reader.running, true);
+  h.publish([{label: "timed out"}]);
+  assert.equal(h.state.rows.length, 0);
+  h.refresh(); h.finish(-1);
+  assert.equal(h.state.reader.running, true);
+  assert.equal(h.state.requestTimedOut, false);
+  h.publish([{label: "fresh"}]);
+  assert.equal(h.state.rows[0].label, "fresh");
+});
+test("timeout keeps the specific error and does not poison a different page", () => {
+  const h = harness(); h.refresh(); h.state.timeoutReader(); h.finish(-1);
+  assert.equal(h.state.errorText, "System details timed out");
+  const next = harness(); next.refresh(); next.select("memory"); next.state.timeoutReader();
+  assert.equal(next.state.errorText, "");
+  next.finish(-1);
+  assert.equal(next.state.requestedKind, "memory");
 });
 console.log("\n" + passed + " passed, 0 failed");

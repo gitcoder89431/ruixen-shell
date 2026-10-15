@@ -233,6 +233,7 @@ Network shows
 interface state and addresses; storage shows mounted-device capacity; GPU shows
 driver-exposed sensors without requiring privileges. Detail snapshots refresh
 every three seconds only while the page is open. Closing the tab stops polling.
+A stalled worker is terminated after eight seconds.
 
 Open the Metrics tab with `omarchy-shell ruixen.notch openDashboardTab metrics`.
 `ruixen-metrics-details` exposes `open <cpu|gpu|memory|network|storage>`, `close`,

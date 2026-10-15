@@ -163,5 +163,18 @@ check "the chip's own background/border tint accent too whenever an override is 
 check "Launcher.qml wires accentColor into SearchHeader" \
   "$(awk '/^      SearchHeader \{/,/^      \}/' "$launcher_qml" | grep -Fc 'accentColor: root.accent')" "1"
 
+# Direct follow-up: "for the other preview images can we show the
+# Position. so Current then the next one in rotation is 2 then 3 then
+# 4 etc" -- a plain rotation-order number on the row itself, not parsed
+# back out of breadcrumb's own "N of M" text, and a matching badge for
+# every row but the current wallpaper (position 1, which keeps the
+# existing CURRENT badge instead).
+check "Each row carries its own plain rotation-order position" \
+  "$(grep -Fc 'position: i + 1' "$content_qml")" "1"
+check "Preview shows a position badge for every row except the current one" \
+  "$(( $(grep -Fc 'visible: !root.isCurrent && !!root.row' "$details_qml") + $(grep -Fc 'text: root.row ? String(root.row.position) : ""' "$details_qml") ))" "2"
+check "Position badge sits in the same corner as CURRENT, muted/outlined rather than accent-filled so CURRENT still reads as the active one" \
+  "$(( $(grep -c 'anchors.top: parent.top' "$details_qml") + $(grep -c 'anchors.right: parent.right' "$details_qml") + $(grep -Fc 'color: Qt.rgba(0, 0, 0, 0.55)' "$details_qml") ))" "6"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

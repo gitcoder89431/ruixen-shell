@@ -193,7 +193,15 @@ Item {
         sectionLabel: "Queue",
         score: 0,
         entry: e,
-        ignored: ignored
+        ignored: ignored,
+        // Plain rotation-order number, not parsed back out of
+        // breadcrumb's own "N of M" text -- direct follow-up: "for the
+        // other preview images can we show the Position. so Current
+        // then the next one in rotation is 2 then 3 then 4 etc".
+        // WallpaperQueueDetailsPanel.qml's own badge uses this
+        // directly instead of the CURRENT one, for every row but the
+        // current wallpaper itself (position 1).
+        position: i + 1
       })
     }
     return out

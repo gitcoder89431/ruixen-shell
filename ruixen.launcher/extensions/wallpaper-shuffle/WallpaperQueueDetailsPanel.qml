@@ -133,6 +133,34 @@ Rectangle {
           font.pixelSize: 10
         }
       }
+
+      // Every other row's own place in the rotation -- Current is
+      // implicitly 1 (the CURRENT badge above already says so), this
+      // picks up from 2. Direct follow-up: "so Current then the next
+      // one in rotation is 2 then 3 then 4 etc". Muted/outlined rather
+      // than accent-filled like CURRENT, so CURRENT still reads as the
+      // one actually active at a glance.
+      Rectangle {
+        visible: !root.isCurrent && !!root.row
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 8
+        width: positionLabel.implicitWidth + 16
+        height: 22
+        radius: 6
+        color: Qt.rgba(0, 0, 0, 0.55)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.18)
+        Text {
+          id: positionLabel
+          anchors.centerIn: parent
+          text: root.row ? String(root.row.position) : ""
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 10
+          font.bold: true
+        }
+      }
     }
 
     Text {

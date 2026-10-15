@@ -2199,6 +2199,8 @@ Item {
         muted: root.muted
         accent: root.accent
         fontFamily: root.fontFamily
+        glassTint: root.glassTint
+        glassBorder: root.glassBorder
       }
 
       ClipboardContent {

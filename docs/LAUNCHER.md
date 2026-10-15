@@ -164,6 +164,24 @@ concept of its own; a pinned entry keeps showing (and stays pasteable)
 even once Omarchy's own cap has pushed it out of the live file. Deleting
 a pinned entry also unpins it.
 
+## Bjarneo Themes
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"theme-browser"}'` -- see [`docs/KEYBINDS.md`](KEYBINDS.md))
+that browses and installs several of bjarneo's community Omarchy theme
+collections, left list + right preview, same two-panel shape Settings
+and Clipboard History use. `Enter` installs the highlighted theme (or
+switches to it directly if it's already installed); `Tab` opens an
+actions menu with the same choice plus **Pin**/**Unpin** and
+**Uninstall** (once installed).
+
+Pinning puts a theme in its own **Pinned** section at the top of the
+list, still subject to whichever Name/Style sort and Collection/Style/
+Installed filter is active -- a plain preference layer
+(`~/.local/state/ruixen/theme-browser-pinned.json`), not a "survives
+deletion" one the way Clipboard's own pin had to be: the theme catalog
+itself never disappears out from under it.
+
 ## Cliamp Radio
 
 An extension (open it from the empty-query list, or with

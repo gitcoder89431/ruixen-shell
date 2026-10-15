@@ -6,6 +6,7 @@ import Quickshell.Io
 import qs.Commons
 import "../.."
 import "ThemeCatalog.js" as ThemeCatalog
+import "ThemePins.js" as ThemePins
 
 // Browse several of bjarneo's community Omarchy theme collections --
 // 100-themes (the original, now labelled "Bjarneo" in the Collection
@@ -48,6 +49,11 @@ Item {
   property color muted: Qt.rgba(1, 1, 1, 0.5)
   property color accent: "#3ecf5b"
   property string fontFamily: "JetBrainsMono Nerd Font"
+  // Only needed now that this extension has a ResultActionsMenu of its
+  // own (see rightFocused/themeActions below) -- same tokens Clipboard/
+  // Cliamp's own menus already take.
+  property color glassTint: "#000000"
+  property color glassBorder: Qt.rgba(1, 1, 1, 0.08)
 
   // Only fetches the catalog once, the first time this extension is
   // actually shown -- same "no reason to run while some other tab is
@@ -66,13 +72,19 @@ Item {
   // binding (Launcher.qml) already documents this exact revert as a
   // one-line, no-other-change toggle -- this is that toggle, just
   // never turned on in the first place rather than turned back off.
-  // nothing here needs moveSelectionLeft/Right or the rightFocused/
-  // focusRightPanel trio -- there is no sub-focus concept yet (the
-  // variant toggle is still mouse-only).
+  // nothing here needs moveSelectionLeft/Right -- no left/right
+  // sub-navigation concept (the variant toggle is still mouse-only in
+  // filterChipsRow, a chip, not a left-panel row focus). rightFocused/
+  // focusRightPanel/blurToLeftPanel ARE used now, same trio Clipboard/
+  // Cliamp Radio already declare for their own Tab-opened actions menu
+  // -- direct follow-up: "i noticed we have no tab support for the
+  // left panel. can we do it anyways for consistency".
   readonly property string searchPlaceholder: "Search Themes"
   // Enter now installs/switches (see activateSelection below) --
   // same "↵" chip Settings' own category-open already shows.
   readonly property bool showsEnterHint: true
+  readonly property bool interceptsArrowKeys: true
+  readonly property bool rightFocused: root.actionsMenuOpen
 
   // --- Catalog: all 100 themes (real display name/slug/motif/colors/
   // ansi), fetched once via each repo's own assets/themes.js -- see
@@ -197,6 +209,31 @@ Item {
   // stage-2 install here) since the last time this tab was open.
   property var installedSlugs: ({})
 
+  // Pinned themes -- a plain preference layer (ThemePins.js), not a
+  // "survives deletion" one the way Clipboard's own pin had to be: the
+  // theme catalog itself is permanent, so there's nothing a pin needs
+  // to protect here, just a way to keep a few themes at the top of a
+  // long list. Direct follow-up: "we can do Install Pin and Uninstall
+  // if installed for the tab".
+  readonly property string pinnedStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/theme-browser-pinned.json"
+  property var pinStats: ({})
+  readonly property bool selectedIsPinned: root.selectedDarkTheme !== null && ThemePins.isPinned(root.pinStats, root.selectedDarkTheme)
+
+  function loadPinStats(raw) {
+    try {
+      var parsed = JSON.parse(String(raw || "").trim() || "{}")
+      root.pinStats = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : ({})
+    } catch (e) {
+      root.pinStats = ({})
+    }
+  }
+
+  function togglePinSelected() {
+    if (!root.selectedDarkTheme) return
+    root.pinStats = ThemePins.togglePinned(root.pinStats, root.selectedDarkTheme)
+    pinnedFile.setText(JSON.stringify(root.pinStats))
+  }
+
   // Filter order: text search, then collection, then style, then
   // installed-only -- each one only ever narrows, so the order between
   // them doesn't change the result, just how early a cheap check can
@@ -210,17 +247,34 @@ Item {
         root.styleFilter),
       root.installedSlugs, root.installedOnlyFilter),
     root.sortKey, root.sortDirection)
+  // Pinned themes float to the top as their own section, still in
+  // whatever Name/Style sort + Collection/Style/Installed filter is
+  // active (unlike Clipboard's own Pinned section, there's no separate
+  // "pin order" here -- see ThemePins.js's own header for why a plain
+  // boolean is enough). orderedThemes is what selectedIndex actually
+  // indexes into from here down -- never filteredThemes directly once
+  // there's at least one pin, or the highlighted row and
+  // selectedDarkTheme would silently point at two different themes
+  // the moment a pin moves one to the front of the visible list.
+  readonly property var pinnedThemes: root.filteredThemes.filter(function(t) { return ThemePins.isPinned(root.pinStats, t) })
+  readonly property var unpinnedThemes: root.filteredThemes.filter(function(t) { return !ThemePins.isPinned(root.pinStats, t) })
+  readonly property var orderedThemes: root.pinnedThemes.concat(root.unpinnedThemes)
   // The REAL active theme's own name, read from
   // ~/.local/state/omarchy/current/theme.name (see
   // refreshCurrentTheme below) -- direct follow-up ("icons color isnt
   // enough to tell" installed apart from current; see
   // ThemeCatalog.themeRows's own comment for the distinct-glyph fix).
   property string currentThemeSlug: ""
-  readonly property var themeRows: ThemeCatalog.themeRows(root.filteredThemes, root.installedSlugs, root.previewVariant, root.muted, root.currentThemeSlug)
+  readonly property var themeRows: {
+    var pinnedRows = ThemeCatalog.themeRows(root.pinnedThemes, root.installedSlugs, root.previewVariant, root.muted, root.currentThemeSlug)
+      .map(function(r) { return Object.assign({}, r, { sectionLabel: "Pinned" }) })
+    var restRows = ThemeCatalog.themeRows(root.unpinnedThemes, root.installedSlugs, root.previewVariant, root.muted, root.currentThemeSlug)
+    return pinnedRows.concat(restRows)
+  }
 
   property int selectedIndex: 0
-  readonly property var selectedDarkTheme: (root.selectedIndex >= 0 && root.selectedIndex < root.filteredThemes.length)
-    ? root.filteredThemes[root.selectedIndex] : null
+  readonly property var selectedDarkTheme: (root.selectedIndex >= 0 && root.selectedIndex < root.orderedThemes.length)
+    ? root.orderedThemes[root.selectedIndex] : null
   readonly property string selectedThemeName: root.selectedDarkTheme ? root.selectedDarkTheme.name : ""
   readonly property string selectedThemeSlug: root.selectedDarkTheme ? root.selectedDarkTheme.slug : ""
   // Real, human label (e.g. "Sunset Grid", or "Espresso drinks" for a
@@ -247,12 +301,14 @@ Item {
     root.previewVariant = root.previewVariant === "light" ? "dark" : "light"
   }
 
-  // Clamp back into range whenever the filtered set shrinks (typing a
-  // query that matches fewer themes than the previous selectedIndex) --
-  // same convention Launcher.qml's own onQueryChanged already uses for
-  // its own selectedIndex.
-  onFilteredThemesChanged: {
-    if (root.selectedIndex >= root.filteredThemes.length) root.selectedIndex = Math.max(0, root.filteredThemes.length - 1)
+  // Clamp back into range whenever the ordered (pinned-first) set
+  // shrinks -- typing a query that matches fewer themes than the
+  // previous selectedIndex, or narrowing a filter/collection, same
+  // convention Launcher.qml's own onQueryChanged already uses for its
+  // own selectedIndex. orderedThemes, not filteredThemes -- see its own
+  // property comment for why selectedIndex has to track that one.
+  onOrderedThemesChanged: {
+    if (root.selectedIndex >= root.orderedThemes.length) root.selectedIndex = Math.max(0, root.orderedThemes.length - 1)
   }
 
   // Direct follow-up ("check the left panel scroll, it needs smart
@@ -300,18 +356,32 @@ Item {
     // see requestRemove's own comment for why this matters (a stale
     // "Confirm?" shouldn't carry over to whatever's now selected).
     root.removeArmed = false
-    var lastIndex = root.filteredThemes.length - 1
+    // Same reasoning as Clipboard's own onSelectedEntryChanged -- a
+    // menu anchored to the row this used to be would otherwise still
+    // be showing, now pointed at the wrong theme.
+    root.actionsMenuOpen = false
+    var lastIndex = root.orderedThemes.length - 1
     themeResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
     themeResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
     themeResultsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
   }
 
   // --- Required core of the generic extension-content interface.
+  // Branches into actions-menu navigation while it's open -- same shape
+  // Clipboard/Cliamp Radio's own moveSelectionUp/Down use.
   function moveSelectionUp() {
+    if (root.actionsMenuOpen) {
+      if (root.actionsSelectedIndex > 0) root.actionsSelectedIndex--
+      return
+    }
     if (root.selectedIndex > 0) root.selectedIndex--
   }
   function moveSelectionDown() {
-    if (root.selectedIndex < root.filteredThemes.length - 1) root.selectedIndex++
+    if (root.actionsMenuOpen) {
+      if (root.actionsSelectedIndex < root.themeActions.length - 1) root.actionsSelectedIndex++
+      return
+    }
+    if (root.selectedIndex < root.orderedThemes.length - 1) root.selectedIndex++
   }
 
   // Direct follow-up ("when i press enter it installs it right and then
@@ -324,7 +394,7 @@ Item {
   // real fetch pipeline first. Ignored entirely while one is already
   // running, rather than queuing a second -- Enter held down/mashed
   // should not spawn overlapping installs of two different themes.
-  function activateSelection() {
+  function installOrSwitchSelected() {
     if (!root.selectedDarkTheme) return
     if (root.installState !== "idle") return
     var slug = ThemeCatalog.installedSlugFor(root.selectedDarkTheme, root.previewVariant)
@@ -333,6 +403,79 @@ Item {
     } else {
       root.installTheme(root.selectedDarkTheme, root.previewVariant, slug)
     }
+  }
+
+  // Tab-opened actions menu -- same shape Clipboard/Cliamp Radio's own
+  // menus already use (actionsMenuOpen/actionsSelectedIndex/
+  // actionsMenuX/Y, openActionsMenu/closeActionsMenu/
+  // positionActionsMenuNearSelection, focusRightPanel/blurToLeftPanel
+  // wired through rightFocused above). Direct follow-up: "we can do
+  // Install Pin and Uninstall if installed for the tab" -- Install
+  // relabels to Switch once the previewed variant is already installed,
+  // same branch installOrSwitchSelected() above already makes for
+  // Enter; Uninstall only appears once there's actually something to
+  // remove, same installedSlugs check the right panel's own Remove
+  // button already uses, and shares its two-step arm/confirm state
+  // (removeArmed/removeArmedSlug) rather than inventing a second one.
+  property bool actionsMenuOpen: false
+  property int actionsSelectedIndex: 0
+  property real actionsMenuX: 0
+  property real actionsMenuY: 0
+  readonly property var themeActions: root.selectedDarkTheme ? (function() {
+    var slug = ThemeCatalog.installedSlugFor(root.selectedDarkTheme, root.previewVariant)
+    var installed = !!root.installedSlugs[slug]
+    var out = [
+      { id: "install", label: installed ? "Switch" : "Install" },
+      { id: "pin", label: root.selectedIsPinned ? "Unpin" : "Pin" }
+    ]
+    if (installed) out.push({ id: "uninstall", label: (root.removeArmed && root.removeArmedSlug === slug) ? "Confirm Uninstall" : "Uninstall" })
+    return out
+  })() : []
+
+  function runThemeAction(id) {
+    if (id === "install") root.installOrSwitchSelected()
+    else if (id === "pin") root.togglePinSelected()
+    else if (id === "uninstall") root.requestRemove(ThemeCatalog.installedSlugFor(root.selectedDarkTheme, root.previewVariant))
+    if (!(id === "uninstall" && root.removeArmed)) root.closeActionsMenu()
+  }
+
+  function focusRightPanel() {
+    if (root.actionsMenuOpen) { root.closeActionsMenu(); return }
+    root.openActionsMenu()
+  }
+
+  function blurToLeftPanel() {
+    root.closeActionsMenu()
+  }
+
+  function openActionsMenu() {
+    if (root.themeActions.length === 0) return
+    root.actionsSelectedIndex = 0
+    root.actionsMenuOpen = true
+    root.positionActionsMenuNearSelection()
+  }
+
+  function closeActionsMenu() {
+    root.actionsMenuOpen = false
+  }
+
+  function positionActionsMenuNearSelection() {
+    var item = themeResultsList.itemAtIndex(root.selectedIndex)
+    if (!item) return
+    var scenePos = item.mapToItem(null, 0, item.height)
+    var localPos = root.mapFromItem(null, scenePos.x, scenePos.y)
+    var menuHeight = root.themeActions.length * 34 + 8
+    root.actionsMenuX = Math.max(8, Math.min(localPos.x + 6, root.width - themeResultsList.width - 8))
+    root.actionsMenuY = Math.max(filterChipsRow.height + 8, Math.min(localPos.y + 4, root.height - menuHeight - 8))
+  }
+
+  function activateSelection() {
+    if (root.actionsMenuOpen) {
+      var action = root.themeActions[root.actionsSelectedIndex]
+      if (action) root.runThemeAction(action.id)
+      return
+    }
+    root.installOrSwitchSelected()
   }
 
   onActiveChanged: {
@@ -772,7 +915,28 @@ Item {
     id: ensureCacheDirProc
     command: ["mkdir", "-p", root.cacheDir]
   }
-  Component.onCompleted: ensureCacheDirProc.running = true
+  // mkdir -p before pinnedFile's first write -- same belt-and-suspenders
+  // pattern CliampContent.qml's own favoritesFile/ClipboardContent.qml's
+  // own pinnedFile use.
+  Process {
+    id: ensurePinnedDirProc
+    command: ["mkdir", "-p", Quickshell.env("HOME") + "/.local/state/ruixen"]
+  }
+  Component.onCompleted: {
+    ensureCacheDirProc.running = true
+    ensurePinnedDirProc.running = true
+  }
+
+  FileView {
+    id: pinnedFile
+    path: root.pinnedStatePath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.loadPinStats(text())
+    onLoadFailed: root.loadPinStats("")
+  }
 
   Timer {
     id: previewImageDebounce
@@ -1045,6 +1209,10 @@ Item {
     fontFamily: root.fontFamily
     onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
     onRowActivated: (idx) => { root.selectedIndex = idx }
+    onRowActionsRequested: (idx) => {
+      root.selectedIndex = idx
+      root.openActionsMenu()
+    }
 
     // Arms hoverArmed (see its own property comment) on the first REAL
     // pointer movement -- a passive input handler, not a MouseArea, so
@@ -1067,6 +1235,23 @@ Item {
           root.hoverArmed = true
       }
     }
+  }
+
+  ResultActionsMenu {
+    parent: root
+    x: root.actionsMenuX
+    y: root.actionsMenuY
+    visible: root.actionsMenuOpen
+    actions: root.themeActions
+    selectedIndex: root.actionsSelectedIndex
+    textColor: root.textColor
+    accentColor: root.accent
+    glassTint: root.glassTint
+    glassBorder: root.glassBorder
+    fontFamily: root.fontFamily
+    menuWidth: themeResultsList.width - 12
+    onActionHovered: (idx) => root.actionsSelectedIndex = idx
+    onActionActivated: (id) => root.runThemeAction(id)
   }
 
   Text {
@@ -1414,7 +1599,7 @@ Item {
           Text {
             id: removeLabel
             anchors.centerIn: parent
-            text: removeButton.armed ? "Confirm?" : "Remove"
+            text: removeButton.armed ? "Confirm" : "Uninstall"
             font.family: root.fontFamily
             font.pixelSize: 11
             color: removeButton.armed ? "#ff6b6b" : root.textColor

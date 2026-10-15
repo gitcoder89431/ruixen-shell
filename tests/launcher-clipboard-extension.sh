@@ -95,8 +95,20 @@ check "ClipboardContent reuses the Search Files action menu for Tab and right-cl
   "$(( $(grep -c 'ResultActionsMenu {' "$content_qml") + $(grep -c 'function focusRightPanel' "$content_qml") + $(grep -c 'onRowActionsRequested' "$content_qml") + $(grep -c 'function runClipboardAction' "$content_qml") ))" "4"
 check "Clipboard action menu uses Launcher's theme-aware glass colors" \
   "$(( $(grep -A20 'ClipboardContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint') + $(grep -A20 'ClipboardContent {' "$launcher_qml" | grep -c 'glassBorder: root.glassBorder') + $(grep -c 'property color glassTint' "$content_qml") + $(grep -c 'property color glassBorder' "$content_qml") + $(grep -c 'glassTint: root.glassTint' "$content_qml") + $(grep -c 'glassBorder: root.glassBorder' "$content_qml") ))" "6"
-check "Launcher does not pass clipboard-only glass props to other extensions" \
-  "$(( $(grep -A30 'WallpapersContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint\\|glassBorder: root.glassBorder') + $(grep -A30 'ThemeBrowserContent {' "$launcher_qml" | grep -c 'glassTint: root.glassTint\\|glassBorder: root.glassBorder') ))" "0"
+# Pre-existing bug caught while touching this area: the old pattern
+# ('glassTint: root.glassTint\\|glassBorder: root.glassBorder', single-
+# quoted so the \\ is two literal backslashes) never matched either real
+# line in basic grep regex -- this check always passed regardless of
+# what Launcher.qml actually did. Fixed to real alternation (-E), and
+# ThemeBrowserContent dropped from the "doesn't get these" list: it has
+# its own ResultActionsMenu now (Tab support for Install/Pin/Uninstall,
+# direct follow-up), so it legitimately needs them the same as
+# Clipboard/Cliamp -- only Wallpapers' grid still has no actions menu
+# of its own to need them for.
+check "Launcher does not pass actions-menu-only glass props to extensions with no actions menu (Wallpapers' grid)" \
+  "$(grep -A30 'WallpapersContent {' "$launcher_qml" | grep -cE 'glassTint: root.glassTint|glassBorder: root.glassBorder')" "0"
+check "Launcher passes glass props to ThemeBrowserContent now that it has its own actions menu" \
+  "$(grep -A30 'ThemeBrowserContent {' "$launcher_qml" | grep -cE 'glassTint: root.glassTint|glassBorder: root.glassBorder')" "2"
 check "Launcher result action menu starts at the row column but keeps compact row-highlight width" \
   "$(( $(grep -c 'root.actionsMenuX = Math.max(8, Math.min(localPos.x,' "$launcher_qml") + $(grep -c 'menuWidth: resultsList.width - 12' "$launcher_qml") + $(grep -c 'localPos.x + 6' "$launcher_qml") + $(grep -c 'menuWidth: resultsList.width$' "$launcher_qml") ))" "2"
 check "Clipboard action menu supports paste/copy/open/path/reveal/delete actions" \

@@ -173,8 +173,10 @@ check "Each row carries its own plain rotation-order position" \
   "$(grep -Fc 'position: i + 1' "$content_qml")" "1"
 check "Preview shows a position badge for every row except the current one" \
   "$(( $(grep -Fc 'visible: !root.isCurrent && !!root.row' "$details_qml") + $(grep -Fc 'text: root.row ? String(root.row.position) : ""' "$details_qml") ))" "2"
-check "Position badge sits in the same corner as CURRENT, muted/outlined rather than accent-filled so CURRENT still reads as the active one" \
-  "$(( $(grep -c 'anchors.top: parent.top' "$details_qml") + $(grep -c 'anchors.right: parent.right' "$details_qml") + $(grep -Fc 'color: Qt.rgba(0, 0, 0, 0.55)' "$details_qml") ))" "6"
+# Direct follow-up right after shipping the muted version: "keep it
+# accent color like current".
+check "Position badge sits in the same corner as CURRENT, same accent fill" \
+  "$(( $(grep -c 'anchors.top: parent.top' "$details_qml") + $(grep -c 'anchors.right: parent.right' "$details_qml") + $(grep -c 'color: root.accent$' "$details_qml") ))" "7"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

@@ -81,13 +81,13 @@ function recordPlayed(stats, name, trackPath) {
 // Takes whatever CliampStations.bucketCatalog/searchRows/
 // parseBundledPlaylist already shaped (name/id/label fields, no
 // favorite concept of its own) and layers favorite/lastPlayedAt on top
-// from OUR state, plus the star-vs-note icon that used to come from
-// cliamp's own p.favorite. Non-search rows split into three sections:
-// "Favorites" (any favorited row, catalog or bundled alike) ahead of
-// "Stations" (cliamp's own bundled bouquet, row.bundled -- these are
-// named, curated stations: Lofi, Meditative, Omarchy, the NCS family)
-// ahead of "Catalogues" (the plain world radio-browser.info list,
-// everything else) -- direct correction: "the stations are lofi
+// from OUR state, plus the star/headphones/globe icon that used to come
+// from cliamp's own p.favorite. Non-search rows split into three
+// sections: "Favorites" (any favorited row, catalog or bundled alike)
+// ahead of "Stations" (cliamp's own bundled bouquet, row.bundled --
+// these are named, curated stations: Lofi, Meditative, Omarchy, the
+// NCS family) ahead of "Catalogues" (the plain world radio-browser.info
+// list, everything else) -- direct correction: "the stations are lofi
 // meditative etc, the catalogues are... everything else", the exact
 // opposite of an earlier pass's own labeling. Rows arrive already
 // ordered bundled-then-catalog (see CliampContent.qml's own rows
@@ -97,7 +97,15 @@ function recordPlayed(stats, name, trackPath) {
 // every time the label flips back. Search rows stay one "Search
 // Results" section (a favorited hit splitting into its own section
 // there would just fragment a single query's results for little
-// benefit), the star icon is the only visible difference.
+// benefit) -- a search hit never carries row.bundled, so it reads as a
+// Catalogues-style globe row there, same as it would in the normal list.
+//
+// Direct follow-up ("can you give them a diffirent icons then stations
+// in catalogues"): a non-favorite row's icon used to be the same plain
+// music note regardless of section -- headphones for a Stations row
+// (row.bundled), a globe for a Catalogues one, so the two sections read
+// apart at a glance even before the section header itself scrolls into
+// view. Favorite always wins (the star), same as before.
 function applyFavoriteState(rows, stats, accentColor, searchMode) {
   var list = rows || []
   var favorites = []
@@ -111,7 +119,7 @@ function applyFavoriteState(rows, stats, accentColor, searchMode) {
     var next = Object.assign({}, row, {
       favorite: favorite,
       lastPlayedAt: lastPlayedAt(stats, row.fullName),
-      icon: favorite ? "" : "",
+      icon: favorite ? "" : (row.bundled ? "" : ""),
       iconColor: favorite ? accentColor : ""
     })
     if (searchMode) {

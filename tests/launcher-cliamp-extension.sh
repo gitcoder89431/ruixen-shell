@@ -140,6 +140,8 @@ check "CliampFavorites layers favorite/lastPlayedAt/icon onto already-shaped row
   "$(( $(grep -c 'function applyFavoriteState' "$favorites_js") + $(grep -c 'searchMode' "$favorites_js") + $(grep -c '"Favorites"' "$favorites_js") + $(grep -c '"Catalogues"' "$favorites_js") + $(grep -c '"Stations"' "$favorites_js") + $(grep -c '"Search Results"' "$favorites_js") ))" "13"
 check "The Stations/Catalogues split is keyed off row.bundled (named curated stations go to Stations, the plain world list to Catalogues), not provider-level, so a favorited bundled station still moves to Favorites same as any other" \
   "$(grep -c 'next.sectionLabel = row.bundled ? "Stations" : "Catalogues"' "$favorites_js")" "1"
+check "Stations (bundled) and Catalogues (plain world list) get different icons, not the same plain note -- direct follow-up: give them different icons" \
+  "$(grep -c 'icon: favorite ? .\{3,6\} : (row.bundled ?' "$favorites_js")" "1"
 check "Favorites surface on the all-station landing as a Favorites group at the top, conditional on there being any" \
   "$(( $(grep -c 'favorites.push(next)' "$favorites_js") + $(grep -c 'favorites.concat(rest)' "$favorites_js") ))" "2"
 check "A favorite missing from this catalog fetch (e.g. search-only, never in cliamp's own curated catalog at all) is still synthesized into Favorites, playable via its own stored stream path" \
@@ -217,7 +219,7 @@ check "Cliamp Radio's search row shows the Country dropdown, same control Wallpa
 check "ExtensionRegistry marks cliamp as usesSourceFilter: true" \
   "$(grep -A5 'id: "cliamp",' "$registry_js" | grep -c 'usesSourceFilter: true')" "1"
 
-check "CliampStations expands cliamp's own bundled station bouquet (Lofi, Omarchy, the NCS family, etc.) from its M3U, flagged bundled:true for its own Catalogues section, since provider.catalog's l:0 entry only ever hands back one dead pointer row, never the real stations inside" \
+check "CliampStations expands cliamp's own bundled station bouquet (Lofi, Omarchy, the NCS family, etc.) from its M3U, flagged bundled:true for its own Stations section, since provider.catalog's l:0 entry only ever hands back one dead pointer row, never the real stations inside" \
   "$(( $(grep -c 'function parseBundledPlaylist' "$model_js") + $(grep -c 'bundled: true' "$model_js") ))" "2"
 check "bucketCatalog skips l:<n> pointer entries now that parseBundledPlaylist expands the real thing" \
   "$(grep -c 'p.id || \"\").indexOf(\"l:\") === 0' "$model_js")" "1"

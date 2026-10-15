@@ -122,10 +122,12 @@ function filterByCountry(rows, country) {
 // play/favorite through the exact same path as a search hit -- no
 // stationId of their own, just a title + a playable URL. The `bundled`
 // flag is what lets CliampFavorites.applyFavoriteState put these in
-// their own "Catalogues" section instead of lumping them in with the
-// plain world-radio "Stations" list -- direct correction: "make it
+// their own "Stations" section instead of lumping them in with the
+// plain world-radio "Catalogues" list -- direct correction: "make it
 // Favorites Stations and Catalogues as the groups", three sections,
-// not two.
+// not two (an earlier pass here had Stations/Catalogues backwards from
+// that correction too -- CliampFavorites.js's own header comment
+// already carries the fixed version, this one just hadn't caught up).
 function parseBundledPlaylist(text) {
   var lines = String(text || "").split("\n")
   var out = []

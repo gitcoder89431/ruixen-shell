@@ -247,6 +247,8 @@ check "Right panel is three parallel groups -- Radio, Equalizer, Metadata -- eac
   "$(( $(grep -c 'text: "Radio"' "$station_panel_qml") + $(grep -c 'text: "Equalizer"' "$station_panel_qml") + $(grep -c 'text: "Metadata"' "$station_panel_qml") ))" "3"
 check "Equalizer is its own top-level group now, not nested inside Radio's own card" \
   "$(grep -c 'id: eqColumn' "$station_panel_qml")" "1"
+check "Equalizer keeps its own matching dark card, not left unfilled like Metadata -- direct follow-up: keep the darker panel underneath" \
+  "$(( $(grep -c 'id: eqCard' "$station_panel_qml") + $(grep -c 'color: Qt.rgba(0, 0, 0, 0.22)' "$station_panel_qml") ))" "3"
 check "EQ chip highlights the currently active preset and reports a tap back up via a signal, same split as every other piece of state in this panel" \
   "$(( $(grep -c 'readonly property bool isActive: root.eqPreset === modelData' "$station_panel_qml") + $(grep -c 'signal eqPresetSelected(string name)' "$station_panel_qml") + $(grep -c 'onClicked: root.eqPresetSelected(eqChip.modelData)' "$station_panel_qml") ))" "3"
 check "CliampContent wires the panel's EQ signal back to setEqPreset" \

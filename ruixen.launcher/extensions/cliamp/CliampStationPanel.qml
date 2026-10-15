@@ -176,8 +176,9 @@ Item {
     // it will be Radio Equalizer Metadata as the three group". EQ used
     // to live inside this same card (an earlier follow-up: "extend the
     // dark bg from the player to include the equalizer section too");
-    // it's its own group again below now, same unfilled weight as
-    // Metadata rather than sharing this card's dark background.
+    // it's its own group again below now, with its own matching dark
+    // card rather than sharing this one -- direct follow-up: "keep the
+    // equalizer like having that darker panel underneath".
     Column {
       width: parent.width
       spacing: 12
@@ -442,53 +443,67 @@ Item {
         font.bold: true
       }
 
-      Column {
-        id: eqColumn
+      // Same dark card treatment as Radio's own nowPlayingCard, not
+      // left unfilled like Metadata -- direct follow-up: "keep the
+      // equalizer like having that darker panel underneath".
+      Rectangle {
+        id: eqCard
         width: parent.width
-        spacing: 6
+        height: eqColumn.implicitHeight + 24
+        radius: 10
+        color: Qt.rgba(0, 0, 0, 0.22)
 
-        FontMetrics {
-          id: eqFontMetrics
-          font.family: root.fontFamily
-          font.pixelSize: 11
-        }
+        Column {
+          id: eqColumn
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.margins: 12
+          spacing: 6
 
-        Repeater {
-          model: root.packEqRows(root.eqPresets, eqColumn.width)
+          FontMetrics {
+            id: eqFontMetrics
+            font.family: root.fontFamily
+            font.pixelSize: 11
+          }
 
-          Row {
-            id: eqChipRow
-            required property var modelData
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 6
+          Repeater {
+            model: root.packEqRows(root.eqPresets, eqColumn.width)
 
-            Repeater {
-              model: eqChipRow.modelData
+            Row {
+              id: eqChipRow
+              required property var modelData
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: 6
 
-              Rectangle {
-                id: eqChip
-                required property string modelData
-                readonly property bool isActive: root.eqPreset === modelData
-                width: eqChipLabel.implicitWidth + 20
-                height: 24
-                radius: 6
-                color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
-                border.width: 1
-                border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
+              Repeater {
+                model: eqChipRow.modelData
 
-                Text {
-                  id: eqChipLabel
-                  anchors.centerIn: parent
-                  text: eqChip.modelData
-                  color: root.textColor
-                  font.family: root.fontFamily
-                  font.pixelSize: 11
-                }
+                Rectangle {
+                  id: eqChip
+                  required property string modelData
+                  readonly property bool isActive: root.eqPreset === modelData
+                  width: eqChipLabel.implicitWidth + 20
+                  height: 24
+                  radius: 6
+                  color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : Qt.rgba(1, 1, 1, 0.06)
+                  border.width: 1
+                  border.color: isActive ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.12)
 
-                MouseArea {
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.eqPresetSelected(eqChip.modelData)
+                  Text {
+                    id: eqChipLabel
+                    anchors.centerIn: parent
+                    text: eqChip.modelData
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 11
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.eqPresetSelected(eqChip.modelData)
+                  }
                 }
               }
             }

@@ -197,10 +197,13 @@ no second radio backend.
   ever reachable via search and never in cliamp's own curated catalog
   at all. Type to search the worldwide station directory by name
   instead.
-- **Enter** or click a row to play it.
-- **Tab** or right-click opens a row's actions: **Play**, and
-  **Favorite**/**Unfavorite** for every row, catalog or search hit
-  alike. Favoriting runs through this plugin's own small local store
+- **Enter** or click a row to play it — on whichever row is actually
+  playing right now, the same Enter/click pauses it instead of
+  restarting the stream.
+- **Tab** or right-click opens a row's actions: **Play** (relabels to
+  **Pause** for the row actually on air), and **Favorite**/
+  **Unfavorite** for every row, catalog or search hit alike. Favoriting
+  runs through this plugin's own small local store
   (`~/.local/state/ruixen/cliamp-favorites.json`), not cliamp's native
   favorites — cliamp's own `provider.favorite` only ever takes a
   catalog id, which a raw search result never carries, so there's no

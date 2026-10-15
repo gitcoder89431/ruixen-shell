@@ -47,11 +47,11 @@ check "Launcher instantiates CliampContent" \
 check "CliampContent never shells out to a second radio backend" \
   "$(grep -Rhi 'mpv\|vlc\|mopidy\|radiobrowser' "$repo_dir/ruixen.launcher/extensions/cliamp" | wc -l)" "0"
 check "CliampContent drives cliamp exclusively via the cliamp binary" \
-  "$(grep -c '\["cliamp"' "$content_qml")" "7"
+  "$(grep -c '\["cliamp"' "$content_qml")" "8"
 check "CliampContent uses the v2 remote-call envelope, not raw socket writes" \
-  "$(grep -c '"remote", "call"' "$content_qml")" "5"
-check "CliampContent's remote-call Processes all capture stderr, not just stdout (eqProc captures it too but doesn't run it through parseJobResult -- see its own comment for why)" \
-  "$(( $(grep -c 'stderr: StdioCollector' "$content_qml") + $(grep -c 'parseJobResult(.*Stdout.text, .*Stderr.text)' "$content_qml") ))" "9"
+  "$(grep -c '"remote", "call"' "$content_qml")" "6"
+check "CliampContent's remote-call Processes all capture stderr, not just stdout (eqProc/pauseProc capture it too but don't run it through parseJobResult -- see their own comments for why)" \
+  "$(( $(grep -c 'stderr: StdioCollector' "$content_qml") + $(grep -c 'parseJobResult(.*Stdout.text, .*Stderr.text)' "$content_qml") ))" "10"
 check "CliampStations.parseJobResult reads both streams, since every cliamp failure (including not-running) goes to stderr" \
   "$(grep -c 'function parseJobResult(stdoutText, stderrText)' "$model_js")" "1"
 check "CliampContent fetches the radio catalog and falls back to it on empty search" \
@@ -103,6 +103,20 @@ check "CliampContent reuses the Search Files action menu for Tab and right-click
   "$(( $(grep -c 'ResultActionsMenu {' "$content_qml") + $(grep -c 'function focusRightPanel' "$content_qml") + $(grep -c 'onRowActionsRequested' "$content_qml") + $(grep -c 'function runStationAction' "$content_qml") ))" "4"
 check "Favorite is always offered on Tab, catalog row or search hit alike -- no favoritable gate left" \
   "$(( $(grep -c 'id: "favorite", label: root.selectedRow.favorite' "$content_qml") + $(grep -c 'favoritable' "$content_qml") ))" "1"
+
+# Direct ask: "theres gotta be a way to pause the radio, so when its
+# playing enter again pauses it. and then tab to pause for the one
+# playing".
+check "selectedIsPlaying reuses markNowPlaying's own playingIndicator, not a second now-playing check" \
+  "$(grep -Fc 'readonly property bool selectedIsPlaying: !!(root.selectedRow && root.selectedRow.playingIndicator)' "$content_qml")" "1"
+check "pauseSelected() calls the real v2 pause op, confirmed against cliamp remote capabilities" \
+  "$(grep -Fc 'pauseProc.exec(["cliamp", "remote", "call", "pause", "--wait"])' "$content_qml")" "1"
+check "Enter, double-click and Tab's Play action all route through the same toggle, not three different play/pause paths" \
+  "$(( $(grep -Fc 'root.togglePlayPauseSelected()' "$content_qml") ))" "3"
+check "togglePlayPauseSelected only pauses the row actually confirmed playing, every other row still starts normally" \
+  "$(grep -A3 'function togglePlayPauseSelected' "$content_qml" | grep -Fc 'if (root.selectedIsPlaying) root.pauseSelected()')" "1"
+check "Tab's Play action relabels to Pause for whichever row is actually on air" \
+  "$(grep -Fc '{ id: "play", label: root.selectedIsPlaying ? "Pause" : "Play" }' "$content_qml")" "1"
 
 check "CliampContent guards mouse hover against keyboard-nav scroll snapback -- direct report: pointing/focusing a row, switching to keyboard, then scrolling snapped selection back to whatever row ended up under the still cursor" \
   "$(( $(grep -c 'property bool hoverArmed: false' "$content_qml") + $(grep -c 'property point hoverArmBaseline: Qt.point(-1, -1)' "$content_qml") + $(grep -c 'if (root.hoverArmed) root.selectedIndex = idx' "$content_qml") + $(grep -c 'HoverHandler {' "$content_qml") ))" "4"

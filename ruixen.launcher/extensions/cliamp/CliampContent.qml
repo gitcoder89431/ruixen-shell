@@ -154,6 +154,14 @@ Item {
   readonly property var selectedRow: root.rows[root.selectedIndex] || null
   readonly property int scrollOff: 2
   property var nowPlaying: null
+  // Same playingIndicator markNowPlaying already set on this exact row
+  // for the EQ-bars/icon treatment -- direct ask: "theres gotta be a
+  // way to pause the radio, so when its playing enter again pauses it.
+  // and then tab to pause for the one playing". Reusing it here instead
+  // of a second "is this the now-playing one" check keeps both readings
+  // of "currently playing" (the row's own icon and this) from ever
+  // disagreeing.
+  readonly property bool selectedIsPlaying: !!(root.selectedRow && root.selectedRow.playingIndicator)
 
   // A global player setting (cliamp's own `cliamp eq` command), not
   // per-station -- direct follow-up after the country filter landed:
@@ -225,9 +233,11 @@ Item {
   property real actionsMenuY: 0
   // Favorite is always offered now, catalog row or search hit alike --
   // see this file's own header for why that's a local favorite, not
-  // cliamp's own.
+  // cliamp's own. "play" relabels to "Pause" for whichever row is
+  // actually on air right now -- direct ask: "tab to pause for the
+  // one playing".
   readonly property var stationActions: root.selectedRow ? [
-    { id: "play", label: "Play" },
+    { id: "play", label: root.selectedIsPlaying ? "Pause" : "Play" },
     { id: "favorite", label: root.selectedRow.favorite ? "Unfavorite" : "Favorite" }
   ] : []
 
@@ -309,6 +319,25 @@ Item {
     }
   }
 
+  // Real v2 remote op, no params -- confirmed directly against
+  // `cliamp remote capabilities` (also lists a generic "toggle", but a
+  // plain "pause" is unambiguous here: selectedIsPlaying has already
+  // confirmed this exact row is the one on air, so there's nothing to
+  // toggle between).
+  function pauseSelected() {
+    pauseProc.exec(["cliamp", "remote", "call", "pause", "--wait"])
+  }
+
+  // Enter/double-click/Tab's own "play" action all go through this now
+  // -- direct ask: "so when its playing enter again pauses it". Only
+  // the already-playing row's own activation pauses; picking any other
+  // row (including a different one while something else plays) still
+  // starts it the normal way through playSelected().
+  function togglePlayPauseSelected() {
+    if (root.selectedIsPlaying) root.pauseSelected()
+    else root.playSelected()
+  }
+
   // Local-only now -- no IPC call, no round-trip wait. See this file's
   // own header for why this replaced cliamp's native provider.favorite
   // entirely rather than running alongside it for catalog rows only.
@@ -330,7 +359,7 @@ Item {
   }
 
   function runStationAction(id) {
-    if (id === "play") root.playSelected()
+    if (id === "play") root.togglePlayPauseSelected()
     else if (id === "favorite") root.toggleFavoriteSelected()
     root.closeActionsMenu()
   }
@@ -357,7 +386,7 @@ Item {
       if (action) root.runStationAction(action.id)
       return
     }
-    root.playSelected()
+    root.togglePlayPauseSelected()
   }
 
   function focusRightPanel() {
@@ -569,6 +598,17 @@ Item {
     onExited: function() { root.refreshStatus() }
   }
 
+  // Same fire-and-poll shape as eqProc above -- the real confirmation
+  // comes from the next status poll picking up state: "paused"
+  // (statusTimer already runs every 2s), refreshStatus() here just
+  // makes the icon/EQ-bars swap feel instant instead of waiting it out.
+  Process {
+    id: pauseProc
+    stdout: StdioCollector { id: pauseStdout; waitForEnd: true }
+    stderr: StdioCollector { id: pauseStderr; waitForEnd: true }
+    onExited: function() { root.refreshStatus() }
+  }
+
   Process {
     id: statusProc
     stdout: StdioCollector {
@@ -626,7 +666,7 @@ Item {
     rowHeightPx: 40
     sectionHeaderHeight: 26
     onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
-    onRowActivated: (idx) => { root.selectedIndex = idx; root.playSelected() }
+    onRowActivated: (idx) => { root.selectedIndex = idx; root.togglePlayPauseSelected() }
     onRowActionsRequested: (idx) => {
       root.selectedIndex = idx
       root.openActionsMenu()

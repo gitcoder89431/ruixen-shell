@@ -1349,6 +1349,9 @@ Item {
 
     IpcHandler {
       target: "ruixen.notch"
+      function status(): string {
+        return JSON.stringify({visible:panel.visible,fullscreen:root.fullscreenActive,barHidden:root.barHidden,fullbarStyle:root.fullbarStyle,screen:panel.screen ? panel.screen.name : "",screens:Quickshell.screens.map(function(screen){return screen.name})})
+      }
       function openLauncher(): void { panel.launcherOpen = true }
       function closeLauncher(): void { panel.launcherOpen = false }
       function toggleLauncher(): void { panel.launcherOpen = !panel.launcherOpen }

@@ -128,7 +128,7 @@ if [[ "$dry_run" == true ]]; then
 
   printf '\nOptional dependencies:\n'
   for pair in "ffmpeg:video/gif wallpaper poster generation" "curl:weather data and avatar download" \
-    "python3:the bar's docked-mode toggle" "fastfetch:extra system-info detail" \
+    "python3:the bar's docked-mode toggle and metrics detail pages" "fastfetch:extra system-info detail" \
     "cava:the Desktop audio visualizer"; do
     cmd="${pair%%:*}"; feature="${pair#*:}"
     if command -v "$cmd" >/dev/null 2>&1; then
@@ -397,7 +397,7 @@ warn_optional_pkg() {
 warn_optional_dep ffmpeg "video/gif wallpaper POSTER generation will be unavailable (current/background and the lock screen won't reflect the active video/gif; the moving wallpaper itself is unaffected by this specific dependency)"
 warn_optional_pkg qt6-multimedia "video AND gif wallpaper playback will both silently fail to start (ruixen.wallpaper's whole backend fails to load without this, not just video) -- pacman -S --needed qt6-multimedia-ffmpeg pulls this in with hardware-accelerated decode"
 warn_optional_dep curl "weather data and avatar image download in Settings will be unavailable"
-warn_optional_dep python3 "the bar's docked-mode toggle will silently no-op"
+warn_optional_dep python3 "the bar's docked-mode toggle and metrics detail pages will be unavailable"
 warn_optional_dep fastfetch "the health page's system-info panel will show less detail"
 warn_optional_dep cava "the Desktop audio visualizer will be unavailable; the rest of Ruixen remains usable"
 if [[ "$optional_dep_warned" -eq 0 ]]; then

@@ -111,6 +111,14 @@ lifecycle/config/uninstall-restore tests. Each suite can also be run on
 its own -- see `tests/*.sh`, every file has its own header comment
 explaining what it covers.
 
+For metrics regressions, run `./tests/metric-details.sh` for CPU/RAM/GPU
+accounting, missing counters, and helper output/time limits. Run
+`node tests/js/MetricDetailsLifecycle.test.js` for stale results, page
+switches, reopen races, queued refreshes, and polling; run
+`node tests/js/MetricNetwork.test.js` for interface changes and invalid
+network counters. The JS tests execute production QML handlers with mocked
+runtime objects; they do not replace a real shell restart for QML rendering.
+
 CI runs one additional step this doesn't: `tests/host-contract-
 regression.sh` (issue #34), which fetches real source from
 `github.com/basecamp/omarchy` at the exact commit `COMPATIBILITY.md`

@@ -52,6 +52,16 @@ The notch at the top-center of the bar. 4 dashboard tabs: `widgets`,
 | `openLauncher` / `closeLauncher` / `toggleLauncher` | The quick app launcher. |
 | `toggleWallpapers` | Wallpapers tab. |
 | `refreshAvatar` | Re-read the avatar image. |
+| `status` | Read-only visibility, fullscreen/bar state, and screen names. |
+
+## `ruixen-metrics-details` — system resource detail pages
+
+First open the Metrics tab with `ruixen.notch openDashboardTab metrics`.
+`open <cpu|gpu|memory|network|storage>` selects a detail page, `close` returns
+to the overview, and `status` reports the current page, active state, row
+count, error, and update time. Snapshots are read-only and poll only while
+the detail page is open. See [CONTROL.md](CONTROL.md#metrics-detail-pages)
+for measurement definitions and attribution limits.
 
 ## `ruixen.notch` — Kanban board
 

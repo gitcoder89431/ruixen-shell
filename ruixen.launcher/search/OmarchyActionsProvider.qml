@@ -290,6 +290,23 @@ Item {
       keybind: root.keybindFor("Wallpaper Shuffle"),
       action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"wallpaper-shuffle\"}'"
     },
+    // Same gap, for the new Kanban Board extension -- Launcher.qml's
+    // own generic extensionRow() (see its header comment) only ever
+    // builds this row for the empty-query landing list, same real
+    // limitation every extension above already had before its own
+    // synthetic entry.
+    "ruixen.kanban": {
+      // fa-columns (U+F0DB) -- matches ExtensionRegistry's own icon for
+      // this entry, and the notch's own Kanban dashboard tab, same
+      // board either way.
+      icon: "",
+      label: "Kanban Board",
+      breadcrumb: "Ruixen",
+      kind: "Extension",
+      aliases: ["task", "tasks", "todo", "board"],
+      keybind: root.keybindFor("Kanban Board"),
+      action: "omarchy-shell shell toggle ruixen.launcher '{\"extension\":\"kanban\"}'"
+    },
     // "bjarneo" alone wouldn't match this label at all (their name
     // credits the catalog in the label, not an alias -- see
     // themeBrowserRow()'s own comment in Launcher.qml), so it goes

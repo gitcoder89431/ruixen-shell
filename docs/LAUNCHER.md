@@ -276,6 +276,44 @@ removed drops out silently, and a new file not yet in the order appends
 at the end rather than breaking the sequence. Ignoring writes
 `~/.local/state/ruixen/wallpaper-ignored.json` the same way.
 
+## Kanban Board
+
+An extension (open it from the empty-query list, or with
+`'{"extension":"kanban"}'` — see [`docs/KEYBINDS.md`](KEYBINDS.md)) over
+the same board the notch's own Kanban dashboard tab reads and writes —
+`~/.local/state/ruixen/kanban-store.json`. Both surfaces show the same
+live data; this one is read-only on disk (watches the store file for
+changes but never writes it directly) and makes every change exclusively
+through the notch's own `kanbanAddCard`/`kanbanAdvanceCard`/
+`kanbanRegressCard`/`kanbanSetPriority`/`kanbanRenameCard`/
+`kanbanDeleteCard`/`kanbanReorderColumn` IPC ops — see
+[`CONTROL.md`](CONTROL.md) and [`AGENT.md`](AGENT.md) for the full op
+list, including the agent-driven reorganize workflow.
+
+Cards are listed left-to-right by column (**Todo**, **In Progress**,
+**Done**, in that fixed order — columns themselves aren't renameable
+here, only their display labels, from the notch side), sectioned with
+the same plain muted header style used elsewhere in the launcher. The
+right-hand panel shows the selected card's column, priority, label, due
+date (overdue dates shown in red), description, and created time.
+
+- Typing in the search box and pressing **Enter** when nothing matches
+  creates a new card in **Todo** at medium priority, titled with
+  whatever you typed — the search box clears once the card exists. This
+  is the only "add" screen; there's no separate create form.
+- **Enter** on an existing row (or a click) advances that card to the
+  next column (Todo → In Progress → Done), mirroring the notch panel's
+  own click-to-advance behavior.
+- **Tab** opens that row's actions, conditionally shown by column:
+  **Advance** (any column but Done) / **Regress** (any column but Todo)
+  — **Cycle Priority** (high → medium → low → high) — **Rename** (opens
+  one inline field in the details panel, same narrow shape as the
+  Settings About page's own uninstall-confirm field) — **Delete**
+  (two-step arm/confirm, same shape as Clipboard History's).
+
+Setting a label, due date, or description isn't exposed here yet — use
+the notch's own in-panel editor or the raw `kanban*` CLI ops for those.
+
 ## Configuring search locations
 
 By default, Search Files walks your home directory plus every

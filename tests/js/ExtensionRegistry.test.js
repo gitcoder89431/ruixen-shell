@@ -4,7 +4,7 @@ const { loadModule, check, summary } = require("./harness");
 
 const M = loadModule(path.join(__dirname, "..", "..", "ruixen.launcher", "extensions", "ExtensionRegistry.js"));
 
-const EXPECTED_IDS = ["wallpapers", "settings", "theme-browser", "clipboard", "cliamp", "wallpaper-shuffle"];
+const EXPECTED_IDS = ["wallpapers", "settings", "theme-browser", "clipboard", "cliamp", "wallpaper-shuffle", "kanban"];
 
 // ---- shape: every entry has the fields every consumer relies on -------------
 
@@ -71,7 +71,12 @@ const EXPECTED_ICON_CODEPOINTS = {
   "theme-browser": 0xf1fc,
   "clipboard": 0xf0ea,
   "cliamp": 0xf001,
-  "wallpaper-shuffle": 0xf074
+  "wallpaper-shuffle": 0xf074,
+  // Same glyph the notch's own Kanban dashboard tab already uses
+  // (fa-columns) -- not "the original row builder" (this extension is
+  // new), just cross-checked here the same byte-safe way every other
+  // icon already is.
+  "kanban": 0xf0db
 };
 check("every icon is a single real character, codepoint matching the original row builder it replaced",
   M.EXTENSIONS.map(function(e) { return [e.id, e.icon.length === 1 && e.icon.codePointAt(0)]; }),

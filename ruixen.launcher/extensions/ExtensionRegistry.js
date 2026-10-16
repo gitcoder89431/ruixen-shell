@@ -96,6 +96,18 @@ var EXTENSIONS = [
     icon: "",
     usesSourceFilter: false,
     keybindLookupLabel: "Wallpaper Shuffle"
+  },
+  {
+    id: "kanban",
+    providerId: "kanban-extension",
+    omarchyActionId: "ruixen.kanban",
+    label: "Kanban Board",
+    // Same glyph the notch's own Kanban dashboard tab already uses
+    // (bars/widgets/ruixen.notch/Overlay.qml) -- one board, one icon,
+    // recognizable across both surfaces.
+    icon: "",
+    usesSourceFilter: false,
+    keybindLookupLabel: "Kanban Board"
   }
 ]
 

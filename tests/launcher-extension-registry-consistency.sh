@@ -79,6 +79,7 @@ declare -A expected_components=(
   ["clipboard"]="ClipboardContent {"
   ["cliamp"]="CliampContent {"
   ["wallpaper-shuffle"]="WallpaperShuffleContent {"
+  ["kanban"]="KanbanBoardContent {"
 )
 for id in "${!expected_components[@]}"; do
   check "registry id '$id' has its own content component instantiated in Launcher.qml" \

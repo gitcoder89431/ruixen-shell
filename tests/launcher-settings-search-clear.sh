@@ -62,15 +62,16 @@ check "the generic extension-jump block clears searchHeader.text" \
 check "the generic extension-jump block clears root.query" \
   "$(grep -A4 'root.activeExtensionId = extMatch.id$' "$launcher_qml" | grep -c 'root.query = ""')" "1"
 
-# 2 total across the file: finishClosing()'s own pre-existing pair, plus
-# the one generic extension-jump block above -- down from 13 (the 12
-# near-identical per-extension branches this test used to pin
-# individually, see this file's own header) now that all of them share
-# one implementation.
-check "searchHeader.text is cleared exactly 2 times total (finishClosing + the one generic extension jump)" \
-  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "2"
-check "root.query is cleared exactly 2 times total (finishClosing + the one generic extension jump)" \
-  "$(grep -c 'root.query = ""' "$launcher_qml")" "2"
+# 3 total across the file: finishClosing()'s own pre-existing pair, the
+# one generic extension-jump block, and Kanban's own onQueryClearRequested
+# after creating a card from typed search text -- that handler clears
+# BOTH halves of the alias pair (searchHeader.text is the actual visible
+# input; root.query alone leaves the typed title still showing on
+# screen, since nothing mirrors root.query back into searchHeader.text).
+check "searchHeader.text is cleared exactly 3 times total (finishClosing + the one generic extension jump + Kanban's own onQueryClearRequested)" \
+  "$(grep -c 'searchHeader.text = ""' "$launcher_qml")" "3"
+check "root.query is cleared exactly 3 times total (finishClosing + the one generic extension jump + Kanban's own onQueryClearRequested after creating a card from typed search text)" \
+  "$(grep -c 'root.query = ""' "$launcher_qml")" "3"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

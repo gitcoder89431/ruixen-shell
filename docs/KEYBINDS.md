@@ -82,7 +82,7 @@ pins or unpins it -- a pinned entry gets its own "Pinned" section at the
 top of the list and keeps showing (and stays pasteable) even once
 Omarchy's own 300-entry history cap would otherwise have dropped it.
 
-## Cliamp Radio, Wallpaper Shuffle, Bjarneo Themes, Wallpapers Effects
+## Cliamp Radio, Wallpaper Shuffle, Bjarneo Themes, Wallpapers Effects, Kanban Board
 
 Same `extension` payload shape as Clipboard History above — each is its own
 extension inside Ruixen Launcher:
@@ -92,11 +92,15 @@ o.bind("SUPER + SHIFT + U", "Cliamp Radio", [[omarchy-shell shell toggle ruixen.
 o.bind("SUPER + SHIFT + J", "Wallpaper Shuffle", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"wallpaper-shuffle"}']])
 o.bind("SUPER + SHIFT + T", "Bjarneo Themes", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"theme-browser"}']])
 o.bind("SUPER + SHIFT + K", "Wallpapers Effects", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"wallpapers"}']])
+o.bind("SUPER + SHIFT + H", "Kanban Board", [[omarchy-shell shell toggle ruixen.launcher '{"extension":"kanban"}']])
 ```
 
 Confirmed free via `omarchy menu keybindings --print` first -- the more
 mnemonic SHIFT+C/W/E collide with stock Calendar/Omawrite/Email, which is
 exactly the check this doc's own intro says to run before picking a key.
+SHIFT+K (the mnemonic letter) was already spent on Wallpapers Effects, so
+Kanban Board gets SHIFT+H instead -- just confirmed free, no mnemonic tie
+to the name.
 
 The label (the quoted string in the middle) has to be exactly this —
 Ruixen Launcher's own landing row for each extension looks up a keybind

@@ -19,6 +19,7 @@ import "extensions/theme-browser"
 import "extensions/clipboard"
 import "extensions/cliamp"
 import "extensions/wallpaper-shuffle"
+import "extensions/kanban"
 import "extensions/ExtensionRegistry.js" as ExtensionRegistry
 import "search/LauncherHelpers.js" as LauncherHelpers
 import "search/FileSearchRanking.js" as FileSearchRanking
@@ -463,7 +464,8 @@ Item {
     "theme-browser": themeBrowserContent,
     "clipboard": clipboardContent,
     "cliamp": cliampContent,
-    "wallpaper-shuffle": wallpaperShuffleContent
+    "wallpaper-shuffle": wallpaperShuffleContent,
+    "kanban": kanbanBoardContent
   })
   readonly property Item activeExtensionContent: root.extensionContentById[root.activeExtensionId] || null
   // Suppresses the panel's own width/height resize Behaviors below --
@@ -2270,6 +2272,41 @@ Item {
         glassTint: root.glassTint
         glassBorder: root.glassBorder
         fontFamily: root.fontFamily
+      }
+
+      KanbanBoardContent {
+        id: kanbanBoardContent
+        anchors.top: filtersBar.bottom
+        anchors.topMargin: 4
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 8
+        anchors.left: parent.left
+        anchors.leftMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 8
+        visible: root.activeExtensionId === "kanban"
+        active: root.activeExtensionId === "kanban"
+        searchText: root.activeExtensionId === "kanban" ? root.query : ""
+        textColor: root.textColor
+        muted: root.muted
+        accent: root.accent
+        glassTint: root.glassTint
+        glassBorder: root.glassBorder
+        fontFamily: root.fontFamily
+        // See KanbanBoardContent.qml's own header -- typing a title
+        // with nothing matching creates a card, and this clears the
+        // query back out afterward (searchText itself is one-way bound
+        // from root.query above, so the extension has no other way to
+        // blank it once the title has actually become a card). Both
+        // halves of the alias pair, same as every other clear site in
+        // this file (finishClosing(), the generic extension-jump block)
+        // -- root.query alone leaves the visible searchHeader.text box
+        // still showing the typed title, since nothing mirrors root.query
+        // back into it.
+        onQueryClearRequested: {
+          searchHeader.text = ""
+          root.query = ""
+        }
       }
 
       // Same shared component Search Files' own empty state uses, just

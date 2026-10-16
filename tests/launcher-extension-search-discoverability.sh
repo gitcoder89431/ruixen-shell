@@ -41,8 +41,10 @@ check "OmarchyActionsProvider has a synthetic ruixen.theme-browser entry" \
   "$(( $(grep -c '"ruixen.theme-browser": {' "$actions_qml") + $(grep -c 'label: "Bjarneo Themes"' "$actions_qml") + $(grep -c 'extension\\":\\"theme-browser\\"' "$actions_qml") ))" "3"
 check "OmarchyActionsProvider has a synthetic ruixen.wallpaper-shuffle entry" \
   "$(( $(grep -c '"ruixen.wallpaper-shuffle": {' "$actions_qml") + $(grep -c 'label: "Wallpaper Shuffle"' "$actions_qml") + $(grep -c 'extension\\":\\"wallpaper-shuffle\\"' "$actions_qml") ))" "3"
-check "All four new synthetic entries are tagged Extension, same kind as every other extension row" \
-  "$(grep -c 'kind: "Extension"' "$actions_qml")" "6"
+check "OmarchyActionsProvider has a synthetic ruixen.kanban entry" \
+  "$(( $(grep -c '"ruixen.kanban": {' "$actions_qml") + $(grep -c 'label: "Kanban Board"' "$actions_qml") + $(grep -c 'extension\\":\\"kanban\\"' "$actions_qml") ))" "3"
+check "Every synthetic extension entry (including the new Kanban Board one) is tagged Extension, same kind as every other extension row" \
+  "$(grep -c 'kind: "Extension"' "$actions_qml")" "7"
 
 check "the Wallpapers extension is renamed to Wallpapers Effects in both the registry and the search entry" \
   "$(( $(grep -Fc 'label: "Wallpapers Effects"' "$registry_js") + $(grep -Fc 'label: "Wallpapers Effects"' "$actions_qml") ))" "2"
@@ -68,7 +70,7 @@ check "Launcher.qml resolves a synthetic omarchy:ruixen.X row through ExtensionR
   "$(grep -Fc 'ExtensionRegistry.byOmarchyActionId(String(result.id || "").replace(/^omarchy:/, ""))' "$launcher_qml")" "1"
 check "that generic match still sets activeExtensionId and records the launch" \
   "$(grep -A7 'var extMatch = ExtensionRegistry.byProviderId' "$launcher_qml" | grep -c 'activeExtensionId = extMatch.id\|recordLaunch(extMatch.omarchyActionId)')" "2"
-for ext_id in cliamp clipboard theme-browser wallpaper-shuffle; do
+for ext_id in cliamp clipboard theme-browser wallpaper-shuffle kanban; do
   check "ExtensionRegistry has a ruixen.$ext_id entry for the generic lookup to find" \
     "$(grep -c "omarchyActionId: \"ruixen.$ext_id\"" "$registry_js")" "1"
 done

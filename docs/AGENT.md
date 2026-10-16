@@ -57,8 +57,11 @@ The notch at the top-center of the bar. 4 dashboard tabs: `widgets`,
 
 Fixed 3 columns, ids are permanent: **`todo` / `in-progress` / `done`**
 (only the display label is renameable). Priorities: `high`, `medium`, `low`
-— that order *is* the sort rank, then oldest-first within a priority. Card
-order is computed, never stored.
+— that order *is* the sort rank, then oldest-first within a priority, used
+as the tiebreaker whenever two cards share the same `order` (every card
+starts at `order: 0`, so this is still what decides the sort for a column
+nobody has explicitly reorganized — see `kanbanReorderColumn` below for
+when that stops being true).
 
 | Call | Notes |
 |---|---|
@@ -66,6 +69,7 @@ order is computed, never stored.
 | `kanbanAddCard "<title>" <column> <priority>` | **All 3 args required.** Returns the new card's id — capture it. |
 | `kanbanMoveCard <id> <column>` | Absolute move. |
 | `kanbanAdvanceCard <id>` / `kanbanRegressCard <id>` | One step, clamped at each end (no wraparound). |
+| `kanbanReorderColumn <column> <ids>` | Explicit manual placement — see below. |
 | `kanbanRemoveCard <id>` | Delete one. |
 | `kanbanSetPriority <id> <high\|medium\|low>` | |
 | `kanbanRenameCard <id> "<title>"` | Blank title = silent no-op. |
@@ -74,6 +78,22 @@ order is computed, never stored.
 | `kanbanSetDescription <id> "<text>"` | Second line, always elided. `""` clears. |
 | `kanbanClearDone` | ⚠️ Wipes the entire Done column. No undo, no filter. |
 | `kanbanRenameColumn <id> "<label>"` | Label only, never the id. |
+
+**Reorganizing a column (e.g. "clean up the board"):** `order` is a real
+per-card field now, `0` until you place it. `kanbanReorderColumn` takes the
+*full* desired top-to-bottom id order for one column, **newline-delimited**
+(gotcha 2 — a bracketed list is torn apart; see `ruixen.shelf addMany`
+above for the same shape on a different plugin):
+
+```bash
+omarchy-shell ruixen.notch kanbanReorderColumn todo $'card-123\ncard-456\ncard-789'
+```
+
+A stale/unknown id in the list is ignored; a real card in that column you
+leave out is appended at the end rather than dropped. Only the named
+column's cards are touched. There's no scripted "smart reorganize" — the
+judgment (what's stale, what's actually blocking what) is meant to be made
+by whoever's driving this each time, not baked into a fixed heuristic.
 
 ```bash
 id=$(omarchy-shell ruixen.notch kanbanAddCard "Fix the launcher crash" todo high)

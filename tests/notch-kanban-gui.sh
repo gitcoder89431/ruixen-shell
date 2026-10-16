@@ -313,8 +313,8 @@ check "KanbanService exposes reorderColumn, same call-the-model-then-save shape 
 check "kanbanReorderColumn IPC function exists, callable from the CLI/agent same as kanbanAddCard etc." \
   "$(grep -c 'function kanbanReorderColumn(columnId: string, orderedIds: string): void' "$overlay_qml")" \
   "1"
-check "orderedIds is semicolon-joined, not a JSON array -- qs ipc call itself splits a comma-bearing argument before this function ever sees it" \
-  "$(grep -Fc 'String(orderedIds || "").split(";")' "$overlay_qml")" \
+check "orderedIds is newline-delimited (same convention as ruixen.shelf's own addMany), not a JSON array -- qs ipc call tears a bracketed argument apart before this function ever sees it" \
+  "$(grep -Fc 'String(orderedIds || "").split("\n")' "$overlay_qml")" \
   "1"
 
 # --- Registration -------------------------------------------------------

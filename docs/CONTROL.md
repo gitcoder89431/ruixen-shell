@@ -56,6 +56,7 @@ would:
 ```bash
 omarchy-shell ruixen.notch kanbanAddCard "Fix bug" todo high   # priority: high/medium/low -- ALL THREE ARGS ARE REQUIRED over IPC (see the arity note below); pass medium explicitly
 omarchy-shell ruixen.notch kanbanMoveCard <cardId> in-progress
+omarchy-shell ruixen.notch kanbanReorderColumn todo $'<cardId1>\n<cardId2>'   # explicit manual order within one column, newline-delimited (see the arity/array note below)
 omarchy-shell ruixen.notch kanbanSetPriority <cardId> high
 omarchy-shell ruixen.notch kanbanRenameCard <cardId> "Fix the other bug"   # no-op on a blank title
 omarchy-shell ruixen.notch kanbanSetDueDate <cardId> 2026-09-12   # any Date.parse()-recognized string; "" clears it, an unparseable value is a no-op

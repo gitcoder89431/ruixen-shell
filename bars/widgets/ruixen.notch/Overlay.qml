@@ -1489,21 +1489,23 @@ Item {
       // without any QML access at all.
       function kanbanListCards(): string { return kanbanService.listCards() }
       // orderedIds: the full desired top-to-bottom order for columnId's
-      // own cards, semicolon-joined -- e.g. `omarchy-shell ruixen.notch
-      // kanbanReorderColumn todo "card-123;card-456"`. NOT a JSON
-      // array: confirmed live that `qs ipc call` itself splits a
-      // comma-containing argument into several before this function
-      // ever sees it (a real "2 required but 5 provided" error for a
-      // 4-id JSON array), so a comma-delimited encoding can never
-      // survive as one argument here regardless of quoting. A real
-      // card id is always "card-<epochMs>-<rand>" (see
-      // KanbanModel.makeCardId), so it can never contain a semicolon
-      // itself. Meant to be driven by an agent after reading the board
-      // back via kanbanListCards above, not typed by hand -- see
-      // KanbanModel.reorderColumn's own comment for the "clean up/
-      // reorganize the board" request this answers.
+      // own cards, newline-delimited -- e.g. `omarchy-shell ruixen.notch
+      // kanbanReorderColumn todo $'card-123\ncard-456'`. NOT a JSON
+      // array: confirmed live that `qs ipc call` tears a bracketed
+      // `[...]` argument into several before this function ever sees
+      // it (a real "2 required but 5 provided" error for a 4-id JSON
+      // array) -- plain comma- or semicolon-joined text arrives intact
+      // as one argument, only the brackets themselves are special.
+      // Newline matches ruixen.shelf's own addMany(pathsArg) convention
+      // for the identical problem (see its own comment) -- a real card
+      // id is always "card-<epochMs>-<rand>" (KanbanModel.makeCardId),
+      // so it can never contain one anyway, same reasoning addMany's
+      // own comment gives for a path. Meant to be driven by an agent
+      // after reading the board back via kanbanListCards above, not
+      // typed by hand -- see KanbanModel.reorderColumn's own comment
+      // for the "clean up/reorganize the board" request this answers.
       function kanbanReorderColumn(columnId: string, orderedIds: string): void {
-        var ids = String(orderedIds || "").split(";").filter(function(id) { return id !== "" })
+        var ids = String(orderedIds || "").split("\n").filter(function(id) { return id !== "" })
         kanbanService.reorderColumn(columnId, ids)
       }
     }

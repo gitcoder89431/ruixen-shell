@@ -84,10 +84,12 @@ over the wire — pass `medium` yourself.
 A card overdue (past its due date, and not in the Done column) shows its due
 date in red in the panel — Done cards never do, a shipped card is not late.
 
-Titles and descriptions are deliberately short (48 / 60 characters, silently
-trimmed rather than rejected) — this board is a glance surface, not a notes
-app. Anything more detailed belongs in the terminal or an agent's own
-context, not a longer field here.
+Titles and descriptions are deliberately short (48 / 160 characters, silently
+trimmed rather than rejected) — the notch's own card still always shows
+description as a single elided line regardless of the cap, a glance
+surface, not a notes app. The full 160 characters only really shows in
+the launcher's own Kanban Board extension, which gives description a
+real word-wrapped block of its own.
 
 Board state is a plain JSON file at `~/.local/state/ruixen/kanban-store.json`
 — nothing about it is locked to this plugin. Any other tool with filesystem

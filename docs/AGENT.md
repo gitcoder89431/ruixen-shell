@@ -104,8 +104,10 @@ omarchy-shell ruixen.notch kanbanListCards | jq -r '.cards[]|"\(.column)\t\(.pri
 ```
 
 - Free text is **silently trimmed, never rejected**: title 48, label 24,
-  description 60 chars. A long title isn't an error, it just gets cut.
-  This board is a glance surface — keep detail in your own context.
+  description 160 chars. A long title isn't an error, it just gets cut.
+  The notch's own card always shows description as one elided line
+  regardless — the full 160 chars only really shows in the launcher's
+  own Kanban Board extension, which gives it a real word-wrapped block.
 - Left-click advances / right-click regresses in the GUI too. Overdue
   (past due, not Done) renders red; Done cards never show as late.
 

@@ -71,8 +71,8 @@ check("normalizeCards: an overlong persisted title is trimmed to the cap, not dr
   M.normalizeCards([{ id: "a", column: "todo", title: "a".repeat(80), createdAt: 1 }])[0].title,
   "a".repeat(48));
 check("normalizeCards: an overlong persisted description is trimmed to the cap, not dropped",
-  M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, description: "a".repeat(80) }])[0].description,
-  "a".repeat(60));
+  M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, description: "a".repeat(200) }])[0].description,
+  "a".repeat(160));
 
 check("addCard: appends to the end",
   M.addCard([{ id: "a", column: "todo", title: "A", createdAt: 1 }], { id: "b", column: "todo", title: "B", createdAt: 2 })
@@ -167,7 +167,7 @@ check("setDescription: updates just the matching card's description",
 check("setDescription: an empty string clears an existing description (a valid value, not rejected)",
   M.setDescription([{ id: "a", column: "todo", title: "A", createdAt: 1, description: "Needs review" }], "a", "")[0].description, "");
 check("setDescription: an overlong description is trimmed to the cap, not rejected",
-  M.setDescription(threeCards, "b", "a".repeat(80))[1].description, "a".repeat(60));
+  M.setDescription(threeCards, "b", "a".repeat(200))[1].description, "a".repeat(160));
 check("setDescription: an unknown card id changes nothing",
   M.setDescription(threeCards, "z", "Needs review"), threeCardsNormalized);
 

@@ -75,13 +75,18 @@ function normalizePriority(value) {
 // long, not an error.
 //
 // TITLE_LIMIT (48): roughly 2 wrapped lines even in the narrowest
-// column (Todo/Done, ~200px live-measured). DESCRIPTION_LIMIT (60): a
-// single line, always elided rather than wrapped (see
-// KanbanContent.qml) -- strictly secondary to the title, so it never
-// grows a card's height. LABEL_LIMIT (24): a short category word, not
-// a sentence -- "like folders", per the original request.
+// column (Todo/Done, ~200px live-measured). DESCRIPTION_LIMIT (160):
+// raised from the original 60 once the launcher's own Kanban Board
+// extension gave this field a real expanded, word-wrapped home of its
+// own (KanbanBoardDetailsPanel.qml) -- room for a real short sentence
+// or two there. Still always a single elided line here on the notch's
+// own compact card (see KanbanContent.qml) regardless of the cap, so
+// this never grows a card's height on THIS surface -- raising the
+// limit only changes what the launcher's panel can show in full.
+// LABEL_LIMIT (24): a short category word, not a sentence -- "like
+// folders", per the original request.
 var TITLE_LIMIT = 48
-var DESCRIPTION_LIMIT = 60
+var DESCRIPTION_LIMIT = 160
 var LABEL_LIMIT = 24
 
 function clampText(value, limit) {

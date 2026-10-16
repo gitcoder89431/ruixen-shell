@@ -202,13 +202,13 @@ Rectangle {
           border.width: 1
           border.color: root.accent
 
-          // Capped at KanbanModel's own real DESCRIPTION_LIMIT (60) --
+          // Capped at KanbanModel's own real DESCRIPTION_LIMIT (160) --
           // not a separate arbitrary UI number, the exact one
           // commitDescription's own kanbanSetDescription call would
-          // otherwise silently clamp to after the fact. A short status
-          // line, not a body -- "strictly secondary to the title, so
-          // it never grows a card's height" (KanbanModel.js's own
-          // header comment), same reasoning Title/Label are capped for.
+          // otherwise silently clamp to after the fact. Room for a real
+          // short sentence or two, not a full body (KanbanModel.js's
+          // own header comment on why it was raised from the original
+          // 60), same reasoning Title/Label are still capped for.
           // TextInput.maxLength is a real property but isn't resolving
           // in this Quickshell QML runtime (confirmed live: assigning
           // it broke the whole component's load with "Cannot assign to

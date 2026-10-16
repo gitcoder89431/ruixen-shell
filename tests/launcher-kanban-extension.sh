@@ -89,6 +89,13 @@ check "blurToLeftPanel cancels an open description edit on Escape, same as renam
 check "Selecting a different card resets editingDescription, same safety net renaming already has" \
   "$(grep -A6 'onSelectedIndexChanged:' "$content_qml" | grep -c 'root.editingDescription = false')" "1"
 
+# --- mouse-click QA fix: hover must not fight the open actions menu --------
+
+check "Row hover does not reselect (and so can't close the actions menu out from under a click) while rightFocused -- the actual bug: moving the mouse from wherever it was toward the menu crosses other rows first" \
+  "$(grep -c 'onRowHovered: (idx) => { if (root.hoverArmed && !root.rightFocused) root.selectedIndex = idx }' "$content_qml")" "1"
+check "Actions menu Y-clamp accounts for filterChipsRow's real height, same shape ClipboardContent.qml's own positioning already uses for its own chip row" \
+  "$(grep -c 'root.actionsMenuY = Math.max(filterChipsRow.height + 8,' "$content_qml")" "1"
+
 # --- deliberately no separate sort chip -------------------------------------
 
 check "No separate sort chip/sortKey -- cardsInColumn()'s own order/priority/age ordering already is the sort" \

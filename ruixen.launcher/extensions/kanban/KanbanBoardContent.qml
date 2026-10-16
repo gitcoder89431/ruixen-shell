@@ -398,7 +398,14 @@ Item {
     var localPos = root.mapFromItem(null, scenePos.x, scenePos.y)
     var menuHeight = root.boardActions.length * 34 + 8
     root.actionsMenuX = Math.max(8, Math.min(localPos.x + 6, root.width - boardResultsList.width - 8))
-    root.actionsMenuY = Math.max(8, Math.min(localPos.y + 4, root.height - menuHeight - 8))
+    // filterChipsRow.height, not a bare 8 -- same clamp shape
+    // ClipboardContent.qml's own positionActionsMenuNearSelection
+    // already uses for its own chip row, kept as a stale bare 8 here
+    // from before the chips existed. Never actually reachable with
+    // today's row/section heights (every real row sits well below 32px
+    // regardless), but matches the established pattern and guards
+    // against it mattering if that ever changes.
+    root.actionsMenuY = Math.max(filterChipsRow.height + 8, Math.min(localPos.y + 4, root.height - menuHeight - 8))
   }
 
   function loadStore(raw) {
@@ -534,7 +541,19 @@ Item {
     selectedIndex: root.selectedIndex
     rowHeightPx: 40
     sectionHeaderHeight: 26
-    onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
+    // !root.rightFocused -- confirmed live: opening the actions menu
+    // via Tab leaves the real mouse cursor wherever it already was, so
+    // the very next mouse movement toward the menu itself necessarily
+    // sweeps across other list rows first. Each one's own hover used to
+    // reselect (onSelectedIndexChanged closes the menu on any selection
+    // change), so the menu would close itself mid-transit, before the
+    // click ever reached it -- "I can't click Edit, the tab action
+    // doesn't register." Same gap exists in every sibling extension
+    // (Clipboard/Cliamp/Theme Browser/Wallpaper Shuffle all share this
+    // exact onRowHovered shape with no actionsMenuOpen guard), not
+    // something only this extension does -- fixed here first since
+    // this is what surfaced it.
+    onRowHovered: (idx) => { if (root.hoverArmed && !root.rightFocused) root.selectedIndex = idx }
     onRowActivated: (idx) => { root.selectedIndex = idx; root.advanceSelected() }
     onRowActionsRequested: (idx) => {
       root.selectedIndex = idx

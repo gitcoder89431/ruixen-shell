@@ -70,6 +70,25 @@ check "List rows show a solid dot tinted by priority, same red/yellow/muted the 
 check "Done-column rows swap the priority dot for a checkmark in the accent color, mirroring the notch panel's own dot-becomes-check behavior" \
   "$(grep -c 'iconColor: columnId === "done" ? root.accent : root.priorityColor\[card.priority\]' "$content_qml")" "1"
 
+# --- Description: expanded block under the title, editable via Tab --------
+
+check "Description is no longer in the generic metadata zebra list -- it gets its own expanded block" \
+  "$(grep -c '{ label: "Description"' "$panel_qml")" "0"
+check "The description block is word-wrapped, not elided to one line like the notch's own compact card" \
+  "$(grep -c 'wrapMode: Text.WordWrap' "$panel_qml")" "1"
+check "Description field re-seeds its own text imperatively too, same fix renameInput already needed" \
+  "$(grep -c 'onEditingDescriptionChanged: if (editingDescription) descriptionInput.text = descriptionText' "$panel_qml")" "1"
+check "Add/Edit Description is in the Tab menu, labeled by whether a description already exists" \
+  "$(grep -c 'id: "description", label: root.selectedCard.description !== "" ? "Edit Description" : "Add Description"' "$content_qml")" "1"
+check 'commitDescription calls through even on an empty string -- unlike commitRename, "" is the documented way to clear a description, not a cancel' \
+  "$(( $(grep -A5 'function commitDescription' "$content_qml" | grep -c 'if (!root.selectedCard) return') + $(grep -A5 'function commitDescription' "$content_qml" | grep -c 'if (!root.selectedCard || .* === "") return') ))" "1"
+check "editingDescription joins actionsMenuOpen/renaming in rightFocused, so Escape/Tab both still work while it's open" \
+  "$(grep -c 'root.actionsMenuOpen || root.renaming || root.editingDescription' "$content_qml")" "1"
+check "blurToLeftPanel cancels an open description edit on Escape, same as renaming" \
+  "$(grep -A4 'function blurToLeftPanel' "$content_qml" | grep -c 'root.cancelDescription()')" "1"
+check "Selecting a different card resets editingDescription, same safety net renaming already has" \
+  "$(grep -A6 'onSelectedIndexChanged:' "$content_qml" | grep -c 'root.editingDescription = false')" "1"
+
 # --- deliberately no separate sort chip -------------------------------------
 
 check "No separate sort chip/sortKey -- cardsInColumn()'s own order/priority/age ordering already is the sort" \

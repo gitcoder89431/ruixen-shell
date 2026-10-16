@@ -286,16 +286,23 @@ live data; this one is read-only on disk (watches the store file for
 changes but never writes it directly) and makes every change exclusively
 through the notch's own `kanbanAddCard`/`kanbanAdvanceCard`/
 `kanbanRegressCard`/`kanbanSetPriority`/`kanbanRenameCard`/
-`kanbanDeleteCard`/`kanbanReorderColumn` IPC ops — see
-[`CONTROL.md`](CONTROL.md) and [`AGENT.md`](AGENT.md) for the full op
-list, including the agent-driven reorganize workflow.
+`kanbanSetDescription`/`kanbanDeleteCard`/`kanbanReorderColumn` IPC ops
+— see [`CONTROL.md`](CONTROL.md) and [`AGENT.md`](AGENT.md) for the
+full op list, including the agent-driven reorganize workflow.
 
 Cards are listed left-to-right by column (**Todo**, **In Progress**,
 **Done**, in that fixed order — columns themselves aren't renameable
 here, only their display labels, from the notch side), sectioned with
-the same plain muted header style used elsewhere in the launcher. The
-right-hand panel shows the selected card's column, priority, label, due
-date (overdue dates shown in red), description, and created time.
+the same plain muted header style used elsewhere in the launcher. Each
+row's own left-edge icon is a dot tinted by priority (red/yellow/muted
+for high/medium/low), swapped for a green checkmark once a card reaches
+Done — same visual language the notch's own Kanban panel already uses
+for this. The right-hand panel shows the selected card's title, then —
+if it has one — a word-wrapped **Description** block right underneath
+(expanded here, unlike the notch's own compact single-elided-line
+treatment of the same field, since this panel has the room), then
+column, priority, label, due date (overdue dates shown in red), and
+created time.
 
 A **Column** and **Priority** chip sit above the list, same cycling-pill
 shape as Bjarneo Themes' own Collection/Style chips — click to cycle
@@ -316,11 +323,14 @@ touched it, otherwise priority then age) already is the sort.
   **Advance** (any column but Done) / **Regress** (any column but Todo)
   — **Cycle Priority** (high → medium → low → high) — **Rename** (opens
   one inline field in the details panel, same narrow shape as the
-  Settings About page's own uninstall-confirm field) — **Delete**
+  Settings About page's own uninstall-confirm field) — **Add
+  Description** / **Edit Description** (same inline-field shape, opens
+  right under the title; an empty result really does clear it, same as
+  the raw `kanbanSetDescription <id> ""` CLI call) — **Delete**
   (two-step arm/confirm, same shape as Clipboard History's).
 
-Setting a label, due date, or description isn't exposed here yet — use
-the notch's own in-panel editor or the raw `kanban*` CLI ops for those.
+Setting a label or due date isn't exposed here yet — use the notch's
+own in-panel editor or the raw `kanban*` CLI ops for those.
 
 ## Configuring search locations
 

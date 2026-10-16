@@ -45,6 +45,18 @@ Rectangle {
   // is still intact.
   onRenamingChanged: if (root.renaming) renameInput.text = root.renameText
 
+  property bool editingDescription: false
+  property string descriptionText: ""
+  readonly property alias descriptionField: descriptionInput
+
+  signal descriptionCommitted(string text)
+  signal descriptionCancelled()
+
+  // Same re-seed-on-every-open fix renameInput needed above -- see that
+  // property's own comment for why a plain declarative binding isn't
+  // enough once the field has been edited once.
+  onEditingDescriptionChanged: if (editingDescription) descriptionInput.text = descriptionText
+
   readonly property var priorityColor: ({
     "high": "#e05252",
     "medium": root.textColor,
@@ -62,7 +74,10 @@ Rectangle {
 
   // Skips anything with no value, same reasoning every other panel's
   // own metadataFields comment gives -- never leave the zebra tint (by
-  // array position) with a gap over an empty row.
+  // array position) with a gap over an empty row. Description is NOT
+  // in this list -- it gets its own expanded, word-wrapped block right
+  // under the title instead (see the Column below), not a single
+  // elided line squeezed into this zebra shape with everything else.
   readonly property var metadataFields: {
     if (!root.card) return []
     var out = [
@@ -71,7 +86,6 @@ Rectangle {
     ]
     if (root.card.label !== "") out.push({ label: "Label", value: root.card.label })
     if (root.card.dueAt > 0) out.push({ label: "Due", value: root.formatDate(root.card.dueAt) + (root.overdue ? " (overdue)" : "") })
-    if (root.card.description !== "") out.push({ label: "Description", value: root.card.description })
     out.push({ label: "Created", value: root.formatDate(root.card.createdAt) })
     return out
   }
@@ -130,6 +144,63 @@ Rectangle {
           onTextChanged: root.renameText = text
           onAccepted: root.renameCommitted(text)
           Keys.onEscapePressed: root.renameCancelled()
+        }
+      }
+    }
+
+    // --- Description, or the inline edit field in its place -- same
+    // "one deliberate text entry, not a form" shape the rename field
+    // above already uses, not a second general edit mode. Expanded and
+    // word-wrapped here (this panel has the room), unlike the notch's
+    // own always-single-elided-line treatment of the same field.
+    Column {
+      width: parent.width
+      spacing: 6
+      visible: root.card !== null && (root.card.description !== "" || root.editingDescription)
+
+      Text {
+        text: "Description"
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 10
+        font.capitalization: Font.AllUppercase
+        font.bold: true
+      }
+
+      Text {
+        visible: !root.editingDescription
+        width: parent.width
+        text: root.card ? root.card.description : ""
+        textFormat: Text.PlainText
+        wrapMode: Text.WordWrap
+        color: root.muted
+        font.family: root.fontFamily
+        font.pixelSize: 12
+      }
+
+      Rectangle {
+        visible: root.editingDescription
+        width: parent.width
+        height: 32
+        radius: 8
+        color: Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: root.accent
+
+        TextInput {
+          id: descriptionInput
+          anchors.fill: parent
+          anchors.leftMargin: 10
+          anchors.rightMargin: 10
+          verticalAlignment: TextInput.AlignVCenter
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 13
+          clip: true
+          text: root.descriptionText
+          onTextChanged: root.descriptionText = text
+          onAccepted: root.descriptionCommitted(text)
+          Keys.onEscapePressed: root.descriptionCancelled()
         }
       }
     }

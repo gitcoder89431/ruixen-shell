@@ -31,13 +31,21 @@ import "KanbanModel.js" as KanbanModel
 // plugin). Typing in the launcher's own search box IS the add form:
 // Enter with nothing matching creates a card in Todo with that title.
 // Editing goes through Tab's actions menu instead -- Advance/Regress,
-// Cycle Priority, Rename (opens ONE inline field in the details panel,
-// not a form, same narrow shape AboutPage.qml's own uninstallConfirmField
-// already uses), Delete. Set Label/Set Due Date/Set Description are
-// deliberately NOT exposed here yet -- still reachable via the notch's
-// own in-panel editor or raw `omarchy-shell ruixen.notch kanbanSetX`,
-// kept out of this first pass rather than stacking three more inline-
-// input flows on top of Rename.
+// Cycle Priority, Rename and Edit/Add Description (each opens ONE
+// inline field in the details panel, not a form, same narrow shape
+// AboutPage.qml's own uninstallConfirmField already uses), Delete. Set
+// Label/Set Due Date are still deliberately NOT exposed here -- still
+// reachable via the notch's own in-panel editor or raw
+// `omarchy-shell ruixen.notch kanbanSetX`, kept out rather than
+// stacking two more inline-input flows on top of Rename/Description.
+//
+// Description gets its own expanded block under the title (direct
+// follow-up: "a more expanded detail mode... can this show up under
+// the task title?") rather than living in the generic metadata zebra
+// list with everything else -- word-wrapped there since this panel has
+// the room, unlike the notch's own compact card (KanbanContent.qml
+// keeps it a single always-elided line on purpose, "a card here is a
+// glance surface").
 Item {
   id: root
 
@@ -53,7 +61,7 @@ Item {
   readonly property string searchPlaceholder: "Search or type a new task title"
   readonly property bool showsEnterHint: true
   readonly property bool interceptsArrowKeys: true
-  readonly property bool rightFocused: root.actionsMenuOpen || root.renaming
+  readonly property bool rightFocused: root.actionsMenuOpen || root.renaming || root.editingDescription
 
   // Launcher.qml clears its own query on this -- see onQueryClearRequested
   // at the instantiation site. Needed because searchText here is a
@@ -187,6 +195,7 @@ Item {
     root.hoverArmBaseline = Qt.point(-1, -1)
     root.actionsMenuOpen = false
     root.renaming = false
+    root.editingDescription = false
     var lastIndex = root.rows.length - 1
     boardResultsList.positionViewAtIndex(Math.min(root.selectedIndex + root.scrollOff, lastIndex), ListView.Contain)
     boardResultsList.positionViewAtIndex(Math.max(root.selectedIndex - root.scrollOff, 0), ListView.Contain)
@@ -288,6 +297,33 @@ Item {
     root.returnFocusRequested()
   }
 
+  property bool editingDescription: false
+  property string descriptionText: ""
+
+  function beginEditDescriptionSelected() {
+    if (!root.selectedCard) return
+    root.descriptionText = root.selectedCard.description
+    root.editingDescription = true
+    Qt.callLater(function() { detailsPanel.descriptionField.forceActiveFocus() })
+  }
+
+  // Unlike commitRename, an empty result is NOT treated as "cancelled"
+  // -- "" is the real, documented way to clear a description
+  // (docs/CONTROL.md: 'kanbanSetDescription <id> ""   # clears it'), so
+  // this always calls through, even on an empty string.
+  function commitDescription(text) {
+    var description = String(text || "").trim()
+    root.editingDescription = false
+    root.returnFocusRequested()
+    if (!root.selectedCard) return
+    descriptionProc.exec(["omarchy-shell", "ruixen.notch", "kanbanSetDescription", root.selectedCard.id, description])
+  }
+
+  function cancelDescription() {
+    root.editingDescription = false
+    root.returnFocusRequested()
+  }
+
   // Two-step: first press arms it (the details panel label below would
   // relabel to "Confirm" the same way Clipboard's own delete already
   // does), second press on that SAME card removes it. Moving the
@@ -318,6 +354,7 @@ Item {
     var next = KanbanModel.PRIORITIES[(idx + 1) % KanbanModel.PRIORITIES.length]
     out.push({ id: "priority", label: "Priority -> " + (next.charAt(0).toUpperCase() + next.slice(1)) })
     out.push({ id: "rename", label: "Rename" })
+    out.push({ id: "description", label: root.selectedCard.description !== "" ? "Edit Description" : "Add Description" })
     out.push({ id: "delete", label: root.deleteArmed ? "Confirm Delete" : "Delete" })
     return out
   })() : []
@@ -327,6 +364,7 @@ Item {
     else if (id === "regress") root.regressSelected()
     else if (id === "priority") root.cyclePrioritySelected()
     else if (id === "rename") { root.beginRenameSelected(); root.closeActionsMenu(); return }
+    else if (id === "description") { root.beginEditDescriptionSelected(); root.closeActionsMenu(); return }
     else if (id === "delete") root.deleteSelected()
     if (!(id === "delete" && root.deleteArmed)) root.closeActionsMenu()
   }
@@ -338,6 +376,7 @@ Item {
 
   function blurToLeftPanel() {
     if (root.renaming) { root.cancelRename(); return }
+    if (root.editingDescription) { root.cancelDescription(); return }
     root.closeActionsMenu()
   }
 
@@ -394,6 +433,7 @@ Item {
   Process { id: regressProc }
   Process { id: priorityProc }
   Process { id: renameProc }
+  Process { id: descriptionProc }
   Process { id: deleteProc }
 
   // Visually matches ThemeBrowserContent.qml's own filterChipsRow (same
@@ -562,5 +602,10 @@ Item {
     onRenameTextChanged: root.renameText = renameText
     onRenameCommitted: (text) => root.commitRename(text)
     onRenameCancelled: root.cancelRename()
+    editingDescription: root.editingDescription
+    descriptionText: root.descriptionText
+    onDescriptionTextChanged: root.descriptionText = descriptionText
+    onDescriptionCommitted: (text) => root.commitDescription(text)
+    onDescriptionCancelled: root.cancelDescription()
   }
 }

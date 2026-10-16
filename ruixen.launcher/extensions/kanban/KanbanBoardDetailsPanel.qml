@@ -32,6 +32,19 @@ Rectangle {
   signal renameCommitted(string text)
   signal renameCancelled()
 
+  // renameInput's own `text: root.renameText` binding below is only a
+  // SEED -- once the user types into it, QML severs that binding (the
+  // field's own keystrokes become the authoritative source), same as
+  // any editable TextInput. Without this, a second rename later in the
+  // same still-running launcher process redisplays whatever text was
+  // left over from the FIRST rename, not the newly selected card's own
+  // title -- confirmed live: renaming a second card showed the first
+  // card's old (already-committed) text still sitting in the field.
+  // Re-seeding imperatively on every renaming:true transition re-syncs
+  // the field for real, regardless of whether the declarative binding
+  // is still intact.
+  onRenamingChanged: if (root.renaming) renameInput.text = root.renameText
+
   readonly property var priorityColor: ({
     "high": "#e05252",
     "medium": root.textColor,

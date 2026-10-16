@@ -62,6 +62,17 @@ Item {
   // box itself once a typed title has actually been turned into a card.
   signal queryClearRequested()
 
+  // Same mechanism SettingsContent.qml's own returnFocusRequested
+  // already established (see that file's signal and AboutPage.qml's
+  // uninstallConfirmField, which hands real Qt focus to itself the
+  // same way beginRenameSelected() below does) -- a sub-component that
+  // takes real keyboard focus has to hand it back explicitly once it's
+  // done, or nothing else in the launcher's own Keys handlers (Tab
+  // included) ever fires again, since they live on searchHeader's own
+  // input, not on this one. Confirmed live: without this, Tab stopped
+  // responding entirely after a rename ended.
+  signal returnFocusRequested()
+
   readonly property string storePath: Quickshell.env("HOME") + "/.local/state/ruixen/kanban-store.json"
   property var rawColumns: KanbanModel.defaultColumns()
   property var rawCards: []
@@ -230,12 +241,14 @@ Item {
   function commitRename(text) {
     var title = String(text || "").trim()
     root.renaming = false
+    root.returnFocusRequested()
     if (!root.selectedCard || title === "") return
     renameProc.exec(["omarchy-shell", "ruixen.notch", "kanbanRenameCard", root.selectedCard.id, title])
   }
 
   function cancelRename() {
     root.renaming = false
+    root.returnFocusRequested()
   }
 
   // Two-step: first press arms it (the details panel label below would

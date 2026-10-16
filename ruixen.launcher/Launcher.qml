@@ -2307,6 +2307,11 @@ Item {
           searchHeader.text = ""
           root.query = ""
         }
+        // See KanbanBoardContent.qml's own signal comment -- Rename
+        // hands real Qt focus to its own inline field (beginRenameSelected's
+        // forceActiveFocus()), same as Settings' uninstallConfirmField,
+        // and needs the exact same explicit hand-back once it's done.
+        onReturnFocusRequested: searchHeader.focusInput()
       }
 
       // Same shared component Search Files' own empty state uses, just

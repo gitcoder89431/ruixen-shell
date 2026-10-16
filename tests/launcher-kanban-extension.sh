@@ -70,6 +70,13 @@ check "List rows show a solid dot tinted by priority, same red/yellow/muted the 
 check "Done-column rows swap the priority dot for a checkmark in the accent color, mirroring the notch panel's own dot-becomes-check behavior" \
   "$(grep -c 'iconColor: columnId === "done" ? root.accent : root.priorityColor\[card.priority\]' "$content_qml")" "1"
 
+# --- same dot also sits in front of the title in the right-hand panel ------
+
+check "The right-hand panel's own title row shows the same priority dot/checkmark, not just the left list -- direct follow-up ('the red dot for priority so its easy to see quickly')" \
+  "$(( $(grep -c 'id: titleDot' "$panel_qml") + $(grep -c 'text: root.card && root.card.column === "done" ? "' "$panel_qml") + $(grep -c 'color: !root.card ? "transparent" : (root.card.column === "done" ? root.accent : root.dotColor\[root.card.priority\])' "$panel_qml") ))" "3"
+check "Panel's own title-dot color map is separate from priorityColor (that one's scoped to the Priority metadata row's plain text, deliberately not yellow for medium)" \
+  "$(grep -c '"medium": "#e8c34a"' "$panel_qml")" "1"
+
 # --- Description: expanded block under the title, editable via Tab --------
 
 check "Description is no longer in the generic metadata zebra list -- it gets its own expanded block" \

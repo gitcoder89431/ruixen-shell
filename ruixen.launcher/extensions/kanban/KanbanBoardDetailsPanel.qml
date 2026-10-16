@@ -63,6 +63,18 @@ Rectangle {
     "low": root.muted
   })
 
+  // Same red/yellow/muted dot (checkmark once Done) the left list's own
+  // rows already show -- direct follow-up ("the red dot for priority
+  // so its easy to see quickly"), matching KanbanBoardContent.qml's own
+  // allRows icon exactly rather than this panel's own priorityColor
+  // above (that one's scoped to the Priority metadata row's plain text
+  // color, deliberately not yellow for medium -- a separate thing).
+  readonly property var dotColor: ({
+    "high": "#e05252",
+    "medium": "#e8c34a",
+    "low": root.muted
+  })
+
   function formatDate(epochMs) {
     if (!epochMs) return ""
     var d = new Date(epochMs)
@@ -111,9 +123,22 @@ Rectangle {
       height: 28
 
       Text {
+        id: titleDot
+        visible: !root.renaming && root.card !== null
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        text: root.card && root.card.column === "done" ? "" : ""
+        color: !root.card ? "transparent" : (root.card.column === "done" ? root.accent : root.dotColor[root.card.priority])
+        font.family: root.fontFamily
+        font.pixelSize: 13
+      }
+
+      Text {
         visible: !root.renaming
-        anchors.fill: parent
-        verticalAlignment: Text.AlignVCenter
+        anchors.left: titleDot.right
+        anchors.leftMargin: 8
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
         elide: Text.ElideRight
         text: root.card ? root.card.title : ""
         color: root.textColor

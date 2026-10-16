@@ -89,15 +89,44 @@ Item {
     "low": root.muted
   })
 
-  // One section per column, in fixed Todo/In Progress/Done order,
-  // each column's own cardsInColumn() order (priority then age, or a
-  // real manual order once reorderColumn has touched it -- see
+  // Column/Priority filter chips -- direct ask ("filter by To do Done
+  // etc"), same plain cycle-on-click-through-"All" shape ThemeBrowserContent
+  // .qml's own Collection/Style chips already established (right-click
+  // resets straight to "All"). Deliberately no separate sort chip:
+  // cardsInColumn() already sorts by explicit order, then priority,
+  // then age -- that ordering IS the point of the agent-reorganize
+  // feature (docs/AGENT.md), so a second manual sort toggle here would
+  // just compete with it over which one wins.
+  property string columnFilter: ""
+  function cycleColumnFilter() {
+    var ids = [""].concat(KanbanModel.COLUMN_IDS)
+    var idx = ids.indexOf(root.columnFilter)
+    root.columnFilter = ids[(idx + 1) % ids.length]
+  }
+  function resetColumnFilter() { root.columnFilter = "" }
+  readonly property string columnFilterLabel: root.columnFilter === "" ? "All" : (root.columnLabels[root.columnFilter] || root.columnFilter)
+
+  property string priorityFilter: ""
+  function cyclePriorityFilter() {
+    var ids = [""].concat(KanbanModel.PRIORITIES)
+    var idx = ids.indexOf(root.priorityFilter)
+    root.priorityFilter = ids[(idx + 1) % ids.length]
+  }
+  function resetPriorityFilter() { root.priorityFilter = "" }
+  readonly property string priorityFilterLabel: root.priorityFilter === "" ? "All" : (root.priorityFilter.charAt(0).toUpperCase() + root.priorityFilter.slice(1))
+
+  // One section per column, in fixed Todo/In Progress/Done order
+  // (skipping any column columnFilter has narrowed out entirely), each
+  // column's own cardsInColumn() order (priority then age, or a real
+  // manual order once reorderColumn has touched it -- see
   // KanbanModel.cardsInColumn's own comment).
   readonly property var allRows: {
     var out = []
     for (var i = 0; i < KanbanModel.COLUMN_IDS.length; i++) {
       var columnId = KanbanModel.COLUMN_IDS[i]
+      if (root.columnFilter !== "" && columnId !== root.columnFilter) continue
       var cards = KanbanModel.cardsInColumn(root.rawCards, columnId)
+      if (root.priorityFilter !== "") cards = cards.filter(function(c) { return c.priority === root.priorityFilter })
       for (var j = 0; j < cards.length; j++) {
         var card = cards[j]
         var bits = [card.priority.charAt(0).toUpperCase() + card.priority.slice(1)]
@@ -359,12 +388,80 @@ Item {
   Process { id: renameProc }
   Process { id: deleteProc }
 
+  // Visually matches ThemeBrowserContent.qml's own filterChipsRow (same
+  // 24px pill buttons, same spacing/radius/tint) -- see that file's own
+  // header comment for why this is built fresh per extension rather
+  // than shared: each one's filter set is genuinely its own shape.
   Item {
     id: filterChipsRow
     anchors.top: parent.top
     anchors.left: parent.left
     anchors.right: parent.right
-    height: 0
+    height: 32
+
+    Row {
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: 6
+
+      Rectangle {
+        id: columnChip
+        width: Math.max(96, columnChipLabel.implicitWidth + 20)
+        height: 24
+        radius: 6
+        color: Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: columnChipLabel
+          anchors.centerIn: parent
+          text: "Column: " + root.columnFilterLabel
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          cursorShape: Qt.PointingHandCursor
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) root.resetColumnFilter()
+            else root.cycleColumnFilter()
+          }
+        }
+      }
+
+      Rectangle {
+        id: priorityChip
+        width: Math.max(88, priorityChipLabel.implicitWidth + 20)
+        height: 24
+        radius: 6
+        color: Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.12)
+
+        Text {
+          id: priorityChipLabel
+          anchors.centerIn: parent
+          text: "Priority: " + root.priorityFilterLabel
+          color: root.textColor
+          font.family: root.fontFamily
+          font.pixelSize: 11
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
+          cursorShape: Qt.PointingHandCursor
+          onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) root.resetPriorityFilter()
+            else root.cyclePriorityFilter()
+          }
+        }
+      }
+    }
   }
 
   ExtensionTwoPanel {

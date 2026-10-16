@@ -71,6 +71,7 @@ suites=(
   "$script_dir/launcher-clipboard-extension.sh"
   "$script_dir/launcher-cliamp-extension.sh"
   "$script_dir/launcher-theme-browser-extension.sh"
+  "$script_dir/launcher-kanban-extension.sh"
   "$script_dir/cava-missing-dependency.sh"
   "$script_dir/notch-media-viz-mode.sh"
   "$script_dir/cava-idle-quiesce.sh"

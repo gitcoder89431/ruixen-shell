@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Static contract for the Kanban Board launcher extension -- this
+# extension never had a dedicated test file of its own (unlike
+# Clipboard/Cliamp/Theme Browser, each pinned in their own
+# launcher-*-extension.sh), so this covers both its core wiring and the
+# Column/Priority filter chips added as a direct follow-up ("wanna add
+# the chips in so we can filter by To do Done etc... Bjaeneo Themes" --
+# same cycling-pill shape ThemeBrowserContent.qml's own Collection/Style
+# chips already established, deliberately with no separate sort chip,
+# since cardsInColumn()'s own order/priority/age ordering already is
+# the sort -- a second manual one would just compete with it).
+set -Eeuo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$script_dir/.." && pwd)"
+launcher_qml="$repo_dir/ruixen.launcher/Launcher.qml"
+content_qml="$repo_dir/ruixen.launcher/extensions/kanban/KanbanBoardContent.qml"
+panel_qml="$repo_dir/ruixen.launcher/extensions/kanban/KanbanBoardDetailsPanel.qml"
+
+pass=0
+fail_count=0
+check() {
+  local desc="$1" got="$2" want="$3"
+  if [[ "$got" == "$want" ]]; then
+    printf 'ok   - %s\n' "$desc"
+    pass=$((pass + 1))
+  else
+    printf 'FAIL - %s\n       got:  %s\n       want: %s\n' "$desc" "$got" "$want"
+    fail_count=$((fail_count + 1))
+  fi
+}
+
+# --- core actions-menu wiring, same trio every other 2-panel extension uses ---
+
+check "KanbanBoardContent reuses the same focusRightPanel/blurToLeftPanel/rightFocused shape Clipboard/Cliamp/Theme Browser already use" \
+  "$(( $(grep -c 'function focusRightPanel' "$content_qml") + $(grep -c 'function blurToLeftPanel' "$content_qml") + $(grep -c 'readonly property bool rightFocused: root.actionsMenuOpen' "$content_qml") + $(grep -c 'ResultActionsMenu {' "$content_qml") ))" "4"
+check "Launcher passes glass props to Kanban's own actions menu" \
+  "$(grep -A30 'KanbanBoardContent {' "$launcher_qml" | grep -cE 'glassTint: root.glassTint|glassBorder: root.glassBorder')" "2"
+
+# --- rename: the stale-text + dead-Tab bug fixed after live use -------------
+
+check "Rename field re-seeds its own text imperatively on every renaming:true transition, not just a declarative binding that breaks after the first edit" \
+  "$(grep -c 'onRenamingChanged: if (root.renaming) renameInput.text = root.renameText' "$panel_qml")" "1"
+check "commitRename and cancelRename both hand real Qt focus back out, or Tab dies after every rename" \
+  "$(( $(grep -c 'signal returnFocusRequested()' "$content_qml") + $(grep -A3 'function commitRename' "$content_qml" | grep -c 'root.returnFocusRequested()') + $(grep -A2 'function cancelRename' "$content_qml" | grep -c 'root.returnFocusRequested()') ))" "3"
+check "Launcher wires Kanban's returnFocusRequested the same way Settings' own uninstallConfirmField already does" \
+  "$(grep -A40 'KanbanBoardContent {' "$launcher_qml" | grep -c 'onReturnFocusRequested: searchHeader.focusInput()')" "1"
+
+# --- Column/Priority filter chips -------------------------------------------
+
+check "Column filter cycles through All + every real column id, resettable by right-click" \
+  "$(( $(grep -c 'property string columnFilter: ""' "$content_qml") + $(grep -c 'function cycleColumnFilter' "$content_qml") + $(grep -c 'function resetColumnFilter() { root.columnFilter = "" }' "$content_qml") + $(grep -c 'var ids = \[""\].concat(KanbanModel.COLUMN_IDS)' "$content_qml") ))" "4"
+check "Priority filter cycles through All + every real priority, resettable by right-click" \
+  "$(( $(grep -c 'property string priorityFilter: ""' "$content_qml") + $(grep -c 'function cyclePriorityFilter' "$content_qml") + $(grep -c 'function resetPriorityFilter() { root.priorityFilter = "" }' "$content_qml") + $(grep -c 'var ids = \[""\].concat(KanbanModel.PRIORITIES)' "$content_qml") ))" "4"
+check "Both chips right-click to reset, left-click to cycle, same dual-button MouseArea shape Theme Browser's own chips use" \
+  "$(grep -c 'if (mouse.button === Qt.RightButton) root.reset' "$content_qml")" "2"
+
+check "allRows skips any column the Column filter has narrowed out, and filters each column's own cards by Priority" \
+  "$(( $(grep -c 'if (root.columnFilter !== "" && columnId !== root.columnFilter) continue' "$content_qml") + $(grep -c 'if (root.priorityFilter !== "") cards = cards.filter' "$content_qml") ))" "2"
+
+check "filterChipsRow actually has height now (chips filled in, not the old height:0 placeholder)" \
+  "$(grep -A4 'id: filterChipsRow' "$content_qml" | grep -c 'height: 32')" "1"
+check "Column and Priority chips are both really in the row (one Rectangle each, same 24px pill ThemeBrowserContent.qml's own chips use)" \
+  "$(( $(grep -c 'id: columnChip$' "$content_qml") + $(grep -c 'id: priorityChip$' "$content_qml") ))" "2"
+
+# --- deliberately no separate sort chip -------------------------------------
+
+check "No separate sort chip/sortKey -- cardsInColumn()'s own order/priority/age ordering already is the sort" \
+  "$(( $(grep -c 'sortKey' "$content_qml") + $(grep -c 'sortDirection' "$content_qml") ))" "0"
+
+check "run-all includes the Kanban Board extension contract" \
+  "$(grep -c 'launcher-kanban-extension\.sh' "$script_dir/run-all.sh")" "1"
+
+printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
+[[ "$fail_count" -eq 0 ]]

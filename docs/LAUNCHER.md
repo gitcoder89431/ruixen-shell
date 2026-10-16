@@ -297,6 +297,14 @@ the same plain muted header style used elsewhere in the launcher. The
 right-hand panel shows the selected card's column, priority, label, due
 date (overdue dates shown in red), description, and created time.
 
+A **Column** and **Priority** chip sit above the list, same cycling-pill
+shape as Bjarneo Themes' own Collection/Style chips — click to cycle
+through All → Todo → In Progress → Done (or All → High → Medium → Low),
+right-click either one to jump straight back to All. These narrow which
+rows show on the left; there's no separate sort chip, since each
+column's own order (manual, once an agent or `kanbanReorderColumn` has
+touched it, otherwise priority then age) already is the sort.
+
 - Typing in the search box and pressing **Enter** when nothing matches
   creates a new card in **Todo** at medium priority, titled with
   whatever you typed — the search box clears once the card exists. This

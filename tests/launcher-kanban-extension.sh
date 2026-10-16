@@ -63,6 +63,13 @@ check "filterChipsRow actually has height now (chips filled in, not the old heig
 check "Column and Priority chips are both really in the row (one Rectangle each, same 24px pill ThemeBrowserContent.qml's own chips use)" \
   "$(( $(grep -c 'id: columnChip$' "$content_qml") + $(grep -c 'id: priorityChip$' "$content_qml") ))" "2"
 
+# --- row icon: priority dot, swapped for a checkmark on Done ---------------
+
+check "List rows show a solid dot tinted by priority, same red/yellow/muted the notch's own priority dot uses" \
+  "$(( $(grep -c '"medium": "#e8c34a"' "$content_qml") + $(grep -c 'icon: columnId === "done" ? "" : ""' "$content_qml") ))" "2"
+check "Done-column rows swap the priority dot for a checkmark in the accent color, mirroring the notch panel's own dot-becomes-check behavior" \
+  "$(grep -c 'iconColor: columnId === "done" ? root.accent : root.priorityColor\[card.priority\]' "$content_qml")" "1"
+
 # --- deliberately no separate sort chip -------------------------------------
 
 check "No separate sort chip/sortKey -- cardsInColumn()'s own order/priority/age ordering already is the sort" \

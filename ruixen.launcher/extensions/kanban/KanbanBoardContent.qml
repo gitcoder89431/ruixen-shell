@@ -83,9 +83,13 @@ Item {
     return out
   }
 
+  // Same red/yellow/muted the notch's own Kanban panel already uses for
+  // its priority dot (KanbanContent.qml's dangerColor/warningColor/
+  // muted) -- reused here verbatim rather than inventing a second
+  // mapping for the same three priorities.
   readonly property var priorityColor: ({
     "high": "#e05252",
-    "medium": root.textColor,
+    "medium": "#e8c34a",
     "low": root.muted
   })
 
@@ -132,11 +136,15 @@ Item {
         var bits = [card.priority.charAt(0).toUpperCase() + card.priority.slice(1)]
         if (card.label !== "") bits.push(card.label)
         if (card.dueAt > 0) bits.push((KanbanModel.isOverdue(card, Date.now()) ? "Overdue " : "Due ") + root.formatShortDate(card.dueAt))
+        // Solid dot tinted by priority, swapped for a checkmark once a
+        // card reaches Done -- same shape the notch's own priority dot
+        // already uses (KanbanContent.qml: a colored dot, replaced by
+        // "✓" in the done column, "the dots with the check on done").
         out.push({
           id: "kanban:" + card.id,
           providerId: "kanban-board",
-          icon: "",
-          iconColor: root.priorityColor[card.priority],
+          icon: columnId === "done" ? "" : "",
+          iconColor: columnId === "done" ? root.accent : root.priorityColor[card.priority],
           label: card.title,
           breadcrumb: bits.join(" · "),
           kind: "",

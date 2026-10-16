@@ -38,7 +38,7 @@ check("entryFromInput: a blank title yields null, nothing to store",
   M.entryFromInput("   ", "todo", "high", 10), null);
 check("entryFromInput: a real card lands in the requested column",
   M.entryFromInput("Fix bug", "done", "high", 10, 0.5),
-  { id: "card-10-500000", column: "done", title: "Fix bug", priority: "high", createdAt: 10, dueAt: 0, label: "", description: "" });
+  { id: "card-10-500000", column: "done", title: "Fix bug", priority: "high", createdAt: 10, dueAt: 0, label: "", description: "", order: 0 });
 check("entryFromInput: an invalid column id falls back to the first column",
   M.entryFromInput("Fix bug", "someday", "high", 10, 0.5).column, "todo");
 check("entryFromInput: an invalid/omitted priority falls back to medium",
@@ -58,10 +58,10 @@ check("normalizeCards: a non-array input yields an empty list, not a crash",
   M.normalizeCards(null), []);
 check("normalizeCards: a missing dueAt/label/description default to 0/empty/empty",
   M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1 }])[0],
-  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 0, label: "", description: "" });
+  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 0, label: "", description: "", order: 0 });
 check("normalizeCards: a valid persisted dueAt/label/description are kept",
   M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }])[0],
-  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
+  { id: "a", column: "todo", title: "X", priority: "medium", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review", order: 0 });
 check("normalizeCards: a zero/negative persisted dueAt is treated as absent",
   M.normalizeCards([{ id: "a", column: "todo", title: "X", createdAt: 1, dueAt: -5 }])[0].dueAt, 0);
 check("normalizeCards: an overlong persisted label is trimmed to the cap, not dropped",
@@ -89,7 +89,7 @@ const threeCards = [
 // this (dueAt/label/description included), not the bare input literal
 // above.
 const threeCardsNormalized = threeCards.map(function(c) {
-  return Object.assign({}, c, { dueAt: 0, label: "", description: "" });
+  return Object.assign({}, c, { dueAt: 0, label: "", description: "", order: 0 });
 });
 
 check("moveCard: updates just the matching card's column",
@@ -103,7 +103,7 @@ check("moveCard: preserves the card's own priority across the move",
   "high");
 check("moveCard: preserves the card's own dueAt/label/description across the move",
   M.moveCard([{ id: "a", column: "todo", title: "A", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }], "a", "done")[0],
-  { id: "a", column: "done", title: "A", priority: "medium", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
+  { id: "a", column: "done", title: "A", priority: "medium", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review", order: 0 });
 
 check("removeCard: drops just the matching card",
   M.removeCard(threeCards, "b").map(function(c) { return c.id; }), ["a", "c"]);
@@ -118,7 +118,7 @@ check("setPriority: updates just the matching card's priority",
   M.setPriority(threeCards, "b", "high").map(function(c) { return c.priority; }), ["medium", "high", "medium"]);
 check("setPriority: preserves the card's own dueAt/label/description",
   M.setPriority([{ id: "a", column: "todo", title: "A", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }], "a", "high")[0],
-  { id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
+  { id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review", order: 0 });
 check("setPriority: an unknown card id changes nothing",
   M.setPriority(threeCards, "z", "high"), threeCardsNormalized);
 check("setPriority: an invalid priority changes nothing (fails closed)",
@@ -130,7 +130,7 @@ check("renameCard: updates just the matching card's title",
   M.renameCard(threeCards, "b", "New title").map(function(c) { return c.title; }), ["A", "New title", "C"]);
 check("renameCard: preserves the card's own priority/dueAt/label/description",
   M.renameCard([{ id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }], "a", "B")[0],
-  { id: "a", column: "todo", title: "B", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" });
+  { id: "a", column: "todo", title: "B", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review", order: 0 });
 check("renameCard: an unknown card id changes nothing",
   M.renameCard(threeCards, "z", "New title"), threeCardsNormalized);
 check("renameCard: a blank title changes nothing (a card's title can never become empty)",
@@ -193,6 +193,50 @@ check("cardsInColumn: high priority sorts before medium/low regardless of age",
     { id: "old-low", column: "todo", title: "Old, low", priority: "low", createdAt: 1 },
     { id: "new-high", column: "todo", title: "New, high", priority: "high", createdAt: 2 }
   ], "todo").map(function(c) { return c.id; }), ["new-high", "old-low"]);
+
+// ---- reorderColumn -------------------------------------------------
+// Direct follow-up: "if i ask you to like clean up or reorganize the
+// board, would that be useful" -- order is the field that gives a
+// deliberate manual placement somewhere to live, see cardsInColumn's
+// own comment for how it interacts with the existing priority/age sort.
+
+check("cardsInColumn: order (once set) wins over priority -- a deliberate placement beats the default rank",
+  M.cardsInColumn([
+    { id: "low-ordered-first", column: "todo", title: "Low but placed first", priority: "low", createdAt: 1, order: 0 },
+    { id: "high-unordered", column: "todo", title: "High, never reordered", priority: "high", createdAt: 2, order: 0 }
+  ], "todo").map(function(c) { return c.id; }),
+  // Both start at order 0 -- ties fall back to the original priority
+  // rule, so this is really pinning "no reorder has happened yet"
+  // before the next check proves order actually taking precedence.
+  ["high-unordered", "low-ordered-first"]);
+check("cardsInColumn: a card actually placed by reorderColumn (order > 0) sorts before a higher-priority one still at the default order 0",
+  M.cardsInColumn([
+    { id: "low-but-ordered", column: "todo", title: "Low, explicitly placed first", priority: "low", createdAt: 1, order: 0 },
+    { id: "high-default-order", column: "todo", title: "High, still default order", priority: "high", createdAt: 2, order: 1 }
+  ], "todo").map(function(c) { return c.id; }),
+  ["low-but-ordered", "high-default-order"]);
+
+check("reorderColumn: places cards in the requested order within that column",
+  M.reorderColumn(threeCards, "todo", ["b", "a"]).filter(function(c) { return c.column === "todo"; }).map(function(c) { return [c.id, c.order]; }),
+  [["a", 1], ["b", 0]]);
+check("reorderColumn: cardsInColumn then reflects the new manual order",
+  M.cardsInColumn(M.reorderColumn(threeCards, "todo", ["b", "a"]), "todo").map(function(c) { return c.id; }),
+  ["b", "a"]);
+check("reorderColumn: never touches cards in a different column",
+  M.reorderColumn(threeCards, "todo", ["b", "a"]).find(function(c) { return c.id === "c"; }).order, 0);
+check("reorderColumn: a stale/unknown id in the list is ignored, not an error",
+  M.reorderColumn(threeCards, "todo", ["z", "b", "a"]).filter(function(c) { return c.column === "todo"; }).map(function(c) { return c.id; }).length,
+  2);
+check("reorderColumn: a real card left out of the list is appended at the end, never dropped",
+  M.reorderColumn(threeCards, "todo", ["b"]).filter(function(c) { return c.column === "todo"; }).map(function(c) { return [c.id, c.order]; }),
+  [["a", 1], ["b", 0]]);
+check("reorderColumn: an invalid column id is a no-op (fails closed, same shape as moveCard)",
+  M.reorderColumn(threeCards, "someday", ["b", "a"]), threeCardsNormalized);
+check("reorderColumn: a non-array orderedIds is a no-op",
+  M.reorderColumn(threeCards, "todo", "not-an-array"), threeCardsNormalized);
+check("reorderColumn: preserves every other field on the reordered cards",
+  M.reorderColumn([{ id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review" }], "todo", ["a"])[0],
+  { id: "a", column: "todo", title: "A", priority: "high", createdAt: 1, dueAt: 500, label: "Github", description: "Needs review", order: 0 });
 
 check("nextColumnId: advances one step", M.nextColumnId("todo"), "in-progress");
 check("nextColumnId: clamps at the last column, no wraparound", M.nextColumnId("done"), "done");

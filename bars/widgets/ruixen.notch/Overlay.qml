@@ -1488,6 +1488,24 @@ Item {
       // script (or me, driving the board on your behalf) reads it back
       // without any QML access at all.
       function kanbanListCards(): string { return kanbanService.listCards() }
+      // orderedIds: the full desired top-to-bottom order for columnId's
+      // own cards, semicolon-joined -- e.g. `omarchy-shell ruixen.notch
+      // kanbanReorderColumn todo "card-123;card-456"`. NOT a JSON
+      // array: confirmed live that `qs ipc call` itself splits a
+      // comma-containing argument into several before this function
+      // ever sees it (a real "2 required but 5 provided" error for a
+      // 4-id JSON array), so a comma-delimited encoding can never
+      // survive as one argument here regardless of quoting. A real
+      // card id is always "card-<epochMs>-<rand>" (see
+      // KanbanModel.makeCardId), so it can never contain a semicolon
+      // itself. Meant to be driven by an agent after reading the board
+      // back via kanbanListCards above, not typed by hand -- see
+      // KanbanModel.reorderColumn's own comment for the "clean up/
+      // reorganize the board" request this answers.
+      function kanbanReorderColumn(columnId: string, orderedIds: string): void {
+        var ids = String(orderedIds || "").split(";").filter(function(id) { return id !== "" })
+        kanbanService.reorderColumn(columnId, ids)
+      }
     }
 
     // Fire-once, not auto-running -- triggered by the tab bar's bottom

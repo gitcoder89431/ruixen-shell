@@ -22,6 +22,8 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 content_qml="$repo_dir/bars/widgets/ruixen.notch/KanbanContent.qml"
 overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+service_qml="$repo_dir/bars/widgets/ruixen.notch/KanbanService.qml"
+model_js="$repo_dir/bars/widgets/ruixen.notch/KanbanModel.js"
 run_all="$repo_dir/tests/run-all.sh"
 
 pass=0
@@ -290,6 +292,29 @@ check "Done footer dial tip uses theme foreground for contrast" \
 
 check "Done footer dial does not wrap the remaining-track arc at 100%" \
   "$(grep -c 'if (trackStart < trackEnd)' "$content_qml")" \
+  "1"
+
+# --- Manual reordering (agent/CLI) ---------------------------------
+# Direct follow-up: "if i ask you to like clean up or reorganize the
+# board, would that be useful" -- same one-API-two-surfaces shape as
+# every other kanban* IPC function: KanbanModel.reorderColumn is the
+# real logic, KanbanService.reorderColumn calls it and schedules a
+# save, kanbanReorderColumn on the IPC target just forwards to that.
+
+check "KanbanModel.reorderColumn is the real logic, pure and testable on its own" \
+  "$(grep -c 'function reorderColumn(cards, columnId, orderedIds)' "$model_js")" \
+  "1"
+check "cardsInColumn sorts by order before falling back to priority/age" \
+  "$(grep -c 'var orderRank = (a.order || 0) - (b.order || 0)' "$model_js")" \
+  "1"
+check "KanbanService exposes reorderColumn, same call-the-model-then-save shape as every other mutator" \
+  "$(( $(grep -c 'function reorderColumn(columnId, orderedIds)' "$service_qml") + $(grep -c 'KanbanModel.reorderColumn(service.cards, columnId, orderedIds)' "$service_qml") ))" \
+  "2"
+check "kanbanReorderColumn IPC function exists, callable from the CLI/agent same as kanbanAddCard etc." \
+  "$(grep -c 'function kanbanReorderColumn(columnId: string, orderedIds: string): void' "$overlay_qml")" \
+  "1"
+check "orderedIds is semicolon-joined, not a JSON array -- qs ipc call itself splits a comma-bearing argument before this function ever sees it" \
+  "$(grep -Fc 'String(orderedIds || "").split(";")' "$overlay_qml")" \
   "1"
 
 # --- Registration -------------------------------------------------------

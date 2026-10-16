@@ -142,7 +142,12 @@ function entryFromInput(title, columnId, priority, now, seed) {
     createdAt: Number(now) || 0,
     dueAt: 0,
     label: "",
-    description: ""
+    description: "",
+    // 0 until reorderColumn below explicitly places it -- see that
+    // function's own comment for why a fresh card starting at 0 keeps
+    // cardsInColumn's existing priority-then-age sort unchanged for
+    // every card nobody has manually reordered yet.
+    order: 0
   }
 }
 
@@ -162,7 +167,8 @@ function normalizeCards(raw) {
       createdAt: Number(c.createdAt) || 0,
       dueAt: Number(c.dueAt) > 0 ? Number(c.dueAt) : 0,
       label: clampLabel(c.label),
-      description: clampText(c.description, DESCRIPTION_LIMIT)
+      description: clampText(c.description, DESCRIPTION_LIMIT),
+      order: Number(c.order) || 0
     })
   }
   return out
@@ -177,7 +183,8 @@ function setPriority(cards, cardId, priority) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
       priority: priority, createdAt: list[i].createdAt,
-      dueAt: list[i].dueAt, label: list[i].label, description: list[i].description
+      dueAt: list[i].dueAt, label: list[i].label, description: list[i].description,
+      order: list[i].order
     }
   }
   return list
@@ -195,7 +202,8 @@ function renameCard(cards, cardId, title) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: text,
       priority: list[i].priority, createdAt: list[i].createdAt,
-      dueAt: list[i].dueAt, label: list[i].label, description: list[i].description
+      dueAt: list[i].dueAt, label: list[i].label, description: list[i].description,
+      order: list[i].order
     }
   }
   return list
@@ -213,7 +221,8 @@ function setDueDate(cards, cardId, dueAt) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
       priority: list[i].priority, createdAt: list[i].createdAt,
-      dueAt: normalized, label: list[i].label, description: list[i].description
+      dueAt: normalized, label: list[i].label, description: list[i].description,
+      order: list[i].order
     }
   }
   return list
@@ -228,7 +237,8 @@ function setLabel(cards, cardId, label) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
       priority: list[i].priority, createdAt: list[i].createdAt,
-      dueAt: list[i].dueAt, label: text, description: list[i].description
+      dueAt: list[i].dueAt, label: text, description: list[i].description,
+      order: list[i].order
     }
   }
   return list
@@ -248,7 +258,8 @@ function setDescription(cards, cardId, description) {
     if (list[i].id === cardId) list[i] = {
       id: list[i].id, column: list[i].column, title: list[i].title,
       priority: list[i].priority, createdAt: list[i].createdAt,
-      dueAt: list[i].dueAt, label: list[i].label, description: text
+      dueAt: list[i].dueAt, label: list[i].label, description: text,
+      order: list[i].order
     }
   }
   return list
@@ -270,7 +281,8 @@ function moveCard(cards, cardId, columnId) {
       list[i] = {
         id: list[i].id, column: columnId, title: list[i].title,
         priority: list[i].priority, createdAt: list[i].createdAt,
-        dueAt: list[i].dueAt, label: list[i].label, description: list[i].description
+        dueAt: list[i].dueAt, label: list[i].label, description: list[i].description,
+        order: list[i].order
       }
     }
   }
@@ -296,18 +308,61 @@ function isOverdue(card, nowMs) {
   return card.dueAt < (Number(nowMs) || Date.now())
 }
 
-// Oldest-first within a column -- the order cards were actually added
-// in, matching a real board's own left-to-right/top-to-bottom reading
-// order rather than an arbitrary storage order.
-// Priority first (PRIORITIES' own order is the rank: high, medium,
-// low), oldest-first as the tiebreaker within the same priority.
+// order first (see reorderColumn below -- a deliberate manual
+// placement always wins), then the original priority-first/oldest-
+// first rule as the tiebreaker. Every card starts at order 0 (see
+// entryFromInput/normalizeCards), so a column nobody has ever
+// reordered sorts exactly as before -- this only changes anything once
+// reorderColumn has actually run on that column.
 function cardsInColumn(cards, columnId) {
   return normalizeCards(cards)
     .filter(function(c) { return c.column === columnId })
     .sort(function(a, b) {
+      var orderRank = (a.order || 0) - (b.order || 0)
+      if (orderRank !== 0) return orderRank
       var rank = PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority)
       return rank !== 0 ? rank : (a.createdAt || 0) - (b.createdAt || 0)
     })
+}
+
+// Explicit manual placement within ONE column -- direct follow-up: "if
+// i ask you to like clean up or reorganize the board, would that be
+// useful" -- without this there was nowhere to put a deliberate
+// decision, a card's position was always just recomputed from
+// priority/age. orderedIds is the full desired top-to-bottom order for
+// columnId specifically; cards in OTHER columns are never touched. Any
+// id in orderedIds that doesn't exist (or isn't actually in this
+// column) is ignored rather than erroring -- a stale id from an
+// already-moved/deleted card shouldn't fail the whole reorder. Any
+// card genuinely in this column but left out of orderedIds is appended
+// at the end, in its existing relative order, rather than dropped --
+// same fails-closed-never-silently-loses-a-card shape moveCard/
+// clearColumn already use for an unknown id/column.
+function reorderColumn(cards, columnId, orderedIds) {
+  var list = normalizeCards(cards)
+  if (!isColumnId(columnId) || !Array.isArray(orderedIds)) return list
+  var inColumn = list.filter(function(c) { return c.column === columnId })
+  var byId = {}
+  for (var i = 0; i < inColumn.length; i++) byId[inColumn[i].id] = true
+  var placed = {}
+  var sequence = []
+  for (var j = 0; j < orderedIds.length; j++) {
+    var id = orderedIds[j]
+    if (byId[id] && !placed[id]) { sequence.push(id); placed[id] = true }
+  }
+  for (var k = 0; k < inColumn.length; k++) {
+    if (!placed[inColumn[k].id]) sequence.push(inColumn[k].id)
+  }
+  var orderById = {}
+  for (var n = 0; n < sequence.length; n++) orderById[sequence[n]] = n
+  return list.map(function(c) {
+    if (!(c.id in orderById)) return c
+    return {
+      id: c.id, column: c.column, title: c.title, priority: c.priority,
+      createdAt: c.createdAt, dueAt: c.dueAt, label: c.label,
+      description: c.description, order: orderById[c.id]
+    }
+  })
 }
 
 // The manual "advance"/"send back" arrow on a card -- clamped at

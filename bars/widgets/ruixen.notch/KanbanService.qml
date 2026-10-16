@@ -122,6 +122,14 @@ Item {
     scheduleSave()
   }
 
+  // orderedIds: the full desired top-to-bottom order for columnId's
+  // own cards -- see KanbanModel.reorderColumn's own comment for how a
+  // stale/unknown id or an omitted card is handled.
+  function reorderColumn(columnId, orderedIds) {
+    service.cards = KanbanModel.reorderColumn(service.cards, columnId, orderedIds)
+    scheduleSave()
+  }
+
   // Agent/CLI introspection -- `omarchy-shell ruixen.notch
   // kanbanListCards` returns this directly, so the board can be read
   // back without any QML access at all.

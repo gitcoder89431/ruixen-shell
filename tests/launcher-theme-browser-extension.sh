@@ -59,6 +59,9 @@ check "ThemePins keys by collectionId+baseSlug, not a bare install slug that isn
 check "ThemePins stores a plain boolean, not a snapshot -- the theme catalog is permanent, unlike a clipboard entry" \
   "$(grep -c 'next\[k\] = true' "$pins_js")" "1"
 
+check "Row hover does not reselect (and so can't close the actions menu out from under a mouse click) while rightFocused -- see KanbanBoardContent.qml's own onRowHovered comment for the full bug this fixes" \
+  "$(grep -c 'onRowHovered: (idx) => { if (root.hoverArmed && !root.rightFocused) root.selectedIndex = idx }' "$content_qml")" "1"
+
 check "run-all includes the theme browser actions-menu contract" \
   "$(grep -c 'launcher-theme-browser-extension\.sh' "$script_dir/run-all.sh")" "1"
 

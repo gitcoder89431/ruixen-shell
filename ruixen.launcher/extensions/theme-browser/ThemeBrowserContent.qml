@@ -1207,7 +1207,13 @@ Item {
     mutedColor: root.muted
     accentColor: root.accent
     fontFamily: root.fontFamily
-    onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
+    // !root.rightFocused -- same fix KanbanBoardContent.qml's own
+    // onRowHovered needed (see that file's own comment for the full
+    // "why"): opening the actions menu via Tab leaves the real mouse
+    // cursor wherever it already was, so reaching for the menu with the
+    // mouse crosses other rows first, each one's own hover reselecting
+    // and closing the menu before the click could land.
+    onRowHovered: (idx) => { if (root.hoverArmed && !root.rightFocused) root.selectedIndex = idx }
     onRowActivated: (idx) => { root.selectedIndex = idx }
     onRowActionsRequested: (idx) => {
       root.selectedIndex = idx

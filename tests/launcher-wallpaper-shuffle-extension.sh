@@ -178,5 +178,8 @@ check "Preview shows a position badge for every row except the current one" \
 check "Position badge sits in the same corner as CURRENT, same accent fill" \
   "$(( $(grep -c 'anchors.top: parent.top' "$details_qml") + $(grep -c 'anchors.right: parent.right' "$details_qml") + $(grep -c 'color: root.accent$' "$details_qml") ))" "7"
 
+check "Row hover does not reselect (and so can't close the actions menu out from under a mouse click) while rightFocused -- see KanbanBoardContent.qml's own onRowHovered comment for the full bug this fixes" \
+  "$(grep -c 'onRowHovered: (idx) => { if (root.hoverArmed && !root.rightFocused) root.selectedIndex = idx }' "$content_qml")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

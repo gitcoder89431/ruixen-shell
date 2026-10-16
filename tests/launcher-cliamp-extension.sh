@@ -119,7 +119,7 @@ check "Tab's Play action relabels to Pause for whichever row is actually on air"
   "$(grep -Fc '{ id: "play", label: root.selectedIsPlaying ? "Pause" : "Play" }' "$content_qml")" "1"
 
 check "CliampContent guards mouse hover against keyboard-nav scroll snapback -- direct report: pointing/focusing a row, switching to keyboard, then scrolling snapped selection back to whatever row ended up under the still cursor" \
-  "$(( $(grep -c 'property bool hoverArmed: false' "$content_qml") + $(grep -c 'property point hoverArmBaseline: Qt.point(-1, -1)' "$content_qml") + $(grep -c 'if (root.hoverArmed) root.selectedIndex = idx' "$content_qml") + $(grep -c 'HoverHandler {' "$content_qml") ))" "4"
+  "$(( $(grep -c 'property bool hoverArmed: false' "$content_qml") + $(grep -c 'property point hoverArmBaseline: Qt.point(-1, -1)' "$content_qml") + $(grep -c 'if (root.hoverArmed && !root.rightFocused) root.selectedIndex = idx' "$content_qml") + $(grep -c 'HoverHandler {' "$content_qml") ))" "4"
 check "hoverArmed resets on every selectedIndex change AND on (re)open, same as Launcher.qml/ThemeBrowserContent.qml's own copies of this fix" \
   "$(( $(grep -c 'root.hoverArmed = false' "$content_qml") + $(grep -c 'root.hoverArmBaseline = Qt.point(-1, -1)' "$content_qml") ))" "4"
 

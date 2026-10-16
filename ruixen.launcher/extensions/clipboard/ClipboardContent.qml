@@ -784,7 +784,13 @@ Item {
     selectedIndex: root.selectedIndex
     rowHeightPx: 44
     sectionHeaderHeight: 26
-    onRowHovered: (idx) => { if (root.hoverArmed) root.selectedIndex = idx }
+    // !root.rightFocused -- same fix KanbanBoardContent.qml's own
+    // onRowHovered needed (see that file's own comment for the full
+    // "why"): opening the actions menu via Tab leaves the real mouse
+    // cursor wherever it already was, so reaching for the menu with the
+    // mouse crosses other rows first, each one's own hover reselecting
+    // and closing the menu before the click could land.
+    onRowHovered: (idx) => { if (root.hoverArmed && !root.rightFocused) root.selectedIndex = idx }
     onRowActivated: (idx) => { root.selectedIndex = idx; root.copySelected() }
     onRowActionsRequested: (idx) => {
       root.selectedIndex = idx

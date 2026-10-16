@@ -152,55 +152,91 @@ Rectangle {
     // "one deliberate text entry, not a form" shape the rename field
     // above already uses, not a second general edit mode. Expanded and
     // word-wrapped here (this panel has the room), unlike the notch's
-    // own always-single-elided-line treatment of the same field.
-    Column {
+    // own always-single-elided-line treatment of the same field. Sits
+    // in its own dark card -- same eqCard treatment Cliamp Radio's own
+    // panel uses for its Equalizer group ("keep it like having that
+    // darker panel underneath"), not the plain unfilled background
+    // every other section here gets, so the description itself reads
+    // as its own distinct block under the title.
+    Rectangle {
       width: parent.width
-      spacing: 6
+      height: descriptionColumn.height + 24
+      radius: 10
+      color: Qt.rgba(0, 0, 0, 0.22)
       visible: root.card !== null && (root.card.description !== "" || root.editingDescription)
 
-      Text {
-        text: "Description"
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 10
-        font.capitalization: Font.AllUppercase
-        font.bold: true
-      }
+      Column {
+        id: descriptionColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 12
+        spacing: 6
 
-      Text {
-        visible: !root.editingDescription
-        width: parent.width
-        text: root.card ? root.card.description : ""
-        textFormat: Text.PlainText
-        wrapMode: Text.WordWrap
-        color: root.muted
-        font.family: root.fontFamily
-        font.pixelSize: 12
-      }
+        Text {
+          text: "Description"
+          color: root.muted
+          font.family: root.fontFamily
+          font.pixelSize: 10
+          font.capitalization: Font.AllUppercase
+          font.bold: true
+        }
 
-      Rectangle {
-        visible: root.editingDescription
-        width: parent.width
-        height: 32
-        radius: 8
-        color: Qt.rgba(1, 1, 1, 0.06)
-        border.width: 1
-        border.color: root.accent
-
-        TextInput {
-          id: descriptionInput
-          anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 10
-          verticalAlignment: TextInput.AlignVCenter
+        Text {
+          visible: !root.editingDescription
+          width: parent.width
+          text: root.card ? root.card.description : ""
+          textFormat: Text.PlainText
+          wrapMode: Text.WordWrap
           color: root.textColor
           font.family: root.fontFamily
-          font.pixelSize: 13
-          clip: true
-          text: root.descriptionText
-          onTextChanged: root.descriptionText = text
-          onAccepted: root.descriptionCommitted(text)
-          Keys.onEscapePressed: root.descriptionCancelled()
+          font.pixelSize: 12
+        }
+
+        Rectangle {
+          visible: root.editingDescription
+          width: parent.width
+          height: 32
+          radius: 8
+          color: Qt.rgba(1, 1, 1, 0.06)
+          border.width: 1
+          border.color: root.accent
+
+          // Capped at KanbanModel's own real DESCRIPTION_LIMIT (60) --
+          // not a separate arbitrary UI number, the exact one
+          // commitDescription's own kanbanSetDescription call would
+          // otherwise silently clamp to after the fact. A short status
+          // line, not a body -- "strictly secondary to the title, so
+          // it never grows a card's height" (KanbanModel.js's own
+          // header comment), same reasoning Title/Label are capped for.
+          // TextInput.maxLength is a real property but isn't resolving
+          // in this Quickshell QML runtime (confirmed live: assigning
+          // it broke the whole component's load with "Cannot assign to
+          // non-existent property"), so the cap is enforced by hand in
+          // onTextChanged instead.
+          TextInput {
+            id: descriptionInput
+            anchors.fill: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 10
+            verticalAlignment: TextInput.AlignVCenter
+            color: root.textColor
+            font.family: root.fontFamily
+            font.pixelSize: 13
+            clip: true
+            text: root.descriptionText
+            onTextChanged: {
+              if (text.length > KanbanModel.DESCRIPTION_LIMIT) {
+                var clipped = text.slice(0, KanbanModel.DESCRIPTION_LIMIT)
+                var pos = cursorPosition
+                text = clipped
+                cursorPosition = Math.min(pos, clipped.length)
+              }
+              root.descriptionText = text
+            }
+            onAccepted: root.descriptionCommitted(text)
+            Keys.onEscapePressed: root.descriptionCancelled()
+          }
         }
       }
     }

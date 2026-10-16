@@ -76,6 +76,10 @@ check "Description is no longer in the generic metadata zebra list -- it gets it
   "$(grep -c '{ label: "Description"' "$panel_qml")" "0"
 check "The description block is word-wrapped, not elided to one line like the notch's own compact card" \
   "$(grep -c 'wrapMode: Text.WordWrap' "$panel_qml")" "1"
+check "Description sits in its own dark card, same eqCard treatment Cliamp Radio's own panel uses for its Equalizer group" \
+  "$(( $(grep -c 'height: descriptionColumn.height + 24' "$panel_qml") + $(grep -c 'color: Qt.rgba(0, 0, 0, 0.22)' "$panel_qml") ))" "2"
+check "Description edit field is capped at KanbanModel's own real DESCRIPTION_LIMIT, not a separate arbitrary UI number -- enforced by hand in onTextChanged since TextInput.maxLength doesn't resolve in this Quickshell QML runtime (confirmed live: assigning it broke the whole component's load)" \
+  "$(grep -c 'if (text.length > KanbanModel.DESCRIPTION_LIMIT)' "$panel_qml")" "1"
 check "Description field re-seeds its own text imperatively too, same fix renameInput already needed" \
   "$(grep -c 'onEditingDescriptionChanged: if (editingDescription) descriptionInput.text = descriptionText' "$panel_qml")" "1"
 check "Add/Edit Description is in the Tab menu, labeled by whether a description already exists" \

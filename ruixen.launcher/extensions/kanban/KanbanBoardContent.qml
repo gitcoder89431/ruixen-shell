@@ -30,6 +30,11 @@ import "KanbanModel.js" as KanbanModel
 // right-panel edit mode (no precedent for that anywhere in this
 // plugin). Typing in the launcher's own search box IS the add form:
 // Enter with nothing matching creates a card in Todo with that title.
+// Direct follow-up once that shipped ("whats a way to set priority or
+// description" without a second input row -- "i dont like adding rows
+// cause it makes it jumpy"): a trailing !h/!m/!l word sets priority
+// (medium if omitted, same default as before), and "--" splits off
+// everything after it as the description -- see parseCardInput below.
 // Editing goes through Tab's actions menu instead -- Advance/Regress,
 // Cycle Priority, Rename and Edit/Add Description (each opens ONE
 // inline field in the details panel, not a form, same narrow shape
@@ -248,10 +253,48 @@ Item {
     root.advanceSelected()
   }
 
+  // "--" (if present) splits off everything after it as the
+  // description, verbatim. Priority is read from the LAST word of
+  // whatever's left before that -- "!h"/"!m"/"!l" only, case-
+  // insensitive, trailing on purpose so it reads as a tag stuck on the
+  // end of a normal title rather than a word that could appear mid-
+  // sentence. Anything else in that position is left alone as part of
+  // the real title; unrecognized or absent, priority is "medium" (the
+  // same default as before this existed).
+  function parseCardInput(raw) {
+    var text = String(raw || "").trim()
+    var description = ""
+    var dashIndex = text.indexOf("--")
+    if (dashIndex !== -1) {
+      description = text.slice(dashIndex + 2).trim()
+      text = text.slice(0, dashIndex).trim()
+    }
+    var priority = "medium"
+    var tagWords = { "!h": "high", "!m": "medium", "!l": "low" }
+    var lastSpace = text.lastIndexOf(" ")
+    var lastWord = (lastSpace === -1 ? text : text.slice(lastSpace + 1)).toLowerCase()
+    if (tagWords[lastWord] !== undefined) {
+      priority = tagWords[lastWord]
+      text = (lastSpace === -1 ? "" : text.slice(0, lastSpace)).trim()
+    }
+    return { title: text, priority: priority, description: description }
+  }
+
+  readonly property var parsedSearchInput: root.parseCardInput(root.searchText)
+
+  // The description can't ride along in the same addProc call --
+  // kanbanAddCard's own IPC signature has no description param, same
+  // as the notch panel's own in-panel add row (KanbanContent.qml),
+  // which also fires a separate kanbanSetDescription after addCard
+  // returns the new id. addProc's own StdioCollector below plays that
+  // same id back out so this can do the same second call.
+  property string pendingDescription: ""
+
   function createCardFromSearch() {
-    var title = root.searchText.trim()
-    if (title === "") return
-    addProc.exec(["omarchy-shell", "ruixen.notch", "kanbanAddCard", title, "todo", "medium"])
+    var parsed = root.parseCardInput(root.searchText)
+    if (parsed.title === "") return
+    root.pendingDescription = parsed.description
+    addProc.exec(["omarchy-shell", "ruixen.notch", "kanbanAddCard", parsed.title, "todo", parsed.priority])
     root.queryClearRequested()
   }
 
@@ -435,7 +478,18 @@ Item {
     onLoadFailed: root.loadStore("")
   }
 
-  Process { id: addProc }
+  Process {
+    id: addProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var cardId = text.trim()
+        if (cardId !== "" && root.pendingDescription !== "")
+          descriptionProc.exec(["omarchy-shell", "ruixen.notch", "kanbanSetDescription", cardId, root.pendingDescription])
+        root.pendingDescription = ""
+      }
+    }
+  }
   Process { id: advanceProc }
   Process { id: regressProc }
   Process { id: priorityProc }
@@ -582,8 +636,12 @@ Item {
     horizontalAlignment: Text.AlignHCenter
     wrapMode: Text.WordWrap
     text: root.searchText.trim() !== ""
-      ? "No match -- press Enter to add “" + root.searchText.trim() + "” to Todo"
-      : "No tasks yet -- type a title and press Enter"
+      ? (root.parsedSearchInput.title !== ""
+          ? "Press Enter to add “" + root.parsedSearchInput.title + "” to Todo"
+            + (root.parsedSearchInput.priority !== "medium" ? " (" + root.parsedSearchInput.priority + ")" : "")
+            + (root.parsedSearchInput.description !== "" ? " + description" : "")
+          : "Type a title, then press Enter")
+      : "No tasks yet -- type a title and press Enter\n(end with !h/!m/!l for priority, -- for a description)"
     font.family: root.fontFamily
     font.pixelSize: 11
     color: root.muted

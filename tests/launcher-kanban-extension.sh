@@ -107,6 +107,30 @@ check "Row hover does not reselect (and so can't close the actions menu out from
 check "Actions menu Y-clamp accounts for filterChipsRow's real height, same shape ClipboardContent.qml's own positioning already uses for its own chip row" \
   "$(grep -c 'root.actionsMenuY = Math.max(filterChipsRow.height + 8,' "$content_qml")" "1"
 
+# --- search-box add: !h/!m/!l priority + "--" description aliases ---------
+# Direct follow-up once plain add-via-Enter shipped ("whats a way to set
+# priority or description" without a second input row -- "i dont like
+# adding rows cause it makes it jumpy").
+
+check "parseCardInput splits off everything after \"--\" as the description" \
+  "$(grep -c 'description = text.slice(dashIndex + 2).trim()' "$content_qml")" "1"
+check "parseCardInput reads priority from the trailing !h/!m/!l word only, defaulting medium" \
+  "$(grep -c 'var tagWords = { "!h": "high", "!m": "medium", "!l": "low" }' "$content_qml")" "1"
+check "createCardFromSearch routes the typed text through parseCardInput instead of using the raw string" \
+  "$(grep -A4 'function createCardFromSearch' "$content_qml" | grep -c 'root.parseCardInput(root.searchText)')" "1"
+check "createCardFromSearch passes the parsed priority through to kanbanAddCard, not a hardcoded \"medium\"" \
+  "$(grep -c 'kanbanAddCard", parsed.title, "todo", parsed.priority' "$content_qml")" "1"
+check "a parsed description is stashed for addProc's own follow-up call, not dropped" \
+  "$(grep -c 'property string pendingDescription: ""' "$content_qml")" "1"
+check "addProc captures the new card id from its own stdout and chains kanbanSetDescription when a description was parsed" \
+  "$(grep -A7 'id: addProc$' "$content_qml" | grep -c 'kanbanSetDescription", cardId, root.pendingDescription')" "1"
+check "the add hint previews the parsed title/priority/description instead of a bare echo of the typed text" \
+  "$(grep -c 'root.parsedSearchInput.title !== ""' "$content_qml")" "1"
+check "the empty-board hint documents the alias syntax instead of leaving it undiscoverable" \
+  "$(grep -c 'end with !h/!m/!l for priority, -- for a description' "$content_qml")" "1"
+check "no leftover \"No match\" framing -- the add hint reads as an action, not an error" \
+  "$(grep -c 'No match' "$content_qml")" "0"
+
 # --- deliberately no separate sort chip -------------------------------------
 
 check "No separate sort chip/sortKey -- cardsInColumn()'s own order/priority/age ordering already is the sort" \

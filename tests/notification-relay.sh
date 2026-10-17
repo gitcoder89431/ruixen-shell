@@ -37,6 +37,9 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# The collapsed bell click and DashboardContent's own instantiation
+# are window content now -- see NotchWindow.qml's own header.
+notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 dashboard_qml="$repo_dir/bars/widgets/ruixen.notch/DashboardContent.qml"
 service_qml="$repo_dir/bars/widgets/ruixen.notch/NotificationService.qml"
 
@@ -80,7 +83,7 @@ check "a load failure defaults dnd to false rather than leaving it stale" \
 # --- DND control: the real IPC target -----------------------------------
 
 check "the collapsed bell toggles DND via the real IPC target" \
-  "$(grep -c 'root\.sendDndAction("toggleDnd")' "$overlay_qml")" "1"
+  "$(grep -c 'notchRoot\.sendDndAction("toggleDnd")' "$notch_window_qml")" "1"
 check "the dashboard card's own bell also toggles DND via the passthrough" \
   "$(grep -c 'root\.sendDndAction("toggleDnd")' "$dashboard_qml")" "1"
 check "sendDndAction calls the real \"notifications\" IPC target, not a first-party service handle" \
@@ -88,7 +91,7 @@ check "sendDndAction calls the real \"notifications\" IPC target, not a first-pa
 check "DashboardContent.qml threads sendDndAction down instead of a raw service handle" \
   "$(grep -c 'property var sendDndAction: null' "$dashboard_qml")" "1"
 check "Overlay.qml passes sendDndAction to DashboardContent" \
-  "$(grep -c 'sendDndAction: root\.sendDndAction' "$overlay_qml")" "1"
+  "$(grep -c 'sendDndAction: panel\.notchRoot\.sendDndAction' "$notch_window_qml")" "1"
 
 # --- history/entries: real on-disk directories, swept on a timer --------
 

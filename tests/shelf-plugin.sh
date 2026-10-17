@@ -18,6 +18,10 @@ service="$shelf_dir/ShelfService.qml"
 content="$shelf_dir/ShelfContent.qml"
 model="$shelf_dir/ShelfModel.js"
 notch="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# The pill's own quick-drop DropArea (visual/interaction content) is
+# window content now -- see NotchWindow.qml's own header. relayShelfOpen/
+# relayToShelf themselves (the actual IPC relay) stay root-level functions.
+notch_window="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 
 pass=0
 fail_count=0
@@ -378,7 +382,7 @@ check "Copy semantics: acceptProposedAction() is never used in the shelf or the 
 check "Copy semantics: the open Shelf accepts drags and drops with Qt.CopyAction explicitly" \
   "$(grep -c 'drag.accept(Qt.CopyAction)\|drop.accept(Qt.CopyAction)' "$content")" "2"
 check "Copy semantics: the notch quick-drop accepts with Qt.CopyAction explicitly" \
-  "$(grep -A45 'id: shelfQuickDrop' "$notch" | grep -c 'drag.accept(Qt.CopyAction)\|drop.accept(Qt.CopyAction)')" "2"
+  "$(grep -A45 'id: shelfQuickDrop' "$notch_window" | grep -c 'drag.accept(Qt.CopyAction)\|drop.accept(Qt.CopyAction)')" "2"
 check "Copy semantics: drag-out only advertises CopyAction" \
   "$(grep -c 'Drag.supportedActions: Qt.CopyAction' "$content")" "1"
 check "Content: a drop is only accepted once the shelf actually added something" \
@@ -395,13 +399,13 @@ check "Shelf holds references only: no cp/mv/rm in the QML" \
 # --- the notch: only the quick-drop relay, no Shelf UI ----------------
 check "Notch: no Shelf service/content/tab left behind" \
   "$(grep -cE 'ShelfService|ShelfContent|dashboardTab === 4|% 5|toggleShelf|shelfAdd|shelfList' "$notch")" "0"
-check "Notch: still four dashboard tabs" "$(grep -c 'dashboardTab + 1) % 4' "$notch")" "1"
+check "Notch: still four dashboard tabs" "$(grep -c 'dashboardTab + 1) % 4' "$notch_window")" "1"
 check "Notch: quick-drop DropArea on the collapsed footprint" \
-  "$(grep -c 'id: shelfQuickDrop' "$notch")" "1"
+  "$(grep -c 'id: shelfQuickDrop' "$notch_window")" "1"
 check "Notch: quick-drop is inert while expanded" \
-  "$(grep -A8 'id: shelfQuickDrop' "$notch" | grep -c 'enabled: !panel.expanded')" "1"
+  "$(grep -A8 'id: shelfQuickDrop' "$notch_window" | grep -c 'enabled: !panel.expanded')" "1"
 check "Notch: quick-drop only accepts local file URLs with a real path" \
-  "$(grep -c 'file:\\/\\/(?:localhost)?\\/\.+' "$notch")" "1"
+  "$(grep -c 'file:\\/\\/(?:localhost)?\\/\.+' "$notch_window")" "1"
 check "Notch: relays one batched IPC call to ruixen.shelf, not one per path" \
   "$(grep -c '"omarchy-shell", "ruixen.shelf", "addMany"' "$notch")" "1"
 check "Notch: relay queues behind a running relay (never reassigns a live Process)" \
@@ -410,13 +414,13 @@ check "Notch: relay queues behind a running relay (never reassigns a live Proces
 check "Notch: no highlight is drawn behind the pill -- the Shelf opening is the feedback" \
   "$(grep -c 'shelfQuickDrop.containsDrag' "$notch" || true)" "0"
 check "Notch: a local-file drag entering the pill asks the Shelf to open" \
-  "$(sed -n '/id: shelfQuickDrop/,/onExited:/p' "$notch" | grep -c 'root.relayShelfOpen()')" "1"
+  "$(sed -n '/id: shelfQuickDrop/,/onExited:/p' "$notch_window" | grep -c 'panel.notchRoot.relayShelfOpen()')" "1"
 check "Notch: the open request is one IPC call to ruixen.shelf openFromDrag" \
   "$(grep -c '\["omarchy-shell", "ruixen.shelf", "openFromDrag"\]' "$notch")" "1"
 check "Notch: opens immediately on drag-enter -- no dwell/spring timer" \
   "$(grep -cE 'dwellTimer|springLoad|openShelfTimer' "$notch")" "0"
 check "Notch: a drop on the pill itself is still relayed, so a fast release never loses the files" \
-  "$(sed -n '/onDropped:/,/^      }/p' "$notch" | grep -c 'root.relayToShelf(urls)')" "1"
+  "$(sed -n '/onDropped:/,/^    }/p' "$notch_window" | grep -c 'panel.notchRoot.relayToShelf(urls)')" "1"
 check "Shelf: openFromDrag is part of the plugin's own IPC surface" \
   "$(grep -c 'function openFromDrag(): void' "$shelf")" "1"
 check "Shelf: openFromDrag does nothing if the shelf is already open (never takes over a keybind open)" \

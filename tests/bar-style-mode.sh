@@ -72,8 +72,11 @@ check "legacy right docked background is disabled in fullbar or when frame owns 
 check "notch reads shell.json to learn bar.style" \
   "$(grep -m1 'readonly property string shellConfigPath:' "$notch_qml")" '  readonly property string shellConfigPath: Quickshell.env("HOME") + "/.config/omarchy/shell.json"'
 
+# The notch's own PanelWindow visibility now lives in NotchWindow.qml --
+# see its own header for why the window itself is a separate, per-screen
+# file. shellConfigPath (checked above) stays on Overlay.qml's own root.
 check "notch hides itself in fullbar style" \
-  "$(grep -m1 'visible: !root.fullscreenActive && !root.barHidden && !root.fullbarStyle' "$notch_qml")" '    visible: !root.fullscreenActive && !root.barHidden && !root.fullbarStyle'
+  "$(grep -m1 'visible: !notchRoot.fullscreenActive && !notchRoot.barHidden && !notchRoot.fullbarStyle' "$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml")" '  visible: !notchRoot.fullscreenActive && !notchRoot.barHidden && !notchRoot.fullbarStyle'
 
 check "bar style helper supports fullbar" \
   "$(grep -m1 'Usage: ruixen-bar-style <notch|fullbar|status>' "$style_script")" 'Usage: ruixen-bar-style <notch|fullbar|status>'

@@ -180,7 +180,7 @@ check "Overlay exposes toggleWallpapers on the notch IPC target" \
   "$(grep -c 'function toggleWallpapers(): void' "$overlay_qml")" "1"
 
 check "toggleWallpapers lands on the wallpapers tab when closed" \
-  "$(grep -A2 'function toggleWallpapers' "$overlay_qml" | grep -c 'panel.dashboardTab = 1')" "1"
+  "$(grep -A2 'function toggleWallpapers' "$overlay_qml" | grep -c 'root.dashboardTab = 1')" "1"
 
 # --- The installer -----------------------------------------------------
 check "install.sh recommends the wallpapers keybind" \

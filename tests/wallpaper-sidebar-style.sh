@@ -9,6 +9,9 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 wallpapers_qml="$repo_dir/bars/widgets/ruixen.notch/WallpapersContent.qml"
 overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# WallpapersContent's own instantiation (the color props it's fed) is
+# window content now -- see NotchWindow.qml's own header.
+notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 
 pass=0
 fail_count=0
@@ -28,7 +31,7 @@ check "WallpapersContent exposes a secondary color token for the Top affordance"
 check "Overlay reads the active theme's secondary color" \
   "$(grep -c 'themeSecondaryColor = root.parseCavaThemeColor(t, "secondary", Color.accent)' "$overlay_qml")" "1"
 check "Overlay passes theme secondary into WallpapersContent" \
-  "$(grep -A8 'WallpapersContent {' "$overlay_qml" | grep -c 'secondary: root.themeSecondaryColor')" "1"
+  "$(grep -A8 'WallpapersContent {' "$notch_window_qml" | grep -c 'secondary: panel.notchRoot.themeSecondaryColor')" "1"
 # The old image/video/gif count tiles are gone -- direct follow-up
 # ("convert that side panel stuff we have into the chips here instead
 # for wallpaper"): the kind filter moved to the shared top chip row

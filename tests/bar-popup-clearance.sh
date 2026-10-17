@@ -82,7 +82,11 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 barpanel_qml="$repo_dir/bars/v2/ruixen.bar/BarPanel.qml"
-notch_overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# Everything this file reads off the notch (margins.top, notchOuter's
+# own restY/cornerSize/seamOverlap, the collapsed/expanded body size)
+# is the window's own visible content -- lives in its own per-screen
+# file now, see NotchWindow.qml's own header for why.
+notch_overlay_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 
 pass=0
 fail_count=0

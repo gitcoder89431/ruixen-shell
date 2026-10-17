@@ -21,7 +21,9 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 wallpapers_qml="$repo_dir/bars/widgets/ruixen.notch/WallpapersContent.qml"
-overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# These close-requests are wired on the window content now --
+# see NotchWindow.qml's own header.
+notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 
 pass=0
 fail_count=0
@@ -73,7 +75,7 @@ check "all three jumps go through omarchy-shell, not a raw IPC call (resolved OM
   "$(( $(grep -A2 'id: openWallpaperShuffleProc' "$wallpapers_qml" | grep -Fc '"omarchy-shell"') + $(grep -A2 'id: openWallpaperEffectsProc' "$wallpapers_qml" | grep -Fc '"omarchy-shell"') + $(grep -A2 'id: openThemeBrowserProc' "$wallpapers_qml" | grep -Fc '"omarchy-shell"') ))" "3"
 
 check "Overlay.qml collapses the notch when any of the three jumps fire, so the launcher doesn't open with the notch still expanded underneath it" \
-  "$(( $(grep -Fc 'onOpenWallpaperShuffleRequested: panel.pinnedOpen = false' "$overlay_qml") + $(grep -Fc 'onOpenWallpaperEffectsRequested: panel.pinnedOpen = false' "$overlay_qml") + $(grep -Fc 'onOpenThemeBrowserRequested: panel.pinnedOpen = false' "$overlay_qml") ))" "3"
+  "$(( $(grep -Fc 'onOpenWallpaperShuffleRequested: panel.notchRoot.pinnedOpen = false' "$notch_window_qml") + $(grep -Fc 'onOpenWallpaperEffectsRequested: panel.notchRoot.pinnedOpen = false' "$notch_window_qml") + $(grep -Fc 'onOpenThemeBrowserRequested: panel.notchRoot.pinnedOpen = false' "$notch_window_qml") ))" "3"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

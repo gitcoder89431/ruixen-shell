@@ -23,6 +23,9 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# The PanelWindow's own visible: line is window content now --
+# see NotchWindow.qml's own header.
+notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 
 pass=0
 fail_count=0
@@ -55,7 +58,7 @@ check "ruixen.notch watches the parent toggles directory (FileView can't observe
   "$(grep -c 'path: Quickshell.env("HOME") + "/.local/state/omarchy/toggles"' "$overlay_qml" || true)" "1"
 
 check "the notch's own PanelWindow visibility now also depends on barHidden, not fullscreen alone" \
-  "$(grep -c 'visible: !root.fullscreenActive && !root.barHidden' "$overlay_qml" || true)" "1"
+  "$(grep -c 'visible: !notchRoot.fullscreenActive && !notchRoot.barHidden' "$notch_window_qml" || true)" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

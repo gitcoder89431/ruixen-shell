@@ -20,7 +20,9 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 dashboard_qml="$repo_dir/bars/widgets/ruixen.notch/DashboardContent.qml"
-overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# DashboardContent's own instantiation is window content now --
+# see NotchWindow.qml's own header.
+notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 
 pass=0
 fail_count=0
@@ -78,7 +80,7 @@ check "an action refreshes status immediately afterward rather than waiting up t
 check "DashboardContent.qml declares panelExpanded" \
   "$(grep -c 'property bool panelExpanded: false' "$dashboard_qml")" "1"
 check "Overlay.qml wires panelExpanded from the real panel.expanded" \
-  "$(grep -c 'panelExpanded: panel\.expanded' "$overlay_qml")" "1"
+  "$(grep -c 'panelExpanded: panel\.expanded' "$notch_window_qml")" "1"
 
 # --- no leftover debug scaffolding ---------------------------------------
 

@@ -17,6 +17,11 @@ launcher_settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsCon
 # against launcher_settings_qml) stayed put.
 profile_page_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/ProfilePage.qml"
 notch_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+# The avatar RENDERING (AnimatedImage, frame extraction/timer,
+# MultiEffect mask swap) lives in NotchWindow.qml now -- the state
+# itself (avatarAnimated = !!p.animated, reading the JSON) stays on
+# Overlay.qml's own root, genuinely singleton.
+notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 metrics_qml="$repo_dir/bars/widgets/ruixen.notch/MetricsContent.qml"
 
 pass=0
@@ -53,19 +58,19 @@ check "launcher settings preview renders animated avatars directly instead of th
 check "launcher settings preview keeps the MultiEffect mask for static avatars only" \
   "$(grep -cF 'visible: !settingsRoot.avatarAnimated' "$profile_page_qml")" "2"
 check "notch avatar uses AnimatedImage so a valid GIF can animate" \
-  "$(grep -c 'AnimatedImage {' "$notch_qml")" "1"
+  "$(grep -c 'AnimatedImage {' "$notch_window_qml")" "1"
 check "notch reads avatar state to decide whether the active avatar is animated" \
   "$(grep -cF 'root.avatarAnimated = !!p.animated' "$notch_qml")" "1"
 check "notch switches to extracted frame sources when avatar state is animated" \
-  "$(grep -cF 'root.avatarFrameDir' "$notch_qml")" "2"
+  "$(grep -cF 'notchRoot.avatarFrameDir' "$notch_window_qml")" "2"
 check "notch advances extracted avatar frames with a timer" \
-  "$(grep -cF 'root.avatarFrameCount > 1' "$notch_qml")" "1"
+  "$(grep -cF 'notchRoot.avatarFrameCount > 1' "$notch_window_qml")" "1"
 check "notch renders animated avatars directly instead of through MultiEffect" \
-  "$(grep -cF 'visible: root.avatarAnimated' "$notch_qml")" "1"
+  "$(grep -cF 'visible: panel.notchRoot.avatarAnimated' "$notch_window_qml")" "1"
 check "notch keeps the MultiEffect mask for static avatars only" \
-  "$(grep -cF 'visible: !root.avatarAnimated' "$notch_qml")" "2"
+  "$(grep -cF 'visible: !panel.notchRoot.avatarAnimated' "$notch_window_qml")" "2"
 check "expanded health page receives animated avatar state from the notch" \
-  "$(grep -cF 'avatarAnimated: root.avatarAnimated' "$notch_qml")" "1"
+  "$(grep -cF 'avatarAnimated: panel.notchRoot.avatarAnimated' "$notch_window_qml")" "1"
 check "expanded health page switches to extracted frame sources when avatar state is animated" \
   "$(grep -cF 'root.avatarFrameDir' "$metrics_qml")" "1"
 check "expanded health page advances extracted avatar frames with a timer" \

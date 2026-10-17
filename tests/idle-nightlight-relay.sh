@@ -20,7 +20,6 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 dashboard_qml="$repo_dir/bars/widgets/ruixen.notch/DashboardContent.qml"
-overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 # DashboardContent's own instantiation is window content now --
 # see NotchWindow.qml's own header.
 notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"

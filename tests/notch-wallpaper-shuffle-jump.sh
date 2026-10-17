@@ -21,7 +21,6 @@ set -Eeuo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
 wallpapers_qml="$repo_dir/bars/widgets/ruixen.notch/WallpapersContent.qml"
-overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
 # These close-requests are wired on the window content now --
 # see NotchWindow.qml's own header.
 notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"

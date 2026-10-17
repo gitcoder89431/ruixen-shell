@@ -313,9 +313,13 @@ column's own order (manual, once an agent or `kanbanReorderColumn` has
 touched it, otherwise priority then age) already is the sort.
 
 - Typing in the search box and pressing **Enter** when nothing matches
-  creates a new card in **Todo** at medium priority, titled with
-  whatever you typed — the search box clears once the card exists. This
-  is the only "add" screen; there's no separate create form.
+  creates a new card in **Todo**, titled with whatever you typed — the
+  search box clears once the card exists. This is the only "add"
+  screen; there's no separate create form. A trailing `!h`/`!m`/`!l`
+  word sets priority (medium if omitted); `--` splits off everything
+  after it as the description — e.g. `Fix login bug !h -- breaks SSO
+  on Safari`. The hint text under the list previews what Enter will
+  actually create.
 - **Enter** on an existing row (or a click) advances that card to the
   next column (Todo → In Progress → Done), mirroring the notch panel's
   own click-to-advance behavior.

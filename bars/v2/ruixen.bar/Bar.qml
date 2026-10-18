@@ -633,6 +633,67 @@ Item {
   // it in floating mode is purely cosmetic.
   property bool frameEnabled: true
   readonly property bool resolvedFrameEnabled: root.docked || root.frameEnabled
+
+  // Direct live follow-up once the toggle itself worked: "the side and
+  // bottom gap from hyprland window is a bit much now" -- gaps_out
+  // (looknfeel.ruixen.lua/half.lua/square.lua, "10 20 20 20") is tuned
+  // for the frame actually being there to visually fill that extra
+  // side/bottom space; with the border off, it's the exact same gap,
+  // just no longer occupied by anything, so it reads as wasted space.
+  // Shrinks right/bottom/left to match whatever the top gap currently
+  // is (read live, not hardcoded, so this still tracks correctly if
+  // the configured top value itself ever changes) via a live
+  // `hyprctl eval "hl.config(...)"` override -- confirmed directly,
+  // not assumed: this Omarchy version's own Lua-backed Hyprland config
+  // rejects the legacy `hyprctl keyword` form outright ("keyword can't
+  // work with non-legacy parsers. Use eval."), and `hl.config({...})`
+  // is the exact real mechanism Omarchy's own shipped toggle uses for
+  // this same kind of live override (default/hypr/toggles/
+  // window-no-gaps.lua). The override is ephemeral, not written to any
+  // file, so a plain `hyprctl reload` on re-enabling is enough to
+  // restore the real file-defined value with nothing to remember or
+  // undo by hand.
+  // Confirmed live with an instrumented debug build (logged every call
+  // plus hyprctl's own exit code/output instead of acting): at real
+  // startup resolvedFrameEnabled transiently reads true (frameEnabled's
+  // own compile-time default) for a brief window before
+  // bar-surface.json has actually finished loading, which fires a
+  // premature, unwanted `hyprctl reload` -- and Hyprland reloading
+  // (re-parsing Lua config files) takes measurably longer than the
+  // later, correct call's plain `hyprctl eval`, so that correct call
+  // can finish FIRST and then get silently overwritten when the
+  // premature reload finishes SECOND, in real wall-clock time, even
+  // though it was dispatched first. Stopping/restarting the shared
+  // Process (tried first) didn't fix this -- the race is between two
+  // real OS processes actually completing, not between reassigning a
+  // QML Process object's own command. The actual fix is not reacting
+  // to resolvedFrameEnabledChanged at all until state has genuinely
+  // loaded at least once -- barSurfaceStateLoaded flipping true is
+  // this file's own existing, reliable signal for exactly that (it
+  // only ever fires after applyBarSurfaceState has already set
+  // frameEnabled to its real loaded value), so gating on it suppresses
+  // the premature pre-load call outright instead of trying to out-race
+  // it after the fact.
+  function syncFrameGaps() {
+    if (frameGapSyncProc.running) frameGapSyncProc.running = false
+    if (root.resolvedFrameEnabled) {
+      frameGapSyncProc.command = ["bash", "-c", "hyprctl reload >/dev/null 2>&1 || true"]
+    } else {
+      frameGapSyncProc.command = ["bash", "-c",
+        "top=$(hyprctl -j getoption general:gaps_out | grep -oP '\"css\": \"\\K[0-9]+'); " +
+        "hyprctl eval \"hl.config({ general = { gaps_out = { top = $top, right = $top, bottom = $top, left = $top } } })\" >/dev/null 2>&1 || true"]
+    }
+    frameGapSyncProc.running = true
+  }
+  // Both gated on barSurfaceStateLoaded: the initial sync right after
+  // state actually finishes loading (frameEnabled's real value, not
+  // its default), and every later live toggle after that (that first
+  // transition has already fired barSurfaceStateLoadedChanged once by
+  // definition, so the plain property-change path alone is reliable
+  // from here on).
+  onBarSurfaceStateLoadedChanged: if (root.barSurfaceStateLoaded) root.syncFrameGaps()
+  onResolvedFrameEnabledChanged: if (root.barSurfaceStateLoaded) root.syncFrameGaps()
+  Process { id: frameGapSyncProc }
   // Docked mode's merged shoulder strip (leftDockedBg/rightDockedBg and
   // their wing pieces below) hides every individual pill's own
   // background (GroupPill { visible: !root.docked }) and renders icons

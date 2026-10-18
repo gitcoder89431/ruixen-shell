@@ -88,5 +88,21 @@ check "direct follow-up honored: the toggle sits at keyboard index 1, right unde
 check "every later item on the page was renumbered to make room (0,1,2,3,4,5,6,6 -- no gaps or dupes)" \
   "$(grep -oP 'focusedItemIndex === \K[0-9]' "$barpage_qml" | sort -n | tr '\n' ',')" "0,1,2,3,4,5,6,6,"
 
+# --- Bar.qml: live Hyprland gaps_out sync, direct follow-up after the
+# toggle itself worked: "the side and bottom gap from hyprland window
+# is a bit much now" once the frame no longer visually fills it.
+check "resolvedFrameEnabled transitions fire the live gap sync, but only once state has genuinely loaded" \
+  "$(grep -c 'onResolvedFrameEnabledChanged: if (root.barSurfaceStateLoaded) root.syncFrameGaps()' "$bar_qml")" "1"
+check "barSurfaceStateLoaded becoming true fires the initial sync -- confirmed live this is the one reliable trigger for the startup transition" \
+  "$(grep -c 'onBarSurfaceStateLoadedChanged: if (root.barSurfaceStateLoaded) root.syncFrameGaps()' "$bar_qml")" "1"
+check "re-enabling restores the real file-defined gaps via a plain reload, nothing hardcoded to remember/undo" \
+  "$(grep -c 'command = \["bash", "-c", "hyprctl reload >/dev/null 2>&1 || true"\]' "$bar_qml")" "1"
+check "disabling reads the CURRENT top gap live rather than hardcoding today's configured value" \
+  "$(grep -c 'top=\$(hyprctl -j getoption general:gaps_out' "$bar_qml")" "1"
+check "disabling applies via hl.config eval, confirmed the real mechanism -- this version's Hyprland rejects legacy hyprctl keyword outright" \
+  "$(grep -c 'hyprctl eval \\"hl.config({ general = { gaps_out = { top = \$top, right = \$top, bottom = \$top, left = \$top } } })\\"' "$bar_qml")" "1"
+check "syncFrameGaps stops any in-flight run before reassigning -- confirmed live, two near-simultaneous calls at real startup otherwise race and the second one's command silently never takes effect" \
+  "$(grep -A2 'function syncFrameGaps() {' "$bar_qml" | grep -c 'if (frameGapSyncProc.running) frameGapSyncProc.running = false')" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

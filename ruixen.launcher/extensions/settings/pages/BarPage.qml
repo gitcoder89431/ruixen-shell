@@ -61,6 +61,47 @@ Column {
     onActivated: (id) => settingsRoot.setBarMode(id)
   }
 
+  // Issue #114, direct request: "on float mode to be able to disable
+  // the frame [...] under bar layout" -- placed right under Bar Layout
+  // per that follow-up, not appended at the end like the first pass
+  // had it (every focusedItemIndex below was renumbered +1 to make
+  // room). SettingsToggleRow is deliberately just the row (see its own
+  // header comment) -- this Rectangle is the same plain card wrapper
+  // appLauncherIconItem below already uses, not a separate shared-card
+  // case like Visualizer's own Enabled/Mirror pair (this page has only
+  // the one toggle).
+  Rectangle {
+    width: parent.width
+    height: frameEnabledItem.height + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.settingsRoot.barOpen
+
+    // Dimmed + a subtitle while docked (same "explain why, don't just
+    // silently ignore the click" shape cavaEnableRow's own
+    // toggleEnabled/subtitle pair already uses for "cava not
+    // installed"), since docked mode forces this on regardless of what
+    //'s stored here -- setFrameEnabled's own no-op guard means a click
+    // here while docked would otherwise look like it did nothing, with
+    // no explanation why.
+    SettingsToggleRow {
+      id: frameEnabledItem
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.margins: 12
+      label: "Frame Border"
+      subtitle: root.settingsRoot.barMode === "docked" ? "Always on while docked" : ""
+      toggleEnabled: root.settingsRoot.barMode !== "docked"
+      checked: root.settingsRoot.frameEnabled
+      rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 1
+      textColor: root.settingsRoot.textColor
+      accent: root.settingsRoot.accent
+      fontFamily: root.settingsRoot.fontFamily
+      onToggled: root.settingsRoot.setFrameEnabled(!root.settingsRoot.frameEnabled)
+    }
+  }
+
   // Surface color -- theme it (tracks the active theme's own background
   // live) or plain black. Same "Themed"/mode-name wording ruixen.settings'
   // own Glass Tint card already established elsewhere in this file, for
@@ -82,7 +123,7 @@ Column {
       { id: "theme", label: "Theme" }
     ]
     current: settingsRoot.frameColorMode
-    cardFocused: settingsRoot.barOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 1
+    cardFocused: settingsRoot.barOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 2
     focusedOptionIndex: frameColorModeItem.cardFocused ? settingsRoot.focusedOptionIndex : -1
     visible: settingsRoot.barOpen
     textColor: settingsRoot.textColor
@@ -100,7 +141,7 @@ Column {
       { id: "solid", label: "Solid" }
     ]
     current: settingsRoot.barSurfaceMaterial
-    cardFocused: settingsRoot.barOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 2
+    cardFocused: settingsRoot.barOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 3
     focusedOptionIndex: surfaceMaterialItem.cardFocused ? settingsRoot.focusedOptionIndex : -1
     visible: settingsRoot.barOpen
     textColor: settingsRoot.textColor
@@ -118,7 +159,7 @@ Column {
       { id: "mono", label: "Mono" }
     ]
     current: settingsRoot.barIconTone
-    cardFocused: settingsRoot.barOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 3
+    cardFocused: settingsRoot.barOpen && settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 4
     focusedOptionIndex: iconToneItem.cardFocused ? settingsRoot.focusedOptionIndex : -1
     visible: settingsRoot.barOpen
     textColor: settingsRoot.textColor
@@ -170,8 +211,9 @@ Column {
       { id: "hidden", label: "Hidden" }
     ]
     current: settingsRoot.notchVisibilityCurrentId()
-    // 4 -- Bar Layout plus Surface Color/Material/Icon Tone sit above it.
-    cardFocused: settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 4
+    // 5 -- Bar Layout, Frame Border, Surface Color/Material, and Icon
+    // Tone sit above it.
+    cardFocused: settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 5
     focusedOptionIndex: cardFocused ? settingsRoot.focusedOptionIndex : -1
     visible: settingsRoot.barOpen
     textColor: settingsRoot.textColor
@@ -207,9 +249,10 @@ Column {
     color: Qt.rgba(0, 0, 0, 0.18)
     // Card-level focus ring -- same convention profilePictureItem's
     // own comment documents ("tab between cards... then left or right
-    // direction and enter for that option"). 5 -- Bar Layout plus
-    // Surface Color/Material/Icon Tone sit above it on this page.
-    border.width: settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 5 ? 1 : 0
+    // direction and enter for that option"). 6 -- Bar Layout, Frame
+    // Border, Surface Color/Material, Icon Tone, and Notch Visibility
+    // sit above it on this page.
+    border.width: settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 6 ? 1 : 0
     border.color: settingsRoot.accent
     visible: settingsRoot.barOpen
 
@@ -252,10 +295,10 @@ Column {
             // the identical reason (an all-white border here would
             // clobber the accent ring's own "this is applied"
             // meaning).
-            // 5 -- Bar Layout plus Surface Color/Material/Icon Tone sit
-            // above it on this page.
+            // 6 -- Bar Layout, Frame Border, Surface Color/Material,
+            // Icon Tone, and Notch Visibility sit above it on this page.
             readonly property bool isFocused: settingsRoot.rightFocused
-              && settingsRoot.focusedItemIndex === 5 && settingsRoot.focusedOptionIndex === iconBtn.index
+              && settingsRoot.focusedItemIndex === 6 && settingsRoot.focusedOptionIndex === iconBtn.index
 
             width: 32
             height: 32
@@ -302,47 +345,6 @@ Column {
           }
         }
       }
-    }
-  }
-
-  // Issue #114, direct request: "on float mode to be able to disable
-  // the frame". Appended last (index 6) rather than placed next to Bar
-  // Layout, to avoid renumbering every other item on this page's own
-  // hardcoded focusedItemIndex -- see SettingsContent.qml's own
-  // barItems comment for the same reasoning. SettingsToggleRow is
-  // deliberately just the row (see its own header comment) -- this
-  // Rectangle is the same plain card wrapper appLauncherIconItem above
-  // already uses, not a separate shared-card case like Visualizer's
-  // Enabled/Mirror pair (this page has only the one toggle).
-  Rectangle {
-    width: parent.width
-    height: frameEnabledItem.height + 24
-    radius: 10
-    color: Qt.rgba(0, 0, 0, 0.18)
-    visible: root.settingsRoot.barOpen
-
-    // Dimmed + a subtitle while docked (same "explain why, don't just
-    // silently ignore the click" shape cavaEnableRow's own
-    // toggleEnabled/subtitle pair already uses for "cava not
-    // installed"), since docked mode forces this on regardless of what
-    //'s stored here -- setFrameEnabled's own no-op guard means a click
-    // here while docked would otherwise look like it did nothing, with
-    // no explanation why.
-    SettingsToggleRow {
-      id: frameEnabledItem
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      anchors.margins: 12
-      label: "Frame Border"
-      subtitle: root.settingsRoot.barMode === "docked" ? "Always on while docked" : ""
-      toggleEnabled: root.settingsRoot.barMode !== "docked"
-      checked: root.settingsRoot.frameEnabled
-      rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 6
-      textColor: root.settingsRoot.textColor
-      accent: root.settingsRoot.accent
-      fontFamily: root.settingsRoot.fontFamily
-      onToggled: root.settingsRoot.setFrameEnabled(!root.settingsRoot.frameEnabled)
     }
   }
 }

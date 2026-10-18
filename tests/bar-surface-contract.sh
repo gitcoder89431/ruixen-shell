@@ -99,7 +99,7 @@ check "launcher settings labels the shared control as Surface Color" \
   "$(grep -c 'label: "Surface Color"' "$bar_page_qml")" "1"
 
 check "launcher settings keeps Bar Layout first on the Bar page" \
-  "$(grep -Fc 'return [barPage.barLayoutItem, barPage.frameColorModeItem, barPage.surfaceMaterialItem,' "$settings_qml")" "1"
+  "$(grep -Fc 'return [barPage.barLayoutItem, barPage.frameEnabledItem, barPage.frameColorModeItem,' "$settings_qml")" "1"
 
 check "launcher settings focuses Bar Layout at index 0" \
   "$(grep -A18 'id: barLayoutItem' "$bar_page_qml" | grep -c 'focusedItemIndex === 0')" "1"

@@ -2231,6 +2231,15 @@ Item {
       current: root.barMode,
       activate: function(id) { root.setBarMode(id) }
     },
+    // Issue #114, direct follow-up: "put it higher so it is available
+    // to toggle under bar layout" -- moved here from appended-at-the-
+    // end, with every focusedItemIndex literal on BarPage.qml (and its
+    // own appLauncherIconItem tile-level ones) renumbered +1 to match.
+    {
+      kind: "toggle",
+      checked: root.frameEnabled,
+      activate: function() { root.setFrameEnabled(!root.frameEnabled) }
+    },
     {
       options: ["black", "theme"],
       current: root.frameColorMode,
@@ -2263,15 +2272,6 @@ Item {
       options: AppLauncherGlyphs.iconIds(),
       current: root.appLauncherIconId,
       activate: function(id) { root.setAppLauncherIconId(id) }
-    },
-    // Issue #114 -- appended rather than slotted in next to Bar Layout,
-    // to avoid renumbering every focusedItemIndex literal above (and
-    // appLauncherIconItem's own tile-level ones) for a purely cosmetic
-    // ordering preference.
-    {
-      kind: "toggle",
-      checked: root.frameEnabled,
-      activate: function() { root.setFrameEnabled(!root.frameEnabled) }
     }
   ]
 
@@ -2769,11 +2769,12 @@ Item {
       // already gets for free.
       // Issue #102 phase 5: every one of these now lives inside barPage
       // (BarPage.qml), exposed through its own aliases -- see that
-      // file's own header.
-      if (root.focusedItemIndex === 5) return barPage.iconRepeater.itemAt(root.focusedOptionIndex)
-      return [barPage.barLayoutItem, barPage.frameColorModeItem, barPage.surfaceMaterialItem,
-        barPage.iconToneItem, barPage.notchVisibilityItem, barPage.appLauncherIconItem,
-        barPage.frameEnabledItem][root.focusedItemIndex]
+      // file's own header. Issue #114 renumbered this +1 after Bar
+      // Layout (index 0) once Frame Border moved there from the end.
+      if (root.focusedItemIndex === 6) return barPage.iconRepeater.itemAt(root.focusedOptionIndex)
+      return [barPage.barLayoutItem, barPage.frameEnabledItem, barPage.frameColorModeItem,
+        barPage.surfaceMaterialItem, barPage.iconToneItem, barPage.notchVisibilityItem,
+        barPage.appLauncherIconItem][root.focusedItemIndex]
     }
     if (root.launcherOpen) {
       // Issue #102 phase 7: every one of these now lives inside

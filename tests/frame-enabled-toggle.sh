@@ -59,10 +59,10 @@ check "writeBarSurfaceState persists frameEnabled alongside color/material" \
   "$(grep -A5 'function writeBarSurfaceState' "$settings_qml" | grep -c 'frameEnabled: root.frameEnabled')" "1"
 check "setFrameEnabled is a no-op while docked -- the click would otherwise silently do nothing" \
   "$(grep -A4 'function setFrameEnabled' "$settings_qml" | grep -c 'if (root.barMode === "docked") return')" "1"
-check "the bar settings page's keyboard-nav list (barItems) includes the new toggle" \
-  "$(grep -A10 'options: AppLauncherGlyphs.iconIds()' "$settings_qml" | grep -c 'kind: "toggle"')" "1"
-check "focusedItemVisual's own bar-section array includes frameEnabledItem" \
-  "$(grep -c 'barPage.frameEnabledItem\]\[root.focusedItemIndex\]' "$settings_qml")" "1"
+check "barItems' own Frame Border toggle sits right after Bar Layout, not appended at the end" \
+  "$(grep -A9 'options: \["floating", "docked"\]' "$settings_qml" | grep -c 'kind: "toggle"')" "1"
+check "focusedItemVisual's own bar-section array has frameEnabledItem right after barLayoutItem" \
+  "$(grep -c 'barPage.barLayoutItem, barPage.frameEnabledItem, barPage.frameColorModeItem,' "$settings_qml")" "1"
 
 # --- BarPage.qml: the actual control, dimmed + explained while docked
 check "BarPage.qml exposes frameEnabledItem through the same alias convention as its siblings" \
@@ -73,6 +73,10 @@ check "a subtitle explains why, instead of leaving a dimmed toggle with no expla
   "$(grep -c 'subtitle: root.settingsRoot.barMode === "docked" ? "Always on while docked" : ""' "$barpage_qml")" "1"
 check "the toggle reflects and writes through the real frameEnabled state, not a local copy" \
   "$(( $(grep -c 'checked: root.settingsRoot.frameEnabled' "$barpage_qml") + $(grep -c 'onToggled: root.settingsRoot.setFrameEnabled(!root.settingsRoot.frameEnabled)' "$barpage_qml") ))" "2"
+check "direct follow-up honored: the toggle sits at keyboard index 1, right under Bar Layout (index 0)" \
+  "$(grep -c 'rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 1' "$barpage_qml")" "1"
+check "every later item on the page was renumbered to make room (0,1,2,3,4,5,6,6 -- no gaps or dupes)" \
+  "$(grep -oP 'focusedItemIndex === \K[0-9]' "$barpage_qml" | sort -n | tr '\n' ',')" "0,1,2,3,4,5,6,6,"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

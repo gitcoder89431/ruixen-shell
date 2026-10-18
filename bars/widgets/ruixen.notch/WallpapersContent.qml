@@ -136,15 +136,27 @@ Item {
   // generation 1 on its very first real click while the service might
   // already be sitting on, say, 15 from the PREVIOUS instance's
   // lifetime -- rejected as stale, and every click after it too, until
-  // this counter climbed back past 15. Seeding from a wall-clock
-  // timestamp instead means a brand-new instance's very first
-  // generation is already astronomically larger than any plain
-  // incrementing counter the old instance could plausibly have
-  // reached, so it can never look older to the service. Still just a
-  // plain +1 per click after that (see select() below), not a fresh
-  // Date.now() read every time -- that keeps two clicks landing in the
-  // same millisecond strictly ordered too, which re-reading the clock
-  // on every click would not.
+  // this counter climbed back past 15.
+  //
+  // nextGeneration() below (not a plain `+= 1`) -- real bug found live:
+  // this instance stays alive for the WHOLE session (never recreated
+  // on its own), same as the launcher's own Wallpapers/Wallpaper
+  // Shuffle extensions each do with THEIR own local counter. A plain
+  // `+= 1` only ever reflects how many times THIS ONE client has been
+  // clicked, not real chronological order against another client's own
+  // counter -- spend a while clicking through the launcher's picker
+  // instead and its counter (and so the service's shared threshold)
+  // climbs past whatever this instance was sitting on; every later
+  // click here does +1 off its own now-stale local value and can never
+  // clear that threshold again, permanently rejected until the whole
+  // shell restarts and reseeds this property. `Math.max(Date.now(),
+  // selectGeneration + 1)` fixes both at once: still strictly
+  // increasing within THIS client for two rapid clicks (so a slow
+  // older reply still can't stomp a newer one that already landed --
+  // the original #22 guarantee), but a click after any idle stretch
+  // jumps back up to the real current timestamp instead of crawling up
+  // one at a time from a stale baseline, so an idle client catches back
+  // up to a currently-active sibling client on its very next click.
   //
   // `real`, not `int` -- confirmed empirically (isolated Quickshell
   // test), not assumed: Date.now()'s ~13-digit millisecond value
@@ -153,6 +165,9 @@ Item {
   // timestamps for millennia. ruixen.wallpaper/Service.qml's own
   // selectGeneration was widened to match -- see its own comment.
   property real selectGeneration: Date.now()
+  function nextGeneration() {
+    return Math.max(Date.now(), root.selectGeneration + 1)
+  }
 
   // Direct follow-up ("we should lazyload it in from the other
   // direction... it seems to be loading in 50, 49, 48, 47 etc so we
@@ -529,7 +544,7 @@ Item {
     // until the next refresh, since currentBackground would hold a
     // value (the raw gif) that no tile's own identity ever equals.
     root.currentBackground = entry.identity
-    root.selectGeneration += 1
+    root.selectGeneration = root.nextGeneration()
     var gen = String(root.selectGeneration)
     if (entry.kind === "video") {
       playVideoProc.command = ["omarchy-shell", "ruixen.wallpaper", "playVideo", entry.real, gen]
@@ -591,7 +606,7 @@ Item {
   function applyTheme(entry) {
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(entry.name)) return
     root.currentTheme = entry.name
-    root.selectGeneration += 1
+    root.selectGeneration = root.nextGeneration()
     themeStopProc.command = ["omarchy-shell", "ruixen.wallpaper", "stop", String(root.selectGeneration)]
     themeStopProc.running = true
     themeSetProc.command = ["omarchy-theme-set", entry.name]

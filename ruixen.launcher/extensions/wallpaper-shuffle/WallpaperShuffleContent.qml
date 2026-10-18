@@ -340,12 +340,21 @@ Item {
   // same three-way kind dispatch WallpapersContent.qml's own select()
   // already uses (image via the plain bg-setter, video/gif through
   // ruixen.wallpaper's own playVideo/playGif IPC), not reinvented.
+  // selectGeneration/nextGeneration() are the same fix too -- a plain
+  // `+= 1` off a Date.now()-seeded local counter let this extension and
+  // the notch's own WallpapersContent (which never gets recreated, so
+  // its counter never resets) starve each other out after a run of
+  // clicks in just one of them, permanently rejected until a full shell
+  // restart -- see that file's own comment for the full mechanism.
   property real selectGeneration: Date.now()
+  function nextGeneration() {
+    return Math.max(Date.now(), root.selectGeneration + 1)
+  }
   function applySelected() {
     var e = root.selectedEntry
     if (!e) return
     root.currentBackground = e.identity
-    root.selectGeneration += 1
+    root.selectGeneration = root.nextGeneration()
     var gen = String(root.selectGeneration)
     if (e.kind === "video") {
       playVideoProc.command = ["omarchy-shell", "ruixen.wallpaper", "playVideo", e.real, gen]

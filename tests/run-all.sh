@@ -88,6 +88,7 @@ suites=(
   "$script_dir/notch-rotation-chip-width.sh"
   "$script_dir/wallpaper-rotation-video.sh"
   "$script_dir/wallpaper-manual-pick-rotation.sh"
+  "$script_dir/wallpaper-generation-guard.sh"
   "$script_dir/launcher-wallpaper-shuffle-extension.sh"
   "$script_dir/bar-drag-protected-slots.sh"
   "$script_dir/bar-left-pluginpins-pill.sh"

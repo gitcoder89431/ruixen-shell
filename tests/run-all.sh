@@ -94,6 +94,7 @@ suites=(
   "$script_dir/bar-left-pluginpins-pill.sh"
   "$script_dir/repair-drift-detection.sh"
   "$script_dir/ruixen-doctor-state-dir.sh"
+  "$script_dir/ruixen-doctor-looknfeel.sh"
   "$script_dir/uninstall-dry-run.sh"
   "$script_dir/install-dry-run.sh"
   "$script_dir/update-dry-run.sh"

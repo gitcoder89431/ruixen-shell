@@ -529,6 +529,46 @@ else
 fi
 printf '\n'
 
+# --- Hyprland look'n'feel -- a chroot install (no live Hyprland session
+# to reload) writes the look'n'feel config correctly but the `hyprctl
+# reload` at the end of that step is a best-effort no-op with nothing
+# there to reload. install.sh's own version is wrapped in `|| true` for
+# exactly this reason -- it never fails the install, it just means
+# Hyprland itself may not have picked up the change yet. A later reboot
+# normally fixes this on its own (a fresh Hyprland session reads
+# everything from disk), so this mainly matters if rounding/blur still
+# looks wrong (square notification popups, for instance) after one.
+# Read-only: resolves the symlink and names the variant, never calls
+# ruixen-lookfeel.sh itself.
+printf -- '-- Hyprland look'"'"'n'"'"'feel --\n'
+looknfeel_target="$HOME/.config/hypr/looknfeel.lua"
+looknfeel_data_dir="$HOME/.local/share/ruixen-shell/hyprland"
+if [[ -L "$looknfeel_target" ]]; then
+  resolved="$(readlink -f "$looknfeel_target" 2>/dev/null || echo "")"
+  if [[ -z "$resolved" || ! -e "$resolved" ]]; then
+    printf 'variant: BROKEN SYMLINK (target does not exist) -- Hyprland falls back to its own stock look, re-run hyprland/ruixen-lookfeel.sh on|off|half|square\n'
+  else
+    variant="unknown"
+    case "$resolved" in
+      "$looknfeel_data_dir/looknfeel.ruixen.lua") variant="on (rounded + blur)" ;;
+      "$looknfeel_data_dir/looknfeel.default.lua") variant="off (stock Omarchy)" ;;
+      "$looknfeel_data_dir/looknfeel.half.lua") variant="half (rounded at half radius)" ;;
+      "$looknfeel_data_dir/looknfeel.square.lua") variant="square (blur + shadow, no rounding)" ;;
+    esac
+    printf 'variant: %s\n' "$variant"
+  fi
+elif [[ -f "$looknfeel_target" ]]; then
+  printf 'variant: plain file, not a symlink -- predates the #15 stable-path migration, or Ruixen'"'"'s own look'"'"'n'"'"'feel has never been applied\n'
+else
+  printf 'variant: no looknfeel.lua at all -- stock Hyprland defaults\n'
+fi
+if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+  printf 'hyprctl: reachable (live Hyprland session confirmed)\n'
+else
+  printf 'hyprctl: not reachable from this shell -- run this from inside the real graphical session to confirm the live config actually matches the variant above, not just what the symlink points to\n'
+fi
+printf '\n'
+
 # --- Runtime health ---------------------------------------------------
 printf -- '-- Runtime --\n'
 qs_count="$(pgrep -c -f '^quickshell -n' 2>/dev/null || echo 0)"

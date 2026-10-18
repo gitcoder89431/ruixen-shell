@@ -61,7 +61,7 @@ The bar, notch and Shelf are one visual surface by design: read `AGENTS.md`
 | `dev/ruixen-bar-mode.sh docked\|floating\|status` | Switch the bar between merged (docked) and separate (floating) pills; live, no restart |
 | `dev/ruixen-bar-style.sh notch\|fullbar\|status` | Switch between the notch skin and the full-width statusline skin |
 | `hyprland/ruixen-lookfeel.sh on\|half\|square\|off\|status` | Window corner/blur variants |
-| `./ruixen-doctor.sh` | Read-only report: git state, plugin drift by content hash, bar layout, runtime health, clipboard capture, Ruixen state directory ownership/writability |
+| `./ruixen-doctor.sh` | Read-only report: git state, plugin drift by content hash, bar layout, runtime health, clipboard capture, Ruixen state directory ownership/writability, Hyprland look'n'feel symlink/variant |
 | `./ruixen-repair.sh [--dry-run]` | Redeploy plugins that drifted from this checkout |
 
 The first two are described for users in

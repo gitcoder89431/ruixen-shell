@@ -65,10 +65,18 @@ PanelWindow {
   Canvas {
     id: frameCanvas
     anchors.fill: parent
-    // Issue #114 -- the decorative border only, not dockChrome below
-    // (already independently gated on barRoot.docked). See
-    // barRoot.resolvedFrameEnabled's own comment for the full "why".
-    visible: frameWindow.barRoot.resolvedFrameEnabled
+    // Issue #114 follow-up: always visible now, not gated on
+    // resolvedFrameEnabled -- direct live report after shipping the
+    // plain on/off version: "all our notch shelf etc is mising the top
+    // part cause the frame is gone". Every bar/notch/shelf pill's own
+    // shape stops short of the real screen edge and always counted on
+    // this canvas's full-screen fill to back the gap around it; hiding
+    // the whole canvas removed that band everywhere, not just around
+    // the decorative border, so every pill's own rounded corner now
+    // exposed raw wallpaper right where it meets the edge. onPaint
+    // below now branches instead: disabled-while-floating still fills
+    // a plain band along whichever edge the bar actually sits against,
+    // just without the full perimeter border/corners.
     // A hard edge has no fractional coverage to leak on a fractional
     // Hyprland monitor scale -- same fix v1's own frame-widget already
     // needed for this exact Canvas technique, ported unchanged.
@@ -81,6 +89,8 @@ PanelWindow {
       function onFrameColorChanged() { frameCanvas.requestPaint() }
       function onLookFeelVariantChanged() { frameCanvas.requestPaint() }
       function onDockedChanged() { frameCanvas.requestPaint() }
+      function onResolvedFrameEnabledChanged() { frameCanvas.requestPaint() }
+      function onPositionChanged() { frameCanvas.requestPaint() }
     }
 
     function roundedRect(ctx, x, y, w, h, r) {
@@ -111,9 +121,36 @@ PanelWindow {
         : 24)
       : 24
 
+    // Issue #114 follow-up -- disabled-while-floating skips the full
+    // perimeter border/corners entirely, but still fills a plain band
+    // along whichever edge the bar actually sits against (position).
+    // Direct live correction after the first version (sized to the
+    // bar's own full row height) read as a full bar strip, not a
+    // floating-pills look: "atleast make the full bar we paint frame
+    // thickness... it should just be a small top frame". Just
+    // frameInset now -- the same thickness the bordered version's own
+    // band around the rest of the screen already uses, not the bar's
+    // own height. No hole punched here at all -- unlike the bordered
+    // version, nothing but the bar/notch/shelf ever sits in this band,
+    // so there's nothing for a hole to reveal. See this Canvas's own
+    // header comment for why this exists instead of repositioning the
+    // bar/notch/shelf when disabled.
+    function paintEdgeBand(ctx) {
+      ctx.fillStyle = frameWindow.barRoot.frameColor
+      const band = frameWindow.barRoot.frameInset
+      if (frameWindow.barRoot.position === "bottom") ctx.fillRect(0, height - band, width, band)
+      else if (frameWindow.barRoot.position === "left") ctx.fillRect(0, 0, band, height)
+      else if (frameWindow.barRoot.position === "right") ctx.fillRect(width - band, 0, band, height)
+      else ctx.fillRect(0, 0, width, band)
+    }
+
     onPaint: {
       const ctx = getContext("2d")
       ctx.clearRect(0, 0, width, height)
+      if (!frameWindow.barRoot.resolvedFrameEnabled) {
+        paintEdgeBand(ctx)
+        return
+      }
       ctx.fillStyle = frameWindow.barRoot.frameColor
       ctx.fillRect(0, 0, width, height)
       ctx.globalCompositeOperation = "destination-out"

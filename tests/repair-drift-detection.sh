@@ -83,5 +83,30 @@ out5="$(run_repair --dry-run)"
 check "after real repair: a follow-up dry-run reports healthy again" \
   "$(grep -c 'Healthy -- every plugin file matches' <<<"$out5")" "1"
 
+# Exercise checkout metadata independently of whichever checkout runs this suite.
+fixture_repo="$fake_home/checkout"
+git init -q "$fixture_repo"
+cp "$repo_dir/ruixen-repair.sh" "$fixture_repo/"
+git -C "$fixture_repo" add ruixen-repair.sh
+git -C "$fixture_repo" -c user.name=Test -c user.email=test@example.com \
+  -c commit.gpgsign=false commit -qm 'Repair fixture'
+git -C "$fixture_repo" worktree add -q --detach "$fake_home/worktree" HEAD
+for checkout in "$fixture_repo" "$fake_home/worktree"; do
+  status=0
+  HOME="$fake_home" bash "$checkout/ruixen-repair.sh" --dry-run \
+    >"$fake_home/checkout.out" 2>&1 || status=$?
+  check "$(basename "$checkout"): valid checkout accepted" "$status" "0"
+done
+
+# A copied script must not pass just because a parent directory is a repo.
+mkdir "$fixture_repo/copied"
+cp "$repo_dir/ruixen-repair.sh" "$fixture_repo/copied/"
+status=0
+HOME="$fake_home" bash "$fixture_repo/copied/ruixen-repair.sh" --dry-run \
+  >"$fake_home/copied.out" 2>&1 || status=$?
+check "copied script without its own Git metadata is rejected" "$status" "1"
+check "copied script explains the checkout requirement" \
+  "$(grep -c 'is not a git checkout' "$fake_home/copied.out")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

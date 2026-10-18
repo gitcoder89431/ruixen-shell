@@ -39,7 +39,9 @@ for arg in "$@"; do
   esac
 done
 
-[[ -d "$script_dir/.git" ]] || {
+# Git validates both a normal checkout's directory and a linked worktree's
+# gitfile. Checking this exact path also rejects copies inside another repo.
+git rev-parse --resolve-git-dir "$script_dir/.git" >/dev/null 2>&1 || {
   printf 'ruixen-repair: %s is not a git checkout -- clone the repo with git instead of copying files out of it\n' "$script_dir" >&2
   exit 1
 }

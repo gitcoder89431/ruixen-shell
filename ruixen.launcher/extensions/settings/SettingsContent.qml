@@ -1735,6 +1735,10 @@ Item {
   property string frameColorMode: "black"
   property string barSurfaceMaterial: "glass"
   property string barIconTone: "accent"
+  // Issue #114 -- see Bar.qml's own frameEnabled/resolvedFrameEnabled
+  // comment for the full "why" (docked mode forces this on regardless
+  // of what's stored here).
+  property bool frameEnabled: true
   property bool barSurfaceStateLoaded: false
   readonly property string barSurfaceStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/bar-surface.json"
   readonly property string barIconToneStatePath: Quickshell.env("HOME") + "/.local/state/ruixen/bar-icon-tone.json"
@@ -1744,15 +1748,16 @@ Item {
   function normalizeSurfaceMaterial(material) { return material === "glass" ? "glass" : "solid" }
   function normalizeIconTone(tone) { return tone === "accent" ? "accent" : "mono" }
 
-  function applyBarSurfaceState(colorMode, material) {
+  function applyBarSurfaceState(colorMode, material, frameEnabled) {
     root.frameColorMode = root.normalizeSurfaceColorMode(colorMode)
     root.barSurfaceMaterial = root.normalizeSurfaceMaterial(material)
+    root.frameEnabled = frameEnabled !== false
   }
 
   function loadBarSurfaceState(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.applyBarSurfaceState(p && p.color, p && p.material)
+      root.applyBarSurfaceState(p && p.color, p && p.material, p && p.frameEnabled)
       root.barSurfaceStateLoaded = true
     } catch (e) {
       root.barSurfaceStateLoaded = false
@@ -1764,8 +1769,21 @@ Item {
     barSurfaceFile.setText(JSON.stringify({
       version: 1,
       color: root.frameColorMode,
-      material: root.barSurfaceMaterial
+      material: root.barSurfaceMaterial,
+      frameEnabled: root.frameEnabled
     }, null, 2) + "\n")
+  }
+
+  // Issue #114 -- docked mode forces the frame on regardless (see
+  // Bar.qml's own resolvedFrameEnabled), so this is a no-op while
+  // docked rather than persisting a preference that wouldn't visibly
+  // apply -- same "don't let a GUI control claim to do something it
+  // currently can't" reasoning setBarIconTone/setFrameColorMode don't
+  // need, since neither of those has a mode-dependent no-op case.
+  function setFrameEnabled(value) {
+    if (root.barMode === "docked") return
+    root.frameEnabled = !!value
+    root.writeBarSurfaceState()
   }
 
   function loadBarIconToneState(raw) {
@@ -2245,6 +2263,15 @@ Item {
       options: AppLauncherGlyphs.iconIds(),
       current: root.appLauncherIconId,
       activate: function(id) { root.setAppLauncherIconId(id) }
+    },
+    // Issue #114 -- appended rather than slotted in next to Bar Layout,
+    // to avoid renumbering every focusedItemIndex literal above (and
+    // appLauncherIconItem's own tile-level ones) for a purely cosmetic
+    // ordering preference.
+    {
+      kind: "toggle",
+      checked: root.frameEnabled,
+      activate: function() { root.setFrameEnabled(!root.frameEnabled) }
     }
   ]
 
@@ -2745,7 +2772,8 @@ Item {
       // file's own header.
       if (root.focusedItemIndex === 5) return barPage.iconRepeater.itemAt(root.focusedOptionIndex)
       return [barPage.barLayoutItem, barPage.frameColorModeItem, barPage.surfaceMaterialItem,
-        barPage.iconToneItem, barPage.notchVisibilityItem, barPage.appLauncherIconItem][root.focusedItemIndex]
+        barPage.iconToneItem, barPage.notchVisibilityItem, barPage.appLauncherIconItem,
+        barPage.frameEnabledItem][root.focusedItemIndex]
     }
     if (root.launcherOpen) {
       // Issue #102 phase 7: every one of these now lives inside

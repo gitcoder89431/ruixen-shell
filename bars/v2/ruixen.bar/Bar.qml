@@ -618,6 +618,21 @@ Item {
   property string frameColorMode: "black"
   property string barSurfaceMaterial: "glass"
   readonly property color frameColor: resolveSurfaceColor(root.frameColorMode)
+
+  // Issue #114, direct request: "on float mode to be able to disable the
+  // frame" -- the decorative hole-punch border only, not dockChrome
+  // (the shoulder/wing pieces that fuse the docked bar into the frame's
+  // own edge geometry, already gated on root.docked independently).
+  // Forced on whenever docked regardless of this stored preference --
+  // docked mode's own chrome depends on the same coordinate space as
+  // the border, so there's no safe way to drop it there. The notch and
+  // the floating pill both already paint their own fully opaque
+  // backgrounds in their own separate windows (confirmed directly
+  // against FrameWindow.qml's own comment on its now-removed notch
+  // hole), so neither depends on this border being present -- disabling
+  // it in floating mode is purely cosmetic.
+  property bool frameEnabled: true
+  readonly property bool resolvedFrameEnabled: root.docked || root.frameEnabled
   // Docked mode's merged shoulder strip (leftDockedBg/rightDockedBg and
   // their wing pieces below) hides every individual pill's own
   // background (GroupPill { visible: !root.docked }) and renders icons
@@ -678,15 +693,16 @@ Item {
     return material === "glass" ? "glass" : "solid"
   }
 
-  function applyBarSurfaceState(colorMode, material) {
+  function applyBarSurfaceState(colorMode, material, frameEnabled) {
     root.frameColorMode = normalizeSurfaceColorMode(colorMode)
     root.barSurfaceMaterial = normalizeSurfaceMaterial(material)
+    root.frameEnabled = frameEnabled !== false
   }
 
   function loadBarSurfaceState(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.applyBarSurfaceState(p && p.color, p && p.material)
+      root.applyBarSurfaceState(p && p.color, p && p.material, p && p.frameEnabled)
       root.barSurfaceStateLoaded = true
     } catch (e) {
       root.barSurfaceStateLoaded = false

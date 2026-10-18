@@ -36,6 +36,7 @@ Column {
   readonly property alias iconToneItem: iconToneItem
   readonly property alias notchVisibilityItem: notchVisibilityItem
   readonly property alias appLauncherIconItem: appLauncherIconItem
+  readonly property alias frameEnabledItem: frameEnabledItem
 
   // Bar's own single item -- direct request: "think we're ready for
   // the bar page next, it should just be one setting option there for
@@ -301,6 +302,47 @@ Column {
           }
         }
       }
+    }
+  }
+
+  // Issue #114, direct request: "on float mode to be able to disable
+  // the frame". Appended last (index 6) rather than placed next to Bar
+  // Layout, to avoid renumbering every other item on this page's own
+  // hardcoded focusedItemIndex -- see SettingsContent.qml's own
+  // barItems comment for the same reasoning. SettingsToggleRow is
+  // deliberately just the row (see its own header comment) -- this
+  // Rectangle is the same plain card wrapper appLauncherIconItem above
+  // already uses, not a separate shared-card case like Visualizer's
+  // Enabled/Mirror pair (this page has only the one toggle).
+  Rectangle {
+    width: parent.width
+    height: frameEnabledItem.height + 24
+    radius: 10
+    color: Qt.rgba(0, 0, 0, 0.18)
+    visible: root.settingsRoot.barOpen
+
+    // Dimmed + a subtitle while docked (same "explain why, don't just
+    // silently ignore the click" shape cavaEnableRow's own
+    // toggleEnabled/subtitle pair already uses for "cava not
+    // installed"), since docked mode forces this on regardless of what
+    //'s stored here -- setFrameEnabled's own no-op guard means a click
+    // here while docked would otherwise look like it did nothing, with
+    // no explanation why.
+    SettingsToggleRow {
+      id: frameEnabledItem
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.margins: 12
+      label: "Frame Border"
+      subtitle: root.settingsRoot.barMode === "docked" ? "Always on while docked" : ""
+      toggleEnabled: root.settingsRoot.barMode !== "docked"
+      checked: root.settingsRoot.frameEnabled
+      rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 6
+      textColor: root.settingsRoot.textColor
+      accent: root.settingsRoot.accent
+      fontFamily: root.settingsRoot.fontFamily
+      onToggled: root.settingsRoot.setFrameEnabled(!root.settingsRoot.frameEnabled)
     }
   }
 }

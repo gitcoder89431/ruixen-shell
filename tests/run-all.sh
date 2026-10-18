@@ -53,6 +53,7 @@ suites=(
   "$script_dir/poster-cache-pruning.sh"
   "$script_dir/no-hardcoded-omarchy-shell-path.sh"
   "$script_dir/bar-style-mode.sh"
+  "$script_dir/frame-enabled-toggle.sh"
   "$script_dir/bar-popup-clearance.sh"
   "$script_dir/bar-right-side-groups.sh"
   "$script_dir/bar-docked-left-inset.sh"

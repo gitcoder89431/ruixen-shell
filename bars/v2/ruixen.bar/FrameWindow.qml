@@ -65,6 +65,10 @@ PanelWindow {
   Canvas {
     id: frameCanvas
     anchors.fill: parent
+    // Issue #114 -- the decorative border only, not dockChrome below
+    // (already independently gated on barRoot.docked). See
+    // barRoot.resolvedFrameEnabled's own comment for the full "why".
+    visible: frameWindow.barRoot.resolvedFrameEnabled
     // A hard edge has no fractional coverage to leak on a fractional
     // Hyprland monitor scale -- same fix v1's own frame-widget already
     // needed for this exact Canvas technique, ported unchanged.
@@ -161,6 +165,9 @@ PanelWindow {
   Canvas {
     id: frameShadowCanvas
     anchors.fill: parent
+    // Issue #114 -- same gate as frameCanvas above; this is the hole-
+    // punch edge's own inner shadow, part of the same decorative border.
+    visible: frameWindow.barRoot.resolvedFrameEnabled
     antialiasing: true
 
     onWidthChanged: requestPaint()

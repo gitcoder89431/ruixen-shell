@@ -469,6 +469,66 @@ else
 fi
 printf '\n'
 
+# --- Ruixen state directory ownership/writability -- a chroot install
+# (or any sudo-run step that touches $HOME) can leave files under
+# $state_dir owned by root. Settings UI writes still update their own
+# in-memory property instantly either way, so the picker LOOKS like it
+# responded -- but FileView.setText() against a file this user can't
+# write to silently does nothing, and every surface that reads it back
+# (the bar, the notch) just keeps re-showing whatever was last readable.
+# Reported live as "the whole bar and notch are stuck on Black/Mono, no
+# matter what I click" -- this is the check for exactly that, not
+# something to infer from Settings behavior alone. Current owner/mode
+# only, never content.
+printf -- '-- Ruixen state directory --\n'
+current_user="$(id -un)"
+if [[ -d "$state_dir" ]]; then
+  dir_owner="$(stat -c '%U' "$state_dir" 2>/dev/null || echo "?")"
+  if [[ -w "$state_dir" ]]; then
+    printf 'directory: writable (owner: %s)\n' "$dir_owner"
+  else
+    printf 'directory: NOT WRITABLE by %s (owner: %s)\n' "$current_user" "$dir_owner"
+    printf 'LIKELY CAUSE: settings changes update the UI instantly but silently fail to save -- everything that reads this directory back stays frozen regardless of what you click. Fix: sudo chown -R %s:%s %s\n' "$current_user" "$current_user" "$state_dir"
+  fi
+  not_owned=0
+  while IFS= read -r -d '' f; do
+    f_owner="$(stat -c '%U' "$f" 2>/dev/null || echo "?")"
+    if [[ "$f_owner" != "$current_user" ]] || [[ ! -w "$f" ]]; then
+      not_owned=$((not_owned + 1))
+      printf 'not writable: %s (owner: %s)\n' "$(basename "$f")" "$f_owner"
+    fi
+  done < <(find "$state_dir" -maxdepth 2 -type f -print0 2>/dev/null)
+  if [[ "$not_owned" -eq 0 ]]; then
+    printf 'all files under this directory: owned by %s and writable\n' "$current_user"
+  fi
+
+  # bar-surface.json is the authoritative color/material source; the
+  # pre-#78 frame-appearance.json is read only as a fallback when the
+  # new file fails to load (Overlay.qml/Bar.qml's own
+  # loadFrameAppearance()/loadFrameAppearanceState() both gate on
+  # barSurfaceStateLoaded). Settings writes both on every change, so
+  # under normal operation they always agree -- a mismatch here means
+  # one write landed and the other didn't (a write failure caught
+  # mid-flight, not necessarily the same as the blanket permission
+  # check above) or state that predates the migration was never
+  # resaved.
+  bar_surface="$state_dir/bar-surface.json"
+  frame_appearance="$state_dir/frame-appearance.json"
+  if [[ -f "$bar_surface" && -f "$frame_appearance" ]] \
+    && jq empty "$bar_surface" >/dev/null 2>&1 && jq empty "$frame_appearance" >/dev/null 2>&1; then
+    new_color="$(jq -r '.color // "black"' "$bar_surface")"
+    old_mode="$(jq -r '.mode // "black"' "$frame_appearance")"
+    if [[ "$new_color" == "$old_mode" ]]; then
+      printf 'bar-surface.json / frame-appearance.json agree: %s\n' "$new_color"
+    else
+      printf 'bar-surface.json (%s) and frame-appearance.json (%s) DISAGREE -- a Surface Color change did not fully save; the notch/bar may be reading the stale one\n' "$new_color" "$old_mode"
+    fi
+  fi
+else
+  printf 'directory: does not exist yet -- nothing has written Ruixen state here\n'
+fi
+printf '\n'
+
 # --- Runtime health ---------------------------------------------------
 printf -- '-- Runtime --\n'
 qs_count="$(pgrep -c -f '^quickshell -n' 2>/dev/null || echo 0)"

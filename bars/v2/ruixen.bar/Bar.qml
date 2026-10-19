@@ -871,7 +871,18 @@ Item {
   // (PopupCard xdg-popups, the drag-ghost screen-point correction) --
   // same role this property has always had, just now also accounting
   // for the overlap trick on top of the older docked-vs-floating split.
-  readonly property int screenMarginTop: position === "top" ? contentTopInset - seamOverlap : contentTopInset
+  //
+  // && docked, not unconditional -- direct live report: "the hold drag
+  // to reorder line... is a bit high on the bar". Root cause: every
+  // OTHER real use of seamOverlap (margins.top, exclusiveZone,
+  // contentOffset's own topMargin, see that property's own comment)
+  // already gates the subtraction on docked, since BarPanel only
+  // actually paints/reserves the overlap while docked -- this was the
+  // one use site the docked-vs-floating split refactor missed, so it
+  // kept subtracting seamOverlap while floating too, 3px short of the
+  // bar's real on-screen position (the drag marker reads this value
+  // directly, so it landed exactly seamOverlap too high).
+  readonly property int screenMarginTop: (position === "top" && docked) ? contentTopInset - seamOverlap : contentTopInset
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)

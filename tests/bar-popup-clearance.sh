@@ -232,15 +232,22 @@ check "root.contentTopInset exists, exactly once (docked ? frameInset : resolved
 #
 # v2: this window's own REAL final on-screen top offset, i.e.
 # contentTopInset with the seam-overlap trick's own reduction already
-# applied for a top-positioned bar (0 for left/right/bottom, unaffected
-# by the trick). Real, reusable bar-hosting infrastructure -- currently
-# unconsumed (a past attempt to use it for quickactions'/pluginpins' own
-# PopupCard.margin, calibrated for centerOnBar's different Y formula,
-# was verified live to be wrong for the target.height-based formula
-# these actually use -- see either widget's own popup.margin comment for
-# the real fix).
+# applied for a top-positioned DOCKED bar (0 for left/right/bottom,
+# unaffected by the trick). && docked, not unconditional -- direct live
+# report ("the hold drag to reorder line... is a bit high on the bar"):
+# this was the one real use of seamOverlap that missed the docked gate
+# every other use site already carries (margins.top, exclusiveZone,
+# contentOffset's own topMargin) -- it kept subtracting seamOverlap
+# while floating too, where BarPanel never actually paints/reserves it,
+# landing the drag marker exactly seamOverlap too high. Real, reusable
+# bar-hosting infrastructure -- currently unconsumed outside this file's
+# own drag-ghost correction (a past attempt to use it for quickactions'/
+# pluginpins' own PopupCard.margin, calibrated for centerOnBar's
+# different Y formula, was verified live to be wrong for the
+# target.height-based formula these actually use -- see either widget's
+# own popup.margin comment for the real fix).
 check "root.screenMarginTop exists, exactly once (bar-hosting infra)" \
-  "$(grep -c 'readonly property int screenMarginTop: position === "top" ? contentTopInset - seamOverlap : contentTopInset' "$bar_qml" || true)" "1"
+  "$(grep -c 'readonly property int screenMarginTop: (position === "top" && docked) ? contentTopInset - seamOverlap : contentTopInset' "$bar_qml" || true)" "1"
 
 # ruixen.quickactions'/ruixen.pluginpins' own popups: centerOnBar stays
 # reverted (e0429b7 was purely visual, correctly dropped). The Y position

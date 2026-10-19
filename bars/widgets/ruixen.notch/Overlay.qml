@@ -130,6 +130,7 @@ Item {
   readonly property color surfaceSafeDarkForeground: "#101010"
   property string frameColorMode: "black"
   property string notchSurfaceMaterial: "solid"
+  property bool frameEnabled: true
   property bool barSurfaceStateLoaded: false
   readonly property color resolvedFrameColor: resolveSurfaceColor(root.frameColorMode)
   readonly property real resolvedFrameColorLuminance: surfaceLuminance(resolvedFrameColor)
@@ -178,18 +179,19 @@ Item {
     return mode === "theme" ? Color.background : root.surfaceBlack
   }
 
-  function applyBarSurfaceState(colorMode, material) {
+  function applyBarSurfaceState(colorMode, material, frameEnabled) {
     root.frameColorMode = normalizeSurfaceColorMode(colorMode)
     // The notch remains Solid-only until the coupled frame/notch glass
     // pass. Still store the normalized material so Settings/state have a
     // compatible contract without accidentally making this surface glass.
     root.notchSurfaceMaterial = normalizeSurfaceMaterial(material)
+    root.frameEnabled = frameEnabled !== false
   }
 
   function loadBarSurfaceState(raw) {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
-      root.applyBarSurfaceState(p && p.color, p && p.material)
+      root.applyBarSurfaceState(p && p.color, p && p.material, p && p.frameEnabled)
       root.barSurfaceStateLoaded = true
     } catch (e) {
       root.barSurfaceStateLoaded = false

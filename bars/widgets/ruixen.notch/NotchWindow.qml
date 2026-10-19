@@ -727,7 +727,12 @@ PanelWindow {
     // verbatim (see margins.top's own comment on the PanelWindow
     // above) so the pill's final on-screen position when revealed is
     // unchanged from before that fix.
-    readonly property int restY: 4
+    //
+    // Collapses to 0 with Frame Border off -- direct follow-up on
+    // issue #114 ("disable the top reserve space"): with no frame
+    // painted to visually justify the gap, the resting 4px just read
+    // as the pill floating off the true screen edge for no reason.
+    readonly property int restY: panel.notchRoot.frameEnabled ? 4 : 0
     y: panel.notchPillRevealed ? restY : -(height + 8)
     Behavior on y { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
 

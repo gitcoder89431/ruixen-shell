@@ -18,6 +18,8 @@ bar_qml="$repo_dir/bars/v2/ruixen.bar/Bar.qml"
 frame_qml="$repo_dir/bars/v2/ruixen.bar/FrameWindow.qml"
 settings_qml="$repo_dir/ruixen.launcher/extensions/settings/SettingsContent.qml"
 barpage_qml="$repo_dir/ruixen.launcher/extensions/settings/pages/BarPage.qml"
+overlay_qml="$repo_dir/bars/widgets/ruixen.notch/Overlay.qml"
+notch_window_qml="$repo_dir/bars/widgets/ruixen.notch/NotchWindow.qml"
 
 pass=0
 fail_count=0
@@ -103,6 +105,22 @@ check "disabling applies via hl.config eval, confirmed the real mechanism -- thi
   "$(grep -c 'hyprctl eval \\"hl.config({ general = { gaps_out = { top = \$top, right = \$top, bottom = \$top, left = \$top } } })\\"' "$bar_qml")" "1"
 check "syncFrameGaps stops any in-flight run before reassigning -- confirmed live, two near-simultaneous calls at real startup otherwise race and the second one's command silently never takes effect" \
   "$(grep -A2 'function syncFrameGaps() {' "$bar_qml" | grep -c 'if (frameGapSyncProc.running) frameGapSyncProc.running = false')" "1"
+
+# --- Overlay.qml / NotchWindow.qml: direct follow-up -- the painted
+# edge-band fix above wasn't well received live ("the user kinda didnt
+# like the the top frame only"), so the notch instead collapses its own
+# reserved top space when the frame is off, sitting flush against the
+# true screen edge instead of keeping a gap nothing visually justifies.
+check "Overlay.qml declares its own frameEnabled, defaulting to on, mirroring Bar.qml's shape" \
+  "$(grep -c 'property bool frameEnabled: true' "$overlay_qml")" "1"
+check "applyBarSurfaceState takes frameEnabled as a third argument" \
+  "$(grep -c 'function applyBarSurfaceState(colorMode, material, frameEnabled)' "$overlay_qml")" "1"
+check "a missing/non-false frameEnabled value in the state file still defaults to on" \
+  "$(grep -c 'root.frameEnabled = frameEnabled !== false' "$overlay_qml")" "1"
+check "loadBarSurfaceState passes the parsed frameEnabled field through" \
+  "$(grep -c 'root.applyBarSurfaceState(p && p.color, p && p.material, p && p.frameEnabled)' "$overlay_qml")" "1"
+check "notchOuter's restY collapses to 0 with the frame off instead of keeping the 4px resting gap" \
+  "$(grep -A20 'id: notchOuter' "$notch_window_qml" | grep -c 'readonly property int restY: panel.notchRoot.frameEnabled ? 4 : 0')" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

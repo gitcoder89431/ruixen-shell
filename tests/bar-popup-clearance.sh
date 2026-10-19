@@ -116,7 +116,11 @@ shoulder_wing_size="$(grep -oP 'property int shoulderWingSize:\s*\K[0-9]+' "$bar
 # file-wide match on a name as short as restY would be too easy to
 # collide with something unrelated later.
 notch_top_margin="$(grep -oP 'margins\.top:\s*\K[0-9]+' "$notch_overlay_qml")"
-notch_outer_top_margin="$(grep -A16 'id: notchOuter' "$notch_overlay_qml" | grep -oP 'property int restY:\s*\K[0-9]+')"
+# restY is now a ternary (Frame Border off collapses it to 0, issue #114
+# follow-up) -- the frame-enabled branch (4) is the value this invariant
+# actually protects, since notchCollapsedBottomEdge is a floor/ceiling the
+# frame-off case (a strictly smaller real edge) stays safely under either way.
+notch_outer_top_margin="$(grep -A16 'id: notchOuter' "$notch_overlay_qml" | grep -oP 'property int restY:.*\?\s*\K[0-9]+')"
 notch_collapsed_height="$(grep -oP 'panel\.pinnedOpen \? 400 : \K[0-9]+' "$notch_overlay_qml")"
 notch_body_width="$(grep -oP 'panel\.pinnedOpen \? 900 : \K[0-9]+' "$notch_overlay_qml")"
 notch_corner_size="$(grep -oP 'readonly property int cornerSize:\s*\K[0-9]+' "$notch_overlay_qml")"

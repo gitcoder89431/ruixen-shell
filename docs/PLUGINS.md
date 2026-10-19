@@ -50,7 +50,8 @@ unchanged. Back to the [manual index](README.md).
   reference: [`docs/LAUNCHER.md`](LAUNCHER.md).
 - **The screen frame** — the border that ties the bar and notch together
   visually, in black or following the active theme. It is part of `ruixen.bar` (an earlier standalone
-  `ruixen.frame-widget` was merged into it).
+  `ruixen.frame-widget` was merged into it). Optional while floating — see
+  [Frame Border](CUSTOMIZATION.md#frame-border-floating-mode).
 - **`ruixen.shelf`** — the drop pocket under the notch (see
   [Shelf](#shelf-drop-pocket) below).
 - **`ruixen.wallpaper`** — muted looping video and animated GIF wallpaper

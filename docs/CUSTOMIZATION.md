@@ -21,6 +21,21 @@ trying:
 
 No restart needed either way — it's a live config reload.
 
+## Frame Border (floating mode)
+
+The decorative border around the screen edge is optional while floating --
+**Frame Border**, the top toggle on Ruixen Settings' Bar page. Off, the
+bar's floating pills, the notch, and the shelf all sit flush (or close to
+it) against the true screen edge instead of behind the painted border, and
+tiled windows' own reserved gap shrinks to match instead of leaving the old
+border-sized space behind. Docked mode always keeps it on -- the frame also
+hosts docked's own shoulder/wing chrome, so the toggle is disabled (with an
+explanation) whenever `Bar Layout` is set to Docked.
+
+Settings-only, no `dev/` script counterpart -- it's pure UI/persisted state
+(`~/.local/state/ruixen/bar-surface.json`), not a config file to edit by
+hand.
+
 ## Bar style
 
 The normal style is `notch`: the center island stays visible and the bar keeps

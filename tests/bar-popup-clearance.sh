@@ -221,8 +221,12 @@ check "root.topInset (floating's own, separately-tuned top margin) still exists,
 margins_top_line="$(grep -m1 'position === "top".*barWindow.barRoot.contentTopInset' "$barpanel_qml")"
 check "margins.top still resolves per-mode via root.contentTopInset" \
   "$(printf '%s' "$margins_top_line" | grep -c 'barWindow\.barRoot\.contentTopInset' || true)" "1"
-check "root.contentTopInset exists, exactly once (docked ? frameInset : topInset)" \
-  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : topInset' "$bar_qml" || true)" "1"
+# Issue #114 follow-up: floating's own branch now collapses to 0 with
+# Frame Border off, same "sit flush at the true edge" treatment the
+# notch/shelf already got. Docked is untouched -- resolvedFrameEnabled
+# is already forced true whenever docked.
+check "root.contentTopInset exists, exactly once (docked ? frameInset : resolvedFrameEnabled ? topInset : 0)" \
+  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : 0)' "$bar_qml" || true)" "1"
 
 # --- root.screenMarginTop (bar hosting infra) --------------------------
 #

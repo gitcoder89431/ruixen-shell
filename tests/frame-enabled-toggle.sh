@@ -121,5 +121,15 @@ check "loadBarSurfaceState passes the parsed frameEnabled field through" \
 check "notchOuter's restY collapses to 0 with the frame off instead of keeping the 4px resting gap" \
   "$(grep -A20 'id: notchOuter' "$notch_window_qml" | grep -c 'readonly property int restY: panel.notchRoot.frameEnabled ? 4 : 0')" "1"
 
+# --- Bar.qml: direct follow-up -- the painted edge-band compromise
+# wasn't well received live either ("the user kinda didnt like the the
+# top frame only"), so the bar's own floating pills get the same
+# flush-edge treatment as the notch/shelf instead, routed through the
+# one property (contentTopInset) everything else already derives the
+# real on-screen top position from -- not a second condition threaded
+# through every call site.
+check "contentTopInset collapses the floating branch to 0 with the frame off; docked is untouched" \
+  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : 0)' "$bar_qml")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

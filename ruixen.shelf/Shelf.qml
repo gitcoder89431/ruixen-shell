@@ -53,6 +53,7 @@ Item {
   // object link between plugins. Solid material only for now, like the
   // notch itself; a glass pass belongs with the coupled frame/notch one.
   property string surfaceMode: "black"
+  property bool frameEnabled: true
   property bool surfaceStateLoaded: false
   readonly property color surfaceBlack: "#000000"
   readonly property color surfaceSafeLightForeground: "#e8e8e8"
@@ -84,6 +85,7 @@ Item {
     try {
       var p = JSON.parse(String(raw || "").trim() || "{}")
       root.surfaceMode = root.normalizeSurfaceMode(p && p.color)
+      root.frameEnabled = (p && p.frameEnabled) !== false
       root.surfaceStateLoaded = true
     } catch (e) {
       root.surfaceStateLoaded = false
@@ -364,7 +366,11 @@ Item {
     // Top-anchored only: a layer surface anchored to one edge is centered
     // along the perpendicular axis, which is where the notch is.
     anchors { top: true }
-    margins.top: root.frameInset
+    // Collapses to 0 with Frame Border off, mirroring ruixen.notch's own
+    // restY treatment (issue #114 follow-up) -- with no frame painted to
+    // visually justify the gap, the shelf now sits flush at the true
+    // screen edge instead, same as the notch it mirrors.
+    margins.top: root.frameEnabled ? root.frameInset : 0
     implicitWidth: root.shapeWidth + root.haloPad * 2
     implicitHeight: root.shapeHeight + root.haloPad
     exclusionMode: ExclusionMode.Ignore

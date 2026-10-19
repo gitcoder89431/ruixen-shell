@@ -137,7 +137,14 @@ check "Model has no Qt/Quickshell globals" "$(grep -cE '\b(Quickshell|Qt\.|Proce
 # offset. These pin the properties that are easy to "tidy up" by accident
 # and very visible when you do.
 check "Shape: attached to the frame at the notch's resting offset, no floating gap" \
-  "$(grep -c 'readonly property int frameInset: 4' "$shelf")$(grep -c 'margins.top: root.frameInset' "$shelf")$(grep -c 'margins.top: 52' "$shelf" || true)" "110"
+  "$(grep -c 'readonly property int frameInset: 4' "$shelf")$(grep -c 'margins.top: root.frameEnabled ? root.frameInset : 0' "$shelf")$(grep -c 'margins.top: 52' "$shelf" || true)" "110"
+# Issue #114 follow-up: collapses to 0 with Frame Border off, mirroring
+# the notch's own restY treatment, instead of keeping a gap nothing
+# visually justifies once the frame isn't painted anymore.
+check "Shape: frameEnabled threaded in from the shared bar-surface state, defaulting to on" \
+  "$(grep -c 'property bool frameEnabled: true' "$shelf")" "1"
+check "Shape: loadSurfaceState parses frameEnabled, defaulting a missing/non-false value to on" \
+  "$(grep -c 'root.frameEnabled = (p && p.frameEnabled) !== false' "$shelf")" "1"
 # 900 is the notch's own EXPANDED (pinned) width, not the launcher's 420 --
 # this check exists to make a silent revert to 420 (or any other new number)
 # a deliberate, visible act rather than a quiet edit, because that is the

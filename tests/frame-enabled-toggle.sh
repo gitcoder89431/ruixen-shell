@@ -46,20 +46,19 @@ check "a missing/non-false frameEnabled value in the state file still defaults t
 check "loadBarSurfaceState passes the parsed frameEnabled field through" \
   "$(grep -c 'root.applyBarSurfaceState(p && p.color, p && p.material, p && p.frameEnabled)' "$bar_qml")" "1"
 
-# --- FrameWindow.qml: disabled-while-floating still backs the bar's own
-# edge (direct live report: "all our notch shelf etc is mising the top
-# part cause the frame is gone" -- every pill's own shape stops short
-# of the real screen edge and always counted on the full-screen fill to
-# back the gap around it). Only dockChrome stays untouched by any of this.
-check "frameCanvas stays visible unconditionally now -- the branch lives in onPaint, not a visible: gate" \
-  "$(grep -A20 'id: frameCanvas' "$frame_qml" | grep -c 'visible: frameWindow.barRoot.resolvedFrameEnabled')" "0"
-check "onPaint branches to the edge-band fill instead of the full border+hole when disabled" \
-  "$(grep -A4 '    onPaint: {' "$frame_qml" | grep -c 'if (!frameWindow.barRoot.resolvedFrameEnabled) {')" "1"
-check "the edge band is just frameInset thick -- direct correction after the full-bar-height version read as a full bar strip" \
-  "$(grep -c 'const band = frameWindow.barRoot.frameInset$' "$frame_qml")" "1"
-check "the edge band follows wherever the bar actually sits (all four positions), not hardcoded to top" \
-  "$(( $(grep -c 'barRoot.position === "bottom"' "$frame_qml") + $(grep -c 'barRoot.position === "left"' "$frame_qml") + $(grep -c 'barRoot.position === "right"' "$frame_qml") ))" "3"
-check "frameShadowCanvas (the bordered hole's own inner shadow) stays gated the same way -- no shadow needed for a plain band" \
+# --- FrameWindow.qml: the edge-band compromise (direct live report after
+# the plain on/off version: "all our notch shelf etc is mising the top
+# part cause the frame is gone") wasn't well received live either, and
+# the notch/shelf no longer need it -- they now collapse their own
+# reserved top space instead (see notch-window/shelf-plugin tests). Bar's
+# own floating padding is untouched for now, deliberately, so frameCanvas
+# is back to a plain visible: gate with no onPaint branch. Only dockChrome
+# stays untouched by any of this, same as before.
+check "frameCanvas is a plain visible: gate again, no edge-band branch left in onPaint" \
+  "$(grep -A20 'id: frameCanvas' "$frame_qml" | grep -c 'visible: frameWindow.barRoot.resolvedFrameEnabled')" "1"
+check "no leftover paintEdgeBand function or band-painting branch" \
+  "$(( $(grep -c 'function paintEdgeBand' "$frame_qml") + $(grep -c 'if (!frameWindow.barRoot.resolvedFrameEnabled) {' "$frame_qml") ))" "0"
+check "frameShadowCanvas stays gated the same way as frameCanvas" \
   "$(grep -A4 'id: frameShadowCanvas' "$frame_qml" | grep -c 'visible: frameWindow.barRoot.resolvedFrameEnabled')" "1"
 check "dockChrome stays independently gated on docked alone, untouched by this feature" \
   "$(grep -c 'visible: frameWindow.barRoot.docked && frameWindow.barRoot.position === "top"' "$frame_qml")" "1"

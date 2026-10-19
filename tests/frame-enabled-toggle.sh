@@ -70,10 +70,15 @@ check "writeBarSurfaceState persists frameEnabled alongside color/material" \
   "$(grep -A5 'function writeBarSurfaceState' "$settings_qml" | grep -c 'frameEnabled: root.frameEnabled')" "1"
 check "setFrameEnabled is a no-op while docked -- the click would otherwise silently do nothing" \
   "$(grep -A4 'function setFrameEnabled' "$settings_qml" | grep -c 'if (root.barMode === "docked") return')" "1"
-check "barItems' own Frame Border toggle sits right after Bar Layout, not appended at the end" \
-  "$(grep -A9 'options: \["floating", "docked"\]' "$settings_qml" | grep -c 'kind: "toggle"')" "1"
-check "focusedItemVisual's own bar-section array has frameEnabledItem right after barLayoutItem" \
-  "$(grep -c 'barPage.barLayoutItem, barPage.frameEnabledItem, barPage.frameColorModeItem,' "$settings_qml")" "1"
+# Issue #114 follow-up, direct request: "move the settings toggle in
+# the bar menu so the toggle is the top option... looks cleaner" --
+# Frame Border is first now, Bar Layout second (swapped from the
+# previous pass, which put Bar Layout first and the toggle right
+# under it).
+check "barItems' own Frame Border toggle sits first, right before Bar Layout" \
+  "$(grep -A8 'readonly property var barItems: \[' "$settings_qml" | grep -c 'kind: "toggle"')" "1"
+check "focusedItemVisual's own bar-section array has frameEnabledItem first, right before barLayoutItem" \
+  "$(grep -c 'barPage.frameEnabledItem, barPage.barLayoutItem, barPage.frameColorModeItem,' "$settings_qml")" "1"
 
 # --- BarPage.qml: the actual control, dimmed + explained while docked
 check "BarPage.qml exposes frameEnabledItem through the same alias convention as its siblings" \
@@ -84,9 +89,11 @@ check "a subtitle explains why, instead of leaving a dimmed toggle with no expla
   "$(grep -c 'subtitle: root.settingsRoot.barMode === "docked" ? "Always on while docked" : ""' "$barpage_qml")" "1"
 check "the toggle reflects and writes through the real frameEnabled state, not a local copy" \
   "$(( $(grep -c 'checked: root.settingsRoot.frameEnabled' "$barpage_qml") + $(grep -c 'onToggled: root.settingsRoot.setFrameEnabled(!root.settingsRoot.frameEnabled)' "$barpage_qml") ))" "2"
-check "direct follow-up honored: the toggle sits at keyboard index 1, right under Bar Layout (index 0)" \
-  "$(grep -c 'rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 1' "$barpage_qml")" "1"
-check "every later item on the page was renumbered to make room (0,1,2,3,4,5,6,6 -- no gaps or dupes)" \
+check "direct follow-up honored: the toggle sits at keyboard index 0, now the top item on the page" \
+  "$(grep -c 'rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 0' "$barpage_qml")" "1"
+check "Bar Layout moved to index 1, right after Frame Border; nothing else on the page renumbered" \
+  "$(grep -A18 'id: barLayoutItem' "$barpage_qml" | grep -c 'focusedItemIndex === 1')" "1"
+check "every item on the page is still 0,1,2,3,4,5,6,6 -- no gaps or dupes after the swap" \
   "$(grep -oP 'focusedItemIndex === \K[0-9]' "$barpage_qml" | sort -n | tr '\n' ',')" "0,1,2,3,4,5,6,6,"
 
 # --- Bar.qml: live Hyprland gaps_out sync, direct follow-up after the

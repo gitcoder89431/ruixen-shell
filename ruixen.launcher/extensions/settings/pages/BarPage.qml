@@ -38,38 +38,16 @@ Column {
   readonly property alias appLauncherIconItem: appLauncherIconItem
   readonly property alias frameEnabledItem: frameEnabledItem
 
-  // Bar's own single item -- direct request: "think we're ready for
-  // the bar page next, it should just be one setting option there for
-  // bar layout floating or dock." It stays first because switching it
-  // changes the shell chrome shape and reload behavior more than the
-  // purely visual surface options below.
-  SettingsSegmentedItem {
-    id: barLayoutItem
-    label: "Bar Layout"
-    options: [
-      { id: "floating", label: "Floating" },
-      { id: "docked", label: "Docked" }
-    ]
-    current: settingsRoot.barMode
-    cardFocused: settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 0
-    focusedOptionIndex: cardFocused ? settingsRoot.focusedOptionIndex : -1
-    visible: settingsRoot.barOpen
-    textColor: settingsRoot.textColor
-    muted: settingsRoot.muted
-    accent: settingsRoot.accent
-    fontFamily: settingsRoot.fontFamily
-    onActivated: (id) => settingsRoot.setBarMode(id)
-  }
-
-  // Issue #114, direct request: "on float mode to be able to disable
-  // the frame [...] under bar layout" -- placed right under Bar Layout
-  // per that follow-up, not appended at the end like the first pass
-  // had it (every focusedItemIndex below was renumbered +1 to make
-  // room). SettingsToggleRow is deliberately just the row (see its own
-  // header comment) -- this Rectangle is the same plain card wrapper
-  // appLauncherIconItem below already uses, not a separate shared-card
-  // case like Visualizer's own Enabled/Mirror pair (this page has only
-  // the one toggle).
+  // Issue #114 follow-up, direct request: "move the settings toggle in
+  // the bar menu so the toggle is the top option... looks cleaner" --
+  // Frame Border moved here from right under Bar Layout (index 1) to
+  // first (index 0); every focusedItemIndex below was renumbered to
+  // match (Bar Layout 0 -> 1, everything else unchanged -- only the
+  // first two swapped). SettingsToggleRow is deliberately just the row
+  // (see its own header comment) -- this Rectangle is the same plain
+  // card wrapper appLauncherIconItem below already uses, not a
+  // separate shared-card case like Visualizer's own Enabled/Mirror pair
+  // (this page has only the one toggle).
   Rectangle {
     width: parent.width
     height: frameEnabledItem.height + 24
@@ -94,12 +72,37 @@ Column {
       subtitle: root.settingsRoot.barMode === "docked" ? "Always on while docked" : ""
       toggleEnabled: root.settingsRoot.barMode !== "docked"
       checked: root.settingsRoot.frameEnabled
-      rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 1
+      rowFocused: root.settingsRoot.rightFocused && root.settingsRoot.focusedItemIndex === 0
       textColor: root.settingsRoot.textColor
       accent: root.settingsRoot.accent
       fontFamily: root.settingsRoot.fontFamily
       onToggled: root.settingsRoot.setFrameEnabled(!root.settingsRoot.frameEnabled)
     }
+  }
+
+  // Bar's own layout switch -- direct request: "think we're ready for
+  // the bar page next, it should just be one setting option there for
+  // bar layout floating or dock." Used to sit first (it changes the
+  // shell chrome shape/reload behavior more than the purely visual
+  // options below), but a later direct follow-up moved Frame Border
+  // above it instead, purely for a cleaner-looking top of the page --
+  // see Frame Border's own card comment above.
+  SettingsSegmentedItem {
+    id: barLayoutItem
+    label: "Bar Layout"
+    options: [
+      { id: "floating", label: "Floating" },
+      { id: "docked", label: "Docked" }
+    ]
+    current: settingsRoot.barMode
+    cardFocused: settingsRoot.rightFocused && settingsRoot.focusedItemIndex === 1
+    focusedOptionIndex: cardFocused ? settingsRoot.focusedOptionIndex : -1
+    visible: settingsRoot.barOpen
+    textColor: settingsRoot.textColor
+    muted: settingsRoot.muted
+    accent: settingsRoot.accent
+    fontFamily: settingsRoot.fontFamily
+    onActivated: (id) => settingsRoot.setBarMode(id)
   }
 
   // Surface color -- theme it (tracks the active theme's own background

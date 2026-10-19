@@ -2226,19 +2226,19 @@ Item {
     }
   ]
   readonly property var barItems: [
-    {
-      options: ["floating", "docked"],
-      current: root.barMode,
-      activate: function(id) { root.setBarMode(id) }
-    },
-    // Issue #114, direct follow-up: "put it higher so it is available
-    // to toggle under bar layout" -- moved here from appended-at-the-
-    // end, with every focusedItemIndex literal on BarPage.qml (and its
-    // own appLauncherIconItem tile-level ones) renumbered +1 to match.
+    // Issue #114 follow-up, direct request: "move the settings toggle
+    // in the bar menu so the toggle is the top option... looks
+    // cleaner" -- swapped with Bar Layout below (was index 1, right
+    // under it; only these two swapped, nothing else renumbered).
     {
       kind: "toggle",
       checked: root.frameEnabled,
       activate: function() { root.setFrameEnabled(!root.frameEnabled) }
+    },
+    {
+      options: ["floating", "docked"],
+      current: root.barMode,
+      activate: function(id) { root.setBarMode(id) }
     },
     {
       options: ["black", "theme"],
@@ -2752,11 +2752,9 @@ Item {
         profilePage.windowCurvatureItem, profilePage.windowSpacingItem, profilePage.animationStyleItem][root.focusedItemIndex]
     }
     if (root.barOpen) {
-      // Launcher Mark (index 3, since Frame Color's move to index 0
-      // pushed every item after it up by one) is a special case --
-      // direct report:
-      // "it kinda scroll me down but then im not able to see the top
-      // rows... can only see the bottom ones". scrollToFocusedItem()
+      // Index 6 (appLauncherIconItem) is a special case -- direct
+      // report: "it kinda scroll me down but then im not able to see
+      // the top rows... can only see the bottom ones". scrollToFocusedItem()
       // uses this return value's own height to decide how far to
       // scroll; appLauncherIconItem is the WHOLE ~111-icon card
       // (many rows tall), so scrolling to keep its bottom edge in
@@ -2769,10 +2767,11 @@ Item {
       // already gets for free.
       // Issue #102 phase 5: every one of these now lives inside barPage
       // (BarPage.qml), exposed through its own aliases -- see that
-      // file's own header. Issue #114 renumbered this +1 after Bar
-      // Layout (index 0) once Frame Border moved there from the end.
+      // file's own header. Issue #114 follow-up: Frame Border and Bar
+      // Layout swapped (0 and 1) per direct request to put the toggle
+      // first -- everything from index 2 on is untouched.
       if (root.focusedItemIndex === 6) return barPage.iconRepeater.itemAt(root.focusedOptionIndex)
-      return [barPage.barLayoutItem, barPage.frameEnabledItem, barPage.frameColorModeItem,
+      return [barPage.frameEnabledItem, barPage.barLayoutItem, barPage.frameColorModeItem,
         barPage.surfaceMaterialItem, barPage.iconToneItem, barPage.notchVisibilityItem,
         barPage.appLauncherIconItem][root.focusedItemIndex]
     }

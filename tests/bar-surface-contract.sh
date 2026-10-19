@@ -98,11 +98,14 @@ check "GroupPill shadow uses the semantic shadow token" \
 check "launcher settings labels the shared control as Surface Color" \
   "$(grep -c 'label: "Surface Color"' "$bar_page_qml")" "1"
 
-check "launcher settings keeps Bar Layout first on the Bar page" \
-  "$(grep -Fc 'return [barPage.barLayoutItem, barPage.frameEnabledItem, barPage.frameColorModeItem,' "$settings_qml")" "1"
+# Issue #114 follow-up, direct request: "move the settings toggle in
+# the bar menu so the toggle is the top option... looks cleaner" --
+# Frame Border and Bar Layout swapped; Bar Layout no longer first.
+check "launcher settings puts Frame Border first on the Bar page" \
+  "$(grep -Fc 'return [barPage.frameEnabledItem, barPage.barLayoutItem, barPage.frameColorModeItem,' "$settings_qml")" "1"
 
-check "launcher settings focuses Bar Layout at index 0" \
-  "$(grep -A18 'id: barLayoutItem' "$bar_page_qml" | grep -c 'focusedItemIndex === 0')" "1"
+check "launcher settings focuses Bar Layout at index 1, right after Frame Border" \
+  "$(grep -A18 'id: barLayoutItem' "$bar_page_qml" | grep -c 'focusedItemIndex === 1')" "1"
 
 check "launcher settings exposes the independent Surface Material control" \
   "$(grep -c 'label: "Surface Material"' "$bar_page_qml")" "1"

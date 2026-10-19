@@ -105,10 +105,18 @@ check "barSurfaceStateLoaded becoming true fires the initial sync -- confirmed l
   "$(grep -c 'onBarSurfaceStateLoadedChanged: if (root.barSurfaceStateLoaded) root.syncFrameGaps()' "$bar_qml")" "1"
 check "re-enabling restores the real file-defined gaps via a plain reload, nothing hardcoded to remember/undo" \
   "$(grep -c 'command = \["bash", "-c", "hyprctl reload >/dev/null 2>&1 || true"\]' "$bar_qml")" "1"
-check "disabling reads the CURRENT top gap live rather than hardcoding today's configured value" \
-  "$(grep -c 'top=\$(hyprctl -j getoption general:gaps_out' "$bar_qml")" "1"
+# Direct follow-up correction: "the gap is abit much... wanna match it
+# with the bar too, so like equal space on top of the bar and the
+# window, and abit less on the notch" -- reading the user's own
+# CURRENT configured top gap (kept as-is, only right/bottom/left
+# synced to it) left the reservation on a totally different scale than
+# contentTopInset's own tight floating-off padding. Switched to
+# frameInset uniformly on every side so the window gap ties to the
+# exact same small inset the bar/notch already use when frameless.
+check "disabling uses frameInset uniformly, not the user's own pre-existing configured gap" \
+  "$(grep -c 'var g = root.frameInset' "$bar_qml")" "1"
 check "disabling applies via hl.config eval, confirmed the real mechanism -- this version's Hyprland rejects legacy hyprctl keyword outright" \
-  "$(grep -c 'hyprctl eval \\"hl.config({ general = { gaps_out = { top = \$top, right = \$top, bottom = \$top, left = \$top } } })\\"' "$bar_qml")" "1"
+  "$(grep -c 'hyprctl eval \\"hl.config({ general = { gaps_out = { top = \" + g + \", right = \" + g + \", bottom = \" + g + \", left = \" + g + \" } } })\\"' "$bar_qml")" "1"
 check "syncFrameGaps stops any in-flight run before reassigning -- confirmed live, two near-simultaneous calls at real startup otherwise race and the second one's command silently never takes effect" \
   "$(grep -A2 'function syncFrameGaps() {' "$bar_qml" | grep -c 'if (frameGapSyncProc.running) frameGapSyncProc.running = false')" "1"
 

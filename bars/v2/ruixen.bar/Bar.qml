@@ -693,9 +693,22 @@ Item {
     if (root.resolvedFrameEnabled) {
       frameGapSyncProc.command = ["bash", "-c", "hyprctl reload >/dev/null 2>&1 || true"]
     } else {
+      // frameInset, not the user's own configured top gap -- direct
+      // live correction: "the gap is abit much... wanna match it with
+      // the bar too, so like equal space on top of the bar and the
+      // window, and abit less on the notch". Keeping the real
+      // configured gap (previously read live and reused) left the
+      // reservation 10px of breathing room below the bar/notch no
+      // matter how tight contentTopInset's own floating-off value
+      // (frameInset) made the TOP padding -- a visible mismatch
+      // between "the bar sits close to the edge" and "but windows
+      // still sit far below it". Using frameInset uniformly on every
+      // side ties the window gap to the exact same small inset the
+      // bar/notch already use when frameless, instead of two unrelated
+      // numbers landing at two different scales.
+      var g = root.frameInset
       frameGapSyncProc.command = ["bash", "-c",
-        "top=$(hyprctl -j getoption general:gaps_out | grep -oP '\"css\": \"\\K[0-9]+'); " +
-        "hyprctl eval \"hl.config({ general = { gaps_out = { top = $top, right = $top, bottom = $top, left = $top } } })\" >/dev/null 2>&1 || true"]
+        "hyprctl eval \"hl.config({ general = { gaps_out = { top = " + g + ", right = " + g + ", bottom = " + g + ", left = " + g + " } } })\" >/dev/null 2>&1 || true"]
     }
     frameGapSyncProc.running = true
   }

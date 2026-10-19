@@ -260,7 +260,16 @@ Item {
       launcherActionProc.command = ["omarchy", "menu", "summon", data.id]
       launcherActionProc.running = true
     }
-    panel.launcherOpen = false
+    // overlayRoot, not panel -- direct report: "when the user clicks an
+    // application to open, they want the app launcher to collapse
+    // after opening an app". panel.launcherOpen (NotchWindow.qml) is a
+    // readonly property DERIVED from overlayRoot.launcherOpen
+    // (panel.isActiveScreen && overlayRoot.launcherOpen) -- assigning
+    // to it here was a silent no-op, so the real state never actually
+    // flipped and the launcher stayed open. overlayRoot.launcherOpen is
+    // the real, writable property every other close path in this repo
+    // (NotchWindow.qml's own click-away/Tab handlers) already assigns.
+    overlayRoot.launcherOpen = false
   }
 
   // Shared by the toggle button and the Tab shortcut below.
@@ -343,7 +352,12 @@ Item {
         var count = launcherContent.activeTiles.length
         var active = launcherContent.activeTiles[launcherContent.selectedIndex]
         if (event.key === Qt.Key_Escape) {
-          panel.launcherOpen = false
+          // overlayRoot, not panel -- same readonly-property mistake as
+          // activateTile's own comment above (panel.launcherOpen is
+          // derived/readonly). event.accepted below still suppresses
+          // the bubble-up to NotchWindow's own outer Escape handler, so
+          // this one had to be fixed directly rather than just removed.
+          overlayRoot.launcherOpen = false
           event.accepted = true
         } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) {
           if (launcherContent.selectedIndex > 0) launcherContent.selectedIndex--

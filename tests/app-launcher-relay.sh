@@ -239,5 +239,22 @@ check "ruixen.pinnedapps/BarWidget.qml instantiates AppLibrary" \
 check "no leftover debug IpcHandler in Overlay.qml (a mention of the word in a comment is fine)" \
   "$(grep -c 'target: "debug\.applibrary"' "$overlay_qml" || true)" "0"
 
+# --- activateTile/Escape write the real, writable launcherOpen ----------
+#
+# Direct report: "when the user clicks an application to open, they
+# want the app launcher to collapse after opening an app". Root cause:
+# both close paths wrote `panel.launcherOpen`, but that property
+# (NotchWindow.qml) is `readonly property bool launcherOpen:
+# panel.isActiveScreen && overlayRoot.launcherOpen` -- derived, not the
+# real state. Assigning to it was a silent no-op, so the launcher never
+# actually closed. overlayRoot.launcherOpen is the real, writable
+# property every other close path in NotchWindow.qml already assigns.
+check "no leftover writes to the readonly panel.launcherOpen" \
+  "$(grep -c 'panel\.launcherOpen = ' "$launcher_qml" || true)" "0"
+check "activateTile closes the launcher via the real, writable overlayRoot.launcherOpen" \
+  "$(grep -A18 'function activateTile(data)' "$launcher_qml" | grep -c 'overlayRoot.launcherOpen = false')" "1"
+check "the search box's own Escape handler closes it the same way" \
+  "$(grep -A6 'event.key === Qt.Key_Escape' "$launcher_qml" | grep -c 'overlayRoot.launcherOpen = false')" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

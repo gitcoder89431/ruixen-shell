@@ -141,5 +141,19 @@ check "notchOuter's restY collapses to 0 with the frame off instead of keeping t
 check "contentTopInset drops to frameInset (not 0) with the frame off; docked is untouched" \
   "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : frameInset)' "$bar_qml")" "1"
 
+# --- Bar.qml: direct follow-up -- "in frameless mode, the hyprland
+# window goes up a bit high, its touching the notch edge... on frame
+# mode, it has just a bit of gap". Root cause: notchClearance was a
+# hand-kept-in-sync literal (31) that only matched the documented
+# invariant (contentTopInset + notchClearance = 44) for ONE of
+# contentTopInset's two floating values (topInset) -- disabling the
+# frame switched it to the other (frameInset) without notchClearance
+# following, leaving the real Hyprland reservation 7px short of the
+# notch's actual footprint. Computed instead of hardcoded closes that
+# gap for either value, matching how docked's own exclusiveZone
+# formula already derives itself instead of using a second literal.
+check "notchClearance is computed from contentTopInset, not a hand-kept-in-sync literal" \
+  "$(grep -c 'readonly property int notchClearance: 44 - contentTopInset' "$bar_qml")" "1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]

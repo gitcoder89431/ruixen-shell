@@ -585,7 +585,21 @@ Item {
   // Notch (fixed separately, see BarPanel's implicitHeight comment),
   // and unifying the margin made floating's own spacing look
   // unbalanced for no real benefit. Back to the split tuned here.
-  readonly property int notchClearance: 31
+  //
+  // 44 - contentTopInset, not a hand-kept-in-sync literal (31) anymore
+  // -- direct live report after the Frame Border follow-up gave
+  // contentTopInset a SECOND floating value (frameInset while
+  // disabled, issue #114): "in frameless mode, the hyprland window
+  // goes up a bit high, its touching the notch edge... on frame mode,
+  // it has just a bit of gap". Root cause was exactly this comment's
+  // own warning -- the literal 31 only ever matched 44 - topInset,
+  // so disabling the frame (contentTopInset -> frameInset, 6) left
+  // the real reservation 7px short of the notch's actual footprint
+  // while the literal stayed put. Computing it instead makes the
+  // invariant hold by construction for either floating value, docked's
+  // own exclusiveZone formula two lines down already does the same
+  // (44 - frameInset, not a separate literal).
+  readonly property int notchClearance: 44 - contentTopInset
 
   // Inset so the bar's own content sits inside the frame's rounded-rect
   // hole instead of flush against the screen edge when docked. v1 had

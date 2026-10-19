@@ -832,16 +832,18 @@ Item {
   // BarPanel's own baseline top margin, before the seam-overlap
   // reduction below -- exactly what v1's own screenMarginTop always was.
   //
-  // Collapses to 0 while floating with Frame Border off (issue #114
-  // follow-up, after the painted edge-band compromise didn't land well
-  // live) -- same "sit flush at the true edge instead of keeping a gap
-  // nothing backs anymore" treatment the notch/shelf already got, just
-  // routed through the one property everything else in this file and
-  // BarPanel.qml already derives the real on-screen top position from,
-  // instead of threading a second condition through every call site.
-  // Docked is untouched -- resolvedFrameEnabled is already forced true
-  // whenever docked, so this branch never actually changes there.
-  readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : 0)
+  // Drops to frameInset (not 0) while floating with Frame Border off
+  // (issue #114 follow-up) -- a flush-to-the-true-edge version shipped
+  // first, matching the notch/shelf's own treatment, but direct live
+  // feedback was "way too close to the edge... bar should still have a
+  // bit of top padding". frameInset is the same small inset docked mode
+  // already uses, not a new number -- routed through the one property
+  // everything else in this file and BarPanel.qml already derives the
+  // real on-screen top position from, instead of threading a second
+  // condition through every call site. Docked is untouched --
+  // resolvedFrameEnabled is already forced true whenever docked, so
+  // this branch never actually changes there.
+  readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : frameInset)
 
   // A few pixels of deliberate insurance overlap BarPanel paints into
   // where FrameWindow's own edge is, so the two surfaces' own edges

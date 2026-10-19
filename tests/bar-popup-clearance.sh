@@ -225,8 +225,8 @@ check "margins.top still resolves per-mode via root.contentTopInset" \
 # Frame Border off, same "sit flush at the true edge" treatment the
 # notch/shelf already got. Docked is untouched -- resolvedFrameEnabled
 # is already forced true whenever docked.
-check "root.contentTopInset exists, exactly once (docked ? frameInset : resolvedFrameEnabled ? topInset : 0)" \
-  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : 0)' "$bar_qml" || true)" "1"
+check "root.contentTopInset exists, exactly once (docked ? frameInset : resolvedFrameEnabled ? topInset : frameInset)" \
+  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : frameInset)' "$bar_qml" || true)" "1"
 
 # --- root.screenMarginTop (bar hosting infra) --------------------------
 #

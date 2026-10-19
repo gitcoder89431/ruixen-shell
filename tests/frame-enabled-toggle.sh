@@ -123,13 +123,16 @@ check "notchOuter's restY collapses to 0 with the frame off instead of keeping t
 
 # --- Bar.qml: direct follow-up -- the painted edge-band compromise
 # wasn't well received live either ("the user kinda didnt like the the
-# top frame only"), so the bar's own floating pills get the same
-# flush-edge treatment as the notch/shelf instead, routed through the
-# one property (contentTopInset) everything else already derives the
-# real on-screen top position from -- not a second condition threaded
-# through every call site.
-check "contentTopInset collapses the floating branch to 0 with the frame off; docked is untouched" \
-  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : 0)' "$bar_qml")" "1"
+# top frame only"), so the bar's own floating pills get a similar
+# treatment to the notch/shelf, routed through the one property
+# (contentTopInset) everything else already derives the real on-screen
+# top position from -- not a second condition threaded through every
+# call site. frameInset, not 0 -- a flush-to-the-edge version shipped
+# first and was corrected live ("way too close to the edge... bar
+# should still have a bit of top padding"), landing on the same small
+# inset docked mode already uses instead of fully flush.
+check "contentTopInset drops to frameInset (not 0) with the frame off; docked is untouched" \
+  "$(grep -c 'readonly property int contentTopInset: docked ? frameInset : (resolvedFrameEnabled ? topInset : frameInset)' "$bar_qml")" "1"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail_count"
 [[ "$fail_count" -eq 0 ]]
